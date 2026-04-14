@@ -18,7 +18,7 @@ System wspiera dwa tryby pracy:
 Aktualny foundation zaimplementowany w repo obejmuje:
 - minimalny wspólny silnik pojedynczego uderzenia dla `Brandish` i `Holy Bolt`,
 - delayed hit `Judgement` dla bazowego rozszerzenia `Holy Bolt`,
-- minimalną manual simulation dla trybu `Policz aktualny build`,
+- tickową manual simulation dla trybu `Policz aktualny build`,
 - najprostszy możliwy flow uruchomienia użytkownika w postaci CLI.
 
 Build search, reactive damage i pełna docelowa warstwa UI pozostają poza bieżącym zakresem kodu.
@@ -71,6 +71,9 @@ Aktualne wspólne wyjście foundation ma postać:
 - `DamageBreakdown`
 - `DamageComponentBreakdown`
 - `DelayedHitBreakdown`
+- `SkillHitDebugSnapshot`
+- `SimulationStepTrace`
+- `SkillBarStateTrace`
 - `SimulationResult`
 
 Na tym etapie te modele są źródłem prawdy dla:
@@ -78,7 +81,9 @@ Na tym etapie te modele są źródłem prawdy dla:
 - wyniku krytycznego,
 - listy komponentów obrażeń,
 - informacji o wliczeniu albo pominięciu komponentu w single target,
+- reprezentatywnego debug bezpośredniego hita dla każdego skilla użytego w symulacji,
 - listy delayed hitów w manual simulation,
+- tickowego `stepTrace` dla dokładnie tej samej symulacji, która liczy wynik końcowy,
 - total damage i DPS dla trybu `Policz aktualny build`.
 
 Docelowe bogatsze modele wyników dla manual simulation, searcha i UI pozostają poza aktualnym zakresem implementacji.
@@ -118,6 +123,7 @@ Aktualny foundation repo obejmuje następujące skille Paladina:
 Kontraktowe zasady dla tej grupy:
 - `Brandish` i `Holy Bolt` są kategorią `Basic`,
 - `Brandish` i `Holy Bolt` mają `resourceCost = 0`,
+- `Brandish` i `Holy Bolt` mają `cooldown = 0`,
 - brak kosztu zasobu nie zmienia reguły rotacji LRU.
 
 Pozostałe skille wymieniane w opisie celu projektu nie należą jeszcze do aktualnego zakresu implementacji repo.
@@ -291,11 +297,11 @@ Obowiązujące reguły:
 - delayed hit `Judgement` jest single target i wchodzi do `total damage`.
 
 ### 7.3. Reactive damage
-Reactive damage nie jest jeszcze częścią aktualnego foundation repo. Aktualny kod nie implementuje obrażeń reaktywnych ani pełnej symulacji tickowej.
+Reactive damage nie jest jeszcze częścią aktualnego foundation repo. Aktualny kod implementuje tickową symulację manualną, ale nie implementuje obrażeń reaktywnych.
 
 ## 8. Rotacja symulacji
 ### 8.1. Horyzont i tick
-Aktualny foundation implementuje minimalną manual simulation dla trybu `Policz aktualny build`.
+Aktualny foundation implementuje tickową manual simulation dla trybu `Policz aktualny build`.
 
 Obowiązujący zakres:
 - horyzont `60 s`,
@@ -303,16 +309,41 @@ Obowiązujący zakres:
 - kolejność ticku:
   1. delayed hit,
   2. aktywny cast.
+- jeżeli w danym ticku nie istnieje legalny cast, tick pozostaje częścią symulacji i jest zapisywany jako `WAIT`.
 
 ### 8.2. Model LRU
-Docelowa rotacja LRU nie jest jeszcze częścią aktywnego runtime foundation.
+Aktualny foundation implementuje model wyboru aktywnego skilla jako `LRU`.
 
-Na etapie M2 wybór skilla jest jawnie uproszczony:
-- w każdym ticku używany jest pierwszy aktywny skill z action bara,
-- ta reguła jest świadomym ograniczeniem slice'u M2 i nie jest finalną polityką rotacji wieloskillowej.
+Obowiązujące reguły wyboru:
+- wybierany jest legalny skill użyty najdawniej,
+- skill nigdy wcześniej nieużyty ma wyższy priorytet niż skill użyty wcześniej,
+- przy remisie wygrywa kolejność na pasku,
+- kandydat musi jednocześnie:
+  1. być na pasku,
+  2. mieć `rank > 0`,
+  3. być legalnie aktywny,
+  4. nie być na cooldownie,
+  5. mieć wymagany zasób, jeżeli skill go używa.
+
+Zakres aktualnej implementacji:
+- wszystkie aktualnie zaimplementowane skille mają `resourceCost = 0`,
+- wszystkie aktualnie zaimplementowane skille mają `cooldown = 0`,
+- dlatego w bieżącym foundation warunki cooldownu i zasobu są trywialnie spełnione dla `Brandish` i `Holy Bolt`,
+- `WAIT` występuje wtedy, gdy żaden skill z paska nie spełnia minimalnych warunków legalnego castu.
 
 ### 8.3. Trace
-`stepTrace` nie jest jeszcze implementowany w aktualnym foundation repo.
+`stepTrace` jest częścią aktualnego foundation repo i musi pochodzić z dokładnie tej samej pętli symulacji, która liczy wynik końcowy.
+
+Minimalny kontrakt `stepTrace`:
+- numer sekundy,
+- akcja `SKILL` albo `WAIT`,
+- nazwa akcji,
+- damage bezpośredni,
+- damage z delayed hitów,
+- łączny damage kroku,
+- cumulative damage po kroku,
+- stan skilli z paska potrzebny do walidacji wyboru `LRU`,
+- `selectionReason`.
 
 ## 9. Build search
 ### 9.1. Jednostka oceny
@@ -343,7 +374,10 @@ Na obecnym etapie foundation nie ma warstwy prezentacji konfiguracji do porówna
 Aktualny foundation implementuje debug danych, nie renderowanie UI. W kodzie istnieją:
 - `DamageBreakdown` jako wynik końcowy pojedynczego uderzenia,
 - `DamageComponentBreakdown` jako wynik debug pojedynczych komponentów,
+- `SkillHitDebugSnapshot` jako reprezentatywny debug bezpośredniego hita per skill użyty w symulacji,
 - informacja, czy komponent został wliczony do single target, czy pominięty z powodem.
+
+`SimulationResult` nie modeluje jednego globalnego „selected skill” ani jednego globalnego `singleHitBreakdown` dla całej symulacji wieloskillowej.
 
 ### 10.4. Delayed i reactive debug
 Aktualny foundation implementuje delayed debug dla `Judgement`:
@@ -359,7 +393,13 @@ Reactive debug nie jest jeszcze implementowany.
 Wynik searcha nie jest jeszcze implementowany w aktualnym foundation repo.
 
 ### 10.6. Trace i formatowanie
-Modele `SimulationResult`, `stepTrace`, formatowanie UI i CSV pozostają poza aktualnym zakresem foundation repo.
+Aktualny foundation implementuje `stepTrace` w modelu danych i udostępnia go przez CLI.
+
+Kontrakt prezentacyjny trace:
+- trace pokazuje tick po ticku tę samą symulację, która liczy wynik końcowy,
+- dla każdego kroku pokazuje akcję, delayed damage, direct damage, step damage i cumulative damage,
+- dla każdego kroku pokazuje stan skilli z paska potrzebny do walidacji `LRU`,
+- pełne formatowanie webowe i CSV pozostają poza aktualnym zakresem repo.
 
 ### 10.7. Pierwszy smoke test użytkownika
 Aktualny smoke test użytkownika jest oparty o CLI i scenariusz:
@@ -373,13 +413,13 @@ Uruchomienie w Windows PowerShell:
 ```powershell
 chcp 65001
 & 'C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.3\plugins\maven\lib\maven3\bin\mvn.cmd' '-Dmaven.repo.local=.m2' test
-java '-Dfile.encoding=UTF-8' -cp target/classes krys.app.CalculateCurrentBuildCli --skill HOLY_BOLT --rank 5 --base-upgrade true --seconds 60
+java '-Dfile.encoding=UTF-8' -cp target/classes krys.app.CalculateCurrentBuildCli --skill HOLY_BOLT --rank 5 --base-upgrade true --seconds 60 --show-trace true
 ```
 
 Kontrakt prezentacji dla tego smoke testu:
 - CLI pokazuje użytkową nazwę skilla, a nie techniczny enum.
 - Output powinien być czytelny w UTF-8; w Windows wymagane jest uruchomienie konsoli po `chcp 65001`.
-- Wynik pokazuje `total damage`, `DPS`, debug pojedynczego hita, debug delayed hitów oraz informację, czy `Judgement` pozostał aktywny na końcu horyzontu.
+- Wynik pokazuje `total damage`, `DPS`, debug bezpośredniego hita dla użytego skilla, debug delayed hitów, `stepTrace` oraz informację, czy `Judgement` pozostał aktywny na końcu horyzontu.
 - Dla referencyjnego scenariusza `Holy Bolt rank 5 + Judgement` wynik manual simulation wynosi `total damage = 932`, `DPS = 932 / 60`, `19` detonacji `Judgement` w horyzoncie i `1` aktywny `Judgement` pozostały na końcu.
 
 ## 11. Testy i golden values
@@ -403,7 +443,12 @@ Minimalny zakres testów obejmuje:
 - delayed hit `Judgement`,
 - trigger time `Judgement`,
 - brak stackowania i brak refreshu `Judgement`,
-- minimalną manual simulation,
+- tick order `delayed hit -> aktywny cast`,
+- `WAIT` przy braku legalnego castu,
+- wybór `LRU`,
+- tie-break według kolejności na pasku,
+- zgodność cumulative damage z `stepTrace`,
+- tickową manual simulation,
 - bezpieczne kopiowanie pustego stanu snapshotu,
 - specjalną regułę zaokrąglenia prowadzącą do `raw crit hit = 52`.
 
@@ -433,6 +478,7 @@ Dodatkowe aktualne referencje kontraktowe:
 - `Holy Bolt rank 5` dla referencyjnego buildu daje `raw = 21`, `final = 13`, `raw crit = 32`, `crit = 20`.
 - `Judgement` dla referencyjnego buildu daje `raw = 13`, `final = 8`, `raw crit = 20`, `crit = 13`.
 - Manual simulation dla `Holy Bolt rank 5 + Judgement` w horyzoncie `60 s` daje `total damage = 932`, `DPS = 932 / 60`, `19` detonacji `Judgement` w horyzoncie i `1` aktywny `Judgement` pozostały na końcu.
+- Manual simulation dla `Brandish rank 5` w horyzoncie `60 s` daje `total damage = 660`, `DPS = 660 / 60` i brak delayed hitów.
 - `Brandish rank 5 + Krzyżowe uderzenie (Vulnerable)` w modelu single target liczy wyłącznie główny hit `168%`; dla referencyjnego przypadku z aktywnym `Vulnerable` przed trafieniem wynik ST pozostaje `raw hit = 34`, `single hit = 21`, `raw crit hit = 52`, `critical hit = 32`.
 - Dla powyższego scenariusza `Brandish + Krzyżowe uderzenie (Vulnerable)` referencyjny `raw crit hit = 52` wynika z reguły: najpierw `raw hit` głównego trafienia jest zaokrąglany do `34`, a dopiero potem liczony jest `raw crit hit = round(34 * critMultiplier) = 52`.
 

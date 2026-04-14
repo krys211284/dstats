@@ -9,6 +9,8 @@ public final class PaladinSkillDefs {
     private static final SkillDef BRANDISH = new SkillDef(
             SkillId.BRANDISH,
             "Brandish",
+            0,
+            0,
             new long[]{75, 83, 90, 98, 105},
             List.of(),
             createBrandishEffects(),
@@ -17,6 +19,8 @@ public final class PaladinSkillDefs {
     private static final SkillDef HOLY_BOLT = new SkillDef(
             SkillId.HOLY_BOLT,
             "Holy Bolt",
+            0,
+            0,
             new long[]{90, 99, 108, 117, 126},
             List.of(
                     SkillRuntimeEffect.applyDelayedHit("Judgement", 3, 80)

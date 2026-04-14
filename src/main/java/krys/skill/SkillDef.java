@@ -10,6 +10,8 @@ import java.util.Map;
 public final class SkillDef {
     private final SkillId id;
     private final String name;
+    private final long resourceCost;
+    private final int cooldownSeconds;
     private final long[] rankSkillDamagePercents;
     private final List<SkillRuntimeEffect> baseUpgradeEffects;
     private final Map<SkillUpgradeChoice, List<SkillRuntimeEffect>> choiceEffects;
@@ -17,12 +19,16 @@ public final class SkillDef {
 
     public SkillDef(SkillId id,
                     String name,
+                    long resourceCost,
+                    int cooldownSeconds,
                     long[] rankSkillDamagePercents,
                     List<SkillRuntimeEffect> baseUpgradeEffects,
                     Map<SkillUpgradeChoice, List<SkillRuntimeEffect>> choiceEffects,
                     Map<SkillUpgradeChoice, CriticalRoundingPolicy> criticalRoundingPolicies) {
         this.id = id;
         this.name = name;
+        this.resourceCost = resourceCost;
+        this.cooldownSeconds = cooldownSeconds;
         this.rankSkillDamagePercents = rankSkillDamagePercents.clone();
         this.baseUpgradeEffects = Collections.unmodifiableList(new ArrayList<>(baseUpgradeEffects));
         Map<SkillUpgradeChoice, List<SkillRuntimeEffect>> copy = new EnumMap<>(SkillUpgradeChoice.class);
@@ -41,6 +47,14 @@ public final class SkillDef {
 
     public String getName() {
         return name;
+    }
+
+    public long getResourceCost() {
+        return resourceCost;
+    }
+
+    public int getCooldownSeconds() {
+        return cooldownSeconds;
     }
 
     public long getBaseSkillDamagePercent(int rank) {

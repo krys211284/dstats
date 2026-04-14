@@ -12,13 +12,16 @@ import krys.skill.SkillState;
 import krys.skill.StatusId;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * Minimalna ręczna symulacja dla M2.
- * Na tym etapie wybór skilla jest jawnie uproszczony: w każdym ticku używany jest
- * pierwszy aktywny skill z action bara. To świadomy zakres slice'u M2, a nie finalna rotacja.
+ * Tickowa ręczna symulacja dla M3.
+ * Ten sam przebieg pętli runtime liczy wynik końcowy, delayed hity i stepTrace.
  */
 public final class ManualSimulationService {
     private final DamageEngine damageEngine;
@@ -29,65 +32,98 @@ public final class ManualSimulationService {
 
     public SimulationResult calculateCurrentBuild(HeroBuildSnapshot snapshot, int horizonSeconds) {
         long totalDamage = 0L;
-        DamageBreakdown singleHitBreakdown = null;
-        SkillId selectedSkillId = selectSkillForCurrentFoundation(snapshot);
-        String selectedSkillName = selectedSkillId == null ? "Brak aktywnego skilla" : PaladinSkillDefs.get(selectedSkillId).getName();
-
-        PendingDelayedHit pendingJudgement = null;
         List<DelayedHitBreakdown> delayedHitBreakdowns = new ArrayList<>();
+        List<SimulationStepTrace> stepTrace = new ArrayList<>();
+        List<PendingDelayedHit> pendingDelayedHits = new ArrayList<>();
+        Map<SkillId, Integer> lastUsedSeconds = new EnumMap<>(SkillId.class);
+        Map<SkillId, SkillHitDebugSnapshot> directHitDebugBySkill = new LinkedHashMap<>();
 
         for (int second = 1; second <= horizonSeconds; second++) {
-            if (pendingJudgement != null && pendingJudgement.triggerSecond == second) {
+            long delayedDamage = 0L;
+            Iterator<PendingDelayedHit> delayedIterator = pendingDelayedHits.iterator();
+            while (delayedIterator.hasNext()) {
+                PendingDelayedHit pendingDelayedHit = delayedIterator.next();
+                if (pendingDelayedHit.triggerSecond != second) {
+                    continue;
+                }
+
                 DamageBreakdown delayedBreakdown = damageEngine.calculateStandaloneHit(
                         snapshot,
-                        pendingJudgement.skillDamagePercent,
-                        pendingJudgement.delayedHitName,
+                        pendingDelayedHit.skillDamagePercent,
+                        pendingDelayedHit.delayedHitName,
                         "delayed",
                         EnumSet.noneOf(StatusId.class)
                 );
-                totalDamage += delayedBreakdown.getFinalDamage();
+                delayedDamage += delayedBreakdown.getFinalDamage();
                 delayedHitBreakdowns.add(new DelayedHitBreakdown(
-                        pendingJudgement.sourceSkillName,
-                        pendingJudgement.delayedHitName,
-                        pendingJudgement.appliedSecond,
-                        pendingJudgement.triggerSecond,
+                        pendingDelayedHit.sourceSkillName,
+                        pendingDelayedHit.delayedHitName,
+                        pendingDelayedHit.appliedSecond,
+                        pendingDelayedHit.triggerSecond,
                         second,
                         false,
                         delayedBreakdown
                 ));
-                pendingJudgement = null;
+                delayedIterator.remove();
             }
+            totalDamage += delayedDamage;
 
-            if (selectedSkillId == null) {
-                continue;
-            }
+            SkillSelectionResult selectionResult = selectSkillForTick(snapshot, second, lastUsedSeconds);
+            long directDamage = 0L;
+            SimulationActionType actionType = SimulationActionType.WAIT;
+            String actionName = "WAIT";
 
-            singleHitBreakdown = damageEngine.calculate(snapshot, selectedSkillId, EnumSet.noneOf(StatusId.class));
-            totalDamage += singleHitBreakdown.getFinalDamage();
+            if (selectionResult.selectedSkillId != null) {
+                actionType = SimulationActionType.SKILL;
+                actionName = selectionResult.selectedSkillName;
 
-            SkillState state = snapshot.getSkillState(selectedSkillId);
-            SkillDef skillDef = PaladinSkillDefs.get(selectedSkillId);
-            if (state != null && state.isBaseUpgrade()) {
-                for (SkillRuntimeEffect effect : skillDef.getBaseUpgradeEffects()) {
-                    if (effect.getEffectType() == EffectType.APPLY_DELAYED_HIT && pendingJudgement == null) {
-                        pendingJudgement = new PendingDelayedHit(
-                                skillDef.getName(),
-                                effect.getComponentName(),
-                                second,
-                                second + effect.getDurationSeconds(),
-                                effect.getSkillDamagePercent()
-                        );
+                DamageBreakdown directHitBreakdown = damageEngine.calculate(snapshot, selectionResult.selectedSkillId, EnumSet.noneOf(StatusId.class));
+                directDamage = directHitBreakdown.getFinalDamage();
+                totalDamage += directDamage;
+                lastUsedSeconds.put(selectionResult.selectedSkillId, second);
+                directHitDebugBySkill.putIfAbsent(
+                        selectionResult.selectedSkillId,
+                        new SkillHitDebugSnapshot(selectionResult.selectedSkillId, selectionResult.selectedSkillName, directHitBreakdown)
+                );
+
+                SkillState state = snapshot.getSkillState(selectionResult.selectedSkillId);
+                SkillDef skillDef = PaladinSkillDefs.get(selectionResult.selectedSkillId);
+                if (state != null && state.isBaseUpgrade()) {
+                    for (SkillRuntimeEffect effect : skillDef.getBaseUpgradeEffects()) {
+                        if (effect.getEffectType() == EffectType.APPLY_DELAYED_HIT
+                                && !hasActiveDelayedHit(pendingDelayedHits, effect.getComponentName())) {
+                            pendingDelayedHits.add(new PendingDelayedHit(
+                                    skillDef.getName(),
+                                    effect.getComponentName(),
+                                    second,
+                                    second + effect.getDurationSeconds(),
+                                    effect.getSkillDamagePercent()
+                            ));
+                        }
                     }
                 }
             }
+
+            long totalStepDamage = delayedDamage + directDamage;
+            stepTrace.add(new SimulationStepTrace(
+                    second,
+                    actionType,
+                    actionName,
+                    directDamage,
+                    delayedDamage,
+                    totalStepDamage,
+                    totalDamage,
+                    selectionResult.skillBarStates,
+                    selectionResult.selectionReason
+            ));
         }
 
-        if (pendingJudgement != null) {
+        for (PendingDelayedHit pendingDelayedHit : pendingDelayedHits) {
             delayedHitBreakdowns.add(new DelayedHitBreakdown(
-                    pendingJudgement.sourceSkillName,
-                    pendingJudgement.delayedHitName,
-                    pendingJudgement.appliedSecond,
-                    pendingJudgement.triggerSecond,
+                    pendingDelayedHit.sourceSkillName,
+                    pendingDelayedHit.delayedHitName,
+                    pendingDelayedHit.appliedSecond,
+                    pendingDelayedHit.triggerSecond,
                     null,
                     true,
                     null
@@ -99,21 +135,149 @@ public final class ManualSimulationService {
                 totalDamage,
                 dps,
                 horizonSeconds,
-                selectedSkillName,
-                singleHitBreakdown,
+                orderDirectHitDebugSnapshots(snapshot, directHitDebugBySkill),
                 delayedHitBreakdowns,
-                pendingJudgement != null
+                stepTrace,
+                hasActiveDelayedHit(pendingDelayedHits, "Judgement")
         );
     }
 
-    private static SkillId selectSkillForCurrentFoundation(HeroBuildSnapshot snapshot) {
+    private static List<SkillHitDebugSnapshot> orderDirectHitDebugSnapshots(HeroBuildSnapshot snapshot,
+                                                                            Map<SkillId, SkillHitDebugSnapshot> directHitDebugBySkill) {
+        List<SkillHitDebugSnapshot> ordered = new ArrayList<>();
         for (SkillId skillId : snapshot.getSelectedSkillBar()) {
-            SkillState state = snapshot.getSkillState(skillId);
-            if (state != null && state.getRank() > 0) {
-                return skillId;
+            SkillHitDebugSnapshot debugSnapshot = directHitDebugBySkill.get(skillId);
+            if (debugSnapshot != null) {
+                ordered.add(debugSnapshot);
             }
         }
-        return null;
+        for (Map.Entry<SkillId, SkillHitDebugSnapshot> entry : directHitDebugBySkill.entrySet()) {
+            if (!snapshot.getSelectedSkillBar().contains(entry.getKey())) {
+                ordered.add(entry.getValue());
+            }
+        }
+        return ordered;
+    }
+
+    private static SkillSelectionResult selectSkillForTick(HeroBuildSnapshot snapshot,
+                                                           int second,
+                                                           Map<SkillId, Integer> lastUsedSeconds) {
+        List<SkillEvaluation> evaluations = new ArrayList<>();
+        SkillEvaluation selected = null;
+
+        List<SkillId> selectedSkillBar = snapshot.getSelectedSkillBar();
+        for (int index = 0; index < selectedSkillBar.size(); index++) {
+            SkillId skillId = selectedSkillBar.get(index);
+            SkillDef skillDef = PaladinSkillDefs.get(skillId);
+            SkillState state = snapshot.getSkillState(skillId);
+            int rank = state == null ? 0 : state.getRank();
+            boolean legalActive = state != null && rank > 0;
+            Integer lastUsedSecond = lastUsedSeconds.get(skillId);
+            boolean neverUsed = lastUsedSecond == null;
+            boolean hasRequiredResource = skillDef.getResourceCost() <= 0;
+            boolean onCooldown = isOnCooldown(skillDef, second, lastUsedSecond);
+            SkillEvaluation evaluation = new SkillEvaluation(
+                    skillId,
+                    skillDef.getName(),
+                    index,
+                    rank,
+                    legalActive,
+                    onCooldown,
+                    hasRequiredResource,
+                    neverUsed,
+                    lastUsedSecond
+            );
+            evaluations.add(evaluation);
+
+            if (!evaluation.isLegalCandidate()) {
+                continue;
+            }
+            if (selected == null || isBetterLruCandidate(evaluation, selected)) {
+                selected = evaluation;
+            }
+        }
+
+        List<SkillBarStateTrace> skillBarStates = new ArrayList<>();
+        for (SkillEvaluation evaluation : evaluations) {
+            skillBarStates.add(new SkillBarStateTrace(
+                    evaluation.skillId,
+                    evaluation.skillName,
+                    evaluation.barIndex,
+                    evaluation.rank,
+                    evaluation.legalActive,
+                    evaluation.onCooldown,
+                    evaluation.hasRequiredResource,
+                    evaluation.neverUsed,
+                    evaluation.lastUsedSecond,
+                    selected != null && selected.skillId == evaluation.skillId
+            ));
+        }
+
+        if (selected == null) {
+            String reason = selectedSkillBar.isEmpty()
+                    ? "WAIT: pasek aktywnych skilli jest pusty."
+                    : "WAIT: brak legalnego skilla do użycia w tym ticku.";
+            return new SkillSelectionResult(null, "WAIT", skillBarStates, reason);
+        }
+
+        return new SkillSelectionResult(
+                selected.skillId,
+                selected.skillName,
+                skillBarStates,
+                buildSelectionReason(evaluations, selected)
+        );
+    }
+
+    private static boolean isBetterLruCandidate(SkillEvaluation candidate, SkillEvaluation currentBest) {
+        if (candidate.neverUsed != currentBest.neverUsed) {
+            return candidate.neverUsed;
+        }
+        if (candidate.neverUsed) {
+            return candidate.barIndex < currentBest.barIndex;
+        }
+        if (!candidate.lastUsedSecond.equals(currentBest.lastUsedSecond)) {
+            return candidate.lastUsedSecond < currentBest.lastUsedSecond;
+        }
+        return candidate.barIndex < currentBest.barIndex;
+    }
+
+    private static String buildSelectionReason(List<SkillEvaluation> evaluations, SkillEvaluation selected) {
+        long legalNeverUsedCount = evaluations.stream()
+                .filter(SkillEvaluation::isLegalCandidate)
+                .filter(SkillEvaluation::isNeverUsed)
+                .count();
+        if (selected.neverUsed) {
+            if (legalNeverUsedCount > 1) {
+                return "Wybrano " + selected.skillName + ": skill nigdy wcześniej nieużyty ma priorytet LRU, remis rozstrzygnięto kolejnością na pasku.";
+            }
+            return "Wybrano " + selected.skillName + ": skill nigdy wcześniej nieużyty ma wyższy priorytet niż skill użyty wcześniej.";
+        }
+
+        long sameLastUsedCount = evaluations.stream()
+                .filter(SkillEvaluation::isLegalCandidate)
+                .filter(evaluation -> !evaluation.neverUsed)
+                .filter(evaluation -> evaluation.lastUsedSecond.equals(selected.lastUsedSecond))
+                .count();
+        if (sameLastUsedCount > 1) {
+            return "Wybrano " + selected.skillName + ": najdawniej użyty legalny skill w LRU, remis rozstrzygnięto kolejnością na pasku.";
+        }
+        return "Wybrano " + selected.skillName + ": najdawniej użyty legalny skill według LRU.";
+    }
+
+    private static boolean hasActiveDelayedHit(List<PendingDelayedHit> pendingDelayedHits, String delayedHitName) {
+        for (PendingDelayedHit pendingDelayedHit : pendingDelayedHits) {
+            if (pendingDelayedHit.delayedHitName.equals(delayedHitName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isOnCooldown(SkillDef skillDef, int second, Integer lastUsedSecond) {
+        if (skillDef.getCooldownSeconds() <= 0 || lastUsedSecond == null) {
+            return false;
+        }
+        return second <= lastUsedSecond + skillDef.getCooldownSeconds();
     }
 
     private record PendingDelayedHit(String sourceSkillName,
@@ -121,5 +285,29 @@ public final class ManualSimulationService {
                                      int appliedSecond,
                                      int triggerSecond,
                                      long skillDamagePercent) {
+    }
+
+    private record SkillSelectionResult(SkillId selectedSkillId,
+                                        String selectedSkillName,
+                                        List<SkillBarStateTrace> skillBarStates,
+                                        String selectionReason) {
+    }
+
+    private record SkillEvaluation(SkillId skillId,
+                                   String skillName,
+                                   int barIndex,
+                                   int rank,
+                                   boolean legalActive,
+                                   boolean onCooldown,
+                                   boolean hasRequiredResource,
+                                   boolean neverUsed,
+                                   Integer lastUsedSecond) {
+        private boolean isLegalCandidate() {
+            return legalActive && !onCooldown && hasRequiredResource;
+        }
+
+        private boolean isNeverUsed() {
+            return neverUsed;
+        }
     }
 }

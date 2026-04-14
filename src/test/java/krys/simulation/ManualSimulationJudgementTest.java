@@ -32,10 +32,20 @@ class ManualSimulationJudgementTest {
         assertEquals(4, first.getTriggerSecond());
         assertEquals(4, first.getDetonatedSecond());
         assertNotNull(first.getBreakdown());
+        assertEquals(8L, first.getBreakdown().getFinalDamage());
 
         assertEquals(4, second.getAppliedSecond());
         assertEquals(7, second.getTriggerSecond());
         assertTrue(second.isActiveAtEnd());
+
+        SimulationStepTrace tick4 = result.getStepTrace().get(3);
+        assertEquals(4, tick4.getSecond());
+        assertEquals(SimulationActionType.SKILL, tick4.getActionType());
+        assertEquals("Holy Bolt", tick4.getActionName());
+        assertEquals(13L, tick4.getDirectDamage());
+        assertEquals(8L, tick4.getDelayedDamage());
+        assertEquals(21L, tick4.getTotalStepDamage());
+        assertEquals(60L, tick4.getCumulativeDamage());
     }
 
     @Test
@@ -51,6 +61,7 @@ class ManualSimulationJudgementTest {
         assertEquals(4, pending.getTriggerSecond());
         assertTrue(pending.isActiveAtEnd());
         assertFalse(pending.isDetonated());
+        assertEquals(3, result.getStepTrace().size());
     }
 
     @Test
@@ -62,12 +73,15 @@ class ManualSimulationJudgementTest {
 
         long detonatedCount = result.getDelayedHitBreakdowns().stream().filter(DelayedHitBreakdown::isDetonated).count();
 
-        assertEquals("Holy Bolt", result.getSelectedSkillName());
         assertEquals(932L, result.getTotalDamage());
         assertEquals(932.0d / 60.0d, result.getDps(), 0.0000001d);
-        assertNotNull(result.getSingleHitBreakdown());
-        assertEquals(21L, result.getSingleHitBreakdown().getRawDamage());
-        assertEquals(13L, result.getSingleHitBreakdown().getFinalDamage());
+        assertEquals(1, result.getDirectHitDebugSnapshots().size());
+        assertEquals("Holy Bolt", result.getDirectHitDebugSnapshots().get(0).getSkillName());
+        assertNotNull(result.getDirectHitDebugSnapshots().get(0).getBreakdown());
+        assertEquals(21L, result.getDirectHitDebugSnapshots().get(0).getBreakdown().getRawDamage());
+        assertEquals(13L, result.getDirectHitDebugSnapshots().get(0).getBreakdown().getFinalDamage());
+        assertEquals(60, result.getStepTrace().size());
+        assertEquals(932L, result.getStepTrace().get(59).getCumulativeDamage());
         assertEquals(20, result.getDelayedHitBreakdowns().size());
         assertEquals(19L, detonatedCount);
         assertTrue(result.isJudgementActiveAtEnd());
