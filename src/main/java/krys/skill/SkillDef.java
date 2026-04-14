@@ -12,11 +12,13 @@ public final class SkillDef {
     private final String name;
     private final long[] rankSkillDamagePercents;
     private final Map<SkillUpgradeChoice, List<SkillRuntimeEffect>> choiceEffects;
+    private final Map<SkillUpgradeChoice, CriticalRoundingPolicy> criticalRoundingPolicies;
 
     public SkillDef(SkillId id,
                     String name,
                     long[] rankSkillDamagePercents,
-                    Map<SkillUpgradeChoice, List<SkillRuntimeEffect>> choiceEffects) {
+                    Map<SkillUpgradeChoice, List<SkillRuntimeEffect>> choiceEffects,
+                    Map<SkillUpgradeChoice, CriticalRoundingPolicy> criticalRoundingPolicies) {
         this.id = id;
         this.name = name;
         this.rankSkillDamagePercents = rankSkillDamagePercents.clone();
@@ -25,6 +27,9 @@ public final class SkillDef {
             copy.put(entry.getKey(), Collections.unmodifiableList(new ArrayList<>(entry.getValue())));
         }
         this.choiceEffects = Collections.unmodifiableMap(copy);
+        Map<SkillUpgradeChoice, CriticalRoundingPolicy> policyCopy = new EnumMap<>(SkillUpgradeChoice.class);
+        policyCopy.putAll(criticalRoundingPolicies);
+        this.criticalRoundingPolicies = Collections.unmodifiableMap(policyCopy);
     }
 
     public SkillId getId() {
@@ -44,5 +49,9 @@ public final class SkillDef {
 
     public List<SkillRuntimeEffect> getChoiceEffects(SkillUpgradeChoice choiceUpgrade) {
         return choiceEffects.getOrDefault(choiceUpgrade, List.of());
+    }
+
+    public CriticalRoundingPolicy getCriticalRoundingPolicy(SkillUpgradeChoice choiceUpgrade) {
+        return criticalRoundingPolicies.getOrDefault(choiceUpgrade, CriticalRoundingPolicy.EXACT_PIPELINE);
     }
 }

@@ -10,7 +10,8 @@ public final class PaladinSkillDefs {
             SkillId.BRANDISH,
             "Brandish",
             new long[]{75, 83, 90, 98, 105},
-            createBrandishEffects()
+            createBrandishEffects(),
+            createBrandishCriticalPolicies()
     );
 
     private PaladinSkillDefs() {
@@ -34,5 +35,11 @@ public final class PaladinSkillDefs {
                 SkillRuntimeEffect.damage("Dodatkowe łuki", StatusId.VULNERABLE, 168, 2, false)
         ));
         return effects;
+    }
+
+    private static Map<SkillUpgradeChoice, CriticalRoundingPolicy> createBrandishCriticalPolicies() {
+        Map<SkillUpgradeChoice, CriticalRoundingPolicy> policies = new EnumMap<>(SkillUpgradeChoice.class);
+        policies.put(SkillUpgradeChoice.RIGHT, CriticalRoundingPolicy.ROUNDED_RAW_HIT);
+        return policies;
     }
 }

@@ -6,6 +6,7 @@ Ten plik jest stałym kontraktem pracy dla kolejnych zadań wykonywanych w tym r
 ## Zasady nadrzędne
 - Repo startuje od pustego stanu. Implementacja ma być budowana od fundamentów, bez pozorowania istniejącej architektury, której jeszcze nie ma.
 - [README.md](./README.md) jest kontraktem wykonawczym projektu i źródłem prawdy dla logiki, architektury, testów oraz zasad UI/debug.
+- README musi odzwierciedlać realny aktualny zakres repo, a nie szerszy plan projektu.
 - Każda zmiana logiki wymaga równoczesnej aktualizacji kodu, testów i README.
 
 ## Logika i liczby

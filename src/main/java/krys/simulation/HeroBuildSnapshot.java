@@ -36,9 +36,16 @@ public final class HeroBuildSnapshot {
         this.bonusSkillPoints = bonusSkillPoints;
         this.averageWeaponDamage = averageWeaponDamage;
         this.totalPercentDamageBonus = totalPercentDamageBonus;
-        this.equippedItems = Collections.unmodifiableList(new ArrayList<>(equippedItems));
-        this.learnedSkills = Collections.unmodifiableMap(new EnumMap<>(learnedSkills));
-        this.selectedSkillBar = Collections.unmodifiableList(new ArrayList<>(new LinkedHashSet<>(selectedSkillBar)));
+        this.equippedItems = Collections.unmodifiableList(new ArrayList<>(equippedItems == null ? List.of() : equippedItems));
+
+        EnumMap<SkillId, SkillState> learnedSkillsCopy = new EnumMap<>(SkillId.class);
+        if (learnedSkills != null && !learnedSkills.isEmpty()) {
+            learnedSkillsCopy.putAll(learnedSkills);
+        }
+        this.learnedSkills = Collections.unmodifiableMap(learnedSkillsCopy);
+
+        List<SkillId> selectedBar = selectedSkillBar == null ? List.of() : selectedSkillBar;
+        this.selectedSkillBar = Collections.unmodifiableList(new ArrayList<>(new LinkedHashSet<>(selectedBar)));
     }
 
     public Hero getHero() {

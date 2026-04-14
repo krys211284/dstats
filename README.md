@@ -15,6 +15,8 @@ System wspiera dwa tryby pracy:
 - `Policz aktualny build` - manual simulation dla aktualnej konfiguracji bohatera.
 - `Znajdź najlepszy build` - build search oceniający legalne buildy i legalne konfiguracje paska skilli.
 
+Aktualny foundation zaimplementowany w repo obejmuje wyłącznie minimalny wspólny silnik pojedynczego uderzenia dla `Brandish` oraz jego potwierdzonych przypadków testowych. Manual simulation, build search, UI i pełna symulacja tickowa pozostają poza bieżącym zakresem kodu.
+
 Kontrakt architektoniczny jest wspólny dla obu trybów:
 - oba tryby muszą używać tego samego `Damage Engine`,
 - oba tryby muszą używać tej samej logiki ticków, statusów, targetowania i wyboru skilla,
@@ -35,13 +37,9 @@ Kontrakt architektoniczny jest wspólny dla obu trybów:
 ## 3. Architektura systemu
 ### 3.1. Główne założenia
 - Architektura jest data-driven.
-- Jeden wspólny engine liczy:
-  - single hit debug,
-  - delayed hit,
-  - reactive damage,
-  - manual simulation,
-  - build search.
-- Search nie może używać skróconej lub alternatywnej logiki względem manual simulation.
+- Aktualny kod implementuje jeden wspólny foundation `Damage Engine` dla single hit i komponentów obrażeń.
+- Ten sam foundation ma pozostać bazą dla przyszłej manual simulation i build search.
+- Search nie może docelowo używać skróconej lub alternatywnej logiki względem manual simulation.
 
 ### 3.2. Wspólne wejście runtime
 Docelowe wspólne wejście runtime ma postać `HeroBuildSnapshot`. Ten model musi zachowywać pełny stan buildu używany przez runtime:
@@ -63,14 +61,17 @@ Snapshot nie może gubić:
 - innych danych wpływających na runtime.
 
 ### 3.3. Wspólne wyjście runtime
-Docelowe wspólne wyjście runtime ma postać `SimulationResult`. Ten model jest źródłem prawdy dla UI wyniku i musi zawierać co najmniej:
-- wynik końcowy,
-- użyty pasek skilli,
-- dane single hit debug,
-- delayed hit debug,
-- reactive debug,
-- metryki searcha, jeżeli wynik pochodzi z build search,
-- `stepTrace` pochodzący z tej samej symulacji, która policzyła wynik końcowy.
+Aktualne wspólne wyjście foundation ma postać:
+- `DamageBreakdown`
+- `DamageComponentBreakdown`
+
+Na tym etapie te modele są źródłem prawdy dla:
+- wyniku pojedynczego uderzenia,
+- wyniku krytycznego,
+- listy komponentów obrażeń,
+- informacji o wliczeniu albo pominięciu komponentu w single target.
+
+Docelowe bogatsze modele wyników dla manual simulation, searcha i UI pozostają poza aktualnym zakresem implementacji.
 
 ## 4. Model domeny
 ### 4.1. Build
@@ -100,33 +101,28 @@ Reguły legalności stanu skilla:
 - skill może mieć maksymalnie jeden dodatkowy modyfikator.
 
 ### 4.3. Zakres startowy domeny
-Zakres startowy projektu obejmuje następujące aktywne skille Paladina:
+Aktualny foundation repo obejmuje następujący skill Paladina:
 - `Brandish`
-- `Holy Bolt`
-- `Clash`
-- `Advance`
 
 Kontraktowe zasady dla tej grupy:
-- wszystkie powyższe skille są kategorią `Basic`,
-- wszystkie powyższe skille mają `resourceCost = 0`,
+- `Brandish` jest kategorią `Basic`,
+- `Brandish` ma `resourceCost = 0`,
 - brak kosztu zasobu nie zmienia reguły rotacji LRU.
 
+Pozostałe skille wymieniane w opisie celu projektu nie należą jeszcze do aktualnego zakresu implementacji repo.
+
 ### 4.4. Model efektów runtime
-Runtime musi wspierać efekty danych skilla co najmniej w formach:
+Aktualny foundation wspiera następujące typy efektów runtime:
 - `REPLACE_BASE_DAMAGE`,
 - `DAMAGE`,
 - `APPLY_STATUS`,
-- `APPLY_BUFF`,
-- `ADD_STACK`,
-- `SET_COOLDOWN`.
 
 Efekt może:
 - podmienić bazowy procent obrażeń głównego komponentu,
 - dodać osobny komponent obrażeń,
-- nałożyć status na cel,
-- nałożyć buff na bohatera,
-- dodać stack stanu bohatera,
-- nadpisać efektywny cooldown skilla.
+- nałożyć status na cel.
+
+Pozostałe typy efektów opisane w szerszej dokumentacji projektu nie są jeszcze częścią aktualnego foundation kodowego.
 
 ## 5. Damage Engine
 ### 5.1. Zasady ogólne
@@ -237,20 +233,12 @@ Reguła fallbacku jest zero-jedynkowa:
 
 Obowiązują następujące potwierdzone czasy i limity:
 - `Vulnerable` nakładane przez warianty objęte zakresem startowym trwa `2 s`.
-- `Judgement` detonuje po `3 s`.
-- `Stun` z `Storm Bolt` trwa `2 s`.
-- `Crusader's March` trwa `6 s`.
-- `Resolve` ma cap `8` stacków.
-- Trafienie przeciwnika usuwa dokładnie `1` stack `Resolve`.
-- `Fervor` ma cap `3` stacków.
-- `Fervor` daje `+25%[x]` damage na stack dla wspieranych skilli.
-- `Fervor` wygasa całkowicie po przekroczeniu `3 s` bez odświeżenia nowym trafieniem.
 
 ### 6.4. Warunki komponentów
-Warunki aktywacji komponentów i buffów są liczone względem aktualnego stanu w ticku:
-- `Healthy` dotyczy stanu bohatera,
-- `Vulnerable` i `Stun` dotyczą stanu celu,
-- `Resolve` i `Fervor` dotyczą stanu bohatera.
+Aktualny foundation wykorzystuje warunek komponentu:
+- `Vulnerable` jako stan celu.
+
+Pozostałe statusy wymieniane w szerszej specyfikacji nie są jeszcze aktywną częścią runtime repo.
 
 ## 7. Single hit / delayed hit / reactive damage
 ### 7.1. Single hit
@@ -259,17 +247,10 @@ Warunki aktywacji komponentów i buffów są liczone względem aktualnego stanu 
 - Panel single hit pokazuje stan targetu przed użyciem skilla.
 - Jeżeli skill nakłada status, panel single hit nie może pokazywać korzyści z tego statusu dla tego samego trafienia.
 
-Rozstrzygnięcia kontraktowe dla wariantów objętych zakresem startowym:
+Rozstrzygnięcia kontraktowe dla aktualnie zaimplementowanych wariantów:
 - `Brandish + Powrót światłości` liczy dwa komponenty `73% + 73%`; nie wolno liczyć `105% + 73%`.
-- `Brandish + Miecz Mistrzostwa` przy stanie `Healthy` podmienia główny hit na `178%`; nie tworzy dodatkowego komponentu.
 - `Brandish + Krzyżowe uderzenie (Vulnerable)` zawsze podmienia główny hit na `168%`; dwa dodatkowe łuki `168%` są komponentami bocznymi i nie wchodzą do single target.
 - Dla `Brandish + Krzyżowe uderzenie (Vulnerable)` warunek `Vulnerable` dotyczy wyłącznie dwóch dodatkowych bocznych trafień.
-- `Holy Bolt + Ricocheting Bolt` podmienia główny hit z `126%` na `189%`; trzy rykoszety są debugowym komponentem pominiętym w single target.
-- `Holy Bolt + Divine Bolt` podmienia główny hit na `168%` i nakłada `Vulnerable` po trafieniu.
-- `Holy Bolt + Storm Bolt` podmienia główny hit na `441%`; efekt `Stun` jest statusem użytkowym, a nie osobnym komponentem obrażeń.
-- `Clash + Fala Zealot` nie zwiększa obrażeń bazowego trafienia `Clash`; jeśli fala AoE jest pokazywana, pozostaje pominięta w single target.
-- `Advance + Wave Dash` trafia ten sam cel dwa razy: bazowy hit `147%` oraz dodatkowa fala `191%`.
-- `Advance + Flash of the Blade` podmienia bazowy hit na pojedynczy hit `322%`, nakłada `Vulnerable` po trafieniu i ustawia efektywny cooldown na `8 s`.
 
 Reguła referencyjnego zaokrąglenia dla `Brandish rank 5 + Krzyżowe uderzenie (Vulnerable)`:
 - w modelu single target końcowy `raw crit hit` dla głównego trafienia jest liczony od wcześniej zaokrąglonego `raw hit`, a nie od niezaokrąglonej wartości exact,
@@ -280,211 +261,58 @@ Reguła referencyjnego zaokrąglenia dla `Brandish rank 5 + Krzyżowe uderzenie 
 - ta reguła jest wymagana, aby referencyjny wynik dla tego scenariusza wynosił `raw hit = 34` oraz `raw crit hit = 52`.
 
 ### 7.2. Delayed hit
-- Delayed hit jest osobnym komponentem obrażeń, a nie częścią natychmiastowego single hita.
-- Delayed hit jest liczony w `trigger time`, nie w momencie aplikacji efektu.
-- Delayed hit używa aktualnego stanu celu i aktualnego pipeline'u w momencie detonacji.
-- `Judgement` jest aktualnym referencyjnym delayed hitem:
-  - pochodzi z bazowego rozszerzenia `Holy Bolt`,
-  - detonuje po `3 s`,
-  - zadaje osobny hit `80% skillDamagePercent`,
-  - nie stackuje się na jednym celu,
-  - nie odświeża timera, jeśli poprzednia detonacja już czeka,
-  - może zostać nałożony ponownie dopiero po przetworzeniu poprzedniej detonacji.
-- Przy `Vulnerable = 2 s` i `Judgement = 3 s` delayed hit `Judgement` nie korzysta domyślnie z `Vulnerable` nałożonego przez to samo wcześniejsze trafienie, chyba że status został utrzymany innym źródłem.
+Delayed hit nie jest jeszcze częścią aktualnego foundation repo. Aktualny kod nie implementuje opóźnionych trafień ani ich debug breakdownu.
 
 ### 7.3. Reactive damage
-- Reactive damage nie jest częścią single hita.
-- Reactive damage jest osobnym komponentem całkowitego DPS w symulacji.
-- Przeciwnik trafia bohatera raz na `3 s`.
-- Pierwsze trafienie przeciwnika następuje w `t = 3`, kolejne w `t = 6`, `t = 9` itd.
-- Nie modelujemy obrażeń zadawanych przez przeciwnika bohaterowi; modelujemy wyłącznie obrażenia reaktywne generowane przez bohatera.
-- Probabilistyczne reactive effects są liczone deterministycznie jako `expected value`.
-
-Aktualny model reactive:
-- Reactive trzeba rozdzielać na `Thorns` i `Retribution`.
-- Dla reactive najpierw liczymy bazowe `Thorns` z buildu plus bonus z `Punishment`.
-- Następnie nakładamy `mainStatMultiplier`.
-- Dopiero potem nakładamy pozostałe reactive multipliers i redukcję poziomu celu.
-- `Retribution` jest expected value liczoną na bazie `Thorns` już przeskalowanych przez `mainStatMultiplier`.
-- Aktualny wzór expected value dla pulse'a `Retribution`:
-
-```text
-retributionExpectedRaw = thornsDamage * blockChance * retributionChance
-```
-
-Aktualne reguły związane ze skillami:
-- `Clash + Crusader's March` daje `+15% Block Chance` i `2` stacki `Resolve` przez `6 s`.
-- `Clash + Punishment` daje bonus do `Thorns` zależny od rangi `Clash`: rank 1 = `+10`, rank 5 = `+18`, wzrost liniowy co `+2`.
-- `Clash + Fala Zealot` zastępuje efekt bazowego `Crusader's March`; nie daje `Block Chance` ani `Resolve`.
-- `Clash + Fala Zealot` daje `+10% crit chance` po każdym trafieniu `Clash`, do maksymalnie `+30%`, na kolejne użycia i jest liczony jako expected value między normal hit i crit.
+Reactive damage nie jest jeszcze częścią aktualnego foundation repo. Aktualny kod nie implementuje obrażeń reaktywnych ani pełnej symulacji tickowej.
 
 ## 8. Rotacja symulacji
 ### 8.1. Horyzont i tick
-Aktualny kontrakt symulacji zakłada `60` kroków po `1` sekundzie i ślad `stepTrace` dla tych samych `60` kroków.
-
-W każdym ticku symulacji należy rozliczyć kolejno:
-1. delayed damage,
-2. reactive damage,
-3. aktywny cast wybrany przez model LRU, jeżeli istnieje legalny kandydat.
-
-`WAIT` oznacza brak aktywnego castu, ale nie zatrzymuje symulacji i nie blokuje delayed ani reactive damage.
+Pełna rotacja symulacji nie jest jeszcze częścią aktualnego foundation repo. Obecny kod nie implementuje ticków, `WAIT` ani śladu `stepTrace`.
 
 ### 8.2. Model LRU
-Wybór aktywnego skilla działa jako LRU:
-- wybierany jest skill użyty najdawniej,
-- skill nigdy wcześniej nieużyty ma wyższy priorytet niż skill używany wcześniej,
-- przy remisie wygrywa kolejność na pasku akcji.
-
-Kandydat do użycia musi jednocześnie:
-- być aktywnym skillem na pasku,
-- mieć `rank > 0`,
-- być legalnie aktywny w buildzie,
-- nie być na cooldownie,
-- mieć dostępny zasób, jeżeli skill w ogóle używa zasobu.
+Reguła LRU pozostaje częścią docelowej architektury projektu, ale nie jest jeszcze aktywną częścią runtime foundation.
 
 ### 8.3. Trace
-`stepTrace` musi pochodzić z dokładnie tej samej symulacji, która policzyła wynik końcowy. Nie wolno rekonstruować trace na podstawie samego stringa rotacji.
-
-Każdy krok trace musi przechowywać co najmniej:
-- numer sekundy,
-- akcję (`skill` albo `WAIT`),
-- damage bezpośredni,
-- damage z delayed hits,
-- damage reaktywny,
-- łączny damage kroku,
-- cumulative damage po kroku,
-- resource przed i po kroku,
-- snapshot stanu bohatera przed i po kroku,
-- snapshot stanu przeciwnika przed i po kroku,
-- snapshot stanu skilli z action bara przed i po kroku,
-- `selectionReason`.
+`stepTrace` nie jest jeszcze implementowany w aktualnym foundation repo.
 
 ## 9. Build search
 ### 9.1. Jednostka oceny
-Search ocenia parę:
-- `build`
-- `skill bar`
-
-`Build + skill bar` jest kontraktową jednostką rankingu.
+Build search nie jest jeszcze częścią aktualnego foundation repo.
 
 ### 9.2. Etap 1 - legalne buildy
-Etap 1 generuje wszystkie legalne konfiguracje punktów i modyfikatorów dla wszystkich skilli objętych zakresem startowym.
-
-Reguły stanu pojedynczego skilla:
-- `OFF`
-- `rank 1..5` bez modyfikatorów,
-- `rank 1..5` tylko z bazowym upgradem,
-- `rank 1..5` z bazowym upgradem i dokładnie jednym dodatkowym modyfikatorem.
-
-Reguły kosztu:
-- `rank k` kosztuje `k` punktów,
-- bazowy upgrade kosztuje `+1` punkt,
-- dodatkowy modyfikator kosztuje `+1` punkt.
-
-Zakres startowy Etapu 1:
-- search obejmuje `Brandish`, `Holy Bolt`, `Clash`, `Advance`,
-- search generuje wyłącznie legalne stany skilli,
-- search nie może tworzyć stanów sprzecznych z modelem domeny.
+Sekcja pozostaje poza aktualnym zakresem implementacji. Jedyny aktywny kontrakt foundation w repo to legalny model pojedynczego skilla `Brandish` i jego wariantów.
 
 ### 9.3. Etap 2 - konfiguracje paska skilli
-Aktualny limit paska aktywnych skilli to `6`.
-
-Reguły Etapu 2:
-- aktywny skill musi być na pasku, aby mógł zostać użyty i zadawać obrażenia,
-- pasywny skill nie musi być na pasku, ale nie może zostać na niego dodany i sam nie zadaje obrażeń,
-- jeśli liczba aktywnych skilli z punktami mieści się w limicie `6`, search generuje dokładnie jedną konfigurację paska zawierającą komplet tych skilli,
-- dopiero gdy liczba aktywnych skilli przekracza limit, search generuje nieuporządkowane kombinacje `K choose 6`,
-- `A | B` i `B | A` są traktowane jako ta sama konfiguracja,
-- search używa jednej kanonicznej kolejności paska do rozstrzygania remisów LRU i zachowania deterministyczności,
-- build bez żadnego aktywnego skilla nie generuje legalnej konfiguracji paska i nie jest oceniany.
+Konfiguracje paska skilli nie są jeszcze implementowane w aktualnym foundation repo.
 
 ### 9.4. Wymagania runtime dla searcha
-- Search i manual simulation muszą używać tej samej logiki runtime.
-- Search nie może zakładać monospamu jednego skilla jako kontraktu projektowego.
-- Architektura searcha ma pozostać gotowa pod przyszły lookahead, ale aktualny wynik ma być liczony bieżącą symulacją LRU.
-- Search powinien wykorzystywać wielowątkowość przede wszystkim do oceny konfiguracji `build + skill bar`.
-- Wynik searcha wielowątkowego musi pozostać deterministyczny względem wersji single-thread.
+Search pozostaje celem architektonicznym projektu, ale nie należy do aktualnego foundation kodowego.
 
 ### 9.5. Audyt, progres i eksport
-Wynik searcha musi raportować osobno:
-- czas Etapu 1,
-- czas Etapu 2,
-- czas całkowity,
-- liczbę wygenerowanych buildów,
-- liczbę ocenionych konfiguracji paska,
-- wybrany pasek skilli dla najlepszego wyniku.
-
-Progress dla długiego searcha musi pokazywać:
-- aktualny etap,
-- `processed / total`,
-- procent,
-- elapsed time,
-- ETA.
-
-Eksport CSV:
-- musi korzystać z danych już policzonego zadania,
-- nie może uruchamiać pełnego searcha drugi raz,
-- dla wyniku searcha zapisuje osobne wiersze dla każdej konfiguracji `build + skill bar`,
-- musi zawierać co najmniej: `build_id`, stan i koszt każdego skilla, `skill_bar_id`, `skill_bar`, `total_damage`.
+Audyt searcha, progress i eksport CSV nie są jeszcze częścią aktualnego foundation repo.
 
 ## 10. UI, debug i prezentacja wyników
 ### 10.1. Zasady ogólne
-- UI używa polskich nazw.
-- Nazwy techniczne w kodzie mogą pozostać angielskie.
-- Wynik `Policz aktualny build` i `Znajdź najlepszy build` musi mieć wspólny układ sekcji, aby dało się porównać wyniki `1:1`.
-- Główny wynik ma być pokazany raz; nie wolno duplikować tej samej konfiguracji w wielu sekcjach.
-- Widok desktopowy powinien używać szerokiej przestrzeni roboczej.
-- Wynik musi pokazywać listę itemów z aktualnego buildu bez duplikowania tych samych informacji w paskach podsumowania.
+Repo nie implementuje jeszcze UI. Aktualny foundation dostarcza wyłącznie modele debug w kodzie.
 
 ### 10.2. Konfiguracja do porównania
-Sekcja porównania dla obu trybów musi pokazywać:
-- użyty pasek skilli,
-- pełny build w czytelnych blokach per skill,
-- status aktywny / nieaktywny,
-- status `Na pasku` / `Poza paskiem`,
-- rank,
-- bazowe rozszerzenie,
-- dodatkowy modyfikator,
-- koszt punktów,
-- koszt zasobu,
-- efektywny cooldown,
-- źródło cooldownu, jeżeli cooldown pochodzi z aktywnego efektu `SET_COOLDOWN`.
-
-Brak jawnego rozróżnienia między `kosztem punktów` i `kosztem zasobu` jest błędem kontraktu UI/debug.
+Na obecnym etapie foundation nie ma warstwy prezentacji konfiguracji do porównania.
 
 ### 10.3. Debug single hit
-Sekcja single hit:
-- pokazuje duże liczby `Single hit` i `Critical hit` jako wynik końcowy,
-- pokazuje niżej `Raw hit` i `Raw crit hit` jako dane diagnostyczne,
-- pokazuje skill, rank, aktywny modyfikator oraz stan targetu przed użyciem skilla,
-- nie pokazuje `minHit` i `maxHit`,
-- pokazuje tabelę komponentów z rozróżnieniem `wliczony do ST` / `pominięty w ST`,
-- dla komponentu pominiętego w ST musi pokazać powód wykluczenia.
+Aktualny foundation implementuje debug danych, nie renderowanie UI. W kodzie istnieją:
+- `DamageBreakdown` jako wynik końcowy pojedynczego uderzenia,
+- `DamageComponentBreakdown` jako wynik debug pojedynczych komponentów,
+- informacja, czy komponent został wliczony do single target, czy pominięty z powodem.
 
 ### 10.4. Delayed i reactive debug
-- Delayed hits mają osobną sekcję debug; nie są częścią panelu single hit.
-- Jeżeli skill powinien mieć delayed panel, ale dane debug są puste, UI pokazuje ostrzeżenie zamiast cichego ukrycia sekcji.
-- Reactive panel pokazuje osobno:
-  - `Thorns raw / tick`,
-  - `Thorns final / tick`,
-  - `Retribution expected raw / tick`,
-  - `Retribution expected final / tick`,
-  - `Reactive final / tick`.
+Delayed i reactive debug nie są jeszcze implementowane w aktualnym foundation repo.
 
 ### 10.5. Wynik searcha
-Wynik searcha musi pokazywać:
-- najlepszy build,
-- najlepszy pasek skilli,
-- metryki Etapu 1 i Etapu 2,
-- top konfiguracje do ręcznej weryfikacji,
-- dostępny eksport CSV wszystkich policzonych konfiguracji,
-- progress i ETA dla trwającego zadania.
+Wynik searcha nie jest jeszcze implementowany w aktualnym foundation repo.
 
 ### 10.6. Trace i formatowanie
-- `SimulationResult` jest kontraktowym modelem źródłowym dla listy `60` kroków i dla UI aktywnego kroku.
-- Duże liczby w UI są formatowane separatorem tysięcznym jako spacja.
-- Czas w UI jest formatowany jako `ms / s / min`.
-- CSV pozostaje surowe liczbowo, bez separatorów formatowania prezentacyjnego.
+Modele `SimulationResult`, `stepTrace`, formatowanie UI i CSV pozostają poza aktualnym zakresem foundation repo.
 
 ## 11. Testy i golden values
 ### 11.1. Reguły testowe
@@ -503,13 +331,8 @@ Minimalny zakres testów obejmuje:
 - redukcję obrażeń zależną od poziomu,
 - reguły `REPLACE_BASE_DAMAGE`,
 - reguły single target,
-- delayed hit `Judgement`,
-- reactive damage `Thorns` i `Retribution`,
-- model ticku i LRU,
-- zgodność manual simulation i search,
-- kanoniczną obsługę paska skilli,
-- brak permutacji `A | B` vs `B | A`,
-- poprawność `stepTrace`.
+- bezpieczne kopiowanie pustego stanu snapshotu,
+- specjalną regułę zaokrąglenia prowadzącą do `raw crit hit = 52`.
 
 ### 11.3. Aktualne zamrożone fixture i wartości
 Wspólne dane referencyjne aktualnych golden values:
@@ -534,10 +357,8 @@ Zamrożone wartości:
 
 Dodatkowe aktualne referencje kontraktowe:
 - `Brandish rank 5 + Powrót światłości` składa się z dwóch komponentów `73%`, każdy `raw = 12`, `final = 8`.
-- `Holy Bolt rank 5` dla potwierdzonego buildu referencyjnego pozostaje `raw = 21`, `final = 13`, `rawCrit = 32`, `crit = 20`.
 - `Brandish rank 5 + Krzyżowe uderzenie (Vulnerable)` w modelu single target liczy wyłącznie główny hit `168%`; dla referencyjnego przypadku z aktywnym `Vulnerable` przed trafieniem wynik ST pozostaje `raw hit = 34`, `single hit = 21`, `raw crit hit = 52`, `critical hit = 32`.
 - Dla powyższego scenariusza `Brandish + Krzyżowe uderzenie (Vulnerable)` referencyjny `raw crit hit = 52` wynika z reguły: najpierw `raw hit` głównego trafienia jest zaokrąglany do `34`, a dopiero potem liczony jest `raw crit hit = round(34 * critMultiplier) = 52`.
-- `Clash + Fala Zealot` liczy kolejne użycia jako expected value; dla bazowego rozkładu `17 / 25` referencyjna sekwencja pozostaje `17 -> 18 -> 18 -> 18`.
 
 ## 12. Zasady dostarczania
 - Projekt dostarczany jest jako pełna paczka projektu.

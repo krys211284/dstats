@@ -1,5 +1,6 @@
 package krys.combat;
 
+import krys.skill.CriticalRoundingPolicy;
 import krys.hero.Hero;
 import krys.hero.HeroClassDef;
 import krys.hero.HeroClassDefs;
@@ -12,7 +13,6 @@ import krys.skill.SkillDef;
 import krys.skill.SkillId;
 import krys.skill.SkillRuntimeEffect;
 import krys.skill.SkillState;
-import krys.skill.SkillUpgradeChoice;
 import krys.skill.StatusId;
 
 import java.util.ArrayList;
@@ -150,20 +150,14 @@ public final class DamageEngine {
 
         long rawDamage = Math.round(totalRawNormal);
         long finalDamage = Math.round(totalRawNormal * (1.0d - levelDamageReduction));
-        long rawCriticalDamage = Math.round(totalRawCrit);
-        long criticalDamage = Math.round(totalRawCrit * (1.0d - levelDamageReduction));
-
-        if (skillId == SkillId.BRANDISH && state.getChoiceUpgrade() == SkillUpgradeChoice.RIGHT) {
-            rawCriticalDamage = Math.round(rawDamage * critMultiplier);
-            criticalDamage = Math.round(rawCriticalDamage * (1.0d - levelDamageReduction));
-        }
+        CriticalDamageResult criticalDamageResult = resolveCriticalDamage(skillDef, state, rawDamage, totalRawCrit, critMultiplier, levelDamageReduction);
 
         return new DamageBreakdown(
                 baseDamage,
                 rawDamage,
                 finalDamage,
-                rawCriticalDamage,
-                criticalDamage,
+                criticalDamageResult.rawCriticalDamage(),
+                criticalDamageResult.criticalDamage(),
                 weaponMultiplier,
                 mainStat,
                 mainStatMultiplier,
@@ -179,6 +173,29 @@ public final class DamageEngine {
                 state.getChoiceUpgrade().getDisplayName(),
                 components
         );
+    }
+
+    /**
+     * README w sekcjach o single hit i golden values wymaga, aby dla Brandish rank 5
+     * z prawym modyfikatorem raw crit hit był liczony od już zaokrąglonego raw hit.
+     * To nie jest przypadkowy wyjątek w pipeline, tylko jawna polityka kontraktowa foundation.
+     */
+    private static CriticalDamageResult resolveCriticalDamage(SkillDef skillDef,
+                                                             SkillState state,
+                                                             long rawDamage,
+                                                             double totalRawCritExact,
+                                                             double critMultiplier,
+                                                             double levelDamageReduction) {
+        CriticalRoundingPolicy roundingPolicy = skillDef.getCriticalRoundingPolicy(state.getChoiceUpgrade());
+        if (roundingPolicy == CriticalRoundingPolicy.ROUNDED_RAW_HIT) {
+            long rawCriticalDamage = Math.round(rawDamage * critMultiplier);
+            long criticalDamage = Math.round(rawCriticalDamage * (1.0d - levelDamageReduction));
+            return new CriticalDamageResult(rawCriticalDamage, criticalDamage);
+        }
+
+        long rawCriticalDamage = Math.round(totalRawCritExact);
+        long criticalDamage = Math.round(totalRawCritExact * (1.0d - levelDamageReduction));
+        return new CriticalDamageResult(rawCriticalDamage, criticalDamage);
     }
 
     private static long resolveBaseSkillDamagePercent(SkillDef skillDef, SkillState state, EnumSet<StatusId> targetStatuses) {
@@ -248,5 +265,8 @@ public final class DamageEngine {
                 * vulnerableMultiplier
                 * critMultiplier
                 * Math.max(1, hitCount);
+    }
+
+    private record CriticalDamageResult(long rawCriticalDamage, long criticalDamage) {
     }
 }
