@@ -44,6 +44,10 @@ public final class SkillRuntimeEffect {
         return new SkillRuntimeEffect(EffectType.APPLY_STATUS, "Nałożenie statusu", StatusId.NONE, appliedStatus, durationSeconds, 0, 0, false);
     }
 
+    public static SkillRuntimeEffect applyDelayedHit(String componentName, int delaySeconds, long skillDamagePercent) {
+        return new SkillRuntimeEffect(EffectType.APPLY_DELAYED_HIT, componentName, StatusId.NONE, StatusId.NONE, delaySeconds, skillDamagePercent, 1, true);
+    }
+
     public EffectType getEffectType() {
         return effectType;
     }

@@ -15,7 +15,13 @@ System wspiera dwa tryby pracy:
 - `Policz aktualny build` - manual simulation dla aktualnej konfiguracji bohatera.
 - `Znajdź najlepszy build` - build search oceniający legalne buildy i legalne konfiguracje paska skilli.
 
-Aktualny foundation zaimplementowany w repo obejmuje wyłącznie minimalny wspólny silnik pojedynczego uderzenia dla `Brandish` oraz jego potwierdzonych przypadków testowych. Manual simulation, build search, UI i pełna symulacja tickowa pozostają poza bieżącym zakresem kodu.
+Aktualny foundation zaimplementowany w repo obejmuje:
+- minimalny wspólny silnik pojedynczego uderzenia dla `Brandish` i `Holy Bolt`,
+- delayed hit `Judgement` dla bazowego rozszerzenia `Holy Bolt`,
+- minimalną manual simulation dla trybu `Policz aktualny build`,
+- najprostszy możliwy flow uruchomienia użytkownika w postaci CLI.
+
+Build search, reactive damage i pełna docelowa warstwa UI pozostają poza bieżącym zakresem kodu.
 
 Kontrakt architektoniczny jest wspólny dla obu trybów:
 - oba tryby muszą używać tego samego `Damage Engine`,
@@ -64,12 +70,16 @@ Snapshot nie może gubić:
 Aktualne wspólne wyjście foundation ma postać:
 - `DamageBreakdown`
 - `DamageComponentBreakdown`
+- `DelayedHitBreakdown`
+- `SimulationResult`
 
 Na tym etapie te modele są źródłem prawdy dla:
 - wyniku pojedynczego uderzenia,
 - wyniku krytycznego,
 - listy komponentów obrażeń,
-- informacji o wliczeniu albo pominięciu komponentu w single target.
+- informacji o wliczeniu albo pominięciu komponentu w single target,
+- listy delayed hitów w manual simulation,
+- total damage i DPS dla trybu `Policz aktualny build`.
 
 Docelowe bogatsze modele wyników dla manual simulation, searcha i UI pozostają poza aktualnym zakresem implementacji.
 
@@ -103,10 +113,11 @@ Reguły legalności stanu skilla:
 ### 4.3. Zakres startowy domeny
 Aktualny foundation repo obejmuje następujący skill Paladina:
 - `Brandish`
+- `Holy Bolt`
 
 Kontraktowe zasady dla tej grupy:
-- `Brandish` jest kategorią `Basic`,
-- `Brandish` ma `resourceCost = 0`,
+- `Brandish` i `Holy Bolt` są kategorią `Basic`,
+- `Brandish` i `Holy Bolt` mają `resourceCost = 0`,
 - brak kosztu zasobu nie zmienia reguły rotacji LRU.
 
 Pozostałe skille wymieniane w opisie celu projektu nie należą jeszcze do aktualnego zakresu implementacji repo.
@@ -116,11 +127,13 @@ Aktualny foundation wspiera następujące typy efektów runtime:
 - `REPLACE_BASE_DAMAGE`,
 - `DAMAGE`,
 - `APPLY_STATUS`,
+- `APPLY_DELAYED_HIT`
 
 Efekt może:
 - podmienić bazowy procent obrażeń głównego komponentu,
 - dodać osobny komponent obrażeń,
-- nałożyć status na cel.
+- nałożyć status na cel,
+- zaplanować delayed hit z określonym trigger time.
 
 Pozostałe typy efektów opisane w szerszej dokumentacji projektu nie są jeszcze częścią aktualnego foundation kodowego.
 
@@ -233,6 +246,7 @@ Reguła fallbacku jest zero-jedynkowa:
 
 Obowiązują następujące potwierdzone czasy i limity:
 - `Vulnerable` nakładane przez warianty objęte zakresem startowym trwa `2 s`.
+- `Judgement` detonuje po `3 s`.
 
 ### 6.4. Warunki komponentów
 Aktualny foundation wykorzystuje warunek komponentu:
@@ -251,6 +265,8 @@ Rozstrzygnięcia kontraktowe dla aktualnie zaimplementowanych wariantów:
 - `Brandish + Powrót światłości` liczy dwa komponenty `73% + 73%`; nie wolno liczyć `105% + 73%`.
 - `Brandish + Krzyżowe uderzenie (Vulnerable)` zawsze podmienia główny hit na `168%`; dwa dodatkowe łuki `168%` są komponentami bocznymi i nie wchodzą do single target.
 - Dla `Brandish + Krzyżowe uderzenie (Vulnerable)` warunek `Vulnerable` dotyczy wyłącznie dwóch dodatkowych bocznych trafień.
+- Bazowy `Holy Bolt` liczy tylko główne natychmiastowe trafienie.
+- Bazowe rozszerzenie `Judgement` nie zmienia natychmiastowego single hita `Holy Bolt`; dodaje osobny delayed hit.
 
 Reguła referencyjnego zaokrąglenia dla `Brandish rank 5 + Krzyżowe uderzenie (Vulnerable)`:
 - w modelu single target końcowy `raw crit hit` dla głównego trafienia jest liczony od wcześniej zaokrąglonego `raw hit`, a nie od niezaokrąglonej wartości exact,
@@ -261,17 +277,39 @@ Reguła referencyjnego zaokrąglenia dla `Brandish rank 5 + Krzyżowe uderzenie 
 - ta reguła jest wymagana, aby referencyjny wynik dla tego scenariusza wynosił `raw hit = 34` oraz `raw crit hit = 52`.
 
 ### 7.2. Delayed hit
-Delayed hit nie jest jeszcze częścią aktualnego foundation repo. Aktualny kod nie implementuje opóźnionych trafień ani ich debug breakdownu.
+Delayed hit jest częścią aktualnego foundation repo wyłącznie dla `Holy Bolt + Judgement`.
+
+Obowiązujące reguły:
+- delayed hit jest osobnym komponentem obrażeń i nie należy do natychmiastowego single hita,
+- delayed hit jest liczony w `trigger time`,
+- delayed hit używa tego samego `Damage Engine`,
+- `Judgement` jest opóźnionym hitem `80% skillDamagePercent`,
+- `Judgement` detonuje po `3 s`,
+- na jednym celu `Judgement` nie stackuje się,
+- kolejny cast `Holy Bolt` nie odświeża timera aktywnego `Judgement`,
+- ponowne nałożenie jest dozwolone dopiero po detonacji poprzedniego delayed hita,
+- delayed hit `Judgement` jest single target i wchodzi do `total damage`.
 
 ### 7.3. Reactive damage
 Reactive damage nie jest jeszcze częścią aktualnego foundation repo. Aktualny kod nie implementuje obrażeń reaktywnych ani pełnej symulacji tickowej.
 
 ## 8. Rotacja symulacji
 ### 8.1. Horyzont i tick
-Pełna rotacja symulacji nie jest jeszcze częścią aktualnego foundation repo. Obecny kod nie implementuje ticków, `WAIT` ani śladu `stepTrace`.
+Aktualny foundation implementuje minimalną manual simulation dla trybu `Policz aktualny build`.
+
+Obowiązujący zakres:
+- horyzont `60 s`,
+- brak reactive damage,
+- kolejność ticku:
+  1. delayed hit,
+  2. aktywny cast.
 
 ### 8.2. Model LRU
-Reguła LRU pozostaje częścią docelowej architektury projektu, ale nie jest jeszcze aktywną częścią runtime foundation.
+Docelowa rotacja LRU nie jest jeszcze częścią aktywnego runtime foundation.
+
+Na etapie M2 wybór skilla jest jawnie uproszczony:
+- w każdym ticku używany jest pierwszy aktywny skill z action bara,
+- ta reguła jest świadomym ograniczeniem slice'u M2 i nie jest finalną polityką rotacji wieloskillowej.
 
 ### 8.3. Trace
 `stepTrace` nie jest jeszcze implementowany w aktualnym foundation repo.
@@ -294,7 +332,9 @@ Audyt searcha, progress i eksport CSV nie są jeszcze częścią aktualnego foun
 
 ## 10. UI, debug i prezentacja wyników
 ### 10.1. Zasady ogólne
-Repo nie implementuje jeszcze UI. Aktualny foundation dostarcza wyłącznie modele debug w kodzie.
+Repo nie implementuje jeszcze webowego UI. Aktualny foundation dostarcza:
+- modele debug w kodzie,
+- CLI dla pierwszego ręcznego testu użytkownika `Policz aktualny build`.
 
 ### 10.2. Konfiguracja do porównania
 Na obecnym etapie foundation nie ma warstwy prezentacji konfiguracji do porównania.
@@ -306,7 +346,14 @@ Aktualny foundation implementuje debug danych, nie renderowanie UI. W kodzie ist
 - informacja, czy komponent został wliczony do single target, czy pominięty z powodem.
 
 ### 10.4. Delayed i reactive debug
-Delayed i reactive debug nie są jeszcze implementowane w aktualnym foundation repo.
+Aktualny foundation implementuje delayed debug dla `Judgement`:
+- informację, kiedy delayed hit został nałożony,
+- informację, kiedy miał detonować,
+- informację, czy detonował w horyzoncie symulacji,
+- breakdown delayed hita po detonacji,
+- informację, czy `Judgement` pozostał aktywny na końcu horyzontu.
+
+Reactive debug nie jest jeszcze implementowany.
 
 ### 10.5. Wynik searcha
 Wynik searcha nie jest jeszcze implementowany w aktualnym foundation repo.
@@ -331,6 +378,11 @@ Minimalny zakres testów obejmuje:
 - redukcję obrażeń zależną od poziomu,
 - reguły `REPLACE_BASE_DAMAGE`,
 - reguły single target,
+- golden values dla bazowego `Holy Bolt`,
+- delayed hit `Judgement`,
+- trigger time `Judgement`,
+- brak stackowania i brak refreshu `Judgement`,
+- minimalną manual simulation,
 - bezpieczne kopiowanie pustego stanu snapshotu,
 - specjalną regułę zaokrąglenia prowadzącą do `raw crit hit = 52`.
 
@@ -357,6 +409,9 @@ Zamrożone wartości:
 
 Dodatkowe aktualne referencje kontraktowe:
 - `Brandish rank 5 + Powrót światłości` składa się z dwóch komponentów `73%`, każdy `raw = 12`, `final = 8`.
+- `Holy Bolt rank 5` dla referencyjnego buildu daje `raw = 21`, `final = 13`, `raw crit = 32`, `crit = 20`.
+- `Judgement` dla referencyjnego buildu daje `raw = 13`, `final = 8`, `raw crit = 20`, `crit = 13`.
+- Manual simulation dla `Holy Bolt rank 5 + Judgement` w horyzoncie `60 s` daje `total damage = 932`, `DPS = 932 / 60`, `19` detonacji `Judgement` w horyzoncie i `1` aktywny `Judgement` pozostały na końcu.
 - `Brandish rank 5 + Krzyżowe uderzenie (Vulnerable)` w modelu single target liczy wyłącznie główny hit `168%`; dla referencyjnego przypadku z aktywnym `Vulnerable` przed trafieniem wynik ST pozostaje `raw hit = 34`, `single hit = 21`, `raw crit hit = 52`, `critical hit = 32`.
 - Dla powyższego scenariusza `Brandish + Krzyżowe uderzenie (Vulnerable)` referencyjny `raw crit hit = 52` wynika z reguły: najpierw `raw hit` głównego trafienia jest zaokrąglany do `34`, a dopiero potem liczony jest `raw crit hit = round(34 * critMultiplier) = 52`.
 

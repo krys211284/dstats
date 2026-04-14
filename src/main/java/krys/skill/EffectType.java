@@ -4,5 +4,6 @@ package krys.skill;
 public enum EffectType {
     REPLACE_BASE_DAMAGE,
     DAMAGE,
-    APPLY_STATUS
+    APPLY_STATUS,
+    APPLY_DELAYED_HIT
 }

@@ -11,17 +11,20 @@ public final class SkillDef {
     private final SkillId id;
     private final String name;
     private final long[] rankSkillDamagePercents;
+    private final List<SkillRuntimeEffect> baseUpgradeEffects;
     private final Map<SkillUpgradeChoice, List<SkillRuntimeEffect>> choiceEffects;
     private final Map<SkillUpgradeChoice, CriticalRoundingPolicy> criticalRoundingPolicies;
 
     public SkillDef(SkillId id,
                     String name,
                     long[] rankSkillDamagePercents,
+                    List<SkillRuntimeEffect> baseUpgradeEffects,
                     Map<SkillUpgradeChoice, List<SkillRuntimeEffect>> choiceEffects,
                     Map<SkillUpgradeChoice, CriticalRoundingPolicy> criticalRoundingPolicies) {
         this.id = id;
         this.name = name;
         this.rankSkillDamagePercents = rankSkillDamagePercents.clone();
+        this.baseUpgradeEffects = Collections.unmodifiableList(new ArrayList<>(baseUpgradeEffects));
         Map<SkillUpgradeChoice, List<SkillRuntimeEffect>> copy = new EnumMap<>(SkillUpgradeChoice.class);
         for (Map.Entry<SkillUpgradeChoice, List<SkillRuntimeEffect>> entry : choiceEffects.entrySet()) {
             copy.put(entry.getKey(), Collections.unmodifiableList(new ArrayList<>(entry.getValue())));
@@ -45,6 +48,10 @@ public final class SkillDef {
             throw new IllegalArgumentException("Niepoprawny rank skilla " + name + ": " + rank);
         }
         return rankSkillDamagePercents[rank - 1];
+    }
+
+    public List<SkillRuntimeEffect> getBaseUpgradeEffects() {
+        return baseUpgradeEffects;
     }
 
     public List<SkillRuntimeEffect> getChoiceEffects(SkillUpgradeChoice choiceUpgrade) {

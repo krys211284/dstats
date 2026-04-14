@@ -175,6 +175,91 @@ public final class DamageEngine {
         );
     }
 
+    public DamageBreakdown calculateStandaloneHit(HeroBuildSnapshot snapshot,
+                                                  long skillDamagePercent,
+                                                  String componentName,
+                                                  String source,
+                                                  EnumSet<StatusId> targetStatuses) {
+        Hero hero = snapshot.getHero();
+        HeroClassDef classDef = HeroClassDefs.get(hero.getHeroClass());
+        List<Item> equippedItems = snapshot.getEquippedItems();
+
+        double weaponMultiplier = 1.0d + (Item.sumStat(equippedItems, ItemStatType.MAIN_HAND_WEAPON_DAMAGE) / 100.0d);
+        double mainStat = classDef.resolveTotalMainStat(hero.getLevel(), equippedItems);
+        double mainStatMultiplier = classDef.resolveMainStatMultiplier(hero.getLevel(), equippedItems);
+        double intelligence = classDef.resolveTotalIntelligence(hero.getLevel(), equippedItems);
+        double critDamageBonusFromItems = Item.sumStat(equippedItems, ItemStatType.CRIT_DAMAGE) / 100.0d;
+        double critDamageBonusFromIntelligence = intelligence * CRIT_DAMAGE_FROM_INTELLIGENCE_FACTOR;
+        double critDamageBonusTotal = BASE_CRIT_DAMAGE_BONUS + critDamageBonusFromItems + critDamageBonusFromIntelligence;
+        double critMultiplier = 1.0d + critDamageBonusTotal;
+        double additivePercent = snapshot.getTotalPercentDamageBonus();
+        double additiveMultiplier = 1.0d + (additivePercent / 100.0d);
+        double vulnerableMultiplier = targetStatuses.contains(StatusId.VULNERABLE) ? VULNERABLE_MULTIPLIER : 1.0d;
+        double levelDamageReduction = Math.min(85.0d, hero.getLevel() + 25.0d) / 100.0d;
+
+        long baseDamage = Math.round(snapshot.getAverageWeaponDamage() * (skillDamagePercent / 100.0d));
+        DamageComponentBreakdown component = createComponent(
+                componentName,
+                source,
+                skillDamagePercent,
+                1,
+                null,
+                true,
+                true,
+                null,
+                snapshot.getAverageWeaponDamage(),
+                weaponMultiplier,
+                mainStatMultiplier,
+                additiveMultiplier,
+                vulnerableMultiplier,
+                critMultiplier,
+                levelDamageReduction
+        );
+
+        double rawNormalExact = exactRawDamage(
+                snapshot.getAverageWeaponDamage(),
+                skillDamagePercent,
+                1,
+                weaponMultiplier,
+                mainStatMultiplier,
+                additiveMultiplier,
+                vulnerableMultiplier,
+                1.0d
+        );
+        double rawCritExact = exactRawDamage(
+                snapshot.getAverageWeaponDamage(),
+                skillDamagePercent,
+                1,
+                weaponMultiplier,
+                mainStatMultiplier,
+                additiveMultiplier,
+                vulnerableMultiplier,
+                critMultiplier
+        );
+
+        return new DamageBreakdown(
+                baseDamage,
+                Math.round(rawNormalExact),
+                Math.round(rawNormalExact * (1.0d - levelDamageReduction)),
+                Math.round(rawCritExact),
+                Math.round(rawCritExact * (1.0d - levelDamageReduction)),
+                weaponMultiplier,
+                mainStat,
+                mainStatMultiplier,
+                additivePercent,
+                additiveMultiplier,
+                vulnerableMultiplier,
+                critMultiplier,
+                critDamageBonusTotal,
+                critDamageBonusFromItems,
+                critDamageBonusFromIntelligence,
+                intelligence,
+                levelDamageReduction,
+                "Brak",
+                List.of(component)
+        );
+    }
+
     /**
      * README w sekcjach o single hit i golden values wymaga, aby dla Brandish rank 5
      * z prawym modyfikatorem raw crit hit był liczony od już zaokrąglonego raw hit.

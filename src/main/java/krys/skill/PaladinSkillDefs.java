@@ -10,8 +10,19 @@ public final class PaladinSkillDefs {
             SkillId.BRANDISH,
             "Brandish",
             new long[]{75, 83, 90, 98, 105},
+            List.of(),
             createBrandishEffects(),
             createBrandishCriticalPolicies()
+    );
+    private static final SkillDef HOLY_BOLT = new SkillDef(
+            SkillId.HOLY_BOLT,
+            "Holy Bolt",
+            new long[]{90, 99, 108, 117, 126},
+            List.of(
+                    SkillRuntimeEffect.applyDelayedHit("Judgement", 3, 80)
+            ),
+            Map.of(),
+            Map.of()
     );
 
     private PaladinSkillDefs() {
@@ -20,6 +31,7 @@ public final class PaladinSkillDefs {
     public static SkillDef get(SkillId skillId) {
         return switch (skillId) {
             case BRANDISH -> BRANDISH;
+            case HOLY_BOLT -> HOLY_BOLT;
         };
     }
 
