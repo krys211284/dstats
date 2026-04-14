@@ -19,7 +19,8 @@ Aktualny foundation zaimplementowany w repo obejmuje:
 - minimalny wspólny silnik pojedynczego uderzenia dla `Brandish` i `Holy Bolt`,
 - delayed hit `Judgement` dla bazowego rozszerzenia `Holy Bolt`,
 - tickową manual simulation dla trybu `Policz aktualny build`,
-- najprostszy możliwy flow uruchomienia użytkownika w postaci CLI.
+- minimalne webowe GUI SSR dla trybu `Policz aktualny build`,
+- CLI pozostające równoległym smoke testem tego samego runtime.
 
 Build search, reactive damage i pełna docelowa warstwa UI pozostają poza bieżącym zakresem kodu.
 
@@ -304,7 +305,8 @@ Reactive damage nie jest jeszcze częścią aktualnego foundation repo. Aktualny
 Aktualny foundation implementuje tickową manual simulation dla trybu `Policz aktualny build`.
 
 Obowiązujący zakres:
-- horyzont `60 s`,
+- horyzont jest dodatnim parametrem wejściowym manual simulation przekazywanym do tego samego runtime przez CLI i GUI,
+- referencyjny smoke test manual simulation oraz zamrożone wartości README pozostają liczone dla horyzontu `60 s`,
 - brak reactive damage,
 - kolejność ticku:
   1. delayed hit,
@@ -363,15 +365,18 @@ Audyt searcha, progress i eksport CSV nie są jeszcze częścią aktualnego foun
 
 ## 10. UI, debug i prezentacja wyników
 ### 10.1. Zasady ogólne
-Repo nie implementuje jeszcze webowego UI. Aktualny foundation dostarcza:
+Repo implementuje minimalne webowe GUI M4 oraz CLI dla tego samego flow `Policz aktualny build`. Aktualny foundation dostarcza:
+- prosty serwer HTTP z SSR bez rozbudowanego frontendu JS,
+- pojedynczy ekran formularza dla `Brandish` i `Holy Bolt`,
+- render wyniku oparty wyłącznie o istniejące modele debug i wynik runtime,
 - modele debug w kodzie,
-- CLI dla pierwszego ręcznego testu użytkownika `Policz aktualny build`.
+- CLI dla równoległego ręcznego smoke testu użytkownika.
 
 ### 10.2. Konfiguracja do porównania
 Na obecnym etapie foundation nie ma warstwy prezentacji konfiguracji do porównania.
 
 ### 10.3. Debug single hit
-Aktualny foundation implementuje debug danych, nie renderowanie UI. W kodzie istnieją:
+Aktualny foundation implementuje debug danych oraz ich minimalny render w GUI i CLI. W kodzie istnieją:
 - `DamageBreakdown` jako wynik końcowy pojedynczego uderzenia,
 - `DamageComponentBreakdown` jako wynik debug pojedynczych komponentów,
 - `SkillHitDebugSnapshot` jako reprezentatywny debug bezpośredniego hita per skill użyty w symulacji,
@@ -393,16 +398,16 @@ Reactive debug nie jest jeszcze implementowany.
 Wynik searcha nie jest jeszcze implementowany w aktualnym foundation repo.
 
 ### 10.6. Trace i formatowanie
-Aktualny foundation implementuje `stepTrace` w modelu danych i udostępnia go przez CLI.
+Aktualny foundation implementuje `stepTrace` w modelu danych i udostępnia go przez CLI oraz webowe GUI.
 
 Kontrakt prezentacyjny trace:
 - trace pokazuje tick po ticku tę samą symulację, która liczy wynik końcowy,
 - dla każdego kroku pokazuje akcję, delayed damage, direct damage, step damage i cumulative damage,
 - dla każdego kroku pokazuje stan skilli z paska potrzebny do walidacji `LRU`,
-- pełne formatowanie webowe i CSV pozostają poza aktualnym zakresem repo.
+- CSV i pełny docelowy UX pozostają poza aktualnym zakresem repo.
 
 ### 10.7. Pierwszy smoke test użytkownika
-Aktualny smoke test użytkownika jest oparty o CLI i scenariusz:
+Aktualny smoke test użytkownika dla M4 jest oparty o GUI oraz równoległe CLI i scenariusz:
 - `Holy Bolt`
 - `rank 5`
 - bazowe rozszerzenie `Judgement`
@@ -413,13 +418,28 @@ Uruchomienie w Windows PowerShell:
 ```powershell
 chcp 65001
 & 'C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.3\plugins\maven\lib\maven3\bin\mvn.cmd' '-Dmaven.repo.local=.m2' test
+& 'C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.3\plugins\maven\lib\maven3\bin\mvn.cmd' '-Dmaven.repo.local=.m2' compile
+java '-Dfile.encoding=UTF-8' -cp target/classes krys.web.CurrentBuildWebServer --port 8080
+```
+
+Następnie otwórz w przeglądarce:
+
+```text
+http://127.0.0.1:8080/policz-aktualny-build
+```
+
+Równoległy smoke test CLI pozostaje dostępny:
+
+```powershell
 java '-Dfile.encoding=UTF-8' -cp target/classes krys.app.CalculateCurrentBuildCli --skill HOLY_BOLT --rank 5 --base-upgrade true --seconds 60 --show-trace true
 ```
 
 Kontrakt prezentacji dla tego smoke testu:
+- GUI jest po polsku i jasno komunikuje, że to aktualny foundation manual simulation, a nie pełny produkt końcowy.
+- GUI pozwala ustawić skill, rank, bazowe rozszerzenie, dodatkowy modyfikator i horyzont symulacji, a następnie kliknąć `Policz aktualny build`.
+- GUI i CLI pokazują `total damage`, `DPS`, debug bezpośredniego hita dla użytego skilla, debug delayed hitów, `stepTrace` oraz informację, czy `Judgement` pozostał aktywny na końcu horyzontu.
 - CLI pokazuje użytkową nazwę skilla, a nie techniczny enum.
 - Output powinien być czytelny w UTF-8; w Windows wymagane jest uruchomienie konsoli po `chcp 65001`.
-- Wynik pokazuje `total damage`, `DPS`, debug bezpośredniego hita dla użytego skilla, debug delayed hitów, `stepTrace` oraz informację, czy `Judgement` pozostał aktywny na końcu horyzontu.
 - Dla referencyjnego scenariusza `Holy Bolt rank 5 + Judgement` wynik manual simulation wynosi `total damage = 932`, `DPS = 932 / 60`, `19` detonacji `Judgement` w horyzoncie i `1` aktywny `Judgement` pozostały na końcu.
 
 ## 11. Testy i golden values
@@ -449,6 +469,9 @@ Minimalny zakres testów obejmuje:
 - tie-break według kolejności na pasku,
 - zgodność cumulative damage z `stepTrace`,
 - tickową manual simulation,
+- endpoint formularza M4 dla `Policz aktualny build`,
+- uruchomienie obliczenia przez GUI nad tym samym runtime M3,
+- obecność kluczowych sekcji wyniku w GUI: `total damage`, `DPS`, direct hit debug, delayed hit debug i `stepTrace`,
 - bezpieczne kopiowanie pustego stanu snapshotu,
 - specjalną regułę zaokrąglenia prowadzącą do `raw crit hit = 52`.
 

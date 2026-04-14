@@ -1,0 +1,88 @@
+package krys.web;
+
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
+import krys.app.CurrentBuildCalculationService;
+import krys.combat.DamageEngine;
+import krys.simulation.ManualSimulationService;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+
+/** Najprostszy lokalny serwer HTTP dla M4 uruchamiający SSR nad istniejącym runtime M3. */
+public final class CurrentBuildWebServer implements AutoCloseable {
+    private final HttpServer server;
+
+    public CurrentBuildWebServer(int port) throws IOException {
+        this.server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
+
+        CurrentBuildCalculationService calculationService = new CurrentBuildCalculationService(
+                new ManualSimulationService(new DamageEngine())
+        );
+        CurrentBuildController controller = new CurrentBuildController(
+                calculationService,
+                new CurrentBuildPageRenderer()
+        );
+
+        server.createContext("/policz-aktualny-build", controller);
+        server.createContext("/", new RootHandler(controller));
+    }
+
+    public void start() {
+        server.start();
+    }
+
+    public int getPort() {
+        return server.getAddress().getPort();
+    }
+
+    @Override
+    public void close() {
+        server.stop(0);
+    }
+
+    public static void main(String[] args) throws Exception {
+        int port = parsePort(args);
+        CurrentBuildWebServer webServer = new CurrentBuildWebServer(port);
+        webServer.start();
+        System.out.println("GUI M4 dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/policz-aktualny-build");
+
+        synchronized (CurrentBuildWebServer.class) {
+            CurrentBuildWebServer.class.wait();
+        }
+    }
+
+    private static int parsePort(String[] args) {
+        int port = 8080;
+        for (int index = 0; index < args.length; index++) {
+            if ("--port".equals(args[index]) && index + 1 < args.length) {
+                port = Integer.parseInt(args[++index]);
+            }
+        }
+        return port;
+    }
+
+    /** Obsługuje ekran wejściowy pod rootem i odrzuca pozostałe ścieżki. */
+    private static final class RootHandler implements HttpHandler {
+        private final CurrentBuildController controller;
+
+        private RootHandler(CurrentBuildController controller) {
+            this.controller = controller;
+        }
+
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("/".equals(exchange.getRequestURI().getPath())) {
+                controller.handle(exchange);
+                return;
+            }
+
+            byte[] response = "404".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(404, response.length);
+            exchange.getResponseBody().write(response);
+            exchange.close();
+        }
+    }
+}

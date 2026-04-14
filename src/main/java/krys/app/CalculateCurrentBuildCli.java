@@ -4,7 +4,6 @@ import krys.combat.DamageBreakdown;
 import krys.combat.DamageComponentBreakdown;
 import krys.combat.DamageEngine;
 import krys.combat.DelayedHitBreakdown;
-import krys.simulation.HeroBuildSnapshot;
 import krys.simulation.ManualSimulationService;
 import krys.simulation.SimulationResult;
 import krys.simulation.SimulationStepTrace;
@@ -30,16 +29,17 @@ public final class CalculateCurrentBuildCli {
     public static void main(String[] args) {
         configureUtf8Output();
         CliArguments cliArguments = CliArguments.parse(args);
-        SkillState skillState = new SkillState(
+        CurrentBuildCalculationService calculationService = new CurrentBuildCalculationService(
+                new ManualSimulationService(new DamageEngine())
+        );
+        CurrentBuildCalculation calculation = calculationService.calculate(new CurrentBuildRequest(
                 cliArguments.skillId,
                 cliArguments.rank,
                 cliArguments.baseUpgrade,
-                cliArguments.choiceUpgrade
-        );
-        HeroBuildSnapshot snapshot = SampleBuildFactory.createReferenceCurrentBuild(skillState);
-        ManualSimulationService simulationService = new ManualSimulationService(new DamageEngine());
-        SimulationResult result = simulationService.calculateCurrentBuild(snapshot, cliArguments.horizonSeconds);
-        printResult(result, skillState, cliArguments.showTrace);
+                cliArguments.choiceUpgrade,
+                cliArguments.horizonSeconds
+        ));
+        printResult(calculation.getResult(), calculation.getSkillState(), cliArguments.showTrace);
     }
 
     private static void configureUtf8Output() {

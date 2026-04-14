@@ -3,8 +3,10 @@ package krys.skill;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** Definicja skilla używana przez wspólny Damage Engine. */
 public final class SkillDef {
@@ -74,5 +76,9 @@ public final class SkillDef {
 
     public CriticalRoundingPolicy getCriticalRoundingPolicy(SkillUpgradeChoice choiceUpgrade) {
         return criticalRoundingPolicies.getOrDefault(choiceUpgrade, CriticalRoundingPolicy.EXACT_PIPELINE);
+    }
+
+    public Set<SkillUpgradeChoice> getAvailableChoiceUpgrades() {
+        return Collections.unmodifiableSet(new LinkedHashSet<>(choiceEffects.keySet()));
     }
 }

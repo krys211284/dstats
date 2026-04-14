@@ -1,8 +1,11 @@
 package krys.skill;
 
 import java.util.EnumMap;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** Minimalny rejestr definicji skilli Paladina potrzebnych do pierwszego foundation. */
 public final class PaladinSkillDefs {
@@ -37,6 +40,15 @@ public final class PaladinSkillDefs {
             case BRANDISH -> BRANDISH;
             case HOLY_BOLT -> HOLY_BOLT;
         };
+    }
+
+    public static Set<SkillUpgradeChoice> getFoundationChoiceUpgrades() {
+        LinkedHashSet<SkillUpgradeChoice> choices = new LinkedHashSet<>();
+        choices.add(SkillUpgradeChoice.NONE);
+        for (SkillId skillId : SkillId.values()) {
+            choices.addAll(get(skillId).getAvailableChoiceUpgrades());
+        }
+        return Collections.unmodifiableSet(new LinkedHashSet<>(choices));
     }
 
     private static Map<SkillUpgradeChoice, List<SkillRuntimeEffect>> createBrandishEffects() {
