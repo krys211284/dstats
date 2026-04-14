@@ -111,7 +111,7 @@ Reguły legalności stanu skilla:
 - skill może mieć maksymalnie jeden dodatkowy modyfikator.
 
 ### 4.3. Zakres startowy domeny
-Aktualny foundation repo obejmuje następujący skill Paladina:
+Aktualny foundation repo obejmuje następujące skille Paladina:
 - `Brandish`
 - `Holy Bolt`
 
@@ -360,6 +360,27 @@ Wynik searcha nie jest jeszcze implementowany w aktualnym foundation repo.
 
 ### 10.6. Trace i formatowanie
 Modele `SimulationResult`, `stepTrace`, formatowanie UI i CSV pozostają poza aktualnym zakresem foundation repo.
+
+### 10.7. Pierwszy smoke test użytkownika
+Aktualny smoke test użytkownika jest oparty o CLI i scenariusz:
+- `Holy Bolt`
+- `rank 5`
+- bazowe rozszerzenie `Judgement`
+- horyzont `60 s`
+
+Uruchomienie w Windows PowerShell:
+
+```powershell
+chcp 65001
+& 'C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.3\plugins\maven\lib\maven3\bin\mvn.cmd' '-Dmaven.repo.local=.m2' test
+java '-Dfile.encoding=UTF-8' -cp target/classes krys.app.CalculateCurrentBuildCli --skill HOLY_BOLT --rank 5 --base-upgrade true --seconds 60
+```
+
+Kontrakt prezentacji dla tego smoke testu:
+- CLI pokazuje użytkową nazwę skilla, a nie techniczny enum.
+- Output powinien być czytelny w UTF-8; w Windows wymagane jest uruchomienie konsoli po `chcp 65001`.
+- Wynik pokazuje `total damage`, `DPS`, debug pojedynczego hita, debug delayed hitów oraz informację, czy `Judgement` pozostał aktywny na końcu horyzontu.
+- Dla referencyjnego scenariusza `Holy Bolt rank 5 + Judgement` wynik manual simulation wynosi `total damage = 932`, `DPS = 932 / 60`, `19` detonacji `Judgement` w horyzoncie i `1` aktywny `Judgement` pozostały na końcu.
 
 ## 11. Testy i golden values
 ### 11.1. Reguły testowe

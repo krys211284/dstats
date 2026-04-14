@@ -11,6 +11,8 @@ import krys.skill.SkillId;
 import krys.skill.SkillState;
 import krys.skill.SkillUpgradeChoice;
 
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 /**
@@ -22,6 +24,7 @@ public final class CalculateCurrentBuildCli {
     }
 
     public static void main(String[] args) {
+        configureUtf8Output();
         CliArguments cliArguments = CliArguments.parse(args);
         SkillState skillState = new SkillState(
                 cliArguments.skillId,
@@ -35,9 +38,14 @@ public final class CalculateCurrentBuildCli {
         printResult(result, skillState);
     }
 
+    private static void configureUtf8Output() {
+        System.setOut(new PrintStream(System.out, true, StandardCharsets.UTF_8));
+        System.setErr(new PrintStream(System.err, true, StandardCharsets.UTF_8));
+    }
+
     private static void printResult(SimulationResult result, SkillState skillState) {
         System.out.println("=== Policz aktualny build ===");
-        System.out.println("Skill: " + skillState.getSkillId());
+        System.out.println("Skill: " + result.getSelectedSkillName());
         System.out.println("Rank: " + skillState.getRank());
         System.out.println("Bazowe rozszerzenie: " + (skillState.isBaseUpgrade() ? "tak" : "nie"));
         System.out.println("Dodatkowy modyfikator: " + skillState.getChoiceUpgrade().getDisplayName());
@@ -71,7 +79,7 @@ public final class CalculateCurrentBuildCli {
         }
         for (DelayedHitBreakdown entry : result.getDelayedHitBreakdowns()) {
             String status = entry.isDetonated()
-                    ? "detonowal w t=" + entry.getDetonatedSecond()
+                    ? "detonował w t=" + entry.getDetonatedSecond()
                     : "aktywny do t=" + entry.getTriggerSecond() + " (brak detonacji w horyzoncie)";
             System.out.println("- " + entry.getDelayedHitName()
                     + " | source=" + entry.getSourceSkillName()
