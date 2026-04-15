@@ -9,21 +9,23 @@ Ten README opisuje wyłącznie aktualny stan projektu. Jest kontraktem wykonawcz
 - Rozstrzygnięte konflikty źródeł: dokumentacja i UI używają nazwy `Vulnerable`, a historyczne `Exposed` pozostaje wyłącznie aliasem technicznym; search ocenia `build + skill bar` bez permutacji slotów; modyfikatory typu `replace` podmieniają bazowy hit tam, gdzie finalna reguła tak stanowi; czas trwania statusów wynika z definicji konkretnego efektu, a nie z niespójnych ogólnych zapisów historycznych.
 
 ## 1. Cel projektu
-Projekt służy do deterministycznego liczenia obrażeń Paladina w modelu single target oraz do wyszukiwania najlepszego legalnego buildu.
+Projekt służy do deterministycznego liczenia obrażeń Paladina w modelu single target oraz jest przygotowywany architektonicznie pod późniejsze wyszukiwanie najlepszego legalnego buildu.
 
-System wspiera dwa tryby pracy:
+Docelowo system ma wspierać dwa tryby pracy:
 - `Policz aktualny build` - manual simulation dla aktualnej konfiguracji bohatera.
 - `Znajdź najlepszy build` - build search oceniający legalne buildy i legalne konfiguracje paska skilli.
 
 Aktualny foundation zaimplementowany w repo obejmuje:
 - minimalny wspólny silnik pojedynczego uderzenia dla `Brandish` i `Holy Bolt`,
+- pełny pierwszy use case reactive foundation dla `Clash`,
 - delayed hit `Judgement` dla bazowego rozszerzenia `Holy Bolt`,
 - foundation reactive damage dla `Thorns` i `Retribution`,
+- ograniczony kontrakt `Resolve`, `Crusader's March` i `Punishment` potrzebny do use case `Clash`,
 - tickową manual simulation dla trybu `Policz aktualny build`,
 - minimalne webowe GUI SSR dla trybu `Policz aktualny build`,
 - CLI pozostające równoległym smoke testem tego samego runtime.
 
-Build search, pełny zakres `Clash`, pełne feature'y `Resolve` i `Fervor` oraz pełna docelowa warstwa UI pozostają poza bieżącym zakresem kodu.
+Build search, pełny system defensywnych statusów, pełne feature'y `Fervor`, pełny ogólny system `Resolve`, `Fala Zealot` oraz pełna docelowa warstwa UI pozostają poza bieżącym zakresem kodu.
 
 Kontrakt architektoniczny jest wspólny dla obu trybów:
 - oba tryby muszą używać tego samego `Damage Engine`,
@@ -127,14 +129,23 @@ Reguły legalności stanu skilla:
 Aktualny foundation repo obejmuje następujące skille Paladina:
 - `Brandish`
 - `Holy Bolt`
+- `Clash`
 
 Kontraktowe zasady dla tej grupy:
-- `Brandish` i `Holy Bolt` są kategorią `Basic`,
-- `Brandish` i `Holy Bolt` mają `resourceCost = 0`,
-- `Brandish` i `Holy Bolt` mają `cooldown = 0`,
+- `Brandish`, `Holy Bolt` i `Clash` są kategorią `Basic`,
+- `Brandish`, `Holy Bolt` i `Clash` mają `resourceCost = 0`,
+- `Brandish`, `Holy Bolt` i `Clash` mają `cooldown = 0`,
 - brak kosztu zasobu nie zmienia reguły rotacji LRU.
 
-Pozostałe skille wymieniane w opisie celu projektu nie należą jeszcze do aktualnego zakresu implementacji repo.
+Kontrakt M6 dla `Clash` jest celowo minimalny i ograniczony do pierwszego pełnego use case reactive foundation:
+- bazowy `Clash` nie zadaje bezpośrednich obrażeń,
+- bazowe rozszerzenie `Clash` oznacza `Crusader's March`,
+- `Crusader's March` daje `Resolve` na `3 s` i `+25% block chance` na `3 s`,
+- dodatkowy modyfikator `LEFT` oznacza `Punishment`,
+- `Punishment` daje `+50 Thorns` na `3 s`,
+- `Resolve` w aktualnym foundation jest czasowym stanem logicznym potrzebnym do debugowania i dalszego rozszerzania reactive, a nie pełnym ogólnym systemem stacków.
+
+Pozostałe skille wymieniane w szerszym planie projektu nie należą jeszcze do aktualnego zakresu implementacji repo.
 
 ### 4.4. Model efektów runtime
 Aktualny foundation wspiera następujące typy efektów runtime:
@@ -204,12 +215,21 @@ Aktualny model reactive foundation:
 ```text
 blockChance = suma affixów BLOCK_CHANCE / 100
 retributionChance = suma affixów RETRIBUTION_CHANCE / 100
-thornsRawDamage = round(baseThornsFromBuild * mainStatMultiplier)
-thornsFinalDamage = round(baseThornsFromBuild * mainStatMultiplier * (1 - levelDamageReduction))
-retributionExpectedRawDamage = round(baseThornsFromBuild * mainStatMultiplier * blockChance * retributionChance)
-retributionExpectedFinalDamage = round(baseThornsFromBuild * mainStatMultiplier * blockChance * retributionChance * (1 - levelDamageReduction))
+activeBlockChance = blockChance + activeBlockChanceBonusPercent / 100
+activeThorns = baseThornsFromBuild + activeThornsBonus
+thornsRawDamage = round(activeThorns * mainStatMultiplier)
+thornsFinalDamage = round(activeThorns * mainStatMultiplier * (1 - levelDamageReduction))
+retributionExpectedRawDamage = round(activeThorns * mainStatMultiplier * activeBlockChance * retributionChance)
+retributionExpectedFinalDamage = round(activeThorns * mainStatMultiplier * activeBlockChance * retributionChance * (1 - levelDamageReduction))
 reactiveFinalPerEnemyHit = thornsFinalDamage + retributionExpectedFinalDamage
 ```
+
+Kontrakt M6 dla `Clash` dokłada do reactive foundation:
+- `Crusader's March` ustawia `activeBlockChanceBonusPercent = 25`,
+- `Punishment` ustawia `activeThornsBonus = 50`,
+- oba buffy trwają `3 s`,
+- `Resolve` jest stanem debug/runtime towarzyszącym `Crusader's March`,
+- `Retribution expected raw = thornsDamage * activeBlockChance * retributionChance`.
 
 Aktualny model komponentowy:
 
@@ -273,6 +293,8 @@ Reguła fallbacku jest zero-jedynkowa:
 Obowiązują następujące potwierdzone czasy i limity:
 - `Vulnerable` nakładane przez warianty objęte zakresem startowym trwa `2 s`.
 - `Judgement` detonuje po `3 s`.
+- `Resolve` z `Crusader's March` trwa `3 s`.
+- bonus `Punishment` do `Thorns` trwa `3 s`.
 
 ### 6.4. Warunki komponentów
 Aktualny foundation wykorzystuje warunek komponentu:
@@ -317,7 +339,7 @@ Obowiązujące reguły:
 - delayed hit `Judgement` jest single target i wchodzi do `total damage`.
 
 ### 7.3. Reactive damage
-Reactive damage jest częścią aktualnego foundation repo w zakresie M5a dla `Thorns` i `Retribution`.
+Reactive damage jest częścią aktualnego foundation repo w zakresie M6 dla `Thorns`, `Retribution` i pierwszego pełnego use case `Clash`.
 
 Obowiązujące reguły:
 - reactive damage jest osobnym torem obrażeń i nie należy do single hita skilla,
@@ -328,10 +350,13 @@ Obowiązujące reguły:
 - kolejne enemy hity następują w `t=6`, `t=9`, `t=12` i tak dalej,
 - `Thorns` liczone jest z bazowej wartości buildu przechodzącej przez `mainStatMultiplier` i redukcję poziomu celu,
 - `Retribution` jest liczone deterministycznie jako `expected value`,
-- `Retribution expected raw = thornsDamage * blockChance * retributionChance`,
-- reactive debug zapisuje per enemy hit co najmniej `Thorns raw/final`, `Retribution expected raw/final` i `Reactive final`,
-- aktualny foundation nie implementuje jeszcze pełnego `Clash`,
-- `Resolve` i `Fervor` nie są jeszcze pełnymi feature'ami reactive foundation.
+- `Retribution expected raw = thornsDamage * activeBlockChance * retributionChance`,
+- `Clash` jest pierwszym pełnym use case reactive foundation i korzysta z tego samego toru reactive co każdy inny scenariusz,
+- bazowy `Clash` nie dodaje direct damage i służy wyłącznie do ustawiania własnych buffów reactive,
+- `Crusader's March` zwiększa aktywny `block chance` i ustawia stan `Resolve`,
+- `Punishment` zwiększa aktywne `Thorns`,
+- reactive debug zapisuje per enemy hit co najmniej `Resolve`, aktywny `block chance`, aktywny bonus do `Thorns`, `Thorns raw/final`, `Retribution expected raw/final` i `Reactive final`,
+- pełny ogólny system `Resolve`, `Fervor` i dalsze reactive feature'y pozostają poza aktualnym zakresem.
 
 ## 8. Rotacja symulacji
 ### 8.1. Horyzont i tick
@@ -400,11 +425,11 @@ Audyt searcha, progress i eksport CSV nie są jeszcze częścią aktualnego foun
 
 ## 10. UI, debug i prezentacja wyników
 ### 10.1. Zasady ogólne
-Repo implementuje minimalne webowe GUI M5a oraz CLI dla tego samego flow `Policz aktualny build`. Aktualny foundation dostarcza:
+Repo implementuje minimalne webowe GUI M6 oraz CLI dla tego samego flow `Policz aktualny build`. Aktualny foundation dostarcza:
 - prosty serwer HTTP z SSR bez rozbudowanego frontendu JS,
-- pojedynczy ekran formularza dla `Brandish` i `Holy Bolt`,
+- pojedynczy ekran formularza dla `Brandish`, `Holy Bolt` i `Clash`,
 - render wyniku oparty wyłącznie o istniejące modele debug i wynik runtime,
-- sekcję reactive debug dla foundation `Thorns` i `Retribution`,
+- sekcję reactive debug dla foundation `Thorns`, `Retribution` i use case `Clash`,
 - modele debug w kodzie,
 - CLI dla równoległego ręcznego smoke testu użytkownika.
 
@@ -428,14 +453,18 @@ Aktualny foundation implementuje delayed debug dla `Judgement`:
 - breakdown delayed hita po detonacji,
 - informację, czy `Judgement` pozostał aktywny na końcu horyzontu.
 
-Aktualny foundation implementuje reactive debug dla `Thorns` i `Retribution`:
+Aktualny foundation implementuje reactive debug dla `Thorns`, `Retribution` i use case `Clash`:
 - informację, w której sekundzie wystąpił enemy hit,
+- informację, czy `Resolve` było aktywne i ile czasu pozostawało,
+- aktywny `block chance`,
+- aktywny bonus do `Thorns`,
 - `Thorns raw / tick`,
 - `Thorns final / tick`,
 - `Retribution expected raw / tick`,
 - `Retribution expected final / tick`,
 - `Reactive final / tick`,
-- sumaryczny wkład reactive do wyniku końcowego.
+- sumaryczny wkład reactive do wyniku końcowego,
+- informację, czy `Resolve` oraz reactive bonusy pozostały aktywne na końcu horyzontu.
 
 ### 10.5. Wynik searcha
 Wynik searcha nie jest jeszcze implementowany w aktualnym foundation repo.
@@ -451,10 +480,11 @@ Kontrakt prezentacyjny trace:
 - CSV i pełny docelowy UX pozostają poza aktualnym zakresem repo.
 
 ### 10.7. Pierwszy smoke test użytkownika
-Aktualny smoke test użytkownika dla M5a jest oparty o GUI oraz równoległe CLI i scenariusz:
-- `Holy Bolt`
+Aktualny smoke test użytkownika dla M6 jest oparty o GUI oraz równoległe CLI i scenariusz:
+- `Clash`
 - `rank 5`
-- bazowe rozszerzenie `Judgement`
+- bazowe rozszerzenie `Crusader's March`
+- dodatkowy modyfikator `Punishment`
 - horyzont `60 s`
 - referencyjny sample build GUI/CLI z active reactive foundation:
   - `+50 THORNS`
@@ -479,18 +509,19 @@ http://127.0.0.1:8080/policz-aktualny-build
 Równoległy smoke test CLI pozostaje dostępny:
 
 ```powershell
-java '-Dfile.encoding=UTF-8' -cp target/classes krys.app.CalculateCurrentBuildCli --skill HOLY_BOLT --rank 5 --base-upgrade true --seconds 60 --show-trace true
+java '-Dfile.encoding=UTF-8' -cp target/classes krys.app.CalculateCurrentBuildCli --skill CLASH --rank 5 --base-upgrade true --choice LEFT --seconds 60 --show-trace true
 ```
 
 Kontrakt prezentacji dla tego smoke testu:
 - GUI jest po polsku i jasno komunikuje, że to aktualny foundation manual simulation, a nie pełny produkt końcowy.
 - GUI pozwala ustawić skill, rank, bazowe rozszerzenie, dodatkowy modyfikator i horyzont symulacji, a następnie kliknąć `Policz aktualny build`.
-- GUI i CLI pokazują `total damage`, `DPS`, debug bezpośredniego hita dla użytego skilla, debug delayed hitów, reactive debug, `stepTrace` oraz informację, czy `Judgement` pozostał aktywny na końcu horyzontu.
+- GUI i CLI pokazują `total damage`, `DPS`, debug bezpośredniego hita dla użytego skilla, debug delayed hitów, reactive debug, `stepTrace`, `Resolve aktywny na końcu`, `Active block chance na końcu` oraz `Active thorns bonus na końcu`.
 - GUI i CLI pokazują `Thorns raw / tick`, `Thorns final / tick`, `Retribution expected raw / tick`, `Retribution expected final / tick`, `Reactive final / tick` oraz `Reactive contribution`.
 - CLI pokazuje użytkową nazwę skilla, a nie techniczny enum.
 - Output powinien być czytelny w UTF-8; w Windows wymagane jest uruchomienie konsoli po `chcp 65001`.
-- Dla referencyjnego scenariusza GUI/CLI `Holy Bolt rank 5 + Judgement` na sample buildzie M5a wynik manual simulation wynosi `total damage = 1732`, `DPS = 1732 / 60`, `19` detonacji `Judgement` w horyzoncie, `1` aktywny `Judgement` pozostały na końcu oraz `total reactive damage = 800`.
-- Dla powyższego sample buildu pojedynczy enemy hit reactive daje `Thorns raw = 52`, `Thorns final = 32`, `Retribution expected raw = 13`, `Retribution expected final = 8` oraz `Reactive final = 40`.
+- Dla referencyjnego scenariusza GUI/CLI `Clash rank 5 + Crusader's March + Punishment` na sample buildzie wynik manual simulation wynosi `total damage = 1760`, `DPS = 1760 / 60`, `total reactive damage = 1760`, `Resolve aktywny na końcu = tak`, `Active block chance na końcu = 75%` oraz `Active thorns bonus na końcu = 50`.
+- Dla powyższego sample buildu pojedynczy enemy hit reactive daje `Thorns raw = 104`, `Thorns final = 64`, `Retribution expected raw = 39`, `Retribution expected final = 24` oraz `Reactive final = 88`.
+- Regresyjny scenariusz `Holy Bolt rank 5 + Judgement` pozostaje dodatkowym smoke testem niższego poziomu dla delayed hit i reactive foundation.
 
 ## 11. Testy i golden values
 ### 11.1. Reguły testowe
@@ -516,6 +547,10 @@ Minimalny zakres testów obejmuje:
 - enemy hit schedule `t=3`, `t=6`, `t=9`...,
 - reactive foundation `Thorns`,
 - deterministyczne `expected value` dla `Retribution`,
+- podstawowe działanie `Clash` w manual simulation,
+- `Crusader's March` jako źródło `Resolve` i `block chance`,
+- `Punishment` jako źródło bonusu do `Thorns`,
+- wpływ `Clash`, `Crusader's March` i `Punishment` na reactive damage,
 - tick order `delayed hit -> reactive damage -> aktywny cast`,
 - `WAIT` przy braku legalnego castu,
 - wybór `LRU`,
@@ -523,8 +558,9 @@ Minimalny zakres testów obejmuje:
 - zgodność cumulative damage z `stepTrace`,
 - tickową manual simulation,
 - endpoint formularza GUI dla `Policz aktualny build`,
-- uruchomienie obliczenia przez GUI nad tym samym runtime M5a,
+- uruchomienie obliczenia przez GUI nad tym samym runtime M6,
 - obecność kluczowych sekcji wyniku w GUI: `total damage`, `DPS`, direct hit debug, delayed hit debug, reactive debug i `stepTrace`,
+- obecność sekcji reactive debug w GUI dla scenariusza `Clash`,
 - bezpieczne kopiowanie pustego stanu snapshotu,
 - specjalną regułę zaokrąglenia prowadzącą do `raw crit hit = 52`.
 
@@ -541,6 +577,8 @@ Wspólne dane referencyjne aktualnych golden values:
 - całkowita `Intelligence`: `19`
 - redukcja obrażeń na poziomie `13`: `38%`
 - sample reactive foundation dla GUI/CLI: `THORNS = 50`, `BLOCK_CHANCE = 50%`, `RETRIBUTION_CHANCE = 50%`
+- kontrakt `Clash + Crusader's March`: `Resolve = 3 s`, `+25% BLOCK_CHANCE`
+- kontrakt `Clash + Punishment`: `+50 THORNS` na `3 s`
 
 Zamrożone wartości:
 
@@ -556,9 +594,12 @@ Dodatkowe aktualne referencje kontraktowe:
 - `Judgement` dla referencyjnego buildu daje `raw = 13`, `final = 8`, `raw crit = 20`, `crit = 13`.
 - Manual simulation dla niereaktywnego regresyjnego scenariusza `Holy Bolt rank 5 + Judgement` w horyzoncie `60 s` daje `total damage = 932`, `DPS = 932 / 60`, `19` detonacji `Judgement` w horyzoncie i `1` aktywny `Judgement` pozostały na końcu.
 - Manual simulation dla niereaktywnego regresyjnego scenariusza `Brandish rank 5` w horyzoncie `60 s` daje `total damage = 660`, `DPS = 660 / 60` i brak delayed hitów.
-- Dla sample buildu M5a pojedynczy enemy hit reactive daje `Thorns raw = 52`, `Thorns final = 32`, `Retribution expected raw = 13`, `Retribution expected final = 8` oraz `Reactive final = 40`.
+- Dla sample buildu pojedynczy enemy hit reactive bez buffów `Clash` daje `Thorns raw = 52`, `Thorns final = 32`, `Retribution expected raw = 13`, `Retribution expected final = 8` oraz `Reactive final = 40`.
+- Dla scenariusza `Clash rank 5 + Crusader's March` pojedynczy enemy hit reactive daje `active block chance = 75%`, `Thorns raw = 52`, `Thorns final = 32`, `Retribution expected raw = 20`, `Retribution expected final = 12` oraz `Reactive final = 44`.
+- Dla scenariusza `Clash rank 5 + Crusader's March + Punishment` pojedynczy enemy hit reactive daje `active block chance = 75%`, `active thorns bonus = 50`, `Thorns raw = 104`, `Thorns final = 64`, `Retribution expected raw = 39`, `Retribution expected final = 24` oraz `Reactive final = 88`.
 - Enemy hit schedule w horyzoncie `60 s` daje `20` reactive ticków.
-- Manual simulation dla scenariusza GUI/CLI `Holy Bolt rank 5 + Judgement` na sample buildzie M5a w horyzoncie `60 s` daje `total damage = 1732`, `DPS = 1732 / 60`, `total reactive damage = 800`, `19` detonacji `Judgement` i `1` aktywny `Judgement` pozostały na końcu.
+- Manual simulation dla scenariusza GUI/CLI `Clash rank 5 + Crusader's March + Punishment` na sample buildzie w horyzoncie `60 s` daje `total damage = 1760`, `DPS = 1760 / 60`, `total reactive damage = 1760`, `Resolve aktywny na końcu = tak`, `Active block chance na końcu = 75%` oraz `Active thorns bonus na końcu = 50`.
+- Manual simulation dla scenariusza regresyjnego `Holy Bolt rank 5 + Judgement` na sample buildzie M5a w horyzoncie `60 s` daje `total damage = 1732`, `DPS = 1732 / 60`, `total reactive damage = 800`, `19` detonacji `Judgement` i `1` aktywny `Judgement` pozostały na końcu.
 - `Brandish rank 5 + Krzyżowe uderzenie (Vulnerable)` w modelu single target liczy wyłącznie główny hit `168%`; dla referencyjnego przypadku z aktywnym `Vulnerable` przed trafieniem wynik ST pozostaje `raw hit = 34`, `single hit = 21`, `raw crit hit = 52`, `critical hit = 32`.
 - Dla powyższego scenariusza `Brandish + Krzyżowe uderzenie (Vulnerable)` referencyjny `raw crit hit = 52` wynika z reguły: najpierw `raw hit` głównego trafienia jest zaokrąglany do `34`, a dopiero potem liczony jest `raw crit hit = round(34 * critMultiplier) = 52`.
 

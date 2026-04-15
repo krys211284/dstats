@@ -17,7 +17,7 @@ import java.util.StringJoiner;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Testy M5a pokrywają endpoint formularza i podstawowy render wyniku bez powielania logiki runtime. */
+/** Testy GUI pokrywają endpoint formularza i podstawowy render wyniku bez powielania logiki runtime. */
 class CurrentBuildWebServerTest {
     private CurrentBuildWebServer webServer;
     private HttpClient httpClient;
@@ -99,6 +99,38 @@ class CurrentBuildWebServerTest {
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Błędy formularza"));
         assertTrue(response.body().contains("Wybrany dodatkowy modyfikator nie jest dostępny dla wskazanego skilla w aktualnym foundation."));
+    }
+
+    @Test
+    void shouldRenderClashScenarioWithResolveAndReactiveBonuses() throws Exception {
+        HttpResponse<String> response = sendPost(
+                "/policz-aktualny-build",
+                Map.of(
+                        "skillId", "CLASH",
+                        "rank", "5",
+                        "baseUpgrade", "true",
+                        "choiceUpgrade", "LEFT",
+                        "horizonSeconds", "9"
+                )
+        );
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Total damage"));
+        assertTrue(response.body().contains("Reactive contribution"));
+        assertTrue(response.body().contains("264"));
+        assertTrue(response.body().contains("Reactive debug"));
+        assertTrue(response.body().contains("Resolve aktywny na końcu"));
+        assertTrue(response.body().contains("Active block chance na końcu"));
+        assertTrue(response.body().contains("Active thorns bonus na końcu"));
+        assertTrue(response.body().contains("75.00%"));
+        assertTrue(response.body().contains(">50<"));
+        assertTrue(response.body().contains(">104<"));
+        assertTrue(response.body().contains(">64<"));
+        assertTrue(response.body().contains(">39<"));
+        assertTrue(response.body().contains(">24<"));
+        assertTrue(response.body().contains(">88<"));
+        assertTrue(response.body().contains("Clash"));
+        assertTrue(response.body().contains("Punishment"));
     }
 
     private HttpResponse<String> sendGet(String path) throws Exception {

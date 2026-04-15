@@ -91,12 +91,18 @@ public final class CurrentBuildPageRenderer {
         html.append(renderSummaryCard("Skill", PaladinSkillDefs.get(calculation.getRequest().getSkillId()).getName()));
         html.append(renderSummaryCard("Rank", Integer.toString(calculation.getRequest().getRank())));
         html.append(renderSummaryCard("Bazowe rozszerzenie", calculation.getRequest().isBaseUpgrade() ? "Tak" : "Nie"));
-        html.append(renderSummaryCard("Dodatkowy modyfikator", calculation.getRequest().getChoiceUpgrade().getDisplayName()));
+        html.append(renderSummaryCard(
+                "Dodatkowy modyfikator",
+                PaladinSkillDefs.getChoiceDisplayName(calculation.getRequest().getSkillId(), calculation.getRequest().getChoiceUpgrade())
+        ));
         html.append(renderSummaryCard("Horyzont", calculation.getRequest().getHorizonSeconds() + " s"));
         html.append(renderSummaryCard("Total damage", Long.toString(calculation.getResult().getTotalDamage())));
         html.append(renderSummaryCard("DPS", String.format(Locale.US, "%.4f", calculation.getResult().getDps())));
         html.append(renderSummaryCard("Reactive contribution", Long.toString(calculation.getResult().getTotalReactiveDamage())));
         html.append(renderSummaryCard("Judgement aktywny na końcu", calculation.getResult().isJudgementActiveAtEnd() ? "Tak" : "Nie"));
+        html.append(renderSummaryCard("Resolve aktywny na końcu", calculation.getResult().isResolveActiveAtEnd() ? "Tak" : "Nie"));
+        html.append(renderSummaryCard("Active block chance na końcu", String.format(Locale.US, "%.2f%%", calculation.getResult().getActiveBlockChanceAtEnd() * 100.0d)));
+        html.append(renderSummaryCard("Active thorns bonus na końcu", String.format(Locale.US, "%.0f", calculation.getResult().getActiveThornsBonusAtEnd())));
         html.append("""
                     </div>
                 </section>
@@ -234,6 +240,9 @@ public final class CurrentBuildPageRenderer {
                         <thead>
                             <tr>
                                 <th>Sekunda</th>
+                                <th>Resolve</th>
+                                <th>Active block chance</th>
+                                <th>Active thorns bonus</th>
                                 <th>Thorns raw</th>
                                 <th>Thorns final</th>
                                 <th>Retribution expected raw</th>
@@ -246,13 +255,16 @@ public final class CurrentBuildPageRenderer {
         if (calculation.getResult().getReactiveHitBreakdowns().isEmpty()) {
             html.append("""
                     <tr>
-                        <td colspan="6">Brak reactive damage.</td>
+                        <td colspan="9">Brak reactive damage.</td>
                     </tr>
                     """);
         } else {
             for (ReactiveHitBreakdown entry : calculation.getResult().getReactiveHitBreakdowns()) {
                 html.append("<tr>")
                         .append("<td>t=").append(entry.getTriggeredSecond()).append("</td>")
+                        .append("<td>").append(entry.isResolveActive() ? "Tak (" + entry.getResolveRemainingSeconds() + " s)" : "Nie").append("</td>")
+                        .append("<td>").append(escapeHtml(String.format(Locale.US, "%.2f%%", entry.getActiveBlockChance() * 100.0d))).append("</td>")
+                        .append("<td>").append(escapeHtml(String.format(Locale.US, "%.0f", entry.getActiveThornsBonus()))).append("</td>")
                         .append("<td>").append(entry.getThornsRawDamage()).append("</td>")
                         .append("<td>").append(entry.getThornsFinalDamage()).append("</td>")
                         .append("<td>").append(entry.getRetributionExpectedRawDamage()).append("</td>")
@@ -260,7 +272,7 @@ public final class CurrentBuildPageRenderer {
                         .append("<td>").append(entry.getReactiveFinalDamage()).append("</td>")
                         .append("</tr>");
             }
-            html.append("<tr><td colspan=\"5\"><strong>Reactive total</strong></td><td><strong>")
+            html.append("<tr><td colspan=\"8\"><strong>Reactive total</strong></td><td><strong>")
                     .append(calculation.getResult().getTotalReactiveDamage())
                     .append("</strong></td></tr>");
         }
@@ -355,7 +367,7 @@ public final class CurrentBuildPageRenderer {
             }
             return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException exception) {
-            throw new IllegalStateException("Nie udało się wczytać szablonu strony M5a", exception);
+            throw new IllegalStateException("Nie udało się wczytać szablonu strony M6", exception);
         }
     }
 }

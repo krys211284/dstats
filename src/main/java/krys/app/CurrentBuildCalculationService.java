@@ -5,7 +5,7 @@ import krys.simulation.ManualSimulationService;
 import krys.simulation.SimulationResult;
 import krys.skill.SkillState;
 
-/** Cienka warstwa aplikacyjna budująca snapshot i uruchamiająca istniejący runtime M5a. */
+/** Cienka warstwa aplikacyjna budująca snapshot i uruchamiająca istniejący runtime M6. */
 public final class CurrentBuildCalculationService {
     private final ManualSimulationService manualSimulationService;
 

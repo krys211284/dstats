@@ -53,13 +53,16 @@ public final class CalculateCurrentBuildCli {
         System.out.println("Skill wejściowy: " + PaladinSkillDefs.get(skillState.getSkillId()).getName());
         System.out.println("Rank: " + skillState.getRank());
         System.out.println("Bazowe rozszerzenie: " + (skillState.isBaseUpgrade() ? "tak" : "nie"));
-        System.out.println("Dodatkowy modyfikator: " + skillState.getChoiceUpgrade().getDisplayName());
+        System.out.println("Dodatkowy modyfikator: " + PaladinSkillDefs.getChoiceDisplayName(skillState.getSkillId(), skillState.getChoiceUpgrade()));
         System.out.println("Horyzont: " + result.getHorizonSeconds() + " s");
         System.out.println();
         System.out.println("Total damage: " + result.getTotalDamage());
         System.out.println("DPS: " + String.format(Locale.US, "%.4f", result.getDps()));
         System.out.println("Reactive contribution: " + result.getTotalReactiveDamage());
         System.out.println("Judgement aktywny na koniec: " + (result.isJudgementActiveAtEnd() ? "tak" : "nie"));
+        System.out.println("Resolve aktywny na koniec: " + (result.isResolveActiveAtEnd() ? "tak" : "nie"));
+        System.out.println("Active block chance na koniec: " + String.format(Locale.US, "%.2f%%", result.getActiveBlockChanceAtEnd() * 100.0d));
+        System.out.println("Active thorns bonus na koniec: " + String.format(Locale.US, "%.0f", result.getActiveThornsBonusAtEnd()));
         System.out.println();
 
         System.out.println("== Direct hit debug ==");
@@ -112,6 +115,11 @@ public final class CalculateCurrentBuildCli {
         } else {
             for (ReactiveHitBreakdown entry : result.getReactiveHitBreakdowns()) {
                 System.out.println("- enemy hit t=" + entry.getTriggeredSecond()
+                        + " | activeBlock=" + String.format(Locale.US, "%.2f%%", entry.getActiveBlockChance() * 100.0d)
+                        + " | activeThornsBonus=" + String.format(Locale.US, "%.0f", entry.getActiveThornsBonus())
+                        + " | resolve=" + entry.isResolveActive()
+                        + " | resolveRemaining=" + entry.getResolveRemainingSeconds()
+                        + " | punishment=" + entry.isPunishmentActive()
                         + " | thornsRaw=" + entry.getThornsRawDamage()
                         + " | thornsFinal=" + entry.getThornsFinalDamage()
                         + " | retributionExpectedRaw=" + entry.getRetributionExpectedRawDamage()

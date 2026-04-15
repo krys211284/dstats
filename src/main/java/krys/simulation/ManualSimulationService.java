@@ -4,8 +4,11 @@ import krys.combat.DamageBreakdown;
 import krys.combat.DamageEngine;
 import krys.combat.DelayedHitBreakdown;
 import krys.combat.ReactiveHitBreakdown;
+import krys.item.Item;
+import krys.item.ItemStatType;
 import krys.skill.EffectType;
 import krys.skill.PaladinSkillDefs;
+import krys.skill.ReactiveSelfBuffProfile;
 import krys.skill.SkillDef;
 import krys.skill.SkillId;
 import krys.skill.SkillRuntimeEffect;
@@ -21,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Tickowa ręczna symulacja dla M5a.
+ * Tickowa ręczna symulacja dla M6.
  * Ten sam przebieg pętli runtime liczy wynik końcowy, delayed hity, reactive damage i stepTrace.
  */
 public final class ManualSimulationService {
@@ -41,6 +44,7 @@ public final class ManualSimulationService {
         Map<SkillId, Integer> lastUsedSeconds = new EnumMap<>(SkillId.class);
         Map<SkillId, SkillHitDebugSnapshot> directHitDebugBySkill = new LinkedHashMap<>();
         long totalReactiveDamage = 0L;
+        ReactiveBuffState reactiveBuffState = new ReactiveBuffState();
 
         for (int second = 1; second <= horizonSeconds; second++) {
             long delayedDamage = 0L;
@@ -74,7 +78,15 @@ public final class ManualSimulationService {
 
             long reactiveDamage = 0L;
             if (isEnemyHitSecond(second) && damageEngine.hasReactiveFoundation(snapshot)) {
-                ReactiveHitBreakdown reactiveHitBreakdown = damageEngine.calculateReactiveHit(snapshot, second);
+                ReactiveHitBreakdown reactiveHitBreakdown = damageEngine.calculateReactiveHit(
+                        snapshot,
+                        second,
+                        reactiveBuffState.getActiveBlockChanceBonusPercent(second),
+                        reactiveBuffState.getActiveThornsBonus(second),
+                        reactiveBuffState.isResolveActive(second),
+                        reactiveBuffState.getResolveRemainingSeconds(second),
+                        reactiveBuffState.isPunishmentActive(second)
+                );
                 reactiveDamage = reactiveHitBreakdown.getReactiveFinalDamage();
                 totalDamage += reactiveDamage;
                 totalReactiveDamage += reactiveDamage;
@@ -114,6 +126,8 @@ public final class ManualSimulationService {
                             ));
                         }
                     }
+                    applyReactiveBuffProfile(skillDef.getBaseReactiveBuffProfile(), second, reactiveBuffState);
+                    applyReactiveBuffProfile(skillDef.getChoiceReactiveBuffProfile(state.getChoiceUpgrade()), second, reactiveBuffState);
                 }
             }
 
@@ -154,6 +168,9 @@ public final class ManualSimulationService {
                 delayedHitBreakdowns,
                 reactiveHitBreakdowns,
                 totalReactiveDamage,
+                reactiveBuffState.isResolveActive(horizonSeconds),
+                resolveActiveBlockChanceAtEnd(snapshot, reactiveBuffState, horizonSeconds),
+                reactiveBuffState.getActiveThornsBonus(horizonSeconds),
                 stepTrace,
                 hasActiveDelayedHit(pendingDelayedHits, "Judgement")
         );
@@ -161,6 +178,22 @@ public final class ManualSimulationService {
 
     static boolean isEnemyHitSecond(int second) {
         return second >= 3 && second % 3 == 0;
+    }
+
+    private static void applyReactiveBuffProfile(ReactiveSelfBuffProfile buffProfile,
+                                                 int second,
+                                                 ReactiveBuffState reactiveBuffState) {
+        if (buffProfile == null || buffProfile.getDurationSeconds() <= 0) {
+            return;
+        }
+        reactiveBuffState.apply(buffProfile, second);
+    }
+
+    private static double resolveActiveBlockChanceAtEnd(HeroBuildSnapshot snapshot,
+                                                        ReactiveBuffState reactiveBuffState,
+                                                        int horizonSeconds) {
+        double baseBlockChance = Item.sumStat(snapshot.getEquippedItems(), ItemStatType.BLOCK_CHANCE) / 100.0d;
+        return baseBlockChance + (reactiveBuffState.getActiveBlockChanceBonusPercent(horizonSeconds) / 100.0d);
     }
 
     private static List<SkillHitDebugSnapshot> orderDirectHitDebugSnapshots(HeroBuildSnapshot snapshot,
@@ -306,6 +339,48 @@ public final class ManualSimulationService {
                                      int appliedSecond,
                                      int triggerSecond,
                                      long skillDamagePercent) {
+    }
+
+    private static final class ReactiveBuffState {
+        private int resolveExpiresAtSecond;
+        private double activeBlockChanceBonusPercent;
+        private int punishmentExpiresAtSecond;
+        private double activeThornsBonus;
+
+        private void apply(ReactiveSelfBuffProfile buffProfile, int second) {
+            int expiresAtSecond = second + buffProfile.getDurationSeconds() - 1;
+            if (buffProfile.isGrantsResolve()) {
+                resolveExpiresAtSecond = expiresAtSecond;
+                activeBlockChanceBonusPercent = buffProfile.getBlockChanceBonusPercent();
+            }
+            if (buffProfile.getThornsBonus() > 0.0d) {
+                punishmentExpiresAtSecond = expiresAtSecond;
+                activeThornsBonus = buffProfile.getThornsBonus();
+            }
+        }
+
+        private boolean isResolveActive(int second) {
+            return second > 0 && second <= resolveExpiresAtSecond;
+        }
+
+        private int getResolveRemainingSeconds(int second) {
+            if (!isResolveActive(second)) {
+                return 0;
+            }
+            return resolveExpiresAtSecond - second + 1;
+        }
+
+        private boolean isPunishmentActive(int second) {
+            return second > 0 && second <= punishmentExpiresAtSecond;
+        }
+
+        private double getActiveBlockChanceBonusPercent(int second) {
+            return isResolveActive(second) ? activeBlockChanceBonusPercent : 0.0d;
+        }
+
+        private double getActiveThornsBonus(int second) {
+            return isPunishmentActive(second) ? activeThornsBonus : 0.0d;
+        }
     }
 
     private record SkillSelectionResult(SkillId selectedSkillId,

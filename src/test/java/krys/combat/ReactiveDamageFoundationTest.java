@@ -19,13 +19,17 @@ class ReactiveDamageFoundationTest {
                 new SkillState(SkillId.HOLY_BOLT, 5, false, SkillUpgradeChoice.NONE)
         );
 
-        ReactiveHitBreakdown breakdown = damageEngine.calculateReactiveHit(snapshot, 3);
+        ReactiveHitBreakdown breakdown = damageEngine.calculateReactiveHit(snapshot, 3, 0.0d, 0.0d, false, 0, false);
 
         assertTrue(damageEngine.hasReactiveFoundation(snapshot));
         assertEquals(50.0d, breakdown.getBaseThornsFromBuild());
         assertEquals(1.04d, breakdown.getMainStatMultiplier(), 0.0000001d);
-        assertEquals(0.50d, breakdown.getBlockChance(), 0.0000001d);
+        assertEquals(0.50d, breakdown.getBlockChanceFromBuild(), 0.0000001d);
+        assertEquals(0.50d, breakdown.getActiveBlockChance(), 0.0000001d);
+        assertEquals(0.0d, breakdown.getActiveThornsBonus(), 0.0000001d);
         assertEquals(0.50d, breakdown.getRetributionChance(), 0.0000001d);
+        assertEquals(false, breakdown.isResolveActive());
+        assertEquals(0, breakdown.getResolveRemainingSeconds());
         assertEquals(52L, breakdown.getThornsRawDamage());
         assertEquals(32L, breakdown.getThornsFinalDamage());
         assertEquals(13L, breakdown.getRetributionExpectedRawDamage());

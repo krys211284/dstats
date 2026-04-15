@@ -20,7 +20,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-/** Kontroler HTTP dla pierwszego klikalnego GUI M5a. */
+/** Kontroler HTTP dla pierwszego klikalnego GUI M6. */
 public final class CurrentBuildController implements HttpHandler {
     private static final String HTML_CONTENT_TYPE = "text/html; charset=UTF-8";
 
@@ -128,21 +128,39 @@ public final class CurrentBuildController implements HttpHandler {
 
     private static List<CurrentBuildPageModel.SelectOption> buildChoiceOptions(CurrentBuildFormData formData) {
         List<CurrentBuildPageModel.SelectOption> options = new ArrayList<>();
-        for (SkillUpgradeChoice choiceUpgrade : PaladinSkillDefs.getFoundationChoiceUpgrades()) {
+        SkillId selectedSkillId = tryParseSkillId(formData.getSkillId());
+        Set<SkillUpgradeChoice> choiceUpgrades = selectedSkillId == null
+                ? PaladinSkillDefs.getFoundationChoiceUpgrades()
+                : buildChoiceSetForSkill(selectedSkillId);
+        for (SkillUpgradeChoice choiceUpgrade : choiceUpgrades) {
             options.add(new CurrentBuildPageModel.SelectOption(
                     choiceUpgrade.name(),
-                    toChoiceLabel(choiceUpgrade),
+                    toChoiceLabel(selectedSkillId, choiceUpgrade),
                     choiceUpgrade.name().equals(formData.getChoiceUpgrade())
             ));
         }
         return options;
     }
 
-    private static String toChoiceLabel(SkillUpgradeChoice choiceUpgrade) {
+    private static Set<SkillUpgradeChoice> buildChoiceSetForSkill(SkillId skillId) {
+        LinkedHashSet<SkillUpgradeChoice> choices = new LinkedHashSet<>();
+        choices.add(SkillUpgradeChoice.NONE);
+        choices.addAll(PaladinSkillDefs.get(skillId).getAvailableChoiceUpgrades());
+        return choices;
+    }
+
+    private static String toChoiceLabel(SkillId selectedSkillId, SkillUpgradeChoice choiceUpgrade) {
+        if (selectedSkillId != null) {
+            return switch (choiceUpgrade) {
+                case NONE -> "Brak";
+                default -> PaladinSkillDefs.getChoiceDisplayName(selectedSkillId, choiceUpgrade);
+            };
+        }
+
         return switch (choiceUpgrade) {
             case NONE -> "Brak";
-            case LEFT -> "Powrót światłości (Brandish)";
-            case RIGHT -> "Krzyżowe uderzenie (Vulnerable) (Brandish)";
+            case LEFT -> "Powrót światłości / Punishment";
+            case RIGHT -> "Krzyżowe uderzenie (Vulnerable)";
             case MIDDLE -> "Miecz Mistrzostwa";
         };
     }
@@ -152,7 +170,10 @@ public final class CurrentBuildController implements HttpHandler {
         if (skillId == SkillId.HOLY_BOLT) {
             return "Dla Holy Bolt w aktualnym foundation dodatkowy modyfikator pozostaje ustawiony na „Brak”.";
         }
-        return "Aktualne dodatkowe modyfikatory foundation dotyczą Brandish. Bazowe rozszerzenie musi być włączone, aby użyć dodatkowego modyfikatora.";
+        if (skillId == SkillId.CLASH) {
+            return "Dla Clash bazowe rozszerzenie oznacza Crusader's March, a dodatkowy modyfikator LEFT oznacza Punishment.";
+        }
+        return "Aktualne dodatkowe modyfikatory foundation dla Brandish to Powrót światłości i Krzyżowe uderzenie (Vulnerable). Bazowe rozszerzenie musi być włączone, aby użyć dodatkowego modyfikatora.";
     }
 
     private static SkillId parseSkillId(String rawSkillId, List<String> errors) {

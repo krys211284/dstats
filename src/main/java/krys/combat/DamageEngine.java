@@ -28,19 +28,27 @@ public final class DamageEngine {
     private static final double CRIT_DAMAGE_FROM_INTELLIGENCE_FACTOR = 0.0004d;
     private static final double VULNERABLE_MULTIPLIER = 1.20d;
 
-    public ReactiveHitBreakdown calculateReactiveHit(HeroBuildSnapshot snapshot, int triggeredSecond) {
+    public ReactiveHitBreakdown calculateReactiveHit(HeroBuildSnapshot snapshot,
+                                                     int triggeredSecond,
+                                                     double activeBlockChanceBonusPercent,
+                                                     double activeThornsBonus,
+                                                     boolean resolveActive,
+                                                     int resolveRemainingSeconds,
+                                                     boolean punishmentActive) {
         Hero hero = snapshot.getHero();
         HeroClassDef classDef = HeroClassDefs.get(hero.getHeroClass());
         List<Item> equippedItems = snapshot.getEquippedItems();
 
         double baseThornsFromBuild = Item.sumStat(equippedItems, ItemStatType.THORNS);
+        double effectiveThorns = baseThornsFromBuild + activeThornsBonus;
         double mainStatMultiplier = classDef.resolveMainStatMultiplier(hero.getLevel(), equippedItems);
-        double blockChance = Item.sumStat(equippedItems, ItemStatType.BLOCK_CHANCE) / 100.0d;
+        double blockChanceFromBuild = Item.sumStat(equippedItems, ItemStatType.BLOCK_CHANCE) / 100.0d;
+        double activeBlockChance = blockChanceFromBuild + (activeBlockChanceBonusPercent / 100.0d);
         double retributionChance = Item.sumStat(equippedItems, ItemStatType.RETRIBUTION_CHANCE) / 100.0d;
         double levelDamageReduction = Math.min(85.0d, hero.getLevel() + 25.0d) / 100.0d;
 
-        double thornsRawExact = baseThornsFromBuild * mainStatMultiplier;
-        double retributionRawExact = thornsRawExact * blockChance * retributionChance;
+        double thornsRawExact = effectiveThorns * mainStatMultiplier;
+        double retributionRawExact = thornsRawExact * activeBlockChance * retributionChance;
 
         long thornsRawDamage = Math.round(thornsRawExact);
         long thornsFinalDamage = Math.round(thornsRawExact * (1.0d - levelDamageReduction));
@@ -52,8 +60,13 @@ public final class DamageEngine {
                 triggeredSecond,
                 baseThornsFromBuild,
                 mainStatMultiplier,
-                blockChance,
+                blockChanceFromBuild,
+                activeBlockChance,
+                activeThornsBonus,
                 retributionChance,
+                resolveActive,
+                resolveRemainingSeconds,
+                punishmentActive,
                 thornsRawDamage,
                 thornsFinalDamage,
                 retributionExpectedRawDamage,
@@ -211,7 +224,7 @@ public final class DamageEngine {
                 critDamageBonusFromIntelligence,
                 intelligence,
                 levelDamageReduction,
-                state.getChoiceUpgrade().getDisplayName(),
+                skillDef.getChoiceDisplayName(state.getChoiceUpgrade()),
                 components
         );
     }

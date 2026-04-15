@@ -17,7 +17,10 @@ public final class PaladinSkillDefs {
             new long[]{75, 83, 90, 98, 105},
             List.of(),
             createBrandishEffects(),
-            createBrandishCriticalPolicies()
+            createBrandishCriticalPolicies(),
+            null,
+            Map.of(),
+            createBrandishChoiceDisplayNames()
     );
     private static final SkillDef HOLY_BOLT = new SkillDef(
             SkillId.HOLY_BOLT,
@@ -29,7 +32,26 @@ public final class PaladinSkillDefs {
                     SkillRuntimeEffect.applyDelayedHit("Judgement", 3, 80)
             ),
             Map.of(),
+            Map.of(),
+            null,
+            Map.of(),
             Map.of()
+    );
+    private static final SkillDef CLASH = new SkillDef(
+            SkillId.CLASH,
+            "Clash",
+            0,
+            0,
+            new long[]{0, 0, 0, 0, 0},
+            List.of(),
+            Map.of(),
+            Map.of(),
+            new ReactiveSelfBuffProfile(true, 3, 25.0d, 0.0d),
+            Map.of(
+                    SkillUpgradeChoice.LEFT,
+                    new ReactiveSelfBuffProfile(false, 3, 0.0d, 50.0d)
+            ),
+            createClashChoiceDisplayNames()
     );
 
     private PaladinSkillDefs() {
@@ -39,7 +61,12 @@ public final class PaladinSkillDefs {
         return switch (skillId) {
             case BRANDISH -> BRANDISH;
             case HOLY_BOLT -> HOLY_BOLT;
+            case CLASH -> CLASH;
         };
+    }
+
+    public static String getChoiceDisplayName(SkillId skillId, SkillUpgradeChoice choiceUpgrade) {
+        return get(skillId).getChoiceDisplayName(choiceUpgrade);
     }
 
     public static Set<SkillUpgradeChoice> getFoundationChoiceUpgrades() {
@@ -69,5 +96,18 @@ public final class PaladinSkillDefs {
         Map<SkillUpgradeChoice, CriticalRoundingPolicy> policies = new EnumMap<>(SkillUpgradeChoice.class);
         policies.put(SkillUpgradeChoice.RIGHT, CriticalRoundingPolicy.ROUNDED_RAW_HIT);
         return policies;
+    }
+
+    private static Map<SkillUpgradeChoice, String> createBrandishChoiceDisplayNames() {
+        Map<SkillUpgradeChoice, String> labels = new EnumMap<>(SkillUpgradeChoice.class);
+        labels.put(SkillUpgradeChoice.LEFT, "Powrót światłości");
+        labels.put(SkillUpgradeChoice.RIGHT, "Krzyżowe uderzenie (Vulnerable)");
+        return labels;
+    }
+
+    private static Map<SkillUpgradeChoice, String> createClashChoiceDisplayNames() {
+        Map<SkillUpgradeChoice, String> labels = new EnumMap<>(SkillUpgradeChoice.class);
+        labels.put(SkillUpgradeChoice.LEFT, "Punishment");
+        return labels;
     }
 }

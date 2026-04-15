@@ -16,6 +16,9 @@ public final class SimulationResult {
     private final List<DelayedHitBreakdown> delayedHitBreakdowns;
     private final List<ReactiveHitBreakdown> reactiveHitBreakdowns;
     private final long totalReactiveDamage;
+    private final boolean resolveActiveAtEnd;
+    private final double activeBlockChanceAtEnd;
+    private final double activeThornsBonusAtEnd;
     private final List<SimulationStepTrace> stepTrace;
     private final boolean judgementActiveAtEnd;
 
@@ -26,6 +29,9 @@ public final class SimulationResult {
                             List<DelayedHitBreakdown> delayedHitBreakdowns,
                             List<ReactiveHitBreakdown> reactiveHitBreakdowns,
                             long totalReactiveDamage,
+                            boolean resolveActiveAtEnd,
+                            double activeBlockChanceAtEnd,
+                            double activeThornsBonusAtEnd,
                             List<SimulationStepTrace> stepTrace,
                             boolean judgementActiveAtEnd) {
         this.totalDamage = totalDamage;
@@ -35,6 +41,9 @@ public final class SimulationResult {
         this.delayedHitBreakdowns = Collections.unmodifiableList(new ArrayList<>(delayedHitBreakdowns));
         this.reactiveHitBreakdowns = Collections.unmodifiableList(new ArrayList<>(reactiveHitBreakdowns));
         this.totalReactiveDamage = totalReactiveDamage;
+        this.resolveActiveAtEnd = resolveActiveAtEnd;
+        this.activeBlockChanceAtEnd = activeBlockChanceAtEnd;
+        this.activeThornsBonusAtEnd = activeThornsBonusAtEnd;
         this.stepTrace = Collections.unmodifiableList(new ArrayList<>(stepTrace));
         this.judgementActiveAtEnd = judgementActiveAtEnd;
     }
@@ -65,6 +74,18 @@ public final class SimulationResult {
 
     public long getTotalReactiveDamage() {
         return totalReactiveDamage;
+    }
+
+    public boolean isResolveActiveAtEnd() {
+        return resolveActiveAtEnd;
+    }
+
+    public double getActiveBlockChanceAtEnd() {
+        return activeBlockChanceAtEnd;
+    }
+
+    public double getActiveThornsBonusAtEnd() {
+        return activeThornsBonusAtEnd;
     }
 
     public List<SimulationStepTrace> getStepTrace() {

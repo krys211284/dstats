@@ -5,7 +5,7 @@ import krys.skill.SkillUpgradeChoice;
 
 import java.util.Map;
 
-/** Surowe dane formularza GUI M5a, zachowywane także przy błędach walidacji. */
+/** Surowe dane formularza GUI M6, zachowywane także przy błędach walidacji. */
 public final class CurrentBuildFormData {
     private final String skillId;
     private final String rank;
@@ -27,10 +27,10 @@ public final class CurrentBuildFormData {
 
     public static CurrentBuildFormData defaultValues() {
         return new CurrentBuildFormData(
-                SkillId.HOLY_BOLT.name(),
+                SkillId.CLASH.name(),
                 "5",
                 true,
-                SkillUpgradeChoice.NONE.name(),
+                SkillUpgradeChoice.LEFT.name(),
                 "60"
         );
     }
