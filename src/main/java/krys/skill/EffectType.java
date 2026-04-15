@@ -5,5 +5,6 @@ public enum EffectType {
     REPLACE_BASE_DAMAGE,
     DAMAGE,
     APPLY_STATUS,
-    APPLY_DELAYED_HIT
+    APPLY_DELAYED_HIT,
+    SET_COOLDOWN
 }

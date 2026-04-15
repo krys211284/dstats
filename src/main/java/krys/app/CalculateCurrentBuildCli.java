@@ -148,6 +148,7 @@ public final class CalculateCurrentBuildCli {
                             + " | rank=" + barState.getRank()
                             + " | legal=" + barState.isLegalActive()
                             + " | cooldown=" + barState.isOnCooldown()
+                            + " | cooldownRemaining=" + barState.getCooldownRemainingSeconds()
                             + " | resource=" + barState.hasRequiredResource()
                             + " | neverUsed=" + barState.isNeverUsed()
                             + " | lastUsed=" + barState.getLastUsedSecond()

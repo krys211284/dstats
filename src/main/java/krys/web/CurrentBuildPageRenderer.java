@@ -339,6 +339,7 @@ public final class CurrentBuildPageRenderer {
                     .append(" | rank=").append(barState.getRank())
                     .append(" | legal=").append(barState.isLegalActive())
                     .append(" | cooldown=").append(barState.isOnCooldown())
+                    .append(" | cooldownRemaining=").append(barState.getCooldownRemainingSeconds())
                     .append(" | resource=").append(barState.hasRequiredResource())
                     .append(" | neverUsed=").append(barState.isNeverUsed())
                     .append(" | lastUsed=").append(barState.getLastUsedSecond() == null ? "-" : barState.getLastUsedSecond())
@@ -367,7 +368,7 @@ public final class CurrentBuildPageRenderer {
             }
             return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException exception) {
-            throw new IllegalStateException("Nie udało się wczytać szablonu strony M6", exception);
+            throw new IllegalStateException("Nie udało się wczytać szablonu strony M7", exception);
         }
     }
 }

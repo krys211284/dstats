@@ -11,7 +11,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 
-/** Najprostszy lokalny serwer HTTP dla M6 uruchamiający SSR nad istniejącym runtime manual simulation. */
+/** Najprostszy lokalny serwer HTTP dla M7 uruchamiający SSR nad istniejącym runtime manual simulation. */
 public final class CurrentBuildWebServer implements AutoCloseable {
     private final HttpServer server;
 
@@ -47,7 +47,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
         int port = parsePort(args);
         CurrentBuildWebServer webServer = new CurrentBuildWebServer(port);
         webServer.start();
-        System.out.println("GUI M6 dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/policz-aktualny-build");
+        System.out.println("GUI M7 dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/policz-aktualny-build");
 
         synchronized (CurrentBuildWebServer.class) {
             CurrentBuildWebServer.class.wait();

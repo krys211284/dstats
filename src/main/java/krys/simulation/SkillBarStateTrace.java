@@ -10,6 +10,7 @@ public final class SkillBarStateTrace {
     private final int rank;
     private final boolean legalActive;
     private final boolean onCooldown;
+    private final int cooldownRemainingSeconds;
     private final boolean hasRequiredResource;
     private final boolean neverUsed;
     private final Integer lastUsedSecond;
@@ -21,6 +22,7 @@ public final class SkillBarStateTrace {
                               int rank,
                               boolean legalActive,
                               boolean onCooldown,
+                              int cooldownRemainingSeconds,
                               boolean hasRequiredResource,
                               boolean neverUsed,
                               Integer lastUsedSecond,
@@ -31,6 +33,7 @@ public final class SkillBarStateTrace {
         this.rank = rank;
         this.legalActive = legalActive;
         this.onCooldown = onCooldown;
+        this.cooldownRemainingSeconds = cooldownRemainingSeconds;
         this.hasRequiredResource = hasRequiredResource;
         this.neverUsed = neverUsed;
         this.lastUsedSecond = lastUsedSecond;
@@ -59,6 +62,10 @@ public final class SkillBarStateTrace {
 
     public boolean isOnCooldown() {
         return onCooldown;
+    }
+
+    public int getCooldownRemainingSeconds() {
+        return cooldownRemainingSeconds;
     }
 
     public boolean hasRequiredResource() {

@@ -20,7 +20,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-/** Kontroler HTTP dla pierwszego klikalnego GUI M6. */
+/** Kontroler HTTP dla pierwszego klikalnego GUI M7. */
 public final class CurrentBuildController implements HttpHandler {
     private static final String HTML_CONTENT_TYPE = "text/html; charset=UTF-8";
 
@@ -159,8 +159,8 @@ public final class CurrentBuildController implements HttpHandler {
 
         return switch (choiceUpgrade) {
             case NONE -> "Brak";
-            case LEFT -> "Powrót światłości / Punishment";
-            case RIGHT -> "Krzyżowe uderzenie (Vulnerable)";
+            case LEFT -> "Powrót światłości / Punishment / Wave Dash";
+            case RIGHT -> "Krzyżowe uderzenie (Vulnerable) / Flash of the Blade";
             case MIDDLE -> "Miecz Mistrzostwa";
         };
     }
@@ -172,6 +172,9 @@ public final class CurrentBuildController implements HttpHandler {
         }
         if (skillId == SkillId.CLASH) {
             return "Dla Clash bazowe rozszerzenie oznacza Crusader's March, a dodatkowy modyfikator LEFT oznacza Punishment.";
+        }
+        if (skillId == SkillId.ADVANCE) {
+            return "Dla Advance bazowe rozszerzenie odblokowuje Wave Dash oraz Flash of the Blade. Flash of the Blade nakłada Vulnerable po trafieniu i ustawia cooldown 8 s.";
         }
         return "Aktualne dodatkowe modyfikatory foundation dla Brandish to Powrót światłości i Krzyżowe uderzenie (Vulnerable). Bazowe rozszerzenie musi być włączone, aby użyć dodatkowego modyfikatora.";
     }

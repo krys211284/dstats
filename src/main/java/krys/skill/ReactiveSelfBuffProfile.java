@@ -2,7 +2,7 @@ package krys.skill;
 
 /**
  * Minimalny profil self-buffa reactive nakładanego przez skill na bohatera.
- * M6 wykorzystuje go do Clash bez dokładania osobnego silnika ani bocznej logiki.
+ * M7 dalej wykorzystuje go do Clash bez dokładania osobnego silnika ani bocznej logiki.
  */
 public final class ReactiveSelfBuffProfile {
     private final boolean grantsResolve;

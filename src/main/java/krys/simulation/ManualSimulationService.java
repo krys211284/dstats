@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Tickowa ręczna symulacja dla M6.
+ * Tickowa ręczna symulacja dla M7.
  * Ten sam przebieg pętli runtime liczy wynik końcowy, delayed hity, reactive damage i stepTrace.
  */
 public final class ManualSimulationService {
@@ -45,8 +45,11 @@ public final class ManualSimulationService {
         Map<SkillId, SkillHitDebugSnapshot> directHitDebugBySkill = new LinkedHashMap<>();
         long totalReactiveDamage = 0L;
         ReactiveBuffState reactiveBuffState = new ReactiveBuffState();
+        CooldownState cooldownState = new CooldownState();
+        TargetStatusState targetStatusState = new TargetStatusState();
 
         for (int second = 1; second <= horizonSeconds; second++) {
+            EnumSet<StatusId> activeTargetStatuses = targetStatusState.getActiveStatuses(second);
             long delayedDamage = 0L;
             Iterator<PendingDelayedHit> delayedIterator = pendingDelayedHits.iterator();
             while (delayedIterator.hasNext()) {
@@ -60,7 +63,7 @@ public final class ManualSimulationService {
                         pendingDelayedHit.skillDamagePercent,
                         pendingDelayedHit.delayedHitName,
                         "delayed",
-                        EnumSet.noneOf(StatusId.class)
+                        activeTargetStatuses
                 );
                 delayedDamage += delayedBreakdown.getFinalDamage();
                 delayedHitBreakdowns.add(new DelayedHitBreakdown(
@@ -93,7 +96,7 @@ public final class ManualSimulationService {
                 reactiveHitBreakdowns.add(reactiveHitBreakdown);
             }
 
-            SkillSelectionResult selectionResult = selectSkillForTick(snapshot, second, lastUsedSeconds);
+            SkillSelectionResult selectionResult = selectSkillForTick(snapshot, second, lastUsedSeconds, cooldownState);
             long directDamage = 0L;
             SimulationActionType actionType = SimulationActionType.WAIT;
             String actionName = "WAIT";
@@ -102,7 +105,7 @@ public final class ManualSimulationService {
                 actionType = SimulationActionType.SKILL;
                 actionName = selectionResult.selectedSkillName;
 
-                DamageBreakdown directHitBreakdown = damageEngine.calculate(snapshot, selectionResult.selectedSkillId, EnumSet.noneOf(StatusId.class));
+                DamageBreakdown directHitBreakdown = damageEngine.calculate(snapshot, selectionResult.selectedSkillId, activeTargetStatuses);
                 directDamage = directHitBreakdown.getFinalDamage();
                 totalDamage += directDamage;
                 lastUsedSeconds.put(selectionResult.selectedSkillId, second);
@@ -113,8 +116,8 @@ public final class ManualSimulationService {
 
                 SkillState state = snapshot.getSkillState(selectionResult.selectedSkillId);
                 SkillDef skillDef = PaladinSkillDefs.get(selectionResult.selectedSkillId);
-                if (state != null && state.isBaseUpgrade()) {
-                    for (SkillRuntimeEffect effect : skillDef.getBaseUpgradeEffects()) {
+                if (state != null) {
+                    for (SkillRuntimeEffect effect : resolvePostCastEffects(skillDef, state)) {
                         if (effect.getEffectType() == EffectType.APPLY_DELAYED_HIT
                                 && !hasActiveDelayedHit(pendingDelayedHits, effect.getComponentName())) {
                             pendingDelayedHits.add(new PendingDelayedHit(
@@ -125,7 +128,14 @@ public final class ManualSimulationService {
                                     effect.getSkillDamagePercent()
                             ));
                         }
+                        if (effect.getEffectType() == EffectType.APPLY_STATUS) {
+                            targetStatusState.apply(effect.getAppliedStatus(), second, effect.getDurationSeconds());
+                        }
                     }
+                    cooldownState.apply(selectionResult.selectedSkillId, second, resolveEffectiveCooldownSeconds(skillDef, state));
+                }
+
+                if (state != null && state.isBaseUpgrade()) {
                     applyReactiveBuffProfile(skillDef.getBaseReactiveBuffProfile(), second, reactiveBuffState);
                     applyReactiveBuffProfile(skillDef.getChoiceReactiveBuffProfile(state.getChoiceUpgrade()), second, reactiveBuffState);
                 }
@@ -196,6 +206,26 @@ public final class ManualSimulationService {
         return baseBlockChance + (reactiveBuffState.getActiveBlockChanceBonusPercent(horizonSeconds) / 100.0d);
     }
 
+    private static List<SkillRuntimeEffect> resolvePostCastEffects(SkillDef skillDef, SkillState state) {
+        if (!state.isBaseUpgrade()) {
+            return List.of();
+        }
+
+        List<SkillRuntimeEffect> effects = new ArrayList<>(skillDef.getBaseUpgradeEffects());
+        effects.addAll(skillDef.getChoiceEffects(state.getChoiceUpgrade()));
+        return effects;
+    }
+
+    private static int resolveEffectiveCooldownSeconds(SkillDef skillDef, SkillState state) {
+        int cooldownSeconds = skillDef.getCooldownSeconds();
+        for (SkillRuntimeEffect effect : resolvePostCastEffects(skillDef, state)) {
+            if (effect.getEffectType() == EffectType.SET_COOLDOWN) {
+                cooldownSeconds = Math.max(cooldownSeconds, effect.getCooldownSeconds());
+            }
+        }
+        return cooldownSeconds;
+    }
+
     private static List<SkillHitDebugSnapshot> orderDirectHitDebugSnapshots(HeroBuildSnapshot snapshot,
                                                                             Map<SkillId, SkillHitDebugSnapshot> directHitDebugBySkill) {
         List<SkillHitDebugSnapshot> ordered = new ArrayList<>();
@@ -215,7 +245,8 @@ public final class ManualSimulationService {
 
     private static SkillSelectionResult selectSkillForTick(HeroBuildSnapshot snapshot,
                                                            int second,
-                                                           Map<SkillId, Integer> lastUsedSeconds) {
+                                                           Map<SkillId, Integer> lastUsedSeconds,
+                                                           CooldownState cooldownState) {
         List<SkillEvaluation> evaluations = new ArrayList<>();
         SkillEvaluation selected = null;
 
@@ -229,7 +260,8 @@ public final class ManualSimulationService {
             Integer lastUsedSecond = lastUsedSeconds.get(skillId);
             boolean neverUsed = lastUsedSecond == null;
             boolean hasRequiredResource = skillDef.getResourceCost() <= 0;
-            boolean onCooldown = isOnCooldown(skillDef, second, lastUsedSecond);
+            boolean onCooldown = cooldownState.isOnCooldown(skillId, second);
+            int cooldownRemainingSeconds = cooldownState.getRemainingSeconds(skillId, second);
             SkillEvaluation evaluation = new SkillEvaluation(
                     skillId,
                     skillDef.getName(),
@@ -237,6 +269,7 @@ public final class ManualSimulationService {
                     rank,
                     legalActive,
                     onCooldown,
+                    cooldownRemainingSeconds,
                     hasRequiredResource,
                     neverUsed,
                     lastUsedSecond
@@ -260,6 +293,7 @@ public final class ManualSimulationService {
                     evaluation.rank,
                     evaluation.legalActive,
                     evaluation.onCooldown,
+                    evaluation.cooldownRemainingSeconds,
                     evaluation.hasRequiredResource,
                     evaluation.neverUsed,
                     evaluation.lastUsedSecond,
@@ -327,13 +361,6 @@ public final class ManualSimulationService {
         return false;
     }
 
-    private static boolean isOnCooldown(SkillDef skillDef, int second, Integer lastUsedSecond) {
-        if (skillDef.getCooldownSeconds() <= 0 || lastUsedSecond == null) {
-            return false;
-        }
-        return second <= lastUsedSecond + skillDef.getCooldownSeconds();
-    }
-
     private record PendingDelayedHit(String sourceSkillName,
                                      String delayedHitName,
                                      int appliedSecond,
@@ -383,6 +410,56 @@ public final class ManualSimulationService {
         }
     }
 
+    private static final class CooldownState {
+        private final Map<SkillId, Integer> readyAtSecondBySkill = new EnumMap<>(SkillId.class);
+
+        private void apply(SkillId skillId, int second, int cooldownSeconds) {
+            if (cooldownSeconds <= 0) {
+                readyAtSecondBySkill.remove(skillId);
+                return;
+            }
+            readyAtSecondBySkill.put(skillId, second + cooldownSeconds);
+        }
+
+        private boolean isOnCooldown(SkillId skillId, int second) {
+            Integer readyAtSecond = readyAtSecondBySkill.get(skillId);
+            return readyAtSecond != null && second < readyAtSecond;
+        }
+
+        private int getRemainingSeconds(SkillId skillId, int second) {
+            Integer readyAtSecond = readyAtSecondBySkill.get(skillId);
+            if (readyAtSecond == null) {
+                return 0;
+            }
+            return Math.max(0, readyAtSecond - second);
+        }
+    }
+
+    private static final class TargetStatusState {
+        private final Map<StatusId, Integer> expiresAtByStatus = new EnumMap<>(StatusId.class);
+
+        private void apply(StatusId statusId, int second, int durationSeconds) {
+            if (statusId == StatusId.NONE || durationSeconds <= 0) {
+                return;
+            }
+            int expiresAtSecond = second + durationSeconds;
+            Integer currentExpiry = expiresAtByStatus.get(statusId);
+            if (currentExpiry == null || expiresAtSecond > currentExpiry) {
+                expiresAtByStatus.put(statusId, expiresAtSecond);
+            }
+        }
+
+        private EnumSet<StatusId> getActiveStatuses(int second) {
+            EnumSet<StatusId> activeStatuses = EnumSet.noneOf(StatusId.class);
+            for (Map.Entry<StatusId, Integer> entry : expiresAtByStatus.entrySet()) {
+                if (entry.getKey() != StatusId.NONE && second <= entry.getValue()) {
+                    activeStatuses.add(entry.getKey());
+                }
+            }
+            return activeStatuses;
+        }
+    }
+
     private record SkillSelectionResult(SkillId selectedSkillId,
                                         String selectedSkillName,
                                         List<SkillBarStateTrace> skillBarStates,
@@ -395,6 +472,7 @@ public final class ManualSimulationService {
                                    int rank,
                                    boolean legalActive,
                                    boolean onCooldown,
+                                   int cooldownRemainingSeconds,
                                    boolean hasRequiredResource,
                                    boolean neverUsed,
                                    Integer lastUsedSecond) {

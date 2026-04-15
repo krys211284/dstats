@@ -10,6 +10,7 @@ public final class SkillRuntimeEffect {
     private final StatusId conditionStatus;
     private final StatusId appliedStatus;
     private final int durationSeconds;
+    private final int cooldownSeconds;
     private final long skillDamagePercent;
     private final int hitCount;
     private final boolean includedInSingleTarget;
@@ -19,6 +20,7 @@ public final class SkillRuntimeEffect {
                                StatusId conditionStatus,
                                StatusId appliedStatus,
                                int durationSeconds,
+                               int cooldownSeconds,
                                long skillDamagePercent,
                                int hitCount,
                                boolean includedInSingleTarget) {
@@ -27,25 +29,30 @@ public final class SkillRuntimeEffect {
         this.conditionStatus = conditionStatus;
         this.appliedStatus = appliedStatus;
         this.durationSeconds = durationSeconds;
+        this.cooldownSeconds = cooldownSeconds;
         this.skillDamagePercent = skillDamagePercent;
         this.hitCount = hitCount;
         this.includedInSingleTarget = includedInSingleTarget;
     }
 
     public static SkillRuntimeEffect replaceBaseDamage(String componentName, StatusId conditionStatus, long skillDamagePercent) {
-        return new SkillRuntimeEffect(EffectType.REPLACE_BASE_DAMAGE, componentName, conditionStatus, StatusId.NONE, 0, skillDamagePercent, 1, true);
+        return new SkillRuntimeEffect(EffectType.REPLACE_BASE_DAMAGE, componentName, conditionStatus, StatusId.NONE, 0, 0, skillDamagePercent, 1, true);
     }
 
     public static SkillRuntimeEffect damage(String componentName, StatusId conditionStatus, long skillDamagePercent, int hitCount, boolean includedInSingleTarget) {
-        return new SkillRuntimeEffect(EffectType.DAMAGE, componentName, conditionStatus, StatusId.NONE, 0, skillDamagePercent, hitCount, includedInSingleTarget);
+        return new SkillRuntimeEffect(EffectType.DAMAGE, componentName, conditionStatus, StatusId.NONE, 0, 0, skillDamagePercent, hitCount, includedInSingleTarget);
     }
 
     public static SkillRuntimeEffect applyStatus(StatusId appliedStatus, int durationSeconds) {
-        return new SkillRuntimeEffect(EffectType.APPLY_STATUS, "Nałożenie statusu", StatusId.NONE, appliedStatus, durationSeconds, 0, 0, false);
+        return new SkillRuntimeEffect(EffectType.APPLY_STATUS, "Nałożenie statusu", StatusId.NONE, appliedStatus, durationSeconds, 0, 0, 0, false);
     }
 
     public static SkillRuntimeEffect applyDelayedHit(String componentName, int delaySeconds, long skillDamagePercent) {
-        return new SkillRuntimeEffect(EffectType.APPLY_DELAYED_HIT, componentName, StatusId.NONE, StatusId.NONE, delaySeconds, skillDamagePercent, 1, true);
+        return new SkillRuntimeEffect(EffectType.APPLY_DELAYED_HIT, componentName, StatusId.NONE, StatusId.NONE, delaySeconds, 0, skillDamagePercent, 1, true);
+    }
+
+    public static SkillRuntimeEffect setCooldown(int cooldownSeconds) {
+        return new SkillRuntimeEffect(EffectType.SET_COOLDOWN, "Ustawienie cooldownu", StatusId.NONE, StatusId.NONE, 0, cooldownSeconds, 0, 0, false);
     }
 
     public EffectType getEffectType() {
@@ -66,6 +73,10 @@ public final class SkillRuntimeEffect {
 
     public int getDurationSeconds() {
         return durationSeconds;
+    }
+
+    public int getCooldownSeconds() {
+        return cooldownSeconds;
     }
 
     public long getSkillDamagePercent() {

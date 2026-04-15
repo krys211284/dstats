@@ -2,7 +2,7 @@ package krys.combat;
 
 /**
  * Debug pojedynczego zdarzenia reactive damage wywołanego trafieniem przeciwnika.
- * M6 rozszerza foundation o Clash, Resolve i czasowy bonus do Thorns bez osobnego silnika reactive.
+ * M7 zachowuje reactive foundation z M6 i dalej używa tego samego modelu bez osobnego silnika reactive.
  */
 public final class ReactiveHitBreakdown {
     private final int triggeredSecond;

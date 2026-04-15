@@ -4,7 +4,7 @@ import krys.simulation.HeroBuildSnapshot;
 import krys.simulation.SimulationResult;
 import krys.skill.SkillState;
 
-/** Wynik aplikacyjny flow „Policz aktualny build” oparty na wspólnym runtime M6. */
+/** Wynik aplikacyjny flow „Policz aktualny build” oparty na wspólnym runtime M7. */
 public final class CurrentBuildCalculation {
     private final CurrentBuildRequest request;
     private final SkillState skillState;

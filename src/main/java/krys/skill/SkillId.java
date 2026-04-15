@@ -4,5 +4,6 @@ package krys.skill;
 public enum SkillId {
     BRANDISH,
     HOLY_BOLT,
-    CLASH
+    CLASH,
+    ADVANCE
 }

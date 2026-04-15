@@ -133,6 +133,33 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("Punishment"));
     }
 
+    @Test
+    void shouldRenderAdvanceScenarioWithCooldownAndWait() throws Exception {
+        HttpResponse<String> response = sendPost(
+                "/policz-aktualny-build",
+                Map.of(
+                        "skillId", "ADVANCE",
+                        "rank", "5",
+                        "baseUpgrade", "true",
+                        "choiceUpgrade", "RIGHT",
+                        "horizonSeconds", "10"
+                )
+        );
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Advance"));
+        assertTrue(response.body().contains("Flash of the Blade"));
+        assertTrue(response.body().contains("Total damage"));
+        assertTrue(response.body().contains("186"));
+        assertTrue(response.body().contains("Debug bezpośrednich hitów"));
+        assertTrue(response.body().contains(">322<"));
+        assertTrue(response.body().contains(">33<"));
+        assertTrue(response.body().contains("Step trace"));
+        assertTrue(response.body().contains("WAIT"));
+        assertTrue(response.body().contains("cooldown=true"));
+        assertTrue(response.body().contains("cooldownRemaining=7"));
+    }
+
     private HttpResponse<String> sendGet(String path) throws Exception {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + path))

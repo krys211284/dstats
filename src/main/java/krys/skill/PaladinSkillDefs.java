@@ -53,6 +53,19 @@ public final class PaladinSkillDefs {
             ),
             createClashChoiceDisplayNames()
     );
+    private static final SkillDef ADVANCE = new SkillDef(
+            SkillId.ADVANCE,
+            "Advance",
+            0,
+            0,
+            new long[]{147, 147, 147, 147, 147},
+            List.of(),
+            createAdvanceEffects(),
+            Map.of(),
+            null,
+            Map.of(),
+            createAdvanceChoiceDisplayNames()
+    );
 
     private PaladinSkillDefs() {
     }
@@ -62,6 +75,7 @@ public final class PaladinSkillDefs {
             case BRANDISH -> BRANDISH;
             case HOLY_BOLT -> HOLY_BOLT;
             case CLASH -> CLASH;
+            case ADVANCE -> ADVANCE;
         };
     }
 
@@ -108,6 +122,26 @@ public final class PaladinSkillDefs {
     private static Map<SkillUpgradeChoice, String> createClashChoiceDisplayNames() {
         Map<SkillUpgradeChoice, String> labels = new EnumMap<>(SkillUpgradeChoice.class);
         labels.put(SkillUpgradeChoice.LEFT, "Punishment");
+        return labels;
+    }
+
+    private static Map<SkillUpgradeChoice, List<SkillRuntimeEffect>> createAdvanceEffects() {
+        Map<SkillUpgradeChoice, List<SkillRuntimeEffect>> effects = new EnumMap<>(SkillUpgradeChoice.class);
+        effects.put(SkillUpgradeChoice.LEFT, List.of(
+                SkillRuntimeEffect.damage("Wave Dash", StatusId.NONE, 191, 1, true)
+        ));
+        effects.put(SkillUpgradeChoice.RIGHT, List.of(
+                SkillRuntimeEffect.replaceBaseDamage("Główny hit", StatusId.NONE, 322),
+                SkillRuntimeEffect.applyStatus(StatusId.VULNERABLE, 2),
+                SkillRuntimeEffect.setCooldown(8)
+        ));
+        return effects;
+    }
+
+    private static Map<SkillUpgradeChoice, String> createAdvanceChoiceDisplayNames() {
+        Map<SkillUpgradeChoice, String> labels = new EnumMap<>(SkillUpgradeChoice.class);
+        labels.put(SkillUpgradeChoice.LEFT, "Wave Dash");
+        labels.put(SkillUpgradeChoice.RIGHT, "Flash of the Blade");
         return labels;
     }
 }
