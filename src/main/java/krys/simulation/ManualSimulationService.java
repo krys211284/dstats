@@ -3,6 +3,7 @@ package krys.simulation;
 import krys.combat.DamageBreakdown;
 import krys.combat.DamageEngine;
 import krys.combat.DelayedHitBreakdown;
+import krys.combat.ReactiveHitBreakdown;
 import krys.skill.EffectType;
 import krys.skill.PaladinSkillDefs;
 import krys.skill.SkillDef;
@@ -20,10 +21,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Tickowa ręczna symulacja dla M3.
- * Ten sam przebieg pętli runtime liczy wynik końcowy, delayed hity i stepTrace.
+ * Tickowa ręczna symulacja dla M5a.
+ * Ten sam przebieg pętli runtime liczy wynik końcowy, delayed hity, reactive damage i stepTrace.
  */
 public final class ManualSimulationService {
+    private static final String TICK_ORDER_LABEL = "delayed -> reactive -> active cast";
     private final DamageEngine damageEngine;
 
     public ManualSimulationService(DamageEngine damageEngine) {
@@ -33,10 +35,12 @@ public final class ManualSimulationService {
     public SimulationResult calculateCurrentBuild(HeroBuildSnapshot snapshot, int horizonSeconds) {
         long totalDamage = 0L;
         List<DelayedHitBreakdown> delayedHitBreakdowns = new ArrayList<>();
+        List<ReactiveHitBreakdown> reactiveHitBreakdowns = new ArrayList<>();
         List<SimulationStepTrace> stepTrace = new ArrayList<>();
         List<PendingDelayedHit> pendingDelayedHits = new ArrayList<>();
         Map<SkillId, Integer> lastUsedSeconds = new EnumMap<>(SkillId.class);
         Map<SkillId, SkillHitDebugSnapshot> directHitDebugBySkill = new LinkedHashMap<>();
+        long totalReactiveDamage = 0L;
 
         for (int second = 1; second <= horizonSeconds; second++) {
             long delayedDamage = 0L;
@@ -67,6 +71,15 @@ public final class ManualSimulationService {
                 delayedIterator.remove();
             }
             totalDamage += delayedDamage;
+
+            long reactiveDamage = 0L;
+            if (isEnemyHitSecond(second) && damageEngine.hasReactiveFoundation(snapshot)) {
+                ReactiveHitBreakdown reactiveHitBreakdown = damageEngine.calculateReactiveHit(snapshot, second);
+                reactiveDamage = reactiveHitBreakdown.getReactiveFinalDamage();
+                totalDamage += reactiveDamage;
+                totalReactiveDamage += reactiveDamage;
+                reactiveHitBreakdowns.add(reactiveHitBreakdown);
+            }
 
             SkillSelectionResult selectionResult = selectSkillForTick(snapshot, second, lastUsedSeconds);
             long directDamage = 0L;
@@ -104,17 +117,19 @@ public final class ManualSimulationService {
                 }
             }
 
-            long totalStepDamage = delayedDamage + directDamage;
+            long totalStepDamage = delayedDamage + reactiveDamage + directDamage;
             stepTrace.add(new SimulationStepTrace(
                     second,
                     actionType,
                     actionName,
                     directDamage,
                     delayedDamage,
+                    reactiveDamage,
                     totalStepDamage,
                     totalDamage,
                     selectionResult.skillBarStates,
-                    selectionResult.selectionReason
+                    selectionResult.selectionReason,
+                    TICK_ORDER_LABEL
             ));
         }
 
@@ -137,9 +152,15 @@ public final class ManualSimulationService {
                 horizonSeconds,
                 orderDirectHitDebugSnapshots(snapshot, directHitDebugBySkill),
                 delayedHitBreakdowns,
+                reactiveHitBreakdowns,
+                totalReactiveDamage,
                 stepTrace,
                 hasActiveDelayedHit(pendingDelayedHits, "Judgement")
         );
+    }
+
+    static boolean isEnemyHitSecond(int second) {
+        return second >= 3 && second % 3 == 0;
     }
 
     private static List<SkillHitDebugSnapshot> orderDirectHitDebugSnapshots(HeroBuildSnapshot snapshot,

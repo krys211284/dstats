@@ -4,6 +4,7 @@ import krys.app.CurrentBuildCalculation;
 import krys.combat.DamageBreakdown;
 import krys.combat.DamageComponentBreakdown;
 import krys.combat.DelayedHitBreakdown;
+import krys.combat.ReactiveHitBreakdown;
 import krys.simulation.SimulationStepTrace;
 import krys.simulation.SkillBarStateTrace;
 import krys.simulation.SkillHitDebugSnapshot;
@@ -94,6 +95,7 @@ public final class CurrentBuildPageRenderer {
         html.append(renderSummaryCard("Horyzont", calculation.getRequest().getHorizonSeconds() + " s"));
         html.append(renderSummaryCard("Total damage", Long.toString(calculation.getResult().getTotalDamage())));
         html.append(renderSummaryCard("DPS", String.format(Locale.US, "%.4f", calculation.getResult().getDps())));
+        html.append(renderSummaryCard("Reactive contribution", Long.toString(calculation.getResult().getTotalReactiveDamage())));
         html.append(renderSummaryCard("Judgement aktywny na końcu", calculation.getResult().isJudgementActiveAtEnd() ? "Tak" : "Nie"));
         html.append("""
                     </div>
@@ -101,6 +103,7 @@ public final class CurrentBuildPageRenderer {
                 """);
         html.append(renderDirectHitDebug(calculation));
         html.append(renderDelayedHitDebug(calculation));
+        html.append(renderReactiveDebug(calculation));
         html.append(renderStepTrace(calculation));
         return html.toString();
     }
@@ -223,6 +226,52 @@ public final class CurrentBuildPageRenderer {
         return html.toString();
     }
 
+    private static String renderReactiveDebug(CurrentBuildCalculation calculation) {
+        StringBuilder html = new StringBuilder("""
+                <section class="panel result-panel">
+                    <h2>Reactive debug</h2>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Sekunda</th>
+                                <th>Thorns raw</th>
+                                <th>Thorns final</th>
+                                <th>Retribution expected raw</th>
+                                <th>Retribution expected final</th>
+                                <th>Reactive final</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                """);
+        if (calculation.getResult().getReactiveHitBreakdowns().isEmpty()) {
+            html.append("""
+                    <tr>
+                        <td colspan="6">Brak reactive damage.</td>
+                    </tr>
+                    """);
+        } else {
+            for (ReactiveHitBreakdown entry : calculation.getResult().getReactiveHitBreakdowns()) {
+                html.append("<tr>")
+                        .append("<td>t=").append(entry.getTriggeredSecond()).append("</td>")
+                        .append("<td>").append(entry.getThornsRawDamage()).append("</td>")
+                        .append("<td>").append(entry.getThornsFinalDamage()).append("</td>")
+                        .append("<td>").append(entry.getRetributionExpectedRawDamage()).append("</td>")
+                        .append("<td>").append(entry.getRetributionExpectedFinalDamage()).append("</td>")
+                        .append("<td>").append(entry.getReactiveFinalDamage()).append("</td>")
+                        .append("</tr>");
+            }
+            html.append("<tr><td colspan=\"5\"><strong>Reactive total</strong></td><td><strong>")
+                    .append(calculation.getResult().getTotalReactiveDamage())
+                    .append("</strong></td></tr>");
+        }
+        html.append("""
+                        </tbody>
+                    </table>
+                </section>
+                """);
+        return html.toString();
+    }
+
     private static String renderStepTrace(CurrentBuildCalculation calculation) {
         StringBuilder html = new StringBuilder("""
                 <section class="panel result-panel">
@@ -234,8 +283,10 @@ public final class CurrentBuildPageRenderer {
                                 <th>Akcja</th>
                                 <th>Direct</th>
                                 <th>Delayed</th>
+                                <th>Reactive</th>
                                 <th>Krok</th>
                                 <th>Cumulative</th>
+                                <th>Tick order</th>
                                 <th>Selection reason</th>
                                 <th>Stan paska</th>
                             </tr>
@@ -248,8 +299,10 @@ public final class CurrentBuildPageRenderer {
                     .append("<td>").append(escapeHtml(step.getActionName())).append("</td>")
                     .append("<td>").append(step.getDirectDamage()).append("</td>")
                     .append("<td>").append(step.getDelayedDamage()).append("</td>")
+                    .append("<td>").append(step.getReactiveDamage()).append("</td>")
                     .append("<td>").append(step.getTotalStepDamage()).append("</td>")
                     .append("<td>").append(step.getCumulativeDamage()).append("</td>")
+                    .append("<td>").append(escapeHtml(step.getTickOrderLabel())).append("</td>")
                     .append("<td>").append(escapeHtml(step.getSelectionReason())).append("</td>")
                     .append("<td>").append(renderSkillBarStates(step.getSkillBarStates())).append("</td>")
                     .append("</tr>");
@@ -302,7 +355,7 @@ public final class CurrentBuildPageRenderer {
             }
             return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException exception) {
-            throw new IllegalStateException("Nie udało się wczytać szablonu strony M4", exception);
+            throw new IllegalStateException("Nie udało się wczytać szablonu strony M5a", exception);
         }
     }
 }

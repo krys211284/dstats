@@ -20,7 +20,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-/** Kontroler HTTP dla pierwszego klikalnego GUI M4. */
+/** Kontroler HTTP dla pierwszego klikalnego GUI M5a. */
 public final class CurrentBuildController implements HttpHandler {
     private static final String HTML_CONTENT_TYPE = "text/html; charset=UTF-8";
 
@@ -175,7 +175,7 @@ public final class CurrentBuildController implements HttpHandler {
         try {
             int rank = Integer.parseInt(rawRank);
             if (rank < 1 || rank > 5) {
-                errors.add("Rank skilla w GUI M4 musi mieścić się w zakresie 1..5.");
+                errors.add("Rank skilla w GUI musi mieścić się w zakresie 1..5.");
                 return null;
             }
             return rank;

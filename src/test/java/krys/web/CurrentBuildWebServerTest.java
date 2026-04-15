@@ -17,7 +17,7 @@ import java.util.StringJoiner;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Testy M4 pokrywają endpoint formularza i podstawowy render wyniku bez powielania logiki runtime. */
+/** Testy M5a pokrywają endpoint formularza i podstawowy render wyniku bez powielania logiki runtime. */
 class CurrentBuildWebServerTest {
     private CurrentBuildWebServer webServer;
     private HttpClient httpClient;
@@ -66,10 +66,18 @@ class CurrentBuildWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Total damage"));
-        assertTrue(response.body().contains(">932<"));
+        assertTrue(response.body().contains(">1732<"));
         assertTrue(response.body().contains("DPS"));
         assertTrue(response.body().contains("Debug bezpośrednich hitów"));
         assertTrue(response.body().contains("Delayed hit debug"));
+        assertTrue(response.body().contains("Reactive debug"));
+        assertTrue(response.body().contains("Reactive contribution"));
+        assertTrue(response.body().contains(">800<"));
+        assertTrue(response.body().contains(">52<"));
+        assertTrue(response.body().contains(">32<"));
+        assertTrue(response.body().contains(">13<"));
+        assertTrue(response.body().contains(">8<"));
+        assertTrue(response.body().contains(">40<"));
         assertTrue(response.body().contains("Step trace"));
         assertTrue(response.body().contains("Judgement"));
         assertTrue(response.body().contains("Holy Bolt"));

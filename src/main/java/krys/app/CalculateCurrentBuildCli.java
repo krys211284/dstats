@@ -4,6 +4,7 @@ import krys.combat.DamageBreakdown;
 import krys.combat.DamageComponentBreakdown;
 import krys.combat.DamageEngine;
 import krys.combat.DelayedHitBreakdown;
+import krys.combat.ReactiveHitBreakdown;
 import krys.simulation.ManualSimulationService;
 import krys.simulation.SimulationResult;
 import krys.simulation.SimulationStepTrace;
@@ -57,6 +58,7 @@ public final class CalculateCurrentBuildCli {
         System.out.println();
         System.out.println("Total damage: " + result.getTotalDamage());
         System.out.println("DPS: " + String.format(Locale.US, "%.4f", result.getDps()));
+        System.out.println("Reactive contribution: " + result.getTotalReactiveDamage());
         System.out.println("Judgement aktywny na koniec: " + (result.isJudgementActiveAtEnd() ? "tak" : "nie"));
         System.out.println();
 
@@ -104,6 +106,21 @@ public final class CalculateCurrentBuildCli {
             }
         }
 
+        System.out.println("== Reactive debug ==");
+        if (result.getReactiveHitBreakdowns().isEmpty()) {
+            System.out.println("Brak reactive damage.");
+        } else {
+            for (ReactiveHitBreakdown entry : result.getReactiveHitBreakdowns()) {
+                System.out.println("- enemy hit t=" + entry.getTriggeredSecond()
+                        + " | thornsRaw=" + entry.getThornsRawDamage()
+                        + " | thornsFinal=" + entry.getThornsFinalDamage()
+                        + " | retributionExpectedRaw=" + entry.getRetributionExpectedRawDamage()
+                        + " | retributionExpectedFinal=" + entry.getRetributionExpectedFinalDamage()
+                        + " | reactiveFinal=" + entry.getReactiveFinalDamage());
+            }
+            System.out.println("Reactive total: " + result.getTotalReactiveDamage());
+        }
+
         if (showTrace) {
             System.out.println();
             System.out.println("== Step trace ==");
@@ -112,8 +129,10 @@ public final class CalculateCurrentBuildCli {
                         + " | action=" + step.getActionName()
                         + " | direct=" + step.getDirectDamage()
                         + " | delayed=" + step.getDelayedDamage()
+                        + " | reactive=" + step.getReactiveDamage()
                         + " | step=" + step.getTotalStepDamage()
                         + " | cumulative=" + step.getCumulativeDamage());
+                System.out.println("  tickOrder=" + step.getTickOrderLabel());
                 System.out.println("  reason=" + step.getSelectionReason());
                 for (SkillBarStateTrace barState : step.getSkillBarStates()) {
                     System.out.println("  skill=" + barState.getSkillName()

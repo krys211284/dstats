@@ -11,7 +11,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 
-/** Najprostszy lokalny serwer HTTP dla M4 uruchamiający SSR nad istniejącym runtime M3. */
+/** Najprostszy lokalny serwer HTTP dla M5a uruchamiający SSR nad istniejącym runtime M5a. */
 public final class CurrentBuildWebServer implements AutoCloseable {
     private final HttpServer server;
 
@@ -47,7 +47,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
         int port = parsePort(args);
         CurrentBuildWebServer webServer = new CurrentBuildWebServer(port);
         webServer.start();
-        System.out.println("GUI M4 dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/policz-aktualny-build");
+        System.out.println("GUI M5a dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/policz-aktualny-build");
 
         synchronized (CurrentBuildWebServer.class) {
             CurrentBuildWebServer.class.wait();

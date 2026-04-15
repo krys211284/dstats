@@ -28,6 +28,47 @@ public final class DamageEngine {
     private static final double CRIT_DAMAGE_FROM_INTELLIGENCE_FACTOR = 0.0004d;
     private static final double VULNERABLE_MULTIPLIER = 1.20d;
 
+    public ReactiveHitBreakdown calculateReactiveHit(HeroBuildSnapshot snapshot, int triggeredSecond) {
+        Hero hero = snapshot.getHero();
+        HeroClassDef classDef = HeroClassDefs.get(hero.getHeroClass());
+        List<Item> equippedItems = snapshot.getEquippedItems();
+
+        double baseThornsFromBuild = Item.sumStat(equippedItems, ItemStatType.THORNS);
+        double mainStatMultiplier = classDef.resolveMainStatMultiplier(hero.getLevel(), equippedItems);
+        double blockChance = Item.sumStat(equippedItems, ItemStatType.BLOCK_CHANCE) / 100.0d;
+        double retributionChance = Item.sumStat(equippedItems, ItemStatType.RETRIBUTION_CHANCE) / 100.0d;
+        double levelDamageReduction = Math.min(85.0d, hero.getLevel() + 25.0d) / 100.0d;
+
+        double thornsRawExact = baseThornsFromBuild * mainStatMultiplier;
+        double retributionRawExact = thornsRawExact * blockChance * retributionChance;
+
+        long thornsRawDamage = Math.round(thornsRawExact);
+        long thornsFinalDamage = Math.round(thornsRawExact * (1.0d - levelDamageReduction));
+        long retributionExpectedRawDamage = Math.round(retributionRawExact);
+        long retributionExpectedFinalDamage = Math.round(retributionRawExact * (1.0d - levelDamageReduction));
+        long reactiveFinalDamage = thornsFinalDamage + retributionExpectedFinalDamage;
+
+        return new ReactiveHitBreakdown(
+                triggeredSecond,
+                baseThornsFromBuild,
+                mainStatMultiplier,
+                blockChance,
+                retributionChance,
+                thornsRawDamage,
+                thornsFinalDamage,
+                retributionExpectedRawDamage,
+                retributionExpectedFinalDamage,
+                reactiveFinalDamage
+        );
+    }
+
+    public boolean hasReactiveFoundation(HeroBuildSnapshot snapshot) {
+        List<Item> equippedItems = snapshot.getEquippedItems();
+        return Item.sumStat(equippedItems, ItemStatType.THORNS) > 0.0d
+                || Item.sumStat(equippedItems, ItemStatType.BLOCK_CHANCE) > 0.0d
+                || Item.sumStat(equippedItems, ItemStatType.RETRIBUTION_CHANCE) > 0.0d;
+    }
+
     public DamageBreakdown calculate(HeroBuildSnapshot snapshot, SkillId skillId, EnumSet<StatusId> targetStatuses) {
         SkillState state = snapshot.getSkillState(skillId);
         if (state == null || state.getRank() <= 0) {

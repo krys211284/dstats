@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Model widoku pojedynczej strony M4 dla flow „Policz aktualny build”. */
+/** Model widoku pojedynczej strony M5a dla flow „Policz aktualny build”. */
 public final class CurrentBuildPageModel {
     private final CurrentBuildFormData formData;
     private final List<SelectOption> skillOptions;

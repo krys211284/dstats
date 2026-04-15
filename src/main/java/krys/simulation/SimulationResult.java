@@ -1,7 +1,7 @@
 package krys.simulation;
 
-import krys.combat.DamageBreakdown;
 import krys.combat.DelayedHitBreakdown;
+import krys.combat.ReactiveHitBreakdown;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,6 +14,8 @@ public final class SimulationResult {
     private final int horizonSeconds;
     private final List<SkillHitDebugSnapshot> directHitDebugSnapshots;
     private final List<DelayedHitBreakdown> delayedHitBreakdowns;
+    private final List<ReactiveHitBreakdown> reactiveHitBreakdowns;
+    private final long totalReactiveDamage;
     private final List<SimulationStepTrace> stepTrace;
     private final boolean judgementActiveAtEnd;
 
@@ -22,6 +24,8 @@ public final class SimulationResult {
                             int horizonSeconds,
                             List<SkillHitDebugSnapshot> directHitDebugSnapshots,
                             List<DelayedHitBreakdown> delayedHitBreakdowns,
+                            List<ReactiveHitBreakdown> reactiveHitBreakdowns,
+                            long totalReactiveDamage,
                             List<SimulationStepTrace> stepTrace,
                             boolean judgementActiveAtEnd) {
         this.totalDamage = totalDamage;
@@ -29,6 +33,8 @@ public final class SimulationResult {
         this.horizonSeconds = horizonSeconds;
         this.directHitDebugSnapshots = Collections.unmodifiableList(new ArrayList<>(directHitDebugSnapshots));
         this.delayedHitBreakdowns = Collections.unmodifiableList(new ArrayList<>(delayedHitBreakdowns));
+        this.reactiveHitBreakdowns = Collections.unmodifiableList(new ArrayList<>(reactiveHitBreakdowns));
+        this.totalReactiveDamage = totalReactiveDamage;
         this.stepTrace = Collections.unmodifiableList(new ArrayList<>(stepTrace));
         this.judgementActiveAtEnd = judgementActiveAtEnd;
     }
@@ -51,6 +57,14 @@ public final class SimulationResult {
 
     public List<DelayedHitBreakdown> getDelayedHitBreakdowns() {
         return delayedHitBreakdowns;
+    }
+
+    public List<ReactiveHitBreakdown> getReactiveHitBreakdowns() {
+        return reactiveHitBreakdowns;
+    }
+
+    public long getTotalReactiveDamage() {
+        return totalReactiveDamage;
     }
 
     public List<SimulationStepTrace> getStepTrace() {

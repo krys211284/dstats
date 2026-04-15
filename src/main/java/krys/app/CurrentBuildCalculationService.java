@@ -5,7 +5,7 @@ import krys.simulation.ManualSimulationService;
 import krys.simulation.SimulationResult;
 import krys.skill.SkillState;
 
-/** Cienka warstwa aplikacyjna budująca snapshot i uruchamiająca istniejący runtime M3. */
+/** Cienka warstwa aplikacyjna budująca snapshot i uruchamiająca istniejący runtime M5a. */
 public final class CurrentBuildCalculationService {
     private final ManualSimulationService manualSimulationService;
 
@@ -20,7 +20,7 @@ public final class CurrentBuildCalculationService {
                 request.isBaseUpgrade(),
                 request.getChoiceUpgrade()
         );
-        HeroBuildSnapshot snapshot = SampleBuildFactory.createReferenceCurrentBuild(skillState);
+        HeroBuildSnapshot snapshot = SampleBuildFactory.createReferenceReactiveCurrentBuild(skillState);
         SimulationResult result = manualSimulationService.calculateCurrentBuild(snapshot, request.getHorizonSeconds());
         return new CurrentBuildCalculation(request, skillState, snapshot, result);
     }

@@ -23,7 +23,21 @@ public final class SampleBuildFactory {
         return createReferenceCurrentBuild(List.of(selectedSkillState), List.of(selectedSkillState.getSkillId()));
     }
 
+    public static HeroBuildSnapshot createReferenceReactiveCurrentBuild(SkillState selectedSkillState) {
+        return createReferenceReactiveCurrentBuild(List.of(selectedSkillState), List.of(selectedSkillState.getSkillId()));
+    }
+
     public static HeroBuildSnapshot createReferenceCurrentBuild(List<SkillState> learnedSkills, List<SkillId> selectedSkillBar) {
+        return createReferenceBuild(learnedSkills, selectedSkillBar, false);
+    }
+
+    public static HeroBuildSnapshot createReferenceReactiveCurrentBuild(List<SkillState> learnedSkills, List<SkillId> selectedSkillBar) {
+        return createReferenceBuild(learnedSkills, selectedSkillBar, true);
+    }
+
+    private static HeroBuildSnapshot createReferenceBuild(List<SkillState> learnedSkills,
+                                                          List<SkillId> selectedSkillBar,
+                                                          boolean includeReactiveFoundation) {
         Hero hero = new Hero(1, "Krys", 13, HeroClass.PALADIN);
         List<Item> items = List.of(
                 new Item(1, "Short Sword", EquipmentSlot.MAIN_HAND, List.of(
@@ -31,13 +45,16 @@ public final class SampleBuildFactory {
                 )),
                 new Item(2, "Shield", EquipmentSlot.OFF_HAND, List.of(
                         new ItemStat(ItemStatType.MAIN_HAND_WEAPON_DAMAGE, 100.0d),
-                        new ItemStat(ItemStatType.STRENGTH, 7.0d)
+                        new ItemStat(ItemStatType.STRENGTH, 7.0d),
+                        new ItemStat(ItemStatType.THORNS, includeReactiveFoundation ? 50.0d : 0.0d),
+                        new ItemStat(ItemStatType.BLOCK_CHANCE, includeReactiveFoundation ? 50.0d : 0.0d)
                 )),
                 new Item(3, "Armor", EquipmentSlot.CHEST, List.of(
                         new ItemStat(ItemStatType.STRENGTH, 8.0d)
                 )),
                 new Item(4, "Ring of Strength", EquipmentSlot.RING, List.of(
-                new ItemStat(ItemStatType.STRENGTH, 3.0d)
+                new ItemStat(ItemStatType.STRENGTH, 3.0d),
+                new ItemStat(ItemStatType.RETRIBUTION_CHANCE, includeReactiveFoundation ? 50.0d : 0.0d)
                 ))
         );
 

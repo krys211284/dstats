@@ -11,29 +11,35 @@ public final class SimulationStepTrace {
     private final String actionName;
     private final long directDamage;
     private final long delayedDamage;
+    private final long reactiveDamage;
     private final long totalStepDamage;
     private final long cumulativeDamage;
     private final List<SkillBarStateTrace> skillBarStates;
     private final String selectionReason;
+    private final String tickOrderLabel;
 
     public SimulationStepTrace(int second,
                                SimulationActionType actionType,
                                String actionName,
                                long directDamage,
                                long delayedDamage,
+                               long reactiveDamage,
                                long totalStepDamage,
                                long cumulativeDamage,
                                List<SkillBarStateTrace> skillBarStates,
-                               String selectionReason) {
+                               String selectionReason,
+                               String tickOrderLabel) {
         this.second = second;
         this.actionType = actionType;
         this.actionName = actionName;
         this.directDamage = directDamage;
         this.delayedDamage = delayedDamage;
+        this.reactiveDamage = reactiveDamage;
         this.totalStepDamage = totalStepDamage;
         this.cumulativeDamage = cumulativeDamage;
         this.skillBarStates = Collections.unmodifiableList(new ArrayList<>(skillBarStates));
         this.selectionReason = selectionReason;
+        this.tickOrderLabel = tickOrderLabel;
     }
 
     public int getSecond() {
@@ -56,6 +62,10 @@ public final class SimulationStepTrace {
         return delayedDamage;
     }
 
+    public long getReactiveDamage() {
+        return reactiveDamage;
+    }
+
     public long getTotalStepDamage() {
         return totalStepDamage;
     }
@@ -70,5 +80,9 @@ public final class SimulationStepTrace {
 
     public String getSelectionReason() {
         return selectionReason;
+    }
+
+    public String getTickOrderLabel() {
+        return tickOrderLabel;
     }
 }
