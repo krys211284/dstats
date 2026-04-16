@@ -6,7 +6,7 @@ Ten README opisuje wyłącznie aktualny stan projektu. Jest kontraktem wykonawcz
 ## Podsumowanie redakcyjne
 - Scalono logicznie jeden wspólny kontrakt runtime dla `Damage Engine`, manual simulation i build search, jeden model statusów i targetowania single target, jeden kontrakt debugowania wyników oraz jeden kontrakt testów i golden values.
 - Celowo pominięto historię wersji, tymczasowe poprawki techniczne, log błędów UI/CRUD, duplikaty tych samych reguł, komentarze typu "po tej rundzie testów" oraz zapisy później zastąpione nowszą regułą.
-- Rozstrzygnięte konflikty źródeł: dokumentacja i UI używają nazwy `Vulnerable`, a historyczne `Exposed` pozostaje wyłącznie aliasem technicznym; search ocenia `build + skill bar` bez permutacji slotów; modyfikatory typu `replace` podmieniają bazowy hit tam, gdzie finalna reguła tak stanowi; czas trwania statusów wynika z definicji konkretnego efektu, a nie z niespójnych ogólnych zapisów historycznych.
+- Rozstrzygnięte konflikty źródeł: dokumentacja i UI używają nazwy `Vulnerable`, a historyczne `Exposed` pozostaje wyłącznie aliasem technicznym; search ocenia `build + skill bar`, a kolejność paska pozostaje semantyczna przez `LRU`; modyfikatory typu `replace` podmieniają bazowy hit tam, gdzie finalna reguła tak stanowi; czas trwania statusów wynika z definicji konkretnego efektu, a nie z niespójnych ogólnych zapisów historycznych.
 
 ## 1. Cel projektu
 Projekt służy do deterministycznego liczenia obrażeń Paladina w modelu single target oraz jest przygotowywany architektonicznie pod późniejsze wyszukiwanie najlepszego legalnego buildu.
@@ -15,7 +15,7 @@ Docelowo system ma wspierać dwa tryby pracy:
 - `Policz aktualny build` - manual simulation dla aktualnej konfiguracji bohatera.
 - `Znajdź najlepszy build` - build search oceniający legalne buildy i legalne konfiguracje paska skilli.
 
-Aktualny stan repo odpowiada foundation `M8` i obejmuje:
+Aktualny stan repo odpowiada foundation `M9` i obejmuje:
 - minimalny wspólny silnik pojedynczego uderzenia dla `Brandish` i `Holy Bolt`,
 - pierwszy pełny use case cooldownowego direct-hit runtime dla `Advance`,
 - pełny pierwszy use case reactive foundation dla `Clash`,
@@ -26,10 +26,13 @@ Aktualny stan repo odpowiada foundation `M8` i obejmuje:
 - realny model wejścia użytkownika oparty o `CurrentBuildRequest`,
 - `CurrentBuildSnapshotFactory` budujący `HeroBuildSnapshot` z realnych danych wejściowych użytkownika,
 - wspólną usługę aplikacyjną `CurrentBuildCalculationService` nad istniejącym runtime,
+- osobną warstwę aplikacyjną backendowego searcha opartą o `BuildSearchRequest`,
+- generator legalnych kandydatów searcha obejmujący aktualny foundation skilli i action bara,
+- ranking kandydatów po `total damage` i `DPS` liczonych przez ten sam runtime,
 - minimalne webowe GUI SSR dla trybu `Policz aktualny build`,
-- CLI pozostające równoległym smoke testem tego samego runtime.
+- CLI dla manual simulation oraz osobne CLI backendowego searcha jako równoległe smoke testy tego samego runtime.
 
-Build search, pełny system zasobów, pełny system defensywnych statusów, pełne feature'y `Fervor`, pełny ogólny system `Resolve`, `Fala Zealot` oraz pełna docelowa warstwa UI pozostają poza bieżącym zakresem kodu.
+GUI search, pełny system zasobów, pełny system defensywnych statusów, pełne feature'y `Fervor`, pełny ogólny system `Resolve`, `Fala Zealot`, audyt/progress searcha oraz pełna docelowa warstwa UI pozostają poza bieżącym zakresem kodu.
 
 Kontrakt architektoniczny jest wspólny dla obu trybów:
 - oba tryby muszą używać tego samego `Damage Engine`,
@@ -56,13 +59,17 @@ Kontrakt architektoniczny jest wspólny dla obu trybów:
 - Search nie może docelowo używać skróconej lub alternatywnej logiki względem manual simulation.
 
 ### 3.2. Wspólne wejście runtime
-Produktowy model wejścia użytkownika dla aktualnego M8 ma postać `CurrentBuildRequest`.
+Produktowy model wejścia użytkownika dla manual simulation ma postać `CurrentBuildRequest`.
 
-Kontrakt M8 dla warstwy aplikacyjnej:
+Kontrakt M9 dla warstwy aplikacyjnej:
 - GUI mapuje formularz do `CurrentBuildRequest` przez `CurrentBuildFormMapper`,
 - CLI mapuje argumenty do `CurrentBuildRequest` przez `CurrentBuildCliRequestParser`,
 - `CurrentBuildSnapshotFactory` buduje z requestu runtime `HeroBuildSnapshot`,
 - `CurrentBuildCalculationService` uruchamia ten sam runtime dla GUI i CLI,
+- CLI searcha mapuje argumenty do `BuildSearchRequest` przez `BuildSearchCliRequestParser`,
+- `BuildSearchCalculationService` generuje legalnych kandydatów przez `BuildSearchCandidateGenerator`,
+- każdy kandydat searcha jest adaptowany do `CurrentBuildRequest`, a następnie do `HeroBuildSnapshot` przez ten sam `CurrentBuildSnapshotFactory`,
+- `BuildSearchEvaluationService` ocenia kandydatów przez ten sam `ManualSimulationService`,
 - scenariusze referencyjne pozostają wyłącznie trybem pomocniczym budowanym już na `CurrentBuildRequest`,
 - `SampleBuildFactory` nie jest główną ścieżką flow użytkownika; pozostaje pomocą testową niższego poziomu.
 
@@ -374,7 +381,7 @@ Obowiązujące reguły:
 - delayed hit `Judgement` jest single target i wchodzi do `total damage`.
 
 ### 7.3. Reactive damage
-Reactive damage jest częścią aktualnego foundation repo w zakresie aktualnego M8 dla `Thorns`, `Retribution` i pierwszego pełnego use case `Clash`.
+Reactive damage jest częścią aktualnego foundation repo w zakresie aktualnego M9 dla `Thorns`, `Retribution` i pierwszego pełnego use case `Clash`.
 
 Obowiązujące reguły:
 - reactive damage jest osobnym torem obrażeń i nie należy do single hita skilla,
@@ -446,33 +453,92 @@ Minimalny kontrakt `stepTrace`:
 
 ## 9. Build search
 ### 9.1. Jednostka oceny
-Build search nie jest jeszcze częścią aktualnego foundation repo.
+Backendowy search M9 jest częścią aktualnego foundation repo.
+
+Jednostką oceny jest pojedynczy legalny kandydat zawierający:
+- pełny opis wejściowego buildu w modelu aktualnych statów użytkownika,
+- legalne stany skilli foundation,
+- legalny i uporządkowany action bar,
+- wspólny horyzont symulacji.
+
+Search buduje dla każdego kandydata dokładnie taki sam `HeroBuildSnapshot`, jaki byłby zbudowany dla odpowiadającego mu flow `Policz aktualny build`.
 
 ### 9.2. Etap 1 - legalne buildy
-Sekcja pozostaje poza aktualnym zakresem implementacji. Jedyny aktywny kontrakt foundation w repo to legalny model pojedynczego skilla `Brandish` i jego wariantów.
+Aktualny backend search obejmuje wyłącznie foundation:
+- `Brandish`
+- `Holy Bolt`
+- `Clash`
+- `Advance`
+- obecny model statów buildu: `level`, `weapon damage`, `strength`, `intelligence`, `thorns`, `block chance`, `retribution chance`
+- obecny model action bara
+
+Wejście searcha jest dyskretne i ograniczone:
+- zakres statów wejściowych jest podawany jako lista dozwolonych wartości,
+- zakres stanu każdego skilla jest podawany jako lista dozwolonych `rank`, `base upgrade` i `choice`,
+- search generuje wyłącznie stany legalne względem kontraktu `SkillState`,
+- `rank 0` oznacza `OFF` i nie może mieć upgrade'ów,
+- search nie tworzy nielegalnych kombinacji choice bez bazowego rozszerzenia.
 
 ### 9.3. Etap 2 - konfiguracje paska skilli
-Konfiguracje paska skilli nie są jeszcze implementowane w aktualnym foundation repo.
+Aktualny backend search generuje legalne konfiguracje paska skilli dla wskazanych rozmiarów action bara.
+
+Kontrakt legalności action bara:
+- action bar może zawierać wyłącznie nauczone skille z `rank > 0`,
+- ten sam skill nie może wystąpić dwa razy,
+- rozmiar action bara musi należeć do zakresu wejściowego searcha,
+- kolejność action bara jest semantyczna, ponieważ wpływa na tie-break `LRU`,
+- search nie traktuje permutacji jako szumu technicznego; inna kolejność paska to inny kandydat tylko wtedy, gdy naprawdę zmienia zachowanie runtime.
 
 ### 9.4. Wymagania runtime dla searcha
-Search pozostaje celem architektonicznym projektu, ale nie należy do aktualnego foundation kodowego.
+Aktualny backend search używa dokładnie tego samego runtime co manual simulation:
+- kandydat searcha jest adaptowany do `CurrentBuildRequest`,
+- `CurrentBuildSnapshotFactory` buduje z niego `HeroBuildSnapshot`,
+- `BuildSearchEvaluationService` wywołuje ten sam `ManualSimulationService`,
+- `ManualSimulationService` korzysta z tego samego `Damage Engine`, tej samej logiki `LRU`, tych samych cooldownów, delayed hitów, statusów i reactive.
 
-### 9.5. Audyt, progres i eksport
-Audyt searcha, progress i eksport CSV nie są jeszcze częścią aktualnego foundation repo.
+Search nie może:
+- używać skróconej logiki liczenia,
+- liczyć DPS poza `SimulationResult`,
+- omijać `CurrentBuildSnapshotFactory`,
+- implementować osobnego „mock runtime” dla rankingu.
+
+### 9.5. Ranking, wynik i ograniczenia etapu
+Ranking kandydatów jest deterministyczny i na obecnym etapie sortuje po:
+1. `total damage` malejąco,
+2. `DPS` malejąco,
+3. deterministycznym kluczu opisu kandydata.
+
+Minimalny wynik searcha zawiera:
+- liczbę ocenionych kandydatów,
+- top `N` wyników,
+- opis wejściowego buildu,
+- opis nauczonych skilli,
+- wybrany action bar,
+- `total damage`,
+- `DPS`.
+
+Poza aktualnym zakresem M9 pozostają:
+- GUI search,
+- audyt/progress,
+- eksport CSV,
+- wielowątkowość,
+- zaawansowane heurystyki i optymalizacje wydajności.
 
 ## 10. UI, debug i prezentacja wyników
 ### 10.1. Zasady ogólne
-Repo implementuje działające webowe GUI SSR oraz CLI dla tego samego flow `Policz aktualny build`. Aktualny foundation M8 dostarcza:
+Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny build` oraz osobne CLI backendowego searcha M9. Aktualny foundation M9 dostarcza:
 - główną ścieżkę użytkownika opartą o `CurrentBuildRequest`, a nie o testowy snapshot,
 - wspólną usługę aplikacyjną `CurrentBuildCalculationService` dla GUI i CLI,
 - wspólną fabrykę runtime `CurrentBuildSnapshotFactory` budującą `HeroBuildSnapshot`,
+- osobną usługę `BuildSearchCalculationService` dla backendowego searcha,
 - prosty serwer HTTP z SSR bez rozbudowanego frontendu JS,
 - pojedynczy ekran formularza dla `Brandish`, `Holy Bolt`, `Clash` i `Advance`,
 - render wyniku oparty wyłącznie o istniejące modele debug i wynik runtime,
 - sekcję reactive debug dla foundation `Thorns`, `Retribution` i use case `Clash`,
 - trace z informacją o cooldownie i `WAIT` dla use case `Advance`,
 - modele debug w kodzie,
-- CLI dla równoległego ręcznego smoke testu użytkownika.
+- CLI dla równoległego ręcznego smoke testu użytkownika,
+- CLI searcha z tekstowym outputem top wyników.
 
 ### 10.2. Konfiguracja do porównania
 Na obecnym etapie foundation nie ma warstwy prezentacji konfiguracji do porównania.
@@ -508,7 +574,17 @@ Aktualny foundation implementuje reactive debug dla `Thorns`, `Retribution` i us
 - informację, czy `Resolve` oraz reactive bonusy pozostały aktywne na końcu horyzontu.
 
 ### 10.5. Wynik searcha
-Wynik searcha nie jest jeszcze implementowany w aktualnym foundation repo.
+Aktualny foundation implementuje backendowy wynik searcha oraz jego tekstowy render w CLI.
+
+Minimalny kontrakt prezentacyjny wyniku searcha:
+- pokazanie wejściowej przestrzeni searcha,
+- pokazanie liczby ocenionych kandydatów,
+- pokazanie top `N` wyników,
+- dla każdego wyniku pokazanie opisu wejściowego buildu,
+- dla każdego wyniku pokazanie nauczonych skilli i action bara,
+- dla każdego wyniku pokazanie `total damage` i `DPS`.
+
+GUI search i bogatsza warstwa prezentacji wyników pozostają poza aktualnym zakresem.
 
 ### 10.6. Trace i formatowanie
 Aktualny foundation implementuje `stepTrace` w modelu danych i udostępnia go przez CLI oraz webowe GUI.
@@ -521,8 +597,8 @@ Kontrakt prezentacyjny trace:
 - dla każdego kroku pokazuje co najmniej `cooldown=true/false` oraz `cooldownRemaining`,
 - CSV i pełny docelowy UX pozostają poza aktualnym zakresem repo.
 
-### 10.7. Pierwszy smoke test użytkownika
-Aktualny smoke test użytkownika dla M8 jest oparty o GUI oraz równoległe CLI i scenariusz:
+### 10.7. Smoke testy użytkownika
+Aktualny podstawowy smoke test manual simulation pozostaje oparty o GUI oraz równoległe CLI i scenariusz:
 - `Advance`
 - `rank 5`
 - bazowe rozszerzenie włączone
@@ -551,7 +627,7 @@ http://127.0.0.1:8080/policz-aktualny-build
 Równoległy smoke test CLI pozostaje dostępny:
 
 ```powershell
-java '-Dfile.encoding=UTF-8' -cp target/classes krys.app.CalculateCurrentBuildCli --skill ADVANCE --rank 5 --base-upgrade true --choice RIGHT --seconds 10 --show-trace true
+java '-Dfile.encoding=UTF-8' -cp target/classes krys.app.CalculateCurrentBuildCli --advance-rank 5 --advance-base-upgrade true --advance-choice RIGHT --action-bar ADVANCE --seconds 10 --show-trace true
 ```
 
 Kontrakt prezentacji dla tego smoke testu:
@@ -567,6 +643,20 @@ Kontrakt prezentacji dla tego smoke testu:
 - Dla referencyjnego scenariusza GUI/CLI `Advance rank 5 + Flash of the Blade` na sample buildzie wynik manual simulation wynosi `total damage = 186`, `DPS = 18.6000`, `total reactive damage = 120`, dwa casty `Advance` w `t=1` i `t=9`, naturalne `WAIT` w `t=2..8`, `cooldownRemaining=7` w `t=2` oraz `cooldownRemaining=1` w `t=8`.
 - Dla powyższego sample buildu pojedynczy cast `Advance + Flash of the Blade` daje `raw = 54`, `final = 33`, `raw crit = 82`, `crit = 51`.
 - Regresyjny scenariusz `Clash rank 5 + Crusader's March + Punishment` pozostaje dodatkowym smoke testem niższego poziomu dla reactive foundation.
+
+Aktualny smoke test backendowego searcha M9 pozostaje CLI-only:
+
+```powershell
+java '-Dfile.encoding=UTF-8' -cp target/classes krys.search.SearchBuildCli --reference FOUNDATION_M9 --top 5
+```
+
+Kontrakt prezentacji dla smoke testu searcha:
+- search CLI jasno komunikuje, że to backend foundation searcha, a nie GUI search,
+- search CLI wypisuje wejściową przestrzeń searcha,
+- search CLI wypisuje liczbę ocenionych kandydatów,
+- search CLI wypisuje top `N` wyników z opisem buildu, nauczonych skilli i action bara,
+- search CLI wypisuje `total damage` oraz `DPS`,
+- search CLI przechodzi przez kontrakt `BuildSearchRequest -> BuildSearchCandidateGenerator -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> BuildSearchEvaluationService -> ManualSimulationService`.
 
 ## 11. Testy i golden values
 ### 11.1. Reguły testowe
@@ -609,10 +699,15 @@ Minimalny zakres testów obejmuje:
 - zgodność cumulative damage z `stepTrace`,
 - tickową manual simulation,
 - endpoint formularza GUI dla `Policz aktualny build`,
-- uruchomienie obliczenia przez GUI nad tym samym runtime M8,
+- uruchomienie obliczenia przez GUI nad tym samym runtime M9,
 - obecność kluczowych sekcji wyniku w GUI: `total damage`, `DPS`, direct hit debug, delayed hit debug, reactive debug i `stepTrace`,
 - obecność sekcji reactive debug w GUI dla scenariusza `Clash`,
 - obecność `WAIT` i stanu cooldownu w GUI dla scenariusza `Advance`,
+- generowanie legalnych kandydatów searcha,
+- zachowanie legalności action bara w searchu,
+- użycie wspólnego runtime do oceny kandydatów searcha,
+- deterministyczny ranking wyników searcha,
+- CLI / entrypoint backendowego searcha,
 - bezpieczne kopiowanie pustego stanu snapshotu,
 - specjalną regułę zaokrąglenia prowadzącą do `raw crit hit = 52`.
 
@@ -664,6 +759,7 @@ Dodatkowe aktualne referencje kontraktowe:
 - Manual simulation dla scenariusza GUI/CLI `Advance rank 5 + Flash of the Blade` na sample buildzie w horyzoncie `10 s` daje `total damage = 186`, `DPS = 18.6000`, `total reactive damage = 120`, dwa casty `Advance`, naturalne `WAIT` oraz stan cooldownu widoczny w trace.
 - Manual simulation dla scenariusza GUI/CLI `Clash rank 5 + Crusader's March + Punishment` na sample buildzie w horyzoncie `60 s` daje `total damage = 1760`, `DPS = 1760 / 60`, `total reactive damage = 1760`, `Resolve aktywny na końcu = tak`, `Active block chance na końcu = 75%` oraz `Active thorns bonus na końcu = 50`.
 - Manual simulation dla scenariusza regresyjnego `Holy Bolt rank 5 + Judgement` na sample buildzie M5a w horyzoncie `60 s` daje `total damage = 1732`, `DPS = 1732 / 60`, `total reactive damage = 800`, `19` detonacji `Judgement` i `1` aktywny `Judgement` pozostały na końcu.
+- Backendowy search dla scenariusza `Advance rank 5` z choice range `NONE, LEFT, RIGHT`, `bar size = 1` i `horyzont = 9 s` daje deterministyczny ranking: `Wave Dash = 315`, `bazowy Advance = 135`, `Flash of the Blade = 66`.
 - `Brandish rank 5 + Krzyżowe uderzenie (Vulnerable)` w modelu single target liczy wyłącznie główny hit `168%`; dla referencyjnego przypadku z aktywnym `Vulnerable` przed trafieniem wynik ST pozostaje `raw hit = 34`, `single hit = 21`, `raw crit hit = 52`, `critical hit = 32`.
 - Dla powyższego scenariusza `Brandish + Krzyżowe uderzenie (Vulnerable)` referencyjny `raw crit hit = 52` wynika z reguły: najpierw `raw hit` głównego trafienia jest zaokrąglany do `34`, a dopiero potem liczony jest `raw crit hit = round(34 * critMultiplier) = 52`.
 
