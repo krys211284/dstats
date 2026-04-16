@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** Kontroler SSR drill-downu M11 z listy wyników searcha do pełnej analizy reprezentanta. */
+/** Kontroler SSR drill-downu M12 z listy wyników searcha do pełnej analizy reprezentanta. */
 public final class SearchBuildDetailsController implements HttpHandler {
     private static final String HTML_CONTENT_TYPE = "text/html; charset=UTF-8";
 
@@ -75,7 +75,7 @@ public final class SearchBuildDetailsController implements HttpHandler {
                 errors,
                 candidate,
                 calculation,
-                "Drill-down M11 odtwarza reprezentanta znormalizowanego wyniku na tym samym runtime co flow „Policz aktualny build”."
+                "Drill-down M12 odtwarza reprezentanta znormalizowanego wyniku na tym samym runtime co flow „Policz aktualny build”."
         );
     }
 

@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** Parser CLI dla backendowego searcha M10. */
+/** Parser CLI dla backendowego searcha M12. */
 final class BuildSearchCliRequestParser {
     private BuildSearchCliRequestParser() {
     }

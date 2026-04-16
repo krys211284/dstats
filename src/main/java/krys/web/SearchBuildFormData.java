@@ -10,7 +10,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
 
-/** Surowe dane formularza GUI searcha M11, zachowywane także przy błędach walidacji. */
+/** Surowe dane formularza GUI searcha M12, zachowywane także przy błędach walidacji. */
 public final class SearchBuildFormData {
     private final String levelValues;
     private final String weaponDamageValues;

@@ -3,7 +3,7 @@ package krys.search;
 import krys.simulation.HeroBuildSnapshot;
 import krys.simulation.SimulationResult;
 
-/** Pojedynczy wynik rankingu searcha M10. */
+/** Pojedynczy wynik rankingu searcha M12. */
 public final class BuildSearchRankedResult {
     private final int rank;
     private final BuildSearchCandidate candidate;

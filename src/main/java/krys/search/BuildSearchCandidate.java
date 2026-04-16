@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** Pojedynczy legalny kandydat searcha M10 gotowy do zbudowania snapshotu i oceny runtime. */
+/** Pojedynczy legalny kandydat searcha M12 gotowy do zbudowania snapshotu i oceny runtime. */
 public final class BuildSearchCandidate {
     private final CurrentBuildRequest currentBuildRequest;
 

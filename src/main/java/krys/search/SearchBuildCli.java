@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Prosty tekstowy entrypoint backendowego searcha M10. */
+/** Prosty tekstowy entrypoint backendowego searcha M12 z audytem i minimalnym progressem. */
 public final class SearchBuildCli {
     private SearchBuildCli() {
     }
@@ -23,7 +23,7 @@ public final class SearchBuildCli {
         BuildSearchCalculationService calculationService = new BuildSearchCalculationService(
                 new BuildSearchEvaluationService(new ManualSimulationService(new DamageEngine()))
         );
-        BuildSearchResult result = calculationService.calculate(request);
+        BuildSearchResult result = calculationService.calculate(request, new SearchBuildCliProgressReporter());
         printResult(result);
     }
 
@@ -53,6 +53,13 @@ public final class SearchBuildCli {
                     + " | baseUpgrades=" + joinBooleans(skillSpace.getBaseUpgradeValues())
                     + " | choices=" + joinChoices(skillId, skillSpace.getChoiceUpgradeValues()));
         }
+        System.out.println();
+        System.out.println("Audit / preflight:");
+        System.out.println("Liczba legalnych kandydatów: " + result.getAudit().getLegalCandidateCount());
+        System.out.println("Rozmiar przestrzeni statów: " + result.getAudit().getStatSpaceSize());
+        System.out.println("Rozmiar przestrzeni skilli: " + result.getAudit().getSkillSpaceSize());
+        System.out.println("Rozmiar przestrzeni action bara: " + result.getAudit().getActionBarSpaceSize());
+        System.out.println("Skala search space: " + result.getAudit().getSpaceScale().getDisplayName());
         System.out.println();
         System.out.println("Ocenieni kandydaci: " + result.getEvaluatedCandidateCount());
         System.out.println("Wyniki po normalizacji: " + result.getNormalizedResultCount());

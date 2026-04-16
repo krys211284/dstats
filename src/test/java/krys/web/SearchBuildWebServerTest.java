@@ -70,10 +70,17 @@ class SearchBuildWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Wejściowa przestrzeń searcha"));
+        assertTrue(response.body().contains("Audit / preflight searcha"));
+        assertTrue(response.body().contains("Liczba legalnych kandydatów"));
+        assertTrue(response.body().contains("Rozmiar przestrzeni statów"));
+        assertTrue(response.body().contains("Rozmiar przestrzeni skilli"));
+        assertTrue(response.body().contains("Rozmiar przestrzeni action bara"));
+        assertTrue(response.body().contains("Skala search space"));
         assertTrue(response.body().contains("Ocenieni kandydaci"));
         assertTrue(response.body().contains(">2949<"));
         assertTrue(response.body().contains("Wyniki po normalizacji"));
         assertTrue(response.body().contains(">137<"));
+        assertTrue(response.body().contains("duża"));
         assertTrue(response.body().contains("Top wyniki po normalizacji"));
         assertTrue(response.body().contains("Total damage"));
         assertTrue(response.body().contains(">439<"));

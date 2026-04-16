@@ -1,6 +1,7 @@
 package krys.web;
 
 import krys.app.CurrentBuildRequest;
+import krys.search.BuildSearchAudit;
 import krys.search.BuildSearchRankedResult;
 import krys.search.BuildSearchRequest;
 import krys.search.BuildSearchResult;
@@ -151,7 +152,7 @@ public final class SearchBuildPageRenderer {
             return """
                     <section class="panel result-panel">
                         <h2>Wynik searcha</h2>
-                        <p>To jest minimalne GUI SSR dla flow „Znajdź najlepszy build”. Wypełnij przestrzeń searcha, uruchom backend i przejdź do drill-downu wybranego reprezentanta z top wyników po normalizacji.</p>
+                        <p>To jest minimalne GUI SSR dla flow „Znajdź najlepszy build”. Wypełnij przestrzeń searcha, uruchom backend, sprawdź audit/preflight i przejdź do drill-downu wybranego reprezentanta z top wyników po normalizacji.</p>
                     </section>
                     """;
         }
@@ -162,13 +163,34 @@ public final class SearchBuildPageRenderer {
                     <h2>Wynik searcha</h2>
                     <div class="summary-grid">
                 """);
+        html.append(renderSummaryCard("Liczba legalnych kandydatów", Long.toString(result.getAudit().getLegalCandidateCount())));
         html.append(renderSummaryCard("Ocenieni kandydaci", Integer.toString(result.getEvaluatedCandidateCount())));
         html.append(renderSummaryCard("Wyniki po normalizacji", Integer.toString(result.getNormalizedResultCount())));
+        html.append(renderSummaryCard("Skala search space", result.getAudit().getSpaceScale().getDisplayName()));
         html.append(renderSummaryCard("Top N", Integer.toString(result.getRequest().getTopResultsLimit())));
         html.append(renderSummaryCard("Horyzont", result.getRequest().getHorizonSeconds() + " s"));
         html.append("</div></section>");
+        html.append(renderAuditSection(result.getAudit()));
         html.append(renderSearchSpaceSummary(result.getRequest()));
         html.append(renderTopResults(result));
+        return html.toString();
+    }
+
+    private static String renderAuditSection(BuildSearchAudit audit) {
+        StringBuilder html = new StringBuilder("""
+                <section class="panel result-panel">
+                    <h2>Audit / preflight searcha</h2>
+                    <div class="summary-grid">
+                """);
+        html.append(renderSummaryCard("Liczba legalnych kandydatów", Long.toString(audit.getLegalCandidateCount())));
+        html.append(renderSummaryCard("Rozmiar przestrzeni statów", Long.toString(audit.getStatSpaceSize())));
+        html.append(renderSummaryCard("Rozmiar przestrzeni skilli", Long.toString(audit.getSkillSpaceSize())));
+        html.append(renderSummaryCard("Rozmiar przestrzeni action bara", Long.toString(audit.getActionBarSpaceSize())));
+        html.append(renderSummaryCard("Skala search space", audit.getSpaceScale().getDisplayName()));
+        html.append("""
+                    </div>
+                </section>
+                """);
         return html.toString();
     }
 
@@ -356,7 +378,7 @@ public final class SearchBuildPageRenderer {
             }
             return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException exception) {
-            throw new IllegalStateException("Nie udało się wczytać szablonu strony M11", exception);
+            throw new IllegalStateException("Nie udało się wczytać szablonu strony M12", exception);
         }
     }
 }

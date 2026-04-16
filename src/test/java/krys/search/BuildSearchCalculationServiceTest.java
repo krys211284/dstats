@@ -57,9 +57,18 @@ class BuildSearchCalculationServiceTest {
 
         BuildSearchResult result = calculationService.calculate(request);
 
+        assertEquals(2949L, result.getAudit().getLegalCandidateCount());
+        assertEquals(1L, result.getAudit().getStatSpaceSize());
+        assertEquals(countExpectedSkillVariants(request), result.getAudit().getSkillSpaceSize());
+        assertEquals(2949L, result.getAudit().getActionBarSpaceSize());
+        assertEquals(BuildSearchSpaceScale.LARGE, result.getAudit().getSpaceScale());
         assertEquals(candidateGenerator.generate(request).size(), result.getEvaluatedCandidateCount());
+        assertEquals(result.getAudit().getLegalCandidateCount(), result.getEvaluatedCandidateCount());
         assertTrue(result.getNormalizedResultCount() < result.getEvaluatedCandidateCount());
         assertEquals(Math.min(request.getTopResultsLimit(), result.getNormalizedResultCount()), result.getTopResults().size());
+        assertEquals("Advance -> Clash", result.getTopResults().get(0).getCandidate().getActionBarDescription());
+        assertEquals(439L, result.getTopResults().get(0).getSimulationResult().getTotalDamage());
+        assertEquals(48.77777777777778d, result.getTopResults().get(0).getSimulationResult().getDps(), 0.0000000001d);
     }
 
     @Test
@@ -86,6 +95,32 @@ class BuildSearchCalculationServiceTest {
                     secondRun.getTopResults().get(index).getSimulationResult().getTotalDamage()
             );
         }
+    }
+
+    @Test
+    void powinien_wyliczac_preflight_spojny_z_liczba_legalnych_kandydatow() {
+        BuildSearchRequest request = new BuildSearchRequest(
+                List.of(13),
+                List.of(8L),
+                List.of(18.0d),
+                List.of(0.0d),
+                List.of(0.0d),
+                List.of(0.0d),
+                List.of(0.0d),
+                createRankingSkillSpaces(),
+                List.of(1),
+                9,
+                3
+        );
+
+        BuildSearchAudit audit = calculationService.preflight(request);
+
+        assertEquals(1L, audit.getStatSpaceSize());
+        assertEquals(3L, audit.getSkillSpaceSize());
+        assertEquals(3L, audit.getActionBarSpaceSize());
+        assertEquals(3L, audit.getLegalCandidateCount());
+        assertEquals(BuildSearchSpaceScale.SMALL, audit.getSpaceScale());
+        assertEquals(candidateGenerator.generate(request).size(), audit.getLegalCandidateCount());
     }
 
     private static Map<SkillId, BuildSearchSkillSpace> createRankingSkillSpaces() {
@@ -115,5 +150,30 @@ class BuildSearchCalculationServiceTest {
                 List.of(SkillUpgradeChoice.NONE, SkillUpgradeChoice.LEFT, SkillUpgradeChoice.RIGHT)
         ));
         return skillSpaces;
+    }
+
+    private static long countExpectedSkillVariants(BuildSearchRequest request) {
+        long total = 1L;
+        for (SkillId skillId : SkillId.values()) {
+            total *= countLegalStates(request.getSkillSpace(skillId));
+        }
+        return total;
+    }
+
+    private static long countLegalStates(BuildSearchSkillSpace skillSpace) {
+        long count = 0L;
+        for (Integer rank : skillSpace.getRankValues()) {
+            if (rank == 0) {
+                count++;
+                continue;
+            }
+            if (skillSpace.getBaseUpgradeValues().contains(Boolean.FALSE)) {
+                count++;
+            }
+            if (skillSpace.getBaseUpgradeValues().contains(Boolean.TRUE)) {
+                count += skillSpace.getChoiceUpgradeValues().size();
+            }
+        }
+        return count;
     }
 }

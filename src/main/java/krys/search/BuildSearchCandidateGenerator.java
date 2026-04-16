@@ -12,10 +12,22 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Generator legalnych kandydatów backendowego searcha M10.
+ * Generator legalnych kandydatów backendowego searcha M12.
  * Generuje wyłącznie buildy oraz konfiguracje action bara zgodne z kontraktami manual simulation.
  */
 public final class BuildSearchCandidateGenerator {
+    public BuildSearchAudit audit(BuildSearchRequest request) {
+        List<Map<SkillId, SkillState>> learnedSkillMaps = generateLearnedSkillMaps(request);
+        long statSpaceSize = countStatSpace(request);
+        long actionBarSpaceSize = countActionBarSpace(learnedSkillMaps, request.getActionBarSizes());
+        long legalCandidateCount = statSpaceSize * actionBarSpaceSize;
+        return new BuildSearchAudit(
+                legalCandidateCount,
+                statSpaceSize,
+                learnedSkillMaps.size(),
+                actionBarSpaceSize
+        );
+    }
 
     public List<BuildSearchCandidate> generate(BuildSearchRequest request) {
         List<Map<SkillId, SkillState>> learnedSkillMaps = generateLearnedSkillMaps(request);
@@ -54,6 +66,38 @@ public final class BuildSearchCandidateGenerator {
         }
 
         return candidates;
+    }
+
+    private static long countStatSpace(BuildSearchRequest request) {
+        return (long) request.getLevelValues().size()
+                * request.getWeaponDamageValues().size()
+                * request.getStrengthValues().size()
+                * request.getIntelligenceValues().size()
+                * request.getThornsValues().size()
+                * request.getBlockChanceValues().size()
+                * request.getRetributionChanceValues().size();
+    }
+
+    private static long countActionBarSpace(List<Map<SkillId, SkillState>> learnedSkillMaps, List<Integer> actionBarSizes) {
+        long count = 0L;
+        for (Map<SkillId, SkillState> learnedSkills : learnedSkillMaps) {
+            int learnedSkillCount = learnedSkills.size();
+            for (Integer actionBarSize : actionBarSizes) {
+                if (actionBarSize > learnedSkillCount) {
+                    continue;
+                }
+                count += permutations(learnedSkillCount, actionBarSize);
+            }
+        }
+        return count;
+    }
+
+    private static long permutations(int itemCount, int selectionSize) {
+        long result = 1L;
+        for (int value = 0; value < selectionSize; value++) {
+            result *= (itemCount - value);
+        }
+        return result;
     }
 
     private static List<Map<SkillId, SkillState>> generateLearnedSkillMaps(BuildSearchRequest request) {

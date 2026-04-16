@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-/** Główna warstwa aplikacyjna backendowego searcha M10. */
+/** Główna warstwa aplikacyjna backendowego searcha M12. */
 public final class BuildSearchCalculationService {
     private final BuildSearchCandidateGenerator candidateGenerator;
     private final BuildSearchEvaluationService evaluationService;
@@ -22,23 +22,40 @@ public final class BuildSearchCalculationService {
         this.presentationNormalizer = presentationNormalizer;
     }
 
+    public BuildSearchAudit preflight(BuildSearchRequest request) {
+        return candidateGenerator.audit(request);
+    }
+
     public BuildSearchResult calculate(BuildSearchRequest request) {
+        return calculate(request, BuildSearchProgressListener.noop());
+    }
+
+    public BuildSearchResult calculate(BuildSearchRequest request, BuildSearchProgressListener progressListener) {
+        BuildSearchAudit audit = preflight(request);
+        progressListener.onSearchStarted(audit);
+
         List<BuildSearchCandidate> candidates = candidateGenerator.generate(request);
         List<BuildSearchEvaluation> evaluations = new ArrayList<>();
+        int evaluatedCount = 0;
         for (BuildSearchCandidate candidate : candidates) {
             evaluations.add(evaluationService.evaluate(candidate));
+            evaluatedCount++;
+            progressListener.onCandidateEvaluated(evaluatedCount, candidates.size());
         }
 
         evaluations.sort(searchComparator());
         BuildSearchPresentationNormalizer.BuildSearchPresentationView presentationView =
                 presentationNormalizer.normalize(evaluations, request.getTopResultsLimit());
 
-        return new BuildSearchResult(
+        BuildSearchResult result = new BuildSearchResult(
                 request,
+                audit,
                 candidates.size(),
                 presentationView.normalizedResultCount(),
                 presentationView.topResults()
         );
+        progressListener.onSearchCompleted(result);
+        return result;
     }
 
     private static Comparator<BuildSearchEvaluation> searchComparator() {

@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Kontroler HTTP dla klikalnego GUI M11 nad istniejącym backendem searcha. */
+/** Kontroler HTTP dla klikalnego GUI M12 nad istniejącym backendem searcha. */
 public final class SearchBuildController implements HttpHandler {
     private static final String HTML_CONTENT_TYPE = "text/html; charset=UTF-8";
 
@@ -80,7 +80,7 @@ public final class SearchBuildController implements HttpHandler {
                 formData,
                 errors,
                 result,
-                "GUI M11 jest cienką warstwą SSR nad backendowym search foundation. Formularz buduje BuildSearchRequest, uruchamia ten sam backend co CLI, pokazuje top wyniki po normalizacji i pozwala przejść do drill-downu wybranego reprezentanta."
+                "GUI M12 jest cienką warstwą SSR nad backendowym search foundation. Formularz buduje BuildSearchRequest, pokazuje audit/preflight, uruchamia ten sam backend co CLI, renderuje top wyniki po normalizacji i pozwala przejść do drill-downu wybranego reprezentanta."
         );
     }
 

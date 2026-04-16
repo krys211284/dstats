@@ -50,7 +50,7 @@ public final class SearchBuildDetailsPageRenderer {
             return """
                     <section class="panel result-panel">
                         <h2>Szczegóły wyniku searcha</h2>
-                        <p>Drill-down M11 oczekuje wybranego wyniku z listy searcha. Wróć do strony searcha i wybierz reprezentanta z top wyników po normalizacji.</p>
+                        <p>Drill-down M12 oczekuje wybranego wyniku z listy searcha. Wróć do strony searcha i wybierz reprezentanta z top wyników po normalizacji.</p>
                     </section>
                     """;
         }
@@ -99,7 +99,7 @@ public final class SearchBuildDetailsPageRenderer {
             }
             return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException exception) {
-            throw new IllegalStateException("Nie udało się wczytać szablonu strony M11", exception);
+            throw new IllegalStateException("Nie udało się wczytać szablonu strony M12", exception);
         }
     }
 }
