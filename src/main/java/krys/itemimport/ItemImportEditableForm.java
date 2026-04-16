@@ -1,0 +1,63 @@
+package krys.itemimport;
+
+/** Edytowalny formularz itemu wypełniany przez użytkownika po wstępnym odczycie obrazu. */
+public final class ItemImportEditableForm {
+    private final String sourceImageName;
+    private final String slot;
+    private final String weaponDamage;
+    private final String strength;
+    private final String intelligence;
+    private final String thorns;
+    private final String blockChance;
+    private final String retributionChance;
+
+    public ItemImportEditableForm(String sourceImageName,
+                                  String slot,
+                                  String weaponDamage,
+                                  String strength,
+                                  String intelligence,
+                                  String thorns,
+                                  String blockChance,
+                                  String retributionChance) {
+        this.sourceImageName = sourceImageName;
+        this.slot = slot;
+        this.weaponDamage = weaponDamage;
+        this.strength = strength;
+        this.intelligence = intelligence;
+        this.thorns = thorns;
+        this.blockChance = blockChance;
+        this.retributionChance = retributionChance;
+    }
+
+    public String getSourceImageName() {
+        return sourceImageName;
+    }
+
+    public String getSlot() {
+        return slot;
+    }
+
+    public String getWeaponDamage() {
+        return weaponDamage;
+    }
+
+    public String getStrength() {
+        return strength;
+    }
+
+    public String getIntelligence() {
+        return intelligence;
+    }
+
+    public String getThorns() {
+        return thorns;
+    }
+
+    public String getBlockChance() {
+        return blockChance;
+    }
+
+    public String getRetributionChance() {
+        return retributionChance;
+    }
+}

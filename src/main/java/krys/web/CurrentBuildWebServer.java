@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import krys.app.CurrentBuildCalculationService;
 import krys.combat.DamageEngine;
+import krys.itemimport.ItemImageImportService;
 import krys.search.BuildSearchCalculationService;
 import krys.search.BuildSearchEvaluationService;
 import krys.simulation.ManualSimulationService;
@@ -38,10 +39,15 @@ public final class CurrentBuildWebServer implements AutoCloseable {
                 searchCalculationService,
                 new SearchBuildPageRenderer()
         );
+        ItemImportController itemImportController = new ItemImportController(
+                new ItemImageImportService(),
+                new ItemImportPageRenderer()
+        );
 
         server.createContext("/policz-aktualny-build", controller);
         server.createContext("/znajdz-najlepszy-build", searchController);
         server.createContext("/znajdz-najlepszy-build/szczegoly", searchBuildDetailsController);
+        server.createContext("/importuj-item-ze-screena", itemImportController);
         server.createContext("/", new RootHandler(controller));
     }
 
@@ -64,6 +70,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
         webServer.start();
         System.out.println("GUI manual simulation dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/policz-aktualny-build");
         System.out.println("GUI search dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/znajdz-najlepszy-build");
+        System.out.println("GUI importu itemu dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/importuj-item-ze-screena");
         System.out.println("Drill-down searcha jest dostępny z poziomu listy wyników GUI searcha.");
 
         synchronized (CurrentBuildWebServer.class) {

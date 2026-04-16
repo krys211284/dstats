@@ -128,11 +128,20 @@
             font-size: 0.95rem;
         }
 
+        .hero-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
         .submit-row {
             margin-top: 16px;
         }
 
-        button {
+        button,
+        .nav-link {
+            display: inline-block;
             border: none;
             border-radius: 999px;
             padding: 12px 18px;
@@ -140,6 +149,7 @@
             color: #fff9f2;
             font: inherit;
             font-weight: 700;
+            text-decoration: none;
             cursor: pointer;
         }
 
@@ -256,6 +266,10 @@
         <div class="eyebrow">M8 / Foundation GUI</div>
         <h1>Policz aktualny build</h1>
         <p>To jest aktualny foundation manual simulation nad istniejącym runtime M8. Ekran liczy już z realnego modelu wejściowego buildu użytkownika, ale nadal nie udaje pełnego produktu końcowego ani build search.</p>
+        <div class="hero-links">
+            <a class="nav-link" href="/importuj-item-ze-screena">Importuj item ze screena</a>
+            <a class="nav-link" href="/znajdz-najlepszy-build">Przejdź do build searcha</a>
+        </div>
     </header>
 
     <section class="panel">

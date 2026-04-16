@@ -15,12 +15,20 @@ final class UrlEncodedFormSupport {
 
     static Map<String, String> parseBody(HttpExchange exchange) throws IOException {
         String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        return parse(body);
+    }
+
+    static Map<String, String> parseQuery(String rawQuery) {
+        return parse(rawQuery);
+    }
+
+    private static Map<String, String> parse(String rawData) {
         Map<String, String> fields = new LinkedHashMap<>();
-        if (body.isBlank()) {
+        if (rawData == null || rawData.isBlank()) {
             return fields;
         }
 
-        String[] pairs = body.split("&");
+        String[] pairs = rawData.split("&");
         for (String pair : pairs) {
             if (pair.isBlank()) {
                 continue;

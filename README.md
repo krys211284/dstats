@@ -15,7 +15,7 @@ Docelowo system ma wspierać dwa tryby pracy:
 - `Policz aktualny build` - manual simulation dla aktualnej konfiguracji bohatera.
 - `Znajdź najlepszy build` - build search oceniający legalne buildy i legalne konfiguracje paska skilli.
 
-Aktualny stan repo odpowiada foundation `M12` i obejmuje:
+Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR oraz pierwszy foundation importu wspomaganego obrazem dla pojedynczego itemu:
 - minimalny wspólny silnik pojedynczego uderzenia dla `Brandish` i `Holy Bolt`,
 - pierwszy pełny use case cooldownowego direct-hit runtime dla `Advance`,
 - pełny pierwszy use case reactive foundation dla `Clash`,
@@ -31,13 +31,16 @@ Aktualny stan repo odpowiada foundation `M12` i obejmuje:
 - ranking kandydatów po `total damage` i `DPS` liczonych przez ten sam runtime,
 - warstwę prezentacyjną normalizującą wyniki searcha po zakończonej ocenie kandydatów,
 - minimalne webowe GUI SSR dla trybu `Policz aktualny build`,
+- pierwszy SSR flow `Importuj item ze screena` dla pojedynczego itemu z ręcznym potwierdzeniem użytkownika,
+- techniczną walidację obrazu itemu oraz model wstępnego rozpoznania z poziomem niepewności,
+- walidowany formularz zatwierdzonego itemu i mapowanie jego pól do aktualnego modelu buildu,
 - pierwsze minimalne webowe GUI SSR dla trybu `Znajdź najlepszy build`,
 - pierwszy drill-down SSR z wyniku searcha do pełnej analizy reprezentanta znormalizowanego wyniku na tym samym runtime co manual simulation,
 - foundation audytu/preflightu searcha z liczbą legalnych kandydatów i rozmiarem search space,
 - minimalny progress CLI searcha dla etapu oceny kandydatów,
 - CLI dla manual simulation oraz osobne CLI backendowego searcha jako równoległe smoke testy tego samego runtime.
 
-Pełny system zasobów, pełny system defensywnych statusów, pełne feature'y `Fervor`, pełny ogólny system `Resolve`, `Fala Zealot`, live progress searcha w GUI, eksport CSV, wielowątkowość oraz pełna docelowa warstwa UX/UI pozostają poza bieżącym zakresem kodu.
+Pełny system zasobów, pełny system defensywnych statusów, pełne feature'y `Fervor`, pełny ogólny system `Resolve`, `Fala Zealot`, live progress searcha w GUI, eksport CSV, wielowątkowość, pełny automatyczny OCR itemów, pełny import całej postaci oraz pełna docelowa warstwa UX/UI pozostają poza bieżącym zakresem kodu.
 
 Kontrakt architektoniczny jest wspólny dla obu trybów:
 - oba tryby muszą używać tego samego `Damage Engine`,
@@ -66,11 +69,18 @@ Kontrakt architektoniczny jest wspólny dla obu trybów:
 ### 3.2. Wspólne wejście runtime
 Produktowy model wejścia użytkownika dla manual simulation ma postać `CurrentBuildRequest`.
 
-Kontrakt M12 dla warstwy aplikacyjnej:
+Kontrakt aktualnej warstwy aplikacyjnej:
 - GUI mapuje formularz do `CurrentBuildRequest` przez `CurrentBuildFormMapper`,
 - CLI mapuje argumenty do `CurrentBuildRequest` przez `CurrentBuildCliRequestParser`,
 - `CurrentBuildSnapshotFactory` buduje z requestu runtime `HeroBuildSnapshot`,
 - `CurrentBuildCalculationService` uruchamia ten sam runtime dla GUI i CLI,
+- GUI importu itemu mapuje upload obrazu do `ItemImageImportRequest`,
+- `ItemImageImportService` wykonuje techniczną walidację obrazu i buduje `ItemImageImportCandidateParseResult`,
+- `ItemImportEditableFormFactory` przygotowuje formularz ręcznego potwierdzenia na bazie wstępnego odczytu,
+- `ItemImportFormMapper` waliduje ręcznie poprawiony item do `ValidatedImportedItem`,
+- `ValidatedImportedItemToItemMapper` mapuje zatwierdzony item do aktualnego modelu `Item`,
+- `ImportedItemCurrentBuildContributionMapper` mapuje zatwierdzony item do aktualnego agregowanego modelu buildu używanego przez `CurrentBuildRequest`,
+- GUI importu itemu pozostaje cienką warstwą wejściową nad obecnym modelem current build i nie implementuje alternatywnego runtime,
 - CLI searcha mapuje argumenty do `BuildSearchRequest` przez `BuildSearchCliRequestParser`,
 - GUI searcha mapuje formularz do `BuildSearchRequest` przez `SearchBuildFormMapper`,
 - `BuildSearchCalculationService` generuje legalnych kandydatów przez `BuildSearchCandidateGenerator`,
@@ -206,6 +216,33 @@ Efekt może:
 - ustawić efektywny cooldown skilla po castcie.
 
 Pozostałe typy efektów opisane w szerszej dokumentacji projektu nie są jeszcze częścią aktualnego foundation kodowego.
+
+### 4.5. Model importu itemu ze screena
+Aktualny foundation importu obrazu obejmuje wyłącznie pojedynczy item i jawnie ręczne potwierdzenie użytkownika.
+
+Kontrakt domenowy importu itemu:
+- `ItemImageImportRequest` reprezentuje upload pojedynczego obrazu itemu,
+- `ItemImageImportCandidateParseResult` reprezentuje wstępny odczyt wraz z metadanymi obrazu, poziomem pewności i uwagami per pole,
+- `ItemImportEditableForm` reprezentuje ręcznie edytowalny formularz potwierdzenia,
+- `ValidatedImportedItem` reprezentuje item zatwierdzony po walidacji,
+- `ValidatedImportedItemToItemMapper` mapuje zatwierdzony item do aktualnego modelu `Item`,
+- `ImportedItemCurrentBuildContributionMapper` mapuje zatwierdzony item do agregowanych pól aktualnego modelu current build.
+
+Minimalny zakres pól importu itemu:
+- `slot / typ itemu`,
+- `weapon damage`, jeżeli dotyczy,
+- `strength`,
+- `intelligence`,
+- `thorns`,
+- `block chance`,
+- `retribution chance`.
+
+Jawne ograniczenia aktualnego foundation importu:
+- flow nie obiecuje pełnej bezbłędności OCR ani vision,
+- aktualny foundation wykonuje techniczną walidację obrazu i renderuje poziom niepewności pól,
+- użytkownik musi ręcznie zatwierdzić albo poprawić pola przed użyciem itemu,
+- flow nie importuje jeszcze całego ekwipunku ani całej postaci,
+- flow nie omija obecnego modelu current build i nie buduje bocznego modelu runtime.
 
 ## 5. Damage Engine
 ### 5.1. Zasady ogólne
@@ -393,7 +430,7 @@ Obowiązujące reguły:
 - delayed hit `Judgement` jest single target i wchodzi do `total damage`.
 
 ### 7.3. Reactive damage
-Reactive damage jest częścią aktualnego foundation repo w zakresie aktualnego M12 dla `Thorns`, `Retribution` i pierwszego pełnego use case `Clash`.
+Reactive damage jest częścią aktualnego foundation repo dla `Thorns`, `Retribution` i pierwszego pełnego use case `Clash`.
 
 Obowiązujące reguły:
 - reactive damage jest osobnym torem obrażeń i nie należy do single hita skilla,
@@ -465,7 +502,7 @@ Minimalny kontrakt `stepTrace`:
 
 ## 9. Build search
 ### 9.1. Jednostka oceny
-Backendowy search M12 jest częścią aktualnego foundation repo.
+Backendowy search jest częścią aktualnego foundation repo.
 
 Jednostką oceny jest pojedynczy legalny kandydat zawierający:
 - pełny opis wejściowego buildu w modelu aktualnych statów użytkownika,
@@ -475,7 +512,7 @@ Jednostką oceny jest pojedynczy legalny kandydat zawierający:
 
 Search buduje dla każdego kandydata dokładnie taki sam `HeroBuildSnapshot`, jaki byłby zbudowany dla odpowiadającego mu flow `Policz aktualny build`.
 
-Kontrakt M12 rozdziela cztery poziomy pracy searcha:
+Aktualny kontrakt searcha rozdziela cztery poziomy pracy searcha:
 - preflight / audit search space,
 - surową ocenę legalnych kandydatów,
 - znormalizowane wyniki użytkowe prezentowane po ocenie,
@@ -491,7 +528,7 @@ Minimalny kontrakt preflightu searcha obejmuje:
 - rozmiar przestrzeni action bara,
 - klasyfikację skali search space.
 
-Definicje kontraktowe M12:
+Definicje kontraktowe aktualnego foundation searcha:
 - `rozmiar wejściowej przestrzeni statów` to iloczyn liczby dozwolonych wartości `level`, `weapon damage`, `strength`, `intelligence`, `thorns`, `block chance` i `retribution chance`,
 - `rozmiar przestrzeni skilli` to liczba legalnych wariantów nauczonych skilli wygenerowanych z aktualnych zakresów `rank`, `base upgrade` i `choice`,
 - `rozmiar przestrzeni action bara` to łączna liczba legalnych konfiguracji action bara wynikających z legalnych wariantów skilli i dozwolonych rozmiarów paska,
@@ -565,13 +602,13 @@ Minimalny wynik użytkowy searcha zawiera:
 - `total damage`,
 - `DPS`.
 
-Aktualny drill-down M12:
+Aktualny drill-down searcha:
 - nie zmienia generatora kandydatów ani liczby ocenionych kandydatów,
 - nie zmienia surowej oceny ani rankingu,
 - pokazuje szczegóły reprezentanta wybranego wyniku po normalizacji,
 - odtwarza szczegóły przez ten sam runtime i te same modele wynikowe co `Policz aktualny build`.
 
-Poza aktualnym zakresem M12 pozostają:
+Poza aktualnym zakresem foundation searcha pozostają:
 - live progress GUI,
 - eksport CSV,
 - wielowątkowość,
@@ -580,10 +617,11 @@ Poza aktualnym zakresem M12 pozostają:
 
 ## 10. UI, debug i prezentacja wyników
 ### 10.1. Zasady ogólne
-Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny build`, osobne CLI backendowego searcha, minimalne GUI SSR dla flow `Znajdź najlepszy build`, audit/preflight search space oraz drill-down SSR szczegółów wybranego wyniku. Aktualny foundation M12 dostarcza:
+Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny build`, osobne CLI backendowego searcha, minimalne GUI SSR dla flow `Znajdź najlepszy build`, audit/preflight search space, drill-down SSR szczegółów wybranego wyniku oraz pierwszy SSR flow importu pojedynczego itemu ze screena. Aktualny foundation dostarcza:
 - główną ścieżkę użytkownika opartą o `CurrentBuildRequest`, a nie o testowy snapshot,
 - wspólną usługę aplikacyjną `CurrentBuildCalculationService` dla GUI i CLI,
 - wspólną fabrykę runtime `CurrentBuildSnapshotFactory` budującą `HeroBuildSnapshot`,
+- osobny input flow `ItemImageImportRequest -> ItemImageImportService -> ItemImportFormMapper` dla importu obrazu itemu,
 - osobną usługę `BuildSearchCalculationService` dla backendowego searcha,
 - prosty serwer HTTP z SSR bez rozbudowanego frontendu JS,
 - pojedynczy ekran formularza dla `Brandish`, `Holy Bolt`, `Clash` i `Advance`,
@@ -593,6 +631,9 @@ Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny bu
 - modele debug w kodzie,
 - CLI dla równoległego ręcznego smoke testu użytkownika,
 - CLI searcha z tekstowym outputem audytu, minimalnego progressu oraz znormalizowanych top wyników,
+- osobny ekran GUI SSR importu wspomaganego obrazem dla pojedynczego itemu,
+- render poziomu niepewności i ręcznego potwierdzenia pól itemu,
+- mapowanie zatwierdzonego itemu do modelu `Item` oraz do agregowanych pól current build,
 - osobny ekran GUI SSR searcha dla minimalnej przestrzeni foundation,
 - sekcję audit / preflight searcha w GUI searcha,
 - osobną stronę SSR szczegółów reprezentanta znormalizowanego wyniku searcha.
@@ -724,7 +765,7 @@ Kontrakt prezentacji dla tego smoke testu:
 - Dla powyższego sample buildu pojedynczy cast `Advance + Flash of the Blade` daje `raw = 54`, `final = 33`, `raw crit = 82`, `crit = 51`.
 - Regresyjny scenariusz `Clash rank 5 + Crusader's March + Punishment` pozostaje dodatkowym smoke testem niższego poziomu dla reactive foundation.
 
-Aktualny smoke test backendowego searcha M12 obejmuje CLI, minimalne GUI SSR, audit/preflight oraz drill-down pojedynczego wyniku.
+Aktualny smoke test backendowego searcha obejmuje CLI, minimalne GUI SSR, audit/preflight oraz drill-down pojedynczego wyniku.
 
 Smoke test GUI searcha:
 
@@ -763,6 +804,22 @@ Kontrakt prezentacji dla smoke testu searcha:
 - search CLI wypisuje `total damage` oraz `DPS`,
 - search CLI przechodzi przez kontrakt `BuildSearchRequest -> BuildSearchCandidateGenerator -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> BuildSearchEvaluationService -> ManualSimulationService -> BuildSearchPresentationNormalizer`,
 - dla referencyjnego smoke testu `FOUNDATION_M9 --top 5` search CLI daje `Ocenieni kandydaci = 2949`, `Wyniki po normalizacji = 137` oraz top 1 `total damage = 439`, `DPS = 48.7778`, `Action bar = Advance -> Clash`.
+
+Smoke test GUI importu itemu:
+
+```text
+http://127.0.0.1:8080/importuj-item-ze-screena
+```
+
+Kontrakt prezentacji dla smoke testu importu itemu:
+- GUI importu jest po polsku i jasno komunikuje, że to import wspomagany pojedynczego itemu, a nie pełny automatyczny import całej postaci,
+- GUI przyjmuje upload obrazu pojedynczego itemu przez `multipart/form-data`,
+- GUI waliduje technicznie, czy upload jest prawidłowym obrazem,
+- GUI pokazuje metadane obrazu, poziom pewności i uwagi dla pól wstępnego odczytu,
+- GUI pokazuje ręczny formularz zatwierdzenia obejmujący `slot`, `weapon damage`, `strength`, `intelligence`, `thorns`, `block chance` i `retribution chance`,
+- zatwierdzony item jest mapowany do aktualnego modelu `Item` oraz do agregowanych pól current build,
+- GUI pozwala przejść do `Policz aktualny build` z prefillowanymi statami wynikającymi z zatwierdzonego itemu,
+- flow nie obiecuje pełnego OCR i wymaga ręcznego potwierdzenia użytkownika przed użyciem danych.
 
 ## 11. Testy i golden values
 ### 11.1. Reguły testowe
@@ -805,10 +862,17 @@ Minimalny zakres testów obejmuje:
 - zgodność cumulative damage z `stepTrace`,
 - tickową manual simulation,
 - endpoint formularza GUI dla `Policz aktualny build`,
-- uruchomienie obliczenia przez GUI nad tym samym runtime M12,
+- uruchomienie obliczenia przez GUI nad tym samym runtime,
 - obecność kluczowych sekcji wyniku w GUI: `total damage`, `DPS`, direct hit debug, delayed hit debug, reactive debug i `stepTrace`,
 - obecność sekcji reactive debug w GUI dla scenariusza `Clash`,
 - obecność `WAIT` i stanu cooldownu w GUI dla scenariusza `Advance`,
+- mapowanie wstępnie rozpoznanych pól itemu do formularza ręcznego potwierdzenia,
+- walidację ręcznie poprawionego itemu,
+- mapowanie zatwierdzonego itemu do aktualnego modelu `Item`,
+- mapowanie zatwierdzonego itemu do aktualnego agregowanego modelu current build,
+- GET formularza GUI importu itemu,
+- upload obrazu itemu i render sekcji wstępnego rozpoznania,
+- zatwierdzenie itemu i render mapowania do current build,
 - generowanie legalnych kandydatów searcha,
 - poprawne wyliczenie liczby legalnych kandydatów w preflight searcha,
 - spójność preflight searcha z rzeczywistą liczbą ocenionych kandydatów,

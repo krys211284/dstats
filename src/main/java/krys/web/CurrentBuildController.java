@@ -37,7 +37,10 @@ public final class CurrentBuildController implements HttpHandler {
         try {
             String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
             if ("GET".equals(method)) {
-                renderPage(exchange, buildPageModel(CurrentBuildFormData.defaultValues(), List.of(), null));
+                CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(
+                        UrlEncodedFormSupport.parseQuery(exchange.getRequestURI().getRawQuery())
+                );
+                renderPage(exchange, buildPageModel(formData, List.of(), null));
                 return;
             }
             if ("POST".equals(method)) {
