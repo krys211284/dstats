@@ -16,17 +16,20 @@ public final class ItemImportPageModel {
     private final List<String> validationErrors;
     private final ConfirmedImportView confirmedImportView;
     private final String helpText;
+    private final String currentBuildQuery;
 
     public ItemImportPageModel(ItemImportEditableForm editableForm,
                                ItemImageImportCandidateParseResult parseResult,
                                List<String> validationErrors,
                                ConfirmedImportView confirmedImportView,
-                               String helpText) {
+                               String helpText,
+                               String currentBuildQuery) {
         this.editableForm = editableForm;
         this.parseResult = parseResult;
         this.validationErrors = Collections.unmodifiableList(new ArrayList<>(validationErrors));
         this.confirmedImportView = confirmedImportView;
         this.helpText = helpText;
+        this.currentBuildQuery = currentBuildQuery;
     }
 
     public ItemImportEditableForm getEditableForm() {
@@ -49,6 +52,10 @@ public final class ItemImportPageModel {
         return helpText;
     }
 
+    public String getCurrentBuildQuery() {
+        return currentBuildQuery;
+    }
+
     public boolean hasParseResult() {
         return parseResult != null && editableForm != null;
     }
@@ -66,16 +73,19 @@ public final class ItemImportPageModel {
         private final ValidatedImportedItem importedItem;
         private final krys.item.Item mappedItem;
         private final ImportedItemCurrentBuildContribution contribution;
-        private final String currentBuildPrefillUrl;
+        private final String overwriteCurrentBuildUrl;
+        private final String addContributionCurrentBuildUrl;
 
         public ConfirmedImportView(ValidatedImportedItem importedItem,
                                    krys.item.Item mappedItem,
                                    ImportedItemCurrentBuildContribution contribution,
-                                   String currentBuildPrefillUrl) {
+                                   String overwriteCurrentBuildUrl,
+                                   String addContributionCurrentBuildUrl) {
             this.importedItem = importedItem;
             this.mappedItem = mappedItem;
             this.contribution = contribution;
-            this.currentBuildPrefillUrl = currentBuildPrefillUrl;
+            this.overwriteCurrentBuildUrl = overwriteCurrentBuildUrl;
+            this.addContributionCurrentBuildUrl = addContributionCurrentBuildUrl;
         }
 
         public ValidatedImportedItem getImportedItem() {
@@ -90,8 +100,12 @@ public final class ItemImportPageModel {
             return contribution;
         }
 
-        public String getCurrentBuildPrefillUrl() {
-            return currentBuildPrefillUrl;
+        public String getOverwriteCurrentBuildUrl() {
+            return overwriteCurrentBuildUrl;
+        }
+
+        public String getAddContributionCurrentBuildUrl() {
+            return addContributionCurrentBuildUrl;
         }
     }
 }

@@ -10,8 +10,18 @@ import java.util.Iterator;
 
 /** Wstępny analizator obrazu pojedynczego itemu z jawnie ręcznym potwierdzeniem użytkownika. */
 public final class ItemImageImportService {
-    private static final String MANUAL_CONFIRMATION_NOTE =
-            "Aktualny foundation nie wykonuje jeszcze pełnego OCR tekstu z itemu. Obraz jest walidowany technicznie, a wszystkie pola wymagają ręcznego potwierdzenia użytkownika.";
+    private final WindowsItemOcrTextReader ocrTextReader;
+    private final ItemImageImportTextParser textParser;
+
+    public ItemImageImportService() {
+        this(new WindowsItemOcrTextReader(), new ItemImageImportTextParser());
+    }
+
+    ItemImageImportService(WindowsItemOcrTextReader ocrTextReader,
+                           ItemImageImportTextParser textParser) {
+        this.ocrTextReader = ocrTextReader;
+        this.textParser = textParser;
+    }
 
     public ItemImageImportCandidateParseResult analyze(ItemImageImportRequest request) {
         BufferedImage image = readImage(request.getImageBytes());
@@ -22,17 +32,8 @@ public final class ItemImageImportService {
                 image.getWidth(),
                 image.getHeight()
         );
-        return new ItemImageImportCandidateParseResult(
-                metadata,
-                ItemImportFieldCandidate.unknown("Brak pewnego odczytu slotu w foundation importu obrazu."),
-                ItemImportFieldCandidate.unknown("Brak pewnego odczytu weapon damage z obrazu."),
-                ItemImportFieldCandidate.unknown("Brak pewnego odczytu strength z obrazu."),
-                ItemImportFieldCandidate.unknown("Brak pewnego odczytu intelligence z obrazu."),
-                ItemImportFieldCandidate.unknown("Brak pewnego odczytu thorns z obrazu."),
-                ItemImportFieldCandidate.unknown("Brak pewnego odczytu block chance z obrazu."),
-                ItemImportFieldCandidate.unknown("Brak pewnego odczytu retribution chance z obrazu."),
-                MANUAL_CONFIRMATION_NOTE
-        );
+        String ocrText = ocrTextReader.readText(request.getImageBytes(), image);
+        return textParser.parse(metadata, ocrText);
     }
 
     private static BufferedImage readImage(byte[] imageBytes) {

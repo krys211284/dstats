@@ -27,6 +27,7 @@ public final class ItemImportPageRenderer {
         return template
                 .replace("{{FORM_ERRORS}}", renderErrors(model.getValidationErrors()))
                 .replace("{{HELP_TEXT}}", escapeHtml(model.getHelpText()))
+                .replace("{{UPLOAD_ACTION}}", escapeHtml(buildUploadAction(model.getCurrentBuildQuery())))
                 .replace("{{PARSE_SECTION}}", renderParseSection(model))
                 .replace("{{CONFIRM_SECTION}}", renderConfirmSection(model));
     }
@@ -111,6 +112,7 @@ public final class ItemImportPageRenderer {
                         <form method="post" action="/importuj-item-ze-screena">
                 """)
                 .append(renderHiddenField("sourceImageName", form.getSourceImageName()))
+                .append(renderHiddenField("currentBuildQuery", model.getCurrentBuildQuery()))
                 .append("""
                             <div class="form-grid">
                 """)
@@ -179,9 +181,17 @@ public final class ItemImportPageRenderer {
                 .append("""
                         </div>
                         <p class="helper">Import pozostaje wspomagany: zatwierdzony item zasila aktualny agregowany model buildu przez jawne mapowanie pól, a nie przez ukryty automat OCR.</p>
-                        <p><a class="link-button" href=\"""")
-                .append(escapeHtml(confirmed.getCurrentBuildPrefillUrl()))
-                .append("\">Otwórz „Policz aktualny build” z prefillowanymi statami z itemu</a></p>")
+                        <div class="action-links">
+                            <a class="link-button" href=\"""")
+                .append(escapeHtml(confirmed.getOverwriteCurrentBuildUrl()))
+                .append("\">Nadpisz current build wkładem itemu</a>")
+                .append("<a class=\"link-button secondary-button\" href=\"")
+                .append(escapeHtml(confirmed.getAddContributionCurrentBuildUrl()))
+                .append("\">Dodaj wkład itemu do current build</a>")
+                .append("""
+                        </div>
+                        <p class="helper">Tryb `nadpisz` podstawia rozpoznany wkład itemu w polach, które item rzeczywiście wnosi. Tryb `dodaj wkład` sumuje ten wkład do statów current build przekazanych do importu.</p>
+                    """)
                 .append("""
                     </section>
                 </section>
@@ -232,6 +242,13 @@ public final class ItemImportPageRenderer {
 
     private static String renderHiddenField(String name, String value) {
         return "<input type=\"hidden\" name=\"" + escapeHtml(name) + "\" value=\"" + escapeHtml(value) + "\">";
+    }
+
+    private static String buildUploadAction(String currentBuildQuery) {
+        if (currentBuildQuery == null || currentBuildQuery.isBlank()) {
+            return "/importuj-item-ze-screena";
+        }
+        return "/importuj-item-ze-screena?" + currentBuildQuery;
     }
 
     private static String renderSummaryCard(String label, String value) {

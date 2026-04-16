@@ -54,6 +54,15 @@ class ItemImportWebServerTest {
     }
 
     @Test
+    void shouldExposeCurrentBuildIntegrationButtonWithoutRegressingCurrentBuildFlow() throws Exception {
+        HttpResponse<String> response = sendGet("/policz-aktualny-build");
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("formaction=\"/importuj-item-ze-screena\""));
+        assertTrue(response.body().contains("Importuj item i wróć do current build"));
+    }
+
+    @Test
     void shouldUploadImageAndRenderManualConfirmationFields() throws Exception {
         HttpResponse<String> response = sendMultipartImagePost("/importuj-item-ze-screena", "sztylet.png", "image/png", PNG_1X1);
 
@@ -62,7 +71,8 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("sztylet.png"));
         assertTrue(response.body().contains("Rozmiar obrazu"));
         assertTrue(response.body().contains("1 x 1"));
-        assertTrue(response.body().contains("Brak pewnego odczytu weapon damage z obrazu."));
+        assertTrue(response.body().contains("Nie udało się rozpoznać pola `WEAPON DAMAGE` z OCR.")
+                || response.body().contains("OCR nie rozpoznał czytelnego tekstu z obrazu."));
         assertTrue(response.body().contains("Ręczne potwierdzenie itemu"));
         assertTrue(response.body().contains("name=\"sourceImageName\" value=\"sztylet.png\""));
         assertTrue(response.body().contains("name=\"slot\""));
@@ -70,6 +80,12 @@ class ItemImportWebServerTest {
 
     @Test
     void shouldConfirmImportedItemAndExposePrefillForCurrentBuild() throws Exception {
+        String currentBuildQuery = "level=13&weaponDamage=200&strength=30&intelligence=11&thorns=70&blockChance=10&retributionChance=15&horizonSeconds=10"
+                + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
+                + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
+                + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
+                + "&rank_ADVANCE=5&baseUpgrade_ADVANCE=true&choiceUpgrade_ADVANCE=RIGHT"
+                + "&actionBar1=ADVANCE&actionBar2=NONE&actionBar3=NONE&actionBar4=NONE";
         HttpResponse<String> response = sendUrlEncodedPost("/importuj-item-ze-screena", Map.of(
                 "sourceImageName", "bulawa.png",
                 "slot", "MAIN_HAND",
@@ -78,7 +94,8 @@ class ItemImportWebServerTest {
                 "intelligence", "0",
                 "thorns", "90",
                 "blockChance", "18",
-                "retributionChance", "25"
+                "retributionChance", "25",
+                "currentBuildQuery", currentBuildQuery
         ));
 
         assertEquals(200, response.statusCode());
@@ -86,16 +103,36 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("Mapowanie do modelu itemu aplikacji"));
         assertTrue(response.body().contains("Mapowanie do aktualnego modelu buildu"));
         assertTrue(response.body().contains("Zaimportowany item: bulawa.png"));
-        assertTrue(response.body().contains("/policz-aktualny-build?weaponDamage=321&amp;strength=55&amp;intelligence=0&amp;thorns=90&amp;blockChance=18&amp;retributionChance=25"));
+        assertTrue(response.body().contains("Nadpisz current build wkładem itemu"));
+        assertTrue(response.body().contains("Dodaj wkład itemu do current build"));
+        assertTrue(response.body().contains("/policz-aktualny-build?level=13&amp;weaponDamage=321&amp;strength=55&amp;intelligence=11&amp;thorns=90&amp;blockChance=18&amp;retributionChance=25"));
+        assertTrue(response.body().contains("/policz-aktualny-build?level=13&amp;weaponDamage=521&amp;strength=85&amp;intelligence=11&amp;thorns=160&amp;blockChance=28&amp;retributionChance=40"));
 
-        HttpResponse<String> currentBuildResponse = sendGet(
-                "/policz-aktualny-build?weaponDamage=321&strength=55&intelligence=0&thorns=90&blockChance=18&retributionChance=25"
+        HttpResponse<String> overwriteResponse = sendGet(
+                "/policz-aktualny-build?level=13&weaponDamage=321&strength=55&intelligence=11&thorns=90&blockChance=18&retributionChance=25&horizonSeconds=10"
+                        + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
+                        + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
+                        + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
+                        + "&rank_ADVANCE=5&baseUpgrade_ADVANCE=true&choiceUpgrade_ADVANCE=RIGHT"
+                        + "&actionBar1=ADVANCE&actionBar2=NONE&actionBar3=NONE&actionBar4=NONE"
         );
-        assertEquals(200, currentBuildResponse.statusCode());
-        assertTrue(currentBuildResponse.body().contains("name=\"weaponDamage\" value=\"321\""));
-        assertTrue(currentBuildResponse.body().contains("name=\"strength\" value=\"55\""));
-        assertTrue(currentBuildResponse.body().contains("name=\"thorns\" value=\"90\""));
-        assertTrue(currentBuildResponse.body().contains("name=\"blockChance\" value=\"18\""));
+        assertEquals(200, overwriteResponse.statusCode());
+        assertTrue(overwriteResponse.body().contains("name=\"weaponDamage\" value=\"321\""));
+        assertTrue(overwriteResponse.body().contains("name=\"strength\" value=\"55\""));
+        assertTrue(overwriteResponse.body().contains("name=\"intelligence\" value=\"11\""));
+
+        HttpResponse<String> addResponse = sendGet(
+                "/policz-aktualny-build?level=13&weaponDamage=521&strength=85&intelligence=11&thorns=160&blockChance=28&retributionChance=40&horizonSeconds=10"
+                        + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
+                        + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
+                        + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
+                        + "&rank_ADVANCE=5&baseUpgrade_ADVANCE=true&choiceUpgrade_ADVANCE=RIGHT"
+                        + "&actionBar1=ADVANCE&actionBar2=NONE&actionBar3=NONE&actionBar4=NONE"
+        );
+        assertEquals(200, addResponse.statusCode());
+        assertTrue(addResponse.body().contains("name=\"weaponDamage\" value=\"521\""));
+        assertTrue(addResponse.body().contains("name=\"strength\" value=\"85\""));
+        assertTrue(addResponse.body().contains("name=\"thorns\" value=\"160\""));
     }
 
     private HttpResponse<String> sendGet(String path) throws Exception {

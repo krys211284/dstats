@@ -81,6 +81,15 @@
             text-decoration: none;
             cursor: pointer;
         }
+        .action-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        .secondary-button {
+            background: linear-gradient(135deg, #5b7a86 0%, #7898a4 100%);
+        }
         .summary-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -129,7 +138,7 @@
 
     <section class="panel">
         <h2>Wgraj screenshot itemu</h2>
-        <form method="post" action="/importuj-item-ze-screena" enctype="multipart/form-data">
+        <form method="post" action="{{UPLOAD_ACTION}}" enctype="multipart/form-data">
             <div class="form-grid">
                 <label>
                     Obraz pojedynczego itemu
@@ -137,6 +146,7 @@
                 </label>
             </div>
             <p class="helper">{{HELP_TEXT}}</p>
+            <p class="helper">Jeżeli wejdziesz tu z formularza `Policz aktualny build`, ekran zachowa przekazane staty i po zatwierdzeniu itemu pozwoli albo je nadpisać, albo dodać do nich wkład itemu.</p>
             <div class="submit-row">
                 <button type="submit">Wczytaj i pokaż pola do potwierdzenia</button>
             </div>

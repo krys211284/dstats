@@ -3,7 +3,10 @@ package krys.web;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import krys.item.Item;
+import krys.itemimport.CurrentBuildImportableStats;
+import krys.itemimport.CurrentBuildItemApplicationMode;
 import krys.itemimport.ImportedItemCurrentBuildContribution;
+import krys.itemimport.ImportedItemCurrentBuildApplicationService;
 import krys.itemimport.ImportedItemCurrentBuildContributionMapper;
 import krys.itemimport.ItemImageImportCandidateParseResult;
 import krys.itemimport.ItemImageImportRequest;
@@ -15,9 +18,7 @@ import krys.itemimport.ValidatedImportedItem;
 import krys.itemimport.ValidatedImportedItemToItemMapper;
 
 import java.io.IOException;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -34,6 +35,7 @@ public final class ItemImportController implements HttpHandler {
     private final ItemImportFormMapper formMapper;
     private final ValidatedImportedItemToItemMapper itemMapper;
     private final ImportedItemCurrentBuildContributionMapper contributionMapper;
+    private final ImportedItemCurrentBuildApplicationService applicationService;
 
     public ItemImportController(ItemImageImportService imageImportService,
                                 ItemImportPageRenderer renderer) {
@@ -43,7 +45,8 @@ public final class ItemImportController implements HttpHandler {
                 new ItemImportEditableFormFactory(),
                 new ItemImportFormMapper(),
                 new ValidatedImportedItemToItemMapper(),
-                new ImportedItemCurrentBuildContributionMapper()
+                new ImportedItemCurrentBuildContributionMapper(),
+                new ImportedItemCurrentBuildApplicationService()
         );
     }
 
@@ -52,13 +55,15 @@ public final class ItemImportController implements HttpHandler {
                          ItemImportEditableFormFactory editableFormFactory,
                          ItemImportFormMapper formMapper,
                          ValidatedImportedItemToItemMapper itemMapper,
-                         ImportedItemCurrentBuildContributionMapper contributionMapper) {
+                         ImportedItemCurrentBuildContributionMapper contributionMapper,
+                         ImportedItemCurrentBuildApplicationService applicationService) {
         this.imageImportService = imageImportService;
         this.renderer = renderer;
         this.editableFormFactory = editableFormFactory;
         this.formMapper = formMapper;
         this.itemMapper = itemMapper;
         this.contributionMapper = contributionMapper;
+        this.applicationService = applicationService;
     }
 
     @Override
@@ -66,7 +71,10 @@ public final class ItemImportController implements HttpHandler {
         try {
             String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
             if ("GET".equals(method)) {
-                renderPage(exchange, emptyPageModel());
+                CurrentBuildFormData contextFormData = CurrentBuildFormQuerySupport.resolveImportContext(
+                        UrlEncodedFormSupport.parseQuery(exchange.getRequestURI().getRawQuery())
+                );
+                renderPage(exchange, emptyPageModel(CurrentBuildFormQuerySupport.toQuery(contextFormData)));
                 return;
             }
             if ("POST".equals(method)) {
@@ -82,8 +90,11 @@ public final class ItemImportController implements HttpHandler {
 
     private ItemImportPageModel handlePost(HttpExchange exchange) throws IOException {
         String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
+        String currentBuildQuery = CurrentBuildFormQuerySupport.toQuery(
+                CurrentBuildFormQuerySupport.resolveImportContext(UrlEncodedFormSupport.parseQuery(exchange.getRequestURI().getRawQuery()))
+        );
         if (contentType == null) {
-            return buildErrorPageModel(null, null, List.of("Brak nagłówka `Content-Type`."));
+            return buildErrorPageModel(null, null, List.of("Brak nagłówka `Content-Type`."), currentBuildQuery);
         }
         String normalizedContentType = contentType.toLowerCase(Locale.ROOT);
         if (normalizedContentType.startsWith("multipart/form-data")) {
@@ -92,11 +103,14 @@ public final class ItemImportController implements HttpHandler {
         if (normalizedContentType.startsWith("application/x-www-form-urlencoded")) {
             return handleConfirmation(exchange);
         }
-        return buildErrorPageModel(null, null, List.of("Nieobsługiwany typ danych formularza dla importu itemu."));
+        return buildErrorPageModel(null, null, List.of("Nieobsługiwany typ danych formularza dla importu itemu."), currentBuildQuery);
     }
 
     private ItemImportPageModel handleImageUpload(HttpExchange exchange) throws IOException {
         try {
+            CurrentBuildFormData contextFormData = CurrentBuildFormQuerySupport.resolveImportContext(
+                    UrlEncodedFormSupport.parseQuery(exchange.getRequestURI().getRawQuery())
+            );
             MultipartFormSupport.MultipartFormData multipartFormData = MultipartFormSupport.parse(exchange);
             MultipartFormSupport.MultipartFilePart filePart = multipartFormData.requireFile("itemImage");
             ItemImageImportCandidateParseResult parseResult = imageImportService.analyze(new ItemImageImportRequest(
@@ -109,15 +123,20 @@ public final class ItemImportController implements HttpHandler {
                     parseResult,
                     List.of(),
                     null,
-                    buildHelpText()
+                    buildHelpText(),
+                    CurrentBuildFormQuerySupport.toQuery(contextFormData)
             );
         } catch (IllegalArgumentException exception) {
-            return buildErrorPageModel(null, null, List.of(exception.getMessage()));
+            CurrentBuildFormData contextFormData = CurrentBuildFormQuerySupport.resolveImportContext(
+                    UrlEncodedFormSupport.parseQuery(exchange.getRequestURI().getRawQuery())
+            );
+            return buildErrorPageModel(null, null, List.of(exception.getMessage()), CurrentBuildFormQuerySupport.toQuery(contextFormData));
         }
     }
 
     private ItemImportPageModel handleConfirmation(HttpExchange exchange) throws IOException {
         Map<String, String> fields = UrlEncodedFormSupport.parseBody(exchange);
+        String currentBuildQuery = fields.getOrDefault("currentBuildQuery", "");
         ItemImportEditableForm form = new ItemImportEditableForm(
                 fields.getOrDefault("sourceImageName", "nieznany-item"),
                 fields.getOrDefault("slot", ""),
@@ -131,9 +150,10 @@ public final class ItemImportController implements HttpHandler {
 
         ItemImportFormMapper.MappingResult mappingResult = formMapper.map(form);
         if (!mappingResult.getErrors().isEmpty() || mappingResult.getItem() == null) {
-            return buildErrorPageModel(form, null, mappingResult.getErrors());
+            return buildErrorPageModel(form, null, mappingResult.getErrors(), currentBuildQuery);
         }
 
+        CurrentBuildFormData contextFormData = CurrentBuildFormQuerySupport.fromSerializedQuery(currentBuildQuery);
         ValidatedImportedItem importedItem = mappingResult.getItem();
         Item mappedItem = itemMapper.map(importedItem);
         ImportedItemCurrentBuildContribution contribution = contributionMapper.map(importedItem);
@@ -145,44 +165,44 @@ public final class ItemImportController implements HttpHandler {
                         importedItem,
                         mappedItem,
                         contribution,
-                        buildCurrentBuildPrefillUrl(contribution)
+                        buildCurrentBuildPrefillUrl(contextFormData, contribution, CurrentBuildItemApplicationMode.OVERWRITE),
+                        buildCurrentBuildPrefillUrl(contextFormData, contribution, CurrentBuildItemApplicationMode.ADD_CONTRIBUTION)
                 ),
-                buildHelpText()
+                buildHelpText(),
+                currentBuildQuery
         );
     }
 
-    private ItemImportPageModel emptyPageModel() {
-        return new ItemImportPageModel(null, null, List.of(), null, buildHelpText());
+    private ItemImportPageModel emptyPageModel(String currentBuildQuery) {
+        return new ItemImportPageModel(null, null, List.of(), null, buildHelpText(), currentBuildQuery);
     }
 
     private ItemImportPageModel buildErrorPageModel(ItemImportEditableForm form,
                                                     ItemImageImportCandidateParseResult parseResult,
-                                                    List<String> errors) {
-        return new ItemImportPageModel(form, parseResult, errors, null, buildHelpText());
+                                                    List<String> errors,
+                                                    String currentBuildQuery) {
+        return new ItemImportPageModel(form, parseResult, errors, null, buildHelpText(), currentBuildQuery);
     }
 
     private static String buildHelpText() {
         return "To jest import wspomagany pojedynczego itemu ze screena. Foundation sprawdza obraz, pokazuje niepewność pól i wymaga ręcznego zatwierdzenia użytkownika. Nie jest to jeszcze pełny automatyczny import całej postaci.";
     }
 
-    private static String buildCurrentBuildPrefillUrl(ImportedItemCurrentBuildContribution contribution) {
-        List<String> pairs = new ArrayList<>();
-        long weaponDamage = contribution.getWeaponDamage() > 0L ? contribution.getWeaponDamage() : CURRENT_BUILD_DEFAULT_WEAPON_DAMAGE;
-        pairs.add(pair("weaponDamage", Long.toString(weaponDamage)));
-        pairs.add(pair("strength", formatWhole(contribution.getStrength())));
-        pairs.add(pair("intelligence", formatWhole(contribution.getIntelligence())));
-        pairs.add(pair("thorns", formatWhole(contribution.getThorns())));
-        pairs.add(pair("blockChance", formatWhole(contribution.getBlockChance())));
-        pairs.add(pair("retributionChance", formatWhole(contribution.getRetributionChance())));
-        return "/policz-aktualny-build?" + String.join("&", pairs);
-    }
-
-    private static String pair(String key, String value) {
-        return URLEncoder.encode(key, StandardCharsets.UTF_8) + "=" + URLEncoder.encode(value, StandardCharsets.UTF_8);
-    }
-
-    private static String formatWhole(double value) {
-        return String.format(Locale.US, "%.0f", value);
+    private String buildCurrentBuildPrefillUrl(CurrentBuildFormData contextFormData,
+                                               ImportedItemCurrentBuildContribution contribution,
+                                               CurrentBuildItemApplicationMode mode) {
+        CurrentBuildImportableStats contextStats = CurrentBuildFormQuerySupport.importableStats(contextFormData);
+        CurrentBuildImportableStats appliedStats = applicationService.apply(contextStats, contribution, mode);
+        CurrentBuildImportableStats normalizedStats = new CurrentBuildImportableStats(
+                appliedStats.getWeaponDamage() > 0L ? appliedStats.getWeaponDamage() : CURRENT_BUILD_DEFAULT_WEAPON_DAMAGE,
+                appliedStats.getStrength(),
+                appliedStats.getIntelligence(),
+                appliedStats.getThorns(),
+                appliedStats.getBlockChance(),
+                appliedStats.getRetributionChance()
+        );
+        CurrentBuildFormData updatedFormData = CurrentBuildFormQuerySupport.withAppliedStats(contextFormData, normalizedStats);
+        return "/policz-aktualny-build?" + CurrentBuildFormQuerySupport.toQuery(updatedFormData);
     }
 
     private void renderPage(HttpExchange exchange, ItemImportPageModel pageModel) throws IOException {

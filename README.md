@@ -15,7 +15,7 @@ Docelowo system ma wspierać dwa tryby pracy:
 - `Policz aktualny build` - manual simulation dla aktualnej konfiguracji bohatera.
 - `Znajdź najlepszy build` - build search oceniający legalne buildy i legalne konfiguracje paska skilli.
 
-Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR oraz pierwszy foundation importu wspomaganego obrazem dla pojedynczego itemu:
+Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR oraz realny foundation importu pojedynczego itemu ze screena:
 - minimalny wspólny silnik pojedynczego uderzenia dla `Brandish` i `Holy Bolt`,
 - pierwszy pełny use case cooldownowego direct-hit runtime dla `Advance`,
 - pełny pierwszy use case reactive foundation dla `Clash`,
@@ -32,15 +32,17 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - warstwę prezentacyjną normalizującą wyniki searcha po zakończonej ocenie kandydatów,
 - minimalne webowe GUI SSR dla trybu `Policz aktualny build`,
 - pierwszy SSR flow `Importuj item ze screena` dla pojedynczego itemu z ręcznym potwierdzeniem użytkownika,
-- techniczną walidację obrazu itemu oraz model wstępnego rozpoznania z poziomem niepewności,
+- realny odczyt OCR pojedynczego screena itemu dla ograniczonego zakresu pól foundation,
+- model wstępnego rozpoznania z poziomem pewności i uwagami per pole,
 - walidowany formularz zatwierdzonego itemu i mapowanie jego pól do aktualnego modelu buildu,
+- dwa tryby zastosowania zatwierdzonego itemu do current build: `nadpisz` oraz `dodaj wkład`,
 - pierwsze minimalne webowe GUI SSR dla trybu `Znajdź najlepszy build`,
 - pierwszy drill-down SSR z wyniku searcha do pełnej analizy reprezentanta znormalizowanego wyniku na tym samym runtime co manual simulation,
 - foundation audytu/preflightu searcha z liczbą legalnych kandydatów i rozmiarem search space,
 - minimalny progress CLI searcha dla etapu oceny kandydatów,
 - CLI dla manual simulation oraz osobne CLI backendowego searcha jako równoległe smoke testy tego samego runtime.
 
-Pełny system zasobów, pełny system defensywnych statusów, pełne feature'y `Fervor`, pełny ogólny system `Resolve`, `Fala Zealot`, live progress searcha w GUI, eksport CSV, wielowątkowość, pełny automatyczny OCR itemów, pełny import całej postaci oraz pełna docelowa warstwa UX/UI pozostają poza bieżącym zakresem kodu.
+Pełny system zasobów, pełny system defensywnych statusów, pełne feature'y `Fervor`, pełny ogólny system `Resolve`, `Fala Zealot`, live progress searcha w GUI, eksport CSV, wielowątkowość, pełny wielo-itemowy flow, pełna sesja ekwipunku, pełny OCR całej postaci oraz pełna docelowa warstwa UX/UI pozostają poza bieżącym zakresem kodu.
 
 Kontrakt architektoniczny jest wspólny dla obu trybów:
 - oba tryby muszą używać tego samego `Damage Engine`,
@@ -75,11 +77,12 @@ Kontrakt aktualnej warstwy aplikacyjnej:
 - `CurrentBuildSnapshotFactory` buduje z requestu runtime `HeroBuildSnapshot`,
 - `CurrentBuildCalculationService` uruchamia ten sam runtime dla GUI i CLI,
 - GUI importu itemu mapuje upload obrazu do `ItemImageImportRequest`,
-- `ItemImageImportService` wykonuje techniczną walidację obrazu i buduje `ItemImageImportCandidateParseResult`,
+- `ItemImageImportService` wykonuje techniczną walidację obrazu, uruchamia realny OCR pojedynczego screena itemu i buduje `ItemImageImportCandidateParseResult`,
 - `ItemImportEditableFormFactory` przygotowuje formularz ręcznego potwierdzenia na bazie wstępnego odczytu,
 - `ItemImportFormMapper` waliduje ręcznie poprawiony item do `ValidatedImportedItem`,
 - `ValidatedImportedItemToItemMapper` mapuje zatwierdzony item do aktualnego modelu `Item`,
 - `ImportedItemCurrentBuildContributionMapper` mapuje zatwierdzony item do aktualnego agregowanego modelu buildu używanego przez `CurrentBuildRequest`,
+- `ImportedItemCurrentBuildApplicationService` stosuje zatwierdzony item do istniejących statów current build w trybie `nadpisz` albo `dodaj wkład`,
 - GUI importu itemu pozostaje cienką warstwą wejściową nad obecnym modelem current build i nie implementuje alternatywnego runtime,
 - CLI searcha mapuje argumenty do `BuildSearchRequest` przez `BuildSearchCliRequestParser`,
 - GUI searcha mapuje formularz do `BuildSearchRequest` przez `SearchBuildFormMapper`,
@@ -222,11 +225,12 @@ Aktualny foundation importu obrazu obejmuje wyłącznie pojedynczy item i jawnie
 
 Kontrakt domenowy importu itemu:
 - `ItemImageImportRequest` reprezentuje upload pojedynczego obrazu itemu,
-- `ItemImageImportCandidateParseResult` reprezentuje wstępny odczyt wraz z metadanymi obrazu, poziomem pewności i uwagami per pole,
+- `ItemImageImportCandidateParseResult` reprezentuje wstępny odczyt OCR wraz z metadanymi obrazu, poziomem pewności i uwagami per pole,
 - `ItemImportEditableForm` reprezentuje ręcznie edytowalny formularz potwierdzenia,
 - `ValidatedImportedItem` reprezentuje item zatwierdzony po walidacji,
 - `ValidatedImportedItemToItemMapper` mapuje zatwierdzony item do aktualnego modelu `Item`,
-- `ImportedItemCurrentBuildContributionMapper` mapuje zatwierdzony item do agregowanych pól aktualnego modelu current build.
+- `ImportedItemCurrentBuildContributionMapper` mapuje zatwierdzony item do agregowanych pól aktualnego modelu current build,
+- `ImportedItemCurrentBuildApplicationService` nakłada wkład itemu na istniejący current build w dwóch trybach kontraktowych.
 
 Minimalny zakres pól importu itemu:
 - `slot / typ itemu`,
@@ -239,9 +243,12 @@ Minimalny zakres pól importu itemu:
 
 Jawne ograniczenia aktualnego foundation importu:
 - flow nie obiecuje pełnej bezbłędności OCR ani vision,
-- aktualny foundation wykonuje techniczną walidację obrazu i renderuje poziom niepewności pól,
+- aktualny foundation wykonuje techniczną walidację obrazu, realny OCR pojedynczego itemu oraz renderuje poziom niepewności pól,
 - użytkownik musi ręcznie zatwierdzić albo poprawić pola przed użyciem itemu,
+- tryb `nadpisz` podstawia do current build tylko te pola, które rozpoznany item rzeczywiście wnosi,
+- tryb `dodaj wkład` sumuje rozpoznany wkład itemu do statów current build przekazanych do importu,
 - flow nie importuje jeszcze całego ekwipunku ani całej postaci,
+- flow nie buduje jeszcze pełnego wielo-itemowego workflow ani sesji inventory,
 - flow nie omija obecnego modelu current build i nie buduje bocznego modelu runtime.
 
 ## 5. Damage Engine
@@ -632,7 +639,9 @@ Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny bu
 - CLI dla równoległego ręcznego smoke testu użytkownika,
 - CLI searcha z tekstowym outputem audytu, minimalnego progressu oraz znormalizowanych top wyników,
 - osobny ekran GUI SSR importu wspomaganego obrazem dla pojedynczego itemu,
-- render poziomu niepewności i ręcznego potwierdzenia pól itemu,
+- render realnie rozpoznanych pól OCR, poziomu niepewności i ręcznego potwierdzenia pól itemu,
+- dwa linki zastosowania zatwierdzonego itemu do current build: `nadpisz` i `dodaj wkład`,
+- wejście do importu itemu bez sesji wielu itemów, z możliwością zachowania kontekstu current build przez query string,
 - mapowanie zatwierdzonego itemu do modelu `Item` oraz do agregowanych pól current build,
 - osobny ekran GUI SSR searcha dla minimalnej przestrzeni foundation,
 - sekcję audit / preflight searcha w GUI searcha,
@@ -754,6 +763,7 @@ java '-Dfile.encoding=UTF-8' -cp target/classes krys.app.CalculateCurrentBuildCl
 Kontrakt prezentacji dla tego smoke testu:
 - GUI jest po polsku i jasno komunikuje, że to aktualny foundation manual simulation, a nie pełny produkt końcowy.
 - GUI pozwala ustawić level, staty buildu, konfigurację wszystkich skilli foundation oraz action bar, a następnie kliknąć `Policz aktualny build`.
+- GUI pozwala z tego samego formularza przejść do importu pojedynczego itemu ze screena z zachowaniem aktualnego kontekstu current build.
 - GUI i CLI przechodzą przez ten sam kontrakt `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> CurrentBuildCalculationService -> runtime`.
 - scenariusze referencyjne są trybem pomocniczym do smoke testów i regresji, a nie główną ścieżką produktu.
 - GUI i CLI pokazują `total damage`, `DPS`, debug bezpośredniego hita dla użytego skilla, debug delayed hitów, reactive debug, `stepTrace`, `Resolve aktywny na końcu`, `Active block chance na końcu` oraz `Active thorns bonus na końcu`.
@@ -815,11 +825,13 @@ Kontrakt prezentacji dla smoke testu importu itemu:
 - GUI importu jest po polsku i jasno komunikuje, że to import wspomagany pojedynczego itemu, a nie pełny automatyczny import całej postaci,
 - GUI przyjmuje upload obrazu pojedynczego itemu przez `multipart/form-data`,
 - GUI waliduje technicznie, czy upload jest prawidłowym obrazem,
-- GUI pokazuje metadane obrazu, poziom pewności i uwagi dla pól wstępnego odczytu,
+- GUI wykonuje realny OCR pojedynczego screena i pokazuje metadane obrazu, poziom pewności oraz uwagi dla pól wstępnego odczytu,
 - GUI pokazuje ręczny formularz zatwierdzenia obejmujący `slot`, `weapon damage`, `strength`, `intelligence`, `thorns`, `block chance` i `retribution chance`,
 - zatwierdzony item jest mapowany do aktualnego modelu `Item` oraz do agregowanych pól current build,
-- GUI pozwala przejść do `Policz aktualny build` z prefillowanymi statami wynikającymi z zatwierdzonego itemu,
-- flow nie obiecuje pełnego OCR i wymaga ręcznego potwierdzenia użytkownika przed użyciem danych.
+- GUI pozwala przejść do `Policz aktualny build` w dwóch trybach: `nadpisz current build` albo `dodaj wkład itemu do current build`,
+- jeżeli import został otwarty z formularza current build, tryb `dodaj wkład` wykorzystuje przekazane staty bez ręcznego sumowania przez użytkownika,
+- flow nie obiecuje pełnej bezbłędności OCR i wymaga ręcznego potwierdzenia użytkownika przed użyciem danych,
+- poza zakresem pozostają pełny wielo-itemowy workflow i pełny OCR całej postaci.
 
 ## 11. Testy i golden values
 ### 11.1. Reguły testowe
@@ -866,13 +878,16 @@ Minimalny zakres testów obejmuje:
 - obecność kluczowych sekcji wyniku w GUI: `total damage`, `DPS`, direct hit debug, delayed hit debug, reactive debug i `stepTrace`,
 - obecność sekcji reactive debug w GUI dla scenariusza `Clash`,
 - obecność `WAIT` i stanu cooldownu w GUI dla scenariusza `Advance`,
+- rozpoznanie ograniczonych pól foundation z pojedynczego screena itemu do `candidate parse result`,
 - mapowanie wstępnie rozpoznanych pól itemu do formularza ręcznego potwierdzenia,
 - walidację ręcznie poprawionego itemu,
 - mapowanie zatwierdzonego itemu do aktualnego modelu `Item`,
 - mapowanie zatwierdzonego itemu do aktualnego agregowanego modelu current build,
+- aplikowanie zatwierdzonego itemu do current build w trybie `nadpisz`,
+- aplikowanie zatwierdzonego itemu do current build w trybie `dodaj wkład`,
 - GET formularza GUI importu itemu,
 - upload obrazu itemu i render sekcji wstępnego rozpoznania,
-- zatwierdzenie itemu i render mapowania do current build,
+- zatwierdzenie itemu i render dwóch trybów przejścia do current build,
 - generowanie legalnych kandydatów searcha,
 - poprawne wyliczenie liczby legalnych kandydatów w preflight searcha,
 - spójność preflight searcha z rzeczywistą liczbą ocenionych kandydatów,
