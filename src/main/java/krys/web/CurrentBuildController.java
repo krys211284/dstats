@@ -4,33 +4,35 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import krys.app.CurrentBuildCalculation;
 import krys.app.CurrentBuildCalculationService;
-import krys.app.CurrentBuildRequest;
-import krys.skill.PaladinSkillDefs;
-import krys.skill.SkillId;
-import krys.skill.SkillUpgradeChoice;
 
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
-/** Kontroler HTTP dla pierwszego klikalnego GUI M7. */
+/** Kontroler HTTP dla pierwszego klikalnego GUI M8. */
 public final class CurrentBuildController implements HttpHandler {
     private static final String HTML_CONTENT_TYPE = "text/html; charset=UTF-8";
 
     private final CurrentBuildCalculationService calculationService;
     private final CurrentBuildPageRenderer renderer;
+    private final CurrentBuildFormMapper formMapper;
 
     public CurrentBuildController(CurrentBuildCalculationService calculationService,
                                   CurrentBuildPageRenderer renderer) {
+        this(calculationService, renderer, new CurrentBuildFormMapper());
+    }
+
+    CurrentBuildController(CurrentBuildCalculationService calculationService,
+                           CurrentBuildPageRenderer renderer,
+                           CurrentBuildFormMapper formMapper) {
         this.calculationService = calculationService;
         this.renderer = renderer;
+        this.formMapper = formMapper;
     }
 
     @Override
@@ -60,27 +62,14 @@ public final class CurrentBuildController implements HttpHandler {
     }
 
     private CurrentBuildCalculation tryCalculate(CurrentBuildFormData formData, List<String> errors) {
-        SkillId skillId = parseSkillId(formData.getSkillId(), errors);
-        Integer rank = parseRank(formData.getRank(), errors);
-        SkillUpgradeChoice choiceUpgrade = parseChoiceUpgrade(formData.getChoiceUpgrade(), errors);
-        Integer horizonSeconds = parseHorizon(formData.getHorizonSeconds(), errors);
-
-        if (skillId != null && choiceUpgrade != null) {
-            validateChoiceForSkill(skillId, choiceUpgrade, formData.isBaseUpgrade(), errors);
-        }
-
-        if (!errors.isEmpty() || skillId == null || rank == null || choiceUpgrade == null || horizonSeconds == null) {
+        CurrentBuildFormMapper.MappingResult mappingResult = formMapper.map(formData);
+        errors.addAll(mappingResult.getErrors());
+        if (!errors.isEmpty() || mappingResult.getRequest() == null) {
             return null;
         }
 
         try {
-            return calculationService.calculate(new CurrentBuildRequest(
-                    skillId,
-                    rank,
-                    formData.isBaseUpgrade(),
-                    choiceUpgrade,
-                    horizonSeconds
-            ));
+            return calculationService.calculate(mappingResult.getRequest());
         } catch (IllegalArgumentException exception) {
             errors.add(exception.getMessage());
             return null;
@@ -92,161 +81,17 @@ public final class CurrentBuildController implements HttpHandler {
                                                  CurrentBuildCalculation calculation) {
         return new CurrentBuildPageModel(
                 formData,
-                buildSkillOptions(formData),
-                buildRankOptions(formData),
-                buildChoiceOptions(formData),
+                List.of(),
+                List.of(),
+                List.of(),
                 errors,
                 calculation,
                 buildChoiceHelpText(formData)
         );
     }
 
-    private static List<CurrentBuildPageModel.SelectOption> buildSkillOptions(CurrentBuildFormData formData) {
-        List<CurrentBuildPageModel.SelectOption> options = new ArrayList<>();
-        for (SkillId skillId : SkillId.values()) {
-            options.add(new CurrentBuildPageModel.SelectOption(
-                    skillId.name(),
-                    PaladinSkillDefs.get(skillId).getName(),
-                    skillId.name().equals(formData.getSkillId())
-            ));
-        }
-        return options;
-    }
-
-    private static List<CurrentBuildPageModel.SelectOption> buildRankOptions(CurrentBuildFormData formData) {
-        List<CurrentBuildPageModel.SelectOption> options = new ArrayList<>();
-        for (int rank = 1; rank <= 5; rank++) {
-            String rankValue = Integer.toString(rank);
-            options.add(new CurrentBuildPageModel.SelectOption(
-                    rankValue,
-                    rankValue,
-                    rankValue.equals(formData.getRank())
-            ));
-        }
-        return options;
-    }
-
-    private static List<CurrentBuildPageModel.SelectOption> buildChoiceOptions(CurrentBuildFormData formData) {
-        List<CurrentBuildPageModel.SelectOption> options = new ArrayList<>();
-        SkillId selectedSkillId = tryParseSkillId(formData.getSkillId());
-        Set<SkillUpgradeChoice> choiceUpgrades = selectedSkillId == null
-                ? PaladinSkillDefs.getFoundationChoiceUpgrades()
-                : buildChoiceSetForSkill(selectedSkillId);
-        for (SkillUpgradeChoice choiceUpgrade : choiceUpgrades) {
-            options.add(new CurrentBuildPageModel.SelectOption(
-                    choiceUpgrade.name(),
-                    toChoiceLabel(selectedSkillId, choiceUpgrade),
-                    choiceUpgrade.name().equals(formData.getChoiceUpgrade())
-            ));
-        }
-        return options;
-    }
-
-    private static Set<SkillUpgradeChoice> buildChoiceSetForSkill(SkillId skillId) {
-        LinkedHashSet<SkillUpgradeChoice> choices = new LinkedHashSet<>();
-        choices.add(SkillUpgradeChoice.NONE);
-        choices.addAll(PaladinSkillDefs.get(skillId).getAvailableChoiceUpgrades());
-        return choices;
-    }
-
-    private static String toChoiceLabel(SkillId selectedSkillId, SkillUpgradeChoice choiceUpgrade) {
-        if (selectedSkillId != null) {
-            return switch (choiceUpgrade) {
-                case NONE -> "Brak";
-                default -> PaladinSkillDefs.getChoiceDisplayName(selectedSkillId, choiceUpgrade);
-            };
-        }
-
-        return switch (choiceUpgrade) {
-            case NONE -> "Brak";
-            case LEFT -> "Powrót światłości / Punishment / Wave Dash";
-            case RIGHT -> "Krzyżowe uderzenie (Vulnerable) / Flash of the Blade";
-            case MIDDLE -> "Miecz Mistrzostwa";
-        };
-    }
-
     private static String buildChoiceHelpText(CurrentBuildFormData formData) {
-        SkillId skillId = tryParseSkillId(formData.getSkillId());
-        if (skillId == SkillId.HOLY_BOLT) {
-            return "Dla Holy Bolt w aktualnym foundation dodatkowy modyfikator pozostaje ustawiony na „Brak”.";
-        }
-        if (skillId == SkillId.CLASH) {
-            return "Dla Clash bazowe rozszerzenie oznacza Crusader's March, a dodatkowy modyfikator LEFT oznacza Punishment.";
-        }
-        if (skillId == SkillId.ADVANCE) {
-            return "Dla Advance bazowe rozszerzenie odblokowuje Wave Dash oraz Flash of the Blade. Flash of the Blade nakłada Vulnerable po trafieniu i ustawia cooldown 8 s.";
-        }
-        return "Aktualne dodatkowe modyfikatory foundation dla Brandish to Powrót światłości i Krzyżowe uderzenie (Vulnerable). Bazowe rozszerzenie musi być włączone, aby użyć dodatkowego modyfikatora.";
-    }
-
-    private static SkillId parseSkillId(String rawSkillId, List<String> errors) {
-        SkillId skillId = tryParseSkillId(rawSkillId);
-        if (skillId == null) {
-            errors.add("Wybrany skill nie należy do aktualnego foundation.");
-        }
-        return skillId;
-    }
-
-    private static SkillId tryParseSkillId(String rawSkillId) {
-        try {
-            return SkillId.valueOf(rawSkillId);
-        } catch (IllegalArgumentException | NullPointerException exception) {
-            return null;
-        }
-    }
-
-    private static Integer parseRank(String rawRank, List<String> errors) {
-        try {
-            int rank = Integer.parseInt(rawRank);
-            if (rank < 1 || rank > 5) {
-                errors.add("Rank skilla w GUI musi mieścić się w zakresie 1..5.");
-                return null;
-            }
-            return rank;
-        } catch (NumberFormatException exception) {
-            errors.add("Rank skilla musi być liczbą całkowitą.");
-            return null;
-        }
-    }
-
-    private static SkillUpgradeChoice parseChoiceUpgrade(String rawChoiceUpgrade, List<String> errors) {
-        try {
-            return SkillUpgradeChoice.valueOf(rawChoiceUpgrade);
-        } catch (IllegalArgumentException | NullPointerException exception) {
-            errors.add("Wybrany dodatkowy modyfikator nie należy do aktualnego foundation.");
-            return null;
-        }
-    }
-
-    private static Integer parseHorizon(String rawHorizonSeconds, List<String> errors) {
-        try {
-            int horizonSeconds = Integer.parseInt(rawHorizonSeconds);
-            if (horizonSeconds <= 0) {
-                errors.add("Horyzont symulacji musi być dodatni.");
-                return null;
-            }
-            return horizonSeconds;
-        } catch (NumberFormatException exception) {
-            errors.add("Horyzont symulacji musi być liczbą całkowitą.");
-            return null;
-        }
-    }
-
-    private static void validateChoiceForSkill(SkillId skillId,
-                                               SkillUpgradeChoice choiceUpgrade,
-                                               boolean baseUpgrade,
-                                               List<String> errors) {
-        if (!baseUpgrade && choiceUpgrade != SkillUpgradeChoice.NONE) {
-            errors.add("Dodatkowy modyfikator wymaga włączenia bazowego rozszerzenia.");
-            return;
-        }
-
-        Set<SkillUpgradeChoice> validChoices = new LinkedHashSet<>();
-        validChoices.add(SkillUpgradeChoice.NONE);
-        validChoices.addAll(PaladinSkillDefs.get(skillId).getAvailableChoiceUpgrades());
-        if (!validChoices.contains(choiceUpgrade)) {
-            errors.add("Wybrany dodatkowy modyfikator nie jest dostępny dla wskazanego skilla w aktualnym foundation.");
-        }
+        return "Formularz M8 buduje prawdziwy snapshot z levelu, statów użytkownika, konfiguracji wszystkich skilli foundation oraz action bara. Domyślne wartości odpowiadają referencyjnemu scenariuszowi pomocniczemu, ale możesz je ręcznie zmieniać.";
     }
 
     private static Map<String, String> parseUrlEncodedBody(HttpExchange exchange) throws IOException {

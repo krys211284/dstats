@@ -253,51 +253,31 @@
 <body>
 <main class="layout">
     <header class="hero">
-        <div class="eyebrow">M7 / Foundation GUI</div>
+        <div class="eyebrow">M8 / Foundation GUI</div>
         <h1>Policz aktualny build</h1>
-        <p>To jest aktualny foundation manual simulation nad istniejącym runtime M7. Ekran liczy wyłącznie bieżący zakres ręcznej symulacji i nie udaje pełnego produktu końcowego.</p>
+        <p>To jest aktualny foundation manual simulation nad istniejącym runtime M8. Ekran liczy już z realnego modelu wejściowego buildu użytkownika, ale nadal nie udaje pełnego produktu końcowego ani build search.</p>
     </header>
 
     <section class="panel">
-        <h2>Konfiguracja foundation manual simulation</h2>
+        <h2>Dane buildu użytkownika</h2>
         <form method="post" action="/policz-aktualny-build">
             <div class="form-grid">
-                <label>
-                    Skill
-                    <select name="skillId">
-                        {{SKILL_OPTIONS}}
-                    </select>
-                </label>
-
-                <label>
-                    Rank
-                    <select name="rank">
-                        {{RANK_OPTIONS}}
-                    </select>
-                </label>
-
-                <label>
-                    Bazowe rozszerzenie
-                    <span class="checkbox-row">
-                        <input type="checkbox" name="baseUpgrade" value="true" {{BASE_UPGRADE_CHECKED}}>
-                        Włącz bazowe rozszerzenie
-                    </span>
-                </label>
-
-                <label>
-                    Dodatkowy modyfikator
-                    <select name="choiceUpgrade">
-                        {{CHOICE_OPTIONS}}
-                    </select>
-                </label>
-
-                <label>
-                    Horyzont symulacji [s]
-                    <input type="number" min="1" step="1" name="horizonSeconds" value="{{HORIZON_SECONDS}}">
-                </label>
+                {{BUILD_STATS_FIELDS}}
             </div>
 
             <p class="helper">{{CHOICE_HELP}}</p>
+
+            <section class="subpanel">
+                <h3>Nauczone skille foundation</h3>
+                {{SKILL_CONFIG_FIELDS}}
+            </section>
+
+            <section class="subpanel">
+                <h3>Action bar</h3>
+                <div class="form-grid">
+                    {{ACTION_BAR_FIELDS}}
+                </div>
+            </section>
 
             <div class="submit-row">
                 <button type="submit">Policz aktualny build</button>

@@ -11,6 +11,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.StringJoiner;
 
@@ -44,10 +45,10 @@ class CurrentBuildWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Policz aktualny build"));
-        assertTrue(response.body().contains("Konfiguracja foundation manual simulation"));
-        assertTrue(response.body().contains("name=\"skillId\""));
-        assertTrue(response.body().contains("name=\"rank\""));
-        assertTrue(response.body().contains("name=\"choiceUpgrade\""));
+        assertTrue(response.body().contains("Dane buildu użytkownika"));
+        assertTrue(response.body().contains("name=\"level\""));
+        assertTrue(response.body().contains("name=\"weaponDamage\""));
+        assertTrue(response.body().contains("name=\"actionBar1\""));
         assertTrue(response.body().contains("name=\"horizonSeconds\""));
     }
 
@@ -55,13 +56,7 @@ class CurrentBuildWebServerTest {
     void shouldCalculateCurrentBuildAndRenderRequiredSections() throws Exception {
         HttpResponse<String> response = sendPost(
                 "/policz-aktualny-build",
-                Map.of(
-                        "skillId", "HOLY_BOLT",
-                        "rank", "5",
-                        "baseUpgrade", "true",
-                        "choiceUpgrade", "NONE",
-                        "horizonSeconds", "60"
-                )
+                buildHolyBoltJudgementFields()
         );
 
         assertEquals(200, response.statusCode());
@@ -87,13 +82,7 @@ class CurrentBuildWebServerTest {
     void shouldRejectChoiceThatDoesNotBelongToSelectedSkill() throws Exception {
         HttpResponse<String> response = sendPost(
                 "/policz-aktualny-build",
-                Map.of(
-                        "skillId", "HOLY_BOLT",
-                        "rank", "5",
-                        "baseUpgrade", "true",
-                        "choiceUpgrade", "LEFT",
-                        "horizonSeconds", "60"
-                )
+                buildInvalidHolyBoltChoiceFields()
         );
 
         assertEquals(200, response.statusCode());
@@ -105,13 +94,7 @@ class CurrentBuildWebServerTest {
     void shouldRenderClashScenarioWithResolveAndReactiveBonuses() throws Exception {
         HttpResponse<String> response = sendPost(
                 "/policz-aktualny-build",
-                Map.of(
-                        "skillId", "CLASH",
-                        "rank", "5",
-                        "baseUpgrade", "true",
-                        "choiceUpgrade", "LEFT",
-                        "horizonSeconds", "9"
-                )
+                buildClashPunishmentFields(9)
         );
 
         assertEquals(200, response.statusCode());
@@ -137,13 +120,7 @@ class CurrentBuildWebServerTest {
     void shouldRenderAdvanceScenarioWithCooldownAndWait() throws Exception {
         HttpResponse<String> response = sendPost(
                 "/policz-aktualny-build",
-                Map.of(
-                        "skillId", "ADVANCE",
-                        "rank", "5",
-                        "baseUpgrade", "true",
-                        "choiceUpgrade", "RIGHT",
-                        "horizonSeconds", "10"
-                )
+                buildAdvanceFlashFields(10)
         );
 
         assertEquals(200, response.statusCode());
@@ -158,6 +135,64 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("WAIT"));
         assertTrue(response.body().contains("cooldown=true"));
         assertTrue(response.body().contains("cooldownRemaining=7"));
+    }
+
+    private static Map<String, String> buildHolyBoltJudgementFields() {
+        Map<String, String> fields = buildBaseReferenceFields("60");
+        fields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.HOLY_BOLT), "5");
+        fields.put(CurrentBuildFormData.baseUpgradeFieldName(krys.skill.SkillId.HOLY_BOLT), "true");
+        fields.put(CurrentBuildFormData.choiceFieldName(krys.skill.SkillId.HOLY_BOLT), "NONE");
+        fields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.ADVANCE), "0");
+        fields.put(CurrentBuildFormData.choiceFieldName(krys.skill.SkillId.ADVANCE), "NONE");
+        fields.put(CurrentBuildFormData.actionBarFieldName(1), "HOLY_BOLT");
+        return fields;
+    }
+
+    private static Map<String, String> buildInvalidHolyBoltChoiceFields() {
+        Map<String, String> fields = buildHolyBoltJudgementFields();
+        fields.put(CurrentBuildFormData.choiceFieldName(krys.skill.SkillId.HOLY_BOLT), "LEFT");
+        return fields;
+    }
+
+    private static Map<String, String> buildClashPunishmentFields(int horizonSeconds) {
+        Map<String, String> fields = buildBaseReferenceFields(Integer.toString(horizonSeconds));
+        fields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.CLASH), "5");
+        fields.put(CurrentBuildFormData.baseUpgradeFieldName(krys.skill.SkillId.CLASH), "true");
+        fields.put(CurrentBuildFormData.choiceFieldName(krys.skill.SkillId.CLASH), "LEFT");
+        fields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.ADVANCE), "0");
+        fields.put(CurrentBuildFormData.choiceFieldName(krys.skill.SkillId.ADVANCE), "NONE");
+        fields.put(CurrentBuildFormData.actionBarFieldName(1), "CLASH");
+        return fields;
+    }
+
+    private static Map<String, String> buildAdvanceFlashFields(int horizonSeconds) {
+        Map<String, String> fields = buildBaseReferenceFields(Integer.toString(horizonSeconds));
+        fields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.ADVANCE), "5");
+        fields.put(CurrentBuildFormData.baseUpgradeFieldName(krys.skill.SkillId.ADVANCE), "true");
+        fields.put(CurrentBuildFormData.choiceFieldName(krys.skill.SkillId.ADVANCE), "RIGHT");
+        fields.put(CurrentBuildFormData.actionBarFieldName(1), "ADVANCE");
+        return fields;
+    }
+
+    private static Map<String, String> buildBaseReferenceFields(String horizonSeconds) {
+        Map<String, String> fields = new HashMap<>();
+        fields.put("level", "13");
+        fields.put("weaponDamage", "8");
+        fields.put("strength", "18");
+        fields.put("intelligence", "0");
+        fields.put("thorns", "50");
+        fields.put("blockChance", "50");
+        fields.put("retributionChance", "50");
+        fields.put("horizonSeconds", horizonSeconds);
+        for (krys.skill.SkillId skillId : krys.skill.SkillId.values()) {
+            fields.put(CurrentBuildFormData.rankFieldName(skillId), "0");
+            fields.put(CurrentBuildFormData.choiceFieldName(skillId), "NONE");
+        }
+        fields.put(CurrentBuildFormData.actionBarFieldName(1), "NONE");
+        fields.put(CurrentBuildFormData.actionBarFieldName(2), "NONE");
+        fields.put(CurrentBuildFormData.actionBarFieldName(3), "NONE");
+        fields.put(CurrentBuildFormData.actionBarFieldName(4), "NONE");
+        return fields;
     }
 
     private HttpResponse<String> sendGet(String path) throws Exception {

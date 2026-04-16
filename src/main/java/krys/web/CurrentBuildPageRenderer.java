@@ -9,10 +9,14 @@ import krys.simulation.SimulationStepTrace;
 import krys.simulation.SkillBarStateTrace;
 import krys.simulation.SkillHitDebugSnapshot;
 import krys.skill.PaladinSkillDefs;
+import krys.skill.SkillId;
+import krys.skill.SkillState;
+import krys.skill.SkillUpgradeChoice;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -26,11 +30,9 @@ public final class CurrentBuildPageRenderer {
 
     public String render(CurrentBuildPageModel model) {
         return template
-                .replace("{{SKILL_OPTIONS}}", renderOptions(model.getSkillOptions()))
-                .replace("{{RANK_OPTIONS}}", renderOptions(model.getRankOptions()))
-                .replace("{{CHOICE_OPTIONS}}", renderOptions(model.getChoiceOptions()))
-                .replace("{{BASE_UPGRADE_CHECKED}}", model.getFormData().isBaseUpgrade() ? "checked" : "")
-                .replace("{{HORIZON_SECONDS}}", escapeHtml(model.getFormData().getHorizonSeconds()))
+                .replace("{{BUILD_STATS_FIELDS}}", renderBuildStatsFields(model.getFormData()))
+                .replace("{{SKILL_CONFIG_FIELDS}}", renderSkillConfigFields(model.getFormData()))
+                .replace("{{ACTION_BAR_FIELDS}}", renderActionBarFields(model.getFormData()))
                 .replace("{{FORM_ERRORS}}", renderErrors(model.getValidationErrors()))
                 .replace("{{CHOICE_HELP}}", escapeHtml(model.getChoiceHelpText()))
                 .replace("{{RESULT_SECTION}}", renderResultSection(model));
@@ -88,14 +90,12 @@ public final class CurrentBuildPageRenderer {
                     <h2>Wynik symulacji</h2>
                     <div class="summary-grid">
                 """);
-        html.append(renderSummaryCard("Skill", PaladinSkillDefs.get(calculation.getRequest().getSkillId()).getName()));
-        html.append(renderSummaryCard("Rank", Integer.toString(calculation.getRequest().getRank())));
-        html.append(renderSummaryCard("Bazowe rozszerzenie", calculation.getRequest().isBaseUpgrade() ? "Tak" : "Nie"));
-        html.append(renderSummaryCard(
-                "Dodatkowy modyfikator",
-                PaladinSkillDefs.getChoiceDisplayName(calculation.getRequest().getSkillId(), calculation.getRequest().getChoiceUpgrade())
-        ));
+        html.append(renderSummaryCard("Level", Integer.toString(calculation.getRequest().getLevel())));
+        html.append(renderSummaryCard("Weapon damage", Long.toString(calculation.getRequest().getWeaponDamage())));
+        html.append(renderSummaryCard("Strength z itemów", String.format(Locale.US, "%.0f", calculation.getRequest().getStrength())));
+        html.append(renderSummaryCard("Intelligence z itemów", String.format(Locale.US, "%.0f", calculation.getRequest().getIntelligence())));
         html.append(renderSummaryCard("Horyzont", calculation.getRequest().getHorizonSeconds() + " s"));
+        html.append(renderSummaryCard("Action bar", buildActionBarLabel(calculation.getRequest().getActionBar())));
         html.append(renderSummaryCard("Total damage", Long.toString(calculation.getResult().getTotalDamage())));
         html.append(renderSummaryCard("DPS", String.format(Locale.US, "%.4f", calculation.getResult().getDps())));
         html.append(renderSummaryCard("Reactive contribution", Long.toString(calculation.getResult().getTotalReactiveDamage())));
@@ -230,6 +230,157 @@ public final class CurrentBuildPageRenderer {
                 </section>
                 """);
         return html.toString();
+    }
+
+    private static String renderBuildStatsFields(CurrentBuildFormData formData) {
+        return """
+                <label>
+                    Level bohatera
+                    <input type="number" min="1" step="1" name="level" value="%s">
+                </label>
+                <label>
+                    Weapon damage
+                    <input type="number" min="1" step="1" name="weaponDamage" value="%s">
+                </label>
+                <label>
+                    Strength z itemów
+                    <input type="number" min="0" step="1" name="strength" value="%s">
+                </label>
+                <label>
+                    Intelligence z itemów
+                    <input type="number" min="0" step="1" name="intelligence" value="%s">
+                </label>
+                <label>
+                    Thorns
+                    <input type="number" min="0" step="1" name="thorns" value="%s">
+                </label>
+                <label>
+                    Block chance [%]
+                    <input type="number" min="0" step="0.01" name="blockChance" value="%s">
+                </label>
+                <label>
+                    Retribution chance [%]
+                    <input type="number" min="0" step="0.01" name="retributionChance" value="%s">
+                </label>
+                <label>
+                    Horyzont symulacji [s]
+                    <input type="number" min="1" step="1" name="horizonSeconds" value="%s">
+                </label>
+                """.formatted(
+                escapeHtml(formData.getLevel()),
+                escapeHtml(formData.getWeaponDamage()),
+                escapeHtml(formData.getStrength()),
+                escapeHtml(formData.getIntelligence()),
+                escapeHtml(formData.getThorns()),
+                escapeHtml(formData.getBlockChance()),
+                escapeHtml(formData.getRetributionChance()),
+                escapeHtml(formData.getHorizonSeconds())
+        );
+    }
+
+    private static String renderSkillConfigFields(CurrentBuildFormData formData) {
+        StringBuilder html = new StringBuilder();
+        for (SkillId skillId : SkillId.values()) {
+            CurrentBuildFormData.SkillConfigFormData skillConfig = formData.getSkillConfig(skillId);
+            html.append("""
+                    <article class="subpanel">
+                        <h3>""").append(escapeHtml(PaladinSkillDefs.get(skillId).getName())).append("</h3>")
+                    .append("""
+                        <div class="form-grid">
+                            <label>
+                                Rank
+                                <select name=\"""").append(CurrentBuildFormData.rankFieldName(skillId)).append("\">")
+                    .append(renderRankOptions(skillConfig.getRank()))
+                    .append("""
+                                </select>
+                            </label>
+                            <label>
+                                Bazowe rozszerzenie
+                                <span class="checkbox-row">
+                                    <input type="checkbox" name=\"""").append(CurrentBuildFormData.baseUpgradeFieldName(skillId)).append("\" value=\"true\" ")
+                    .append(skillConfig.isBaseUpgrade() ? "checked" : "")
+                    .append("""
+>
+                                    Włącz bazowe rozszerzenie
+                                </span>
+                            </label>
+                            <label>
+                                Dodatkowy modyfikator
+                                <select name=\"""").append(CurrentBuildFormData.choiceFieldName(skillId)).append("\">")
+                    .append(renderChoiceOptions(skillId, skillConfig.getChoiceUpgrade()))
+                    .append("""
+                                </select>
+                            </label>
+                        </div>
+                    </article>
+                    """);
+        }
+        return html.toString();
+    }
+
+    private static String renderActionBarFields(CurrentBuildFormData formData) {
+        StringBuilder html = new StringBuilder();
+        for (int slot = 1; slot <= 4; slot++) {
+            html.append("""
+                    <label>
+                        Slot """).append(slot).append("""
+                        <select name=\"""").append(CurrentBuildFormData.actionBarFieldName(slot)).append("\">")
+                    .append(renderActionBarOptions(formData.getActionBarSlot(slot)))
+                    .append("""
+                        </select>
+                    </label>
+                    """);
+        }
+        return html.toString();
+    }
+
+    private static String renderRankOptions(String selectedRank) {
+        List<CurrentBuildPageModel.SelectOption> options = new ArrayList<>();
+        for (int rank = 0; rank <= 5; rank++) {
+            String value = Integer.toString(rank);
+            options.add(new CurrentBuildPageModel.SelectOption(value, value, value.equals(selectedRank)));
+        }
+        return renderOptions(options);
+    }
+
+    private static String renderChoiceOptions(SkillId skillId, String selectedChoice) {
+        List<CurrentBuildPageModel.SelectOption> options = new ArrayList<>();
+        options.add(new CurrentBuildPageModel.SelectOption(SkillUpgradeChoice.NONE.name(), "Brak", SkillUpgradeChoice.NONE.name().equals(selectedChoice)));
+        for (SkillUpgradeChoice choiceUpgrade : PaladinSkillDefs.get(skillId).getAvailableChoiceUpgrades()) {
+            if (choiceUpgrade == SkillUpgradeChoice.NONE) {
+                continue;
+            }
+            options.add(new CurrentBuildPageModel.SelectOption(
+                    choiceUpgrade.name(),
+                    PaladinSkillDefs.getChoiceDisplayName(skillId, choiceUpgrade),
+                    choiceUpgrade.name().equals(selectedChoice)
+            ));
+        }
+        return renderOptions(options);
+    }
+
+    private static String renderActionBarOptions(String selectedSkillId) {
+        List<CurrentBuildPageModel.SelectOption> options = new ArrayList<>();
+        options.add(new CurrentBuildPageModel.SelectOption("NONE", "Brak", "NONE".equals(selectedSkillId)));
+        for (SkillId skillId : SkillId.values()) {
+            options.add(new CurrentBuildPageModel.SelectOption(
+                    skillId.name(),
+                    PaladinSkillDefs.get(skillId).getName(),
+                    skillId.name().equals(selectedSkillId)
+            ));
+        }
+        return renderOptions(options);
+    }
+
+    private static String buildActionBarLabel(List<SkillId> actionBar) {
+        if (actionBar.isEmpty()) {
+            return "Pusty";
+        }
+        List<String> labels = new ArrayList<>();
+        for (SkillId skillId : actionBar) {
+            labels.add(PaladinSkillDefs.get(skillId).getName());
+        }
+        return String.join(" -> ", labels);
     }
 
     private static String renderReactiveDebug(CurrentBuildCalculation calculation) {
@@ -368,7 +519,7 @@ public final class CurrentBuildPageRenderer {
             }
             return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException exception) {
-            throw new IllegalStateException("Nie udało się wczytać szablonu strony M7", exception);
+            throw new IllegalStateException("Nie udało się wczytać szablonu strony M8", exception);
         }
     }
 }
