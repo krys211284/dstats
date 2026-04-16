@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Model widoku pojedynczej strony M10 dla flow „Znajdź najlepszy build”. */
+/** Model widoku pojedynczej strony M11 dla flow „Znajdź najlepszy build”. */
 public final class SearchBuildPageModel {
     private final SearchBuildFormData formData;
     private final List<String> validationErrors;

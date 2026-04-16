@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Paladin WebApp - Znajdź najlepszy build</title>
+    <title>Paladin WebApp - Szczegóły wyniku searcha</title>
     <style>
         :root {
             --bg: #f3efe6;
@@ -51,40 +51,29 @@
             box-shadow: 0 12px 24px rgba(42, 35, 29, 0.05);
         }
         .panel-error { border-color: rgba(141, 27, 27, 0.28); background: var(--error-bg); }
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 14px;
-            align-items: end;
-        }
-        label { display: grid; gap: 8px; font-weight: 600; }
-        input[type="text"], input[type="number"] {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid var(--line);
-            border-radius: 10px;
-            background: #fff;
-            color: var(--text);
-            font: inherit;
-        }
         .helper { margin-top: 10px; color: var(--muted); font-size: 0.95rem; }
-        .submit-row { margin-top: 16px; }
-        button {
-            border: none;
+        .nav-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+        .link-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             border-radius: 999px;
             padding: 12px 18px;
             background: linear-gradient(135deg, #2b523a 0%, #467859 100%);
             color: #f7fbf7;
-            font: inherit;
+            text-decoration: none;
             font-weight: 700;
-            cursor: pointer;
         }
         .summary-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
             gap: 12px;
         }
-        .detail-form { margin-top: 12px; }
         .compact-grid { margin-bottom: 14px; }
         .summary-card {
             padding: 12px;
@@ -103,8 +92,15 @@
             vertical-align: top;
         }
         .data-table thead th { color: var(--muted); font-weight: 700; }
+        .trace-table td:last-child { min-width: 320px; }
+        .bar-state-list { display: grid; gap: 6px; }
+        .bar-state-item {
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: rgba(219, 233, 221, 0.5);
+        }
         .error-list { margin: 0; padding-left: 20px; color: var(--error); }
-        .skill-space h3 { margin-bottom: 10px; }
+        .muted { color: var(--muted); }
         @media (max-width: 900px) {
             .data-table, .data-table thead, .data-table tbody, .data-table tr, .data-table th, .data-table td { display: block; }
             .data-table thead { display: none; }
@@ -122,35 +118,18 @@
 <body>
 <main class="layout">
     <header class="hero">
-        <div class="eyebrow">M11 / Search GUI SSR</div>
-        <h1>Znajdź najlepszy build</h1>
-        <p>To jest minimalne GUI SSR dla backendowego build searcha. Ekran buduje rzeczywisty `BuildSearchRequest`, uruchamia ten sam backend co CLI, pokazuje top wyniki po normalizacji prezentacyjnej i pozwala wejść w drill-down pojedynczego reprezentanta.</p>
+        <div class="eyebrow">M11 / Search Drill-down SSR</div>
+        <h1>Szczegóły wyniku searcha</h1>
+        <p>To jest pierwszy drill-down z listy wyników searcha do pełnej analizy pojedynczego reprezentanta. Strona używa dokładnie tego samego runtime, modeli wynikowych i debug sekcji co flow „Policz aktualny build”.</p>
+        <div class="nav-row">
+            <a class="link-button" href="/znajdz-najlepszy-build">Wróć do formularza searcha</a>
+        </div>
+        <p class="helper">Aby wrócić do poprzedniej listy top wyników po normalizacji bez ponownego wypełniania formularza, użyj cofnięcia w przeglądarce.</p>
     </header>
-
-    <section class="panel">
-        <h2>Przestrzeń searcha</h2>
-        <form method="post" action="/znajdz-najlepszy-build">
-            <div class="form-grid">
-                {{SEARCH_SPACE_FIELDS}}
-            </div>
-
-            <p class="helper">{{HELP_TEXT}}</p>
-            <p class="helper">Pola listowe przyjmują wartości oddzielone przecinkami, np. `13,15` albo `false,true`. Choice values podawaj jako enumy, np. `NONE,LEFT,RIGHT`.</p>
-
-            <section class="subpanel">
-                <h3>Zakresy skilli foundation</h3>
-                {{SKILL_SPACE_FIELDS}}
-            </section>
-
-            <div class="submit-row">
-                <button type="submit">Znajdź najlepszy build</button>
-            </div>
-        </form>
-    </section>
 
     {{FORM_ERRORS}}
 
-    {{RESULT_SECTION}}
+    {{DETAIL_SECTION}}
 </main>
 </body>
 </html>

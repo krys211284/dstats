@@ -1,5 +1,9 @@
 package krys.web;
 
+import krys.app.CurrentBuildCalculation;
+import krys.app.CurrentBuildCalculationService;
+import krys.combat.DamageEngine;
+import krys.simulation.ManualSimulationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,8 +16,12 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.StringJoiner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -74,6 +82,48 @@ class SearchBuildWebServerTest {
         assertTrue(response.body().contains("Build input"));
         assertTrue(response.body().contains("Action bar skills"));
         assertTrue(response.body().contains("Advance -&gt; Clash"));
+        assertTrue(response.body().contains("/znajdz-najlepszy-build/szczegoly"));
+        assertTrue(response.body().contains("Pokaż pełną analizę kandydata"));
+    }
+
+    @Test
+    void shouldAllowDrillDownFromSearchResultToCandidateDetailsOnSameRuntime() throws Exception {
+        HttpResponse<String> searchResponse = sendPost(
+                "/znajdz-najlepszy-build",
+                buildReferenceSearchFields()
+        );
+
+        assertEquals(200, searchResponse.statusCode());
+        Map<String, String> detailFields = extractFirstDetailsFormFields(searchResponse.body());
+
+        HttpResponse<String> detailResponse = sendPost(
+                "/znajdz-najlepszy-build/szczegoly",
+                detailFields
+        );
+
+        assertEquals(200, detailResponse.statusCode());
+        assertTrue(detailResponse.body().contains("Szczegóły wyniku searcha"));
+        assertTrue(detailResponse.body().contains("Wybrany wynik po normalizacji"));
+        assertTrue(detailResponse.body().contains("#1"));
+        assertTrue(detailResponse.body().contains("Build input"));
+        assertTrue(detailResponse.body().contains("Action bar skills"));
+        assertTrue(detailResponse.body().contains("Action bar"));
+        assertTrue(detailResponse.body().contains("Total damage"));
+        assertTrue(detailResponse.body().contains("DPS"));
+        assertTrue(detailResponse.body().contains("Direct hit debug"));
+        assertTrue(detailResponse.body().contains("Delayed hit debug"));
+        assertTrue(detailResponse.body().contains("Reactive debug"));
+        assertTrue(detailResponse.body().contains("Step trace"));
+        assertTrue(detailResponse.body().contains("Judgement aktywny na końcu"));
+        assertTrue(detailResponse.body().contains("Resolve aktywny na końcu"));
+        assertTrue(detailResponse.body().contains("Active block chance na końcu"));
+        assertTrue(detailResponse.body().contains("Active thorns bonus na końcu"));
+        assertTrue(detailResponse.body().contains("Advance"));
+        assertTrue(detailResponse.body().contains("Clash"));
+
+        CurrentBuildCalculation expectedCalculation = calculateDrillDownExpectedResult(detailFields);
+        assertTrue(detailResponse.body().contains(">" + expectedCalculation.getResult().getTotalDamage() + "<"));
+        assertTrue(detailResponse.body().contains(String.format(Locale.US, "%.4f", expectedCalculation.getResult().getDps())));
     }
 
     private static Map<String, String> buildReferenceSearchFields() {
@@ -130,5 +180,36 @@ class SearchBuildWebServerTest {
 
     private static String encode(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private static Map<String, String> extractFirstDetailsFormFields(String html) {
+        Matcher formMatcher = Pattern.compile("(?s)<form method=\"post\" action=\"/znajdz-najlepszy-build/szczegoly\" class=\"detail-form\">(.*?)</form>")
+                .matcher(html);
+        assertTrue(formMatcher.find(), "Brak formularza drill-downu w odpowiedzi searcha.");
+
+        Matcher inputMatcher = Pattern.compile("<input type=\"hidden\" name=\"([^\"]+)\" value=\"([^\"]*)\">")
+                .matcher(formMatcher.group(1));
+        Map<String, String> fields = new LinkedHashMap<>();
+        while (inputMatcher.find()) {
+            fields.put(inputMatcher.group(1), htmlUnescape(inputMatcher.group(2)));
+        }
+        return fields;
+    }
+
+    private static CurrentBuildCalculation calculateDrillDownExpectedResult(Map<String, String> formFields) {
+        CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(formFields);
+        CurrentBuildFormMapper.MappingResult mappingResult = new CurrentBuildFormMapper().map(formData);
+        assertTrue(mappingResult.getErrors().isEmpty(), "Drill-down powinien przekazywać legalny CurrentBuildRequest.");
+        return new CurrentBuildCalculationService(
+                new ManualSimulationService(new DamageEngine())
+        ).calculate(mappingResult.getRequest());
+    }
+
+    private static String htmlUnescape(String value) {
+        return value
+                .replace("&quot;", "\"")
+                .replace("&gt;", ">")
+                .replace("&lt;", "<")
+                .replace("&amp;", "&");
     }
 }

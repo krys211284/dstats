@@ -15,7 +15,7 @@ Docelowo system ma wspierać dwa tryby pracy:
 - `Policz aktualny build` - manual simulation dla aktualnej konfiguracji bohatera.
 - `Znajdź najlepszy build` - build search oceniający legalne buildy i legalne konfiguracje paska skilli.
 
-Aktualny stan repo odpowiada foundation `M10` i obejmuje:
+Aktualny stan repo odpowiada foundation `M11` i obejmuje:
 - minimalny wspólny silnik pojedynczego uderzenia dla `Brandish` i `Holy Bolt`,
 - pierwszy pełny use case cooldownowego direct-hit runtime dla `Advance`,
 - pełny pierwszy use case reactive foundation dla `Clash`,
@@ -32,6 +32,7 @@ Aktualny stan repo odpowiada foundation `M10` i obejmuje:
 - warstwę prezentacyjną normalizującą wyniki searcha po zakończonej ocenie kandydatów,
 - minimalne webowe GUI SSR dla trybu `Policz aktualny build`,
 - pierwsze minimalne webowe GUI SSR dla trybu `Znajdź najlepszy build`,
+- pierwszy drill-down SSR z wyniku searcha do pełnej analizy reprezentanta znormalizowanego wyniku na tym samym runtime co manual simulation,
 - CLI dla manual simulation oraz osobne CLI backendowego searcha jako równoległe smoke testy tego samego runtime.
 
 Pełny system zasobów, pełny system defensywnych statusów, pełne feature'y `Fervor`, pełny ogólny system `Resolve`, `Fala Zealot`, progress searcha, eksport CSV, wielowątkowość oraz pełna docelowa warstwa UX/UI pozostają poza bieżącym zakresem kodu.
@@ -63,7 +64,7 @@ Kontrakt architektoniczny jest wspólny dla obu trybów:
 ### 3.2. Wspólne wejście runtime
 Produktowy model wejścia użytkownika dla manual simulation ma postać `CurrentBuildRequest`.
 
-Kontrakt M10 dla warstwy aplikacyjnej:
+Kontrakt M11 dla warstwy aplikacyjnej:
 - GUI mapuje formularz do `CurrentBuildRequest` przez `CurrentBuildFormMapper`,
 - CLI mapuje argumenty do `CurrentBuildRequest` przez `CurrentBuildCliRequestParser`,
 - `CurrentBuildSnapshotFactory` buduje z requestu runtime `HeroBuildSnapshot`,
@@ -75,6 +76,7 @@ Kontrakt M10 dla warstwy aplikacyjnej:
 - `BuildSearchEvaluationService` ocenia kandydatów przez ten sam `ManualSimulationService`,
 - `BuildSearchPresentationNormalizer` działa dopiero po zakończeniu surowej oceny i normalizuje wyłącznie warstwę prezentacji wyników,
 - GUI searcha jest cienkim SSR nad `BuildSearchCalculationService` i nie implementuje bocznej logiki searcha,
+- drill-down GUI searcha mapuje wybranego reprezentanta wyniku po normalizacji do `CurrentBuildRequest` i uruchamia ten sam `CurrentBuildCalculationService` co flow `Policz aktualny build`,
 - scenariusze referencyjne pozostają wyłącznie trybem pomocniczym budowanym już na `CurrentBuildRequest`,
 - `SampleBuildFactory` nie jest główną ścieżką flow użytkownika; pozostaje pomocą testową niższego poziomu.
 
@@ -386,7 +388,7 @@ Obowiązujące reguły:
 - delayed hit `Judgement` jest single target i wchodzi do `total damage`.
 
 ### 7.3. Reactive damage
-Reactive damage jest częścią aktualnego foundation repo w zakresie aktualnego M10 dla `Thorns`, `Retribution` i pierwszego pełnego use case `Clash`.
+Reactive damage jest częścią aktualnego foundation repo w zakresie aktualnego M11 dla `Thorns`, `Retribution` i pierwszego pełnego use case `Clash`.
 
 Obowiązujące reguły:
 - reactive damage jest osobnym torem obrażeń i nie należy do single hita skilla,
@@ -458,7 +460,7 @@ Minimalny kontrakt `stepTrace`:
 
 ## 9. Build search
 ### 9.1. Jednostka oceny
-Backendowy search M10 jest częścią aktualnego foundation repo.
+Backendowy search M11 jest częścią aktualnego foundation repo.
 
 Jednostką oceny jest pojedynczy legalny kandydat zawierający:
 - pełny opis wejściowego buildu w modelu aktualnych statów użytkownika,
@@ -468,9 +470,10 @@ Jednostką oceny jest pojedynczy legalny kandydat zawierający:
 
 Search buduje dla każdego kandydata dokładnie taki sam `HeroBuildSnapshot`, jaki byłby zbudowany dla odpowiadającego mu flow `Policz aktualny build`.
 
-Kontrakt M10 rozdziela dwa poziomy wyniku:
+Kontrakt M11 rozdziela trzy poziomy wyniku:
 - surowi ocenieni kandydaci,
-- znormalizowane wyniki użytkowe prezentowane po ocenie.
+- znormalizowane wyniki użytkowe prezentowane po ocenie,
+- drill-down pojedynczego reprezentanta znormalizowanego wyniku.
 
 ### 9.2. Etap 1 - legalne buildy
 Aktualny backend search obejmuje wyłącznie foundation:
@@ -535,7 +538,13 @@ Minimalny wynik użytkowy searcha zawiera:
 - `total damage`,
 - `DPS`.
 
-Poza aktualnym zakresem M10 pozostają:
+Aktualny drill-down M11:
+- nie zmienia generatora kandydatów ani liczby ocenionych kandydatów,
+- nie zmienia surowej oceny ani rankingu,
+- pokazuje szczegóły reprezentanta wybranego wyniku po normalizacji,
+- odtwarza szczegóły przez ten sam runtime i te same modele wynikowe co `Policz aktualny build`.
+
+Poza aktualnym zakresem M11 pozostają:
 - audyt/progress,
 - eksport CSV,
 - wielowątkowość,
@@ -544,7 +553,7 @@ Poza aktualnym zakresem M10 pozostają:
 
 ## 10. UI, debug i prezentacja wyników
 ### 10.1. Zasady ogólne
-Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny build`, osobne CLI backendowego searcha oraz pierwsze minimalne GUI SSR dla flow `Znajdź najlepszy build`. Aktualny foundation M10 dostarcza:
+Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny build`, osobne CLI backendowego searcha, minimalne GUI SSR dla flow `Znajdź najlepszy build` oraz pierwszy drill-down SSR szczegółów wybranego wyniku. Aktualny foundation M11 dostarcza:
 - główną ścieżkę użytkownika opartą o `CurrentBuildRequest`, a nie o testowy snapshot,
 - wspólną usługę aplikacyjną `CurrentBuildCalculationService` dla GUI i CLI,
 - wspólną fabrykę runtime `CurrentBuildSnapshotFactory` budującą `HeroBuildSnapshot`,
@@ -557,7 +566,8 @@ Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny bu
 - modele debug w kodzie,
 - CLI dla równoległego ręcznego smoke testu użytkownika,
 - CLI searcha z tekstowym outputem znormalizowanych top wyników,
-- osobny ekran GUI SSR searcha dla minimalnej przestrzeni foundation.
+- osobny ekran GUI SSR searcha dla minimalnej przestrzeni foundation,
+- osobną stronę SSR szczegółów reprezentanta znormalizowanego wyniku searcha.
 
 ### 10.2. Konfiguracja do porównania
 Na obecnym etapie foundation nie ma warstwy prezentacji konfiguracji do porównania.
@@ -593,18 +603,27 @@ Aktualny foundation implementuje reactive debug dla `Thorns`, `Retribution` i us
 - informację, czy `Resolve` oraz reactive bonusy pozostały aktywne na końcu horyzontu.
 
 ### 10.5. Wynik searcha
-Aktualny foundation implementuje backendowy wynik searcha oraz jego render w CLI i minimalnym GUI SSR.
+Aktualny foundation implementuje backendowy wynik searcha, jego render w CLI i minimalnym GUI SSR oraz drill-down pojedynczego reprezentanta znormalizowanego wyniku.
 
-Minimalny kontrakt prezentacyjny wyniku searcha:
+Minimalny kontrakt prezentacyjny listy wyników searcha:
 - pokazanie wejściowej przestrzeni searcha,
 - pokazanie liczby ocenionych kandydatów,
 - pokazanie liczby wyników po normalizacji,
 - pokazanie top `N` wyników po normalizacji,
 - dla każdego wyniku pokazanie opisu wejściowego buildu,
 - dla każdego wyniku pokazanie skilli na action barze i samego action bara,
-- dla każdego wyniku pokazanie `total damage` i `DPS`.
+- dla każdego wyniku pokazanie `total damage` i `DPS`,
+- dla każdego wyniku pokazanie akcji przejścia do szczegółów reprezentanta.
 
-Minimalne GUI searcha jest częścią aktualnego zakresu. Poza zakresem pozostają progress searcha, CSV, bogatsza warstwa UX i dodatkowe operacje na wynikach ponad prosty render SSR.
+Kontrakt prezentacyjny drill-downu searcha:
+- drill-down jednoznacznie wskazuje wybrany wynik po normalizacji,
+- drill-down pokazuje `Build input`, `Action bar skills`, `Action bar`, `total damage` oraz `DPS`,
+- drill-down pokazuje `Direct hit debug`, `Delayed hit debug`, `Reactive debug` oraz `stepTrace`,
+- drill-down pokazuje końcowe stany `Judgement`, `Resolve`, `Active block chance` oraz `Active thorns bonus`,
+- drill-down używa dokładnie tego samego runtime i tych samych modeli wynikowych co `Policz aktualny build`,
+- drill-down nie zmienia warstwy backendowego searcha i nie przelicza listy wyników alternatywną logiką.
+
+Minimalne GUI searcha i drill-down są częścią aktualnego zakresu. Poza zakresem pozostają progress searcha, CSV, bogatsza warstwa UX i dodatkowe operacje na wynikach ponad prosty render SSR.
 
 ### 10.6. Trace i formatowanie
 Aktualny foundation implementuje `stepTrace` w modelu danych i udostępnia go przez CLI oraz webowe GUI.
@@ -664,7 +683,7 @@ Kontrakt prezentacji dla tego smoke testu:
 - Dla powyższego sample buildu pojedynczy cast `Advance + Flash of the Blade` daje `raw = 54`, `final = 33`, `raw crit = 82`, `crit = 51`.
 - Regresyjny scenariusz `Clash rank 5 + Crusader's March + Punishment` pozostaje dodatkowym smoke testem niższego poziomu dla reactive foundation.
 
-Aktualny smoke test backendowego searcha M10 obejmuje CLI oraz minimalne GUI SSR.
+Aktualny smoke test backendowego searcha M11 obejmuje CLI, minimalne GUI SSR oraz drill-down pojedynczego wyniku.
 
 Smoke test GUI searcha:
 
@@ -678,6 +697,9 @@ Kontrakt prezentacji dla smoke testu GUI searcha:
 - GUI searcha przechodzi przez kontrakt `SearchBuildFormMapper -> BuildSearchRequest -> BuildSearchCalculationService -> BuildSearchPresentationNormalizer`,
 - GUI searcha pokazuje wejściową przestrzeń searcha,
 - GUI searcha pokazuje `Ocenieni kandydaci`, `Wyniki po normalizacji`, `Top wyniki po normalizacji`, `Build input`, `Action bar skills`, `Action bar`, `Total damage` oraz `DPS`,
+- GUI searcha pozwala z listy wyników przejść do szczegółów reprezentanta przez osobny SSR drill-down,
+- drill-down przechodzi przez kontrakt `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> CurrentBuildCalculationService -> runtime`,
+- drill-down pokazuje `Build input`, `Action bar skills`, `Action bar`, `Total damage`, `DPS`, `Direct hit debug`, `Delayed hit debug`, `Reactive debug`, `Step trace`, `Judgement aktywny na końcu`, `Resolve aktywny na końcu`, `Active block chance na końcu` oraz `Active thorns bonus na końcu`,
 - GUI searcha nie implementuje progressu, CSV, wielowątkowości ani rozbudowanego UX ponad minimalny SSR.
 
 Smoke test CLI searcha:
@@ -737,7 +759,7 @@ Minimalny zakres testów obejmuje:
 - zgodność cumulative damage z `stepTrace`,
 - tickową manual simulation,
 - endpoint formularza GUI dla `Policz aktualny build`,
-- uruchomienie obliczenia przez GUI nad tym samym runtime M10,
+- uruchomienie obliczenia przez GUI nad tym samym runtime M11,
 - obecność kluczowych sekcji wyniku w GUI: `total damage`, `DPS`, direct hit debug, delayed hit debug, reactive debug i `stepTrace`,
 - obecność sekcji reactive debug w GUI dla scenariusza `Clash`,
 - obecność `WAIT` i stanu cooldownu w GUI dla scenariusza `Advance`,
@@ -752,6 +774,9 @@ Minimalny zakres testów obejmuje:
 - GET formularza GUI searcha,
 - POST uruchamiającego GUI searcha,
 - obecność sekcji `Ocenieni kandydaci`, `Wyniki po normalizacji`, `Top wyniki po normalizacji`, `Total damage` i `DPS` w GUI searcha,
+- przejście z listy wyników searcha do szczegółów kandydata,
+- obecność sekcji `Total damage`, `DPS`, `Direct hit debug`, `Delayed hit debug`, `Reactive debug` i `Step trace` w drill-downie searcha,
+- użycie tego samego runtime do wyliczenia szczegółów drill-downu searcha,
 - bezpieczne kopiowanie pustego stanu snapshotu,
 - specjalną regułę zaokrąglenia prowadzącą do `raw crit hit = 52`.
 

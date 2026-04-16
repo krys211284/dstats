@@ -1,11 +1,13 @@
 package krys.web;
 
+import krys.app.CurrentBuildRequest;
 import krys.search.BuildSearchRankedResult;
 import krys.search.BuildSearchRequest;
 import krys.search.BuildSearchResult;
 import krys.search.BuildSearchSkillSpace;
 import krys.skill.PaladinSkillDefs;
 import krys.skill.SkillId;
+import krys.skill.SkillState;
 import krys.skill.SkillUpgradeChoice;
 
 import java.io.IOException;
@@ -149,7 +151,7 @@ public final class SearchBuildPageRenderer {
             return """
                     <section class="panel result-panel">
                         <h2>Wynik searcha</h2>
-                        <p>To jest minimalne GUI SSR dla flow „Znajdź najlepszy build”. Wypełnij przestrzeń searcha i uruchom istniejący backend M10.</p>
+                        <p>To jest minimalne GUI SSR dla flow „Znajdź najlepszy build”. Wypełnij przestrzeń searcha, uruchom backend i przejdź do drill-downu wybranego reprezentanta z top wyników po normalizacji.</p>
                     </section>
                     """;
         }
@@ -242,11 +244,59 @@ public final class SearchBuildPageRenderer {
                     .append(renderSummaryCard("DPS", String.format(Locale.US, "%.4f", rankedResult.getSimulationResult().getDps())))
                     .append("""
                         </div>
+                    """)
+                    .append(renderDetailsForm(rankedResult))
+                    .append("""
                     </article>
                     """);
         }
         html.append("</section>");
         return html.toString();
+    }
+
+    private static String renderDetailsForm(BuildSearchRankedResult rankedResult) {
+        CurrentBuildRequest request = rankedResult.getCandidate().getCurrentBuildRequest();
+        StringBuilder html = new StringBuilder("""
+                <form method="post" action="/znajdz-najlepszy-build/szczegoly" class="detail-form">
+                """);
+        appendHiddenField(html, "selectedRank", Integer.toString(rankedResult.getRank()));
+        appendHiddenField(html, "level", Integer.toString(request.getLevel()));
+        appendHiddenField(html, "weaponDamage", Long.toString(request.getWeaponDamage()));
+        appendHiddenField(html, "strength", Double.toString(request.getStrength()));
+        appendHiddenField(html, "intelligence", Double.toString(request.getIntelligence()));
+        appendHiddenField(html, "thorns", Double.toString(request.getThorns()));
+        appendHiddenField(html, "blockChance", Double.toString(request.getBlockChance()));
+        appendHiddenField(html, "retributionChance", Double.toString(request.getRetributionChance()));
+        appendHiddenField(html, "horizonSeconds", Integer.toString(request.getHorizonSeconds()));
+
+        for (SkillId skillId : SkillId.values()) {
+            SkillState skillState = request.getLearnedSkills().get(skillId);
+            appendHiddenField(html, CurrentBuildFormData.rankFieldName(skillId), Integer.toString(skillState == null ? 0 : skillState.getRank()));
+            if (skillState != null && skillState.isBaseUpgrade()) {
+                appendHiddenField(html, CurrentBuildFormData.baseUpgradeFieldName(skillId), "true");
+            }
+            appendHiddenField(html, CurrentBuildFormData.choiceFieldName(skillId), skillState == null ? SkillUpgradeChoice.NONE.name() : skillState.getChoiceUpgrade().name());
+        }
+
+        for (int slot = 1; slot <= 4; slot++) {
+            String value = slot <= request.getActionBar().size()
+                    ? request.getActionBar().get(slot - 1).name()
+                    : "NONE";
+            appendHiddenField(html, CurrentBuildFormData.actionBarFieldName(slot), value);
+        }
+        html.append("""
+                    <button type="submit">Pokaż pełną analizę kandydata</button>
+                </form>
+                """);
+        return html.toString();
+    }
+
+    private static void appendHiddenField(StringBuilder html, String name, String value) {
+        html.append("<input type=\"hidden\" name=\"")
+                .append(escapeHtml(name))
+                .append("\" value=\"")
+                .append(escapeHtml(value))
+                .append("\">");
     }
 
     private static String renderSummaryCard(String label, String value) {
@@ -306,7 +356,7 @@ public final class SearchBuildPageRenderer {
             }
             return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException exception) {
-            throw new IllegalStateException("Nie udało się wczytać szablonu strony M10", exception);
+            throw new IllegalStateException("Nie udało się wczytać szablonu strony M11", exception);
         }
     }
 }

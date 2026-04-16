@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** Mapuje dane formularza GUI searcha M10 do istniejącego `BuildSearchRequest`. */
+/** Mapuje dane formularza GUI searcha M11 do istniejącego `BuildSearchRequest`. */
 final class SearchBuildFormMapper {
     MappingResult map(SearchBuildFormData formData) {
         List<String> errors = new ArrayList<>();

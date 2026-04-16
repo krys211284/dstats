@@ -27,6 +27,10 @@ public final class CurrentBuildWebServer implements AutoCloseable {
                 calculationService,
                 new CurrentBuildPageRenderer()
         );
+        SearchBuildDetailsController searchBuildDetailsController = new SearchBuildDetailsController(
+                calculationService,
+                new SearchBuildDetailsPageRenderer()
+        );
         BuildSearchCalculationService searchCalculationService = new BuildSearchCalculationService(
                 new BuildSearchEvaluationService(new ManualSimulationService(new DamageEngine()))
         );
@@ -37,6 +41,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
 
         server.createContext("/policz-aktualny-build", controller);
         server.createContext("/znajdz-najlepszy-build", searchController);
+        server.createContext("/znajdz-najlepszy-build/szczegoly", searchBuildDetailsController);
         server.createContext("/", new RootHandler(controller));
     }
 
@@ -59,6 +64,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
         webServer.start();
         System.out.println("GUI manual simulation dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/policz-aktualny-build");
         System.out.println("GUI search dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/znajdz-najlepszy-build");
+        System.out.println("Drill-down searcha jest dostępny z poziomu listy wyników GUI searcha.");
 
         synchronized (CurrentBuildWebServer.class) {
             CurrentBuildWebServer.class.wait();
