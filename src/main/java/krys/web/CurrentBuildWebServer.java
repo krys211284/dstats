@@ -5,6 +5,8 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import krys.app.CurrentBuildCalculationService;
 import krys.combat.DamageEngine;
+import krys.search.BuildSearchCalculationService;
+import krys.search.BuildSearchEvaluationService;
 import krys.simulation.ManualSimulationService;
 
 import java.io.IOException;
@@ -25,8 +27,16 @@ public final class CurrentBuildWebServer implements AutoCloseable {
                 calculationService,
                 new CurrentBuildPageRenderer()
         );
+        BuildSearchCalculationService searchCalculationService = new BuildSearchCalculationService(
+                new BuildSearchEvaluationService(new ManualSimulationService(new DamageEngine()))
+        );
+        SearchBuildController searchController = new SearchBuildController(
+                searchCalculationService,
+                new SearchBuildPageRenderer()
+        );
 
         server.createContext("/policz-aktualny-build", controller);
+        server.createContext("/znajdz-najlepszy-build", searchController);
         server.createContext("/", new RootHandler(controller));
     }
 
@@ -47,7 +57,8 @@ public final class CurrentBuildWebServer implements AutoCloseable {
         int port = parsePort(args);
         CurrentBuildWebServer webServer = new CurrentBuildWebServer(port);
         webServer.start();
-        System.out.println("GUI M8 dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/policz-aktualny-build");
+        System.out.println("GUI manual simulation dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/policz-aktualny-build");
+        System.out.println("GUI search dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/znajdz-najlepszy-build");
 
         synchronized (CurrentBuildWebServer.class) {
             CurrentBuildWebServer.class.wait();

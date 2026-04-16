@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Ograniczony zakres legalnych stanów pojedynczego skilla dla searcha M9.
+ * Ograniczony zakres legalnych stanów pojedynczego skilla dla searcha M10.
  * Search może generować wyłącznie stany zgodne z definicją skilla i kontraktem upgrade'ów.
  */
 public final class BuildSearchSkillSpace {

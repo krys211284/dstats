@@ -15,7 +15,7 @@ Docelowo system ma wspierać dwa tryby pracy:
 - `Policz aktualny build` - manual simulation dla aktualnej konfiguracji bohatera.
 - `Znajdź najlepszy build` - build search oceniający legalne buildy i legalne konfiguracje paska skilli.
 
-Aktualny stan repo odpowiada foundation `M9.1` i obejmuje:
+Aktualny stan repo odpowiada foundation `M10` i obejmuje:
 - minimalny wspólny silnik pojedynczego uderzenia dla `Brandish` i `Holy Bolt`,
 - pierwszy pełny use case cooldownowego direct-hit runtime dla `Advance`,
 - pełny pierwszy use case reactive foundation dla `Clash`,
@@ -31,9 +31,10 @@ Aktualny stan repo odpowiada foundation `M9.1` i obejmuje:
 - ranking kandydatów po `total damage` i `DPS` liczonych przez ten sam runtime,
 - warstwę prezentacyjną normalizującą wyniki searcha po zakończonej ocenie kandydatów,
 - minimalne webowe GUI SSR dla trybu `Policz aktualny build`,
+- pierwsze minimalne webowe GUI SSR dla trybu `Znajdź najlepszy build`,
 - CLI dla manual simulation oraz osobne CLI backendowego searcha jako równoległe smoke testy tego samego runtime.
 
-GUI search, pełny system zasobów, pełny system defensywnych statusów, pełne feature'y `Fervor`, pełny ogólny system `Resolve`, `Fala Zealot`, audyt/progress searcha oraz pełna docelowa warstwa UI pozostają poza bieżącym zakresem kodu.
+Pełny system zasobów, pełny system defensywnych statusów, pełne feature'y `Fervor`, pełny ogólny system `Resolve`, `Fala Zealot`, progress searcha, eksport CSV, wielowątkowość oraz pełna docelowa warstwa UX/UI pozostają poza bieżącym zakresem kodu.
 
 Kontrakt architektoniczny jest wspólny dla obu trybów:
 - oba tryby muszą używać tego samego `Damage Engine`,
@@ -62,16 +63,18 @@ Kontrakt architektoniczny jest wspólny dla obu trybów:
 ### 3.2. Wspólne wejście runtime
 Produktowy model wejścia użytkownika dla manual simulation ma postać `CurrentBuildRequest`.
 
-Kontrakt M9.1 dla warstwy aplikacyjnej:
+Kontrakt M10 dla warstwy aplikacyjnej:
 - GUI mapuje formularz do `CurrentBuildRequest` przez `CurrentBuildFormMapper`,
 - CLI mapuje argumenty do `CurrentBuildRequest` przez `CurrentBuildCliRequestParser`,
 - `CurrentBuildSnapshotFactory` buduje z requestu runtime `HeroBuildSnapshot`,
 - `CurrentBuildCalculationService` uruchamia ten sam runtime dla GUI i CLI,
 - CLI searcha mapuje argumenty do `BuildSearchRequest` przez `BuildSearchCliRequestParser`,
+- GUI searcha mapuje formularz do `BuildSearchRequest` przez `SearchBuildFormMapper`,
 - `BuildSearchCalculationService` generuje legalnych kandydatów przez `BuildSearchCandidateGenerator`,
 - każdy kandydat searcha jest adaptowany do `CurrentBuildRequest`, a następnie do `HeroBuildSnapshot` przez ten sam `CurrentBuildSnapshotFactory`,
 - `BuildSearchEvaluationService` ocenia kandydatów przez ten sam `ManualSimulationService`,
 - `BuildSearchPresentationNormalizer` działa dopiero po zakończeniu surowej oceny i normalizuje wyłącznie warstwę prezentacji wyników,
+- GUI searcha jest cienkim SSR nad `BuildSearchCalculationService` i nie implementuje bocznej logiki searcha,
 - scenariusze referencyjne pozostają wyłącznie trybem pomocniczym budowanym już na `CurrentBuildRequest`,
 - `SampleBuildFactory` nie jest główną ścieżką flow użytkownika; pozostaje pomocą testową niższego poziomu.
 
@@ -383,7 +386,7 @@ Obowiązujące reguły:
 - delayed hit `Judgement` jest single target i wchodzi do `total damage`.
 
 ### 7.3. Reactive damage
-Reactive damage jest częścią aktualnego foundation repo w zakresie aktualnego M9.1 dla `Thorns`, `Retribution` i pierwszego pełnego use case `Clash`.
+Reactive damage jest częścią aktualnego foundation repo w zakresie aktualnego M10 dla `Thorns`, `Retribution` i pierwszego pełnego use case `Clash`.
 
 Obowiązujące reguły:
 - reactive damage jest osobnym torem obrażeń i nie należy do single hita skilla,
@@ -455,7 +458,7 @@ Minimalny kontrakt `stepTrace`:
 
 ## 9. Build search
 ### 9.1. Jednostka oceny
-Backendowy search M9.1 jest częścią aktualnego foundation repo.
+Backendowy search M10 jest częścią aktualnego foundation repo.
 
 Jednostką oceny jest pojedynczy legalny kandydat zawierający:
 - pełny opis wejściowego buildu w modelu aktualnych statów użytkownika,
@@ -465,7 +468,7 @@ Jednostką oceny jest pojedynczy legalny kandydat zawierający:
 
 Search buduje dla każdego kandydata dokładnie taki sam `HeroBuildSnapshot`, jaki byłby zbudowany dla odpowiadającego mu flow `Policz aktualny build`.
 
-Kontrakt M9.1 rozdziela dwa poziomy wyniku:
+Kontrakt M10 rozdziela dwa poziomy wyniku:
 - surowi ocenieni kandydaci,
 - znormalizowane wyniki użytkowe prezentowane po ocenie.
 
@@ -532,16 +535,16 @@ Minimalny wynik użytkowy searcha zawiera:
 - `total damage`,
 - `DPS`.
 
-Poza aktualnym zakresem M9.1 pozostają:
-- GUI search,
+Poza aktualnym zakresem M10 pozostają:
 - audyt/progress,
 - eksport CSV,
 - wielowątkowość,
-- zaawansowane heurystyki i optymalizacje wydajności.
+- zaawansowane heurystyki i optymalizacje wydajności,
+- bogatszy UX searcha ponad minimalny SSR.
 
 ## 10. UI, debug i prezentacja wyników
 ### 10.1. Zasady ogólne
-Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny build` oraz osobne CLI backendowego searcha M9.1. Aktualny foundation M9.1 dostarcza:
+Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny build`, osobne CLI backendowego searcha oraz pierwsze minimalne GUI SSR dla flow `Znajdź najlepszy build`. Aktualny foundation M10 dostarcza:
 - główną ścieżkę użytkownika opartą o `CurrentBuildRequest`, a nie o testowy snapshot,
 - wspólną usługę aplikacyjną `CurrentBuildCalculationService` dla GUI i CLI,
 - wspólną fabrykę runtime `CurrentBuildSnapshotFactory` budującą `HeroBuildSnapshot`,
@@ -553,7 +556,8 @@ Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny bu
 - trace z informacją o cooldownie i `WAIT` dla use case `Advance`,
 - modele debug w kodzie,
 - CLI dla równoległego ręcznego smoke testu użytkownika,
-- CLI searcha z tekstowym outputem znormalizowanych top wyników.
+- CLI searcha z tekstowym outputem znormalizowanych top wyników,
+- osobny ekran GUI SSR searcha dla minimalnej przestrzeni foundation.
 
 ### 10.2. Konfiguracja do porównania
 Na obecnym etapie foundation nie ma warstwy prezentacji konfiguracji do porównania.
@@ -589,7 +593,7 @@ Aktualny foundation implementuje reactive debug dla `Thorns`, `Retribution` i us
 - informację, czy `Resolve` oraz reactive bonusy pozostały aktywne na końcu horyzontu.
 
 ### 10.5. Wynik searcha
-Aktualny foundation implementuje backendowy wynik searcha oraz jego tekstowy render w CLI.
+Aktualny foundation implementuje backendowy wynik searcha oraz jego render w CLI i minimalnym GUI SSR.
 
 Minimalny kontrakt prezentacyjny wyniku searcha:
 - pokazanie wejściowej przestrzeni searcha,
@@ -600,7 +604,7 @@ Minimalny kontrakt prezentacyjny wyniku searcha:
 - dla każdego wyniku pokazanie skilli na action barze i samego action bara,
 - dla każdego wyniku pokazanie `total damage` i `DPS`.
 
-GUI search i bogatsza warstwa prezentacji wyników pozostają poza aktualnym zakresem.
+Minimalne GUI searcha jest częścią aktualnego zakresu. Poza zakresem pozostają progress searcha, CSV, bogatsza warstwa UX i dodatkowe operacje na wynikach ponad prosty render SSR.
 
 ### 10.6. Trace i formatowanie
 Aktualny foundation implementuje `stepTrace` w modelu danych i udostępnia go przez CLI oraz webowe GUI.
@@ -660,7 +664,23 @@ Kontrakt prezentacji dla tego smoke testu:
 - Dla powyższego sample buildu pojedynczy cast `Advance + Flash of the Blade` daje `raw = 54`, `final = 33`, `raw crit = 82`, `crit = 51`.
 - Regresyjny scenariusz `Clash rank 5 + Crusader's March + Punishment` pozostaje dodatkowym smoke testem niższego poziomu dla reactive foundation.
 
-Aktualny smoke test backendowego searcha M9.1 pozostaje CLI-only:
+Aktualny smoke test backendowego searcha M10 obejmuje CLI oraz minimalne GUI SSR.
+
+Smoke test GUI searcha:
+
+```text
+http://127.0.0.1:8080/znajdz-najlepszy-build
+```
+
+Kontrakt prezentacji dla smoke testu GUI searcha:
+- GUI searcha jest po polsku i jasno komunikuje, że to minimalny SSR nad istniejącym backendem searcha,
+- GUI searcha pozwala ustawić level, weapon damage, strength, intelligence, thorns, block chance, retribution chance, zakresy skilli foundation, rozmiary action bara, top N i horyzont symulacji,
+- GUI searcha przechodzi przez kontrakt `SearchBuildFormMapper -> BuildSearchRequest -> BuildSearchCalculationService -> BuildSearchPresentationNormalizer`,
+- GUI searcha pokazuje wejściową przestrzeń searcha,
+- GUI searcha pokazuje `Ocenieni kandydaci`, `Wyniki po normalizacji`, `Top wyniki po normalizacji`, `Build input`, `Action bar skills`, `Action bar`, `Total damage` oraz `DPS`,
+- GUI searcha nie implementuje progressu, CSV, wielowątkowości ani rozbudowanego UX ponad minimalny SSR.
+
+Smoke test CLI searcha:
 
 ```powershell
 java '-Dfile.encoding=UTF-8' -cp target/classes krys.search.SearchBuildCli --reference FOUNDATION_M9 --top 5
@@ -717,7 +737,7 @@ Minimalny zakres testów obejmuje:
 - zgodność cumulative damage z `stepTrace`,
 - tickową manual simulation,
 - endpoint formularza GUI dla `Policz aktualny build`,
-- uruchomienie obliczenia przez GUI nad tym samym runtime M9.1,
+- uruchomienie obliczenia przez GUI nad tym samym runtime M10,
 - obecność kluczowych sekcji wyniku w GUI: `total damage`, `DPS`, direct hit debug, delayed hit debug, reactive debug i `stepTrace`,
 - obecność sekcji reactive debug w GUI dla scenariusza `Clash`,
 - obecność `WAIT` i stanu cooldownu w GUI dla scenariusza `Advance`,
@@ -729,6 +749,9 @@ Minimalny zakres testów obejmuje:
 - normalizację top wyników bez zmiany surowej oceny,
 - deterministyczny porządek wyników po normalizacji,
 - CLI / entrypoint backendowego searcha,
+- GET formularza GUI searcha,
+- POST uruchamiającego GUI searcha,
+- obecność sekcji `Ocenieni kandydaci`, `Wyniki po normalizacji`, `Top wyniki po normalizacji`, `Total damage` i `DPS` w GUI searcha,
 - bezpieczne kopiowanie pustego stanu snapshotu,
 - specjalną regułę zaokrąglenia prowadzącą do `raw crit hit = 52`.
 
@@ -782,6 +805,7 @@ Dodatkowe aktualne referencje kontraktowe:
 - Manual simulation dla scenariusza regresyjnego `Holy Bolt rank 5 + Judgement` na sample buildzie M5a w horyzoncie `60 s` daje `total damage = 1732`, `DPS = 1732 / 60`, `total reactive damage = 800`, `19` detonacji `Judgement` i `1` aktywny `Judgement` pozostały na końcu.
 - Backendowy search dla scenariusza `Advance rank 5` z choice range `NONE, LEFT, RIGHT`, `bar size = 1` i `horyzont = 9 s` daje deterministyczny ranking: `Wave Dash = 315`, `bazowy Advance = 135`, `Flash of the Blade = 66`.
 - Backendowy search dla smoke testu `FOUNDATION_M9 --top 5` daje `2949` ocenionych kandydatów, `137` wyników po normalizacji oraz top 1 `Advance -> Clash` z `Wave Dash + Punishment`, `total damage = 439`, `DPS = 48.7778`.
+- GUI searcha dla smoke testu `FOUNDATION_M9` pokazuje `Ocenieni kandydaci = 2949`, `Wyniki po normalizacji = 137` oraz top 1 `Advance -> Clash` z `total damage = 439`, `DPS = 48.7778`.
 - `Brandish rank 5 + Krzyżowe uderzenie (Vulnerable)` w modelu single target liczy wyłącznie główny hit `168%`; dla referencyjnego przypadku z aktywnym `Vulnerable` przed trafieniem wynik ST pozostaje `raw hit = 34`, `single hit = 21`, `raw crit hit = 52`, `critical hit = 32`.
 - Dla powyższego scenariusza `Brandish + Krzyżowe uderzenie (Vulnerable)` referencyjny `raw crit hit = 52` wynika z reguły: najpierw `raw hit` głównego trafienia jest zaokrąglany do `34`, a dopiero potem liczony jest `raw crit hit = round(34 * critMultiplier) = 52`.
 

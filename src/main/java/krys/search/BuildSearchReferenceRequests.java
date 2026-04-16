@@ -7,7 +7,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
-/** Presety pomocnicze do smoke testów i regresji backendowego searcha M9. */
+/** Presety pomocnicze do smoke testów i regresji backendowego searcha M10. */
 public final class BuildSearchReferenceRequests {
     private BuildSearchReferenceRequests() {
     }

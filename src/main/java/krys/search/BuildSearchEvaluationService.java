@@ -5,7 +5,7 @@ import krys.simulation.HeroBuildSnapshot;
 import krys.simulation.ManualSimulationService;
 import krys.simulation.SimulationResult;
 
-/** Warstwa oceny searcha M9 uruchamiająca dokładnie ten sam runtime co flow manual simulation. */
+/** Warstwa oceny searcha M10 uruchamiająca dokładnie ten sam runtime co flow manual simulation. */
 public final class BuildSearchEvaluationService {
     private final ManualSimulationService manualSimulationService;
     private final CurrentBuildSnapshotFactory snapshotFactory;

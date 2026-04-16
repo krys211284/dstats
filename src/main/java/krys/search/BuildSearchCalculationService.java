@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-/** Główna warstwa aplikacyjna backendowego searcha M9. */
+/** Główna warstwa aplikacyjna backendowego searcha M10. */
 public final class BuildSearchCalculationService {
     private final BuildSearchCandidateGenerator candidateGenerator;
     private final BuildSearchEvaluationService evaluationService;

@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Generator legalnych kandydatów backendowego searcha M9.
+ * Generator legalnych kandydatów backendowego searcha M10.
  * Generuje wyłącznie buildy oraz konfiguracje action bara zgodne z kontraktami manual simulation.
  */
 public final class BuildSearchCandidateGenerator {

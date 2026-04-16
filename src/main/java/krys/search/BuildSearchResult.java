@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Wynik backendowego searcha M9 z pełną liczbą ocenionych kandydatów i top N wyników. */
+/** Wynik backendowego searcha M10 z pełną liczbą ocenionych kandydatów i top N wyników. */
 public final class BuildSearchResult {
     private final BuildSearchRequest request;
     private final int evaluatedCandidateCount;

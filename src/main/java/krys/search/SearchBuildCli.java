@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Prosty tekstowy entrypoint backendowego searcha M9. */
+/** Prosty tekstowy entrypoint backendowego searcha M10. */
 public final class SearchBuildCli {
     private SearchBuildCli() {
     }

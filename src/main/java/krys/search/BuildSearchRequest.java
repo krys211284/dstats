@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Wejście aplikacyjne backendowego searcha M9.
+ * Wejście aplikacyjne backendowego searcha M10.
  * Search działa na dyskretnych wartościach wejścia i generuje kandydatów wyłącznie z aktualnego foundation runtime.
  */
 public final class BuildSearchRequest {
