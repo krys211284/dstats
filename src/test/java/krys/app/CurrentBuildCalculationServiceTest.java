@@ -18,7 +18,7 @@ class CurrentBuildCalculationServiceTest {
     );
 
     @Test
-    void powinien_uruchomic_obliczenie_na_realnym_modelu_wejscia_uzytkownika_m8() {
+    void powinien_uruchomic_obliczenie_na_realnym_modelu_wejscia_uzytkownika_m9() {
         CurrentBuildRequest request = new CurrentBuildRequest(
                 13,
                 8,
@@ -43,5 +43,31 @@ class CurrentBuildCalculationServiceTest {
         assertEquals(8L, calculation.getSnapshot().getAverageWeaponDamage());
         assertEquals(List.of(SkillId.HOLY_BOLT), calculation.getRequest().getActionBar());
         assertEquals(1, calculation.getResult().getDirectHitDebugSnapshots().size());
+    }
+
+    @Test
+    void powinien_zachowac_regresje_manual_simulation_po_normalizacji_searcha_m91() {
+        CurrentBuildRequest request = new CurrentBuildRequest(
+                13,
+                8,
+                18.0d,
+                0.0d,
+                50.0d,
+                50.0d,
+                50.0d,
+                Map.of(
+                        SkillId.ADVANCE,
+                        new SkillState(SkillId.ADVANCE, 5, true, SkillUpgradeChoice.RIGHT)
+                ),
+                List.of(SkillId.ADVANCE),
+                10
+        );
+
+        CurrentBuildCalculation calculation = calculationService.calculate(request);
+
+        assertEquals(186L, calculation.getResult().getTotalDamage());
+        assertEquals(120L, calculation.getResult().getTotalReactiveDamage());
+        assertEquals(18.6000d, calculation.getResult().getDps(), 0.0000001d);
+        assertEquals(10, calculation.getResult().getStepTrace().size());
     }
 }

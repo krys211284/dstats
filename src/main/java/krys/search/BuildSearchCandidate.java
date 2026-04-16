@@ -52,6 +52,23 @@ public final class BuildSearchCandidate {
         return String.join(" || ", labels);
     }
 
+    public String getActionBarSkillsDescription() {
+        if (currentBuildRequest.getActionBar().isEmpty()) {
+            return "Pusty";
+        }
+
+        List<String> labels = new ArrayList<>();
+        for (SkillId skillId : currentBuildRequest.getActionBar()) {
+            SkillState state = currentBuildRequest.getLearnedSkills().get(skillId);
+            if (state == null || state.getRank() <= 0) {
+                labels.add(PaladinSkillDefs.get(skillId).getName() + " OFF");
+                continue;
+            }
+            labels.add(buildSkillDescription(skillId, state));
+        }
+        return String.join(" || ", labels);
+    }
+
     public String getActionBarDescription() {
         if (currentBuildRequest.getActionBar().isEmpty()) {
             return "Pusty";
@@ -69,6 +86,13 @@ public final class BuildSearchCandidate {
                 + " | skills=" + getLearnedSkillsDescription()
                 + " | bar=" + getActionBarDescription()
                 + " | horizon=" + currentBuildRequest.getHorizonSeconds();
+    }
+
+    private static String buildSkillDescription(SkillId skillId, SkillState state) {
+        return PaladinSkillDefs.get(skillId).getName()
+                + " rank " + state.getRank()
+                + " | base=" + (state.isBaseUpgrade() ? "tak" : "nie")
+                + " | choice=" + PaladinSkillDefs.getChoiceDisplayName(skillId, state.getChoiceUpgrade());
     }
 
     private static String formatWholeNumber(double value) {

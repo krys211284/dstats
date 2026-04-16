@@ -55,8 +55,9 @@ public final class SearchBuildCli {
         }
         System.out.println();
         System.out.println("Ocenieni kandydaci: " + result.getEvaluatedCandidateCount());
+        System.out.println("Wyniki po normalizacji: " + result.getNormalizedResultCount());
         System.out.println();
-        System.out.println("== Top wyniki ==");
+        System.out.println("== Top wyniki po normalizacji ==");
 
         if (result.getTopResults().isEmpty()) {
             System.out.println("Brak legalnych kandydatów.");
@@ -68,7 +69,7 @@ public final class SearchBuildCli {
                     + " | total damage=" + rankedResult.getSimulationResult().getTotalDamage()
                     + " | DPS=" + String.format(Locale.US, "%.4f", rankedResult.getSimulationResult().getDps()));
             System.out.println("Build input: " + rankedResult.getCandidate().getInputProfileDescription());
-            System.out.println("Learned skills: " + rankedResult.getCandidate().getLearnedSkillsDescription());
+            System.out.println("Action bar skills: " + rankedResult.getCandidate().getActionBarSkillsDescription());
             System.out.println("Action bar: " + rankedResult.getCandidate().getActionBarDescription());
             System.out.println();
         }

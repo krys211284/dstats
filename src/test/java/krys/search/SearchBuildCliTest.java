@@ -43,8 +43,10 @@ class SearchBuildCliTest {
         String output = outputStream.toString(StandardCharsets.UTF_8);
         assertTrue(output.contains("=== Znajdź najlepszy build ==="));
         assertTrue(output.contains("Ocenieni kandydaci:"));
-        assertTrue(output.contains("== Top wyniki =="));
+        assertTrue(output.contains("Wyniki po normalizacji:"));
+        assertTrue(output.contains("== Top wyniki po normalizacji =="));
         assertTrue(output.contains("Build input:"));
+        assertTrue(output.contains("Action bar skills:"));
         assertTrue(output.contains("Action bar:"));
         assertTrue(output.contains("total damage="));
         assertTrue(output.contains("DPS="));

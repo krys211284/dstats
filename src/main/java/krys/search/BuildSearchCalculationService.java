@@ -8,15 +8,18 @@ import java.util.List;
 public final class BuildSearchCalculationService {
     private final BuildSearchCandidateGenerator candidateGenerator;
     private final BuildSearchEvaluationService evaluationService;
+    private final BuildSearchPresentationNormalizer presentationNormalizer;
 
     public BuildSearchCalculationService(BuildSearchEvaluationService evaluationService) {
-        this(new BuildSearchCandidateGenerator(), evaluationService);
+        this(new BuildSearchCandidateGenerator(), evaluationService, new BuildSearchPresentationNormalizer());
     }
 
     BuildSearchCalculationService(BuildSearchCandidateGenerator candidateGenerator,
-                                  BuildSearchEvaluationService evaluationService) {
+                                  BuildSearchEvaluationService evaluationService,
+                                  BuildSearchPresentationNormalizer presentationNormalizer) {
         this.candidateGenerator = candidateGenerator;
         this.evaluationService = evaluationService;
+        this.presentationNormalizer = presentationNormalizer;
     }
 
     public BuildSearchResult calculate(BuildSearchRequest request) {
@@ -27,20 +30,15 @@ public final class BuildSearchCalculationService {
         }
 
         evaluations.sort(searchComparator());
+        BuildSearchPresentationNormalizer.BuildSearchPresentationView presentationView =
+                presentationNormalizer.normalize(evaluations, request.getTopResultsLimit());
 
-        List<BuildSearchRankedResult> topResults = new ArrayList<>();
-        int limit = Math.min(request.getTopResultsLimit(), evaluations.size());
-        for (int index = 0; index < limit; index++) {
-            BuildSearchEvaluation evaluation = evaluations.get(index);
-            topResults.add(new BuildSearchRankedResult(
-                    index + 1,
-                    evaluation.getCandidate(),
-                    evaluation.getSnapshot(),
-                    evaluation.getSimulationResult()
-            ));
-        }
-
-        return new BuildSearchResult(request, candidates.size(), topResults);
+        return new BuildSearchResult(
+                request,
+                candidates.size(),
+                presentationView.normalizedResultCount(),
+                presentationView.topResults()
+        );
     }
 
     private static Comparator<BuildSearchEvaluation> searchComparator() {
