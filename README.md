@@ -15,7 +15,7 @@ Docelowo system ma wspierać dwa tryby pracy:
 - `Policz aktualny build` - manual simulation dla aktualnej konfiguracji bohatera.
 - `Znajdź najlepszy build` - build search oceniający legalne buildy i legalne konfiguracje paska skilli.
 
-Aktualny foundation zaimplementowany w repo obejmuje:
+Aktualny stan repo odpowiada foundation `M8` i obejmuje:
 - minimalny wspólny silnik pojedynczego uderzenia dla `Brandish` i `Holy Bolt`,
 - pierwszy pełny use case cooldownowego direct-hit runtime dla `Advance`,
 - pełny pierwszy use case reactive foundation dla `Clash`,
@@ -23,6 +23,9 @@ Aktualny foundation zaimplementowany w repo obejmuje:
 - foundation reactive damage dla `Thorns` i `Retribution`,
 - ograniczony kontrakt `Resolve`, `Crusader's March` i `Punishment` potrzebny do use case `Clash`,
 - tickową manual simulation dla trybu `Policz aktualny build`,
+- realny model wejścia użytkownika oparty o `CurrentBuildRequest`,
+- `CurrentBuildSnapshotFactory` budujący `HeroBuildSnapshot` z realnych danych wejściowych użytkownika,
+- wspólną usługę aplikacyjną `CurrentBuildCalculationService` nad istniejącym runtime,
 - minimalne webowe GUI SSR dla trybu `Policz aktualny build`,
 - CLI pozostające równoległym smoke testem tego samego runtime.
 
@@ -53,7 +56,17 @@ Kontrakt architektoniczny jest wspólny dla obu trybów:
 - Search nie może docelowo używać skróconej lub alternatywnej logiki względem manual simulation.
 
 ### 3.2. Wspólne wejście runtime
-Docelowe wspólne wejście runtime ma postać `HeroBuildSnapshot`. Ten model musi zachowywać pełny stan buildu używany przez runtime:
+Produktowy model wejścia użytkownika dla aktualnego M8 ma postać `CurrentBuildRequest`.
+
+Kontrakt M8 dla warstwy aplikacyjnej:
+- GUI mapuje formularz do `CurrentBuildRequest` przez `CurrentBuildFormMapper`,
+- CLI mapuje argumenty do `CurrentBuildRequest` przez `CurrentBuildCliRequestParser`,
+- `CurrentBuildSnapshotFactory` buduje z requestu runtime `HeroBuildSnapshot`,
+- `CurrentBuildCalculationService` uruchamia ten sam runtime dla GUI i CLI,
+- scenariusze referencyjne pozostają wyłącznie trybem pomocniczym budowanym już na `CurrentBuildRequest`,
+- `SampleBuildFactory` nie jest główną ścieżką flow użytkownika; pozostaje pomocą testową niższego poziomu.
+
+Wspólne wejście runtime dla manual simulation i dalszego rozwoju searcha ma postać `HeroBuildSnapshot`. Ten model musi zachowywać pełny stan buildu używany przez runtime:
 - tożsamość i klasę bohatera,
 - poziom bohatera,
 - bonusowe punkty skilli,
@@ -138,7 +151,7 @@ Kontraktowe zasady dla tej grupy:
 - `Brandish`, `Holy Bolt`, `Clash` i `Advance` mają `resourceCost = 0`,
 - brak kosztu zasobu nie zmienia reguły rotacji LRU.
 
-Kontrakt M7 dla `Advance` jest celowo minimalny i skupia się na pierwszym pełnym use case direct-hit runtime z cooldownem:
+Aktualny kontrakt foundation dla `Advance` jest celowo minimalny i skupia się na pierwszym pełnym use case direct-hit runtime z cooldownem:
 - bazowy `Advance` używa bezpośredniego hita `147%`,
 - na obecnym etapie foundation `Advance` używa tego samego kontraktowego `147%` dla rang `1..5`,
 - bazowe rozszerzenie `Advance` odblokowuje dodatkowe modyfikatory `Wave Dash` oraz `Flash of the Blade`,
@@ -148,7 +161,7 @@ Kontrakt M7 dla `Advance` jest celowo minimalny i skupia się na pierwszym pełn
 - `Advance + Flash of the Blade` ustawia efektywny cooldown na `8 s`,
 - bazowy `Advance` i `Advance + Wave Dash` nie ustawiają cooldownu.
 
-Kontrakt M6 dla `Clash` jest celowo minimalny i ograniczony do pierwszego pełnego use case reactive foundation:
+Aktualny kontrakt foundation dla `Clash` jest celowo minimalny i ograniczony do pierwszego pełnego use case reactive foundation:
 - bazowy `Clash` nie zadaje bezpośrednich obrażeń,
 - bazowe rozszerzenie `Clash` oznacza `Crusader's March`,
 - `Crusader's March` daje `Resolve` na `3 s` i `+25% block chance` na `3 s`,
@@ -237,14 +250,14 @@ retributionExpectedFinalDamage = round(activeThorns * mainStatMultiplier * activ
 reactiveFinalPerEnemyHit = thornsFinalDamage + retributionExpectedFinalDamage
 ```
 
-Kontrakt M6 dla `Clash` dokłada do reactive foundation:
+Aktualny kontrakt `Clash` dokłada do reactive foundation:
 - `Crusader's March` ustawia `activeBlockChanceBonusPercent = 25`,
 - `Punishment` ustawia `activeThornsBonus = 50`,
 - oba buffy trwają `3 s`,
 - `Resolve` jest stanem debug/runtime towarzyszącym `Crusader's March`,
 - `Retribution expected raw = thornsDamage * activeBlockChance * retributionChance`.
 
-Kontrakt M7 dla `Advance` dokłada do direct-hit runtime:
+Aktualny kontrakt `Advance` dokłada do direct-hit runtime:
 - `Wave Dash` jest dodatkowym komponentem `DAMAGE` trafiającym ten sam cel,
 - `Flash of the Blade` łączy `REPLACE_BASE_DAMAGE`, `APPLY_STATUS` oraz `SET_COOLDOWN`,
 - cooldown jest liczony w runtime per skill, a nie jako boczna logika GUI albo CLI,
@@ -361,7 +374,7 @@ Obowiązujące reguły:
 - delayed hit `Judgement` jest single target i wchodzi do `total damage`.
 
 ### 7.3. Reactive damage
-Reactive damage jest częścią aktualnego foundation repo w zakresie M7 dla `Thorns`, `Retribution` i pierwszego pełnego use case `Clash`.
+Reactive damage jest częścią aktualnego foundation repo w zakresie aktualnego M8 dla `Thorns`, `Retribution` i pierwszego pełnego use case `Clash`.
 
 Obowiązujące reguły:
 - reactive damage jest osobnym torem obrażeń i nie należy do single hita skilla,
@@ -449,7 +462,10 @@ Audyt searcha, progress i eksport CSV nie są jeszcze częścią aktualnego foun
 
 ## 10. UI, debug i prezentacja wyników
 ### 10.1. Zasady ogólne
-Repo implementuje minimalne webowe GUI M7 oraz CLI dla tego samego flow `Policz aktualny build`. Aktualny foundation dostarcza:
+Repo implementuje działające webowe GUI SSR oraz CLI dla tego samego flow `Policz aktualny build`. Aktualny foundation M8 dostarcza:
+- główną ścieżkę użytkownika opartą o `CurrentBuildRequest`, a nie o testowy snapshot,
+- wspólną usługę aplikacyjną `CurrentBuildCalculationService` dla GUI i CLI,
+- wspólną fabrykę runtime `CurrentBuildSnapshotFactory` budującą `HeroBuildSnapshot`,
 - prosty serwer HTTP z SSR bez rozbudowanego frontendu JS,
 - pojedynczy ekran formularza dla `Brandish`, `Holy Bolt`, `Clash` i `Advance`,
 - render wyniku oparty wyłącznie o istniejące modele debug i wynik runtime,
@@ -506,13 +522,13 @@ Kontrakt prezentacyjny trace:
 - CSV i pełny docelowy UX pozostają poza aktualnym zakresem repo.
 
 ### 10.7. Pierwszy smoke test użytkownika
-Aktualny smoke test użytkownika dla M7 jest oparty o GUI oraz równoległe CLI i scenariusz:
+Aktualny smoke test użytkownika dla M8 jest oparty o GUI oraz równoległe CLI i scenariusz:
 - `Advance`
 - `rank 5`
 - bazowe rozszerzenie włączone
 - dodatkowy modyfikator `Flash of the Blade`
 - horyzont `10 s`
-- referencyjny sample build GUI/CLI z active reactive foundation:
+- pomocniczy scenariusz referencyjny GUI/CLI z active reactive foundation:
   - `+50 THORNS`
   - `+50% BLOCK_CHANCE`
   - `+50% RETRIBUTION_CHANCE`
@@ -540,7 +556,9 @@ java '-Dfile.encoding=UTF-8' -cp target/classes krys.app.CalculateCurrentBuildCl
 
 Kontrakt prezentacji dla tego smoke testu:
 - GUI jest po polsku i jasno komunikuje, że to aktualny foundation manual simulation, a nie pełny produkt końcowy.
-- GUI pozwala ustawić skill, rank, bazowe rozszerzenie, dodatkowy modyfikator i horyzont symulacji, a następnie kliknąć `Policz aktualny build`.
+- GUI pozwala ustawić level, staty buildu, konfigurację wszystkich skilli foundation oraz action bar, a następnie kliknąć `Policz aktualny build`.
+- GUI i CLI przechodzą przez ten sam kontrakt `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> CurrentBuildCalculationService -> runtime`.
+- scenariusze referencyjne są trybem pomocniczym do smoke testów i regresji, a nie główną ścieżką produktu.
 - GUI i CLI pokazują `total damage`, `DPS`, debug bezpośredniego hita dla użytego skilla, debug delayed hitów, reactive debug, `stepTrace`, `Resolve aktywny na końcu`, `Active block chance na końcu` oraz `Active thorns bonus na końcu`.
 - GUI i CLI pokazują `Thorns raw / tick`, `Thorns final / tick`, `Retribution expected raw / tick`, `Retribution expected final / tick`, `Reactive final / tick` oraz `Reactive contribution`.
 - GUI i CLI pokazują naturalne `WAIT`, `cooldown=true/false` oraz `cooldownRemaining` dla scenariusza `Advance + Flash of the Blade`.
@@ -591,7 +609,7 @@ Minimalny zakres testów obejmuje:
 - zgodność cumulative damage z `stepTrace`,
 - tickową manual simulation,
 - endpoint formularza GUI dla `Policz aktualny build`,
-- uruchomienie obliczenia przez GUI nad tym samym runtime M7,
+- uruchomienie obliczenia przez GUI nad tym samym runtime M8,
 - obecność kluczowych sekcji wyniku w GUI: `total damage`, `DPS`, direct hit debug, delayed hit debug, reactive debug i `stepTrace`,
 - obecność sekcji reactive debug w GUI dla scenariusza `Clash`,
 - obecność `WAIT` i stanu cooldownu w GUI dla scenariusza `Advance`,

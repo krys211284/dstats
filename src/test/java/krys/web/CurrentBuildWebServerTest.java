@@ -48,6 +48,8 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("Dane buildu użytkownika"));
         assertTrue(response.body().contains("name=\"level\""));
         assertTrue(response.body().contains("name=\"weaponDamage\""));
+        assertTrue(response.body().contains("Block chance [%]"));
+        assertTrue(response.body().contains("Retribution chance [%]"));
         assertTrue(response.body().contains("name=\"actionBar1\""));
         assertTrue(response.body().contains("name=\"horizonSeconds\""));
     }
@@ -87,7 +89,7 @@ class CurrentBuildWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Błędy formularza"));
-        assertTrue(response.body().contains("Wybrany dodatkowy modyfikator nie jest dostępny dla wskazanego skilla w aktualnym foundation."));
+        assertTrue(response.body().contains("Wybrany dodatkowy modyfikator nie jest dostępny dla skilla Holy Bolt."));
     }
 
     @Test

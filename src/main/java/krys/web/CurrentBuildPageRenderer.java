@@ -236,46 +236,45 @@ public final class CurrentBuildPageRenderer {
         return """
                 <label>
                     Level bohatera
-                    <input type="number" min="1" step="1" name="level" value="%s">
+                    <input type="number" min="1" step="1" name="level" value="{{LEVEL}}">
                 </label>
                 <label>
                     Weapon damage
-                    <input type="number" min="1" step="1" name="weaponDamage" value="%s">
+                    <input type="number" min="1" step="1" name="weaponDamage" value="{{WEAPON_DAMAGE}}">
                 </label>
                 <label>
                     Strength z itemów
-                    <input type="number" min="0" step="1" name="strength" value="%s">
+                    <input type="number" min="0" step="1" name="strength" value="{{STRENGTH}}">
                 </label>
                 <label>
                     Intelligence z itemów
-                    <input type="number" min="0" step="1" name="intelligence" value="%s">
+                    <input type="number" min="0" step="1" name="intelligence" value="{{INTELLIGENCE}}">
                 </label>
                 <label>
                     Thorns
-                    <input type="number" min="0" step="1" name="thorns" value="%s">
+                    <input type="number" min="0" step="1" name="thorns" value="{{THORNS}}">
                 </label>
                 <label>
                     Block chance [%]
-                    <input type="number" min="0" step="0.01" name="blockChance" value="%s">
+                    <input type="number" min="0" step="0.01" name="blockChance" value="{{BLOCK_CHANCE}}">
                 </label>
                 <label>
                     Retribution chance [%]
-                    <input type="number" min="0" step="0.01" name="retributionChance" value="%s">
+                    <input type="number" min="0" step="0.01" name="retributionChance" value="{{RETRIBUTION_CHANCE}}">
                 </label>
                 <label>
                     Horyzont symulacji [s]
-                    <input type="number" min="1" step="1" name="horizonSeconds" value="%s">
+                    <input type="number" min="1" step="1" name="horizonSeconds" value="{{HORIZON_SECONDS}}">
                 </label>
-                """.formatted(
-                escapeHtml(formData.getLevel()),
-                escapeHtml(formData.getWeaponDamage()),
-                escapeHtml(formData.getStrength()),
-                escapeHtml(formData.getIntelligence()),
-                escapeHtml(formData.getThorns()),
-                escapeHtml(formData.getBlockChance()),
-                escapeHtml(formData.getRetributionChance()),
-                escapeHtml(formData.getHorizonSeconds())
-        );
+                """
+                .replace("{{LEVEL}}", escapeHtml(formData.getLevel()))
+                .replace("{{WEAPON_DAMAGE}}", escapeHtml(formData.getWeaponDamage()))
+                .replace("{{STRENGTH}}", escapeHtml(formData.getStrength()))
+                .replace("{{INTELLIGENCE}}", escapeHtml(formData.getIntelligence()))
+                .replace("{{THORNS}}", escapeHtml(formData.getThorns()))
+                .replace("{{BLOCK_CHANCE}}", escapeHtml(formData.getBlockChance()))
+                .replace("{{RETRIBUTION_CHANCE}}", escapeHtml(formData.getRetributionChance()))
+                .replace("{{HORIZON_SECONDS}}", escapeHtml(formData.getHorizonSeconds()));
     }
 
     private static String renderSkillConfigFields(CurrentBuildFormData formData) {
