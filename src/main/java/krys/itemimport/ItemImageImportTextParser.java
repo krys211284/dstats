@@ -4,6 +4,7 @@ import krys.item.EquipmentSlot;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -149,22 +150,31 @@ final class ItemImageImportTextParser {
     }
 
     private static Optional<Double> extractNumberNearPhrase(String normalizedLine, String phraseRegex) {
-        Pattern phraseBeforeNumber = Pattern.compile(
-                phraseRegex + "[^0-9OISBL]*" + OCR_NUMBER_PATTERN.pattern()
-        );
-        Matcher phraseBeforeMatcher = phraseBeforeNumber.matcher(normalizedLine);
-        if (phraseBeforeMatcher.find()) {
-            return parseNumericToken(phraseBeforeMatcher.group(1));
+        List<NumericTokenCandidate> numericCandidates = collectNumericCandidates(normalizedLine);
+        if (numericCandidates.isEmpty()) {
+            return Optional.empty();
         }
 
-        Pattern numberBeforePhrase = Pattern.compile(
-                OCR_NUMBER_PATTERN.pattern() + "\\s*%?\\s*" + phraseRegex
-        );
-        Matcher numberBeforeMatcher = numberBeforePhrase.matcher(normalizedLine);
-        if (numberBeforeMatcher.find()) {
-            return parseNumericToken(numberBeforeMatcher.group(1));
+        Matcher phraseMatcher = Pattern.compile(phraseRegex).matcher(normalizedLine);
+        NumericTokenCandidate bestCandidate = null;
+        int bestDistance = Integer.MAX_VALUE;
+        while (phraseMatcher.find()) {
+            NumericTokenCandidate candidate = selectBestCandidateForPhrase(
+                    numericCandidates,
+                    phraseMatcher.start(),
+                    phraseMatcher.end()
+            );
+            if (candidate == null) {
+                continue;
+            }
+            int distance = distanceToPhrase(candidate, phraseMatcher.start(), phraseMatcher.end());
+            if (bestCandidate == null || distance < bestDistance) {
+                bestCandidate = candidate;
+                bestDistance = distance;
+            }
         }
-        return Optional.empty();
+
+        return bestCandidate == null ? Optional.empty() : parseNumericToken(bestCandidate.rawToken());
     }
 
     private static Optional<Double> parseNumericToken(String rawToken) {
@@ -180,6 +190,75 @@ final class ItemImageImportTextParser {
         } catch (NumberFormatException exception) {
             return Optional.empty();
         }
+    }
+
+    private static List<NumericTokenCandidate> collectNumericCandidates(String normalizedLine) {
+        List<NumericTokenCandidate> candidates = new ArrayList<>();
+        Matcher matcher = OCR_NUMBER_PATTERN.matcher(normalizedLine);
+        while (matcher.find()) {
+            String rawToken = matcher.group(1);
+            if (!containsDecimalDigit(rawToken)) {
+                continue;
+            }
+            candidates.add(new NumericTokenCandidate(
+                    rawToken,
+                    matcher.start(1),
+                    matcher.end(1),
+                    isInsideReferenceRange(normalizedLine, matcher.start(1))
+            ));
+        }
+        return candidates;
+    }
+
+    private static NumericTokenCandidate selectBestCandidateForPhrase(List<NumericTokenCandidate> numericCandidates,
+                                                                      int phraseStart,
+                                                                      int phraseEnd) {
+        return numericCandidates.stream()
+                .filter(candidate -> !candidate.insideReferenceRange())
+                .filter(candidate -> !overlapsPhrase(candidate, phraseStart, phraseEnd))
+                .min(Comparator
+                        .comparingInt((NumericTokenCandidate candidate) -> distanceToPhrase(candidate, phraseStart, phraseEnd))
+                        .thenComparingInt(candidate -> candidate.start() >= phraseEnd ? 0 : 1)
+                        .thenComparingInt(candidate -> candidate.start() >= phraseEnd
+                                ? candidate.start() - phraseEnd
+                                : phraseStart - candidate.end())
+                        .thenComparingInt(NumericTokenCandidate::start))
+                .orElse(null);
+    }
+
+    private static int distanceToPhrase(NumericTokenCandidate candidate, int phraseStart, int phraseEnd) {
+        if (candidate.end() <= phraseStart) {
+            return phraseStart - candidate.end();
+        }
+        if (candidate.start() >= phraseEnd) {
+            return candidate.start() - phraseEnd;
+        }
+        return 0;
+    }
+
+    private static boolean isInsideReferenceRange(String normalizedLine, int tokenStart) {
+        int squareOpen = normalizedLine.lastIndexOf('[', tokenStart);
+        int squareClose = normalizedLine.lastIndexOf(']', tokenStart);
+        if (squareOpen >= 0 && squareOpen > squareClose) {
+            return true;
+        }
+
+        int roundOpen = normalizedLine.lastIndexOf('(', tokenStart);
+        int roundClose = normalizedLine.lastIndexOf(')', tokenStart);
+        return roundOpen >= 0 && roundOpen > roundClose;
+    }
+
+    private static boolean overlapsPhrase(NumericTokenCandidate candidate, int phraseStart, int phraseEnd) {
+        return candidate.start() < phraseEnd && candidate.end() > phraseStart;
+    }
+
+    private static boolean containsDecimalDigit(String rawToken) {
+        for (int index = 0; index < rawToken.length(); index++) {
+            if (Character.isDigit(rawToken.charAt(index))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean containsAny(String collapsedLine, List<String> tokens) {
@@ -247,5 +326,8 @@ final class ItemImageImportTextParser {
                 .replace('Ł', 'L')
                 .replace('ł', 'l')
                 .replaceAll("\\p{M}", "");
+    }
+
+    private record NumericTokenCandidate(String rawToken, int start, int end, boolean insideReferenceRange) {
     }
 }

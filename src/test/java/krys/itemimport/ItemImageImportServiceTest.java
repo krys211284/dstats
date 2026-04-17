@@ -27,8 +27,8 @@ class ItemImageImportServiceTest {
                 new FakeOcrTextReader(Map.of(
                         "original", "PRZEWIN W DOL",
                         "text-crop", "Tarcza",
-                        "text-crop-gray-x2-contrast", "+114 do siły",
-                        "text-crop-gray-x3-threshold", "+494 do cierni\n+20,0% szansy na blok",
+                        "text-crop-gray-x2-contrast", "+114 do siły [107 - 121]",
+                        "text-crop-gray-x3-threshold", "+494 do cierni [473 - 506]\n+20,0% szansy na blok [18,0 - 22,5]",
                         "text-crop-gray-x3-sharpen", ""
                 )),
                 new ItemImageImportTextParser(),

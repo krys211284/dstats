@@ -252,6 +252,8 @@ Minimalny zakres rozpoznawania tekstu OCR dla M13.1:
 - aktualnie jawnie wspierane są co najmniej `tarcza` i `buty`, a dotychczasowe foundation slotów `MAIN_HAND`, `OFF_HAND`, `CHEST` i `RING` pozostają bez zmian,
 - parser foundation rozpoznaje polskie frazy dla `Strength`, `Intelligence`, `Thorns` i `Block chance`,
 - parser może rozpoznać `Retribution chance` tylko wtedy, gdy OCR zawiera jednoznaczną frazę `retribution chance` albo `szansa na odwet`,
+- jeżeli linia affixu zawiera jednocześnie realny roll i zakres referencyjny w `[]` albo `()`, parser ma wybierać realny roll jako wartość affixu,
+- liczby z zakresu referencyjnego w `[]` albo `()` nie są domyślną wartością affixu i nie mogą wygrywać z głównym rollem linii,
 - nieobsługiwane affixy nie mogą być mapowane do statów foundation.
 
 Jawne ograniczenia aktualnego foundation importu:
@@ -259,6 +261,7 @@ Jawne ograniczenia aktualnego foundation importu:
 - aktualny foundation wykonuje techniczną walidację obrazu, heurystyczny preprocessing, realny OCR kilku wariantów pojedynczego itemu oraz renderuje poziom niepewności pól,
 - heurystyczne wycięcie obszaru tekstowego ma ograniczać wpływ ramki, grafiki itemu i dolnego overlayu, ale nie daje gwarancji pełnego odcięcia każdego zakłócającego elementu,
 - przy równorzędnych sprzecznych odczytach z kilku wariantów OCR pole pozostaje z obniżoną pewnością zamiast sztucznego podbicia pewności,
+- gdy parser nie potrafi bezpiecznie odróżnić głównego rolla od wartości referencyjnych, pole ma pozostać nierozpoznane zamiast zgadywania,
 - użytkownik musi ręcznie zatwierdzić albo poprawić pola przed użyciem itemu,
 - tryb `nadpisz` podstawia do current build tylko te pola, które rozpoznany item rzeczywiście wnosi,
 - tryb `dodaj wkład` sumuje rozpoznany wkład itemu do statów current build przekazanych do importu,
@@ -898,6 +901,7 @@ Minimalny zakres testów obejmuje:
 - deterministyczne scalanie per pole wyników z kilku wariantów OCR,
 - rozpoznanie ograniczonych pól foundation z pojedynczego screena itemu do `candidate parse result`,
 - rozpoznanie polskich fraz foundation dla `Strength`, `Thorns` i `Block chance`,
+- wybór realnego rolla zamiast liczby z zakresu referencyjnego dla linii typu `+114 do siły [107 - 121]`,
 - rozpoznanie slotu dla co najmniej `buty` i `tarcza`,
 - brak halucynacji dla nieobsługiwanych affixów OCR,
 - mapowanie wstępnie rozpoznanych pól itemu do formularza ręcznego potwierdzenia,
