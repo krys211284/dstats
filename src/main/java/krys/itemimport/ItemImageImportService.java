@@ -7,20 +7,32 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.List;
 
 /** Wstępny analizator obrazu pojedynczego itemu z jawnie ręcznym potwierdzeniem użytkownika. */
 public final class ItemImageImportService {
-    private final WindowsItemOcrTextReader ocrTextReader;
+    private final ItemImageOcrPreprocessor ocrPreprocessor;
+    private final ItemImageOcrTextReader ocrTextReader;
     private final ItemImageImportTextParser textParser;
+    private final ItemImageImportCandidateMerger candidateMerger;
 
     public ItemImageImportService() {
-        this(new WindowsItemOcrTextReader(), new ItemImageImportTextParser());
+        this(
+                new ItemImageOcrPreprocessor(),
+                new WindowsItemOcrTextReader(),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
     }
 
-    ItemImageImportService(WindowsItemOcrTextReader ocrTextReader,
-                           ItemImageImportTextParser textParser) {
+    ItemImageImportService(ItemImageOcrPreprocessor ocrPreprocessor,
+                           ItemImageOcrTextReader ocrTextReader,
+                           ItemImageImportTextParser textParser,
+                           ItemImageImportCandidateMerger candidateMerger) {
+        this.ocrPreprocessor = ocrPreprocessor;
         this.ocrTextReader = ocrTextReader;
         this.textParser = textParser;
+        this.candidateMerger = candidateMerger;
     }
 
     public ItemImageImportCandidateParseResult analyze(ItemImageImportRequest request) {
@@ -32,8 +44,19 @@ public final class ItemImageImportService {
                 image.getWidth(),
                 image.getHeight()
         );
-        String ocrText = ocrTextReader.readText(request.getImageBytes(), image);
-        return textParser.parse(metadata, ocrText);
+        var variants = ocrPreprocessor.prepareVariants(image);
+        var ocrTexts = ocrTextReader.readTextVariants(variants);
+        if (ocrTexts.isEmpty()) {
+            return candidateMerger.merge(metadata, variants.size(), List.of(textParser.parse(metadata, "")));
+        }
+
+        return candidateMerger.merge(
+                metadata,
+                variants.size(),
+                ocrTexts.stream()
+                        .map(ocrText -> textParser.parse(metadata, ocrText.getText()))
+                        .toList()
+        );
     }
 
     private static BufferedImage readImage(byte[] imageBytes) {

@@ -5,5 +5,6 @@ public enum EquipmentSlot {
     MAIN_HAND,
     OFF_HAND,
     CHEST,
-    RING
+    RING,
+    BOOTS
 }

@@ -7,11 +7,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Mapuje surowy tekst OCR ograniczonego foundation do candidate parse result pojedynczego itemu. */
 final class ItemImageImportTextParser {
-    private static final Pattern OCR_NUMBER_PATTERN = Pattern.compile("(\\d[\\dOISBL]*)");
+    private static final Pattern OCR_NUMBER_PATTERN = Pattern.compile("([0-9OISBL]+(?:[.,][0-9OISBL]+)?)");
 
     ItemImageImportCandidateParseResult parse(ItemImageMetadata metadata, String ocrText) {
         List<String> lines = normalizedLines(ocrText);
@@ -19,15 +20,20 @@ final class ItemImageImportTextParser {
         ItemImportFieldCandidate<Long> weaponDamageCandidate = detectLong(lines, "WEAPON DAMAGE",
                 List.of("WEAPON\\s*DAMAGE"), List.of("DAMAGE"));
         ItemImportFieldCandidate<Double> strengthCandidate = detectDouble(lines, "Strength",
-                List.of("STRENGTH"), List.of("STRENGTH"));
+                List.of("STRENGTH", "(?:DO\\s+)?SILY", "(?:DO\\s+)?SILE", "(?:DO\\s+)?SILA"),
+                List.of("STRENGTH", "SIL"));
         ItemImportFieldCandidate<Double> intelligenceCandidate = detectDouble(lines, "Intelligence",
-                List.of("INTELLIGENCE"), List.of("INTELLIGENCE"));
+                List.of("INTELLIGENCE", "(?:DO\\s+)?INTELIGENCJI", "(?:DO\\s+)?INTELIGENCJA"),
+                List.of("INTELIGENC"));
         ItemImportFieldCandidate<Double> thornsCandidate = detectDouble(lines, "Thorns",
-                List.of("THORNS"), List.of("THORNS"));
+                List.of("THORNS", "(?:DO\\s+)?CIERNI", "CIERNIE"),
+                List.of("THORNS", "CIERN"));
         ItemImportFieldCandidate<Double> blockChanceCandidate = detectDouble(lines, "Block chance",
-                List.of("BLOCK\\s*CHANCE"), List.of("BLOCK"));
+                List.of("BLOCK\\s*CHANCE", "SZANSA\\s+NA\\s+BLOK", "SZANSY\\s+NA\\s+BLOK"),
+                List.of("BLOCK", "BLOK"));
         ItemImportFieldCandidate<Double> retributionChanceCandidate = detectDouble(lines, "Retribution chance",
-                List.of("RETRIBUTION\\s*CHANCE"), List.of("RETRIBUTION"));
+                List.of("RETRIBUTION\\s*CHANCE", "SZANSA\\s+NA\\s+ODWET", "SZANSY\\s+NA\\s+ODWET"),
+                List.of("RETRIBUTION", "ODWET"));
 
         if (slotCandidate.getSuggestedValue() == null && weaponDamageCandidate.getSuggestedValue() != null) {
             slotCandidate = new ItemImportFieldCandidate<>(
@@ -71,11 +77,19 @@ final class ItemImageImportTextParser {
                 return field(line, EquipmentSlot.RING, ItemImportFieldConfidence.HIGH,
                         "Slot rozpoznany bezpośrednio z tekstu OCR.");
             }
+            if (containsAny(collapsedLine, List.of("BOOTS", "BUTY", "BUCIORY", "OBUWIE"))) {
+                return field(line, EquipmentSlot.BOOTS, ItemImportFieldConfidence.HIGH,
+                        "Slot rozpoznany bezpośrednio z tekstu OCR.");
+            }
+            if (containsAny(collapsedLine, List.of("SHIELD", "TARCZA"))) {
+                return field(line, EquipmentSlot.OFF_HAND, ItemImportFieldConfidence.HIGH,
+                        "Slot rozpoznany bezpośrednio z nazwy typu itemu w OCR.");
+            }
             if (containsAny(collapsedLine, List.of("SWORD", "AXE", "MACE", "HAMMER", "DAGGER", "WEAPON"))) {
                 return field(line, EquipmentSlot.MAIN_HAND, ItemImportFieldConfidence.MEDIUM,
                         "Slot MAIN_HAND został wywnioskowany z typu broni w OCR.");
             }
-            if (containsAny(collapsedLine, List.of("SHIELD", "FOCUS"))) {
+            if (containsAny(collapsedLine, List.of("FOCUS"))) {
                 return field(line, EquipmentSlot.OFF_HAND, ItemImportFieldConfidence.MEDIUM,
                         "Slot OFF_HAND został wywnioskowany z typu itemu w OCR.");
             }
@@ -114,7 +128,7 @@ final class ItemImageImportTextParser {
         for (String line : lines) {
             String normalizedLine = normalizeLineForPattern(line);
             for (String phrase : exactPhrases) {
-                Optional<Double> number = extractNumberAfterPhrase(normalizedLine, phrase);
+                Optional<Double> number = extractNumberNearPhrase(normalizedLine, phrase);
                 if (number.isPresent()) {
                     return field(line, number.get(), ItemImportFieldConfidence.HIGH,
                             label + " rozpoznany bezpośrednio z tekstu OCR.");
@@ -124,7 +138,7 @@ final class ItemImageImportTextParser {
         for (String line : lines) {
             String normalizedLine = normalizeLineForPattern(line);
             for (String phrase : fuzzyPhrases) {
-                Optional<Double> number = extractNumberAfterPhrase(normalizedLine, phrase);
+                Optional<Double> number = extractNumberNearPhrase(normalizedLine, phrase);
                 if (number.isPresent()) {
                     return field(line, number.get(), ItemImportFieldConfidence.MEDIUM,
                             label + " rozpoznany heurystycznie z tekstu OCR.");
@@ -134,18 +148,33 @@ final class ItemImageImportTextParser {
         return ItemImportFieldCandidate.unknown("Nie udało się rozpoznać pola `" + label + "` z OCR.");
     }
 
-    private static Optional<Double> extractNumberAfterPhrase(String normalizedLine, String phraseRegex) {
-        Pattern pattern = Pattern.compile(phraseRegex + "\\s*([0-9OISBL]+(?:[.,][0-9OISBL]+)?)");
-        java.util.regex.Matcher matcher = pattern.matcher(normalizedLine);
-        if (!matcher.find()) {
-            return Optional.empty();
+    private static Optional<Double> extractNumberNearPhrase(String normalizedLine, String phraseRegex) {
+        Pattern phraseBeforeNumber = Pattern.compile(
+                phraseRegex + "[^0-9OISBL]*" + OCR_NUMBER_PATTERN.pattern()
+        );
+        Matcher phraseBeforeMatcher = phraseBeforeNumber.matcher(normalizedLine);
+        if (phraseBeforeMatcher.find()) {
+            return parseNumericToken(phraseBeforeMatcher.group(1));
         }
-        String numericToken = matcher.group(1)
+
+        Pattern numberBeforePhrase = Pattern.compile(
+                OCR_NUMBER_PATTERN.pattern() + "\\s*%?\\s*" + phraseRegex
+        );
+        Matcher numberBeforeMatcher = numberBeforePhrase.matcher(normalizedLine);
+        if (numberBeforeMatcher.find()) {
+            return parseNumericToken(numberBeforeMatcher.group(1));
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<Double> parseNumericToken(String rawToken) {
+        String numericToken = rawToken
                 .replace('O', '0')
                 .replace('I', '1')
                 .replace('S', '5')
                 .replace('B', '8')
-                .replace('L', '1');
+                .replace('L', '1')
+                .replace(',', '.');
         try {
             return Optional.of(Double.parseDouble(numericToken));
         } catch (NumberFormatException exception) {
@@ -199,17 +228,24 @@ final class ItemImageImportTextParser {
     }
 
     private static String collapse(String text) {
-        return Normalizer.normalize(text, Normalizer.Form.NFD)
-                .replaceAll("\\p{M}", "")
+        return normalizePolishText(text)
                 .toUpperCase(Locale.ROOT)
                 .replaceAll("[^A-Z0-9]", "");
     }
 
     private static String normalizeLineForPattern(String line) {
-        return Normalizer.normalize(line, Normalizer.Form.NFD)
-                .replaceAll("\\p{M}", "")
+        return normalizePolishText(line)
                 .toUpperCase(Locale.ROOT)
+                .replace('+', ' ')
+                .replace('%', ' ')
                 .replaceAll("\\s+", " ")
                 .trim();
+    }
+
+    private static String normalizePolishText(String text) {
+        return Normalizer.normalize(text, Normalizer.Form.NFD)
+                .replace('Ł', 'L')
+                .replace('ł', 'l')
+                .replaceAll("\\p{M}", "");
     }
 }

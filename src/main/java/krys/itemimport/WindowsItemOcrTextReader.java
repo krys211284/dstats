@@ -1,66 +1,43 @@
 package krys.itemimport;
 
 import javax.imageio.ImageIO;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
-import java.awt.image.ColorConvertOp;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
-/** Czyta tekst z obrazu przez wbudowany OCR Windows, z dodatkową próbą na wersji wzmocnionej. */
-final class WindowsItemOcrTextReader {
-    String readText(byte[] originalImageBytes, BufferedImage image) {
-        Path originalPath = null;
-        Path enhancedPath = null;
+/** Czyta tekst z kilku przygotowanych wariantów obrazu przez wbudowany OCR Windows. */
+final class WindowsItemOcrTextReader implements ItemImageOcrTextReader {
+    @Override
+    public List<ItemImageOcrTextVariant> readTextVariants(List<ItemImageOcrVariant> variants) {
+        List<ItemImageOcrTextVariant> results = new ArrayList<>();
+        for (ItemImageOcrVariant variant : variants) {
+            String text = readSingleVariant(variant.getImage());
+            results.add(new ItemImageOcrTextVariant(variant.getVariantId(), text));
+        }
+        return List.copyOf(results);
+    }
+
+    private static String readSingleVariant(BufferedImage image) {
+        Path variantPath = null;
         try {
-            originalPath = Files.createTempFile("item-import-original-", ".png");
-            Files.write(originalPath, originalImageBytes);
-
-            enhancedPath = Files.createTempFile("item-import-enhanced-", ".png");
-            Files.write(enhancedPath, buildEnhancedImageBytes(image));
-
-            String originalText = runWindowsOcr(originalPath);
-            String enhancedText = runWindowsOcr(enhancedPath);
-            return mergeTexts(originalText, enhancedText);
+            variantPath = Files.createTempFile("item-import-variant-", ".png");
+            Files.write(variantPath, encodePng(image));
+            return runWindowsOcr(variantPath);
         } catch (IOException exception) {
             return "";
         } finally {
-            deleteQuietly(originalPath);
-            deleteQuietly(enhancedPath);
+            deleteQuietly(variantPath);
         }
     }
 
-    private static byte[] buildEnhancedImageBytes(BufferedImage image) throws IOException {
-        int targetWidth = Math.max(image.getWidth() * 2, 1200);
-        int targetHeight = Math.max(image.getHeight() * 2, 800);
-        BufferedImage scaledImage = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_RGB);
-        Graphics2D graphics = scaledImage.createGraphics();
-        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-        graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-        graphics.drawImage(image, 0, 0, targetWidth, targetHeight, null);
-        graphics.dispose();
-
-        BufferedImage grayscaleImage = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_BYTE_GRAY);
-        new ColorConvertOp(ColorSpace.getInstance(ColorSpace.CS_GRAY), null).filter(scaledImage, grayscaleImage);
-
-        BufferedImage thresholdImage = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_BYTE_BINARY);
-        for (int y = 0; y < targetHeight; y++) {
-            for (int x = 0; x < targetWidth; x++) {
-                int gray = grayscaleImage.getRaster().getSample(x, y, 0);
-                int color = gray >= 145 ? 0x00FFFFFF : 0x00000000;
-                thresholdImage.setRGB(x, y, color);
-            }
-        }
-
+    private static byte[] encodePng(BufferedImage image) throws IOException {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ImageIO.write(thresholdImage, "PNG", outputStream);
+        ImageIO.write(image, "PNG", outputStream);
         return outputStream.toByteArray();
     }
 
@@ -114,25 +91,6 @@ final class WindowsItemOcrTextReader {
             return "";
         } catch (IOException exception) {
             return "";
-        }
-    }
-
-    private static String mergeTexts(String firstText, String secondText) {
-        Set<String> mergedLines = new LinkedHashSet<>();
-        appendLines(mergedLines, firstText);
-        appendLines(mergedLines, secondText);
-        return String.join(System.lineSeparator(), mergedLines);
-    }
-
-    private static void appendLines(Set<String> lines, String text) {
-        if (text == null || text.isBlank()) {
-            return;
-        }
-        for (String line : text.split("\\R")) {
-            String trimmedLine = line.trim();
-            if (!trimmedLine.isBlank()) {
-                lines.add(trimmedLine);
-            }
         }
     }
 
