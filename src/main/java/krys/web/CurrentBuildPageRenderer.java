@@ -113,7 +113,7 @@ public final class CurrentBuildPageRenderer {
         StringBuilder html = new StringBuilder("""
                 <section class="subpanel">
                     <h3>Aktywne itemy z biblioteki</h3>
-                    <p class="helper">Poniższe itemy są dodawane do ręcznej bazy z formularza. Biblioteka itemów pozostaje warstwą aplikacyjną nad current build i nie buduje alternatywnego runtime.</p>
+                    <p class="helper">Poniższe itemy są dodawane do ręcznej bazy z formularza. Ta baza może pozostać częściowo pusta albo zerowa, a dopiero effective current build trafia do `CurrentBuildRequest`. Biblioteka itemów pozostaje warstwą aplikacyjną nad current build i nie buduje alternatywnego runtime.</p>
                     <div class="hero-links">
                         <a class="nav-link" href=\"""")
                 .append(escapeHtml(model.getItemLibraryUrl()))

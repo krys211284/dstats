@@ -95,6 +95,20 @@ class ItemLibraryWebServerTest {
         assertTrue(currentBuildResponse.body().contains("Effective current build do runtime: weapon damage=200, strength=150"));
     }
 
+    @Test
+    void shouldKeepCurrentBuildQueryWhenNavigatingFromLibraryToItemImport() throws Exception {
+        HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow?" + buildCurrentBuildQuery());
+
+        assertEquals(200, libraryResponse.statusCode());
+        assertTrue(libraryResponse.body().contains("href=\"/importuj-item-ze-screena?level=13&amp;weaponDamage=200&amp;strength=30"));
+
+        HttpResponse<String> importResponse = sendGet("/importuj-item-ze-screena?" + buildCurrentBuildQuery());
+
+        assertEquals(200, importResponse.statusCode());
+        assertTrue(importResponse.body().contains("action=\"/importuj-item-ze-screena?level=13&amp;weaponDamage=200&amp;strength=30"));
+        assertTrue(importResponse.body().contains("blockChance=10&amp;retributionChance=15&amp;horizonSeconds=10"));
+    }
+
     private static String buildCurrentBuildQuery() {
         return "level=13&weaponDamage=200&strength=30&intelligence=11&thorns=70&blockChance=10&retributionChance=15&horizonSeconds=10"
                 + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"

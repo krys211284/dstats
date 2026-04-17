@@ -47,7 +47,7 @@ public final class CurrentBuildController implements HttpHandler {
                 CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(
                         UrlEncodedFormSupport.parseQuery(exchange.getRequestURI().getRawQuery())
                 );
-                renderPage(exchange, buildPageModel(formData, List.of(), null, buildEffectiveResolutionOrFallback(formData)));
+                renderPage(exchange, buildPageModel(formData, List.of(), null, buildEffectiveResolution(formData, new ArrayList<>())));
                 return;
             }
             if ("POST".equals(method)) {
@@ -64,7 +64,7 @@ public final class CurrentBuildController implements HttpHandler {
     private CurrentBuildPageModel handlePost(HttpExchange exchange) throws IOException {
         CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(UrlEncodedFormSupport.parseBody(exchange));
         List<String> errors = new ArrayList<>();
-        EffectiveCurrentBuildResolution resolution = buildEffectiveResolutionOrFallback(formData);
+        EffectiveCurrentBuildResolution resolution = buildEffectiveResolution(formData, errors);
         CurrentBuildCalculation calculation = tryCalculate(formData, resolution, errors);
         return buildPageModel(formData, errors, calculation, resolution);
     }
@@ -72,11 +72,14 @@ public final class CurrentBuildController implements HttpHandler {
     private CurrentBuildCalculation tryCalculate(CurrentBuildFormData formData,
                                                  EffectiveCurrentBuildResolution resolution,
                                                  List<String> errors) {
-        CurrentBuildFormData effectiveFormData = formData;
-        if (resolution != null) {
-            effectiveFormData = CurrentBuildFormQuerySupport.withAppliedStats(formData, resolution.getEffectiveStats());
+        if (!errors.isEmpty() || resolution == null || resolution.getEffectiveStats() == null) {
+            return null;
         }
 
+        CurrentBuildFormData effectiveFormData = CurrentBuildFormQuerySupport.withAppliedStats(
+                formData,
+                resolution.getEffectiveStats()
+        );
         CurrentBuildFormMapper.MappingResult mappingResult = formMapper.map(effectiveFormData);
         errors.addAll(mappingResult.getErrors());
         if (!errors.isEmpty() || mappingResult.getRequest() == null) {
@@ -108,48 +111,89 @@ public final class CurrentBuildController implements HttpHandler {
         );
     }
 
-    private EffectiveCurrentBuildResolution buildEffectiveResolutionOrFallback(CurrentBuildFormData formData) {
-        CurrentBuildImportableStats manualBaseStats = tryParseManualBaseStats(formData);
-        if (manualBaseStats == null) {
+    private EffectiveCurrentBuildResolution buildEffectiveResolution(CurrentBuildFormData formData,
+                                                                    List<String> errors) {
+        ManualBaseStatsParseResult manualBaseParseResult = parseManualBaseStats(formData);
+        errors.addAll(manualBaseParseResult.getErrors());
+        if (!manualBaseParseResult.isValid()) {
+            EffectiveCurrentBuildResolution zeroBaseResolution = itemLibraryService.resolveEffectiveCurrentBuild(zeroStats());
             return new EffectiveCurrentBuildResolution(
-                    new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d),
-                    itemLibraryService.getActiveItems(),
-                    itemLibraryService.resolveEffectiveCurrentBuild(
-                            new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d)
-                    ).getActiveItemsContribution(),
+                    zeroStats(),
+                    zeroBaseResolution.getActiveItems(),
+                    zeroBaseResolution.getActiveItemsContribution(),
                     null
             );
         }
-        return itemLibraryService.resolveEffectiveCurrentBuild(manualBaseStats);
+        return itemLibraryService.resolveEffectiveCurrentBuild(manualBaseParseResult.getStats());
     }
 
-    private static CurrentBuildImportableStats tryParseManualBaseStats(CurrentBuildFormData formData) {
+    private static ManualBaseStatsParseResult parseManualBaseStats(CurrentBuildFormData formData) {
+        List<String> errors = new ArrayList<>();
+
+        Long weaponDamage = parseNonNegativeLongAllowingBlank(formData.getWeaponDamage(), "Weapon damage", errors);
+        Double strength = parseNonNegativeDoubleAllowingBlank(formData.getStrength(), "Strength", errors);
+        Double intelligence = parseNonNegativeDoubleAllowingBlank(formData.getIntelligence(), "Intelligence", errors);
+        Double thorns = parseNonNegativeDoubleAllowingBlank(formData.getThorns(), "Thorns", errors);
+        Double blockChance = parseNonNegativeDoubleAllowingBlank(formData.getBlockChance(), "Block chance", errors);
+        Double retributionChance = parseNonNegativeDoubleAllowingBlank(formData.getRetributionChance(), "Retribution chance", errors);
+
+        if (!errors.isEmpty()) {
+            return new ManualBaseStatsParseResult(null, errors);
+        }
+
+        return new ManualBaseStatsParseResult(
+                new CurrentBuildImportableStats(
+                        weaponDamage,
+                        strength,
+                        intelligence,
+                        thorns,
+                        blockChance,
+                        retributionChance
+                ),
+                errors
+        );
+    }
+
+    private static Long parseNonNegativeLongAllowingBlank(String rawValue, String label, List<String> errors) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return 0L;
+        }
         try {
-            long weaponDamage = Long.parseLong(formData.getWeaponDamage());
-            double strength = Double.parseDouble(formData.getStrength());
-            double intelligence = Double.parseDouble(formData.getIntelligence());
-            double thorns = Double.parseDouble(formData.getThorns());
-            double blockChance = Double.parseDouble(formData.getBlockChance());
-            double retributionChance = Double.parseDouble(formData.getRetributionChance());
-            if (weaponDamage <= 0L || strength < 0.0d || intelligence < 0.0d || thorns < 0.0d
-                    || blockChance < 0.0d || retributionChance < 0.0d) {
+            long value = Long.parseLong(rawValue);
+            if (value < 0L) {
+                errors.add(label + " nie może być mniejszy niż 0.");
                 return null;
             }
-            return new CurrentBuildImportableStats(
-                    weaponDamage,
-                    strength,
-                    intelligence,
-                    thorns,
-                    blockChance,
-                    retributionChance
-            );
+            return value;
         } catch (NumberFormatException exception) {
+            errors.add(label + " musi być liczbą całkowitą.");
             return null;
         }
     }
 
+    private static Double parseNonNegativeDoubleAllowingBlank(String rawValue, String label, List<String> errors) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return 0.0d;
+        }
+        try {
+            double value = Double.parseDouble(rawValue);
+            if (value < 0.0d) {
+                errors.add(label + " nie może być mniejszy niż 0.");
+                return null;
+            }
+            return value;
+        } catch (NumberFormatException exception) {
+            errors.add(label + " musi być liczbą.");
+            return null;
+        }
+    }
+
+    private static CurrentBuildImportableStats zeroStats() {
+        return new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d);
+    }
+
     private static String buildChoiceHelpText() {
-        return "Pola formularza oznaczają ręczną bazę current build poza biblioteką itemów. Aktywne itemy z biblioteki są dodawane deterministycznie do tej bazy jeszcze przed zbudowaniem CurrentBuildRequest i wejściem do tego samego runtime.";
+        return "Pola formularza oznaczają ręczną bazę current build poza biblioteką itemów. Ta baza może być częściowo pusta albo zerowa. Aktywne itemy z biblioteki są dodawane deterministycznie jeszcze przed zbudowaniem finalnych effective stats, CurrentBuildRequest i wejściem do tego samego runtime.";
     }
 
     private void renderPage(HttpExchange exchange, CurrentBuildPageModel pageModel) throws IOException {
@@ -157,5 +201,28 @@ public final class CurrentBuildController implements HttpHandler {
         exchange.getResponseHeaders().set("Content-Type", HTML_CONTENT_TYPE);
         exchange.sendResponseHeaders(200, responseBytes.length);
         exchange.getResponseBody().write(responseBytes);
+    }
+
+    /** Miękko parsuje ręczną bazę pod effective current build, ale nie ukrywa błędów nienumerycznych ani ujemnych wartości. */
+    private static final class ManualBaseStatsParseResult {
+        private final CurrentBuildImportableStats stats;
+        private final List<String> errors;
+
+        private ManualBaseStatsParseResult(CurrentBuildImportableStats stats, List<String> errors) {
+            this.stats = stats;
+            this.errors = List.copyOf(errors);
+        }
+
+        private boolean isValid() {
+            return stats != null && errors.isEmpty();
+        }
+
+        private CurrentBuildImportableStats getStats() {
+            return stats;
+        }
+
+        private List<String> getErrors() {
+            return errors;
+        }
     }
 }

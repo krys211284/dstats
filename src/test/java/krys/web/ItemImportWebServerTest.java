@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.StringJoiner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Testy GUI flow importu itemu pokrywają upload obrazu, ręczne potwierdzenie i mapowanie do current build. */
@@ -137,6 +138,23 @@ class ItemImportWebServerTest {
         assertTrue(addResponse.body().contains("name=\"weaponDamage\" value=\"521\""));
         assertTrue(addResponse.body().contains("name=\"strength\" value=\"85\""));
         assertTrue(addResponse.body().contains("name=\"thorns\" value=\"160\""));
+    }
+
+    @Test
+    void shouldRenderNeutralBuildWebAppTitlesOnMainPages() throws Exception {
+        HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build");
+        HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow");
+        HttpResponse<String> importResponse = sendGet("/importuj-item-ze-screena");
+        HttpResponse<String> searchResponse = sendGet("/znajdz-najlepszy-build");
+
+        assertTrue(currentBuildResponse.body().contains("<title>Build WebApp - Policz aktualny build</title>"));
+        assertTrue(libraryResponse.body().contains("<title>Build WebApp - Biblioteka itemów</title>"));
+        assertTrue(importResponse.body().contains("<title>Build WebApp - Importuj item ze screena</title>"));
+        assertTrue(searchResponse.body().contains("<title>Build WebApp - Znajdź najlepszy build</title>"));
+        assertFalse(currentBuildResponse.body().contains("Paladin WebApp"));
+        assertFalse(libraryResponse.body().contains("Paladin WebApp"));
+        assertFalse(importResponse.body().contains("Paladin WebApp"));
+        assertFalse(searchResponse.body().contains("Paladin WebApp"));
     }
 
     private HttpResponse<String> sendGet(String path) throws Exception {

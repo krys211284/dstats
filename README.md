@@ -1,4 +1,4 @@
-# Diablo 4 DPS Engine / Paladin WebApp
+# Diablo 4 DPS Engine / Build WebApp
 
 ## Status dokumentu
 Ten README opisuje wyłącznie aktualny stan projektu. Jest kontraktem wykonawczym dla implementacji od zera w pustym repo i nie zawiera historii decyzji, etykiet wersji ani logu zmian.
@@ -94,7 +94,8 @@ Kontrakt aktualnej warstwy aplikacyjnej:
 - `ItemLibraryRepository` trwale zapisuje minimalną bibliotekę zatwierdzonych itemów oraz aktywny wybór per slot bez bazy danych,
 - `ItemLibraryService` zapisuje zatwierdzony item do biblioteki, udostępnia listę zapisanych itemów, pilnuje jednego aktywnego itemu per slot i składa aktywne itemy do effective current build,
 - biblioteka itemów pozostaje warstwą aplikacyjną przed `CurrentBuildRequest`,
-- effective current build jest składany jako `ręczna baza formularza + aktywne itemy z biblioteki -> zwykłe płaskie pola current build -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
+- effective current build jest składany jako `ręczna baza formularza, która może pozostać częściowo pusta albo zerowa + aktywne itemy z biblioteki -> finalne effective current build stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
+- walidacja wejścia current build dotyczy finalnych effective stats mapowanych do `CurrentBuildRequest`, a nie wyłącznie surowej ręcznej bazy formularza,
 - GUI importu itemu pozostaje cienką warstwą wejściową nad obecnym modelem current build i nie implementuje alternatywnego runtime,
 - CLI searcha mapuje argumenty do `BuildSearchRequest` przez `BuildSearchCliRequestParser`,
 - GUI searcha mapuje formularz do `BuildSearchRequest` przez `SearchBuildFormMapper`,
@@ -288,9 +289,11 @@ Kontrakt biblioteki itemów:
 
 Kontrakt integracji biblioteki z current build:
 - pola formularza `Policz aktualny build` oznaczają ręczną bazę poza biblioteką itemów,
+- ręczna baza może być częściowo pusta albo zerowa, jeżeli finalne effective stats zostaną domknięte przez aktywne itemy z biblioteki,
 - aktywne itemy z biblioteki są deterministycznie dodawane do tej bazy,
 - użytkownik nie powinien ręcznie wpisywać tych samych statów, które pochodzą już z aktywnych itemów,
 - effective current build nadal kończy się zwykłym `CurrentBuildRequest`,
+- walidacja requestu dotyczy dopiero finalnych effective stats po zsumowaniu ręcznej bazy i aktywnych itemów,
 - `CurrentBuildSnapshotFactory` i runtime nadal pracują na tych samych płaskich polach co wcześniej,
 - biblioteka itemów nie buduje alternatywnego snapshot flow i nie omija istniejącego runtime.
 
@@ -820,7 +823,7 @@ Kontrakt prezentacji dla tego smoke testu:
 - GUI pozwala ustawić level, staty buildu, konfigurację wszystkich skilli foundation oraz action bar, a następnie kliknąć `Policz aktualny build`.
 - GUI pozwala z tego samego formularza przejść do importu pojedynczego itemu ze screena z zachowaniem aktualnego kontekstu current build.
 - GUI pokazuje sekcję aktywnych itemów z biblioteki oraz ich łączny wkład do effective current build.
-- GUI jasno komunikuje, że pola formularza są ręczną bazą poza biblioteką itemów.
+- GUI jasno komunikuje, że pola formularza są ręczną bazą poza biblioteką itemów i mogą pozostać częściowo puste albo zerowe, jeżeli active items dopełnią finalne effective stats.
 - GUI i CLI przechodzą przez ten sam kontrakt `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> CurrentBuildCalculationService -> runtime`.
 - scenariusze referencyjne są trybem pomocniczym do smoke testów i regresji, a nie główną ścieżką produktu.
 - GUI i CLI pokazują `total damage`, `DPS`, debug bezpośredniego hita dla użytego skilla, debug delayed hitów, reactive debug, `stepTrace`, `Resolve aktywny na końcu`, `Active block chance na końcu` oraz `Active thorns bonus na końcu`.
@@ -903,6 +906,7 @@ Kontrakt prezentacji dla smoke testu biblioteki itemów:
 - GUI biblioteki pozwala mieć wiele itemów tego samego slotu,
 - GUI biblioteki pozwala ustawić najwyżej jeden aktywny item per slot,
 - aktywny item z biblioteki trafia do effective current build dopiero przez istniejący pipeline current build,
+- GUI biblioteki zachowuje `currentBuildQuery` w flow `current build -> biblioteka itemów -> import kolejnego itemu -> powrót / zastosowanie do current build`,
 - GUI biblioteki nie jest jeszcze pełnym inventory managerem ani stashem.
 
 ## 11. Testy i golden values
@@ -968,12 +972,14 @@ Minimalny zakres testów obejmuje:
 - wiele itemów tego samego slotu w bibliotece,
 - aktywację jednego itemu per slot i zmianę aktywnego itemu z A na B,
 - agregację aktywnych itemów do effective current build,
+- flow, w którym ręczna baza current build jest częściowo pusta albo zerowa, ale aktywne itemy dopełniają finalne effective stats przed `CurrentBuildRequest`,
 - potwierdzenie, że effective current build nadal kończy się ścieżką `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
 - GET formularza GUI importu itemu,
 - upload obrazu itemu i render sekcji wstępnego rozpoznania,
 - zatwierdzenie itemu i render dwóch trybów przejścia do current build,
 - zapis itemu do biblioteki z poziomu SSR po zatwierdzeniu importu,
 - GET strony biblioteki itemów,
+- zachowanie `currentBuildQuery` w flow `biblioteka itemów -> import kolejnego itemu -> powrót do current build`,
 - SSR ustawienia aktywnego itemu w bibliotece,
 - render sekcji aktywnych itemów na `/policz-aktualny-build`,
 - generowanie legalnych kandydatów searcha,

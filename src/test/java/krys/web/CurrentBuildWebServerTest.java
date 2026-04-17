@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.StringJoiner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Testy GUI pokrywają endpoint formularza i podstawowy render wyniku bez powielania logiki runtime. */
@@ -144,6 +145,50 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("cooldownRemaining=7"));
     }
 
+    @Test
+    void shouldCalculateEffectiveCurrentBuildWhenManualBaseIsBlankOrZeroAndLibraryCompletesStats() throws Exception {
+        HttpResponse<String> saveResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "saveImportedItem",
+                "sourceImageName", "weapon-library.png",
+                "slot", "MAIN_HAND",
+                "weaponDamage", "321",
+                "strength", "55",
+                "intelligence", "0",
+                "thorns", "0",
+                "blockChance", "0",
+                "retributionChance", "0",
+                "currentBuildQuery", buildCurrentBuildQuery()
+        ));
+        assertEquals(200, saveResponse.statusCode());
+
+        HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", "1",
+                "slot", "MAIN_HAND",
+                "currentBuildQuery", buildCurrentBuildQuery()
+        ));
+        assertEquals(200, activateResponse.statusCode());
+
+        Map<String, String> fields = buildAdvanceFlashFields(10);
+        fields.put("weaponDamage", "");
+        fields.put("strength", "");
+        fields.put("intelligence", "0");
+        fields.put("thorns", "0");
+        fields.put("blockChance", "0");
+        fields.put("retributionChance", "0");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Total damage"));
+        assertTrue(response.body().contains("Weapon damage effective"));
+        assertTrue(response.body().contains(">321<"));
+        assertTrue(response.body().contains("Strength effective"));
+        assertTrue(response.body().contains(">55<"));
+        assertTrue(response.body().contains("Effective current build do runtime: weapon damage=321, strength=55"));
+        assertFalse(response.body().contains("Weapon damage musi być >= 1."));
+    }
+
     private static Map<String, String> buildHolyBoltJudgementFields() {
         Map<String, String> fields = buildBaseReferenceFields("60");
         fields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.HOLY_BOLT), "5");
@@ -200,6 +245,15 @@ class CurrentBuildWebServerTest {
         fields.put(CurrentBuildFormData.actionBarFieldName(3), "NONE");
         fields.put(CurrentBuildFormData.actionBarFieldName(4), "NONE");
         return fields;
+    }
+
+    private static String buildCurrentBuildQuery() {
+        return "level=13&weaponDamage=8&strength=18&intelligence=0&thorns=50&blockChance=50&retributionChance=50&horizonSeconds=10"
+                + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
+                + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
+                + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
+                + "&rank_ADVANCE=5&baseUpgrade_ADVANCE=true&choiceUpgrade_ADVANCE=RIGHT"
+                + "&actionBar1=ADVANCE&actionBar2=NONE&actionBar3=NONE&actionBar4=NONE";
     }
 
     private HttpResponse<String> sendGet(String path) throws Exception {

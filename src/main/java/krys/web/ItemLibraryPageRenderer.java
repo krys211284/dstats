@@ -22,6 +22,7 @@ public final class ItemLibraryPageRenderer {
                 .replace("{{MESSAGES}}", renderMessages(model.getMessages()))
                 .replace("{{ERRORS}}", renderErrors(model.getErrors()))
                 .replace("{{CURRENT_BUILD_URL}}", escapeHtml(buildCurrentBuildUrl(model.getCurrentBuildQuery())))
+                .replace("{{IMPORT_ITEM_URL}}", escapeHtml(buildItemImportUrl(model.getCurrentBuildQuery())))
                 .replace("{{ITEM_ROWS}}", renderItemRows(model))
                 .replace("{{EMPTY_STATE}}", renderEmptyState(model));
     }
@@ -137,6 +138,13 @@ public final class ItemLibraryPageRenderer {
             return "/policz-aktualny-build";
         }
         return "/policz-aktualny-build?" + currentBuildQuery;
+    }
+
+    private static String buildItemImportUrl(String currentBuildQuery) {
+        if (currentBuildQuery == null || currentBuildQuery.isBlank()) {
+            return "/importuj-item-ze-screena";
+        }
+        return "/importuj-item-ze-screena?" + currentBuildQuery;
     }
 
     private static String formatWhole(double value) {
