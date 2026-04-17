@@ -11,6 +11,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Base64;
 import java.util.Map;
 import java.util.StringJoiner;
@@ -30,7 +32,8 @@ class ItemImportWebServerTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        webServer = new CurrentBuildWebServer(0);
+        Path tempDirectory = Files.createTempDirectory("item-import-web");
+        webServer = new CurrentBuildWebServer(0, tempDirectory);
         webServer.start();
         httpClient = HttpClient.newHttpClient();
         baseUrl = "http://127.0.0.1:" + webServer.getPort();
@@ -105,6 +108,7 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("Zaimportowany item: bulawa.png"));
         assertTrue(response.body().contains("Nadpisz current build wkładem itemu"));
         assertTrue(response.body().contains("Dodaj wkład itemu do current build"));
+        assertTrue(response.body().contains("Zapisz item do biblioteki"));
         assertTrue(response.body().contains("/policz-aktualny-build?level=13&amp;weaponDamage=321&amp;strength=55&amp;intelligence=11&amp;thorns=90&amp;blockChance=18&amp;retributionChance=25"));
         assertTrue(response.body().contains("/policz-aktualny-build?level=13&amp;weaponDamage=521&amp;strength=85&amp;intelligence=11&amp;thorns=160&amp;blockChance=28&amp;retributionChance=40"));
 

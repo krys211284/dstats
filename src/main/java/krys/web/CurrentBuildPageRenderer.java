@@ -1,6 +1,8 @@
 package krys.web;
 
 import krys.app.CurrentBuildCalculation;
+import krys.itemimport.CurrentBuildImportableStats;
+import krys.itemlibrary.SavedImportedItem;
 import krys.skill.PaladinSkillDefs;
 import krys.skill.SkillId;
 import krys.skill.SkillUpgradeChoice;
@@ -23,6 +25,7 @@ public final class CurrentBuildPageRenderer {
     public String render(CurrentBuildPageModel model) {
         return template
                 .replace("{{BUILD_STATS_FIELDS}}", renderBuildStatsFields(model.getFormData()))
+                .replace("{{ACTIVE_LIBRARY_SECTION}}", renderActiveLibrarySection(model))
                 .replace("{{SKILL_CONFIG_FIELDS}}", renderSkillConfigFields(model.getFormData()))
                 .replace("{{ACTION_BAR_FIELDS}}", renderActionBarFields(model.getFormData()))
                 .replace("{{FORM_ERRORS}}", renderErrors(model.getValidationErrors()))
@@ -83,9 +86,9 @@ public final class CurrentBuildPageRenderer {
                     <div class="summary-grid">
                 """);
         html.append(renderSummaryCard("Level", Integer.toString(calculation.getRequest().getLevel())));
-        html.append(renderSummaryCard("Weapon damage", Long.toString(calculation.getRequest().getWeaponDamage())));
-        html.append(renderSummaryCard("Strength z itemów", String.format(Locale.US, "%.0f", calculation.getRequest().getStrength())));
-        html.append(renderSummaryCard("Intelligence z itemów", String.format(Locale.US, "%.0f", calculation.getRequest().getIntelligence())));
+        html.append(renderSummaryCard("Weapon damage effective", Long.toString(calculation.getRequest().getWeaponDamage())));
+        html.append(renderSummaryCard("Strength effective", String.format(Locale.US, "%.0f", calculation.getRequest().getStrength())));
+        html.append(renderSummaryCard("Intelligence effective", String.format(Locale.US, "%.0f", calculation.getRequest().getIntelligence())));
         html.append(renderSummaryCard("Horyzont", calculation.getRequest().getHorizonSeconds() + " s"));
         html.append(renderSummaryCard("Action bar", CurrentBuildCalculationSectionsRenderer.buildActionBarLabel(calculation.getRequest().getActionBar())));
         html.append(renderSummaryCard("Total damage", Long.toString(calculation.getResult().getTotalDamage())));
@@ -103,6 +106,67 @@ public final class CurrentBuildPageRenderer {
         html.append(CurrentBuildCalculationSectionsRenderer.renderDelayedHitDebug(calculation));
         html.append(CurrentBuildCalculationSectionsRenderer.renderReactiveDebug(calculation));
         html.append(CurrentBuildCalculationSectionsRenderer.renderStepTrace(calculation));
+        return html.toString();
+    }
+
+    private static String renderActiveLibrarySection(CurrentBuildPageModel model) {
+        StringBuilder html = new StringBuilder("""
+                <section class="subpanel">
+                    <h3>Aktywne itemy z biblioteki</h3>
+                    <p class="helper">Poniższe itemy są dodawane do ręcznej bazy z formularza. Biblioteka itemów pozostaje warstwą aplikacyjną nad current build i nie buduje alternatywnego runtime.</p>
+                    <div class="hero-links">
+                        <a class="nav-link" href=\"""")
+                .append(escapeHtml(model.getItemLibraryUrl()))
+                .append("\">Otwórz bibliotekę itemów</a>")
+                .append("""
+                    </div>
+                """);
+
+        if (!model.hasActiveLibraryItems()) {
+            html.append("<p class=\"helper\">Brak aktywnych itemów w bibliotece. Formularz current build działa wyłącznie na ręcznej bazie.</p>");
+            html.append("</section>");
+            return html.toString();
+        }
+
+        CurrentBuildImportableStats contribution = model.getActiveLibraryContribution();
+        html.append("<div class=\"summary-grid compact-grid\">")
+                .append(renderSummaryCard("Weapon damage z biblioteki", Long.toString(contribution.getWeaponDamage())))
+                .append(renderSummaryCard("Strength z biblioteki", formatWhole(contribution.getStrength())))
+                .append(renderSummaryCard("Intelligence z biblioteki", formatWhole(contribution.getIntelligence())))
+                .append(renderSummaryCard("Thorns z biblioteki", formatWhole(contribution.getThorns())))
+                .append(renderSummaryCard("Block chance z biblioteki [%]", formatWhole(contribution.getBlockChance())))
+                .append(renderSummaryCard("Retribution chance z biblioteki [%]", formatWhole(contribution.getRetributionChance())))
+                .append("</div>")
+                .append("<table class=\"data-table\"><thead><tr><th>Slot</th><th>Item</th><th>Źródło</th><th>Wkład</th></tr></thead><tbody>");
+        for (SavedImportedItem item : model.getActiveLibraryItems()) {
+            html.append("<tr><td>")
+                    .append(escapeHtml(item.getSlot().name()))
+                    .append("</td><td>")
+                    .append(escapeHtml(item.getDisplayName()))
+                    .append("</td><td>")
+                    .append(escapeHtml(item.getSourceImageName()))
+                    .append("</td><td>")
+                    .append(escapeHtml(buildItemContributionLabel(item)))
+                    .append("</td></tr>");
+        }
+        html.append("</tbody></table>");
+        if (model.getEffectiveStats() != null) {
+            CurrentBuildImportableStats effectiveStats = model.getEffectiveStats();
+            html.append("<p class=\"helper\">Effective current build do runtime: weapon damage=")
+                    .append(escapeHtml(Long.toString(effectiveStats.getWeaponDamage())))
+                    .append(", strength=")
+                    .append(escapeHtml(formatWhole(effectiveStats.getStrength())))
+                    .append(", intelligence=")
+                    .append(escapeHtml(formatWhole(effectiveStats.getIntelligence())))
+                    .append(", thorns=")
+                    .append(escapeHtml(formatWhole(effectiveStats.getThorns())))
+                    .append(", block chance=")
+                    .append(escapeHtml(formatWhole(effectiveStats.getBlockChance())))
+                    .append(", retribution chance=")
+                    .append(escapeHtml(formatWhole(effectiveStats.getRetributionChance())))
+                    .append(".</p>");
+        }
+        html.append("</section>");
         return html.toString();
     }
 
@@ -251,6 +315,33 @@ public final class CurrentBuildPageRenderer {
 
     private static String escapeHtml(String value) {
         return CurrentBuildCalculationSectionsRenderer.escapeHtml(value);
+    }
+
+    private static String formatWhole(double value) {
+        return String.format(Locale.US, "%.0f", value);
+    }
+
+    private static String buildItemContributionLabel(SavedImportedItem item) {
+        List<String> parts = new ArrayList<>();
+        if (item.getWeaponDamage() > 0L) {
+            parts.add("weapon=" + item.getWeaponDamage());
+        }
+        if (item.getStrength() > 0.0d) {
+            parts.add("str=" + formatWhole(item.getStrength()));
+        }
+        if (item.getIntelligence() > 0.0d) {
+            parts.add("int=" + formatWhole(item.getIntelligence()));
+        }
+        if (item.getThorns() > 0.0d) {
+            parts.add("thorns=" + formatWhole(item.getThorns()));
+        }
+        if (item.getBlockChance() > 0.0d) {
+            parts.add("block=" + formatWhole(item.getBlockChance()) + "%");
+        }
+        if (item.getRetributionChance() > 0.0d) {
+            parts.add("retribution=" + formatWhole(item.getRetributionChance()) + "%");
+        }
+        return parts.isEmpty() ? "Brak wkładu do current build" : String.join(", ", parts);
     }
 
     private static String loadTemplate() {

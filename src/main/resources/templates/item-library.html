@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paladin WebApp - Biblioteka itemów</title>
+    <style>
+        :root {
+            --bg: #f5efe4;
+            --panel: #fffaf1;
+            --line: #d9c8aa;
+            --accent: #8a4b08;
+            --accent-soft: #f0ddbf;
+            --text: #2a241d;
+            --muted: #70604f;
+            --error: #8d1b1b;
+            --error-bg: #fde8e8;
+            --success-bg: #e7f5e8;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Tahoma, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top right, rgba(138, 75, 8, 0.14), transparent 26%),
+                linear-gradient(180deg, #faf6ef 0%, var(--bg) 100%);
+        }
+        .layout {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 28px 16px 48px;
+        }
+        .panel {
+            margin-bottom: 18px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: rgba(255, 250, 241, 0.96);
+            box-shadow: 0 12px 24px rgba(92, 63, 22, 0.06);
+        }
+        .panel-error { background: var(--error-bg); border-color: rgba(141, 27, 27, 0.28); }
+        .panel-success { background: var(--success-bg); }
+        h1, h2 { margin-top: 0; }
+        p { line-height: 1.55; }
+        .helper { color: var(--muted); }
+        .hero-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .nav-link,
+        button {
+            display: inline-block;
+            border: none;
+            border-radius: 999px;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #7c3f00 0%, #a95e10 100%);
+            color: #fff9f2;
+            font: inherit;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .secondary-button {
+            background: #ead7b8;
+            color: #57330c;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.94rem;
+        }
+        .data-table th,
+        .data-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid rgba(112, 96, 79, 0.18);
+            text-align: left;
+            vertical-align: top;
+        }
+        .inline-form {
+            display: inline-block;
+            margin-right: 8px;
+            margin-bottom: 6px;
+        }
+        .message-list {
+            margin: 0;
+            padding-left: 20px;
+        }
+        @media (max-width: 900px) {
+            .data-table,
+            .data-table thead,
+            .data-table tbody,
+            .data-table tr,
+            .data-table th,
+            .data-table td {
+                display: block;
+            }
+            .data-table thead { display: none; }
+            .data-table tr {
+                margin-bottom: 12px;
+                padding: 10px;
+                border: 1px solid rgba(112, 96, 79, 0.18);
+                border-radius: 12px;
+                background: #fff;
+            }
+            .data-table td {
+                border: none;
+                padding: 6px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+<main class="layout">
+    <section class="panel">
+        <h1>Biblioteka itemów</h1>
+        <p class="helper">To jest minimalny foundation zapisanych itemów nad current build. Możesz mieć wiele itemów tego samego slotu, ale aktywny pozostaje najwyżej jeden item per slot. Biblioteka nie buduje osobnego runtime i nie jest jeszcze pełnym inventory managerem.</p>
+        <div class="hero-links">
+            <a class="nav-link" href="{{CURRENT_BUILD_URL}}">Wróć do current build</a>
+            <a class="nav-link" href="/importuj-item-ze-screena">Importuj kolejny item</a>
+        </div>
+    </section>
+
+    {{MESSAGES}}
+    {{ERRORS}}
+
+    <section class="panel">
+        <h2>Zapisane itemy</h2>
+        {{EMPTY_STATE}}
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>Slot</th>
+                <th>Display name</th>
+                <th>Plik źródłowy</th>
+                <th>Wkład do current build</th>
+                <th>Status</th>
+                <th>Akcje</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{ITEM_ROWS}}
+            </tbody>
+        </table>
+    </section>
+</main>
+</body>
+</html>

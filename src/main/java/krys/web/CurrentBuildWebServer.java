@@ -5,6 +5,8 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import krys.app.CurrentBuildCalculationService;
 import krys.combat.DamageEngine;
+import krys.itemlibrary.FileItemLibraryRepository;
+import krys.itemlibrary.ItemLibraryService;
 import krys.itemimport.ItemImageImportService;
 import krys.search.BuildSearchCalculationService;
 import krys.search.BuildSearchEvaluationService;
@@ -13,20 +15,29 @@ import krys.simulation.ManualSimulationService;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 
 /** Najprostszy lokalny serwer HTTP dla M8 uruchamiający SSR nad istniejącym runtime manual simulation. */
 public final class CurrentBuildWebServer implements AutoCloseable {
     private final HttpServer server;
 
     public CurrentBuildWebServer(int port) throws IOException {
+        this(port, Path.of("target", "item-library-runtime"));
+    }
+
+    public CurrentBuildWebServer(int port, Path itemLibraryDataDirectory) throws IOException {
         this.server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
 
+        ItemLibraryService itemLibraryService = new ItemLibraryService(
+                new FileItemLibraryRepository(itemLibraryDataDirectory)
+        );
         CurrentBuildCalculationService calculationService = new CurrentBuildCalculationService(
                 new ManualSimulationService(new DamageEngine())
         );
         CurrentBuildController controller = new CurrentBuildController(
                 calculationService,
-                new CurrentBuildPageRenderer()
+                new CurrentBuildPageRenderer(),
+                itemLibraryService
         );
         SearchBuildDetailsController searchBuildDetailsController = new SearchBuildDetailsController(
                 calculationService,
@@ -43,11 +54,16 @@ public final class CurrentBuildWebServer implements AutoCloseable {
                 new ItemImageImportService(),
                 new ItemImportPageRenderer()
         );
+        ItemLibraryController itemLibraryController = new ItemLibraryController(
+                itemLibraryService,
+                new ItemLibraryPageRenderer()
+        );
 
         server.createContext("/policz-aktualny-build", controller);
         server.createContext("/znajdz-najlepszy-build", searchController);
         server.createContext("/znajdz-najlepszy-build/szczegoly", searchBuildDetailsController);
         server.createContext("/importuj-item-ze-screena", itemImportController);
+        server.createContext("/biblioteka-itemow", itemLibraryController);
         server.createContext("/", new RootHandler(controller));
     }
 
@@ -71,6 +87,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
         System.out.println("GUI manual simulation dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/policz-aktualny-build");
         System.out.println("GUI search dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/znajdz-najlepszy-build");
         System.out.println("GUI importu itemu dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/importuj-item-ze-screena");
+        System.out.println("GUI biblioteki itemów dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/biblioteka-itemow");
         System.out.println("Drill-down searcha jest dostępny z poziomu listy wyników GUI searcha.");
 
         synchronized (CurrentBuildWebServer.class) {

@@ -190,6 +190,23 @@ public final class ItemImportPageRenderer {
                 .append("\">Dodaj wkład itemu do current build</a>")
                 .append("""
                         </div>
+                        <form method="post" action="/biblioteka-itemow" class="submit-row">
+                    """)
+                .append(renderHiddenField("action", "saveImportedItem"))
+                .append(renderHiddenField("currentBuildQuery", model.getCurrentBuildQuery()))
+                .append(renderHiddenField("sourceImageName", importedItem.getSourceImageName()))
+                .append(renderHiddenField("slot", importedItem.getSlot().name()))
+                .append(renderHiddenField("weaponDamage", Long.toString(importedItem.getWeaponDamage())))
+                .append(renderHiddenField("strength", formatWhole(importedItem.getStrength())))
+                .append(renderHiddenField("intelligence", formatWhole(importedItem.getIntelligence())))
+                .append(renderHiddenField("thorns", formatWhole(importedItem.getThorns())))
+                .append(renderHiddenField("blockChance", formatWhole(importedItem.getBlockChance())))
+                .append(renderHiddenField("retributionChance", formatWhole(importedItem.getRetributionChance())))
+                .append("""
+                            <button type="submit">Zapisz item do biblioteki</button>
+                        </form>
+                    """)
+                .append("""
                         <p class="helper">Tryb `nadpisz` podstawia rozpoznany wkład itemu w polach, które item rzeczywiście wnosi. Tryb `dodaj wkład` sumuje ten wkład do statów current build przekazanych do importu.</p>
                     """)
                 .append("""

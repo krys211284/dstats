@@ -15,6 +15,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -34,7 +36,8 @@ class SearchBuildWebServerTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        webServer = new CurrentBuildWebServer(0);
+        Path tempDirectory = Files.createTempDirectory("search-build-web");
+        webServer = new CurrentBuildWebServer(0, tempDirectory);
         webServer.start();
         httpClient = HttpClient.newHttpClient();
         baseUrl = "http://127.0.0.1:" + webServer.getPort();
