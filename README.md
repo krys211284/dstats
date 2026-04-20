@@ -39,7 +39,7 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - model wstępnego rozpoznania z poziomem pewności i uwagami per pole,
 - walidowany formularz zatwierdzonego itemu i mapowanie jego pól do aktualnego modelu buildu,
 - dwa czytelnie nazwane tryby zastosowania zatwierdzonego itemu do current build: `Zastosuj do current build` oraz `Dodaj wkład do current build`,
-- minimalną trwałą bibliotekę zapisanych itemów z wieloma itemami tego samego slotu,
+- minimalną trwałą bibliotekę zapisanych itemów z wieloma itemami tego samego slotu, zapisywaną lokalnie w stabilnym katalogu użytkownika,
 - wybór jednego aktywnego itemu per slot w bibliotece oraz deterministyczne dodawanie aktywnych itemów do ręcznej bazy current build,
 - pierwsze minimalne webowe GUI SSR dla trybu `Znajdź najlepszy build`,
 - pierwszy drill-down SSR z wyniku searcha do pełnej analizy reprezentanta znormalizowanego wyniku na tym samym runtime co manual simulation,
@@ -93,6 +93,7 @@ Kontrakt aktualnej warstwy aplikacyjnej:
 - `ImportedItemCurrentBuildApplicationService` stosuje zatwierdzony item do istniejących statów current build w trybie `nadpisz` albo `dodaj wkład`,
 - `ItemLibraryRepository` trwale zapisuje minimalną bibliotekę zatwierdzonych itemów oraz aktywny wybór per slot bez bazy danych,
 - `ItemLibraryService` zapisuje zatwierdzony item do biblioteki, udostępnia listę zapisanych itemów, pilnuje jednego aktywnego itemu per slot i składa aktywne itemy do effective current build,
+- `ItemLibraryDataDirectoryResolver` rozwiązuje katalog trwałych danych biblioteki itemów przez `dstats.dataDir` albo domyślny katalog użytkownika `~/.dstats/item-library/` i wykonuje bezpieczną migrację z legacy `target/item-library-runtime/`,
 - biblioteka itemów pozostaje warstwą aplikacyjną przed `CurrentBuildRequest`,
 - effective current build jest składany jako `ręczna baza formularza, która może pozostać częściowo pusta albo zerowa + aktywne itemy z biblioteki -> finalne effective current build stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
 - walidacja wejścia current build dotyczy finalnych effective stats mapowanych do `CurrentBuildRequest`, a nie wyłącznie surowej ręcznej bazy formularza,
@@ -285,6 +286,7 @@ Kontrakt biblioteki itemów:
 - `ActiveItemSelection` przechowuje najwyżej jeden aktywny `savedItemId` per `EquipmentSlot`,
 - aktywacja itemu jest walidowana względem slotu; nie można ustawić jako aktywnego itemu z innego slotu,
 - usunięcie itemu czyści aktywny wybór dla tego itemu, jeśli był aktywny,
+- biblioteka jest lokalną biblioteką użytkownika, a nie systemem kont, chmurą ani współdzielonym inventory,
 - biblioteka nie jest pełnym inventory managerem, stashem ani porównywarką itemów.
 
 Kontrakt integracji biblioteki z current build:
@@ -296,6 +298,15 @@ Kontrakt integracji biblioteki z current build:
 - walidacja requestu dotyczy dopiero finalnych effective stats po zsumowaniu ręcznej bazy i aktywnych itemów,
 - `CurrentBuildSnapshotFactory` i runtime nadal pracują na tych samych płaskich polach co wcześniej,
 - biblioteka itemów nie buduje alternatywnego snapshot flow i nie omija istniejącego runtime.
+
+Kontrakt trwałości danych biblioteki:
+- domyślny katalog danych biblioteki itemów to `~/.dstats/item-library/`,
+- po restarcie aplikacji biblioteka używa tych samych danych użytkownika i nie zależy od katalogu builda,
+- nowy build aplikacji korzysta z tej samej biblioteki użytkownika, o ile nie zmieniono `dstats.dataDir`,
+- ustawienie system property `dstats.dataDir=/wlasna/sciezka` albo `-Ddstats.dataDir=C:\sciezka` nadpisuje domyślną lokalizację i jest kontraktowym sposobem wskazania katalogu testowego albo niestandardowego storage,
+- przy pierwszym użyciu nowej lokalizacji aplikacja kopiuje legacy pliki `saved-items.db` i `active-selection.db` z `target/item-library-runtime/`, jeżeli nowa lokalizacja nie ma jeszcze własnych plików runtime,
+- migracja kopiuje dane zamiast ich przenosić, więc stare pliki w `target/item-library-runtime/` pozostają kopią bezpieczeństwa,
+- jeżeli nowa lokalizacja zawiera już choć jeden plik runtime biblioteki, staje się źródłem prawdy i legacy `target/item-library-runtime/` nie nadpisuje jej danych.
 
 Poza aktualnym zakresem biblioteki itemów pozostają:
 - pełny inventory manager,
@@ -909,6 +920,7 @@ Kontrakt prezentacji dla smoke testu biblioteki itemów:
 - ustawienie nowego aktywnego itemu w bibliotece zastępuje poprzedni aktywny wybór w tym samym slocie,
 - pusty stan biblioteki zawiera krótki komunikat SSR oraz bezpośredni link do importu itemu,
 - aktywny item z biblioteki trafia do effective current build dopiero przez istniejący pipeline current build,
+- GUI biblioteki działa na lokalnym trwałym storage użytkownika poza `target/`, więc restart aplikacji i nowy build widzą tę samą bibliotekę, chyba że ustawiono inne `dstats.dataDir`,
 - GUI biblioteki zachowuje `currentBuildQuery` w flow `current build -> biblioteka itemów -> import kolejnego itemu -> powrót / zastosowanie do current build`,
 - GUI biblioteki nie jest jeszcze pełnym inventory managerem ani stashem.
 
@@ -974,6 +986,12 @@ Minimalny zakres testów obejmuje:
 - odczyt listy zapisanych itemów z biblioteki,
 - wiele itemów tego samego slotu w bibliotece,
 - aktywację jednego itemu per slot i zmianę aktywnego itemu z A na B,
+- użycie `dstats.dataDir` do wskazania własnego katalogu danych biblioteki,
+- domyślną lokalizację biblioteki poza `target/` z segmentem `dstats`,
+- migrację legacy biblioteki z `target/item-library-runtime/`,
+- zachowanie zapisanych itemów po migracji legacy storage,
+- zachowanie `active selection` po migracji legacy storage,
+- brak nadpisania nowej lokalizacji, gdy zawiera już własne dane biblioteki,
 - agregację aktywnych itemów do effective current build,
 - flow, w którym ręczna baza current build jest częściowo pusta albo zerowa, ale aktywne itemy dopełniają finalne effective stats przed `CurrentBuildRequest`,
 - potwierdzenie, że effective current build nadal kończy się ścieżką `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,

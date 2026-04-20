@@ -15,7 +15,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
-/** Trwałe repozytorium biblioteki itemów oparte o proste pliki tekstowe w katalogu roboczym projektu. */
+/** Trwałe repozytorium biblioteki itemów oparte o proste pliki tekstowe w wyznaczonym katalogu danych użytkownika. */
 public final class FileItemLibraryRepository implements ItemLibraryRepository {
     private static final String ITEM_PREFIX = "ITEM";
     private static final String SELECTION_PREFIX = "SEL";

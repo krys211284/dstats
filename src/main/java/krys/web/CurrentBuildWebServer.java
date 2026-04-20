@@ -6,6 +6,7 @@ import com.sun.net.httpserver.HttpServer;
 import krys.app.CurrentBuildCalculationService;
 import krys.combat.DamageEngine;
 import krys.itemlibrary.FileItemLibraryRepository;
+import krys.itemlibrary.ItemLibraryDataDirectoryResolver;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemimport.ItemImageImportService;
 import krys.search.BuildSearchCalculationService;
@@ -22,7 +23,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
     private final HttpServer server;
 
     public CurrentBuildWebServer(int port) throws IOException {
-        this(port, Path.of("target", "item-library-runtime"));
+        this(port, new ItemLibraryDataDirectoryResolver().resolveDataDirectory());
     }
 
     public CurrentBuildWebServer(int port, Path itemLibraryDataDirectory) throws IOException {
