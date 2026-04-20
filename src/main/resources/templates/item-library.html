@@ -68,6 +68,13 @@
             background: #ead7b8;
             color: #57330c;
         }
+        .info-strip {
+            margin-top: 14px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: rgba(234, 215, 184, 0.42);
+            color: #57330c;
+        }
         .data-table {
             width: 100%;
             border-collapse: collapse;
@@ -85,9 +92,43 @@
             margin-right: 8px;
             margin-bottom: 6px;
         }
+        .action-stack {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+        .status-active {
+            background: #d8edf2;
+            color: #1e5566;
+        }
+        .status-inactive {
+            background: #f2e6d4;
+            color: #7c3f00;
+        }
+        .status-note {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
         .message-list {
             margin: 0;
             padding-left: 20px;
+        }
+        .empty-state {
+            padding: 24px;
+            border: 1px dashed var(--line);
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.7);
+        }
+        .empty-state h3 {
+            margin-bottom: 8px;
         }
         @media (max-width: 900px) {
             .data-table,
@@ -117,7 +158,10 @@
 <main class="layout">
     <section class="panel">
         <h1>Biblioteka itemów</h1>
-        <p class="helper">To jest minimalny foundation zapisanych itemów nad current build. Możesz mieć wiele itemów tego samego slotu, ale aktywny pozostaje najwyżej jeden item per slot. Biblioteka nie buduje osobnego runtime i nie jest jeszcze pełnym inventory managerem.</p>
+        <p class="helper">To jest minimalny foundation zapisanych itemów nad current build. Biblioteka nie buduje osobnego runtime i nie jest jeszcze pełnym inventory managerem.</p>
+        <div class="info-strip">
+            Możesz mieć wiele zapisanych itemów tego samego slotu, ale aktywny pozostaje najwyżej jeden item per slot. Ustawienie nowego aktywnego itemu od razu zastępuje poprzedni aktywny wybór w tym samym slocie.
+        </div>
         <div class="hero-links">
             <a class="nav-link" href="{{CURRENT_BUILD_URL}}">Wróć do current build</a>
             <a class="nav-link" href="{{IMPORT_ITEM_URL}}">Importuj kolejny item</a>
@@ -129,22 +173,7 @@
 
     <section class="panel">
         <h2>Zapisane itemy</h2>
-        {{EMPTY_STATE}}
-        <table class="data-table">
-            <thead>
-            <tr>
-                <th>Slot</th>
-                <th>Display name</th>
-                <th>Plik źródłowy</th>
-                <th>Wkład do current build</th>
-                <th>Status</th>
-                <th>Akcje</th>
-            </tr>
-            </thead>
-            <tbody>
-            {{ITEM_ROWS}}
-            </tbody>
-        </table>
+        {{LIBRARY_CONTENT}}
     </section>
 </main>
 </body>

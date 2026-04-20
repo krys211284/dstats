@@ -56,7 +56,7 @@ class ItemLibraryWebServerTest {
                 "currentBuildQuery", buildCurrentBuildQuery()
         ));
         assertEquals(200, firstSave.statusCode());
-        assertTrue(firstSave.body().contains("Item zapisany do biblioteki"));
+        assertTrue(firstSave.body().contains("Zapisano item w bibliotece"));
         assertTrue(firstSave.body().contains("OFF_HAND / shield-a.png"));
 
         HttpResponse<String> secondSave = sendUrlEncodedPost("/biblioteka-itemow", Map.of(
@@ -72,6 +72,7 @@ class ItemLibraryWebServerTest {
                 "currentBuildQuery", buildCurrentBuildQuery()
         ));
         assertEquals(200, secondSave.statusCode());
+        assertTrue(secondSave.body().contains("Możesz mieć wiele zapisanych itemów tego samego slotu"));
         assertTrue(secondSave.body().contains("OFF_HAND / shield-a.png"));
         assertTrue(secondSave.body().contains("OFF_HAND / shield-b.png"));
 
@@ -82,17 +83,19 @@ class ItemLibraryWebServerTest {
                 "currentBuildQuery", buildCurrentBuildQuery()
         ));
         assertEquals(200, activateResponse.statusCode());
-        assertTrue(activateResponse.body().contains("Ustawiono aktywny item dla slotu OFF_HAND."));
-        assertTrue(activateResponse.body().contains("Aktywny"));
+        assertTrue(activateResponse.body().contains("Aktywny item dla slotu OFF_HAND został zmieniony."));
+        assertTrue(activateResponse.body().contains("Nowy wybór zastępuje poprzedni aktywny item w tym samym slocie."));
+        assertTrue(activateResponse.body().contains("class=\"status-badge status-active\">Aktywny</span>"));
+        assertTrue(activateResponse.body().contains("Ustaw jako aktywny"));
         assertTrue(activateResponse.body().contains("OFF_HAND / shield-b.png"));
 
         HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build?" + buildCurrentBuildQuery());
         assertEquals(200, currentBuildResponse.statusCode());
         assertTrue(currentBuildResponse.body().contains("Aktywne itemy z biblioteki"));
         assertTrue(currentBuildResponse.body().contains("OFF_HAND / shield-b.png"));
-        assertTrue(currentBuildResponse.body().contains("Strength z biblioteki"));
+        assertTrue(currentBuildResponse.body().contains("Efektywne staty do obliczeń"));
         assertTrue(currentBuildResponse.body().contains(">120<"));
-        assertTrue(currentBuildResponse.body().contains("Effective current build do runtime: weapon damage=200, strength=150"));
+        assertTrue(currentBuildResponse.body().contains("Do obliczeń runtime trafiają: weapon damage=200, strength=150"));
     }
 
     @Test
@@ -107,6 +110,41 @@ class ItemLibraryWebServerTest {
         assertEquals(200, importResponse.statusCode());
         assertTrue(importResponse.body().contains("action=\"/importuj-item-ze-screena?level=13&amp;weaponDamage=200&amp;strength=30"));
         assertTrue(importResponse.body().contains("blockChance=10&amp;retributionChance=15&amp;horizonSeconds=10"));
+    }
+
+    @Test
+    void shouldRenderEmptyStateWithImportLinkAndDeleteMessage() throws Exception {
+        HttpResponse<String> emptyResponse = sendGet("/biblioteka-itemow?" + buildCurrentBuildQuery());
+
+        assertEquals(200, emptyResponse.statusCode());
+        assertTrue(emptyResponse.body().contains("Biblioteka jest pusta"));
+        assertTrue(emptyResponse.body().contains("Zaimportuj pierwszy item"));
+        assertTrue(emptyResponse.body().contains("href=\"/importuj-item-ze-screena?level=13&amp;weaponDamage=200&amp;strength=30"));
+
+        HttpResponse<String> saveResponse = sendUrlEncodedPost("/biblioteka-itemow", Map.of(
+                "action", "saveImportedItem",
+                "sourceImageName", "empty-state.png",
+                "slot", "OFF_HAND",
+                "weaponDamage", "0",
+                "strength", "10",
+                "intelligence", "0",
+                "thorns", "0",
+                "blockChance", "0",
+                "retributionChance", "0",
+                "currentBuildQuery", buildCurrentBuildQuery()
+        ));
+        assertEquals(200, saveResponse.statusCode());
+
+        HttpResponse<String> deleteResponse = sendUrlEncodedPost("/biblioteka-itemow", Map.of(
+                "action", "deleteItem",
+                "itemId", "1",
+                "currentBuildQuery", buildCurrentBuildQuery()
+        ));
+
+        assertEquals(200, deleteResponse.statusCode());
+        assertTrue(deleteResponse.body().contains("Usunięto item z biblioteki."));
+        assertTrue(deleteResponse.body().contains("Biblioteka jest pusta"));
+        assertTrue(deleteResponse.body().contains("Importuj item ze screena"));
     }
 
     private static String buildCurrentBuildQuery() {

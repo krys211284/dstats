@@ -49,14 +49,17 @@ class CurrentBuildWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Policz aktualny build"));
-        assertTrue(response.body().contains("Dane buildu użytkownika"));
+        assertTrue(response.body().contains("Wejście current build"));
+        assertTrue(response.body().contains("Baza ręczna"));
+        assertTrue(response.body().contains("Aktywne itemy z biblioteki"));
+        assertTrue(response.body().contains("Efektywne staty do obliczeń"));
         assertTrue(response.body().contains("name=\"level\""));
-        assertTrue(response.body().contains("name=\"weaponDamage\""));
+        assertTrue(response.body().contains("<input type=\"number\" step=\"1\" name=\"weaponDamage\" value=\"8\">"));
+        assertFalse(response.body().contains("min=\"1\" step=\"1\" name=\"weaponDamage\""));
         assertTrue(response.body().contains("Block chance [%]"));
         assertTrue(response.body().contains("Retribution chance [%]"));
         assertTrue(response.body().contains("name=\"actionBar1\""));
         assertTrue(response.body().contains("name=\"horizonSeconds\""));
-        assertTrue(response.body().contains("Aktywne itemy z biblioteki"));
         assertTrue(response.body().contains("Otwórz bibliotekę itemów"));
     }
 
@@ -180,13 +183,53 @@ class CurrentBuildWebServerTest {
         HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
 
         assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Baza ręczna"));
+        assertTrue(response.body().contains("Aktywne itemy z biblioteki"));
+        assertTrue(response.body().contains("Efektywne staty do obliczeń"));
         assertTrue(response.body().contains("Total damage"));
         assertTrue(response.body().contains("Weapon damage effective"));
         assertTrue(response.body().contains(">321<"));
         assertTrue(response.body().contains("Strength effective"));
         assertTrue(response.body().contains(">55<"));
-        assertTrue(response.body().contains("Effective current build do runtime: weapon damage=321, strength=55"));
+        assertTrue(response.body().contains("Do obliczeń runtime trafiają: weapon damage=321, strength=55"));
         assertFalse(response.body().contains("Weapon damage musi być >= 1."));
+    }
+
+    @Test
+    void shouldPreserveDecimalPercentagesInCurrentBuildSummarySections() throws Exception {
+        HttpResponse<String> saveResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "saveImportedItem",
+                "sourceImageName", "decimal-shield.png",
+                "slot", "OFF_HAND",
+                "weaponDamage", "0",
+                "strength", "0",
+                "intelligence", "0",
+                "thorns", "0",
+                "blockChance", "18.25",
+                "retributionChance", "7.5",
+                "currentBuildQuery", buildCurrentBuildQuery()
+        ));
+        assertEquals(200, saveResponse.statusCode());
+
+        HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", "1",
+                "slot", "OFF_HAND",
+                "currentBuildQuery", buildCurrentBuildQuery()
+        ));
+        assertEquals(200, activateResponse.statusCode());
+
+        HttpResponse<String> response = sendGet("/policz-aktualny-build?" + buildCurrentBuildQueryWithStats("10.5", "2.25"));
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains(summaryCard("Block chance [%]", "10.5")));
+        assertTrue(response.body().contains(summaryCard("Retribution chance [%]", "2.25")));
+        assertTrue(response.body().contains(summaryCard("Block chance [%]", "18.25")));
+        assertTrue(response.body().contains(summaryCard("Retribution chance [%]", "7.5")));
+        assertTrue(response.body().contains(summaryCard("Block chance [%]", "28.75")));
+        assertTrue(response.body().contains(summaryCard("Retribution chance [%]", "9.75")));
+        assertTrue(response.body().contains("block=18.25%, retribution=7.5%"));
+        assertTrue(response.body().contains("block chance=28.75, retribution chance=9.75"));
     }
 
     private static Map<String, String> buildHolyBoltJudgementFields() {
@@ -254,6 +297,26 @@ class CurrentBuildWebServerTest {
                 + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
                 + "&rank_ADVANCE=5&baseUpgrade_ADVANCE=true&choiceUpgrade_ADVANCE=RIGHT"
                 + "&actionBar1=ADVANCE&actionBar2=NONE&actionBar3=NONE&actionBar4=NONE";
+    }
+
+    private static String buildCurrentBuildQueryWithStats(String blockChance, String retributionChance) {
+        return "level=13&weaponDamage=8&strength=18&intelligence=0&thorns=50&blockChance=" + blockChance + "&retributionChance=" + retributionChance + "&horizonSeconds=10"
+                + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
+                + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
+                + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
+                + "&rank_ADVANCE=5&baseUpgrade_ADVANCE=true&choiceUpgrade_ADVANCE=RIGHT"
+                + "&actionBar1=ADVANCE&actionBar2=NONE&actionBar3=NONE&actionBar4=NONE";
+    }
+
+    private static String summaryCard(String label, String value) {
+        return """
+                <article class="summary-card">
+                    <div class="summary-label">""" + label + """
+                </div>
+                    <div class="summary-value">""" + value + """
+                </div>
+                </article>
+                """;
     }
 
     private HttpResponse<String> sendGet(String path) throws Exception {

@@ -23,8 +23,7 @@ public final class ItemLibraryPageRenderer {
                 .replace("{{ERRORS}}", renderErrors(model.getErrors()))
                 .replace("{{CURRENT_BUILD_URL}}", escapeHtml(buildCurrentBuildUrl(model.getCurrentBuildQuery())))
                 .replace("{{IMPORT_ITEM_URL}}", escapeHtml(buildItemImportUrl(model.getCurrentBuildQuery())))
-                .replace("{{ITEM_ROWS}}", renderItemRows(model))
-                .replace("{{EMPTY_STATE}}", renderEmptyState(model));
+                .replace("{{LIBRARY_CONTENT}}", renderLibraryContent(model));
     }
 
     private static String renderMessages(List<String> messages) {
@@ -51,11 +50,39 @@ public final class ItemLibraryPageRenderer {
         return html.toString();
     }
 
-    private static String renderEmptyState(ItemLibraryPageModel model) {
-        if (!model.getSavedItems().isEmpty()) {
-            return "";
+    private static String renderLibraryContent(ItemLibraryPageModel model) {
+        if (model.getSavedItems().isEmpty()) {
+            return renderEmptyState(model);
         }
-        return "<p class=\"helper\">Biblioteka jest pusta. Zapisz zatwierdzony item po imporcie, aby móc aktywować go dla current build.</p>";
+        return """
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th>Slot</th>
+                        <th>Display name</th>
+                        <th>Plik źródłowy</th>
+                        <th>Wkład do current build</th>
+                        <th>Status</th>
+                        <th>Akcje</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                """
+                + renderItemRows(model)
+                + """
+                    </tbody>
+                </table>
+                """;
+    }
+
+    private static String renderEmptyState(ItemLibraryPageModel model) {
+        return """
+                <div class="empty-state">
+                    <h3>Biblioteka jest pusta</h3>
+                    <p>Zaimportuj pierwszy item, aby zapisać go w bibliotece i potem wybrać aktywny item dla slotu.</p>
+                    <a class="nav-link" href="%s">Importuj item ze screena</a>
+                </div>
+                """.formatted(escapeHtml(buildItemImportUrl(model.getCurrentBuildQuery())));
     }
 
     private static String renderItemRows(ItemLibraryPageModel model) {
@@ -71,7 +98,7 @@ public final class ItemLibraryPageRenderer {
                     .append("</td><td>")
                     .append(escapeHtml(buildContributionLabel(item)))
                     .append("</td><td>")
-                    .append(active ? "Aktywny" : "Nieaktywny")
+                    .append(renderStatusCell(active))
                     .append("</td><td>")
                     .append(renderActivateForm(model, item, active))
                     .append(renderDeleteForm(model, item))
@@ -80,18 +107,34 @@ public final class ItemLibraryPageRenderer {
         return html.toString();
     }
 
-    private static String renderActivateForm(ItemLibraryPageModel model, SavedImportedItem item, boolean active) {
+    private static String renderStatusCell(boolean active) {
         if (active) {
-            return "<span class=\"helper\">To jest aktywny item dla slotu.</span>";
+            return """
+                    <span class="status-badge status-active">Aktywny</span>
+                    <div class="status-note">Ten item zasila current build w swoim slocie.</div>
+                    """;
         }
         return """
-                <form method="post" action="/biblioteka-itemow" class="inline-form">
-                    <input type="hidden" name="action" value="activateItem">
-                    <input type="hidden" name="itemId" value="%s">
-                    <input type="hidden" name="slot" value="%s">
-                    <input type="hidden" name="currentBuildQuery" value="%s">
-                    <button type="submit">Ustaw jako aktywny</button>
-                </form>
+                <span class="status-badge status-inactive">Nieaktywny</span>
+                <div class="status-note">Możesz go aktywować zamiast bieżącego wyboru w tym slocie.</div>
+                """;
+    }
+
+    private static String renderActivateForm(ItemLibraryPageModel model, SavedImportedItem item, boolean active) {
+        if (active) {
+            return "<span class=\"helper\">Aktywny item dla tego slotu jest już ustawiony.</span>";
+        }
+        return """
+                <div class="action-stack">
+                    <form method="post" action="/biblioteka-itemow" class="inline-form">
+                        <input type="hidden" name="action" value="activateItem">
+                        <input type="hidden" name="itemId" value="%s">
+                        <input type="hidden" name="slot" value="%s">
+                        <input type="hidden" name="currentBuildQuery" value="%s">
+                        <button type="submit">Ustaw jako aktywny</button>
+                    </form>
+                    <span class="helper">Ustawienie aktywnego itemu zastępuje poprzedni aktywny item w tym samym slocie.</span>
+                </div>
                 """.formatted(
                 item.getItemId(),
                 escapeHtml(item.getSlot().name()),
@@ -101,12 +144,14 @@ public final class ItemLibraryPageRenderer {
 
     private static String renderDeleteForm(ItemLibraryPageModel model, SavedImportedItem item) {
         return """
-                <form method="post" action="/biblioteka-itemow" class="inline-form">
-                    <input type="hidden" name="action" value="deleteItem">
-                    <input type="hidden" name="itemId" value="%s">
-                    <input type="hidden" name="currentBuildQuery" value="%s">
-                    <button type="submit" class="secondary-button">Usuń</button>
-                </form>
+                <div class="action-stack">
+                    <form method="post" action="/biblioteka-itemow" class="inline-form">
+                        <input type="hidden" name="action" value="deleteItem">
+                        <input type="hidden" name="itemId" value="%s">
+                        <input type="hidden" name="currentBuildQuery" value="%s">
+                        <button type="submit" class="secondary-button">Usuń</button>
+                    </form>
+                </div>
                 """.formatted(item.getItemId(), escapeHtml(model.getCurrentBuildQuery()));
     }
 

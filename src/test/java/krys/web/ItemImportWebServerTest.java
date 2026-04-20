@@ -107,9 +107,10 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("Mapowanie do modelu itemu aplikacji"));
         assertTrue(response.body().contains("Mapowanie do aktualnego modelu buildu"));
         assertTrue(response.body().contains("Zaimportowany item: bulawa.png"));
-        assertTrue(response.body().contains("Nadpisz current build wkładem itemu"));
+        assertTrue(response.body().contains("Zastosuj do current build"));
         assertTrue(response.body().contains("Dodaj wkład itemu do current build"));
-        assertTrue(response.body().contains("Zapisz item do biblioteki"));
+        assertTrue(response.body().contains("Zapisz do biblioteki"));
+        assertFalse(response.body().contains("Nadpisz current build wkładem itemu"));
         assertTrue(response.body().contains("/policz-aktualny-build?level=13&amp;weaponDamage=321&amp;strength=55&amp;intelligence=11&amp;thorns=90&amp;blockChance=18&amp;retributionChance=25"));
         assertTrue(response.body().contains("/policz-aktualny-build?level=13&amp;weaponDamage=521&amp;strength=85&amp;intelligence=11&amp;thorns=160&amp;blockChance=28&amp;retributionChance=40"));
 

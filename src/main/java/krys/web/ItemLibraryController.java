@@ -92,14 +92,18 @@ public final class ItemLibraryController implements HttpHandler {
         }
 
         SavedImportedItem savedItem = itemLibraryService.saveImportedItem(mappingResult.getItem());
-        return buildPageModel(List.of(), List.of("Item zapisany do biblioteki: " + savedItem.getDisplayName()), currentBuildQuery);
+        return buildPageModel(List.of(), List.of("Zapisano item w bibliotece: " + savedItem.getDisplayName() + "."), currentBuildQuery);
     }
 
     private ItemLibraryPageModel handleActivateItem(Map<String, String> fields, String currentBuildQuery) {
         long itemId = parseItemId(fields.getOrDefault("itemId", ""));
         EquipmentSlot slot = EquipmentSlot.valueOf(fields.getOrDefault("slot", ""));
         itemLibraryService.setActiveItem(slot, itemId);
-        return buildPageModel(List.of(), List.of("Ustawiono aktywny item dla slotu " + slot.name() + "."), currentBuildQuery);
+        return buildPageModel(
+                List.of(),
+                List.of("Aktywny item dla slotu " + slot.name() + " został zmieniony. Nowy wybór zastępuje poprzedni aktywny item w tym samym slocie."),
+                currentBuildQuery
+        );
     }
 
     private ItemLibraryPageModel handleDeleteItem(Map<String, String> fields, String currentBuildQuery) {

@@ -2,6 +2,7 @@ package krys.web;
 
 import krys.item.EquipmentSlot;
 import krys.item.ItemStat;
+import krys.itemimport.CurrentBuildItemApplicationMode;
 import krys.itemimport.ImportedItemCurrentBuildContribution;
 import krys.itemimport.ItemImageImportCandidateParseResult;
 import krys.itemimport.ItemImportEditableForm;
@@ -184,10 +185,14 @@ public final class ItemImportPageRenderer {
                         <div class="action-links">
                             <a class="link-button" href=\"""")
                 .append(escapeHtml(confirmed.getOverwriteCurrentBuildUrl()))
-                .append("\">Nadpisz current build wkładem itemu</a>")
+                .append("\">")
+                .append(escapeHtml(CurrentBuildItemApplicationMode.OVERWRITE.getDisplayName()))
+                .append("</a>")
                 .append("<a class=\"link-button secondary-button\" href=\"")
                 .append(escapeHtml(confirmed.getAddContributionCurrentBuildUrl()))
-                .append("\">Dodaj wkład itemu do current build</a>")
+                .append("\">")
+                .append(escapeHtml(CurrentBuildItemApplicationMode.ADD_CONTRIBUTION.getDisplayName()))
+                .append("</a>")
                 .append("""
                         </div>
                         <form method="post" action="/biblioteka-itemow" class="submit-row">
@@ -203,11 +208,11 @@ public final class ItemImportPageRenderer {
                 .append(renderHiddenField("blockChance", formatWhole(importedItem.getBlockChance())))
                 .append(renderHiddenField("retributionChance", formatWhole(importedItem.getRetributionChance())))
                 .append("""
-                            <button type="submit">Zapisz item do biblioteki</button>
+                            <button type="submit">Zapisz do biblioteki</button>
                         </form>
                     """)
                 .append("""
-                        <p class="helper">Tryb `nadpisz` podstawia rozpoznany wkład itemu w polach, które item rzeczywiście wnosi. Tryb `dodaj wkład` sumuje ten wkład do statów current build przekazanych do importu.</p>
+                        <p class="helper">`Zastosuj do current build` zachowuje techniczne znaczenie trybu `nadpisz`: podstawia wkład itemu tylko w polach, które item rzeczywiście wnosi. `Dodaj wkład do current build` sumuje ten wkład do statów current build przekazanych do importu.</p>
                     """)
                 .append("""
                     </section>

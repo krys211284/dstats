@@ -38,7 +38,7 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - parser polskich affixów foundation dla rozpoznawalnych fraz slotu i statów,
 - model wstępnego rozpoznania z poziomem pewności i uwagami per pole,
 - walidowany formularz zatwierdzonego itemu i mapowanie jego pól do aktualnego modelu buildu,
-- dwa tryby zastosowania zatwierdzonego itemu do current build: `nadpisz` oraz `dodaj wkład`,
+- dwa czytelnie nazwane tryby zastosowania zatwierdzonego itemu do current build: `Zastosuj do current build` oraz `Dodaj wkład do current build`,
 - minimalną trwałą bibliotekę zapisanych itemów z wieloma itemami tego samego slotu,
 - wybór jednego aktywnego itemu per slot w bibliotece oraz deterministyczne dodawanie aktywnych itemów do ręcznej bazy current build,
 - pierwsze minimalne webowe GUI SSR dla trybu `Znajdź najlepszy build`,
@@ -697,8 +697,8 @@ Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny bu
 - render realnie rozpoznanych pól OCR, poziomu niepewności i ręcznego potwierdzenia pól itemu,
 - prosty ekran SSR `/biblioteka-itemow` z listą zapisanych itemów i wyborem aktywnego itemu per slot,
 - sekcję aktywnych itemów z biblioteki na ekranie `Policz aktualny build`,
-- dwa linki zastosowania zatwierdzonego itemu do current build: `nadpisz` i `dodaj wkład`,
-- akcję `Zapisz item do biblioteki` po zatwierdzeniu importu pojedynczego itemu,
+- dwie czytelnie nazwane akcje zastosowania zatwierdzonego itemu do current build: `Zastosuj do current build` i `Dodaj wkład do current build`,
+- akcję `Zapisz do biblioteki` po zatwierdzeniu importu pojedynczego itemu,
 - wejście do importu itemu bez sesji wielu itemów, z możliwością zachowania kontekstu current build przez query string,
 - mapowanie zatwierdzonego itemu do modelu `Item` oraz do agregowanych pól current build,
 - osobny ekran GUI SSR searcha dla minimalnej przestrzeni foundation,
@@ -822,8 +822,9 @@ Kontrakt prezentacji dla tego smoke testu:
 - GUI jest po polsku i jasno komunikuje, że to aktualny foundation manual simulation, a nie pełny produkt końcowy.
 - GUI pozwala ustawić level, staty buildu, konfigurację wszystkich skilli foundation oraz action bar, a następnie kliknąć `Policz aktualny build`.
 - GUI pozwala z tego samego formularza przejść do importu pojedynczego itemu ze screena z zachowaniem aktualnego kontekstu current build.
-- GUI pokazuje sekcję aktywnych itemów z biblioteki oraz ich łączny wkład do effective current build.
-- GUI jasno komunikuje, że pola formularza są ręczną bazą poza biblioteką itemów i mogą pozostać częściowo puste albo zerowe, jeżeli active items dopełnią finalne effective stats.
+- GUI rozdziela trzy czytelne warstwy: `Baza ręczna`, `Aktywne itemy z biblioteki` oraz `Efektywne staty do obliczeń`.
+- GUI pokazuje, że pola formularza są ręczną bazą poza biblioteką itemów i mogą pozostać częściowo puste albo zerowe, jeżeli active items dopełnią finalne effective stats.
+- GUI pokazuje aktywny wkład biblioteki oraz finalne efektywne staty użyte do obliczeń na tym samym pipeline `effective stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`.
 - GUI i CLI przechodzą przez ten sam kontrakt `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> CurrentBuildCalculationService -> runtime`.
 - scenariusze referencyjne są trybem pomocniczym do smoke testów i regresji, a nie główną ścieżką produktu.
 - GUI i CLI pokazują `total damage`, `DPS`, debug bezpośredniego hita dla użytego skilla, debug delayed hitów, reactive debug, `stepTrace`, `Resolve aktywny na końcu`, `Active block chance na końcu` oraz `Active thorns bonus na końcu`.
@@ -888,8 +889,8 @@ Kontrakt prezentacji dla smoke testu importu itemu:
 - GUI wykonuje preprocessing i realny OCR kilku wariantów pojedynczego screena, a następnie pokazuje metadane obrazu, poziom pewności oraz uwagi dla pól wstępnego odczytu,
 - GUI pokazuje ręczny formularz zatwierdzenia obejmujący `slot`, `weapon damage`, `strength`, `intelligence`, `thorns`, `block chance` i `retribution chance`,
 - zatwierdzony item jest mapowany do aktualnego modelu `Item` oraz do agregowanych pól current build,
-- GUI po zatwierdzeniu itemu pozwala także zapisać go do biblioteki itemów,
-- GUI pozwala przejść do `Policz aktualny build` w dwóch trybach: `nadpisz current build` albo `dodaj wkład itemu do current build`,
+- GUI po zatwierdzeniu itemu pozwala także wybrać akcję `Zapisz do biblioteki`,
+- GUI pozwala przejść do `Policz aktualny build` w dwóch czytelnie nazwanych trybach: `Zastosuj do current build` albo `Dodaj wkład do current build`,
 - jeżeli import został otwarty z formularza current build, tryb `dodaj wkład` wykorzystuje przekazane staty bez ręcznego sumowania przez użytkownika,
 - flow nie obiecuje pełnej bezbłędności OCR i wymaga ręcznego potwierdzenia użytkownika przed użyciem danych,
 - poza zakresem pozostają pełny wielo-itemowy workflow i pełny OCR całej postaci.
@@ -904,7 +905,9 @@ Kontrakt prezentacji dla smoke testu biblioteki itemów:
 - GUI biblioteki jest po polsku i jasno komunikuje, że to minimalna warstwa zapisanych itemów nad current build,
 - GUI biblioteki pokazuje listę zapisanych itemów wraz ze slotem, nazwą, źródłem i wkładem do current build,
 - GUI biblioteki pozwala mieć wiele itemów tego samego slotu,
-- GUI biblioteki pozwala ustawić najwyżej jeden aktywny item per slot,
+- GUI biblioteki wyraźnie oznacza aktywny item badge'em `Aktywny`, przy nieaktywnym pokazuje akcję `Ustaw jako aktywny` i komunikuje zasadę `jeden aktywny item per slot`,
+- ustawienie nowego aktywnego itemu w bibliotece zastępuje poprzedni aktywny wybór w tym samym slocie,
+- pusty stan biblioteki zawiera krótki komunikat SSR oraz bezpośredni link do importu itemu,
 - aktywny item z biblioteki trafia do effective current build dopiero przez istniejący pipeline current build,
 - GUI biblioteki zachowuje `currentBuildQuery` w flow `current build -> biblioteka itemów -> import kolejnego itemu -> powrót / zastosowanie do current build`,
 - GUI biblioteki nie jest jeszcze pełnym inventory managerem ani stashem.

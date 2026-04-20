@@ -9,6 +9,7 @@ import krys.skill.SkillUpgradeChoice;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,12 +25,12 @@ public final class CurrentBuildPageRenderer {
 
     public String render(CurrentBuildPageModel model) {
         return template
-                .replace("{{BUILD_STATS_FIELDS}}", renderBuildStatsFields(model.getFormData()))
+                .replace("{{MANUAL_BASE_SECTION}}", renderManualBaseSection(model))
                 .replace("{{ACTIVE_LIBRARY_SECTION}}", renderActiveLibrarySection(model))
+                .replace("{{EFFECTIVE_STATS_SECTION}}", renderEffectiveStatsSection(model))
                 .replace("{{SKILL_CONFIG_FIELDS}}", renderSkillConfigFields(model.getFormData()))
                 .replace("{{ACTION_BAR_FIELDS}}", renderActionBarFields(model.getFormData()))
                 .replace("{{FORM_ERRORS}}", renderErrors(model.getValidationErrors()))
-                .replace("{{CHOICE_HELP}}", escapeHtml(model.getChoiceHelpText()))
                 .replace("{{RESULT_SECTION}}", renderResultSection(model));
     }
 
@@ -109,11 +110,61 @@ public final class CurrentBuildPageRenderer {
         return html.toString();
     }
 
+    private static String renderManualBaseSection(CurrentBuildPageModel model) {
+        CurrentBuildImportableStats manualBaseStats = resolveManualBaseStats(model);
+        return new StringBuilder("""
+                <section class="layer-panel">
+                    <div class="layer-heading">
+                        <span class="layer-index">1</span>
+                        <div>
+                            <h3>Baza ręczna</h3>
+                            <p class="helper">""")
+                .append(escapeHtml(model.getChoiceHelpText()))
+                .append("""
+                            </p>
+                        </div>
+                    </div>
+                    <div class="summary-grid compact-grid">
+                """)
+                .append(renderSummaryCard("Weapon damage", Long.toString(manualBaseStats.getWeaponDamage())))
+                .append(renderSummaryCard("Strength", formatWhole(manualBaseStats.getStrength())))
+                .append(renderSummaryCard("Intelligence", formatWhole(manualBaseStats.getIntelligence())))
+                .append(renderSummaryCard("Thorns", formatWhole(manualBaseStats.getThorns())))
+                .append(renderSummaryCard("Block chance [%]", formatPercentage(manualBaseStats.getBlockChance())))
+                .append(renderSummaryCard("Retribution chance [%]", formatPercentage(manualBaseStats.getRetributionChance())))
+                .append("""
+                    </div>
+                    <div class="form-grid">
+                """)
+                .append(renderBuildStatsFields(model.getFormData()))
+                .append("""
+                    </div>
+                </section>
+                """)
+                .toString();
+    }
+
     private static String renderActiveLibrarySection(CurrentBuildPageModel model) {
+        CurrentBuildImportableStats contribution = model.getActiveLibraryContribution();
         StringBuilder html = new StringBuilder("""
-                <section class="subpanel">
-                    <h3>Aktywne itemy z biblioteki</h3>
-                    <p class="helper">Poniższe itemy są dodawane do ręcznej bazy z formularza. Ta baza może pozostać częściowo pusta albo zerowa, a dopiero effective current build trafia do `CurrentBuildRequest`. Biblioteka itemów pozostaje warstwą aplikacyjną nad current build i nie buduje alternatywnego runtime.</p>
+                <section class="layer-panel">
+                    <div class="layer-heading">
+                        <span class="layer-index">2</span>
+                        <div>
+                            <h3>Aktywne itemy z biblioteki</h3>
+                            <p class="helper">Ta warstwa pokazuje wyłącznie aktywne itemy z biblioteki. Możesz mieć wiele zapisanych itemów tego samego slotu, ale do current build trafia tylko jeden aktywny item per slot.</p>
+                        </div>
+                    </div>
+                    <div class="summary-grid compact-grid">
+                """)
+                .append(renderSummaryCard("Weapon damage", Long.toString(contribution.getWeaponDamage())))
+                .append(renderSummaryCard("Strength", formatWhole(contribution.getStrength())))
+                .append(renderSummaryCard("Intelligence", formatWhole(contribution.getIntelligence())))
+                .append(renderSummaryCard("Thorns", formatWhole(contribution.getThorns())))
+                .append(renderSummaryCard("Block chance [%]", formatPercentage(contribution.getBlockChance())))
+                .append(renderSummaryCard("Retribution chance [%]", formatPercentage(contribution.getRetributionChance())))
+                .append("""
+                    </div>
                     <div class="hero-links">
                         <a class="nav-link" href=\"""")
                 .append(escapeHtml(model.getItemLibraryUrl()))
@@ -123,21 +174,12 @@ public final class CurrentBuildPageRenderer {
                 """);
 
         if (!model.hasActiveLibraryItems()) {
-            html.append("<p class=\"helper\">Brak aktywnych itemów w bibliotece. Formularz current build działa wyłącznie na ręcznej bazie.</p>");
+            html.append("<p class=\"helper\">Brak aktywnych itemów w bibliotece. W tej warstwie nie ma jeszcze wkładu do current build.</p>");
             html.append("</section>");
             return html.toString();
         }
 
-        CurrentBuildImportableStats contribution = model.getActiveLibraryContribution();
-        html.append("<div class=\"summary-grid compact-grid\">")
-                .append(renderSummaryCard("Weapon damage z biblioteki", Long.toString(contribution.getWeaponDamage())))
-                .append(renderSummaryCard("Strength z biblioteki", formatWhole(contribution.getStrength())))
-                .append(renderSummaryCard("Intelligence z biblioteki", formatWhole(contribution.getIntelligence())))
-                .append(renderSummaryCard("Thorns z biblioteki", formatWhole(contribution.getThorns())))
-                .append(renderSummaryCard("Block chance z biblioteki [%]", formatWhole(contribution.getBlockChance())))
-                .append(renderSummaryCard("Retribution chance z biblioteki [%]", formatWhole(contribution.getRetributionChance())))
-                .append("</div>")
-                .append("<table class=\"data-table\"><thead><tr><th>Slot</th><th>Item</th><th>Źródło</th><th>Wkład</th></tr></thead><tbody>");
+        html.append("<table class=\"data-table\"><thead><tr><th>Slot</th><th>Item</th><th>Źródło</th><th>Wkład</th></tr></thead><tbody>");
         for (SavedImportedItem item : model.getActiveLibraryItems()) {
             html.append("<tr><td>")
                     .append(escapeHtml(item.getSlot().name()))
@@ -150,23 +192,50 @@ public final class CurrentBuildPageRenderer {
                     .append("</td></tr>");
         }
         html.append("</tbody></table>");
-        if (model.getEffectiveStats() != null) {
-            CurrentBuildImportableStats effectiveStats = model.getEffectiveStats();
-            html.append("<p class=\"helper\">Effective current build do runtime: weapon damage=")
-                    .append(escapeHtml(Long.toString(effectiveStats.getWeaponDamage())))
-                    .append(", strength=")
-                    .append(escapeHtml(formatWhole(effectiveStats.getStrength())))
-                    .append(", intelligence=")
-                    .append(escapeHtml(formatWhole(effectiveStats.getIntelligence())))
-                    .append(", thorns=")
-                    .append(escapeHtml(formatWhole(effectiveStats.getThorns())))
-                    .append(", block chance=")
-                    .append(escapeHtml(formatWhole(effectiveStats.getBlockChance())))
-                    .append(", retribution chance=")
-                    .append(escapeHtml(formatWhole(effectiveStats.getRetributionChance())))
-                    .append(".</p>");
-        }
         html.append("</section>");
+        return html.toString();
+    }
+
+    private static String renderEffectiveStatsSection(CurrentBuildPageModel model) {
+        StringBuilder html = new StringBuilder("""
+                <section class="layer-panel layer-panel-emphasis">
+                    <div class="layer-heading">
+                        <span class="layer-index">3</span>
+                        <div>
+                            <h3>Efektywne staty do obliczeń</h3>
+                            <p class="helper">To te finalne staty trafiają do pipeline’u `effective stats -&gt; CurrentBuildRequest -&gt; CurrentBuildSnapshotFactory -&gt; runtime`. Ta sekcja nie buduje alternatywnego flow, tylko pokazuje końcowy stan wejścia do obliczeń.</p>
+                        </div>
+                    </div>
+                    <div class="formula-strip">Baza ręczna + aktywne itemy z biblioteki = efektywne staty do obliczeń</div>
+                """);
+        if (model.getEffectiveStats() == null) {
+            html.append("<p class=\"helper\">Efektywne staty nie są jeszcze dostępne, bo ręczna baza zawiera błędy walidacji.</p>")
+                    .append("</section>");
+            return html.toString();
+        }
+
+        CurrentBuildImportableStats effectiveStats = model.getEffectiveStats();
+        html.append("<div class=\"summary-grid compact-grid\">")
+                .append(renderSummaryCard("Weapon damage", Long.toString(effectiveStats.getWeaponDamage())))
+                .append(renderSummaryCard("Strength", formatWhole(effectiveStats.getStrength())))
+                .append(renderSummaryCard("Intelligence", formatWhole(effectiveStats.getIntelligence())))
+                .append(renderSummaryCard("Thorns", formatWhole(effectiveStats.getThorns())))
+                .append(renderSummaryCard("Block chance [%]", formatPercentage(effectiveStats.getBlockChance())))
+                .append(renderSummaryCard("Retribution chance [%]", formatPercentage(effectiveStats.getRetributionChance())))
+                .append("</div>")
+                .append("<p class=\"helper\">Do obliczeń runtime trafiają: weapon damage=")
+                .append(escapeHtml(Long.toString(effectiveStats.getWeaponDamage())))
+                .append(", strength=")
+                .append(escapeHtml(formatWhole(effectiveStats.getStrength())))
+                .append(", intelligence=")
+                .append(escapeHtml(formatWhole(effectiveStats.getIntelligence())))
+                .append(", thorns=")
+                .append(escapeHtml(formatWhole(effectiveStats.getThorns())))
+                .append(", block chance=")
+                .append(escapeHtml(formatPercentage(effectiveStats.getBlockChance())))
+                .append(", retribution chance=")
+                .append(escapeHtml(formatPercentage(effectiveStats.getRetributionChance())))
+                .append(".</p></section>");
         return html.toString();
     }
 
@@ -181,27 +250,27 @@ public final class CurrentBuildPageRenderer {
                     <input type="number" min="1" step="1" name="level" value="{{LEVEL}}">
                 </label>
                 <label>
-                    Weapon damage
-                    <input type="number" min="1" step="1" name="weaponDamage" value="{{WEAPON_DAMAGE}}">
+                    Weapon damage w bazie ręcznej
+                    <input type="number" step="1" name="weaponDamage" value="{{WEAPON_DAMAGE}}">
                 </label>
                 <label>
-                    Strength z itemów
+                    Strength w bazie ręcznej
                     <input type="number" min="0" step="1" name="strength" value="{{STRENGTH}}">
                 </label>
                 <label>
-                    Intelligence z itemów
+                    Intelligence w bazie ręcznej
                     <input type="number" min="0" step="1" name="intelligence" value="{{INTELLIGENCE}}">
                 </label>
                 <label>
-                    Thorns
+                    Thorns w bazie ręcznej
                     <input type="number" min="0" step="1" name="thorns" value="{{THORNS}}">
                 </label>
                 <label>
-                    Block chance [%]
+                    Block chance w bazie ręcznej [%]
                     <input type="number" min="0" step="0.01" name="blockChance" value="{{BLOCK_CHANCE}}">
                 </label>
                 <label>
-                    Retribution chance [%]
+                    Retribution chance w bazie ręcznej [%]
                     <input type="number" min="0" step="0.01" name="retributionChance" value="{{RETRIBUTION_CHANCE}}">
                 </label>
                 <label>
@@ -317,8 +386,19 @@ public final class CurrentBuildPageRenderer {
         return CurrentBuildCalculationSectionsRenderer.escapeHtml(value);
     }
 
+    private static CurrentBuildImportableStats resolveManualBaseStats(CurrentBuildPageModel model) {
+        if (model.getEffectiveCurrentBuildResolution() == null || model.getEffectiveCurrentBuildResolution().getManualBaseStats() == null) {
+            return new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d);
+        }
+        return model.getEffectiveCurrentBuildResolution().getManualBaseStats();
+    }
+
     private static String formatWhole(double value) {
         return String.format(Locale.US, "%.0f", value);
+    }
+
+    private static String formatPercentage(double value) {
+        return BigDecimal.valueOf(value).stripTrailingZeros().toPlainString();
     }
 
     private static String buildItemContributionLabel(SavedImportedItem item) {
@@ -336,10 +416,10 @@ public final class CurrentBuildPageRenderer {
             parts.add("thorns=" + formatWhole(item.getThorns()));
         }
         if (item.getBlockChance() > 0.0d) {
-            parts.add("block=" + formatWhole(item.getBlockChance()) + "%");
+            parts.add("block=" + formatPercentage(item.getBlockChance()) + "%");
         }
         if (item.getRetributionChance() > 0.0d) {
-            parts.add("retribution=" + formatWhole(item.getRetributionChance()) + "%");
+            parts.add("retribution=" + formatPercentage(item.getRetributionChance()) + "%");
         }
         return parts.isEmpty() ? "Brak wkładu do current build" : String.join(", ", parts);
     }

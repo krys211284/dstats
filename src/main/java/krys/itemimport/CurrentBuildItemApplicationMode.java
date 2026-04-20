@@ -2,7 +2,7 @@ package krys.itemimport;
 
 /** Tryb zastosowania zatwierdzonego itemu do istniejących statów current build. */
 public enum CurrentBuildItemApplicationMode {
-    OVERWRITE("Nadpisz pola current build"),
+    OVERWRITE("Zastosuj do current build"),
     ADD_CONTRIBUTION("Dodaj wkład itemu do current build");
 
     private final String displayName;
