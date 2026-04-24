@@ -80,7 +80,7 @@ public final class SearchBuildController implements HttpHandler {
                 formData,
                 errors,
                 result,
-                "GUI M12 jest cienką warstwą SSR nad backendowym search foundation. Formularz buduje BuildSearchRequest, pokazuje audit/preflight, uruchamia ten sam backend co CLI, renderuje top wyniki po normalizacji i pozwala przejść do drill-downu wybranego reprezentanta."
+                "GUI M12 jest cienką warstwą SSR nad backendowym search foundation. Opcjonalny tryb biblioteki itemów nadal składa effective current build przez ten sam pipeline CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime i tylko podmienia źródło kandydatów itemowych."
         );
     }
 

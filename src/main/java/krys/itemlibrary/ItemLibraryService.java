@@ -6,7 +6,9 @@ import krys.itemimport.ImportedItemCurrentBuildApplicationService;
 import krys.itemimport.ImportedItemCurrentBuildContribution;
 import krys.itemimport.ValidatedImportedItem;
 
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -89,31 +91,66 @@ public final class ItemLibraryService {
 
     public EffectiveCurrentBuildResolution resolveEffectiveCurrentBuild(CurrentBuildImportableStats manualBaseStats) {
         List<SavedImportedItem> activeItems = getActiveItems();
-        CurrentBuildImportableStats activeContribution = aggregateActiveContribution(activeItems);
-        CurrentBuildImportableStats effectiveStats = applicationService.apply(
-                manualBaseStats,
-                new ImportedItemCurrentBuildContribution(
-                        activeContribution.getWeaponDamage(),
-                        activeContribution.getStrength(),
-                        activeContribution.getIntelligence(),
-                        activeContribution.getThorns(),
-                        activeContribution.getBlockChance(),
-                        activeContribution.getRetributionChance()
-                ),
-                krys.itemimport.CurrentBuildItemApplicationMode.ADD_CONTRIBUTION
-        );
+        CurrentBuildImportableStats activeContribution = aggregateContribution(activeItems);
+        CurrentBuildImportableStats effectiveStats = applyContribution(manualBaseStats, activeContribution);
         return new EffectiveCurrentBuildResolution(manualBaseStats, activeItems, activeContribution, effectiveStats);
     }
 
-    private CurrentBuildImportableStats aggregateActiveContribution(List<SavedImportedItem> activeItems) {
+    public List<ItemLibrarySearchCombination> generateSearchCombinations() {
+        List<SavedImportedItem> savedItems = getSavedItems();
+        if (savedItems.isEmpty()) {
+            throw new IllegalArgumentException("Tryb searcha po bibliotece itemów wymaga co najmniej jednego zapisanego itemu.");
+        }
+
+        Map<EquipmentSlot, List<SavedImportedItem>> itemsBySlot = new EnumMap<>(EquipmentSlot.class);
+        for (EquipmentSlot slot : EquipmentSlot.values()) {
+            itemsBySlot.put(slot, new ArrayList<>());
+        }
+        for (SavedImportedItem item : savedItems) {
+            itemsBySlot.get(item.getSlot()).add(item);
+        }
+
+        List<ItemLibrarySearchCombination> combinations = new ArrayList<>();
+        generateSearchCombinationsRecursive(EquipmentSlot.values(), itemsBySlot, 0, new ArrayList<>(), combinations);
+        return combinations;
+    }
+
+    public CurrentBuildImportableStats resolveEffectiveStats(CurrentBuildImportableStats manualBaseStats,
+                                                             ItemLibrarySearchCombination combination) {
+        return applyContribution(manualBaseStats, combination.getTotalContribution());
+    }
+
+    private void generateSearchCombinationsRecursive(EquipmentSlot[] orderedSlots,
+                                                     Map<EquipmentSlot, List<SavedImportedItem>> itemsBySlot,
+                                                     int index,
+                                                     List<SavedImportedItem> currentSelection,
+                                                     List<ItemLibrarySearchCombination> combinations) {
+        if (index >= orderedSlots.length) {
+            combinations.add(new ItemLibrarySearchCombination(
+                    currentSelection,
+                    aggregateContribution(currentSelection)
+            ));
+            return;
+        }
+
+        EquipmentSlot slot = orderedSlots[index];
+        generateSearchCombinationsRecursive(orderedSlots, itemsBySlot, index + 1, currentSelection, combinations);
+        for (SavedImportedItem item : itemsBySlot.get(slot)) {
+            currentSelection.add(item);
+            generateSearchCombinationsRecursive(orderedSlots, itemsBySlot, index + 1, currentSelection, combinations);
+            currentSelection.removeLast();
+        }
+    }
+
+    private CurrentBuildImportableStats aggregateContribution(List<SavedImportedItem> items) {
         long weaponDamage = 0L;
         double strength = 0.0d;
         double intelligence = 0.0d;
         double thorns = 0.0d;
         double blockChance = 0.0d;
         double retributionChance = 0.0d;
-        for (SavedImportedItem activeItem : activeItems) {
-            ImportedItemCurrentBuildContribution contribution = contributionMapper.map(activeItem);
+        for (SavedImportedItem item : items) {
+            ImportedItemCurrentBuildContribution contribution = contributionMapper.map(item);
             weaponDamage += contribution.getWeaponDamage();
             strength += contribution.getStrength();
             intelligence += contribution.getIntelligence();
@@ -128,6 +165,22 @@ public final class ItemLibraryService {
                 thorns,
                 blockChance,
                 retributionChance
+        );
+    }
+
+    private CurrentBuildImportableStats applyContribution(CurrentBuildImportableStats manualBaseStats,
+                                                          CurrentBuildImportableStats contribution) {
+        return applicationService.apply(
+                manualBaseStats,
+                new ImportedItemCurrentBuildContribution(
+                        contribution.getWeaponDamage(),
+                        contribution.getStrength(),
+                        contribution.getIntelligence(),
+                        contribution.getThorns(),
+                        contribution.getBlockChance(),
+                        contribution.getRetributionChance()
+                ),
+                krys.itemimport.CurrentBuildItemApplicationMode.ADD_CONTRIBUTION
         );
     }
 

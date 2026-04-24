@@ -14,6 +14,7 @@ import java.util.Map;
  * Search działa na dyskretnych wartościach wejścia i generuje kandydatów wyłącznie z aktualnego foundation runtime.
  */
 public final class BuildSearchRequest {
+    private final boolean useItemLibrary;
     private final List<Integer> levelValues;
     private final List<Long> weaponDamageValues;
     private final List<Double> strengthValues;
@@ -37,8 +38,35 @@ public final class BuildSearchRequest {
                               List<Integer> actionBarSizes,
                               int horizonSeconds,
                               int topResultsLimit) {
+        this(false,
+                levelValues,
+                weaponDamageValues,
+                strengthValues,
+                intelligenceValues,
+                thornsValues,
+                blockChanceValues,
+                retributionChanceValues,
+                skillSpaces,
+                actionBarSizes,
+                horizonSeconds,
+                topResultsLimit);
+    }
+
+    public BuildSearchRequest(boolean useItemLibrary,
+                              List<Integer> levelValues,
+                              List<Long> weaponDamageValues,
+                              List<Double> strengthValues,
+                              List<Double> intelligenceValues,
+                              List<Double> thornsValues,
+                              List<Double> blockChanceValues,
+                              List<Double> retributionChanceValues,
+                              Map<SkillId, BuildSearchSkillSpace> skillSpaces,
+                              List<Integer> actionBarSizes,
+                              int horizonSeconds,
+                              int topResultsLimit) {
+        this.useItemLibrary = useItemLibrary;
         this.levelValues = Collections.unmodifiableList(normalizePositiveIntegers(levelValues, "Level"));
-        this.weaponDamageValues = Collections.unmodifiableList(normalizePositiveLongs(weaponDamageValues, "Weapon damage"));
+        this.weaponDamageValues = Collections.unmodifiableList(normalizeWeaponDamageValues(weaponDamageValues, useItemLibrary));
         this.strengthValues = Collections.unmodifiableList(normalizeNonNegativeDoubles(strengthValues, "Strength"));
         this.intelligenceValues = Collections.unmodifiableList(normalizeNonNegativeDoubles(intelligenceValues, "Intelligence"));
         this.thornsValues = Collections.unmodifiableList(normalizeNonNegativeDoubles(thornsValues, "Thorns"));
@@ -56,6 +84,10 @@ public final class BuildSearchRequest {
 
         this.horizonSeconds = horizonSeconds;
         this.topResultsLimit = topResultsLimit;
+    }
+
+    public boolean isUseItemLibrary() {
+        return useItemLibrary;
     }
 
     public List<Integer> getLevelValues() {
@@ -124,15 +156,22 @@ public final class BuildSearchRequest {
         return normalized;
     }
 
-    private static List<Long> normalizePositiveLongs(List<Long> values, String label) {
+    private static List<Long> normalizeWeaponDamageValues(List<Long> values, boolean useItemLibrary) {
         if (values == null || values.isEmpty()) {
-            throw new IllegalArgumentException(label + " values nie mogą być puste");
+            throw new IllegalArgumentException("Weapon damage values nie mogą być puste");
         }
 
         LinkedHashSet<Long> unique = new LinkedHashSet<>();
         for (Long value : values) {
-            if (value == null || value <= 0L) {
-                throw new IllegalArgumentException(label + " musi być dodatnie");
+            if (value == null) {
+                throw new IllegalArgumentException("Weapon damage values nie mogą zawierać nulla");
+            }
+            if (useItemLibrary) {
+                if (value < 0L) {
+                    throw new IllegalArgumentException("Weapon damage nie może być ujemne");
+                }
+            } else if (value <= 0L) {
+                throw new IllegalArgumentException("Weapon damage musi być dodatnie");
             }
             unique.add(value);
         }

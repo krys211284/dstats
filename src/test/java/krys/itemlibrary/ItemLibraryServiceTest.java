@@ -96,4 +96,79 @@ class ItemLibraryServiceTest {
         assertEquals(28.0d, resolution.getEffectiveStats().getBlockChance());
         assertEquals(40.0d, resolution.getEffectiveStats().getRetributionChance());
     }
+
+    @Test
+    void shouldGenerateDeterministicSearchCombinationsWithAtMostOneItemPerSlot() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-library-search-combinations");
+        ItemLibraryService service = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+
+        service.saveImportedItem(new ValidatedImportedItem(
+                "weapon-a.png",
+                EquipmentSlot.MAIN_HAND,
+                300L,
+                55.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d
+        ));
+        service.saveImportedItem(new ValidatedImportedItem(
+                "weapon-b.png",
+                EquipmentSlot.MAIN_HAND,
+                321L,
+                60.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d
+        ));
+        service.saveImportedItem(new ValidatedImportedItem(
+                "shield-a.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                11.0d,
+                90.0d,
+                18.0d,
+                25.0d
+        ));
+
+        List<ItemLibrarySearchCombination> combinations = service.generateSearchCombinations();
+
+        assertEquals(6, combinations.size());
+        assertEquals("EMPTY", combinations.getFirst().toDeterministicKey());
+        assertEquals(
+                List.of(
+                        "EMPTY",
+                        "OFF_HAND#3",
+                        "MAIN_HAND#1",
+                        "MAIN_HAND#1|OFF_HAND#3",
+                        "MAIN_HAND#2",
+                        "MAIN_HAND#2|OFF_HAND#3"
+                ),
+                combinations.stream().map(ItemLibrarySearchCombination::toDeterministicKey).toList()
+        );
+        assertEquals(0L, combinations.getFirst().getTotalContribution().getWeaponDamage());
+        assertEquals(321L, combinations.get(4).getTotalContribution().getWeaponDamage());
+        assertEquals(90.0d, combinations.get(1).getTotalContribution().getThorns());
+        assertEquals(321L, combinations.getLast().getTotalContribution().getWeaponDamage());
+        assertEquals(60.0d, combinations.getLast().getTotalContribution().getStrength());
+        assertEquals(11.0d, combinations.getLast().getTotalContribution().getIntelligence());
+        assertEquals(90.0d, combinations.getLast().getTotalContribution().getThorns());
+        assertEquals(18.0d, combinations.getLast().getTotalContribution().getBlockChance());
+        assertEquals(25.0d, combinations.getLast().getTotalContribution().getRetributionChance());
+        assertEquals(
+                List.of(0, 1, 1, 2, 1, 2),
+                combinations.stream().map(combination -> combination.getSelectedItems().size()).toList()
+        );
+        assertEquals(
+                List.of(true, true, true, true, true, true),
+                combinations.stream()
+                        .map(combination -> combination.getSelectedItems().stream()
+                                .map(SavedImportedItem::getSlot)
+                                .distinct()
+                                .count() == combination.getSelectedItems().size())
+                        .toList()
+        );
+    }
 }

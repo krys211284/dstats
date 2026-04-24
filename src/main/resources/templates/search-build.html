@@ -58,6 +58,18 @@
             align-items: end;
         }
         label { display: grid; gap: 8px; font-weight: 600; }
+        .checkbox-label { align-content: start; }
+        .checkbox-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            font-weight: 400;
+            line-height: 1.5;
+        }
+        .checkbox-row input {
+            margin-top: 3px;
+            transform: scale(1.1);
+        }
         input[type="text"], input[type="number"] {
             width: 100%;
             padding: 10px 12px;
@@ -124,7 +136,7 @@
     <header class="hero">
         <div class="eyebrow">M12 / Search GUI SSR</div>
         <h1>Znajdź najlepszy build</h1>
-        <p>To jest minimalne GUI SSR dla backendowego build searcha. Ekran buduje rzeczywisty `BuildSearchRequest`, pokazuje audit/preflight search space, uruchamia ten sam backend co CLI, renderuje top wyniki po normalizacji prezentacyjnej i pozwala wejść w drill-down pojedynczego reprezentanta.</p>
+        <p>To jest minimalne GUI SSR dla backendowego build searcha. Ekran buduje rzeczywisty `BuildSearchRequest`, może rozszerzyć ręczną bazę statów o kombinacje zapisanych itemów z biblioteki, pokazuje audit/preflight search space, uruchamia ten sam backend co CLI i pozwala wejść w drill-down pojedynczego reprezentanta.</p>
     </header>
 
     <section class="panel">
@@ -135,7 +147,7 @@
             </div>
 
             <p class="helper">{{HELP_TEXT}}</p>
-            <p class="helper">Pola listowe przyjmują wartości oddzielone przecinkami, np. `13,15` albo `false,true`. Choice values podawaj jako enumy, np. `NONE,LEFT,RIGHT`.</p>
+            <p class="helper">Pola listowe przyjmują wartości oddzielone przecinkami, np. `13,15` albo `false,true`. Choice values podawaj jako enumy, np. `NONE,LEFT,RIGHT`. W trybie biblioteki itemów `weapon damage values` może zawierać `0`, jeśli dodatni weapon damage wnosi wybrany item z biblioteki.</p>
 
             <section class="subpanel">
                 <h3>Zakresy skilli foundation</h3>

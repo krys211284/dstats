@@ -1,5 +1,7 @@
 package krys.search;
 
+import krys.itemlibrary.ItemLibraryService;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -12,6 +14,11 @@ public final class BuildSearchCalculationService {
 
     public BuildSearchCalculationService(BuildSearchEvaluationService evaluationService) {
         this(new BuildSearchCandidateGenerator(), evaluationService, new BuildSearchPresentationNormalizer());
+    }
+
+    public BuildSearchCalculationService(BuildSearchEvaluationService evaluationService,
+                                         ItemLibraryService itemLibraryService) {
+        this(new BuildSearchCandidateGenerator(itemLibraryService), evaluationService, new BuildSearchPresentationNormalizer());
     }
 
     BuildSearchCalculationService(BuildSearchCandidateGenerator candidateGenerator,

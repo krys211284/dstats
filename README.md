@@ -41,6 +41,7 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - dwa czytelnie nazwane tryby zastosowania zatwierdzonego itemu do current build: `Zastosuj do current build` oraz `Dodaj wkład do current build`,
 - minimalną trwałą bibliotekę zapisanych itemów z wieloma itemami tego samego slotu, zapisywaną lokalnie w stabilnym katalogu użytkownika,
 - wybór jednego aktywnego itemu per slot w bibliotece oraz deterministyczne dodawanie aktywnych itemów do ręcznej bazy current build,
+- nowy tryb searcha po bibliotece itemów, który generuje kombinacje zapisanych itemów per slot i nadal składa je do effective current build przed tym samym runtime,
 - pierwsze minimalne webowe GUI SSR dla trybu `Znajdź najlepszy build`,
 - pierwszy drill-down SSR z wyniku searcha do pełnej analizy reprezentanta znormalizowanego wyniku na tym samym runtime co manual simulation,
 - foundation audytu/preflightu searcha z liczbą legalnych kandydatów i rozmiarem search space,
@@ -96,11 +97,13 @@ Kontrakt aktualnej warstwy aplikacyjnej:
 - `ItemLibraryDataDirectoryResolver` rozwiązuje katalog trwałych danych biblioteki itemów przez `dstats.dataDir` albo domyślny katalog użytkownika `~/.dstats/item-library/` i wykonuje bezpieczną migrację z legacy `target/item-library-runtime/`,
 - biblioteka itemów pozostaje warstwą aplikacyjną przed `CurrentBuildRequest`,
 - effective current build jest składany jako `ręczna baza formularza, która może pozostać częściowo pusta albo zerowa + aktywne itemy z biblioteki -> finalne effective current build stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
+- tryb searcha po bibliotece itemów używa analogicznego kontraktu `ręczna baza searcha, która może pozostać częściowo pusta albo zerowa + kandydacka kombinacja zapisanych itemów z biblioteki -> finalne effective current build stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
 - walidacja wejścia current build dotyczy finalnych effective stats mapowanych do `CurrentBuildRequest`, a nie wyłącznie surowej ręcznej bazy formularza,
 - GUI importu itemu pozostaje cienką warstwą wejściową nad obecnym modelem current build i nie implementuje alternatywnego runtime,
 - CLI searcha mapuje argumenty do `BuildSearchRequest` przez `BuildSearchCliRequestParser`,
 - GUI searcha mapuje formularz do `BuildSearchRequest` przez `SearchBuildFormMapper`,
 - `BuildSearchCalculationService` generuje legalnych kandydatów przez `BuildSearchCandidateGenerator`,
+- przy włączonym trybie biblioteki itemów `BuildSearchCandidateGenerator` pobiera deterministyczne kombinacje `0..1 zapisany item per slot`, składa ich wkład do effective current build i dopiero wtedy buduje `CurrentBuildRequest`,
 - każdy kandydat searcha jest adaptowany do `CurrentBuildRequest`, a następnie do `HeroBuildSnapshot` przez ten sam `CurrentBuildSnapshotFactory`,
 - `BuildSearchEvaluationService` ocenia kandydatów przez ten sam `ManualSimulationService`,
 - `BuildSearchCandidateGenerator` liczy także preflight/audit dokładnie dla tej samej legalnej przestrzeni kandydatów, którą później generuje do oceny,
@@ -298,6 +301,14 @@ Kontrakt integracji biblioteki z current build:
 - walidacja requestu dotyczy dopiero finalnych effective stats po zsumowaniu ręcznej bazy i aktywnych itemów,
 - `CurrentBuildSnapshotFactory` i runtime nadal pracują na tych samych płaskich polach co wcześniej,
 - biblioteka itemów nie buduje alternatywnego snapshot flow i nie omija istniejącego runtime.
+
+Kontrakt integracji biblioteki z backendowym searchem:
+- tryb biblioteki itemów jest opcjonalnym rozszerzeniem istniejącego `BuildSearchRequest`, a nie osobnym trybem runtime,
+- search generuje kombinacje co najwyżej jednego zapisanego itemu per slot wyłącznie z aktualnej biblioteki użytkownika,
+- search nie buduje pełnego equipment managera ani osobnego modelu całego ekwipunku,
+- dla każdej kombinacji biblioteki search liczy łączny wkład itemów i składa go do ręcznej bazy searcha przed zbudowaniem `CurrentBuildRequest`,
+- kandydat searcha, wynik listy top oraz drill-down przenoszą tę samą kombinację biblioteki itemów bez ponownego mapowania do alternatywnego pipeline'u,
+- włączenie trybu biblioteki itemów nie zmienia `CurrentBuildSnapshotFactory`, `ManualSimulationService` ani `Damage Engine`.
 
 Kontrakt trwałości danych biblioteki:
 - domyślny katalog danych biblioteki itemów to `~/.dstats/item-library/`,
@@ -595,12 +606,14 @@ Preflight / audit nie uruchamia jeszcze właściwej oceny runtime. Jest to osobn
 Minimalny kontrakt preflightu searcha obejmuje:
 - liczbę legalnych kandydatów,
 - rozmiar wejściowej przestrzeni statów,
+- opcjonalnie rozmiar przestrzeni kombinacji biblioteki itemów, gdy tryb biblioteki jest włączony,
 - rozmiar przestrzeni skilli,
 - rozmiar przestrzeni action bara,
 - klasyfikację skali search space.
 
 Definicje kontraktowe aktualnego foundation searcha:
 - `rozmiar wejściowej przestrzeni statów` to iloczyn liczby dozwolonych wartości `level`, `weapon damage`, `strength`, `intelligence`, `thorns`, `block chance` i `retribution chance`,
+- `rozmiar przestrzeni biblioteki itemów` to liczba deterministycznie wygenerowanych kombinacji `0..1 item per slot` z aktualnie zapisanej biblioteki użytkownika,
 - `rozmiar przestrzeni skilli` to liczba legalnych wariantów nauczonych skilli wygenerowanych z aktualnych zakresów `rank`, `base upgrade` i `choice`,
 - `rozmiar przestrzeni action bara` to łączna liczba legalnych konfiguracji action bara wynikających z legalnych wariantów skilli i dozwolonych rozmiarów paska,
 - `liczba legalnych kandydatów` to dokładnie ta sama liczba kandydatów, która później zostanie oceniona przez backend searcha.
@@ -621,10 +634,17 @@ Aktualny backend search obejmuje wyłącznie foundation:
 
 Wejście searcha jest dyskretne i ograniczone:
 - zakres statów wejściowych jest podawany jako lista dozwolonych wartości,
+- przy włączonym trybie biblioteki `weapon damage` w ręcznej bazie może wynosić `0`, jeżeli dodatni `weapon damage` wnosi wybrany item z biblioteki,
 - zakres stanu każdego skilla jest podawany jako lista dozwolonych `rank`, `base upgrade` i `choice`,
 - search generuje wyłącznie stany legalne względem kontraktu `SkillState`,
 - `rank 0` oznacza `OFF` i nie może mieć upgrade'ów,
 - search nie tworzy nielegalnych kombinacji choice bez bazowego rozszerzenia.
+
+Kontrakt kandydatów itemowych z biblioteki:
+- search rozważa wyłącznie zapisane itemy biblioteki użytkownika,
+- search wybiera co najwyżej jeden item per slot,
+- search może pozostawić slot bez wybranego itemu, jeżeli dana kombinacja go nie zawiera,
+- search nie przechowuje osobnego runtime pełnego equipmentu; przekształca tylko łączny wkład wybranej kombinacji do istniejących płaskich pól current build.
 
 ### 9.4. Etap 3 - konfiguracje paska skilli
 Aktualny backend search generuje legalne konfiguracje paska skilli dla wskazanych rozmiarów action bara.
@@ -653,7 +673,7 @@ Search nie może:
 Ranking kandydatów jest deterministyczny i na obecnym etapie sortuje po:
 1. `total damage` malejąco,
 2. `DPS` malejąco,
-3. deterministycznym kluczu opisu kandydata.
+3. deterministycznym kluczu opisu kandydata, który przy trybie biblioteki obejmuje także wybraną kombinację itemów.
 
 Po posortowaniu surowych ocen działa warstwa normalizacji prezentacyjnej:
 - normalizacja nie zmienia generatora kandydatów,
@@ -661,6 +681,7 @@ Po posortowaniu surowych ocen działa warstwa normalizacji prezentacyjnej:
 - normalizacja nie zmienia surowej kolejności oceny,
 - normalizacja redukuje tylko rekordy równoważne użytkowo dla aktualnego foundation,
 - normalizacja nie może scalać wyników, które zmieniają zachowanie runtime,
+- normalizacja nie może scalać dwóch różnych kombinacji itemów biblioteki, nawet jeśli dają taki sam runtime signature,
 - dla aktualnego foundation dopuszczalne jest scalenie kandydatów różniących się wyłącznie dodatkowymi nauczonymi skillami poza action barem, jeśli action bar, konfiguracja skilli na pasku i sygnatura runtime pozostają takie same.
 
 Minimalny wynik użytkowy searcha zawiera:
@@ -670,6 +691,9 @@ Minimalny wynik użytkowy searcha zawiera:
 - opis wejściowego buildu,
 - opis skilli znajdujących się na action barze,
 - wybrany action bar,
+- informację, czy wynik korzysta z trybu biblioteki itemów,
+- listę wybranych itemów z biblioteki per slot,
+- łączny wkład wybranych itemów do effective stats,
 - `total damage`,
 - `DPS`.
 
@@ -677,6 +701,7 @@ Aktualny drill-down searcha:
 - nie zmienia generatora kandydatów ani liczby ocenionych kandydatów,
 - nie zmienia surowej oceny ani rankingu,
 - pokazuje szczegóły reprezentanta wybranego wyniku po normalizacji,
+- odtwarza tę samą kombinację itemów z biblioteki i ten sam łączny wkład itemów widoczny na liście wyników,
 - odtwarza szczegóły przez ten sam runtime i te same modele wynikowe co `Policz aktualny build`.
 
 Poza aktualnym zakresem foundation searcha pozostają:
@@ -684,6 +709,7 @@ Poza aktualnym zakresem foundation searcha pozostają:
 - eksport CSV,
 - wielowątkowość,
 - zaawansowane heurystyki i optymalizacje wydajności,
+- pełny inventory manager i pełny stash budowane jako osobny model searcha,
 - bogatszy UX searcha ponad minimalny SSR.
 
 ## 10. UI, debug i prezentacja wyników
@@ -755,6 +781,7 @@ Aktualny foundation implementuje backendowy wynik searcha, preflight / audit, mi
 Minimalny kontrakt prezentacyjny audytu / preflightu searcha:
 - pokazanie liczby legalnych kandydatów,
 - pokazanie rozmiaru wejściowej przestrzeni statów,
+- przy włączonym trybie biblioteki pokazanie rozmiaru przestrzeni biblioteki itemów,
 - pokazanie rozmiaru przestrzeni skilli,
 - pokazanie rozmiaru przestrzeni action bara,
 - pokazanie skali `mała`, `średnia` albo `duża` według jawnych progów kontraktowych.
@@ -766,12 +793,15 @@ Minimalny kontrakt prezentacyjny listy wyników searcha:
 - pokazanie top `N` wyników po normalizacji,
 - dla każdego wyniku pokazanie opisu wejściowego buildu,
 - dla każdego wyniku pokazanie skilli na action barze i samego action bara,
+- dla każdego wyniku pokazanie stanu trybu biblioteki itemów,
+- dla każdego wyniku pokazanie wybranych itemów z biblioteki per slot i ich łącznego wkładu,
 - dla każdego wyniku pokazanie `total damage` i `DPS`,
 - dla każdego wyniku pokazanie akcji przejścia do szczegółów reprezentanta.
 
 Kontrakt prezentacyjny drill-downu searcha:
 - drill-down jednoznacznie wskazuje wybrany wynik po normalizacji,
 - drill-down pokazuje `Build input`, `Action bar skills`, `Action bar`, `total damage` oraz `DPS`,
+- drill-down pokazuje `Tryb biblioteki itemów`, `Wybrane itemy z biblioteki` oraz `Łączny wkład itemów`,
 - drill-down pokazuje `Direct hit debug`, `Delayed hit debug`, `Reactive debug` oraz `stepTrace`,
 - drill-down pokazuje końcowe stany `Judgement`, `Resolve`, `Active block chance` oraz `Active thorns bonus`,
 - drill-down używa dokładnie tego samego runtime i tych samych modeli wynikowych co `Policz aktualny build`,
@@ -857,15 +887,15 @@ http://127.0.0.1:8080/znajdz-najlepszy-build
 
 Kontrakt prezentacji dla smoke testu GUI searcha:
 - GUI searcha jest po polsku i jasno komunikuje, że to minimalny SSR nad istniejącym backendem searcha,
-- GUI searcha pozwala ustawić level, weapon damage, strength, intelligence, thorns, block chance, retribution chance, zakresy skilli foundation, rozmiary action bara, top N i horyzont symulacji,
+- GUI searcha pozwala ustawić level, weapon damage, strength, intelligence, thorns, block chance, retribution chance, zakresy skilli foundation, rozmiary action bara, top N, horyzont symulacji oraz opcjonalny tryb biblioteki itemów,
 - GUI searcha przechodzi przez kontrakt `SearchBuildFormMapper -> BuildSearchRequest -> BuildSearchCalculationService -> BuildSearchPresentationNormalizer`,
 - GUI searcha pokazuje audit / preflight searcha obok wyniku,
-- GUI searcha pokazuje `Liczba legalnych kandydatów`, `Rozmiar przestrzeni statów`, `Rozmiar przestrzeni skilli`, `Rozmiar przestrzeni action bara` oraz `Skala search space`,
+- GUI searcha pokazuje `Liczba legalnych kandydatów`, `Rozmiar przestrzeni statów`, opcjonalnie `Rozmiar przestrzeni biblioteki itemów`, `Rozmiar przestrzeni skilli`, `Rozmiar przestrzeni action bara` oraz `Skala search space`,
 - GUI searcha pokazuje wejściową przestrzeń searcha,
-- GUI searcha pokazuje `Ocenieni kandydaci`, `Wyniki po normalizacji`, `Top wyniki po normalizacji`, `Build input`, `Action bar skills`, `Action bar`, `Total damage` oraz `DPS`,
+- GUI searcha pokazuje `Ocenieni kandydaci`, `Wyniki po normalizacji`, `Top wyniki po normalizacji`, `Build input`, `Action bar skills`, `Action bar`, `Tryb biblioteki itemów`, `Wybrane itemy z biblioteki`, `Łączny wkład itemów`, `Total damage` oraz `DPS`,
 - GUI searcha pozwala z listy wyników przejść do szczegółów reprezentanta przez osobny SSR drill-down,
 - drill-down przechodzi przez kontrakt `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> CurrentBuildCalculationService -> runtime`,
-- drill-down pokazuje `Build input`, `Action bar skills`, `Action bar`, `Total damage`, `DPS`, `Direct hit debug`, `Delayed hit debug`, `Reactive debug`, `Step trace`, `Judgement aktywny na końcu`, `Resolve aktywny na końcu`, `Active block chance na końcu` oraz `Active thorns bonus na końcu`,
+- drill-down pokazuje `Build input`, `Action bar skills`, `Action bar`, `Tryb biblioteki itemów`, `Wybrane itemy z biblioteki`, `Łączny wkład itemów`, `Total damage`, `DPS`, `Direct hit debug`, `Delayed hit debug`, `Reactive debug`, `Step trace`, `Judgement aktywny na końcu`, `Resolve aktywny na końcu`, `Active block chance na końcu` oraz `Active thorns bonus na końcu`,
 - GUI searcha nie implementuje live progressu, CSV, wielowątkowości ani rozbudowanego UX ponad minimalny SSR.
 
 Smoke test CLI searcha:
@@ -879,10 +909,10 @@ Kontrakt prezentacji dla smoke testu searcha:
 - search CLI wypisuje audit / preflight searcha jeszcze przed top wynikami,
 - search CLI wypisuje start searcha, postęp ocenionych kandydatów i zakończenie,
 - search CLI wypisuje wejściową przestrzeń searcha,
-- search CLI wypisuje `Liczba legalnych kandydatów`, `Rozmiar przestrzeni statów`, `Rozmiar przestrzeni skilli`, `Rozmiar przestrzeni action bara` oraz `Skala search space`,
+- search CLI wypisuje `Liczba legalnych kandydatów`, `Rozmiar przestrzeni statów`, opcjonalnie `Rozmiar przestrzeni biblioteki itemów`, `Rozmiar przestrzeni skilli`, `Rozmiar przestrzeni action bara` oraz `Skala search space`,
 - search CLI wypisuje liczbę ocenionych kandydatów,
 - search CLI wypisuje liczbę wyników po normalizacji,
-- search CLI wypisuje top `N` wyników po normalizacji z opisem buildu, skillami na action barze i samym action barem,
+- search CLI wypisuje top `N` wyników po normalizacji z opisem buildu, skillami na action barze, action barem, stanem trybu biblioteki itemów, wybranymi itemami biblioteki i ich łącznym wkładem,
 - search CLI wypisuje `total damage` oraz `DPS`,
 - search CLI przechodzi przez kontrakt `BuildSearchRequest -> BuildSearchCandidateGenerator -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> BuildSearchEvaluationService -> ManualSimulationService -> BuildSearchPresentationNormalizer`,
 - dla referencyjnego smoke testu `FOUNDATION_M9 --top 5` search CLI daje `Ocenieni kandydaci = 2949`, `Wyniki po normalizacji = 137` oraz top 1 `total damage = 439`, `DPS = 48.7778`, `Action bar = Advance -> Clash`.
@@ -1004,6 +1034,9 @@ Minimalny zakres testów obejmuje:
 - SSR ustawienia aktywnego itemu w bibliotece,
 - render sekcji aktywnych itemów na `/policz-aktualny-build`,
 - generowanie legalnych kandydatów searcha,
+- generowanie deterministycznych kombinacji itemów biblioteki do searcha,
+- zasadę najwyżej jednego itemu per slot w kombinacji searcha po bibliotece,
+- integrację `kandydat biblioteki itemów -> effective stats -> CurrentBuildRequest`,
 - poprawne wyliczenie liczby legalnych kandydatów w preflight searcha,
 - spójność preflight searcha z rzeczywistą liczbą ocenionych kandydatów,
 - zachowanie legalności action bara w searchu,
@@ -1012,15 +1045,17 @@ Minimalny zakres testów obejmuje:
 - brak zmiany wyników rankingu po dodaniu audytu i progressu,
 - zachowanie liczby ocenionych kandydatów po dodaniu normalizacji wyników,
 - normalizację top wyników bez zmiany surowej oceny,
+- brak scalenia dwóch różnych kombinacji itemów biblioteki podczas normalizacji wyników,
 - deterministyczny porządek wyników po normalizacji,
 - CLI / entrypoint backendowego searcha,
 - obecność informacji auditowych w CLI searcha,
 - GET formularza GUI searcha,
 - POST uruchamiającego GUI searcha,
-- obecność sekcji `Audit / preflight searcha`, `Ocenieni kandydaci`, `Wyniki po normalizacji`, `Top wyniki po normalizacji`, `Total damage` i `DPS` w GUI searcha,
+- obecność sekcji `Audit / preflight searcha`, `Ocenieni kandydaci`, `Wyniki po normalizacji`, `Top wyniki po normalizacji`, `Tryb biblioteki itemów`, `Wybrane itemy z biblioteki`, `Łączny wkład itemów`, `Total damage` i `DPS` w GUI searcha,
 - przejście z listy wyników searcha do szczegółów kandydata,
-- obecność sekcji `Total damage`, `DPS`, `Direct hit debug`, `Delayed hit debug`, `Reactive debug` i `Step trace` w drill-downie searcha,
+- obecność sekcji `Tryb biblioteki itemów`, `Wybrane itemy z biblioteki`, `Łączny wkład itemów`, `Total damage`, `DPS`, `Direct hit debug`, `Delayed hit debug`, `Reactive debug` i `Step trace` w drill-downie searcha,
 - użycie tego samego runtime do wyliczenia szczegółów drill-downu searcha,
+- odtworzenie tej samej kombinacji itemów biblioteki w drill-downie searcha,
 - bezpieczne kopiowanie pustego stanu snapshotu,
 - specjalną regułę zaokrąglenia prowadzącą do `raw crit hit = 52`.
 

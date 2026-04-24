@@ -45,7 +45,8 @@ public final class CurrentBuildWebServer implements AutoCloseable {
                 new SearchBuildDetailsPageRenderer()
         );
         BuildSearchCalculationService searchCalculationService = new BuildSearchCalculationService(
-                new BuildSearchEvaluationService(new ManualSimulationService(new DamageEngine()))
+                new BuildSearchEvaluationService(new ManualSimulationService(new DamageEngine())),
+                itemLibraryService
         );
         SearchBuildController searchController = new SearchBuildController(
                 searchCalculationService,

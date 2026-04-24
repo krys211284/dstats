@@ -3,6 +3,9 @@ package krys.web;
 import krys.app.CurrentBuildCalculation;
 import krys.app.CurrentBuildCalculationService;
 import krys.combat.DamageEngine;
+import krys.item.EquipmentSlot;
+import krys.itemlibrary.FileItemLibraryRepository;
+import krys.itemlibrary.ItemLibraryService;
 import krys.simulation.ManualSimulationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,10 +36,12 @@ class SearchBuildWebServerTest {
     private CurrentBuildWebServer webServer;
     private HttpClient httpClient;
     private String baseUrl;
+    private Path tempDirectory;
 
     @BeforeEach
     void setUp() throws IOException {
-        Path tempDirectory = Files.createTempDirectory("search-build-web");
+        tempDirectory = Files.createTempDirectory("search-build-web");
+        seedItemLibrary(tempDirectory);
         webServer = new CurrentBuildWebServer(0, tempDirectory);
         webServer.start();
         httpClient = HttpClient.newHttpClient();
@@ -59,6 +64,7 @@ class SearchBuildWebServerTest {
         assertTrue(response.body().contains("Przestrzeń searcha"));
         assertTrue(response.body().contains("name=\"levelValues\""));
         assertTrue(response.body().contains("name=\"weaponDamageValues\""));
+        assertTrue(response.body().contains("name=\"useItemLibrary\""));
         assertTrue(response.body().contains("name=\"actionBarSizes\""));
         assertTrue(response.body().contains("name=\"topResultsLimit\""));
         assertTrue(response.body().contains(SearchBuildFormData.rankValuesFieldName(krys.skill.SkillId.ADVANCE)));
@@ -118,6 +124,9 @@ class SearchBuildWebServerTest {
         assertTrue(detailResponse.body().contains("Build input"));
         assertTrue(detailResponse.body().contains("Action bar skills"));
         assertTrue(detailResponse.body().contains("Action bar"));
+        assertTrue(detailResponse.body().contains("Tryb biblioteki itemów"));
+        assertTrue(detailResponse.body().contains("Wybrane itemy z biblioteki"));
+        assertTrue(detailResponse.body().contains("Łączny wkład itemów"));
         assertTrue(detailResponse.body().contains("Total damage"));
         assertTrue(detailResponse.body().contains("DPS"));
         assertTrue(detailResponse.body().contains("Direct hit debug"));
@@ -134,6 +143,51 @@ class SearchBuildWebServerTest {
         CurrentBuildCalculation expectedCalculation = calculateDrillDownExpectedResult(detailFields);
         assertTrue(detailResponse.body().contains(">" + expectedCalculation.getResult().getTotalDamage() + "<"));
         assertTrue(detailResponse.body().contains(String.format(Locale.US, "%.4f", expectedCalculation.getResult().getDps())));
+    }
+
+    @Test
+    void shouldRenderSelectedLibraryItemsAndReuseSameCombinationInDrillDown() throws Exception {
+        Map<String, String> fields = buildReferenceSearchFields();
+        fields.put("useItemLibrary", "true");
+        fields.put("weaponDamageValues", "0");
+        fields.put("strengthValues", "18");
+        fields.put("intelligenceValues", "0");
+        fields.put("thornsValues", "50");
+        fields.put("blockChanceValues", "50");
+        fields.put("retributionChanceValues", "50");
+        fields.put("actionBarSizes", "1");
+        fields.put(SearchBuildFormData.rankValuesFieldName(krys.skill.SkillId.BRANDISH), "0");
+        fields.put(SearchBuildFormData.rankValuesFieldName(krys.skill.SkillId.HOLY_BOLT), "0");
+        fields.put(SearchBuildFormData.rankValuesFieldName(krys.skill.SkillId.CLASH), "0");
+        fields.put(SearchBuildFormData.rankValuesFieldName(krys.skill.SkillId.ADVANCE), "5");
+        fields.put(SearchBuildFormData.baseUpgradeValuesFieldName(krys.skill.SkillId.ADVANCE), "true");
+        fields.put(SearchBuildFormData.choiceValuesFieldName(krys.skill.SkillId.ADVANCE), "LEFT");
+
+        HttpResponse<String> searchResponse = sendPost("/znajdz-najlepszy-build", fields);
+
+        assertEquals(200, searchResponse.statusCode());
+        assertTrue(searchResponse.body().contains("Tryb biblioteki itemów"));
+        assertTrue(searchResponse.body().contains("Włączony"));
+        assertTrue(searchResponse.body().contains("Wybrane itemy z biblioteki"));
+        assertTrue(searchResponse.body().contains("MAIN_HAND"));
+        assertTrue(searchResponse.body().contains("OFF_HAND"));
+        assertTrue(searchResponse.body().contains("Łączny wkład itemów"));
+        assertTrue(searchResponse.body().contains("weapon=321"));
+
+        Map<String, String> detailFields = extractFirstDetailsFormFields(searchResponse.body());
+        HttpResponse<String> detailResponse = sendPost("/znajdz-najlepszy-build/szczegoly", detailFields);
+
+        assertEquals(200, detailResponse.statusCode());
+        assertTrue(detailResponse.body().contains("Tryb biblioteki itemów"));
+        assertTrue(detailResponse.body().contains("Włączony"));
+        assertTrue(detailResponse.body().contains("Wybrane itemy z biblioteki"));
+        assertTrue(detailResponse.body().contains("MAIN_HAND"));
+        assertTrue(detailResponse.body().contains("OFF_HAND"));
+        assertTrue(detailResponse.body().contains("weapon=321"));
+        assertTrue(detailResponse.body().contains("int=11"));
+
+        CurrentBuildCalculation expectedCalculation = calculateDrillDownExpectedResult(detailFields);
+        assertTrue(detailResponse.body().contains(">" + expectedCalculation.getResult().getTotalDamage() + "<"));
     }
 
     private static Map<String, String> buildReferenceSearchFields() {
@@ -221,5 +275,39 @@ class SearchBuildWebServerTest {
                 .replace("&gt;", ">")
                 .replace("&lt;", "<")
                 .replace("&amp;", "&");
+    }
+
+    private static void seedItemLibrary(Path tempDirectory) {
+        ItemLibraryService itemLibraryService = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+        itemLibraryService.saveImportedItem(new krys.itemimport.ValidatedImportedItem(
+                "weapon-a.png",
+                EquipmentSlot.MAIN_HAND,
+                300L,
+                55.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d
+        ));
+        itemLibraryService.saveImportedItem(new krys.itemimport.ValidatedImportedItem(
+                "weapon-b.png",
+                EquipmentSlot.MAIN_HAND,
+                321L,
+                60.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d
+        ));
+        itemLibraryService.saveImportedItem(new krys.itemimport.ValidatedImportedItem(
+                "shield-a.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                11.0d,
+                90.0d,
+                18.0d,
+                25.0d
+        ));
     }
 }

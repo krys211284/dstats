@@ -1,6 +1,9 @@
 package krys.search;
 
 import krys.app.CurrentBuildRequest;
+import krys.itemimport.CurrentBuildImportableStats;
+import krys.itemlibrary.ItemLibrarySearchCombination;
+import krys.itemlibrary.ItemLibraryService;
 import krys.skill.SkillId;
 import krys.skill.SkillState;
 import krys.skill.SkillUpgradeChoice;
@@ -16,14 +19,27 @@ import java.util.Map;
  * Generuje wyłącznie buildy oraz konfiguracje action bara zgodne z kontraktami manual simulation.
  */
 public final class BuildSearchCandidateGenerator {
+    private final ItemLibraryService itemLibraryService;
+
+    public BuildSearchCandidateGenerator() {
+        this(null);
+    }
+
+    public BuildSearchCandidateGenerator(ItemLibraryService itemLibraryService) {
+        this.itemLibraryService = itemLibraryService;
+    }
+
     public BuildSearchAudit audit(BuildSearchRequest request) {
         List<Map<SkillId, SkillState>> learnedSkillMaps = generateLearnedSkillMaps(request);
+        List<ItemLibrarySearchCombination> itemLibraryCombinations = resolveItemLibraryCombinations(request);
         long statSpaceSize = countStatSpace(request);
         long actionBarSpaceSize = countActionBarSpace(learnedSkillMaps, request.getActionBarSizes());
-        long legalCandidateCount = statSpaceSize * actionBarSpaceSize;
+        long legalCandidateCount = generateCandidates(request, learnedSkillMaps, itemLibraryCombinations).size();
         return new BuildSearchAudit(
+                request.isUseItemLibrary(),
                 legalCandidateCount,
                 statSpaceSize,
+                itemLibraryCombinations.size(),
                 learnedSkillMaps.size(),
                 actionBarSpaceSize
         );
@@ -31,6 +47,23 @@ public final class BuildSearchCandidateGenerator {
 
     public List<BuildSearchCandidate> generate(BuildSearchRequest request) {
         List<Map<SkillId, SkillState>> learnedSkillMaps = generateLearnedSkillMaps(request);
+        List<ItemLibrarySearchCombination> itemLibraryCombinations = resolveItemLibraryCombinations(request);
+        return generateCandidates(request, learnedSkillMaps, itemLibraryCombinations);
+    }
+
+    private static long countStatSpace(BuildSearchRequest request) {
+        return (long) request.getLevelValues().size()
+                * request.getWeaponDamageValues().size()
+                * request.getStrengthValues().size()
+                * request.getIntelligenceValues().size()
+                * request.getThornsValues().size()
+                * request.getBlockChanceValues().size()
+                * request.getRetributionChanceValues().size();
+    }
+
+    private List<BuildSearchCandidate> generateCandidates(BuildSearchRequest request,
+                                                          List<Map<SkillId, SkillState>> learnedSkillMaps,
+                                                          List<ItemLibrarySearchCombination> itemLibraryCombinations) {
         List<BuildSearchCandidate> candidates = new ArrayList<>();
 
         for (Integer level : request.getLevelValues()) {
@@ -40,21 +73,35 @@ public final class BuildSearchCandidateGenerator {
                         for (Double thorns : request.getThornsValues()) {
                             for (Double blockChance : request.getBlockChanceValues()) {
                                 for (Double retributionChance : request.getRetributionChanceValues()) {
-                                    for (Map<SkillId, SkillState> learnedSkills : learnedSkillMaps) {
-                                        List<List<SkillId>> actionBars = generateActionBars(learnedSkills, request.getActionBarSizes());
-                                        for (List<SkillId> actionBar : actionBars) {
-                                            candidates.add(new BuildSearchCandidate(new CurrentBuildRequest(
-                                                    level,
-                                                    weaponDamage,
-                                                    strength,
-                                                    intelligence,
-                                                    thorns,
-                                                    blockChance,
-                                                    retributionChance,
-                                                    learnedSkills,
-                                                    actionBar,
-                                                    request.getHorizonSeconds()
-                                            )));
+                                    CurrentBuildImportableStats manualBaseStats = new CurrentBuildImportableStats(
+                                            weaponDamage,
+                                            strength,
+                                            intelligence,
+                                            thorns,
+                                            blockChance,
+                                            retributionChance
+                                    );
+                                    for (ItemLibrarySearchCombination itemLibraryCombination : itemLibraryCombinations) {
+                                        CurrentBuildImportableStats effectiveStats = resolveEffectiveStats(
+                                                request,
+                                                manualBaseStats,
+                                                itemLibraryCombination
+                                        );
+                                        for (Map<SkillId, SkillState> learnedSkills : learnedSkillMaps) {
+                                            List<List<SkillId>> actionBars = generateActionBars(learnedSkills, request.getActionBarSizes());
+                                            for (List<SkillId> actionBar : actionBars) {
+                                                BuildSearchCandidate candidate = createCandidate(
+                                                        request,
+                                                        level,
+                                                        effectiveStats,
+                                                        learnedSkills,
+                                                        actionBar,
+                                                        itemLibraryCombination
+                                                );
+                                                if (candidate != null) {
+                                                    candidates.add(candidate);
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -66,16 +113,6 @@ public final class BuildSearchCandidateGenerator {
         }
 
         return candidates;
-    }
-
-    private static long countStatSpace(BuildSearchRequest request) {
-        return (long) request.getLevelValues().size()
-                * request.getWeaponDamageValues().size()
-                * request.getStrengthValues().size()
-                * request.getIntelligenceValues().size()
-                * request.getThornsValues().size()
-                * request.getBlockChanceValues().size()
-                * request.getRetributionChanceValues().size();
     }
 
     private static long countActionBarSpace(List<Map<SkillId, SkillState>> learnedSkillMaps, List<Integer> actionBarSizes) {
@@ -90,6 +127,53 @@ public final class BuildSearchCandidateGenerator {
             }
         }
         return count;
+    }
+
+    private List<ItemLibrarySearchCombination> resolveItemLibraryCombinations(BuildSearchRequest request) {
+        if (!request.isUseItemLibrary()) {
+            return List.of(ItemLibrarySearchCombination.empty());
+        }
+        if (itemLibraryService == null) {
+            throw new IllegalArgumentException("Tryb searcha po bibliotece itemów wymaga skonfigurowanego ItemLibraryService.");
+        }
+        return itemLibraryService.generateSearchCombinations();
+    }
+
+    private CurrentBuildImportableStats resolveEffectiveStats(BuildSearchRequest request,
+                                                              CurrentBuildImportableStats manualBaseStats,
+                                                              ItemLibrarySearchCombination itemLibraryCombination) {
+        if (!request.isUseItemLibrary()) {
+            return manualBaseStats;
+        }
+        return itemLibraryService.resolveEffectiveStats(manualBaseStats, itemLibraryCombination);
+    }
+
+    private static BuildSearchCandidate createCandidate(BuildSearchRequest request,
+                                                        int level,
+                                                        CurrentBuildImportableStats effectiveStats,
+                                                        Map<SkillId, SkillState> learnedSkills,
+                                                        List<SkillId> actionBar,
+                                                        ItemLibrarySearchCombination itemLibraryCombination) {
+        try {
+            return new BuildSearchCandidate(
+                    new CurrentBuildRequest(
+                            level,
+                            effectiveStats.getWeaponDamage(),
+                            effectiveStats.getStrength(),
+                            effectiveStats.getIntelligence(),
+                            effectiveStats.getThorns(),
+                            effectiveStats.getBlockChance(),
+                            effectiveStats.getRetributionChance(),
+                            learnedSkills,
+                            actionBar,
+                            request.getHorizonSeconds()
+                    ),
+                    request.isUseItemLibrary(),
+                    itemLibraryCombination
+            );
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
     }
 
     private static long permutations(int itemCount, int selectionSize) {

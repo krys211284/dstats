@@ -12,6 +12,7 @@ import java.util.Map;
 
 /** Surowe dane formularza GUI searcha M12, zachowywane także przy błędach walidacji. */
 public final class SearchBuildFormData {
+    private final boolean useItemLibrary;
     private final String levelValues;
     private final String weaponDamageValues;
     private final String strengthValues;
@@ -24,7 +25,8 @@ public final class SearchBuildFormData {
     private final String topResultsLimit;
     private final Map<SkillId, SkillSearchFormData> skillConfigs;
 
-    public SearchBuildFormData(String levelValues,
+    public SearchBuildFormData(boolean useItemLibrary,
+                               String levelValues,
                                String weaponDamageValues,
                                String strengthValues,
                                String intelligenceValues,
@@ -35,6 +37,7 @@ public final class SearchBuildFormData {
                                String horizonSeconds,
                                String topResultsLimit,
                                Map<SkillId, SkillSearchFormData> skillConfigs) {
+        this.useItemLibrary = useItemLibrary;
         this.levelValues = levelValues;
         this.weaponDamageValues = weaponDamageValues;
         this.strengthValues = strengthValues;
@@ -61,6 +64,7 @@ public final class SearchBuildFormData {
         }
 
         return new SearchBuildFormData(
+                referenceRequest.isUseItemLibrary(),
                 joinIntegers(referenceRequest.getLevelValues()),
                 joinLongs(referenceRequest.getWeaponDamageValues()),
                 joinWholeDoubles(referenceRequest.getStrengthValues()),
@@ -88,6 +92,7 @@ public final class SearchBuildFormData {
         }
 
         return new SearchBuildFormData(
+                fields.containsKey("useItemLibrary"),
                 fields.getOrDefault("levelValues", defaults.getLevelValues()),
                 fields.getOrDefault("weaponDamageValues", defaults.getWeaponDamageValues()),
                 fields.getOrDefault("strengthValues", defaults.getStrengthValues()),
@@ -112,6 +117,10 @@ public final class SearchBuildFormData {
 
     public static String choiceValuesFieldName(SkillId skillId) {
         return "choiceValues_" + skillId.name();
+    }
+
+    public boolean isUseItemLibrary() {
+        return useItemLibrary;
     }
 
     public String getLevelValues() {

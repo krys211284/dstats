@@ -1,6 +1,9 @@
 package krys.search;
 
 import krys.combat.DamageEngine;
+import krys.itemlibrary.FileItemLibraryRepository;
+import krys.itemlibrary.ItemLibraryDataDirectoryResolver;
+import krys.itemlibrary.ItemLibraryService;
 import krys.simulation.ManualSimulationService;
 import krys.skill.PaladinSkillDefs;
 import krys.skill.SkillId;
@@ -20,8 +23,12 @@ public final class SearchBuildCli {
     public static void main(String[] args) {
         configureUtf8Output();
         BuildSearchRequest request = BuildSearchCliRequestParser.parse(args);
+        ItemLibraryService itemLibraryService = new ItemLibraryService(
+                new FileItemLibraryRepository(new ItemLibraryDataDirectoryResolver().resolveDataDirectory())
+        );
         BuildSearchCalculationService calculationService = new BuildSearchCalculationService(
-                new BuildSearchEvaluationService(new ManualSimulationService(new DamageEngine()))
+                new BuildSearchEvaluationService(new ManualSimulationService(new DamageEngine())),
+                itemLibraryService
         );
         BuildSearchResult result = calculationService.calculate(request, new SearchBuildCliProgressReporter());
         printResult(result);
@@ -46,6 +53,7 @@ public final class SearchBuildCli {
         System.out.println("Bar sizes: " + joinIntegers(request.getActionBarSizes()));
         System.out.println("Horyzont: " + request.getHorizonSeconds() + " s");
         System.out.println("Top N: " + request.getTopResultsLimit());
+        System.out.println("Tryb biblioteki itemów: " + (request.isUseItemLibrary() ? "włączony" : "wyłączony"));
         for (SkillId skillId : SkillId.values()) {
             BuildSearchSkillSpace skillSpace = request.getSkillSpace(skillId);
             System.out.println(PaladinSkillDefs.get(skillId).getName()
@@ -57,6 +65,9 @@ public final class SearchBuildCli {
         System.out.println("Audit / preflight:");
         System.out.println("Liczba legalnych kandydatów: " + result.getAudit().getLegalCandidateCount());
         System.out.println("Rozmiar przestrzeni statów: " + result.getAudit().getStatSpaceSize());
+        if (result.getAudit().isUsingItemLibrary()) {
+            System.out.println("Rozmiar przestrzeni biblioteki itemów: " + result.getAudit().getItemLibraryCombinationSpaceSize());
+        }
         System.out.println("Rozmiar przestrzeni skilli: " + result.getAudit().getSkillSpaceSize());
         System.out.println("Rozmiar przestrzeni action bara: " + result.getAudit().getActionBarSpaceSize());
         System.out.println("Skala search space: " + result.getAudit().getSpaceScale().getDisplayName());
@@ -78,6 +89,9 @@ public final class SearchBuildCli {
             System.out.println("Build input: " + rankedResult.getCandidate().getInputProfileDescription());
             System.out.println("Action bar skills: " + rankedResult.getCandidate().getActionBarSkillsDescription());
             System.out.println("Action bar: " + rankedResult.getCandidate().getActionBarDescription());
+            System.out.println("Item library mode: " + rankedResult.getCandidate().getItemLibraryModeDescription());
+            System.out.println("Wybrane itemy z biblioteki: " + rankedResult.getCandidate().getSelectedItemLibraryItemsDescription());
+            System.out.println("Łączny wkład itemów: " + rankedResult.getCandidate().getItemLibraryContributionDescription());
             System.out.println();
         }
     }

@@ -1,6 +1,7 @@
 package krys.search;
 
 import krys.app.CurrentBuildRequest;
+import krys.itemlibrary.ItemLibrarySearchCombination;
 import krys.skill.PaladinSkillDefs;
 import krys.skill.SkillId;
 import krys.skill.SkillState;
@@ -12,10 +13,28 @@ import java.util.Map;
 
 /** Pojedynczy legalny kandydat searcha M12 gotowy do zbudowania snapshotu i oceny runtime. */
 public final class BuildSearchCandidate {
+    private final boolean usesItemLibrary;
+    private final ItemLibrarySearchCombination itemLibraryCombination;
     private final CurrentBuildRequest currentBuildRequest;
 
     public BuildSearchCandidate(CurrentBuildRequest currentBuildRequest) {
+        this(currentBuildRequest, false, ItemLibrarySearchCombination.empty());
+    }
+
+    public BuildSearchCandidate(CurrentBuildRequest currentBuildRequest,
+                                boolean usesItemLibrary,
+                                ItemLibrarySearchCombination itemLibraryCombination) {
+        this.usesItemLibrary = usesItemLibrary;
+        this.itemLibraryCombination = itemLibraryCombination;
         this.currentBuildRequest = currentBuildRequest;
+    }
+
+    public boolean usesItemLibrary() {
+        return usesItemLibrary;
+    }
+
+    public ItemLibrarySearchCombination getItemLibraryCombination() {
+        return itemLibraryCombination;
     }
 
     public CurrentBuildRequest getCurrentBuildRequest() {
@@ -81,10 +100,29 @@ public final class BuildSearchCandidate {
         return String.join(" -> ", labels);
     }
 
+    public String getItemLibraryModeDescription() {
+        return usesItemLibrary ? "Włączony" : "Wyłączony";
+    }
+
+    public String getSelectedItemLibraryItemsDescription() {
+        if (!usesItemLibrary) {
+            return "Tryb wyłączony";
+        }
+        return itemLibraryCombination.getSelectedItemsDescription();
+    }
+
+    public String getItemLibraryContributionDescription() {
+        if (!usesItemLibrary) {
+            return "Tryb wyłączony";
+        }
+        return itemLibraryCombination.getContributionDescription();
+    }
+
     public String toDeterministicKey() {
         return getInputProfileDescription()
                 + " | skills=" + getLearnedSkillsDescription()
                 + " | bar=" + getActionBarDescription()
+                + " | itemLibrary=" + itemLibraryCombination.toDeterministicKey()
                 + " | horizon=" + currentBuildRequest.getHorizonSeconds();
     }
 

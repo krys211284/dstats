@@ -26,6 +26,7 @@ final class BuildSearchCliRequestParser {
         List<Double> retributionChanceValues = new ArrayList<>(referenceRequest.getRetributionChanceValues());
         int horizonSeconds = referenceRequest.getHorizonSeconds();
         int topResultsLimit = referenceRequest.getTopResultsLimit();
+        boolean useItemLibrary = referenceRequest.isUseItemLibrary();
         Map<SkillId, SkillSearchConfigBuilder> skillBuilders = createSkillBuilders(referenceRequest.getSkillSpaces());
         List<Integer> actionBarSizes = new ArrayList<>(referenceRequest.getActionBarSizes());
 
@@ -44,6 +45,7 @@ final class BuildSearchCliRequestParser {
                 retributionChanceValues = new ArrayList<>(preset.getRetributionChanceValues());
                 horizonSeconds = preset.getHorizonSeconds();
                 topResultsLimit = preset.getTopResultsLimit();
+                useItemLibrary = preset.isUseItemLibrary();
                 actionBarSizes = new ArrayList<>(preset.getActionBarSizes());
                 skillBuilders = createSkillBuilders(preset.getSkillSpaces());
             } else if ("--level-values".equals(arg) && index + 1 < args.length) {
@@ -66,6 +68,8 @@ final class BuildSearchCliRequestParser {
                 horizonSeconds = Integer.parseInt(args[++index]);
             } else if ("--top".equals(arg) && index + 1 < args.length) {
                 topResultsLimit = Integer.parseInt(args[++index]);
+            } else if ("--use-item-library".equals(arg)) {
+                useItemLibrary = true;
             } else {
                 index = tryConsumeSkillArgument(args, index, arg, skillBuilders);
             }
@@ -82,6 +86,7 @@ final class BuildSearchCliRequestParser {
         }
 
         return new BuildSearchRequest(
+                useItemLibrary,
                 levelValues,
                 weaponDamageValues,
                 strengthValues,

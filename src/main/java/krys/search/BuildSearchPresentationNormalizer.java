@@ -46,6 +46,8 @@ public final class BuildSearchPresentationNormalizer {
         return candidate.getInputProfileDescription()
                 + " | bar=" + candidate.getActionBarDescription()
                 + " | barSkills=" + candidate.getActionBarSkillsDescription()
+                + " | itemLibraryMode=" + candidate.getItemLibraryModeDescription()
+                + " | itemLibrarySelection=" + candidate.getItemLibraryCombination().toDeterministicKey()
                 + " | runtime=" + buildRuntimeSignature(evaluation.getSimulationResult());
     }
 

@@ -15,9 +15,10 @@ import java.util.Map;
 final class SearchBuildFormMapper {
     MappingResult map(SearchBuildFormData formData) {
         List<String> errors = new ArrayList<>();
+        int weaponDamageMinimum = formData.isUseItemLibrary() ? 0 : 1;
 
         List<Integer> levelValues = parseIntegerList(formData.getLevelValues(), "Level values", 1, 5, errors);
-        List<Long> weaponDamageValues = parseLongList(formData.getWeaponDamageValues(), "Weapon damage values", 1L, 5, errors);
+        List<Long> weaponDamageValues = parseLongList(formData.getWeaponDamageValues(), "Weapon damage values", weaponDamageMinimum, 5, errors);
         List<Double> strengthValues = parseDoubleList(formData.getStrengthValues(), "Strength values", 0.0d, 5, errors);
         List<Double> intelligenceValues = parseDoubleList(formData.getIntelligenceValues(), "Intelligence values", 0.0d, 5, errors);
         List<Double> thornsValues = parseDoubleList(formData.getThornsValues(), "Thorns values", 0.0d, 5, errors);
@@ -53,6 +54,7 @@ final class SearchBuildFormMapper {
 
         try {
             return new MappingResult(new BuildSearchRequest(
+                    formData.isUseItemLibrary(),
                     levelValues,
                     weaponDamageValues,
                     strengthValues,

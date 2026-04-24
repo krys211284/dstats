@@ -14,6 +14,7 @@ class BuildSearchCliRequestParserTest {
     @Test
     void powinien_mapowac_wejscie_cli_do_requestu_searcha_m9() {
         BuildSearchRequest request = BuildSearchCliRequestParser.parse(new String[]{
+                "--use-item-library",
                 "--level-values", "13,15",
                 "--weapon-damage-values", "8,12",
                 "--strength-values", "18,30",
@@ -32,6 +33,7 @@ class BuildSearchCliRequestParserTest {
         assertEquals(List.of(13, 15), request.getLevelValues());
         assertEquals(List.of(8L, 12L), request.getWeaponDamageValues());
         assertEquals(List.of(18.0d, 30.0d), request.getStrengthValues());
+        assertTrue(request.isUseItemLibrary());
         assertEquals(List.of(1, 2), request.getActionBarSizes());
         assertEquals(15, request.getHorizonSeconds());
         assertEquals(7, request.getTopResultsLimit());

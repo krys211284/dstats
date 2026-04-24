@@ -44,6 +44,7 @@ class SearchBuildCliTest {
 
         String output = outputStream.toString(StandardCharsets.UTF_8);
         assertTrue(output.contains("=== Znajdź najlepszy build ==="));
+        assertTrue(output.contains("Tryb biblioteki itemów:"));
         assertTrue(output.contains("Audit / preflight:"));
         assertTrue(output.contains("Liczba legalnych kandydatów:"));
         assertTrue(output.contains("Rozmiar przestrzeni statów:"));
@@ -56,6 +57,9 @@ class SearchBuildCliTest {
         assertTrue(output.contains("Build input:"));
         assertTrue(output.contains("Action bar skills:"));
         assertTrue(output.contains("Action bar:"));
+        assertTrue(output.contains("Item library mode:"));
+        assertTrue(output.contains("Wybrane itemy z biblioteki:"));
+        assertTrue(output.contains("Łączny wkład itemów:"));
         assertTrue(output.contains("total damage="));
         assertTrue(output.contains("DPS="));
     }

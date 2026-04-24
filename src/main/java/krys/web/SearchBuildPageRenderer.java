@@ -2,6 +2,7 @@ package krys.web;
 
 import krys.app.CurrentBuildRequest;
 import krys.search.BuildSearchAudit;
+import krys.search.BuildSearchCandidate;
 import krys.search.BuildSearchRankedResult;
 import krys.search.BuildSearchRequest;
 import krys.search.BuildSearchResult;
@@ -45,6 +46,13 @@ public final class SearchBuildPageRenderer {
                     Weapon damage values
                     <input type="text" name="weaponDamageValues" value="{{WEAPON_DAMAGE_VALUES}}">
                 </label>
+                <label class="checkbox-label">
+                    <span>Tryb biblioteki itemów</span>
+                    <span class="checkbox-row">
+                        <input type="checkbox" name="useItemLibrary" value="true" {{USE_ITEM_LIBRARY_CHECKED}}>
+                        <span>Buduj kandydatów z zapisanych itemów biblioteki i składaj ich wkład do effective current build przed runtime.</span>
+                    </span>
+                </label>
                 <label>
                     Strength values
                     <input type="text" name="strengthValues" value="{{STRENGTH_VALUES}}">
@@ -78,6 +86,7 @@ public final class SearchBuildPageRenderer {
                     <input type="number" min="1" step="1" name="topResultsLimit" value="{{TOP_RESULTS_LIMIT}}">
                 </label>
                 """
+                .replace("{{USE_ITEM_LIBRARY_CHECKED}}", formData.isUseItemLibrary() ? "checked" : "")
                 .replace("{{LEVEL_VALUES}}", escapeHtml(formData.getLevelValues()))
                 .replace("{{WEAPON_DAMAGE_VALUES}}", escapeHtml(formData.getWeaponDamageValues()))
                 .replace("{{STRENGTH_VALUES}}", escapeHtml(formData.getStrengthValues()))
@@ -169,6 +178,7 @@ public final class SearchBuildPageRenderer {
         html.append(renderSummaryCard("Skala search space", result.getAudit().getSpaceScale().getDisplayName()));
         html.append(renderSummaryCard("Top N", Integer.toString(result.getRequest().getTopResultsLimit())));
         html.append(renderSummaryCard("Horyzont", result.getRequest().getHorizonSeconds() + " s"));
+        html.append(renderSummaryCard("Tryb biblioteki itemów", result.getRequest().isUseItemLibrary() ? "Włączony" : "Wyłączony"));
         html.append("</div></section>");
         html.append(renderAuditSection(result.getAudit()));
         html.append(renderSearchSpaceSummary(result.getRequest()));
@@ -184,6 +194,9 @@ public final class SearchBuildPageRenderer {
                 """);
         html.append(renderSummaryCard("Liczba legalnych kandydatów", Long.toString(audit.getLegalCandidateCount())));
         html.append(renderSummaryCard("Rozmiar przestrzeni statów", Long.toString(audit.getStatSpaceSize())));
+        if (audit.isUsingItemLibrary()) {
+            html.append(renderSummaryCard("Rozmiar przestrzeni biblioteki itemów", Long.toString(audit.getItemLibraryCombinationSpaceSize())));
+        }
         html.append(renderSummaryCard("Rozmiar przestrzeni skilli", Long.toString(audit.getSkillSpaceSize())));
         html.append(renderSummaryCard("Rozmiar przestrzeni action bara", Long.toString(audit.getActionBarSpaceSize())));
         html.append(renderSummaryCard("Skala search space", audit.getSpaceScale().getDisplayName()));
@@ -202,6 +215,7 @@ public final class SearchBuildPageRenderer {
                 """);
         html.append(renderSummaryCard("Level values", joinIntegers(request.getLevelValues())));
         html.append(renderSummaryCard("Weapon damage values", joinLongs(request.getWeaponDamageValues())));
+        html.append(renderSummaryCard("Tryb biblioteki itemów", request.isUseItemLibrary() ? "Włączony" : "Wyłączony"));
         html.append(renderSummaryCard("Strength values", joinWholeDoubles(request.getStrengthValues())));
         html.append(renderSummaryCard("Intelligence values", joinWholeDoubles(request.getIntelligenceValues())));
         html.append(renderSummaryCard("Thorns values", joinWholeDoubles(request.getThornsValues())));
@@ -262,6 +276,9 @@ public final class SearchBuildPageRenderer {
                     .append(renderSummaryCard("Build input", rankedResult.getCandidate().getInputProfileDescription()))
                     .append(renderSummaryCard("Action bar skills", rankedResult.getCandidate().getActionBarSkillsDescription()))
                     .append(renderSummaryCard("Action bar", rankedResult.getCandidate().getActionBarDescription()))
+                    .append(renderSummaryCard("Tryb biblioteki itemów", rankedResult.getCandidate().getItemLibraryModeDescription()))
+                    .append(renderSummaryCard("Wybrane itemy z biblioteki", rankedResult.getCandidate().getSelectedItemLibraryItemsDescription()))
+                    .append(renderSummaryCard("Łączny wkład itemów", rankedResult.getCandidate().getItemLibraryContributionDescription()))
                     .append(renderSummaryCard("Total damage", Long.toString(rankedResult.getSimulationResult().getTotalDamage())))
                     .append(renderSummaryCard("DPS", String.format(Locale.US, "%.4f", rankedResult.getSimulationResult().getDps())))
                     .append("""
@@ -278,10 +295,12 @@ public final class SearchBuildPageRenderer {
 
     private static String renderDetailsForm(BuildSearchRankedResult rankedResult) {
         CurrentBuildRequest request = rankedResult.getCandidate().getCurrentBuildRequest();
+        BuildSearchCandidate candidate = rankedResult.getCandidate();
         StringBuilder html = new StringBuilder("""
                 <form method="post" action="/znajdz-najlepszy-build/szczegoly" class="detail-form">
                 """);
         appendHiddenField(html, "selectedRank", Integer.toString(rankedResult.getRank()));
+        appendHiddenField(html, "useItemLibrary", Boolean.toString(candidate.usesItemLibrary()));
         appendHiddenField(html, "level", Integer.toString(request.getLevel()));
         appendHiddenField(html, "weaponDamage", Long.toString(request.getWeaponDamage()));
         appendHiddenField(html, "strength", Double.toString(request.getStrength()));
@@ -306,11 +325,28 @@ public final class SearchBuildPageRenderer {
                     : "NONE";
             appendHiddenField(html, CurrentBuildFormData.actionBarFieldName(slot), value);
         }
+        appendHiddenField(html, "itemLibrarySelectedCount", Integer.toString(candidate.getItemLibraryCombination().getSelectedItems().size()));
+        for (int index = 0; index < candidate.getItemLibraryCombination().getSelectedItems().size(); index++) {
+            appendLibraryItemHiddenFields(html, index, candidate.getItemLibraryCombination().getSelectedItems().get(index));
+        }
         html.append("""
                     <button type="submit">Pokaż pełną analizę kandydata</button>
                 </form>
                 """);
         return html.toString();
+    }
+
+    private static void appendLibraryItemHiddenFields(StringBuilder html, int index, krys.itemlibrary.SavedImportedItem item) {
+        appendHiddenField(html, "itemLibraryItemId_" + index, Long.toString(item.getItemId()));
+        appendHiddenField(html, "itemLibraryDisplayName_" + index, item.getDisplayName());
+        appendHiddenField(html, "itemLibrarySourceImageName_" + index, item.getSourceImageName());
+        appendHiddenField(html, "itemLibrarySlot_" + index, item.getSlot().name());
+        appendHiddenField(html, "itemLibraryWeaponDamage_" + index, Long.toString(item.getWeaponDamage()));
+        appendHiddenField(html, "itemLibraryStrength_" + index, Double.toString(item.getStrength()));
+        appendHiddenField(html, "itemLibraryIntelligence_" + index, Double.toString(item.getIntelligence()));
+        appendHiddenField(html, "itemLibraryThorns_" + index, Double.toString(item.getThorns()));
+        appendHiddenField(html, "itemLibraryBlockChance_" + index, Double.toString(item.getBlockChance()));
+        appendHiddenField(html, "itemLibraryRetributionChance_" + index, Double.toString(item.getRetributionChance()));
     }
 
     private static void appendHiddenField(StringBuilder html, String name, String value) {
