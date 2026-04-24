@@ -16,6 +16,7 @@ public final class PlaceholderPageRenderer {
         AppModule module = model.getModule();
         return template
                 .replace("{{PAGE_TITLE}}", AppShellRendererSupport.escapeHtml(module.getDisplayName()))
+                .replace("{{APP_SHELL_STYLES}}", AppShellRendererSupport.renderSharedStyles())
                 .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation(module.getUrl()))
                 .replace("{{MODULE_NAME}}", AppShellRendererSupport.escapeHtml(module.getDisplayName()))
                 .replace("{{GROUP_NAME}}", AppShellRendererSupport.escapeHtml(module.getGroup().getDisplayName()))

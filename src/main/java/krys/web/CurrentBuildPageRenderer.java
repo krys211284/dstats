@@ -30,6 +30,7 @@ public final class CurrentBuildPageRenderer {
 
     public String render(CurrentBuildPageModel model) {
         return template
+                .replace("{{APP_SHELL_STYLES}}", AppShellRendererSupport.renderSharedStyles())
                 .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/policz-aktualny-build"))
                 .replace("{{HERO_CONTEXT}}", renderHeroContext(model))
                 .replace("{{FORM_MESSAGES}}", renderMessages(model.getMessages()))

@@ -18,6 +18,7 @@ public final class ItemLibraryPageRenderer {
 
     public String render(ItemLibraryPageModel model) {
         return template
+                .replace("{{APP_SHELL_STYLES}}", AppShellRendererSupport.renderSharedStyles())
                 .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/biblioteka-itemow"))
                 .replace("{{HERO_CONTEXT}}", renderHeroContext(model))
                 .replace("{{MESSAGES}}", renderMessages(model.getMessages()))

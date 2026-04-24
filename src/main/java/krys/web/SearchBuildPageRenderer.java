@@ -30,6 +30,7 @@ public final class SearchBuildPageRenderer {
 
     public String render(SearchBuildPageModel model) {
         return template
+                .replace("{{APP_SHELL_STYLES}}", AppShellRendererSupport.renderSharedStyles())
                 .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/znajdz-najlepszy-build"))
                 .replace("{{HERO_CONTEXT}}", renderHeroContext(model))
                 .replace("{{MAIN_SEARCH_FIELDS}}", renderMainSearchFields(model.getFormData()))

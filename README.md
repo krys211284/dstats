@@ -41,6 +41,7 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - sekcję `Użyte itemy` pokazującą, które aktywne itemy rzeczywiście składają się na bieżący build i jaki mają wkład,
 - prawdziwy ekran główny `/` działający jako hub aplikacji z grupami modułów i statusami,
 - globalną nawigację SSR wspólną dla głównych ekranów aplikacji,
+- wspólny renderer app shell oraz wspólny zestaw tokenów wizualnych dla głównych ekranów SSR, z czytelnym wyróżnianiem aktywnego modułu, akcji i statusów,
 - centralny rejestr modułów aplikacji z opisem, grupą, statusem i URL,
 - placeholder pages dla przyszłych sekcji dodatku i sezonu bez implementacji ich mechaniki,
 - pierwszy SSR flow `Importuj item ze screena` dla pojedynczego itemu z ręcznym potwierdzeniem użytkownika,
@@ -99,6 +100,7 @@ Kontrakt app shell:
 - istnieje centralny rejestr modułów opisujący `id`, nazwę, opis, grupę, status, URL oraz to, czy moduł jest aktywny czy placeholderowy,
 - moduł `Bohaterowie` jest częścią aktywnej nawigacji produktu i stanowi punkt wejścia do pracy na aktywnym bohaterze,
 - globalna nawigacja SSR jest renderowana z tego samego rejestru modułów, a nie z rozproszonych ręcznych linków w wielu ekranach,
+- główne ekrany SSR korzystają z tego samego renderera app shell i tego samego zestawu tokenów wizualnych dla tła, paneli, przycisków, statusów i aktywnej zakładki,
 - istniejące flow `Policz aktualny build`, `Importuj item ze screena`, `Biblioteka itemów`, `Znajdź najlepszy build` i drill-down searcha pozostają cienkimi warstwami nad tym samym runtime,
 - placeholder pages są świadomą warstwą produktową przygotowującą architekturę aplikacji pod przyszłe sekcje, a nie atrapą zastępującą istniejącą logikę runtime.
 
@@ -807,6 +809,8 @@ Kontrakt ekranu głównego `/`:
 Kontrakt globalnej nawigacji:
 - globalna nawigacja SSR jest widoczna co najmniej na ekranach `Strona główna`, `Bohaterowie`, `Policz aktualny build`, `Importuj item ze screena`, `Biblioteka itemów` oraz `Znajdź najlepszy build`,
 - nawigacja jest renderowana z centralnego modelu modułów i prowadzi do aktywnych sekcji aplikacji,
+- ekran `Bohaterowie` używa dokładnie tego samego app shell i tego samego wyróżnienia aktywnej zakładki co pozostałe główne ekrany,
+- wspólny system wizualny SSR opiera się na jednych tokenach kolorystycznych dla tła, powierzchni, tekstu, obramowań, akcentu, przycisków i statusów,
 - nawigacja nie buduje alternatywnego frontendu JS i pozostaje prostym SSR.
 
 Kontrakt statusów modułów:

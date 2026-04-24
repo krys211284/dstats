@@ -16,6 +16,7 @@ public final class HeroesPageRenderer {
 
     public String render(HeroesPageModel model) {
         return template
+                .replace("{{APP_SHELL_STYLES}}", AppShellRendererSupport.renderSharedStyles())
                 .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/bohaterowie"))
                 .replace("{{MESSAGES}}", renderMessages(model.getMessages()))
                 .replace("{{ERRORS}}", renderErrors(model.getErrors()))

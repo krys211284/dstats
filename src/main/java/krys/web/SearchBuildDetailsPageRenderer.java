@@ -19,6 +19,7 @@ public final class SearchBuildDetailsPageRenderer {
 
     public String render(SearchBuildDetailsPageModel model) {
         return template
+                .replace("{{APP_SHELL_STYLES}}", AppShellRendererSupport.renderSharedStyles())
                 .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/znajdz-najlepszy-build"))
                 .replace("{{FORM_ERRORS}}", renderErrors(model.getValidationErrors()))
                 .replace("{{DETAIL_SECTION}}", renderDetailSection(model));

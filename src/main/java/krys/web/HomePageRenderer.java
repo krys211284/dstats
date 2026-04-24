@@ -16,6 +16,7 @@ public final class HomePageRenderer {
 
     public String render(HomePageModel model) {
         return template
+                .replace("{{APP_SHELL_STYLES}}", AppShellRendererSupport.renderSharedStyles())
                 .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/"))
                 .replace("{{INTRO_TEXT}}", AppShellRendererSupport.escapeHtml(model.getIntroText()))
                 .replace("{{MODULE_GROUPS}}", renderModuleGroups(model.getGroupedModules()));

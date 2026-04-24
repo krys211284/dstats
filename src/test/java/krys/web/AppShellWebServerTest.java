@@ -71,12 +71,12 @@ class AppShellWebServerTest {
 
     @Test
     void shouldRenderGlobalNavigationOnMainPages() throws Exception {
-        assertNavigation(sendGet("/"));
-        assertNavigation(sendGet("/bohaterowie"));
-        assertNavigation(sendGet("/policz-aktualny-build"));
-        assertNavigation(sendGet("/importuj-item-ze-screena"));
-        assertNavigation(sendGet("/biblioteka-itemow"));
-        assertNavigation(sendGet("/znajdz-najlepszy-build"));
+        assertNavigation(sendGet("/"), "/");
+        assertNavigation(sendGet("/bohaterowie"), "/bohaterowie");
+        assertNavigation(sendGet("/policz-aktualny-build"), "/policz-aktualny-build");
+        assertNavigation(sendGet("/importuj-item-ze-screena"), "/importuj-item-ze-screena");
+        assertNavigation(sendGet("/biblioteka-itemow"), "/biblioteka-itemow");
+        assertNavigation(sendGet("/znajdz-najlepszy-build"), "/znajdz-najlepszy-build");
     }
 
     @Test
@@ -144,8 +144,10 @@ class AppShellWebServerTest {
         assertEquals(404, sendGet("/nieznana-sekcja").statusCode());
     }
 
-    private static void assertNavigation(HttpResponse<String> response) {
+    private static void assertNavigation(HttpResponse<String> response, String activePath) {
         assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains(".app-nav-link-active"));
+        assertTrue(response.body().contains("--bg-app:"));
         assertTrue(response.body().contains("aria-label=\"Główna nawigacja aplikacji\""));
         assertTrue(response.body().contains(">Strona główna</a>"));
         assertTrue(response.body().contains(">Bohaterowie</a>"));
@@ -153,6 +155,7 @@ class AppShellWebServerTest {
         assertTrue(response.body().contains(">Znajdź najlepszy build</a>"));
         assertTrue(response.body().contains(">Importuj item ze screena</a>"));
         assertTrue(response.body().contains(">Biblioteka itemów</a>"));
+        assertTrue(response.body().contains("class=\"app-nav-link app-nav-link-active\" href=\"" + activePath + "\""));
     }
 
     private HttpResponse<String> sendPost(String path, String formBody) throws Exception {
