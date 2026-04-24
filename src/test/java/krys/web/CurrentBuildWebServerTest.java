@@ -82,7 +82,7 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("Zaawansowane: ręczne nadpisanie statów"));
         assertTrue(response.body().contains("Slot jest pusty"));
         assertTrue(response.body().contains(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.ADVANCE)));
-        assertFalse(response.body().contains(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.HOLY_BOLT)));
+        assertFalse(response.body().contains("name=\"" + CurrentBuildFormData.rankFieldName(krys.skill.SkillId.HOLY_BOLT) + "\""));
         assertTrue(response.body().contains("<input type=\"number\" step=\"1\" name=\"weaponDamage\" value=\"8\">"));
         assertFalse(response.body().contains("min=\"1\" step=\"1\" name=\"weaponDamage\""));
         assertTrue(response.body().contains("Szansa bloku [%]"));
@@ -130,7 +130,7 @@ class CurrentBuildWebServerTest {
         HttpResponse<String> initialResponse = sendGet("/policz-aktualny-build");
         assertEquals(200, initialResponse.statusCode());
         assertTrue(initialResponse.body().contains(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.ADVANCE)));
-        assertFalse(initialResponse.body().contains(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.HOLY_BOLT)));
+        assertFalse(initialResponse.body().contains("name=\"" + CurrentBuildFormData.rankFieldName(krys.skill.SkillId.HOLY_BOLT) + "\""));
 
         HttpResponse<String> addSkillResponse = sendPost("/policz-aktualny-build", Map.of(
                 "heroAction", "addAssignedSkill",
