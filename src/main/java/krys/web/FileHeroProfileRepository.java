@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Optional;
 
@@ -202,7 +203,7 @@ public final class FileHeroProfileRepository implements HeroProfileRepository {
                 .map(Enum::name)
                 .reduce((left, right) -> left + "," + right)
                 .orElse("");
-        return encode(String.join(";", String.join(",", skillEntries), actionBar));
+        return encode(String.join("~", String.join(";", skillEntries), actionBar));
     }
 
     private static HeroSkillLoadout decodeSkillLoadout(String serializedSkillLoadout) {
@@ -210,10 +211,10 @@ public final class FileHeroProfileRepository implements HeroProfileRepository {
         if (decoded.isBlank()) {
             return HeroSkillLoadout.foundationDefault();
         }
-        String[] parts = decoded.split(";", -1);
+        String[] parts = decoded.split("~", -1);
         EnumMap<krys.skill.SkillId, HeroAssignedSkill> assignedSkills = new EnumMap<>(krys.skill.SkillId.class);
         if (parts.length >= 1 && !parts[0].isBlank()) {
-            for (String token : parts[0].split(",")) {
+            for (String token : parts[0].split(";")) {
                 if (token.isBlank()) {
                     continue;
                 }
