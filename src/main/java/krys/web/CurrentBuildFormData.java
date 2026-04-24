@@ -53,7 +53,10 @@ public final class CurrentBuildFormData {
     }
 
     public static CurrentBuildFormData fromFormFields(Map<String, String> fields) {
-        CurrentBuildFormData defaults = defaultValues();
+        return fromFormFields(fields, defaultValues());
+    }
+
+    public static CurrentBuildFormData fromFormFields(Map<String, String> fields, CurrentBuildFormData defaults) {
         Map<SkillId, SkillConfigFormData> skillConfigs = createEmptySkillConfigs();
         for (SkillId skillId : SkillId.values()) {
             SkillConfigFormData defaultSkillConfig = defaults.getSkillConfig(skillId);

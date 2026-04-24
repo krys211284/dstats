@@ -48,8 +48,9 @@ public final class SearchBuildController implements HttpHandler {
             String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
             if ("GET".equals(method)) {
                 HeroProfile activeHero = heroService.getActiveHero().orElse(null);
+                SearchBuildFormData defaults = activeHero == null ? SearchBuildFormData.defaultValues() : SearchBuildFormData.fromHeroProfile(activeHero);
                 renderPage(exchange, buildPageModel(
-                        activeHero == null ? SearchBuildFormData.defaultValues() : SearchBuildFormData.fromHeroProfile(activeHero),
+                        defaults,
                         List.of(),
                         null,
                         activeHero
@@ -72,7 +73,10 @@ public final class SearchBuildController implements HttpHandler {
         if (activeHero == null) {
             return buildPageModel(SearchBuildFormData.defaultValues(), List.of("Brak aktywnego bohatera. Utwórz albo wybierz bohatera przed uruchomieniem searcha."), null, null);
         }
-        SearchBuildFormData formData = SearchBuildFormData.fromFormFields(UrlEncodedFormSupport.parseBody(exchange));
+        SearchBuildFormData formData = SearchBuildFormData.fromFormFields(
+                UrlEncodedFormSupport.parseBody(exchange),
+                SearchBuildFormData.fromHeroProfile(activeHero)
+        ).restrictedToAssignedSkills(activeHero.getSkillLoadout().getAssignedSkillIds());
         List<String> errors = new ArrayList<>();
         BuildSearchResult result = tryCalculate(formData, activeHero, errors);
         return buildPageModel(formData, errors, result, activeHero);

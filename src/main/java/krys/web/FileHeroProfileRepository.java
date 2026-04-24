@@ -110,15 +110,20 @@ public final class FileHeroProfileRepository implements HeroProfileRepository {
 
     private HeroProfile parseHero(String line) {
         String[] tokens = line.split("\\|", -1);
-        if (tokens.length != 6 || !HERO_PREFIX.equals(tokens[0])) {
+        if ((tokens.length != 6 && tokens.length != 7) || !HERO_PREFIX.equals(tokens[0])) {
             throw new IllegalStateException("Plik bohaterów ma niepoprawny format.");
         }
+        String encodedSkillLoadout = tokens.length == 7 ? tokens[6] : "";
+        HeroSkillLoadout skillLoadout = encodedSkillLoadout.isBlank()
+                ? HeroSkillLoadout.fromCurrentBuildFormData(CurrentBuildFormQuerySupport.fromSerializedQuery(decode(tokens[4])))
+                : decodeSkillLoadout(encodedSkillLoadout);
         return new HeroProfile(
                 Long.parseLong(tokens[1]),
                 decode(tokens[2]),
                 HeroClass.valueOf(tokens[3]),
                 decode(tokens[4]),
-                decodeSelection(tokens[5])
+                decodeSelection(tokens[5]),
+                skillLoadout
         );
     }
 
@@ -132,7 +137,8 @@ public final class FileHeroProfileRepository implements HeroProfileRepository {
                     encode(hero.getName()),
                     hero.getHeroClass().name(),
                     encode(hero.getCurrentBuildQuery()),
-                    encodeSelection(hero.getItemSelection())
+                    encodeSelection(hero.getItemSelection()),
+                    encodeSkillLoadout(hero.getSkillLoadout())
             ));
         }
         try {
@@ -180,6 +186,60 @@ public final class FileHeroProfileRepository implements HeroProfileRepository {
             selection.put(krys.item.HeroEquipmentSlot.valueOf(parts[0]), Long.parseLong(parts[1]));
         }
         return new HeroItemSelection(selection);
+    }
+
+    private static String encodeSkillLoadout(HeroSkillLoadout skillLoadout) {
+        List<String> skillEntries = new ArrayList<>();
+        for (HeroAssignedSkill assignedSkill : skillLoadout.getAssignedSkills().values()) {
+            skillEntries.add(String.join(":",
+                    assignedSkill.getSkillId().name(),
+                    Integer.toString(assignedSkill.getRank()),
+                    Boolean.toString(assignedSkill.isBaseUpgrade()),
+                    assignedSkill.getChoiceUpgrade().name()
+            ));
+        }
+        String actionBar = skillLoadout.getActionBarSkills().stream()
+                .map(Enum::name)
+                .reduce((left, right) -> left + "," + right)
+                .orElse("");
+        return encode(String.join(";", String.join(",", skillEntries), actionBar));
+    }
+
+    private static HeroSkillLoadout decodeSkillLoadout(String serializedSkillLoadout) {
+        String decoded = decode(serializedSkillLoadout);
+        if (decoded.isBlank()) {
+            return HeroSkillLoadout.foundationDefault();
+        }
+        String[] parts = decoded.split(";", -1);
+        EnumMap<krys.skill.SkillId, HeroAssignedSkill> assignedSkills = new EnumMap<>(krys.skill.SkillId.class);
+        if (parts.length >= 1 && !parts[0].isBlank()) {
+            for (String token : parts[0].split(",")) {
+                if (token.isBlank()) {
+                    continue;
+                }
+                String[] skillParts = token.split(":", -1);
+                if (skillParts.length != 4) {
+                    continue;
+                }
+                krys.skill.SkillId skillId = krys.skill.SkillId.valueOf(skillParts[0]);
+                assignedSkills.put(skillId, new HeroAssignedSkill(
+                        skillId,
+                        Integer.parseInt(skillParts[1]),
+                        Boolean.parseBoolean(skillParts[2]),
+                        krys.skill.SkillUpgradeChoice.valueOf(skillParts[3])
+                ));
+            }
+        }
+        List<krys.skill.SkillId> actionBarSkills = new ArrayList<>();
+        if (parts.length >= 2 && !parts[1].isBlank()) {
+            for (String rawSkillId : parts[1].split(",")) {
+                if (rawSkillId.isBlank()) {
+                    continue;
+                }
+                actionBarSkills.add(krys.skill.SkillId.valueOf(rawSkillId));
+            }
+        }
+        return new HeroSkillLoadout(assignedSkills, actionBarSkills);
     }
 
     private static String encode(String value) {

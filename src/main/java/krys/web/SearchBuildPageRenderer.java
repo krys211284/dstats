@@ -36,7 +36,7 @@ public final class SearchBuildPageRenderer {
                 .replace("{{MAIN_SEARCH_FIELDS}}", renderMainSearchFields(model.getFormData()))
                 .replace("{{STAT_SPACE_FIELDS}}", renderStatSpaceFields(model.getFormData()))
                 .replace("{{LIBRARY_MODE_CARD}}", renderLibraryModeCard(model.getFormData()))
-                .replace("{{SKILL_SPACE_FIELDS}}", renderSkillSpaceFields(model.getFormData()))
+                .replace("{{SKILL_SPACE_FIELDS}}", renderSkillSpaceFields(model))
                 .replace("{{FORM_ERRORS}}", renderErrors(model.getValidationErrors()))
                 .replace("{{HELP_TEXT}}", escapeHtml(model.getHelpText()))
                 .replace("{{RESULT_SECTION}}", renderResultSection(model));
@@ -141,9 +141,13 @@ public final class SearchBuildPageRenderer {
                 .replace("{{USE_ITEM_LIBRARY_CHECKED}}", formData.isUseItemLibrary() ? "checked" : "");
     }
 
-    private static String renderSkillSpaceFields(SearchBuildFormData formData) {
+    private static String renderSkillSpaceFields(SearchBuildPageModel model) {
         StringBuilder html = new StringBuilder();
-        for (SkillId skillId : SkillId.values()) {
+        List<SkillId> visibleSkills = model.hasActiveHero()
+                ? model.getActiveHero().getSkillLoadout().getAssignedSkillIds()
+                : List.of(SkillId.values());
+        for (SkillId skillId : visibleSkills) {
+            SearchBuildFormData formData = model.getFormData();
             SearchBuildFormData.SkillSearchFormData skillConfig = formData.getSkillConfig(skillId);
             html.append("""
                     <article class="subpanel skill-space">

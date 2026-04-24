@@ -9,6 +9,8 @@ import krys.itemimport.CurrentBuildImportableStats;
 import krys.itemlibrary.EffectiveCurrentBuildResolution;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
+import krys.skill.PaladinSkillDefs;
+import krys.skill.SkillId;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -59,10 +61,13 @@ public final class CurrentBuildController implements HttpHandler {
                 Map<String, String> queryFields = UrlEncodedFormSupport.parseQuery(exchange.getRequestURI().getRawQuery());
                 CurrentBuildFormData formData = queryFields.isEmpty()
                         ? activeHero.getCurrentBuildFormData()
-                        : CurrentBuildFormData.fromFormFields(queryFields);
+                        : CurrentBuildFormData.fromFormFields(queryFields, activeHero.getCurrentBuildFormData());
                 if (!queryFields.isEmpty()) {
-                    heroService.updateActiveHeroBuildFormData(formData);
+                    HeroSkillLoadout updatedSkillLoadout = activeHero.getSkillLoadout().withAppliedFormData(formData);
+                    CurrentBuildFormData normalizedFormData = updatedSkillLoadout.applyToFormData(formData);
+                    heroService.saveActiveHeroState(normalizedFormData, updatedSkillLoadout);
                     activeHero = heroService.requireActiveHero();
+                    formData = activeHero.getCurrentBuildFormData();
                 }
                 renderPage(exchange, buildPageModel(formData, List.of(), List.of(), null, buildEffectiveResolution(formData, new ArrayList<>())));
                 return;
@@ -84,10 +89,31 @@ public final class CurrentBuildController implements HttpHandler {
             return buildEmptyPageModel();
         }
         Map<String, String> fields = UrlEncodedFormSupport.parseBody(exchange);
-        CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(fields);
-        heroService.updateActiveHeroBuildFormData(formData);
         List<String> errors = new ArrayList<>();
         List<String> messages = new ArrayList<>();
+
+        if (handleHeroAction(fields, messages, errors)) {
+            HeroProfile refreshedHero = heroService.getActiveHero().orElse(null);
+            if (refreshedHero == null) {
+                return buildEmptyPageModel();
+            }
+            CurrentBuildFormData refreshedFormData = refreshedHero.getCurrentBuildFormData();
+            return buildPageModel(
+                    refreshedFormData,
+                    messages,
+                    errors,
+                    null,
+                    buildEffectiveResolution(refreshedFormData, new ArrayList<>(errors))
+            );
+        }
+
+        CurrentBuildFormData requestedFormData = CurrentBuildFormData.fromFormFields(fields, activeHero.getCurrentBuildFormData());
+        HeroSkillLoadout updatedSkillLoadout = activeHero.getSkillLoadout().withAppliedFormData(requestedFormData);
+        CurrentBuildFormData formData = updatedSkillLoadout.applyToFormData(requestedFormData);
+        if (!requestedFormData.getActionBarSlots().equals(formData.getActionBarSlots())) {
+            messages.add("Pasek akcji został oczyszczony do umiejętności przypisanych i nauczonych przez aktywnego bohatera.");
+        }
+        heroService.saveActiveHeroState(formData, updatedSkillLoadout);
         handlePageAction(fields, errors, messages);
         formData = heroService.requireActiveHero().getCurrentBuildFormData();
         EffectiveCurrentBuildResolution resolution = buildEffectiveResolution(formData, errors);
@@ -125,7 +151,6 @@ public final class CurrentBuildController implements HttpHandler {
                                                  List<String> errors,
                                                  CurrentBuildCalculation calculation,
                                                  EffectiveCurrentBuildResolution resolution) {
-        String currentBuildQuery = CurrentBuildFormQuerySupport.toQuery(formData);
         HeroProfile activeHero = heroService.getActiveHero().orElse(null);
         return new CurrentBuildPageModel(
                 formData,
@@ -137,6 +162,7 @@ public final class CurrentBuildController implements HttpHandler {
                 calculation,
                 resolution,
                 activeHero,
+                heroService.getHeroes(),
                 itemLibraryService.getSavedItems(),
                 "/biblioteka-itemow",
                 "/importuj-item-ze-screena",
@@ -156,6 +182,7 @@ public final class CurrentBuildController implements HttpHandler {
                 null,
                 null,
                 null,
+                heroService.getHeroes(),
                 itemLibraryService.getSavedItems(),
                 "/biblioteka-itemow",
                 "/importuj-item-ze-screena",
@@ -252,6 +279,64 @@ public final class CurrentBuildController implements HttpHandler {
         return "Ręczne nadpisanie statów pozostaje częścią kontekstu bohatera, ale nie buduje osobnego runtime. Aktywne itemy per slot są dodawane deterministycznie przed zbudowaniem finalnych efektywnych statów, CurrentBuildRequest i wejściem do tego samego runtime aktualnego buildu.";
     }
 
+    private boolean handleHeroAction(Map<String, String> fields, List<String> messages, List<String> errors) {
+        String heroAction = fields.getOrDefault("heroAction", "");
+        if (heroAction.isBlank()) {
+            return false;
+        }
+        switch (heroAction) {
+            case "setActiveHeroInline" -> {
+                long heroId = parsePositiveLong(fields.get("selectedHeroId"), "Wybierz bohatera do aktywacji.", errors);
+                if (!errors.isEmpty()) {
+                    return true;
+                }
+                heroService.setActiveHero(heroId);
+                messages.add("Zmieniono aktywnego bohatera bez opuszczania ekranu buildu.");
+                return true;
+            }
+            case "updateHeroLevel" -> {
+                Integer heroLevel = parsePositiveInt(fields.get("heroLevelEdit"), "Poziom bohatera musi być dodatni.", errors);
+                if (!errors.isEmpty()) {
+                    return true;
+                }
+                heroService.updateActiveHeroLevel(heroLevel);
+                messages.add("Zapisano poziom aktywnego bohatera.");
+                return true;
+            }
+            case "addAssignedSkill" -> {
+                try {
+                    SkillId skillId = SkillId.valueOf(fields.getOrDefault("skillIdToAdd", ""));
+                    heroService.addSkillToActiveHero(skillId);
+                    messages.add("Dodano umiejętność " + PaladinSkillDefs.get(skillId).getName() + " do bohatera.");
+                } catch (IllegalArgumentException exception) {
+                    errors.add("Wybierz poprawną umiejętność do przypisania bohaterowi.");
+                }
+                return true;
+            }
+            default -> {
+                if (heroAction.startsWith("removeAssignedSkill:")) {
+                    String rawSkillId = heroAction.substring("removeAssignedSkill:".length());
+                    try {
+                        SkillId skillId = SkillId.valueOf(rawSkillId);
+                        HeroProfile activeHero = heroService.requireActiveHero();
+                        List<String> previousActionBar = activeHero.getCurrentBuildFormData().getActionBarSlots();
+                        heroService.removeSkillFromActiveHero(skillId);
+                        List<String> updatedActionBar = heroService.requireActiveHero().getCurrentBuildFormData().getActionBarSlots();
+                        messages.add("Usunięto przypisaną umiejętność " + PaladinSkillDefs.get(skillId).getName() + ".");
+                        if (!previousActionBar.equals(updatedActionBar)) {
+                            messages.add("Pasek akcji został oczyszczony po usunięciu nieobsługiwanej umiejętności.");
+                        }
+                    } catch (IllegalArgumentException exception) {
+                        errors.add("Niepoprawna umiejętność do usunięcia.");
+                    }
+                    return true;
+                }
+                errors.add("Nieobsługiwana akcja kontekstu bohatera.");
+                return true;
+            }
+        }
+    }
+
     private void handlePageAction(Map<String, String> fields, List<String> errors, List<String> messages) {
         String slotAction = fields.getOrDefault("slotAction", "");
         if (slotAction.isBlank()) {
@@ -312,6 +397,34 @@ public final class CurrentBuildController implements HttpHandler {
         exchange.getResponseHeaders().set("Content-Type", HTML_CONTENT_TYPE);
         exchange.sendResponseHeaders(200, responseBytes.length);
         exchange.getResponseBody().write(responseBytes);
+    }
+
+    private static long parsePositiveLong(String rawValue, String errorMessage, List<String> errors) {
+        try {
+            long value = Long.parseLong(rawValue);
+            if (value <= 0L) {
+                errors.add(errorMessage);
+                return 0L;
+            }
+            return value;
+        } catch (NumberFormatException | NullPointerException exception) {
+            errors.add(errorMessage);
+            return 0L;
+        }
+    }
+
+    private static Integer parsePositiveInt(String rawValue, String errorMessage, List<String> errors) {
+        try {
+            int value = Integer.parseInt(rawValue);
+            if (value <= 0) {
+                errors.add(errorMessage);
+                return null;
+            }
+            return value;
+        } catch (NumberFormatException | NullPointerException exception) {
+            errors.add(errorMessage);
+            return null;
+        }
     }
 
     /** Miękko parsuje ręczną bazę pod effective current build, ale nie ukrywa błędów nienumerycznych ani ujemnych wartości. */

@@ -61,10 +61,14 @@ class CurrentBuildWebServerTest {
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Policz aktualny build"));
         assertTrue(response.body().contains("Aktywny bohater"));
-        assertTrue(response.body().contains("Ekran buildu bohatera"));
+        assertTrue(response.body().contains("name=\"selectedHeroId\""));
+        assertTrue(response.body().contains("name=\"heroLevelEdit\""));
         assertTrue(response.body().contains("Ekwipunek aktualnego buildu"));
         assertTrue(response.body().contains("Użyte itemy"));
         assertTrue(response.body().contains("Efektywne staty do obliczeń"));
+        assertTrue(response.body().contains("equipment-paperdoll"));
+        assertTrue(response.body().contains("equipment-column-left"));
+        assertTrue(response.body().contains("equipment-column-right"));
         assertTrue(response.body().contains("Hełm"));
         assertTrue(response.body().contains("Zbroja"));
         assertTrue(response.body().contains("Rękawice"));
@@ -75,9 +79,10 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("Pierścień 1"));
         assertTrue(response.body().contains("Pierścień 2"));
         assertTrue(response.body().contains("Tarcza"));
-        assertTrue(response.body().contains("Zaawansowane: baza ręczna i ręczne nadpisanie statów"));
+        assertTrue(response.body().contains("Zaawansowane: ręczne nadpisanie statów"));
         assertTrue(response.body().contains("Slot jest pusty"));
-        assertTrue(response.body().contains("name=\"level\""));
+        assertTrue(response.body().contains(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.ADVANCE)));
+        assertFalse(response.body().contains(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.HOLY_BOLT)));
         assertTrue(response.body().contains("<input type=\"number\" step=\"1\" name=\"weaponDamage\" value=\"8\">"));
         assertFalse(response.body().contains("min=\"1\" step=\"1\" name=\"weaponDamage\""));
         assertTrue(response.body().contains("Szansa bloku [%]"));
@@ -86,6 +91,61 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("name=\"horizonSeconds\""));
         assertTrue(response.body().contains("Otwórz bibliotekę itemów"));
         assertTrue(response.body().indexOf("Ekwipunek aktualnego buildu") < response.body().indexOf("Efektywne staty do obliczeń"));
+        assertTrue(response.body().indexOf("Hełm") < response.body().indexOf("Broń"));
+        assertTrue(response.body().indexOf("Amulet") < response.body().indexOf("Tarcza"));
+    }
+
+    @Test
+    void shouldAllowInlineSwitchingActiveHeroAndUpdatingHeroLevel() throws Exception {
+        createHero("Alaric", "13");
+        createHero("Gregor", "25");
+
+        HttpResponse<String> switchResponse = sendPost("/policz-aktualny-build", Map.of(
+                "heroAction", "setActiveHeroInline",
+                "selectedHeroId", "2"
+        ));
+
+        assertEquals(200, switchResponse.statusCode());
+        assertTrue(switchResponse.body().contains("Zmieniono aktywnego bohatera bez opuszczania ekranu buildu."));
+        assertTrue(switchResponse.body().contains("Gregor"));
+
+        HttpResponse<String> levelResponse = sendPost("/policz-aktualny-build", Map.of(
+                "heroAction", "updateHeroLevel",
+                "heroLevelEdit", "31"
+        ));
+
+        assertEquals(200, levelResponse.statusCode());
+        assertTrue(levelResponse.body().contains("Zapisano poziom aktywnego bohatera."));
+        assertTrue(levelResponse.body().contains(summaryCard("Poziom bohatera", "31")));
+    }
+
+    @Test
+    void shouldRenderOnlyAssignedSkillsAndSanitizeActionBarToAssignedLearnedSkills() throws Exception {
+        createHero("Testowy bohater", "13");
+
+        HttpResponse<String> initialResponse = sendGet("/policz-aktualny-build");
+        assertEquals(200, initialResponse.statusCode());
+        assertTrue(initialResponse.body().contains(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.ADVANCE)));
+        assertFalse(initialResponse.body().contains(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.HOLY_BOLT)));
+
+        HttpResponse<String> addSkillResponse = sendPost("/policz-aktualny-build", Map.of(
+                "heroAction", "addAssignedSkill",
+                "skillIdToAdd", "HOLY_BOLT"
+        ));
+        assertEquals(200, addSkillResponse.statusCode());
+        assertTrue(addSkillResponse.body().contains("Dodano umiejętność Holy Bolt do bohatera."));
+        assertTrue(addSkillResponse.body().contains(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.HOLY_BOLT)));
+
+        Map<String, String> invalidBarFields = buildAdvanceFlashFields(10);
+        invalidBarFields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.HOLY_BOLT), "0");
+        invalidBarFields.put(CurrentBuildFormData.choiceFieldName(krys.skill.SkillId.HOLY_BOLT), "NONE");
+        invalidBarFields.put(CurrentBuildFormData.actionBarFieldName(1), "HOLY_BOLT");
+
+        HttpResponse<String> sanitizeResponse = sendPost("/policz-aktualny-build", invalidBarFields);
+
+        assertEquals(200, sanitizeResponse.statusCode());
+        assertTrue(sanitizeResponse.body().contains("Pasek akcji został oczyszczony do umiejętności przypisanych i nauczonych przez aktywnego bohatera."));
+        assertFalse(sanitizeResponse.body().contains("Action bar slot 1 wskazuje skill bez rank > 0"));
     }
 
     @Test
@@ -146,6 +206,7 @@ class CurrentBuildWebServerTest {
     @Test
     void shouldCalculateCurrentBuildAndRenderRequiredSections() throws Exception {
         createHero("Testowy bohater", "13");
+        assignSkill(krys.skill.SkillId.HOLY_BOLT);
         HttpResponse<String> response = sendPost(
                 "/policz-aktualny-build",
                 buildHolyBoltJudgementFields()
@@ -173,6 +234,7 @@ class CurrentBuildWebServerTest {
     @Test
     void shouldRejectChoiceThatDoesNotBelongToSelectedSkill() throws Exception {
         createHero("Testowy bohater", "13");
+        assignSkill(krys.skill.SkillId.HOLY_BOLT);
         HttpResponse<String> response = sendPost(
                 "/policz-aktualny-build",
                 buildInvalidHolyBoltChoiceFields()
@@ -186,6 +248,7 @@ class CurrentBuildWebServerTest {
     @Test
     void shouldRenderClashScenarioWithResolveAndReactiveBonuses() throws Exception {
         createHero("Testowy bohater", "13");
+        assignSkill(krys.skill.SkillId.CLASH);
         HttpResponse<String> response = sendPost(
                 "/policz-aktualny-build",
                 buildClashPunishmentFields(9)
@@ -414,6 +477,15 @@ class CurrentBuildWebServerTest {
         ));
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Utworzono bohatera " + heroName + "."));
+    }
+
+    private void assignSkill(krys.skill.SkillId skillId) throws Exception {
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", Map.of(
+                "heroAction", "addAssignedSkill",
+                "skillIdToAdd", skillId.name()
+        ));
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Dodano umiejętność " + krys.skill.PaladinSkillDefs.get(skillId).getName() + " do bohatera."));
     }
 
     private HttpResponse<String> sendGet(String path) throws Exception {

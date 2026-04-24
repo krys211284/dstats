@@ -81,11 +81,13 @@ class SearchBuildWebServerTest {
         assertTrue(response.body().contains("name=\"actionBarSizes\""));
         assertTrue(response.body().contains("name=\"topResultsLimit\""));
         assertTrue(response.body().contains(SearchBuildFormData.rankValuesFieldName(krys.skill.SkillId.ADVANCE)));
+        assertFalse(response.body().contains(SearchBuildFormData.rankValuesFieldName(krys.skill.SkillId.CLASH)));
     }
 
     @Test
     void shouldRunSearchAndRenderRequiredSections() throws Exception {
         createHero("Szperacz", "13");
+        assignAllFoundationSkills();
         HttpResponse<String> response = sendPost(
                 "/znajdz-najlepszy-build",
                 buildReferenceSearchFields()
@@ -119,6 +121,7 @@ class SearchBuildWebServerTest {
     @Test
     void shouldAllowDrillDownFromSearchResultToCandidateDetailsOnSameRuntime() throws Exception {
         createHero("Szperacz", "13");
+        assignAllFoundationSkills();
         HttpResponse<String> searchResponse = sendPost(
                 "/znajdz-najlepszy-build",
                 buildReferenceSearchFields()
@@ -216,6 +219,21 @@ class SearchBuildWebServerTest {
         ));
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Utworzono bohatera " + heroName + "."));
+    }
+
+    private void assignAllFoundationSkills() throws Exception {
+        assignSkill(krys.skill.SkillId.BRANDISH);
+        assignSkill(krys.skill.SkillId.HOLY_BOLT);
+        assignSkill(krys.skill.SkillId.CLASH);
+    }
+
+    private void assignSkill(krys.skill.SkillId skillId) throws Exception {
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", Map.of(
+                "heroAction", "addAssignedSkill",
+                "skillIdToAdd", skillId.name()
+        ));
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Dodano umiejętność " + krys.skill.PaladinSkillDefs.get(skillId).getName() + " do bohatera."));
     }
 
     private static Map<String, String> buildReferenceSearchFields() {

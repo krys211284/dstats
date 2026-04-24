@@ -9,6 +9,7 @@ import krys.itemlibrary.SavedImportedItem;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import krys.skill.SkillId;
 
 /** Model widoku pojedynczej strony M8 dla flow „Policz aktualny build”. */
 public final class CurrentBuildPageModel {
@@ -21,6 +22,7 @@ public final class CurrentBuildPageModel {
     private final CurrentBuildCalculation calculation;
     private final EffectiveCurrentBuildResolution effectiveCurrentBuildResolution;
     private final HeroProfile activeHero;
+    private final List<HeroProfile> heroes;
     private final List<SavedImportedItem> savedLibraryItems;
     private final String itemLibraryUrl;
     private final String itemImportUrl;
@@ -36,6 +38,7 @@ public final class CurrentBuildPageModel {
                                  CurrentBuildCalculation calculation,
                                  EffectiveCurrentBuildResolution effectiveCurrentBuildResolution,
                                  HeroProfile activeHero,
+                                 List<HeroProfile> heroes,
                                  List<SavedImportedItem> savedLibraryItems,
                                  String itemLibraryUrl,
                                  String itemImportUrl,
@@ -50,6 +53,7 @@ public final class CurrentBuildPageModel {
         this.calculation = calculation;
         this.effectiveCurrentBuildResolution = effectiveCurrentBuildResolution;
         this.activeHero = activeHero;
+        this.heroes = Collections.unmodifiableList(new ArrayList<>(heroes));
         this.savedLibraryItems = Collections.unmodifiableList(new ArrayList<>(savedLibraryItems));
         this.itemLibraryUrl = itemLibraryUrl;
         this.itemImportUrl = itemImportUrl;
@@ -97,6 +101,10 @@ public final class CurrentBuildPageModel {
         return savedLibraryItems;
     }
 
+    public List<HeroProfile> getHeroes() {
+        return heroes;
+    }
+
     public String getItemLibraryUrl() {
         return itemLibraryUrl;
     }
@@ -115,6 +123,20 @@ public final class CurrentBuildPageModel {
 
     public boolean hasActiveHero() {
         return activeHero != null;
+    }
+
+    public List<SkillId> getAssignedSkillIds() {
+        if (activeHero == null) {
+            return List.of();
+        }
+        return activeHero.getSkillLoadout().getAssignedSkillIds();
+    }
+
+    public List<SkillId> getActionBarEligibleSkillIds() {
+        if (activeHero == null) {
+            return List.of();
+        }
+        return activeHero.getSkillLoadout().getActionBarEligibleSkills();
     }
 
     public boolean hasResult() {

@@ -47,7 +47,8 @@ public final class HeroService {
                 heroName.trim(),
                 heroClass,
                 CurrentBuildFormQuerySupport.toQuery(buildFormData),
-                HeroItemSelection.empty()
+                HeroItemSelection.empty(),
+                HeroSkillLoadout.fromCurrentBuildFormData(buildFormData)
         ));
         if (repository.loadActiveHeroId().isEmpty()) {
             repository.saveActiveHeroId(hero.getHeroId());
@@ -78,7 +79,23 @@ public final class HeroService {
 
     public void updateActiveHeroBuildFormData(CurrentBuildFormData formData) {
         HeroProfile activeHero = requireActiveHero();
-        repository.save(activeHero.withCurrentBuildQuery(CurrentBuildFormQuerySupport.toQuery(formData)));
+        HeroSkillLoadout updatedSkillLoadout = activeHero.getSkillLoadout().withAppliedFormData(formData);
+        CurrentBuildFormData normalizedFormData = updatedSkillLoadout.applyToFormData(formData);
+        repository.save(activeHero.withCurrentBuildState(normalizedFormData, updatedSkillLoadout));
+    }
+
+    public void saveActiveHeroState(CurrentBuildFormData formData, HeroSkillLoadout skillLoadout) {
+        HeroProfile activeHero = requireActiveHero();
+        repository.save(activeHero.withCurrentBuildState(formData, skillLoadout));
+    }
+
+    public void updateActiveHeroLevel(int level) {
+        if (level <= 0) {
+            throw new IllegalArgumentException("Poziom bohatera musi być dodatni.");
+        }
+        HeroProfile activeHero = requireActiveHero();
+        CurrentBuildFormData updatedFormData = CurrentBuildFormQuerySupport.withHeroLevel(activeHero.getCurrentBuildFormData(), level);
+        repository.save(activeHero.withCurrentBuildState(updatedFormData, activeHero.getSkillLoadout()));
     }
 
     public void replaceActiveHeroItemSelection(HeroItemSelection selection) {
@@ -104,5 +121,19 @@ public final class HeroService {
                 repository.save(hero.withItemSelection(updatedSelection));
             }
         }
+    }
+
+    public void addSkillToActiveHero(krys.skill.SkillId skillId) {
+        HeroProfile activeHero = requireActiveHero();
+        HeroSkillLoadout updatedSkillLoadout = activeHero.getSkillLoadout().withAssignedSkill(skillId);
+        CurrentBuildFormData normalizedFormData = updatedSkillLoadout.applyToFormData(activeHero.getCurrentBuildFormData());
+        repository.save(activeHero.withCurrentBuildState(normalizedFormData, updatedSkillLoadout));
+    }
+
+    public void removeSkillFromActiveHero(krys.skill.SkillId skillId) {
+        HeroProfile activeHero = requireActiveHero();
+        HeroSkillLoadout updatedSkillLoadout = activeHero.getSkillLoadout().withoutAssignedSkill(skillId);
+        CurrentBuildFormData normalizedFormData = updatedSkillLoadout.applyToFormData(activeHero.getCurrentBuildFormData());
+        repository.save(activeHero.withCurrentBuildState(normalizedFormData, updatedSkillLoadout));
     }
 }

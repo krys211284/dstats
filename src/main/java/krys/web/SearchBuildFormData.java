@@ -82,7 +82,10 @@ public final class SearchBuildFormData {
     }
 
     public static SearchBuildFormData fromFormFields(Map<String, String> fields) {
-        SearchBuildFormData defaults = defaultValues();
+        return fromFormFields(fields, defaultValues());
+    }
+
+    public static SearchBuildFormData fromFormFields(Map<String, String> fields, SearchBuildFormData defaults) {
         Map<SkillId, SkillSearchFormData> skillConfigs = new EnumMap<>(SkillId.class);
         for (SkillId skillId : SkillId.values()) {
             SkillSearchFormData defaultSkillConfig = defaults.getSkillConfig(skillId);
@@ -194,6 +197,32 @@ public final class SearchBuildFormData {
 
     public SkillSearchFormData getSkillConfig(SkillId skillId) {
         return skillConfigs.get(skillId);
+    }
+
+    public SearchBuildFormData restrictedToAssignedSkills(List<SkillId> assignedSkillIds) {
+        java.util.LinkedHashSet<SkillId> allowedSkills = new java.util.LinkedHashSet<>(assignedSkillIds);
+        Map<SkillId, SkillSearchFormData> restrictedSkillConfigs = new EnumMap<>(SkillId.class);
+        for (SkillId skillId : SkillId.values()) {
+            if (allowedSkills.contains(skillId)) {
+                restrictedSkillConfigs.put(skillId, getSkillConfig(skillId));
+                continue;
+            }
+            restrictedSkillConfigs.put(skillId, new SkillSearchFormData("0", "false", SkillUpgradeChoice.NONE.name()));
+        }
+        return new SearchBuildFormData(
+                useItemLibrary,
+                levelValues,
+                weaponDamageValues,
+                strengthValues,
+                intelligenceValues,
+                thornsValues,
+                blockChanceValues,
+                retributionChanceValues,
+                actionBarSizes,
+                horizonSeconds,
+                topResultsLimit,
+                restrictedSkillConfigs
+        );
     }
 
     public static final class SkillSearchFormData {
