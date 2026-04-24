@@ -8,6 +8,20 @@ Ten README opisuje wyłącznie aktualny stan projektu. Jest kontraktem wykonawcz
 - Celowo pominięto historię wersji, tymczasowe poprawki techniczne, log błędów UI/CRUD, duplikaty tych samych reguł, komentarze typu "po tej rundzie testów" oraz zapisy później zastąpione nowszą regułą.
 - Rozstrzygnięte konflikty źródeł: dokumentacja i UI używają nazwy `Vulnerable`, a historyczne `Exposed` pozostaje wyłącznie aliasem technicznym; search ocenia `build + skill bar`, a kolejność paska pozostaje semantyczna przez `LRU`; modyfikatory typu `replace` podmieniają bazowy hit tam, gdzie finalna reguła tak stanowi; czas trwania statusów wynika z definicji konkretnego efektu, a nie z niespójnych ogólnych zapisów historycznych.
 
+## Spis treści
+- [1. Cel projektu](#1-cel-projektu)
+- [2. Kontrakty wykonawcze](#2-kontrakty-wykonawcze)
+- [3. Architektura systemu](#3-architektura-systemu)
+- [4. Model domeny](#4-model-domeny)
+- [5. Damage Engine](#5-damage-engine)
+- [6. Statusy i zasady targetowania](#6-statusy-i-zasady-targetowania)
+- [7. Single hit / delayed hit / reactive damage](#7-single-hit--delayed-hit--reactive-damage)
+- [8. Rotacja symulacji](#8-rotacja-symulacji)
+- [9. Build search](#9-build-search)
+- [10. UI, debug i prezentacja wyników](#10-ui-debug-i-prezentacja-wyników)
+- [11. Testy i golden values](#11-testy-i-golden-values)
+- [12. Zasady dostarczania](#12-zasady-dostarczania)
+
 ## 1. Cel projektu
 Projekt `Diablo 4 DPS Engine / Build WebApp` nie jest definiowany produktowo jako narzędzie dla jednej klasy postaci. Docelowo architektura aplikacji ma wspierać wiele klas, ale aktualny zaimplementowany foundation domenowy i referencyjny runtime koncentrują się na obecnym zakresie klasowym repo.
 
@@ -40,6 +54,7 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - czytelną edycję poziomu aktywnego bohatera na ekranie `Policz aktualny build`,
 - sekcję `Ekwipunek aktualnego buildu` pokazującą pełny układ slotów bohatera jako stały layout SSR z aktywnym itemem albo pustym slotem,
 - bezpośrednią zmianę aktywnego itemu per slot z poziomu current build w kontekście aktywnego bohatera bez budowania osobnego runtime ekwipunku,
+- czytelne rozdzielenie operacji slotu na `Wybierz z biblioteki`, `Importuj nowy item`, `Zmień item` i `Wyczyść slot`,
 - jawny model przypisanych umiejętności bohatera z trwałym zapisem rangi, bazowego ulepszenia i dodatkowego modyfikatora,
 - render current build ograniczony do umiejętności przypisanych aktywnemu bohaterowi oraz pasek akcji wybierający wyłącznie spośród przypisanych i nauczonych umiejętności,
 - sekcję `Użyte itemy` pokazującą, które aktywne itemy rzeczywiście składają się na bieżący build i jaki mają wkład,
@@ -105,6 +120,7 @@ Kontrakt app shell:
 - moduł `Bohaterowie` jest częścią aktywnej nawigacji produktu i stanowi punkt wejścia do pracy na aktywnym bohaterze,
 - globalna nawigacja SSR jest renderowana z tego samego rejestru modułów, a nie z rozproszonych ręcznych linków w wielu ekranach,
 - główne ekrany SSR korzystają z tego samego renderera app shell i tego samego zestawu tokenów wizualnych dla tła, paneli, przycisków, statusów i aktywnej zakładki,
+- główne ekrany SSR korzystają też z szerszego wspólnego kontenera layoutu, żeby current build, search i biblioteka lepiej wykorzystywały szerokie monitory bez łamania mobilnego SSR,
 - istniejące flow `Policz aktualny build`, `Importuj item ze screena`, `Biblioteka itemów`, `Znajdź najlepszy build` i drill-down searcha pozostają cienkimi warstwami nad tym samym runtime,
 - placeholder pages są świadomą warstwą produktową przygotowującą architekturę aplikacji pod przyszłe sekcje, a nie atrapą zastępującą istniejącą logikę runtime.
 
@@ -133,11 +149,14 @@ Kontrakt aktualnej warstwy aplikacyjnej:
 - SSR current build pokazuje selekcję aktywnych slotów aktywnego bohatera jako `Ekwipunek aktualnego buildu` i zmienia aktywny item per slot bez budowania bocznego modelu equipment runtime,
 - SSR current build pozwala zmienić aktywnego bohatera i jego poziom bez opuszczania ekranu buildu,
 - bohater ma własny trwały `HeroSkillLoadout`, a current build renderuje i zapisuje wyłącznie umiejętności przypisane aktywnemu bohaterowi,
+- przypisywanie umiejętności bohatera odbywa się bezpośrednio na ekranie `Policz aktualny build` przez sekcję `Umiejętności bohatera` i operacje `Dodaj umiejętność` oraz `Usuń umiejętność`,
 - pasek akcji current build jest ograniczony do przypisanych i nauczonych umiejętności aktywnego bohatera, a nielegalne konfiguracje są bezpiecznie czyszczone przed mapowaniem do requestu,
 - `ItemLibraryDataDirectoryResolver` rozwiązuje katalog trwałych danych biblioteki itemów przez `dstats.dataDir` albo domyślny katalog użytkownika `~/.dstats/item-library/` i wykonuje bezpieczną migrację z legacy `target/item-library-runtime/`,
 - biblioteka itemów pozostaje warstwą aplikacyjną przed `CurrentBuildRequest`, a aktywny wybór slotów należy do konkretnego bohatera,
 - effective current build jest składany jako `bohater + jego ręczne nadpisanie statów + jego aktywne itemy per slot -> finalne effective current build stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
 - ekran `Policz aktualny build` jest ekranem bohatera i pokazuje hierarchię `bohater -> ekwipunek -> użyte itemy -> efektywne staty -> skille -> pasek akcji -> wynik`, a ręczna baza pozostaje tylko w sekcji zaawansowanej,
+- pusty slot w current build rozdziela dwie ścieżki operacyjne: `Wybierz z biblioteki` dla istniejących itemów oraz `Importuj nowy item` dla dopisania nowego zapisu do wspólnej biblioteki,
+- slot z aktywnym itemem pokazuje operacje `Zmień item` i `Wyczyść slot`, a import pozostaje ścieżką pomocniczą do dopisania nowego itemu,
 - tryb searcha po bibliotece itemów używa analogicznego kontraktu `aktywny bohater + jego ręczna baza searcha + kandydacka kombinacja zapisanych itemów z biblioteki -> finalne effective current build stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
 - walidacja wejścia current build dotyczy finalnych effective stats mapowanych do `CurrentBuildRequest`, a nie wyłącznie surowej ręcznej bazy formularza,
 - GUI importu itemu pozostaje cienką warstwą wejściową nad obecnym modelem current build w kontekście aktywnego bohatera i nie implementuje alternatywnego runtime,
@@ -1003,11 +1022,13 @@ Kontrakt prezentacji dla tego smoke testu:
 - GUI pozwala ustawić ręczne nadpisania statów, konfigurację wyłącznie przypisanych umiejętności bohatera oraz jego pasek akcji, a następnie kliknąć `Policz aktualny build`.
 - GUI pozwala z tego samego formularza przejść do importu pojedynczego itemu ze screena z zachowaniem aktualnego kontekstu current build.
 - GUI rozdziela warstwy: `Aktywny bohater`, `Ekwipunek aktualnego buildu`, `Użyte itemy`, `Efektywne staty do obliczeń`, `Skille`, `Pasek akcji`, `Wynik symulacji`, a ręczna baza pozostaje w sekcji zaawansowanej.
+- GUI nie renderuje osobnej sekcji `Centrum buildu`; najważniejsze operacje są rozłożone bezpośrednio na sekcję bohatera, sloty ekwipunku i sekcję użytych itemów.
 - GUI pokazuje, że ręczne nadpisanie statów jest jedynie warstwą pomocniczą w kontekście bohatera i może pozostać częściowo puste albo zerowe, jeżeli aktywne itemy dopełnią finalne effective stats.
 - GUI pokazuje pełny stały layout slotów bohatera: `Hełm`, `Zbroja`, `Rękawice`, `Spodnie`, `Buty`, `Broń`, `Amulet`, `Pierścień 1`, `Pierścień 2`, `Tarcza`.
-- GUI pokazuje wspierane sloty ekwipunku, aktywny item albo pusty slot, skrót wkładu itemu, status aktywności oraz akcje `Wybierz item`, `Zmień item` i `Wyczyść slot` dla aktywnych slotów tego bohatera.
+- GUI pokazuje wspierane sloty ekwipunku, aktywny item albo pusty slot, skrót wkładu itemu, status aktywności oraz akcje `Wybierz z biblioteki`, `Importuj nowy item`, `Zmień item` i `Wyczyść slot` dla aktywnych slotów tego bohatera.
 - GUI pokazuje sekcję `Umiejętności bohatera`, pozwala dodać albo usunąć przypisaną umiejętność i nie renderuje bezwarunkowo wszystkich skilli foundation.
 - GUI ogranicza pasek akcji do przypisanych i nauczonych umiejętności aktywnego bohatera oraz czyści nielegalne wpisy do bezpiecznego podzbioru.
+- GUI i główne ekrany SSR korzystają z szerszego kontenera layoutu, dzięki czemu lepiej wykorzystują szerokie monitory bez rozwalania mobilnego układu.
 - GUI pokazuje aktywny wkład biblioteki oraz finalne efektywne staty użyte do obliczeń na tym samym pipeline `effective stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`.
 - GUI i CLI przechodzą przez ten sam kontrakt `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> CurrentBuildCalculationService -> runtime`.
 - scenariusze referencyjne są trybem pomocniczym do smoke testów i regresji, a nie główną ścieżką produktu.

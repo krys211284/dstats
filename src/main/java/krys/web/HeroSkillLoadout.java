@@ -73,7 +73,7 @@ public final class HeroSkillLoadout {
         if (assignedSkills.containsKey(skillId)) {
             return this;
         }
-        EnumMap<SkillId, HeroAssignedSkill> updated = new EnumMap<>(assignedSkills);
+        EnumMap<SkillId, HeroAssignedSkill> updated = copyAssignedSkills(assignedSkills);
         updated.put(skillId, new HeroAssignedSkill(skillId, 0, false, SkillUpgradeChoice.NONE));
         return new HeroSkillLoadout(updated, actionBarSkills);
     }
@@ -82,7 +82,7 @@ public final class HeroSkillLoadout {
         if (!assignedSkills.containsKey(skillId)) {
             return this;
         }
-        EnumMap<SkillId, HeroAssignedSkill> updated = new EnumMap<>(assignedSkills);
+        EnumMap<SkillId, HeroAssignedSkill> updated = copyAssignedSkills(assignedSkills);
         updated.remove(skillId);
         return new HeroSkillLoadout(updated, actionBarSkills);
     }

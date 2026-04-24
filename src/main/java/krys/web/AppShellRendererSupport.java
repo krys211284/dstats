@@ -80,7 +80,7 @@ public final class AppShellRendererSupport {
                 }
 
                 .layout {
-                    max-width: 1240px;
+                    max-width: 1460px;
                     margin: 0 auto;
                     padding: 24px 16px 48px;
                 }

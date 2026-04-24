@@ -304,12 +304,19 @@ public final class CurrentBuildController implements HttpHandler {
                 return true;
             }
             case "addAssignedSkill" -> {
+                String rawSkillId = fields.getOrDefault("skillIdToAdd", "");
+                SkillId skillId;
                 try {
-                    SkillId skillId = SkillId.valueOf(fields.getOrDefault("skillIdToAdd", ""));
+                    skillId = SkillId.valueOf(rawSkillId);
+                } catch (IllegalArgumentException exception) {
+                    errors.add("Wybierz poprawną umiejętność do przypisania bohaterowi.");
+                    return true;
+                }
+                try {
                     heroService.addSkillToActiveHero(skillId);
                     messages.add("Dodano umiejętność " + PaladinSkillDefs.get(skillId).getName() + " do bohatera.");
                 } catch (IllegalArgumentException exception) {
-                    errors.add("Wybierz poprawną umiejętność do przypisania bohaterowi.");
+                    errors.add(exception.getMessage());
                 }
                 return true;
             }

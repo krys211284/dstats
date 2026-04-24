@@ -90,6 +90,10 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("name=\"actionBar1\""));
         assertTrue(response.body().contains("name=\"horizonSeconds\""));
         assertTrue(response.body().contains("Otwórz bibliotekę itemów"));
+        assertTrue(response.body().contains("Importuj nowy item"));
+        assertTrue(response.body().contains("Wybierz z biblioteki"));
+        assertFalse(response.body().contains("Centrum buildu"));
+        assertTrue(response.body().contains("max-width: 1460px;"));
         assertTrue(response.body().indexOf("Ekwipunek aktualnego buildu") < response.body().indexOf("Efektywne staty do obliczeń"));
         assertTrue(response.body().indexOf("Hełm") < response.body().indexOf("Broń"));
         assertTrue(response.body().indexOf("Amulet") < response.body().indexOf("Tarcza"));
@@ -133,6 +137,7 @@ class CurrentBuildWebServerTest {
                 "skillIdToAdd", "HOLY_BOLT"
         ));
         assertEquals(200, addSkillResponse.statusCode());
+        assertFalse(addSkillResponse.body().contains("Wybierz poprawną umiejętność do przypisania bohaterowi."));
         assertTrue(addSkillResponse.body().contains("Dodano umiejętność Holy Bolt do bohatera."));
         assertTrue(addSkillResponse.body().contains(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.HOLY_BOLT)));
 
@@ -183,7 +188,9 @@ class CurrentBuildWebServerTest {
 
         assertEquals(200, currentBuildResponse.statusCode());
         assertTrue(currentBuildResponse.body().contains("name=\"selectedItemId_MAIN_HAND\""));
-        assertTrue(currentBuildResponse.body().contains("Wybierz item"));
+        assertTrue(currentBuildResponse.body().contains("Wybierz z biblioteki"));
+        assertTrue(currentBuildResponse.body().contains("Importuj nowy item"));
+        assertFalse(currentBuildResponse.body().contains("Dodaj item do biblioteki"));
         assertTrue(currentBuildResponse.body().contains("Broń główna / sword-a.png"));
         assertTrue(currentBuildResponse.body().contains("Broń główna / sword-b.png"));
         assertFalse(currentBuildResponse.body().contains(">MAIN_HAND<"));
@@ -198,6 +205,7 @@ class CurrentBuildWebServerTest {
         assertTrue(activateResponse.body().contains("Zmieniono aktywny item dla slotu Broń."));
         assertTrue(activateResponse.body().contains("class=\"status-badge status-active\">Aktywny</span>"));
         assertTrue(activateResponse.body().contains("Broń główna / sword-b.png"));
+        assertTrue(activateResponse.body().contains(">Zmień item<"));
         assertTrue(activateResponse.body().contains("Wyczyść slot"));
         assertTrue(activateResponse.body().contains("obrażenia broni=321"));
         assertTrue(activateResponse.body().contains("Łączne obrażenia"));

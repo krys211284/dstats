@@ -201,15 +201,24 @@ public final class CurrentBuildPageRenderer {
     }
 
     private static String renderEquipmentSection(CurrentBuildPageModel model) {
+        String currentBuildQuery = CurrentBuildFormQuerySupport.toQuery(model.getFormData());
         StringBuilder html = new StringBuilder("""
                 <section class="layer-panel layer-panel-hero">
                     <div class="layer-heading">
                         <span class="layer-index">1</span>
                         <div>
                             <h3>Ekwipunek aktualnego buildu</h3>
-                            <p class="helper">Układ slotów jest teraz zorganizowany jak ekran bohatera: lewa i prawa strona ekwipunku oraz środkowy paper doll. Zmiana itemu nadal tylko steruje przypisaniem bibliotecznego itemu do konkretnego bohatera przed tym samym runtime.</p>
+                            <p class="helper">Układ slotów jest teraz zorganizowany jak ekran bohatera: lewa i prawa strona ekwipunku. Wybór itemu nadal tylko steruje przypisaniem bibliotecznego itemu do konkretnego bohatera przed tym samym runtime.</p>
                         </div>
                     </div>
+                    <div class="equipment-top-actions">
+                """);
+        html.append("<a class=\"nav-link\" href=\"")
+                .append(escapeHtml(model.getItemLibraryUrl()))
+                .append("\">Otwórz bibliotekę itemów</a><a class=\"nav-link secondary-link\" href=\"")
+                .append(escapeHtml(buildItemImportUrl(currentBuildQuery)))
+                .append("\">Importuj nowy item</a></div>");
+        html.append("""
                     <div class="equipment-paperdoll">
                         <div class="equipment-column equipment-column-left">
                 """);
@@ -217,26 +226,6 @@ public final class CurrentBuildPageRenderer {
             html.append(renderEquipmentSlot(model, slot));
         }
         html.append("""
-                        </div>
-                        <div class="equipment-silhouette">
-                            <div class="silhouette-card">
-                                <span class="section-kicker">Centrum buildu</span>
-                                <h4>Bohater i jego stan</h4>
-                """)
-                .append(renderSummaryCard("Aktywny bohater", model.getActiveHero().getName()))
-                .append(renderSummaryCard("Aktywne sloty", Integer.toString(model.getActiveLibraryItems().size())))
-                .append(renderSummaryCard("Umiejętności bohatera", Integer.toString(model.getAssignedSkillIds().size())))
-                .append(renderSummaryCard("Pasek akcji", Integer.toString(model.getActionBarEligibleSkillIds().size()) + " gotowych"))
-                .append("""
-                                <div class="hero-links">
-                                    <a class="nav-link" href="
-                """)
-                .append(escapeHtml(model.getItemLibraryUrl()))
-                .append("\">Otwórz bibliotekę itemów</a><a class=\"nav-link secondary-link\" href=\"")
-                .append(escapeHtml(model.getItemImportUrl()))
-                .append("""
-                        ">Importuj item ze screena</a></div>
-                            </div>
                         </div>
                         <div class="equipment-column equipment-column-right">
                 """);
@@ -258,6 +247,7 @@ public final class CurrentBuildPageRenderer {
                 .filter(item -> slot.supports(item.getSlot()))
                 .sorted(Comparator.comparingLong(SavedImportedItem::getItemId))
                 .toList();
+        String currentBuildQuery = CurrentBuildFormQuerySupport.toQuery(model.getFormData());
 
         StringBuilder html = new StringBuilder("<article class=\"equipment-slot equipment-slot-")
                 .append(slot.name().toLowerCase(Locale.ROOT))
@@ -271,8 +261,8 @@ public final class CurrentBuildPageRenderer {
             html.append("<p class=\"slot-item-name slot-item-empty\">Slot jest pusty</p>")
                     .append("<p class=\"slot-helper\">")
                     .append(slotItems.isEmpty()
-                            ? "Brak zapisanych itemów dla tego slotu. Zaimportuj item albo zapisz go w bibliotece."
-                            : "W tym slocie nie ustawiono jeszcze aktywnego itemu.")
+                            ? "Nie masz jeszcze zgodnego itemu w bibliotece dla tego slotu."
+                            : "W tym slocie nie ustawiono jeszcze aktywnego itemu. Możesz wybrać istniejący item z biblioteki albo zaimportować nowy.")
                     .append("</p>");
         } else {
             html.append("<p class=\"slot-item-name\">")
@@ -284,34 +274,40 @@ public final class CurrentBuildPageRenderer {
                     .append("</p>");
         }
 
-        if (slotItems.isEmpty()) {
-            html.append("<div class=\"slot-empty-actions\"><a class=\"nav-link secondary-link\" href=\"")
-                    .append(escapeHtml(model.getItemImportUrl()))
-                    .append("\">Dodaj item do biblioteki</a></div></article>");
-            return html.toString();
+        if (!slotItems.isEmpty()) {
+            html.append("<label class=\"slot-select-label\">")
+                    .append(activeItem == null ? "Wybierz z biblioteki" : "Zmień item")
+                    .append("<select name=\"selectedItemId_")
+                    .append(slot.name())
+                    .append("\">")
+                    .append(renderSlotOption("", activeItem == null ? "Wybierz zapisany item z biblioteki" : "Pozostaw bez zmiany", false));
+            for (SavedImportedItem item : slotItems) {
+                boolean selected = activeItem != null && item.getItemId() == activeItem.getItem().getItemId();
+                html.append(renderSlotOption(Long.toString(item.getItemId()), buildSlotOptionLabel(item), selected));
+            }
+            html.append("</select></label>");
         }
 
-        html.append("<label class=\"slot-select-label\">")
-                .append(activeItem == null ? "Wybierz item dla slotu" : "Zmień item dla slotu")
-                .append("<select name=\"selectedItemId_")
-                .append(slot.name())
-                .append("\">")
-                .append(renderSlotOption("", activeItem == null ? "Wybierz zapisany item" : "Pozostaw bez zmiany", false));
-        for (SavedImportedItem item : slotItems) {
-            boolean selected = activeItem != null && item.getItemId() == activeItem.getItem().getItemId();
-            html.append(renderSlotOption(Long.toString(item.getItemId()), buildSlotOptionLabel(item), selected));
+        html.append("<div class=\"slot-actions\">");
+        if (!slotItems.isEmpty()) {
+            html.append("<button type=\"submit\" name=\"slotAction\" value=\"setActiveSlotItem:")
+                    .append(slot.name())
+                    .append("\">")
+                    .append(activeItem == null ? "Wybierz z biblioteki" : "Zmień item")
+                    .append("</button>");
+        } else {
+            html.append("<a class=\"nav-link secondary-link\" href=\"")
+                    .append(escapeHtml(model.getItemLibraryUrl()))
+                    .append("\">Wybierz z biblioteki</a>");
         }
-        html.append("</select></label><div class=\"slot-actions\">")
-                .append("<button type=\"submit\" name=\"slotAction\" value=\"setActiveSlotItem:")
-                .append(slot.name())
-                .append("\">")
-                .append(activeItem == null ? "Wybierz item" : "Zmień item")
-                .append("</button>");
         if (activeItem != null) {
             html.append("<button type=\"submit\" name=\"slotAction\" value=\"clearActiveSlotItem:")
                     .append(slot.name())
                     .append("\" class=\"secondary-button\">Wyczyść slot</button>");
         }
+        html.append("<a class=\"nav-link secondary-link\" href=\"")
+                .append(escapeHtml(buildItemImportUrl(currentBuildQuery)))
+                .append("\">Importuj nowy item</a>");
         html.append("</div></article>");
         return html.toString();
     }
@@ -719,6 +715,13 @@ public final class CurrentBuildPageRenderer {
 
     private static String buildSlotOptionLabel(SavedImportedItem item) {
         return item.getDisplayName() + " | " + ItemLibraryPresentationSupport.shortContributionLabel(item);
+    }
+
+    private static String buildItemImportUrl(String currentBuildQuery) {
+        if (currentBuildQuery == null || currentBuildQuery.isBlank()) {
+            return "/importuj-item-ze-screena";
+        }
+        return "/importuj-item-ze-screena?" + currentBuildQuery;
     }
 
     private static String renderSlotStatusBadge(HeroSlotItemAssignment activeItem) {

@@ -60,4 +60,26 @@ class HeroServiceTest {
         assertEquals(firstHero.getHeroId(), service.requireActiveHero().getHeroId());
         assertEquals("Alaric", service.requireActiveHero().getName());
     }
+
+    @Test
+    void shouldAllowAddingAssignedSkillForPersistedHeroWithEmptyLegacyLoadout() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("hero-service-empty-loadout");
+        FileHeroProfileRepository repository = new FileHeroProfileRepository(tempDirectory);
+        CurrentBuildFormData baseFormData = CurrentBuildFormData.defaultValues();
+        HeroProfile hero = new HeroProfile(
+                1L,
+                "Legacy",
+                HeroClass.PALADIN,
+                CurrentBuildFormQuerySupport.toQuery(baseFormData),
+                HeroItemSelection.empty(),
+                new HeroSkillLoadout(java.util.Map.of(), List.of())
+        );
+        repository.save(hero);
+        repository.saveActiveHeroId(hero.getHeroId());
+
+        HeroService service = new HeroService(repository);
+        service.addSkillToActiveHero(SkillId.HOLY_BOLT);
+
+        assertTrue(service.requireActiveHero().getSkillLoadout().isAssigned(SkillId.HOLY_BOLT));
+    }
 }
