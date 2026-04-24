@@ -149,7 +149,7 @@ class BuildSearchCandidateGeneratorTest {
         assertTrue(candidates.stream().anyMatch(candidate ->
                 candidate.getCurrentBuildRequest().getWeaponDamage() == 300L
                         && candidate.getCurrentBuildRequest().getStrength() == 85.0d
-                        && candidate.getSelectedItemLibraryItemsDescription().contains("MAIN_HAND")
+                        && candidate.getSelectedItemLibraryItemsDescription().contains("Broń główna")
         ));
         assertTrue(candidates.stream().anyMatch(candidate ->
                 candidate.getCurrentBuildRequest().getWeaponDamage() == 321L
@@ -158,8 +158,8 @@ class BuildSearchCandidateGeneratorTest {
                         && candidate.getCurrentBuildRequest().getThorns() == 160.0d
                         && candidate.getCurrentBuildRequest().getBlockChance() == 28.0d
                         && candidate.getCurrentBuildRequest().getRetributionChance() == 40.0d
-                        && candidate.getItemLibraryContributionDescription().contains("weapon=321")
-                        && candidate.getItemLibraryContributionDescription().contains("int=11")
+                        && candidate.getItemLibraryContributionDescription().contains("obrażenia broni=321")
+                        && candidate.getItemLibraryContributionDescription().contains("inteligencja=11")
         ));
     }
 

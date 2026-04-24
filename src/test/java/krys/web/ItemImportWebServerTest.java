@@ -55,6 +55,8 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("Importuj pojedynczy item ze screena"));
         assertTrue(response.body().contains("name=\"itemImage\""));
         assertTrue(response.body().contains("To jest import wspomagany pojedynczego itemu ze screena."));
+        assertTrue(response.body().contains("Wstępnie rozpoznane pola"));
+        assertTrue(response.body().contains("Tu pojawią się rozpoznane pola itemu"));
     }
 
     @Test
@@ -63,7 +65,7 @@ class ItemImportWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("formaction=\"/importuj-item-ze-screena\""));
-        assertTrue(response.body().contains("Importuj item i wróć do current build"));
+        assertTrue(response.body().contains("Importuj item i wróć do aktualnego buildu"));
     }
 
     @Test
@@ -107,10 +109,13 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("Mapowanie do modelu itemu aplikacji"));
         assertTrue(response.body().contains("Mapowanie do aktualnego modelu buildu"));
         assertTrue(response.body().contains("Zaimportowany item: bulawa.png"));
-        assertTrue(response.body().contains("Zastosuj do current build"));
-        assertTrue(response.body().contains("Dodaj wkład itemu do current build"));
+        assertTrue(response.body().contains("Zastosuj do aktualnego buildu"));
+        assertTrue(response.body().contains("Dodaj wkład itemu do aktualnego buildu"));
         assertTrue(response.body().contains("Zapisz do biblioteki"));
-        assertFalse(response.body().contains("Nadpisz current build wkładem itemu"));
+        assertFalse(response.body().contains("Nadpisz aktualny build wkładem itemu"));
+        assertTrue(response.body().contains("Slot w modelu aplikacji"));
+        assertTrue(response.body().contains("Staty modelu itemu"));
+        assertFalse(response.body().contains(">MAIN_HAND<"));
         assertTrue(response.body().contains("/policz-aktualny-build?level=13&amp;weaponDamage=321&amp;strength=55&amp;intelligence=11&amp;thorns=90&amp;blockChance=18&amp;retributionChance=25"));
         assertTrue(response.body().contains("/policz-aktualny-build?level=13&amp;weaponDamage=521&amp;strength=85&amp;intelligence=11&amp;thorns=160&amp;blockChance=28&amp;retributionChance=40"));
 

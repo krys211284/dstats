@@ -61,7 +61,9 @@ class SearchBuildWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Znajdź najlepszy build"));
-        assertTrue(response.body().contains("Przestrzeń searcha"));
+        assertTrue(response.body().contains("Konfiguracja searcha"));
+        assertTrue(response.body().contains("Tryb biblioteki itemów"));
+        assertTrue(response.body().contains("Przestrzeń statów wejściowych"));
         assertTrue(response.body().contains("name=\"levelValues\""));
         assertTrue(response.body().contains("name=\"weaponDamageValues\""));
         assertTrue(response.body().contains("name=\"useItemLibrary\""));
@@ -79,24 +81,24 @@ class SearchBuildWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Wejściowa przestrzeń searcha"));
-        assertTrue(response.body().contains("Audit / preflight searcha"));
+        assertTrue(response.body().contains("Audit i preflight searcha"));
         assertTrue(response.body().contains("Liczba legalnych kandydatów"));
         assertTrue(response.body().contains("Rozmiar przestrzeni statów"));
         assertTrue(response.body().contains("Rozmiar przestrzeni skilli"));
-        assertTrue(response.body().contains("Rozmiar przestrzeni action bara"));
-        assertTrue(response.body().contains("Skala search space"));
+        assertTrue(response.body().contains("Rozmiar przestrzeni paska akcji"));
+        assertTrue(response.body().contains("Skala przestrzeni searcha"));
         assertTrue(response.body().contains("Ocenieni kandydaci"));
         assertTrue(response.body().contains(">2949<"));
         assertTrue(response.body().contains("Wyniki po normalizacji"));
         assertTrue(response.body().contains(">137<"));
         assertTrue(response.body().contains("duża"));
-        assertTrue(response.body().contains("Top wyniki po normalizacji"));
-        assertTrue(response.body().contains("Total damage"));
+        assertTrue(response.body().contains("Najlepsze wyniki po normalizacji"));
+        assertTrue(response.body().contains("Łączne obrażenia"));
         assertTrue(response.body().contains(">439<"));
         assertTrue(response.body().contains("DPS"));
         assertTrue(response.body().contains("48.7778"));
-        assertTrue(response.body().contains("Build input"));
-        assertTrue(response.body().contains("Action bar skills"));
+        assertTrue(response.body().contains("Wejście buildu"));
+        assertTrue(response.body().contains("Skille na pasku"));
         assertTrue(response.body().contains("Advance -&gt; Clash"));
         assertTrue(response.body().contains("/znajdz-najlepszy-build/szczegoly"));
         assertTrue(response.body().contains("Pokaż pełną analizę kandydata"));
@@ -121,22 +123,22 @@ class SearchBuildWebServerTest {
         assertTrue(detailResponse.body().contains("Szczegóły wyniku searcha"));
         assertTrue(detailResponse.body().contains("Wybrany wynik po normalizacji"));
         assertTrue(detailResponse.body().contains("#1"));
-        assertTrue(detailResponse.body().contains("Build input"));
-        assertTrue(detailResponse.body().contains("Action bar skills"));
-        assertTrue(detailResponse.body().contains("Action bar"));
+        assertTrue(detailResponse.body().contains("Wejście buildu"));
+        assertTrue(detailResponse.body().contains("Skille na pasku"));
+        assertTrue(detailResponse.body().contains("Pasek akcji"));
         assertTrue(detailResponse.body().contains("Tryb biblioteki itemów"));
         assertTrue(detailResponse.body().contains("Wybrane itemy z biblioteki"));
         assertTrue(detailResponse.body().contains("Łączny wkład itemów"));
-        assertTrue(detailResponse.body().contains("Total damage"));
+        assertTrue(detailResponse.body().contains("Łączne obrażenia"));
         assertTrue(detailResponse.body().contains("DPS"));
-        assertTrue(detailResponse.body().contains("Direct hit debug"));
-        assertTrue(detailResponse.body().contains("Delayed hit debug"));
-        assertTrue(detailResponse.body().contains("Reactive debug"));
-        assertTrue(detailResponse.body().contains("Step trace"));
+        assertTrue(detailResponse.body().contains("Debug bezpośrednich trafień"));
+        assertTrue(detailResponse.body().contains("Debug opóźnionych trafień"));
+        assertTrue(detailResponse.body().contains("Debug obrażeń reaktywnych"));
+        assertTrue(detailResponse.body().contains("Ślad kroków symulacji"));
         assertTrue(detailResponse.body().contains("Judgement aktywny na końcu"));
         assertTrue(detailResponse.body().contains("Resolve aktywny na końcu"));
-        assertTrue(detailResponse.body().contains("Active block chance na końcu"));
-        assertTrue(detailResponse.body().contains("Active thorns bonus na końcu"));
+        assertTrue(detailResponse.body().contains("Końcowa szansa bloku"));
+        assertTrue(detailResponse.body().contains("Końcowy bonus do kolców"));
         assertTrue(detailResponse.body().contains("Advance"));
         assertTrue(detailResponse.body().contains("Clash"));
 
@@ -169,10 +171,10 @@ class SearchBuildWebServerTest {
         assertTrue(searchResponse.body().contains("Tryb biblioteki itemów"));
         assertTrue(searchResponse.body().contains("Włączony"));
         assertTrue(searchResponse.body().contains("Wybrane itemy z biblioteki"));
-        assertTrue(searchResponse.body().contains("MAIN_HAND"));
-        assertTrue(searchResponse.body().contains("OFF_HAND"));
+        assertTrue(searchResponse.body().contains("Broń główna"));
+        assertTrue(searchResponse.body().contains("Ręka dodatkowa"));
         assertTrue(searchResponse.body().contains("Łączny wkład itemów"));
-        assertTrue(searchResponse.body().contains("weapon=321"));
+        assertTrue(searchResponse.body().contains("obrażenia broni=321"));
 
         Map<String, String> detailFields = extractFirstDetailsFormFields(searchResponse.body());
         HttpResponse<String> detailResponse = sendPost("/znajdz-najlepszy-build/szczegoly", detailFields);
@@ -181,10 +183,10 @@ class SearchBuildWebServerTest {
         assertTrue(detailResponse.body().contains("Tryb biblioteki itemów"));
         assertTrue(detailResponse.body().contains("Włączony"));
         assertTrue(detailResponse.body().contains("Wybrane itemy z biblioteki"));
-        assertTrue(detailResponse.body().contains("MAIN_HAND"));
-        assertTrue(detailResponse.body().contains("OFF_HAND"));
-        assertTrue(detailResponse.body().contains("weapon=321"));
-        assertTrue(detailResponse.body().contains("int=11"));
+        assertTrue(detailResponse.body().contains("Broń główna"));
+        assertTrue(detailResponse.body().contains("Ręka dodatkowa"));
+        assertTrue(detailResponse.body().contains("obrażenia broni=321"));
+        assertTrue(detailResponse.body().contains("inteligencja=11"));
 
         CurrentBuildCalculation expectedCalculation = calculateDrillDownExpectedResult(detailFields);
         assertTrue(detailResponse.body().contains(">" + expectedCalculation.getResult().getTotalDamage() + "<"));

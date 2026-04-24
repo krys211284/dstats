@@ -53,4 +53,11 @@ public final class ActiveItemSelection {
         updated.entrySet().removeIf(entry -> entry.getValue() == itemId);
         return new ActiveItemSelection(updated);
     }
+
+    public ActiveItemSelection withoutSlot(EquipmentSlot slot) {
+        EnumMap<EquipmentSlot, Long> updated = new EnumMap<>(EquipmentSlot.class);
+        updated.putAll(selectedItemIdsBySlot);
+        updated.remove(slot);
+        return new ActiveItemSelection(updated);
+    }
 }

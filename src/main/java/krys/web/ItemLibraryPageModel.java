@@ -14,17 +14,20 @@ public final class ItemLibraryPageModel {
     private final List<String> errors;
     private final List<String> messages;
     private final String currentBuildQuery;
+    private final SavedImportedItem savedItemFeedback;
 
     public ItemLibraryPageModel(List<SavedImportedItem> savedItems,
                                 ActiveItemSelection activeSelection,
                                 List<String> errors,
                                 List<String> messages,
-                                String currentBuildQuery) {
+                                String currentBuildQuery,
+                                SavedImportedItem savedItemFeedback) {
         this.savedItems = Collections.unmodifiableList(new ArrayList<>(savedItems));
         this.activeSelection = activeSelection;
         this.errors = Collections.unmodifiableList(new ArrayList<>(errors));
         this.messages = Collections.unmodifiableList(new ArrayList<>(messages));
         this.currentBuildQuery = currentBuildQuery;
+        this.savedItemFeedback = savedItemFeedback;
     }
 
     public List<SavedImportedItem> getSavedItems() {
@@ -45,5 +48,13 @@ public final class ItemLibraryPageModel {
 
     public String getCurrentBuildQuery() {
         return currentBuildQuery;
+    }
+
+    public SavedImportedItem getSavedItemFeedback() {
+        return savedItemFeedback;
+    }
+
+    public boolean hasSavedItemFeedback() {
+        return savedItemFeedback != null;
     }
 }

@@ -34,8 +34,8 @@ final class CurrentBuildCalculationSectionsRenderer {
     static String renderDirectHitDebug(CurrentBuildCalculation calculation) {
         StringBuilder html = new StringBuilder("""
                 <section class="panel result-panel">
-                    <h2>Direct hit debug</h2>
-                    <p class="muted">Debug bezpośrednich hitów</p>
+                    <h2>Debug bezpośrednich trafień</h2>
+                    <p class="muted">Szczegóły pojedynczych trafień obliczonych przez runtime.</p>
                 """);
         if (calculation.getResult().getDirectHitDebugSnapshots().isEmpty()) {
             html.append("<p>Brak bezpośrednich hitów w bieżącej symulacji.</p></section>");
@@ -50,10 +50,10 @@ final class CurrentBuildCalculationSectionsRenderer {
                     .append("""
                         <div class="summary-grid compact-grid">
                     """)
-                    .append(renderSummaryCard("Raw hit", Long.toString(breakdown.getRawDamage())))
-                    .append(renderSummaryCard("Single hit", Long.toString(breakdown.getFinalDamage())))
-                    .append(renderSummaryCard("Raw crit hit", Long.toString(breakdown.getRawCriticalDamage())))
-                    .append(renderSummaryCard("Critical hit", Long.toString(breakdown.getCriticalDamage())))
+                    .append(renderSummaryCard("Surowe trafienie", Long.toString(breakdown.getRawDamage())))
+                    .append(renderSummaryCard("Trafienie końcowe", Long.toString(breakdown.getFinalDamage())))
+                    .append(renderSummaryCard("Surowe trafienie krytyczne", Long.toString(breakdown.getRawCriticalDamage())))
+                    .append(renderSummaryCard("Trafienie krytyczne", Long.toString(breakdown.getCriticalDamage())))
                     .append("""
                         </div>
                         <table class="data-table">
@@ -62,8 +62,8 @@ final class CurrentBuildCalculationSectionsRenderer {
                                     <th>Komponent</th>
                                     <th>Źródło</th>
                                     <th>%</th>
-                                    <th>Raw</th>
-                                    <th>Final</th>
+                                    <th>Surowe</th>
+                                    <th>Końcowe</th>
                                     <th>Single target</th>
                                 </tr>
                             </thead>
@@ -92,17 +92,17 @@ final class CurrentBuildCalculationSectionsRenderer {
     static String renderDelayedHitDebug(CurrentBuildCalculation calculation) {
         StringBuilder html = new StringBuilder("""
                 <section class="panel result-panel">
-                    <h2>Delayed hit debug</h2>
+                    <h2>Debug opóźnionych trafień</h2>
                     <table class="data-table">
                         <thead>
                             <tr>
                                 <th>Nazwa</th>
-                                <th>Source</th>
-                                <th>Apply</th>
-                                <th>Trigger</th>
+                                <th>Źródło</th>
+                                <th>Nałożenie</th>
+                                <th>Wyzwolenie</th>
                                 <th>Status</th>
-                                <th>Raw</th>
-                                <th>Final</th>
+                                <th>Surowe</th>
+                                <th>Końcowe</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -110,7 +110,7 @@ final class CurrentBuildCalculationSectionsRenderer {
         if (calculation.getResult().getDelayedHitBreakdowns().isEmpty()) {
             html.append("""
                     <tr>
-                        <td colspan="7">Brak delayed hitów.</td>
+                        <td colspan="7">Brak opóźnionych trafień.</td>
                     </tr>
                     """);
         } else {
@@ -142,19 +142,19 @@ final class CurrentBuildCalculationSectionsRenderer {
     static String renderReactiveDebug(CurrentBuildCalculation calculation) {
         StringBuilder html = new StringBuilder("""
                 <section class="panel result-panel">
-                    <h2>Reactive debug</h2>
+                    <h2>Debug obrażeń reaktywnych</h2>
                     <table class="data-table">
                         <thead>
                             <tr>
                                 <th>Sekunda</th>
                                 <th>Resolve</th>
-                                <th>Active block chance</th>
-                                <th>Active thorns bonus</th>
-                                <th>Thorns raw</th>
-                                <th>Thorns final</th>
-                                <th>Retribution expected raw</th>
-                                <th>Retribution expected final</th>
-                                <th>Reactive final</th>
+                                <th>Aktywna szansa bloku</th>
+                                <th>Aktywny bonus do kolców</th>
+                                <th>Kolce surowe</th>
+                                <th>Kolce końcowe</th>
+                                <th>Retribution oczekiwane surowe</th>
+                                <th>Retribution oczekiwane końcowe</th>
+                                <th>Końcowe reaktywne</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -162,7 +162,7 @@ final class CurrentBuildCalculationSectionsRenderer {
         if (calculation.getResult().getReactiveHitBreakdowns().isEmpty()) {
             html.append("""
                     <tr>
-                        <td colspan="9">Brak reactive damage.</td>
+                        <td colspan="9">Brak obrażeń reaktywnych.</td>
                     </tr>
                     """);
         } else {
@@ -179,7 +179,7 @@ final class CurrentBuildCalculationSectionsRenderer {
                         .append("<td>").append(entry.getReactiveFinalDamage()).append("</td>")
                         .append("</tr>");
             }
-            html.append("<tr><td colspan=\"8\"><strong>Reactive total</strong></td><td><strong>")
+            html.append("<tr><td colspan=\"8\"><strong>Łączne obrażenia reaktywne</strong></td><td><strong>")
                     .append(calculation.getResult().getTotalReactiveDamage())
                     .append("</strong></td></tr>");
         }
@@ -194,19 +194,19 @@ final class CurrentBuildCalculationSectionsRenderer {
     static String renderStepTrace(CurrentBuildCalculation calculation) {
         StringBuilder html = new StringBuilder("""
                 <section class="panel result-panel">
-                    <h2>Step trace</h2>
+                    <h2>Ślad kroków symulacji</h2>
                     <table class="data-table trace-table">
                         <thead>
                             <tr>
                                 <th>Sekunda</th>
                                 <th>Akcja</th>
-                                <th>Direct</th>
-                                <th>Delayed</th>
-                                <th>Reactive</th>
+                                <th>Bezpośrednie</th>
+                                <th>Opóźnione</th>
+                                <th>Reaktywne</th>
                                 <th>Krok</th>
-                                <th>Cumulative</th>
-                                <th>Tick order</th>
-                                <th>Selection reason</th>
+                                <th>Narastająco</th>
+                                <th>Kolejność ticków</th>
+                                <th>Powód wyboru</th>
                                 <th>Stan paska</th>
                             </tr>
                         </thead>
@@ -265,14 +265,14 @@ final class CurrentBuildCalculationSectionsRenderer {
         for (SkillBarStateTrace barState : barStates) {
             html.append("<div class=\"bar-state-item\">")
                     .append("<strong>").append(escapeHtml(barState.getSkillName())).append("</strong>")
-                    .append(" | rank=").append(barState.getRank())
-                    .append(" | legal=").append(barState.isLegalActive())
-                    .append(" | cooldown=").append(barState.isOnCooldown())
-                    .append(" | cooldownRemaining=").append(barState.getCooldownRemainingSeconds())
-                    .append(" | resource=").append(barState.hasRequiredResource())
-                    .append(" | neverUsed=").append(barState.isNeverUsed())
-                    .append(" | lastUsed=").append(barState.getLastUsedSecond() == null ? "-" : barState.getLastUsedSecond())
-                    .append(" | selected=").append(barState.isSelected())
+                    .append(" | ranga=").append(barState.getRank())
+                    .append(" | legalny=").append(barState.isLegalActive() ? "tak" : "nie")
+                    .append(" | odnowienie=").append(barState.isOnCooldown() ? "tak" : "nie")
+                    .append(" | pozostałe odnowienie=").append(barState.getCooldownRemainingSeconds())
+                    .append(" | zasób=").append(barState.hasRequiredResource() ? "tak" : "nie")
+                    .append(" | nieużyty=").append(barState.isNeverUsed() ? "tak" : "nie")
+                    .append(" | ostatnio użyty=").append(barState.getLastUsedSecond() == null ? "-" : barState.getLastUsedSecond())
+                    .append(" | wybrany=").append(barState.isSelected() ? "tak" : "nie")
                     .append("</div>");
         }
         html.append("</div>");

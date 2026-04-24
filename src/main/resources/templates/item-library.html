@@ -70,6 +70,9 @@
         }
         .panel-error { background: var(--error-bg); border-color: rgba(141, 27, 27, 0.28); }
         .panel-success { background: var(--success-bg); }
+        .save-feedback-panel {
+            border-color: rgba(30, 85, 102, 0.18);
+        }
         h1, h2 { margin-top: 0; }
         p { line-height: 1.55; }
         .helper { color: var(--muted); }
@@ -79,6 +82,19 @@
             gap: 10px;
             margin-top: 14px;
         }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 12px;
+        }
+        .summary-card {
+            padding: 12px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #fff;
+        }
+        .summary-label { color: var(--muted); font-size: 0.88rem; margin-bottom: 6px; }
+        .summary-value { font-size: 1.05rem; font-weight: 700; }
         .nav-link,
         button {
             display: inline-block;
@@ -188,18 +204,19 @@
 
     <section class="panel">
         <h1>Biblioteka itemów</h1>
-        <p class="helper">To jest minimalny foundation zapisanych itemów nad current build. Biblioteka nie buduje osobnego runtime i nie jest jeszcze pełnym inventory managerem.</p>
+        <p class="helper">To jest minimalny foundation zapisanych itemów nad aktualnym buildem. Biblioteka nie buduje osobnego runtime i nie jest jeszcze pełnym inventory managerem.</p>
         <div class="info-strip">
             Możesz mieć wiele zapisanych itemów tego samego slotu, ale aktywny pozostaje najwyżej jeden item per slot. Ustawienie nowego aktywnego itemu od razu zastępuje poprzedni aktywny wybór w tym samym slocie.
         </div>
         <div class="hero-links">
-            <a class="nav-link" href="{{CURRENT_BUILD_URL}}">Wróć do current build</a>
+            <a class="nav-link" href="{{CURRENT_BUILD_URL}}">Wróć do aktualnego buildu</a>
             <a class="nav-link" href="{{IMPORT_ITEM_URL}}">Importuj kolejny item</a>
         </div>
     </section>
 
     {{MESSAGES}}
     {{ERRORS}}
+    {{SAVE_FEEDBACK}}
 
     <section class="panel">
         <h2>Zapisane itemy</h2>

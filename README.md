@@ -9,7 +9,9 @@ Ten README opisuje wyłącznie aktualny stan projektu. Jest kontraktem wykonawcz
 - Rozstrzygnięte konflikty źródeł: dokumentacja i UI używają nazwy `Vulnerable`, a historyczne `Exposed` pozostaje wyłącznie aliasem technicznym; search ocenia `build + skill bar`, a kolejność paska pozostaje semantyczna przez `LRU`; modyfikatory typu `replace` podmieniają bazowy hit tam, gdzie finalna reguła tak stanowi; czas trwania statusów wynika z definicji konkretnego efektu, a nie z niespójnych ogólnych zapisów historycznych.
 
 ## 1. Cel projektu
-Projekt służy do deterministycznego liczenia obrażeń Paladina w modelu single target oraz jest przygotowywany architektonicznie pod późniejsze wyszukiwanie najlepszego legalnego buildu.
+Projekt `Diablo 4 DPS Engine / Build WebApp` nie jest definiowany produktowo jako narzędzie dla jednej klasy postaci. Docelowo architektura aplikacji ma wspierać wiele klas, ale aktualny zaimplementowany foundation domenowy i referencyjny runtime koncentrują się na obecnym zakresie klasowym repo.
+
+Na dziś ten zaimplementowany zakres klasowy jest paladinocentryczny: to na nim opierają się bieżące skille, search foundation, przykłady referencyjne i golden values. Ten stan opisuje aktualny zakres implementacji, a nie definicję całego produktu.
 
 Docelowo system ma wspierać dwa tryby pracy:
 - `Policz aktualny build` - manual simulation dla aktualnej konfiguracji bohatera.
@@ -31,6 +33,9 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - ranking kandydatów po `total damage` i `DPS` liczonych przez ten sam runtime,
 - warstwę prezentacyjną normalizującą wyniki searcha po zakończonej ocenie kandydatów,
 - minimalne webowe GUI SSR dla trybu `Policz aktualny build`,
+- sekcję `Ekwipunek aktualnego buildu` pokazującą wspierane sloty jako stały układ SSR z aktywnym itemem albo pustym slotem,
+- bezpośrednią zmianę aktywnego itemu per slot z poziomu current build bez budowania osobnego runtime ekwipunku,
+- sekcję `Użyte itemy` pokazującą, które aktywne itemy rzeczywiście składają się na bieżący build i jaki mają wkład,
 - prawdziwy ekran główny `/` działający jako hub aplikacji z grupami modułów i statusami,
 - globalną nawigację SSR wspólną dla głównych ekranów aplikacji,
 - centralny rejestr modułów aplikacji z opisem, grupą, statusem i URL,
@@ -42,10 +47,14 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - parser polskich affixów foundation dla rozpoznawalnych fraz slotu i statów,
 - model wstępnego rozpoznania z poziomem pewności i uwagami per pole,
 - walidowany formularz zatwierdzonego itemu i mapowanie jego pól do aktualnego modelu buildu,
-- dwa czytelnie nazwane tryby zastosowania zatwierdzonego itemu do current build: `Zastosuj do current build` oraz `Dodaj wkład do current build`,
+- dwa czytelnie nazwane tryby zastosowania zatwierdzonego itemu do aktualnego buildu: `Zastosuj do aktualnego buildu` oraz `Dodaj wkład itemu do aktualnego buildu`,
 - minimalną trwałą bibliotekę zapisanych itemów z wieloma itemami tego samego slotu, zapisywaną lokalnie w stabilnym katalogu użytkownika,
 - wybór jednego aktywnego itemu per slot w bibliotece oraz deterministyczne dodawanie aktywnych itemów do ręcznej bazy current build,
+- wyraźny wynik zapisu importowanego itemu do biblioteki z nazwą, slotem, identyfikatorem i akcjami `Ustaw jako aktywny` oraz `Wróć do aktualnego buildu`,
 - nowy tryb searcha po bibliotece itemów, który generuje kombinacje zapisanych itemów per slot i nadal składa je do effective current build przed tym samym runtime,
+- uproszczony i bardziej produktowy formularz GUI searcha z wyeksponowanym trybem biblioteki itemów,
+- ujednolicony polski język głównych ekranów SSR, helperów, sekcji wynikowych i akcji użytkownika,
+- empty state sekcji `Wstępnie rozpoznane pola` w imporcie pojedynczego itemu,
 - pierwsze minimalne webowe GUI SSR dla trybu `Znajdź najlepszy build`,
 - pierwszy drill-down SSR z wyniku searcha do pełnej analizy reprezentanta znormalizowanego wyniku na tym samym runtime co manual simulation,
 - foundation audytu/preflightu searcha z liczbą legalnych kandydatów i rozmiarem search space,
@@ -109,9 +118,11 @@ Kontrakt aktualnej warstwy aplikacyjnej:
 - `ImportedItemCurrentBuildApplicationService` stosuje zatwierdzony item do istniejących statów current build w trybie `nadpisz` albo `dodaj wkład`,
 - `ItemLibraryRepository` trwale zapisuje minimalną bibliotekę zatwierdzonych itemów oraz aktywny wybór per slot bez bazy danych,
 - `ItemLibraryService` zapisuje zatwierdzony item do biblioteki, udostępnia listę zapisanych itemów, pilnuje jednego aktywnego itemu per slot i składa aktywne itemy do effective current build,
+- SSR current build pokazuje tę samą selekcję biblioteki jako `Ekwipunek aktualnego buildu` i zmienia aktywny item per slot bez budowania bocznego modelu equipment runtime,
 - `ItemLibraryDataDirectoryResolver` rozwiązuje katalog trwałych danych biblioteki itemów przez `dstats.dataDir` albo domyślny katalog użytkownika `~/.dstats/item-library/` i wykonuje bezpieczną migrację z legacy `target/item-library-runtime/`,
 - biblioteka itemów pozostaje warstwą aplikacyjną przed `CurrentBuildRequest`,
 - effective current build jest składany jako `ręczna baza formularza, która może pozostać częściowo pusta albo zerowa + aktywne itemy z biblioteki -> finalne effective current build stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
+- current build nadal pokazuje trzy kontraktowe warstwy `Baza ręczna`, `Ekwipunek aktualnego buildu / użyte itemy` oraz `Efektywne staty do obliczeń`,
 - tryb searcha po bibliotece itemów używa analogicznego kontraktu `ręczna baza searcha, która może pozostać częściowo pusta albo zerowa + kandydacka kombinacja zapisanych itemów z biblioteki -> finalne effective current build stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
 - walidacja wejścia current build dotyczy finalnych effective stats mapowanych do `CurrentBuildRequest`, a nie wyłącznie surowej ręcznej bazy formularza,
 - GUI importu itemu pozostaje cienką warstwą wejściową nad obecnym modelem current build i nie implementuje alternatywnego runtime,
@@ -207,7 +218,7 @@ Reguły legalności stanu skilla:
 - skill może mieć maksymalnie jeden dodatkowy modyfikator.
 
 ### 4.3. Zakres startowy domeny
-Aktualny foundation repo obejmuje następujące skille Paladina:
+Aktualny foundation klasowy repo obejmuje następujące skille obecnie zaimplementowanego zakresu paladinocentrycznego:
 - `Brandish`
 - `Holy Bolt`
 - `Clash`
@@ -278,7 +289,7 @@ Minimalny zakres pól importu itemu:
 
 Minimalny zakres rozpoznawania tekstu OCR dla M13.1:
 - slot / typ itemu rozpoznawany jest ostrożnie zarówno z angielskich, jak i wybranych polskich nazw typu itemu,
-- aktualnie jawnie wspierane są co najmniej `tarcza` i `buty`, a dotychczasowe foundation slotów `MAIN_HAND`, `OFF_HAND`, `CHEST` i `RING` pozostają bez zmian,
+- aktualnie jawnie wspierane są co najmniej `tarcza` i `buty`, a dotychczasowe foundation slotów `broń główna`, `ręka dodatkowa`, `pancerz` i `pierścień` pozostają bez zmian,
 - parser foundation rozpoznaje polskie frazy dla `Strength`, `Intelligence`, `Thorns` i `Block chance`,
 - parser może rozpoznać `Retribution chance` tylko wtedy, gdy OCR zawiera jednoznaczną frazę `retribution chance` albo `szansa na odwet`,
 - jeżeli linia affixu zawiera jednocześnie realny roll i zakres referencyjny w `[]` albo `()`, parser ma wybierać realny roll jako wartość affixu,
@@ -292,8 +303,10 @@ Jawne ograniczenia aktualnego foundation importu:
 - przy równorzędnych sprzecznych odczytach z kilku wariantów OCR pole pozostaje z obniżoną pewnością zamiast sztucznego podbicia pewności,
 - gdy parser nie potrafi bezpiecznie odróżnić głównego rolla od wartości referencyjnych, pole ma pozostać nierozpoznane zamiast zgadywania,
 - użytkownik musi ręcznie zatwierdzić albo poprawić pola przed użyciem itemu,
+- przed pierwszym uploadem sekcja `Wstępnie rozpoznane pola` pokazuje jawny empty state i komunikuje, gdzie pojawi się wynik OCR,
 - tryb `nadpisz` podstawia do current build tylko te pola, które rozpoznany item rzeczywiście wnosi,
 - tryb `dodaj wkład` sumuje rozpoznany wkład itemu do statów current build przekazanych do importu,
+- po `Zapisz do biblioteki` użytkownik dostaje czytelne potwierdzenie zapisu z nazwą itemu, slotem, identyfikatorem oraz dalszymi akcjami,
 - flow nie importuje jeszcze całego ekwipunku ani całej postaci,
 - flow nie buduje jeszcze pełnego wielo-itemowego workflow ani sesji inventory,
 - flow nie omija obecnego modelu current build i nie buduje bocznego modelu runtime.
@@ -315,6 +328,9 @@ Kontrakt integracji biblioteki z current build:
 - ręczna baza może być częściowo pusta albo zerowa, jeżeli finalne effective stats zostaną domknięte przez aktywne itemy z biblioteki,
 - aktywne itemy z biblioteki są deterministycznie dodawane do tej bazy,
 - użytkownik nie powinien ręcznie wpisywać tych samych statów, które pochodzą już z aktywnych itemów,
+- ekran `Policz aktualny build` pokazuje wspierane sloty jako sekcję `Ekwipunek aktualnego buildu`, ale jest to wyłącznie warstwa prezentacji i sterowania tą samą aktywną selekcją biblioteki,
+- zmiana itemu per slot z poziomu current build nie buduje osobnego equipment runtime i nie omija `ItemLibraryService`,
+- sekcja `Użyte itemy` pokazuje slot, nazwę, identyfikator / źródło i wkład każdego aktywnego itemu użytego przez build,
 - effective current build nadal kończy się zwykłym `CurrentBuildRequest`,
 - walidacja requestu dotyczy dopiero finalnych effective stats po zsumowaniu ręcznej bazy i aktywnych itemów,
 - `CurrentBuildSnapshotFactory` i runtime nadal pracują na tych samych płaskich polach co wcześniej,
@@ -361,7 +377,7 @@ Aktualny model bazowy:
 baseDamage = weaponDamage * skillDamagePercent / 100
 ```
 
-Aktualny model main stat dla Paladina:
+Aktualny model main stat dla obecnie zaimplementowanego zakresu paladinocentrycznego:
 
 ```text
 baseMainStat = 10 + (level - 1)
@@ -753,15 +769,18 @@ Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny bu
 - CLI dla równoległego ręcznego smoke testu użytkownika,
 - CLI searcha z tekstowym outputem audytu, minimalnego progressu oraz znormalizowanych top wyników,
 - osobny ekran GUI SSR importu wspomaganego obrazem dla pojedynczego itemu,
-- render realnie rozpoznanych pól OCR, poziomu niepewności i ręcznego potwierdzenia pól itemu,
+- render realnie rozpoznanych pól OCR, poziomu niepewności, empty state przed uploadem i ręcznego potwierdzenia pól itemu,
 - prosty ekran SSR `/biblioteka-itemow` z listą zapisanych itemów i wyborem aktywnego itemu per slot,
-- sekcję aktywnych itemów z biblioteki na ekranie `Policz aktualny build`,
-- dwie czytelnie nazwane akcje zastosowania zatwierdzonego itemu do current build: `Zastosuj do current build` i `Dodaj wkład do current build`,
+- sekcję `Ekwipunek aktualnego buildu` na ekranie `Policz aktualny build`,
+- sekcję `Użyte itemy` na ekranie `Policz aktualny build`,
+- zmianę aktywnego itemu per slot bezpośrednio z current build przez ten sam stan biblioteki itemów,
+- dwie czytelnie nazwane akcje zastosowania zatwierdzonego itemu do aktualnego buildu: `Zastosuj do aktualnego buildu` i `Dodaj wkład itemu do aktualnego buildu`,
 - akcję `Zapisz do biblioteki` po zatwierdzeniu importu pojedynczego itemu,
+- wynik zapisu itemu do biblioteki z dalszymi akcjami użytkownika,
 - wejście do importu itemu bez sesji wielu itemów, z możliwością zachowania kontekstu current build przez query string,
 - mapowanie zatwierdzonego itemu do modelu `Item` oraz do agregowanych pól current build,
-- osobny ekran GUI SSR searcha dla minimalnej przestrzeni foundation,
-- sekcję audit / preflight searcha w GUI searcha,
+- osobny ekran GUI SSR searcha dla minimalnej przestrzeni foundation z wyeksponowanym trybem biblioteki itemów,
+- sekcję audit / preflight searcha w GUI searcha oraz bardziej czytelną hierarchię formularza,
 - osobną stronę SSR szczegółów reprezentanta znormalizowanego wyniku searcha.
 
 ### 10.3. Konfiguracja do porównania
@@ -862,15 +881,15 @@ Minimalny kontrakt prezentacyjny listy wyników searcha:
 - dla każdego wyniku pokazanie skilli na action barze i samego action bara,
 - dla każdego wyniku pokazanie stanu trybu biblioteki itemów,
 - dla każdego wyniku pokazanie wybranych itemów z biblioteki per slot i ich łącznego wkładu,
-- dla każdego wyniku pokazanie `total damage` i `DPS`,
+- dla każdego wyniku pokazanie `Łączne obrażenia` i `DPS`,
 - dla każdego wyniku pokazanie akcji przejścia do szczegółów reprezentanta.
 
 Kontrakt prezentacyjny drill-downu searcha:
 - drill-down jednoznacznie wskazuje wybrany wynik po normalizacji,
-- drill-down pokazuje `Build input`, `Action bar skills`, `Action bar`, `total damage` oraz `DPS`,
+- drill-down pokazuje `Wejście buildu`, `Skille na pasku`, `Pasek akcji`, `Łączne obrażenia` oraz `DPS`,
 - drill-down pokazuje `Tryb biblioteki itemów`, `Wybrane itemy z biblioteki` oraz `Łączny wkład itemów`,
-- drill-down pokazuje `Direct hit debug`, `Delayed hit debug`, `Reactive debug` oraz `stepTrace`,
-- drill-down pokazuje końcowe stany `Judgement`, `Resolve`, `Active block chance` oraz `Active thorns bonus`,
+- drill-down pokazuje `Debug bezpośrednich trafień`, `Debug opóźnionych trafień`, `Debug obrażeń reaktywnych` oraz `Ślad kroków symulacji`,
+- drill-down pokazuje końcowe stany `Judgement`, `Resolve`, `Końcowa szansa bloku` oraz `Końcowy bonus do kolców`,
 - drill-down używa dokładnie tego samego runtime i tych samych modeli wynikowych co `Policz aktualny build`,
 - drill-down nie zmienia warstwy backendowego searcha i nie przelicza listy wyników alternatywną logiką.
 
@@ -958,14 +977,15 @@ Kontrakt prezentacji dla tego smoke testu:
 - GUI pokazuje globalną nawigację SSR prowadzącą do ekranu głównego i głównych modułów aplikacji.
 - GUI pozwala ustawić level, staty buildu, konfigurację wszystkich skilli foundation oraz action bar, a następnie kliknąć `Policz aktualny build`.
 - GUI pozwala z tego samego formularza przejść do importu pojedynczego itemu ze screena z zachowaniem aktualnego kontekstu current build.
-- GUI rozdziela trzy czytelne warstwy: `Baza ręczna`, `Aktywne itemy z biblioteki` oraz `Efektywne staty do obliczeń`.
-- GUI pokazuje, że pola formularza są ręczną bazą poza biblioteką itemów i mogą pozostać częściowo puste albo zerowe, jeżeli active items dopełnią finalne effective stats.
+- GUI rozdziela trzy czytelne warstwy: `Baza ręczna`, `Ekwipunek aktualnego buildu / Użyte itemy` oraz `Efektywne staty do obliczeń`.
+- GUI pokazuje, że pola formularza są ręczną bazą poza biblioteką itemów i mogą pozostać częściowo puste albo zerowe, jeżeli aktywne itemy dopełnią finalne effective stats.
+- GUI pokazuje wspierane sloty ekwipunku, aktywny item albo pusty slot, skrót wkładu itemu, status aktywności oraz akcje `Wybierz item`, `Zmień item` i `Wyczyść slot` dla tych samych aktywnych itemów biblioteki.
 - GUI pokazuje aktywny wkład biblioteki oraz finalne efektywne staty użyte do obliczeń na tym samym pipeline `effective stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`.
 - GUI i CLI przechodzą przez ten sam kontrakt `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> CurrentBuildCalculationService -> runtime`.
 - scenariusze referencyjne są trybem pomocniczym do smoke testów i regresji, a nie główną ścieżką produktu.
-- GUI i CLI pokazują `total damage`, `DPS`, debug bezpośredniego hita dla użytego skilla, debug delayed hitów, reactive debug, `stepTrace`, `Resolve aktywny na końcu`, `Active block chance na końcu` oraz `Active thorns bonus na końcu`.
-- GUI i CLI pokazują `Thorns raw / tick`, `Thorns final / tick`, `Retribution expected raw / tick`, `Retribution expected final / tick`, `Reactive final / tick` oraz `Reactive contribution`.
-- GUI i CLI pokazują naturalne `WAIT`, `cooldown=true/false` oraz `cooldownRemaining` dla scenariusza `Advance + Flash of the Blade`.
+- GUI i CLI pokazują `Łączne obrażenia`, `DPS`, debug bezpośredniego hita dla użytego skilla, debug opóźnionych trafień, debug obrażeń reaktywnych, `Ślad kroków symulacji`, `Resolve aktywny na końcu`, `Końcowa szansa bloku` oraz `Końcowy bonus do kolców`.
+- GUI i CLI pokazują `Kolce surowe`, `Kolce końcowe`, `Retribution oczekiwane surowe`, `Retribution oczekiwane końcowe`, `Końcowe reaktywne` oraz `Wkład obrażeń reaktywnych`.
+- GUI i CLI pokazują naturalne `WAIT`, `odnowienie=tak/nie` oraz `pozostałe odnowienie` dla scenariusza `Advance + Flash of the Blade`.
 - CLI pokazuje użytkową nazwę skilla, a nie techniczny enum.
 - Output powinien być czytelny w UTF-8; w Windows wymagane jest uruchomienie konsoli po `chcp 65001`.
 - Dla referencyjnego scenariusza GUI/CLI `Advance rank 5 + Flash of the Blade` na sample buildzie wynik manual simulation wynosi `total damage = 186`, `DPS = 18.6000`, `total reactive damage = 120`, dwa casty `Advance` w `t=1` i `t=9`, naturalne `WAIT` w `t=2..8`, `cooldownRemaining=7` w `t=2` oraz `cooldownRemaining=1` w `t=8`.
@@ -983,15 +1003,16 @@ http://127.0.0.1:8080/znajdz-najlepszy-build
 Kontrakt prezentacji dla smoke testu GUI searcha:
 - GUI searcha jest po polsku i jasno komunikuje, że to minimalny SSR nad istniejącym backendem searcha,
 - GUI searcha pokazuje globalną nawigację SSR wspólną z ekranem głównym i pozostałymi głównymi modułami,
-- GUI searcha pozwala ustawić level, weapon damage, strength, intelligence, thorns, block chance, retribution chance, zakresy skilli foundation, rozmiary action bara, top N, horyzont symulacji oraz opcjonalny tryb biblioteki itemów,
+- GUI searcha pozwala ustawić poziom, obrażenia broni, siłę, inteligencję, kolce, szansę bloku, szansę retribution, zakresy skilli foundation, rozmiary action bara, limit wyników, horyzont symulacji oraz opcjonalny tryb biblioteki itemów,
 - GUI searcha przechodzi przez kontrakt `SearchBuildFormMapper -> BuildSearchRequest -> BuildSearchCalculationService -> BuildSearchPresentationNormalizer`,
+- GUI searcha wyraźnie eksponuje `Tryb biblioteki itemów` jako osobną decyzję produktową w formularzu,
 - GUI searcha pokazuje audit / preflight searcha obok wyniku,
-- GUI searcha pokazuje `Liczba legalnych kandydatów`, `Rozmiar przestrzeni statów`, opcjonalnie `Rozmiar przestrzeni biblioteki itemów`, `Rozmiar przestrzeni skilli`, `Rozmiar przestrzeni action bara` oraz `Skala search space`,
+- GUI searcha pokazuje `Liczba legalnych kandydatów`, `Rozmiar przestrzeni statów`, opcjonalnie `Rozmiar przestrzeni biblioteki itemów`, `Rozmiar przestrzeni skilli`, `Rozmiar przestrzeni paska akcji` oraz `Skala przestrzeni searcha`,
 - GUI searcha pokazuje wejściową przestrzeń searcha,
-- GUI searcha pokazuje `Ocenieni kandydaci`, `Wyniki po normalizacji`, `Top wyniki po normalizacji`, `Build input`, `Action bar skills`, `Action bar`, `Tryb biblioteki itemów`, `Wybrane itemy z biblioteki`, `Łączny wkład itemów`, `Total damage` oraz `DPS`,
+- GUI searcha pokazuje `Ocenieni kandydaci`, `Wyniki po normalizacji`, `Najlepsze wyniki po normalizacji`, `Wejście buildu`, `Skille na pasku`, `Pasek akcji`, `Tryb biblioteki itemów`, `Wybrane itemy z biblioteki`, `Łączny wkład itemów`, `Łączne obrażenia` oraz `DPS`,
 - GUI searcha pozwala z listy wyników przejść do szczegółów reprezentanta przez osobny SSR drill-down,
 - drill-down przechodzi przez kontrakt `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> CurrentBuildCalculationService -> runtime`,
-- drill-down pokazuje `Build input`, `Action bar skills`, `Action bar`, `Tryb biblioteki itemów`, `Wybrane itemy z biblioteki`, `Łączny wkład itemów`, `Total damage`, `DPS`, `Direct hit debug`, `Delayed hit debug`, `Reactive debug`, `Step trace`, `Judgement aktywny na końcu`, `Resolve aktywny na końcu`, `Active block chance na końcu` oraz `Active thorns bonus na końcu`,
+- drill-down pokazuje `Wejście buildu`, `Skille na pasku`, `Pasek akcji`, `Tryb biblioteki itemów`, `Wybrane itemy z biblioteki`, `Łączny wkład itemów`, `Łączne obrażenia`, `DPS`, `Debug bezpośrednich trafień`, `Debug opóźnionych trafień`, `Debug obrażeń reaktywnych`, `Ślad kroków symulacji`, `Judgement aktywny na końcu`, `Resolve aktywny na końcu`, `Końcowa szansa bloku` oraz `Końcowy bonus do kolców`,
 - GUI searcha nie implementuje live progressu, CSV, wielowątkowości ani rozbudowanego UX ponad minimalny SSR.
 
 Smoke test CLI searcha:
@@ -1024,11 +1045,13 @@ Kontrakt prezentacji dla smoke testu importu itemu:
 - GUI importu pokazuje globalną nawigację SSR wspólną z ekranem głównym i pozostałymi głównymi modułami,
 - GUI przyjmuje upload obrazu pojedynczego itemu przez `multipart/form-data`,
 - GUI waliduje technicznie, czy upload jest prawidłowym obrazem,
+- GUI przed pierwszym uploadem pokazuje sensowny empty state sekcji `Wstępnie rozpoznane pola`,
 - GUI wykonuje preprocessing i realny OCR kilku wariantów pojedynczego screena, a następnie pokazuje metadane obrazu, poziom pewności oraz uwagi dla pól wstępnego odczytu,
 - GUI pokazuje ręczny formularz zatwierdzenia obejmujący `slot`, `weapon damage`, `strength`, `intelligence`, `thorns`, `block chance` i `retribution chance`,
 - zatwierdzony item jest mapowany do aktualnego modelu `Item` oraz do agregowanych pól current build,
 - GUI po zatwierdzeniu itemu pozwala także wybrać akcję `Zapisz do biblioteki`,
-- GUI pozwala przejść do `Policz aktualny build` w dwóch czytelnie nazwanych trybach: `Zastosuj do current build` albo `Dodaj wkład do current build`,
+- GUI po zapisie do biblioteki pokazuje nazwę itemu, slot i identyfikator oraz na stronie biblioteki upraszcza dalsze akcje do `Ustaw jako aktywny` i `Wróć do aktualnego buildu`,
+- GUI pozwala przejść do `Policz aktualny build` w dwóch czytelnie nazwanych trybach: `Zastosuj do aktualnego buildu` albo `Dodaj wkład itemu do aktualnego buildu`,
 - jeżeli import został otwarty z formularza current build, tryb `dodaj wkład` wykorzystuje przekazane staty bez ręcznego sumowania przez użytkownika,
 - flow nie obiecuje pełnej bezbłędności OCR i wymaga ręcznego potwierdzenia użytkownika przed użyciem danych,
 - poza zakresem pozostają pełny wielo-itemowy workflow i pełny OCR całej postaci.
@@ -1100,7 +1123,10 @@ Minimalny zakres testów obejmuje:
 - render placeholder pages przyszłych sekcji,
 - endpoint formularza GUI dla `Policz aktualny build`,
 - uruchomienie obliczenia przez GUI nad tym samym runtime,
-- obecność kluczowych sekcji wyniku w GUI: `total damage`, `DPS`, direct hit debug, delayed hit debug, reactive debug i `stepTrace`,
+- render sekcji `Ekwipunek aktualnego buildu`,
+- render wspieranych slotów, aktywnego itemu albo pustego slotu oraz sekcji `Użyte itemy`,
+- SSR zmianę aktywnego itemu per slot bez zmiany runtime,
+- obecność kluczowych sekcji wyniku w GUI: `Łączne obrażenia`, `DPS`, debug bezpośrednich trafień, debug opóźnionych trafień, debug obrażeń reaktywnych i `Ślad kroków symulacji`,
 - obecność sekcji reactive debug w GUI dla scenariusza `Clash`,
 - obecność `WAIT` i stanu cooldownu w GUI dla scenariusza `Advance`,
 - preprocessing obrazu itemu i przygotowanie kilku wariantów OCR,
@@ -1130,9 +1156,11 @@ Minimalny zakres testów obejmuje:
 - flow, w którym ręczna baza current build jest częściowo pusta albo zerowa, ale aktywne itemy dopełniają finalne effective stats przed `CurrentBuildRequest`,
 - potwierdzenie, że effective current build nadal kończy się ścieżką `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
 - GET formularza GUI importu itemu,
+- empty state sekcji `Wstępnie rozpoznane pola`,
 - upload obrazu itemu i render sekcji wstępnego rozpoznania,
 - zatwierdzenie itemu i render dwóch trybów przejścia do current build,
 - zapis itemu do biblioteki z poziomu SSR po zatwierdzeniu importu,
+- render wyniku zapisu itemu do biblioteki z akcjami dalszego flow,
 - GET strony biblioteki itemów,
 - zachowanie `currentBuildQuery` w flow `biblioteka itemów -> import kolejnego itemu -> powrót do current build`,
 - SSR ustawienia aktywnego itemu w bibliotece,
@@ -1155,9 +1183,10 @@ Minimalny zakres testów obejmuje:
 - obecność informacji auditowych w CLI searcha,
 - GET formularza GUI searcha,
 - POST uruchamiającego GUI searcha,
-- obecność sekcji `Audit / preflight searcha`, `Ocenieni kandydaci`, `Wyniki po normalizacji`, `Top wyniki po normalizacji`, `Tryb biblioteki itemów`, `Wybrane itemy z biblioteki`, `Łączny wkład itemów`, `Total damage` i `DPS` w GUI searcha,
+- obecność wyeksponowanego `Trybu biblioteki itemów` i poprawionej hierarchii formularza searcha,
+- obecność sekcji `Audit i preflight searcha`, `Ocenieni kandydaci`, `Wyniki po normalizacji`, `Najlepsze wyniki po normalizacji`, `Tryb biblioteki itemów`, `Wybrane itemy z biblioteki`, `Łączny wkład itemów`, `Łączne obrażenia` i `DPS` w GUI searcha,
 - przejście z listy wyników searcha do szczegółów kandydata,
-- obecność sekcji `Tryb biblioteki itemów`, `Wybrane itemy z biblioteki`, `Łączny wkład itemów`, `Total damage`, `DPS`, `Direct hit debug`, `Delayed hit debug`, `Reactive debug` i `Step trace` w drill-downie searcha,
+- obecność sekcji `Tryb biblioteki itemów`, `Wybrane itemy z biblioteki`, `Łączny wkład itemów`, `Łączne obrażenia`, `DPS`, `Debug bezpośrednich trafień`, `Debug opóźnionych trafień`, `Debug obrażeń reaktywnych` i `Ślad kroków symulacji` w drill-downie searcha,
 - użycie tego samego runtime do wyliczenia szczegółów drill-downu searcha,
 - odtworzenie tej samej kombinacji itemów biblioteki w drill-downie searcha,
 - bezpieczne kopiowanie pustego stanu snapshotu,

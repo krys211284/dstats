@@ -72,6 +72,10 @@ public final class ItemLibraryService {
         repository.saveSelection(getSelection().withSelectedItem(slot, itemId));
     }
 
+    public void clearActiveItem(EquipmentSlot slot) {
+        repository.saveSelection(getSelection().withoutSlot(slot));
+    }
+
     public void deleteItem(long itemId) {
         repository.delete(itemId);
         repository.saveSelection(getSelection().withoutItemId(itemId));
@@ -205,6 +209,6 @@ public final class ItemLibraryService {
     }
 
     private static String buildDisplayName(ValidatedImportedItem importedItem) {
-        return importedItem.getSlot().name() + " / " + importedItem.getSourceImageName();
+        return ItemLibraryPresentationSupport.slotDisplayName(importedItem.getSlot()) + " / " + importedItem.getSourceImageName();
     }
 }

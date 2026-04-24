@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Testy GUI pokrywają endpoint formularza i podstawowy render wyniku bez powielania logiki runtime. */
+/** Testy GUI pokrywają endpoint formularza, sekcję ekwipunku i podstawowy render wyniku bez powielania logiki runtime. */
 class CurrentBuildWebServerTest {
     private CurrentBuildWebServer webServer;
     private HttpClient httpClient;
@@ -49,18 +49,81 @@ class CurrentBuildWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Policz aktualny build"));
-        assertTrue(response.body().contains("Wejście current build"));
+        assertTrue(response.body().contains("Wejście aktualnego buildu"));
         assertTrue(response.body().contains("Baza ręczna"));
-        assertTrue(response.body().contains("Aktywne itemy z biblioteki"));
+        assertTrue(response.body().contains("Ekwipunek aktualnego buildu"));
+        assertTrue(response.body().contains("Użyte itemy"));
         assertTrue(response.body().contains("Efektywne staty do obliczeń"));
+        assertTrue(response.body().contains("Broń główna"));
+        assertTrue(response.body().contains("Ręka dodatkowa"));
+        assertTrue(response.body().contains("Pancerz"));
+        assertTrue(response.body().contains("Pierścień"));
+        assertTrue(response.body().contains("Buty"));
+        assertFalse(response.body().contains(">MAIN_HAND<"));
+        assertFalse(response.body().contains(">OFF_HAND<"));
+        assertTrue(response.body().contains("Slot jest pusty"));
         assertTrue(response.body().contains("name=\"level\""));
         assertTrue(response.body().contains("<input type=\"number\" step=\"1\" name=\"weaponDamage\" value=\"8\">"));
         assertFalse(response.body().contains("min=\"1\" step=\"1\" name=\"weaponDamage\""));
-        assertTrue(response.body().contains("Block chance [%]"));
-        assertTrue(response.body().contains("Retribution chance [%]"));
+        assertTrue(response.body().contains("Szansa bloku [%]"));
+        assertTrue(response.body().contains("Szansa retribution [%]"));
         assertTrue(response.body().contains("name=\"actionBar1\""));
         assertTrue(response.body().contains("name=\"horizonSeconds\""));
         assertTrue(response.body().contains("Otwórz bibliotekę itemów"));
+    }
+
+    @Test
+    void shouldRenderEquipmentSectionAndAllowChangingActiveItemPerSlot() throws Exception {
+        HttpResponse<String> firstSave = sendPost("/biblioteka-itemow", Map.of(
+                "action", "saveImportedItem",
+                "sourceImageName", "sword-a.png",
+                "slot", "MAIN_HAND",
+                "weaponDamage", "310",
+                "strength", "40",
+                "intelligence", "0",
+                "thorns", "0",
+                "blockChance", "0",
+                "retributionChance", "0",
+                "currentBuildQuery", buildCurrentBuildQuery()
+        ));
+        assertEquals(200, firstSave.statusCode());
+
+        HttpResponse<String> secondSave = sendPost("/biblioteka-itemow", Map.of(
+                "action", "saveImportedItem",
+                "sourceImageName", "sword-b.png",
+                "slot", "MAIN_HAND",
+                "weaponDamage", "321",
+                "strength", "55",
+                "intelligence", "0",
+                "thorns", "0",
+                "blockChance", "0",
+                "retributionChance", "0",
+                "currentBuildQuery", buildCurrentBuildQuery()
+        ));
+        assertEquals(200, secondSave.statusCode());
+
+        HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build?" + buildCurrentBuildQuery());
+
+        assertEquals(200, currentBuildResponse.statusCode());
+        assertTrue(currentBuildResponse.body().contains("name=\"selectedItemId_MAIN_HAND\""));
+        assertTrue(currentBuildResponse.body().contains("Wybierz item"));
+        assertTrue(currentBuildResponse.body().contains("Broń główna / sword-a.png"));
+        assertTrue(currentBuildResponse.body().contains("Broń główna / sword-b.png"));
+        assertFalse(currentBuildResponse.body().contains(">MAIN_HAND<"));
+
+        Map<String, String> fields = buildAdvanceFlashFields(10);
+        fields.put("selectedItemId_MAIN_HAND", "2");
+        fields.put("slotAction", "setActiveSlotItem:MAIN_HAND");
+
+        HttpResponse<String> activateResponse = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, activateResponse.statusCode());
+        assertTrue(activateResponse.body().contains("Zmieniono aktywny item dla slotu Broń główna."));
+        assertTrue(activateResponse.body().contains("class=\"status-badge status-active\">Aktywny</span>"));
+        assertTrue(activateResponse.body().contains("Broń główna / sword-b.png"));
+        assertTrue(activateResponse.body().contains("Wyczyść slot"));
+        assertTrue(activateResponse.body().contains("obrażenia broni=321"));
+        assertTrue(activateResponse.body().contains("Łączne obrażenia"));
     }
 
     @Test
@@ -71,20 +134,20 @@ class CurrentBuildWebServerTest {
         );
 
         assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("Total damage"));
+        assertTrue(response.body().contains("Łączne obrażenia"));
         assertTrue(response.body().contains(">1732<"));
         assertTrue(response.body().contains("DPS"));
-        assertTrue(response.body().contains("Debug bezpośrednich hitów"));
-        assertTrue(response.body().contains("Delayed hit debug"));
-        assertTrue(response.body().contains("Reactive debug"));
-        assertTrue(response.body().contains("Reactive contribution"));
+        assertTrue(response.body().contains("Debug bezpośrednich trafień"));
+        assertTrue(response.body().contains("Debug opóźnionych trafień"));
+        assertTrue(response.body().contains("Debug obrażeń reaktywnych"));
+        assertTrue(response.body().contains("Wkład obrażeń reaktywnych"));
         assertTrue(response.body().contains(">800<"));
         assertTrue(response.body().contains(">52<"));
         assertTrue(response.body().contains(">32<"));
         assertTrue(response.body().contains(">13<"));
         assertTrue(response.body().contains(">8<"));
         assertTrue(response.body().contains(">40<"));
-        assertTrue(response.body().contains("Step trace"));
+        assertTrue(response.body().contains("Ślad kroków symulacji"));
         assertTrue(response.body().contains("Judgement"));
         assertTrue(response.body().contains("Holy Bolt"));
     }
@@ -109,13 +172,13 @@ class CurrentBuildWebServerTest {
         );
 
         assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("Total damage"));
-        assertTrue(response.body().contains("Reactive contribution"));
+        assertTrue(response.body().contains("Łączne obrażenia"));
+        assertTrue(response.body().contains("Wkład obrażeń reaktywnych"));
         assertTrue(response.body().contains("264"));
-        assertTrue(response.body().contains("Reactive debug"));
+        assertTrue(response.body().contains("Debug obrażeń reaktywnych"));
         assertTrue(response.body().contains("Resolve aktywny na końcu"));
-        assertTrue(response.body().contains("Active block chance na końcu"));
-        assertTrue(response.body().contains("Active thorns bonus na końcu"));
+        assertTrue(response.body().contains("Końcowa szansa bloku"));
+        assertTrue(response.body().contains("Końcowy bonus do kolców"));
         assertTrue(response.body().contains("75.00%"));
         assertTrue(response.body().contains(">50<"));
         assertTrue(response.body().contains(">104<"));
@@ -137,15 +200,15 @@ class CurrentBuildWebServerTest {
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Advance"));
         assertTrue(response.body().contains("Flash of the Blade"));
-        assertTrue(response.body().contains("Total damage"));
+        assertTrue(response.body().contains("Łączne obrażenia"));
         assertTrue(response.body().contains("186"));
-        assertTrue(response.body().contains("Debug bezpośrednich hitów"));
+        assertTrue(response.body().contains("Debug bezpośrednich trafień"));
         assertTrue(response.body().contains(">322<"));
         assertTrue(response.body().contains(">33<"));
-        assertTrue(response.body().contains("Step trace"));
+        assertTrue(response.body().contains("Ślad kroków symulacji"));
         assertTrue(response.body().contains("WAIT"));
-        assertTrue(response.body().contains("cooldown=true"));
-        assertTrue(response.body().contains("cooldownRemaining=7"));
+        assertTrue(response.body().contains("odnowienie=tak"));
+        assertTrue(response.body().contains("pozostałe odnowienie=7"));
     }
 
     @Test
@@ -184,15 +247,15 @@ class CurrentBuildWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Baza ręczna"));
-        assertTrue(response.body().contains("Aktywne itemy z biblioteki"));
+        assertTrue(response.body().contains("Użyte itemy"));
         assertTrue(response.body().contains("Efektywne staty do obliczeń"));
-        assertTrue(response.body().contains("Total damage"));
-        assertTrue(response.body().contains("Weapon damage effective"));
+        assertTrue(response.body().contains("Łączne obrażenia"));
+        assertTrue(response.body().contains("Efektywne obrażenia broni"));
         assertTrue(response.body().contains(">321<"));
-        assertTrue(response.body().contains("Strength effective"));
+        assertTrue(response.body().contains("Efektywna siła"));
         assertTrue(response.body().contains(">55<"));
-        assertTrue(response.body().contains("Do obliczeń runtime trafiają: weapon damage=321, strength=55"));
-        assertFalse(response.body().contains("Weapon damage musi być >= 1."));
+        assertTrue(response.body().contains("Do runtime trafiają: obrażenia broni=321, siła=55"));
+        assertFalse(response.body().contains("Obrażenia broni musi być >= 1."));
     }
 
     @Test
@@ -222,14 +285,14 @@ class CurrentBuildWebServerTest {
         HttpResponse<String> response = sendGet("/policz-aktualny-build?" + buildCurrentBuildQueryWithStats("10.5", "2.25"));
 
         assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains(summaryCard("Block chance [%]", "10.5")));
-        assertTrue(response.body().contains(summaryCard("Retribution chance [%]", "2.25")));
-        assertTrue(response.body().contains(summaryCard("Block chance [%]", "18.25")));
-        assertTrue(response.body().contains(summaryCard("Retribution chance [%]", "7.5")));
-        assertTrue(response.body().contains(summaryCard("Block chance [%]", "28.75")));
-        assertTrue(response.body().contains(summaryCard("Retribution chance [%]", "9.75")));
-        assertTrue(response.body().contains("block=18.25%, retribution=7.5%"));
-        assertTrue(response.body().contains("block chance=28.75, retribution chance=9.75"));
+        assertTrue(response.body().contains(summaryCard("Szansa bloku [%]", "10.5")));
+        assertTrue(response.body().contains(summaryCard("Szansa retribution [%]", "2.25")));
+        assertTrue(response.body().contains(summaryCard("Łączna szansa bloku [%]", "18.25")));
+        assertTrue(response.body().contains(summaryCard("Łączna szansa retribution [%]", "7.5")));
+        assertTrue(response.body().contains(summaryCard("Szansa bloku [%]", "28.75")));
+        assertTrue(response.body().contains(summaryCard("Szansa retribution [%]", "9.75")));
+        assertTrue(response.body().contains("szansa bloku=18.25%, szansa retribution=7.5%"));
+        assertTrue(response.body().contains("szansa bloku=28.75, szansa retribution=9.75"));
     }
 
     private static Map<String, String> buildHolyBoltJudgementFields() {

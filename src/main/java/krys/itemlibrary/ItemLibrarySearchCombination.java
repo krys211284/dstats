@@ -5,7 +5,6 @@ import krys.itemimport.CurrentBuildImportableStats;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 
 /** Reprezentuje pojedynczą kombinację searcha złożoną z co najwyżej jednego zapisanego itemu per slot. */
 public final class ItemLibrarySearchCombination {
@@ -44,32 +43,13 @@ public final class ItemLibrarySearchCombination {
 
         List<String> labels = new ArrayList<>();
         for (SavedImportedItem item : selectedItems) {
-            labels.add(item.getSlot().name() + ": " + item.getDisplayName());
+            labels.add(ItemLibraryPresentationSupport.slotDisplayName(item.getSlot()) + ": " + ItemLibraryPresentationSupport.userItemIdentifier(item));
         }
         return String.join(" || ", labels);
     }
 
     public String getContributionDescription() {
-        List<String> labels = new ArrayList<>();
-        if (totalContribution.getWeaponDamage() > 0L) {
-            labels.add("weapon=" + totalContribution.getWeaponDamage());
-        }
-        if (totalContribution.getStrength() > 0.0d) {
-            labels.add("str=" + formatWhole(totalContribution.getStrength()));
-        }
-        if (totalContribution.getIntelligence() > 0.0d) {
-            labels.add("int=" + formatWhole(totalContribution.getIntelligence()));
-        }
-        if (totalContribution.getThorns() > 0.0d) {
-            labels.add("thorns=" + formatWhole(totalContribution.getThorns()));
-        }
-        if (totalContribution.getBlockChance() > 0.0d) {
-            labels.add("block=" + formatWhole(totalContribution.getBlockChance()) + "%");
-        }
-        if (totalContribution.getRetributionChance() > 0.0d) {
-            labels.add("retribution=" + formatWhole(totalContribution.getRetributionChance()) + "%");
-        }
-        return labels.isEmpty() ? "Brak wkładu" : String.join(", ", labels);
+        return ItemLibraryPresentationSupport.contributionLabel(totalContribution);
     }
 
     public String toDeterministicKey() {
@@ -84,7 +64,4 @@ public final class ItemLibrarySearchCombination {
         return String.join("|", labels);
     }
 
-    private static String formatWhole(double value) {
-        return String.format(Locale.US, "%.0f", value);
-    }
 }

@@ -8,6 +8,7 @@ import krys.itemimport.ItemImageImportCandidateParseResult;
 import krys.itemimport.ItemImportEditableForm;
 import krys.itemimport.ItemImportFieldCandidate;
 import krys.itemimport.ValidatedImportedItem;
+import krys.itemlibrary.ItemLibraryPresentationSupport;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -59,7 +60,10 @@ public final class ItemImportPageRenderer {
             return """
                     <section class="panel result-panel">
                         <h2>Wstępnie rozpoznane pola</h2>
-                        <p>Wgraj screenshot pojedynczego itemu. Foundation importu sprawdzi, czy plik jest prawidłowym obrazem, pokaże poziom niepewności i pozwoli ręcznie zatwierdzić wartości.</p>
+                        <div class="empty-state">
+                            <h3>Tu pojawią się rozpoznane pola itemu</h3>
+                            <p>Po wgraniu screena aplikacja pokaże w tym miejscu wstępny odczyt slotu i statów wraz z poziomem niepewności. Następnie ręcznie potwierdzisz lub poprawisz wartości przed zapisaniem itemu.</p>
+                        </div>
                     </section>
                     """;
         }
@@ -94,12 +98,12 @@ public final class ItemImportPageRenderer {
                         <tbody>
                 """)
                 .append(renderCandidateRow("Slot / typ itemu", parseResult.getSlotCandidate()))
-                .append(renderCandidateRow("Weapon damage", parseResult.getWeaponDamageCandidate()))
-                .append(renderCandidateRow("Strength", parseResult.getStrengthCandidate()))
-                .append(renderCandidateRow("Intelligence", parseResult.getIntelligenceCandidate()))
-                .append(renderCandidateRow("Thorns", parseResult.getThornsCandidate()))
-                .append(renderCandidateRow("Block chance", parseResult.getBlockChanceCandidate()))
-                .append(renderCandidateRow("Retribution chance", parseResult.getRetributionChanceCandidate()))
+                .append(renderCandidateRow("Obrażenia broni", parseResult.getWeaponDamageCandidate()))
+                .append(renderCandidateRow("Siła", parseResult.getStrengthCandidate()))
+                .append(renderCandidateRow("Inteligencja", parseResult.getIntelligenceCandidate()))
+                .append(renderCandidateRow("Kolce", parseResult.getThornsCandidate()))
+                .append(renderCandidateRow("Szansa bloku", parseResult.getBlockChanceCandidate()))
+                .append(renderCandidateRow("Szansa retribution", parseResult.getRetributionChanceCandidate()))
                 .append("""
                         </tbody>
                     </table>
@@ -119,12 +123,12 @@ public final class ItemImportPageRenderer {
                             <div class="form-grid">
                 """)
                 .append(renderSlotSelect(form.getSlot()))
-                .append(renderNumberField("weaponDamage", "Weapon damage", form.getWeaponDamage(), "1"))
-                .append(renderNumberField("strength", "Strength", form.getStrength(), "1"))
-                .append(renderNumberField("intelligence", "Intelligence", form.getIntelligence(), "1"))
-                .append(renderNumberField("thorns", "Thorns", form.getThorns(), "1"))
-                .append(renderNumberField("blockChance", "Block chance [%]", form.getBlockChance(), "0.01"))
-                .append(renderNumberField("retributionChance", "Retribution chance [%]", form.getRetributionChance(), "0.01"))
+                .append(renderNumberField("weaponDamage", "Obrażenia broni", form.getWeaponDamage(), "1"))
+                .append(renderNumberField("strength", "Siła", form.getStrength(), "1"))
+                .append(renderNumberField("intelligence", "Inteligencja", form.getIntelligence(), "1"))
+                .append(renderNumberField("thorns", "Kolce", form.getThorns(), "1"))
+                .append(renderNumberField("blockChance", "Szansa bloku [%]", form.getBlockChance(), "0.01"))
+                .append(renderNumberField("retributionChance", "Szansa retribution [%]", form.getRetributionChance(), "0.01"))
                 .append("""
                             </div>
                             <div class="submit-row">
@@ -151,13 +155,13 @@ public final class ItemImportPageRenderer {
                     <div class="summary-grid">
                 """);
         html.append(renderSummaryCard("Plik źródłowy", importedItem.getSourceImageName()))
-                .append(renderSummaryCard("Slot / typ itemu", importedItem.getSlot().name()))
-                .append(renderSummaryCard("Weapon damage", Long.toString(importedItem.getWeaponDamage())))
-                .append(renderSummaryCard("Strength", formatWhole(importedItem.getStrength())))
-                .append(renderSummaryCard("Intelligence", formatWhole(importedItem.getIntelligence())))
-                .append(renderSummaryCard("Thorns", formatWhole(importedItem.getThorns())))
-                .append(renderSummaryCard("Block chance [%]", formatWhole(importedItem.getBlockChance())))
-                .append(renderSummaryCard("Retribution chance [%]", formatWhole(importedItem.getRetributionChance())))
+                .append(renderSummaryCard("Slot / typ itemu", ItemLibraryPresentationSupport.slotDisplayName(importedItem.getSlot())))
+                .append(renderSummaryCard("Obrażenia broni", Long.toString(importedItem.getWeaponDamage())))
+                .append(renderSummaryCard("Siła", formatWhole(importedItem.getStrength())))
+                .append(renderSummaryCard("Inteligencja", formatWhole(importedItem.getIntelligence())))
+                .append(renderSummaryCard("Kolce", formatWhole(importedItem.getThorns())))
+                .append(renderSummaryCard("Szansa bloku [%]", formatWhole(importedItem.getBlockChance())))
+                .append(renderSummaryCard("Szansa retribution [%]", formatWhole(importedItem.getRetributionChance())))
                 .append("</div>")
                 .append("""
                     <section class="subpanel">
@@ -165,8 +169,8 @@ public final class ItemImportPageRenderer {
                         <div class="summary-grid compact-grid">
                 """)
                 .append(renderSummaryCard("Nazwa itemu", confirmed.getMappedItem().getName()))
-                .append(renderSummaryCard("Slot runtime", confirmed.getMappedItem().getSlot().name()))
-                .append(renderSummaryCard("Staty runtime", renderRuntimeStatsLabel(confirmed.getMappedItem().getStats())))
+                .append(renderSummaryCard("Slot w modelu aplikacji", ItemLibraryPresentationSupport.slotDisplayName(confirmed.getMappedItem().getSlot())))
+                .append(renderSummaryCard("Staty modelu itemu", renderRuntimeStatsLabel(confirmed.getMappedItem().getStats())))
                 .append("""
                         </div>
                     </section>
@@ -174,12 +178,12 @@ public final class ItemImportPageRenderer {
                         <h3>Mapowanie do aktualnego modelu buildu</h3>
                         <div class="summary-grid compact-grid">
                 """)
-                .append(renderSummaryCard("Weapon damage", Long.toString(contribution.getWeaponDamage())))
-                .append(renderSummaryCard("Strength", formatWhole(contribution.getStrength())))
-                .append(renderSummaryCard("Intelligence", formatWhole(contribution.getIntelligence())))
-                .append(renderSummaryCard("Thorns", formatWhole(contribution.getThorns())))
-                .append(renderSummaryCard("Block chance [%]", formatWhole(contribution.getBlockChance())))
-                .append(renderSummaryCard("Retribution chance [%]", formatWhole(contribution.getRetributionChance())))
+                .append(renderSummaryCard("Obrażenia broni", Long.toString(contribution.getWeaponDamage())))
+                .append(renderSummaryCard("Siła", formatWhole(contribution.getStrength())))
+                .append(renderSummaryCard("Inteligencja", formatWhole(contribution.getIntelligence())))
+                .append(renderSummaryCard("Kolce", formatWhole(contribution.getThorns())))
+                .append(renderSummaryCard("Szansa bloku [%]", formatWhole(contribution.getBlockChance())))
+                .append(renderSummaryCard("Szansa retribution [%]", formatWhole(contribution.getRetributionChance())))
                 .append("""
                         </div>
                         <p class="helper">Import pozostaje wspomagany: zatwierdzony item zasila aktualny agregowany model buildu przez jawne mapowanie pól, a nie przez ukryty automat OCR.</p>
@@ -213,7 +217,7 @@ public final class ItemImportPageRenderer {
                         </form>
                     """)
                 .append("""
-                        <p class="helper">`Zastosuj do current build` zachowuje techniczne znaczenie trybu `nadpisz`: podstawia wkład itemu tylko w polach, które item rzeczywiście wnosi. `Dodaj wkład do current build` sumuje ten wkład do statów current build przekazanych do importu.</p>
+                        <p class="helper">`Zastosuj do aktualnego buildu` zachowuje techniczne znaczenie trybu `nadpisz`: podstawia wkład itemu tylko w polach, które item rzeczywiście wnosi. `Dodaj wkład itemu do aktualnego buildu` sumuje ten wkład do statów aktualnego buildu przekazanych do importu.</p>
                     """)
                 .append("""
                     </section>
@@ -223,7 +227,7 @@ public final class ItemImportPageRenderer {
     }
 
     private static String renderCandidateRow(String label, ItemImportFieldCandidate<?> candidate) {
-        String suggestedValue = candidate.getSuggestedValue() == null ? "Brak" : candidate.getSuggestedValue().toString();
+        String suggestedValue = renderCandidateValue(candidate.getSuggestedValue());
         String note = candidate.getNote() == null || candidate.getNote().isBlank() ? "-" : candidate.getNote();
         return "<tr><td>" + escapeHtml(label) + "</td><td>" + escapeHtml(suggestedValue) + "</td><td>"
                 + escapeHtml(candidate.getConfidence().getDisplayName()) + "</td><td>" + escapeHtml(note) + "</td></tr>";
@@ -237,7 +241,7 @@ public final class ItemImportPageRenderer {
                 """);
         html.append(renderSlotOption("", "Wybierz slot", selectedSlot == null || selectedSlot.isBlank()));
         for (EquipmentSlot slot : EquipmentSlot.values()) {
-            html.append(renderSlotOption(slot.name(), slot.name(), slot.name().equals(selectedSlot)));
+            html.append(renderSlotOption(slot.name(), ItemLibraryPresentationSupport.slotDisplayName(slot), slot.name().equals(selectedSlot)));
         }
         html.append("""
                     </select>
@@ -280,13 +284,23 @@ public final class ItemImportPageRenderer {
 
     private static String renderRuntimeStatsLabel(List<ItemStat> stats) {
         if (stats.isEmpty()) {
-            return "Brak statów runtime";
+            return "Brak statów modelu itemu";
         }
         List<String> labels = new ArrayList<>();
         for (ItemStat stat : stats) {
-            labels.add(stat.getType().name() + "=" + formatWhole(stat.getValue()));
+            labels.add(ItemLibraryPresentationSupport.itemStatDisplayName(stat.getType()) + "=" + formatWhole(stat.getValue()));
         }
         return String.join(", ", labels);
+    }
+
+    private static String renderCandidateValue(Object value) {
+        if (value == null) {
+            return "Brak";
+        }
+        if (value instanceof EquipmentSlot slot) {
+            return ItemLibraryPresentationSupport.slotDisplayName(slot);
+        }
+        return value.toString();
     }
 
     private static String formatWhole(double value) {

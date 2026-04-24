@@ -188,9 +188,9 @@ class BuildSearchCalculationServiceTest {
         assertEquals(6L, result.getAudit().getItemLibraryCombinationSpaceSize());
         assertEquals(4, result.getEvaluatedCandidateCount());
         assertEquals("Włączony", result.getTopResults().getFirst().getCandidate().getItemLibraryModeDescription());
-        assertTrue(result.getTopResults().getFirst().getCandidate().getSelectedItemLibraryItemsDescription().contains("MAIN_HAND"));
-        assertTrue(result.getTopResults().getFirst().getCandidate().getSelectedItemLibraryItemsDescription().contains("OFF_HAND"));
-        assertTrue(result.getTopResults().getFirst().getCandidate().getItemLibraryContributionDescription().contains("weapon=321"));
+        assertTrue(result.getTopResults().getFirst().getCandidate().getSelectedItemLibraryItemsDescription().contains("Broń główna"));
+        assertTrue(result.getTopResults().getFirst().getCandidate().getSelectedItemLibraryItemsDescription().contains("Ręka dodatkowa"));
+        assertTrue(result.getTopResults().getFirst().getCandidate().getItemLibraryContributionDescription().contains("obrażenia broni=321"));
 
         krys.app.CurrentBuildCalculation expectedCalculation = new CurrentBuildCalculationService(
                 new ManualSimulationService(new DamageEngine())

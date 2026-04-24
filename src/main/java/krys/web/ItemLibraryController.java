@@ -3,6 +3,7 @@ package krys.web;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import krys.item.EquipmentSlot;
+import krys.itemlibrary.ItemLibraryPresentationSupport;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
 import krys.itemimport.ItemImportEditableForm;
@@ -45,7 +46,7 @@ public final class ItemLibraryController implements HttpHandler {
                                 UrlEncodedFormSupport.parseQuery(exchange.getRequestURI().getRawQuery())
                         )
                 );
-                renderPage(exchange, buildPageModel(List.of(), List.of(), currentBuildQuery));
+                renderPage(exchange, buildPageModel(List.of(), List.of(), currentBuildQuery, null));
                 return;
             }
             if ("POST".equals(method)) {
@@ -68,10 +69,10 @@ public final class ItemLibraryController implements HttpHandler {
                 case "saveImportedItem" -> handleSaveImportedItem(fields, currentBuildQuery);
                 case "activateItem" -> handleActivateItem(fields, currentBuildQuery);
                 case "deleteItem" -> handleDeleteItem(fields, currentBuildQuery);
-                default -> buildPageModel(List.of("Nieobsługiwana akcja biblioteki itemów."), List.of(), currentBuildQuery);
+                default -> buildPageModel(List.of("Nieobsługiwana akcja biblioteki itemów."), List.of(), currentBuildQuery, null);
             };
         } catch (IllegalArgumentException exception) {
-            return buildPageModel(List.of(exception.getMessage()), List.of(), currentBuildQuery);
+            return buildPageModel(List.of(exception.getMessage()), List.of(), currentBuildQuery, null);
         }
     }
 
@@ -88,11 +89,16 @@ public final class ItemLibraryController implements HttpHandler {
         );
         ItemImportFormMapper.MappingResult mappingResult = itemImportFormMapper.map(form);
         if (!mappingResult.getErrors().isEmpty() || mappingResult.getItem() == null) {
-            return buildPageModel(mappingResult.getErrors(), List.of(), currentBuildQuery);
+            return buildPageModel(mappingResult.getErrors(), List.of(), currentBuildQuery, null);
         }
 
         SavedImportedItem savedItem = itemLibraryService.saveImportedItem(mappingResult.getItem());
-        return buildPageModel(List.of(), List.of("Zapisano item w bibliotece: " + savedItem.getDisplayName() + "."), currentBuildQuery);
+        return buildPageModel(
+                List.of(),
+                List.of("Zapisano item w bibliotece: " + savedItem.getDisplayName() + "."),
+                currentBuildQuery,
+                savedItem
+        );
     }
 
     private ItemLibraryPageModel handleActivateItem(Map<String, String> fields, String currentBuildQuery) {
@@ -101,26 +107,29 @@ public final class ItemLibraryController implements HttpHandler {
         itemLibraryService.setActiveItem(slot, itemId);
         return buildPageModel(
                 List.of(),
-                List.of("Aktywny item dla slotu " + slot.name() + " został zmieniony. Nowy wybór zastępuje poprzedni aktywny item w tym samym slocie."),
-                currentBuildQuery
+                List.of("Aktywny item dla slotu " + ItemLibraryPresentationSupport.slotDisplayName(slot) + " został zmieniony. Nowy wybór zastępuje poprzedni aktywny item w tym samym slocie."),
+                currentBuildQuery,
+                null
         );
     }
 
     private ItemLibraryPageModel handleDeleteItem(Map<String, String> fields, String currentBuildQuery) {
         long itemId = parseItemId(fields.getOrDefault("itemId", ""));
         itemLibraryService.deleteItem(itemId);
-        return buildPageModel(List.of(), List.of("Usunięto item z biblioteki."), currentBuildQuery);
+        return buildPageModel(List.of(), List.of("Usunięto item z biblioteki."), currentBuildQuery, null);
     }
 
     private ItemLibraryPageModel buildPageModel(List<String> errors,
                                                 List<String> messages,
-                                                String currentBuildQuery) {
+                                                String currentBuildQuery,
+                                                SavedImportedItem savedItemFeedback) {
         return new ItemLibraryPageModel(
                 itemLibraryService.getSavedItems(),
                 itemLibraryService.getSelection(),
                 errors,
                 messages,
-                currentBuildQuery
+                currentBuildQuery,
+                savedItemFeedback
         );
     }
 

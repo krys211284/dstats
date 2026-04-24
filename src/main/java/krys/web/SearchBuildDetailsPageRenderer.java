@@ -72,19 +72,19 @@ public final class SearchBuildDetailsPageRenderer {
                     <div class="summary-grid">
                 """)
                 .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Wybrany wynik po normalizacji", selectedResultLabel))
-                .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Build input", candidate.getInputProfileDescription()))
-                .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Action bar skills", candidate.getActionBarSkillsDescription()))
-                .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Action bar", candidate.getActionBarDescription()))
+                .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Wejście buildu", candidate.getInputProfileDescription()))
+                .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Skille na pasku", candidate.getActionBarSkillsDescription()))
+                .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Pasek akcji", candidate.getActionBarDescription()))
                 .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Tryb biblioteki itemów", candidate.getItemLibraryModeDescription()))
                 .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Wybrane itemy z biblioteki", candidate.getSelectedItemLibraryItemsDescription()))
                 .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Łączny wkład itemów", candidate.getItemLibraryContributionDescription()))
-                .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Total damage", Long.toString(calculation.getResult().getTotalDamage())))
+                .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Łączne obrażenia", Long.toString(calculation.getResult().getTotalDamage())))
                 .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("DPS", String.format(Locale.US, "%.4f", calculation.getResult().getDps())))
-                .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Reactive contribution", Long.toString(calculation.getResult().getTotalReactiveDamage())))
+                .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Wkład obrażeń reaktywnych", Long.toString(calculation.getResult().getTotalReactiveDamage())))
                 .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Judgement aktywny na końcu", calculation.getResult().isJudgementActiveAtEnd() ? "Tak" : "Nie"))
                 .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Resolve aktywny na końcu", calculation.getResult().isResolveActiveAtEnd() ? "Tak" : "Nie"))
-                .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Active block chance na końcu", String.format(Locale.US, "%.2f%%", calculation.getResult().getActiveBlockChanceAtEnd() * 100.0d)))
-                .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Active thorns bonus na końcu", String.format(Locale.US, "%.0f", calculation.getResult().getActiveThornsBonusAtEnd())))
+                .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Końcowa szansa bloku", String.format(Locale.US, "%.2f%%", calculation.getResult().getActiveBlockChanceAtEnd() * 100.0d)))
+                .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Końcowy bonus do kolców", String.format(Locale.US, "%.0f", calculation.getResult().getActiveThornsBonusAtEnd())))
                 .append("""
                     </div>
                 </section>

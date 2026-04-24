@@ -1,6 +1,7 @@
 package krys.web;
 
 import krys.app.CurrentBuildCalculation;
+import krys.itemlibrary.ActiveItemSelection;
 import krys.itemimport.CurrentBuildImportableStats;
 import krys.itemlibrary.EffectiveCurrentBuildResolution;
 import krys.itemlibrary.SavedImportedItem;
@@ -15,29 +16,41 @@ public final class CurrentBuildPageModel {
     private final List<SelectOption> skillOptions;
     private final List<SelectOption> rankOptions;
     private final List<SelectOption> choiceOptions;
+    private final List<String> messages;
     private final List<String> validationErrors;
     private final CurrentBuildCalculation calculation;
     private final EffectiveCurrentBuildResolution effectiveCurrentBuildResolution;
+    private final List<SavedImportedItem> savedLibraryItems;
+    private final ActiveItemSelection activeItemSelection;
     private final String itemLibraryUrl;
+    private final String itemImportUrl;
     private final String choiceHelpText;
 
     public CurrentBuildPageModel(CurrentBuildFormData formData,
                                  List<SelectOption> skillOptions,
                                  List<SelectOption> rankOptions,
                                  List<SelectOption> choiceOptions,
+                                 List<String> messages,
                                  List<String> validationErrors,
                                  CurrentBuildCalculation calculation,
                                  EffectiveCurrentBuildResolution effectiveCurrentBuildResolution,
+                                 List<SavedImportedItem> savedLibraryItems,
+                                 ActiveItemSelection activeItemSelection,
                                  String itemLibraryUrl,
+                                 String itemImportUrl,
                                  String choiceHelpText) {
         this.formData = formData;
         this.skillOptions = Collections.unmodifiableList(new ArrayList<>(skillOptions));
         this.rankOptions = Collections.unmodifiableList(new ArrayList<>(rankOptions));
         this.choiceOptions = Collections.unmodifiableList(new ArrayList<>(choiceOptions));
+        this.messages = Collections.unmodifiableList(new ArrayList<>(messages));
         this.validationErrors = Collections.unmodifiableList(new ArrayList<>(validationErrors));
         this.calculation = calculation;
         this.effectiveCurrentBuildResolution = effectiveCurrentBuildResolution;
+        this.savedLibraryItems = Collections.unmodifiableList(new ArrayList<>(savedLibraryItems));
+        this.activeItemSelection = activeItemSelection;
         this.itemLibraryUrl = itemLibraryUrl;
+        this.itemImportUrl = itemImportUrl;
         this.choiceHelpText = choiceHelpText;
     }
 
@@ -61,6 +74,10 @@ public final class CurrentBuildPageModel {
         return validationErrors;
     }
 
+    public List<String> getMessages() {
+        return messages;
+    }
+
     public CurrentBuildCalculation getCalculation() {
         return calculation;
     }
@@ -69,8 +86,20 @@ public final class CurrentBuildPageModel {
         return effectiveCurrentBuildResolution;
     }
 
+    public List<SavedImportedItem> getSavedLibraryItems() {
+        return savedLibraryItems;
+    }
+
+    public ActiveItemSelection getActiveItemSelection() {
+        return activeItemSelection;
+    }
+
     public String getItemLibraryUrl() {
         return itemLibraryUrl;
+    }
+
+    public String getItemImportUrl() {
+        return itemImportUrl;
     }
 
     public String getChoiceHelpText() {
@@ -83,6 +112,10 @@ public final class CurrentBuildPageModel {
 
     public boolean hasActiveLibraryItems() {
         return effectiveCurrentBuildResolution != null && !effectiveCurrentBuildResolution.getActiveItems().isEmpty();
+    }
+
+    public boolean hasLibraryItems() {
+        return !savedLibraryItems.isEmpty();
     }
 
     public List<SavedImportedItem> getActiveLibraryItems() {

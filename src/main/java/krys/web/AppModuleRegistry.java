@@ -23,7 +23,7 @@ public final class AppModuleRegistry {
             new AppModule(
                     "current-build",
                     "Policz aktualny build",
-                    "Manual simulation nad istniejącym runtime i efektywnymi statami current build.",
+                    "Manual simulation nad istniejącym runtime i efektywnymi statami aktualnego buildu.",
                     AppModuleGroup.BUILD_TOOLS,
                     AppModuleStatus.AVAILABLE,
                     "/policz-aktualny-build",
@@ -33,7 +33,7 @@ public final class AppModuleRegistry {
             new AppModule(
                     "search-build",
                     "Znajdź najlepszy build",
-                    "Backendowy search i drill-down nad tym samym runtime co current build.",
+                    "Backendowy search i drill-down nad tym samym runtime co aktualny build.",
                     AppModuleGroup.BUILD_TOOLS,
                     AppModuleStatus.AVAILABLE,
                     "/znajdz-najlepszy-build",

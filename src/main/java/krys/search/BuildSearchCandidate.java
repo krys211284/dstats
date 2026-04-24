@@ -42,13 +42,13 @@ public final class BuildSearchCandidate {
     }
 
     public String getInputProfileDescription() {
-        return "level=" + currentBuildRequest.getLevel()
-                + " | weaponDamage=" + currentBuildRequest.getWeaponDamage()
-                + " | strength=" + formatWholeNumber(currentBuildRequest.getStrength())
-                + " | intelligence=" + formatWholeNumber(currentBuildRequest.getIntelligence())
-                + " | thorns=" + formatWholeNumber(currentBuildRequest.getThorns())
-                + " | blockChance=" + formatPercent(currentBuildRequest.getBlockChance())
-                + " | retributionChance=" + formatPercent(currentBuildRequest.getRetributionChance());
+        return "poziom=" + currentBuildRequest.getLevel()
+                + " | obrażenia broni=" + currentBuildRequest.getWeaponDamage()
+                + " | siła=" + formatWholeNumber(currentBuildRequest.getStrength())
+                + " | inteligencja=" + formatWholeNumber(currentBuildRequest.getIntelligence())
+                + " | kolce=" + formatWholeNumber(currentBuildRequest.getThorns())
+                + " | szansa bloku=" + formatPercent(currentBuildRequest.getBlockChance())
+                + " | szansa retribution=" + formatPercent(currentBuildRequest.getRetributionChance());
     }
 
     public String getLearnedSkillsDescription() {
@@ -80,7 +80,7 @@ public final class BuildSearchCandidate {
         for (SkillId skillId : currentBuildRequest.getActionBar()) {
             SkillState state = currentBuildRequest.getLearnedSkills().get(skillId);
             if (state == null || state.getRank() <= 0) {
-                labels.add(PaladinSkillDefs.get(skillId).getName() + " OFF");
+                labels.add(PaladinSkillDefs.get(skillId).getName() + " NIEAKTYWNY");
                 continue;
             }
             labels.add(buildSkillDescription(skillId, state));

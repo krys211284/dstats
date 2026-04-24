@@ -64,6 +64,15 @@
             letter-spacing: 0.04em;
             text-transform: uppercase;
         }
+        .section-kicker {
+            display: inline-block;
+            margin-bottom: 6px;
+            color: var(--accent);
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
         h1, h2, h3 { margin-top: 0; }
         p { line-height: 1.55; }
         .hero p { max-width: 860px; color: var(--muted); }
@@ -82,13 +91,32 @@
             gap: 14px;
             align-items: end;
         }
+        .top-form-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+            gap: 16px;
+            align-items: start;
+        }
+        .input-card {
+            padding: 16px;
+            border: 1px solid rgba(107, 100, 88, 0.18);
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.74);
+        }
         label { display: grid; gap: 8px; font-weight: 600; }
         .checkbox-label { align-content: start; }
+        .library-checkbox {
+            margin-top: 12px;
+        }
         .checkbox-row {
             display: flex;
             gap: 10px;
             align-items: flex-start;
-            font-weight: 400;
+            padding: 12px 14px;
+            border: 1px solid rgba(49, 91, 65, 0.18);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.84);
+            font-weight: 500;
             line-height: 1.5;
         }
         .checkbox-row input {
@@ -132,6 +160,15 @@
         .summary-label { color: var(--muted); font-size: 0.88rem; margin-bottom: 6px; }
         .summary-value { font-size: 1.05rem; font-weight: 700; }
         .subpanel { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+        .library-mode-card {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 12px;
+            padding: 16px;
+            border: 1px solid rgba(49, 91, 65, 0.22);
+            border-radius: 18px;
+            background: linear-gradient(180deg, rgba(219, 233, 221, 0.86) 0%, rgba(255, 255, 255, 0.84) 100%);
+        }
         .data-table { width: 100%; border-collapse: collapse; font-size: 0.94rem; }
         .data-table th, .data-table td {
             padding: 10px 8px;
@@ -142,6 +179,11 @@
         .data-table thead th { color: var(--muted); font-weight: 700; }
         .error-list { margin: 0; padding-left: 20px; color: var(--error); }
         .skill-space h3 { margin-bottom: 10px; }
+        @media (max-width: 960px) {
+            .top-form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
         @media (max-width: 900px) {
             .data-table, .data-table thead, .data-table tbody, .data-table tr, .data-table th, .data-table td { display: block; }
             .data-table thead { display: none; }
@@ -161,23 +203,39 @@
     {{GLOBAL_NAV}}
 
     <header class="hero">
-        <div class="eyebrow">M12 / Search GUI SSR</div>
+        <div class="eyebrow">Search builda / SSR</div>
         <h1>Znajdź najlepszy build</h1>
-        <p>To jest minimalne GUI SSR dla backendowego build searcha. Ekran buduje rzeczywisty `BuildSearchRequest`, może rozszerzyć ręczną bazę statów o kombinacje zapisanych itemów z biblioteki, pokazuje audit/preflight search space, uruchamia ten sam backend co CLI i pozwala wejść w drill-down pojedynczego reprezentanta.</p>
+        <p>To jest GUI SSR dla backendowego build searcha. Ekran porządkuje najważniejsze decyzje produktu: bazę statów, tryb biblioteki itemów, zakres skilli i limit wyników, ale nadal uruchamia dokładnie ten sam backend i ten sam runtime co dotąd.</p>
     </header>
 
     <section class="panel">
-        <h2>Przestrzeń searcha</h2>
+        <h2>Konfiguracja searcha</h2>
         <form method="post" action="/znajdz-najlepszy-build">
-            <div class="form-grid">
-                {{SEARCH_SPACE_FIELDS}}
+            <div class="top-form-grid">
+                <section class="input-card">
+                    <span class="section-kicker">Start</span>
+                    <h3>Najważniejsze ustawienia</h3>
+                    <div class="form-grid">
+                        {{MAIN_SEARCH_FIELDS}}
+                    </div>
+                    <p class="helper">{{HELP_TEXT}}</p>
+                </section>
+
+                {{LIBRARY_MODE_CARD}}
             </div>
 
-            <p class="helper">{{HELP_TEXT}}</p>
-            <p class="helper">Pola listowe przyjmują wartości oddzielone przecinkami, np. `13,15` albo `false,true`. Choice values podawaj jako enumy, np. `NONE,LEFT,RIGHT`. W trybie biblioteki itemów `weapon damage values` może zawierać `0`, jeśli dodatni weapon damage wnosi wybrany item z biblioteki.</p>
+            <section class="subpanel">
+                <span class="section-kicker">Statystyki</span>
+                <h3>Przestrzeń statów wejściowych</h3>
+                <div class="form-grid">
+                    {{STAT_SPACE_FIELDS}}
+                </div>
+                <p class="helper">Pola listowe przyjmują wartości oddzielone przecinkami, np. `13,15` albo `false,true`. W trybie biblioteki itemów `obrażenia broni` mogą zawierać `0`, jeśli dodatnią wartość wnosi wybrany item z biblioteki.</p>
+            </section>
 
             <section class="subpanel">
-                <h3>Zakresy skilli foundation</h3>
+                <span class="section-kicker">Skille</span>
+                <h3>Zakresy skilli</h3>
                 {{SKILL_SPACE_FIELDS}}
             </section>
 

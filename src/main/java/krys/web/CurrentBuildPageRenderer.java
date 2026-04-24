@@ -1,7 +1,9 @@
 package krys.web;
 
 import krys.app.CurrentBuildCalculation;
+import krys.item.EquipmentSlot;
 import krys.itemimport.CurrentBuildImportableStats;
+import krys.itemlibrary.ItemLibraryPresentationSupport;
 import krys.itemlibrary.SavedImportedItem;
 import krys.skill.PaladinSkillDefs;
 import krys.skill.SkillId;
@@ -12,6 +14,7 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
@@ -26,8 +29,9 @@ public final class CurrentBuildPageRenderer {
     public String render(CurrentBuildPageModel model) {
         return template
                 .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/policz-aktualny-build"))
+                .replace("{{FORM_MESSAGES}}", renderMessages(model.getMessages()))
                 .replace("{{MANUAL_BASE_SECTION}}", renderManualBaseSection(model))
-                .replace("{{ACTIVE_LIBRARY_SECTION}}", renderActiveLibrarySection(model))
+                .replace("{{EQUIPMENT_SECTION}}", renderEquipmentSection(model))
                 .replace("{{EFFECTIVE_STATS_SECTION}}", renderEffectiveStatsSection(model))
                 .replace("{{SKILL_CONFIG_FIELDS}}", renderSkillConfigFields(model.getFormData()))
                 .replace("{{ACTION_BAR_FIELDS}}", renderActionBarFields(model.getFormData()))
@@ -35,19 +39,22 @@ public final class CurrentBuildPageRenderer {
                 .replace("{{RESULT_SECTION}}", renderResultSection(model));
     }
 
-    private static String renderOptions(List<CurrentBuildPageModel.SelectOption> options) {
-        StringBuilder html = new StringBuilder();
-        for (CurrentBuildPageModel.SelectOption option : options) {
-            html.append("<option value=\"")
-                    .append(escapeHtml(option.getValue()))
-                    .append("\"");
-            if (option.isSelected()) {
-                html.append(" selected");
-            }
-            html.append(">")
-                    .append(escapeHtml(option.getLabel()))
-                    .append("</option>");
+    private static String renderMessages(List<String> messages) {
+        if (messages.isEmpty()) {
+            return "";
         }
+        StringBuilder html = new StringBuilder("""
+                <section class="panel panel-success">
+                    <h2>Stan aktualnego buildu</h2>
+                    <ul class="message-list">
+                """);
+        for (String message : messages) {
+            html.append("<li>").append(escapeHtml(message)).append("</li>");
+        }
+        html.append("""
+                    </ul>
+                </section>
+                """);
         return html.toString();
     }
 
@@ -76,7 +83,7 @@ public final class CurrentBuildPageRenderer {
             return """
                     <section class="panel result-panel">
                         <h2>Wynik symulacji</h2>
-                        <p>To jest aktualny foundation manual simulation dla trybu „Policz aktualny build”. Wypełnij formularz i uruchom obliczenie.</p>
+                        <p>To jest aktualny foundation manual simulation dla trybu „Policz aktualny build”. Ustaw bazę ręczną, aktywne itemy, skille i pasek akcji, a potem uruchom obliczenie.</p>
                     </section>
                     """;
         }
@@ -87,19 +94,19 @@ public final class CurrentBuildPageRenderer {
                     <h2>Wynik symulacji</h2>
                     <div class="summary-grid">
                 """);
-        html.append(renderSummaryCard("Level", Integer.toString(calculation.getRequest().getLevel())));
-        html.append(renderSummaryCard("Weapon damage effective", Long.toString(calculation.getRequest().getWeaponDamage())));
-        html.append(renderSummaryCard("Strength effective", String.format(Locale.US, "%.0f", calculation.getRequest().getStrength())));
-        html.append(renderSummaryCard("Intelligence effective", String.format(Locale.US, "%.0f", calculation.getRequest().getIntelligence())));
-        html.append(renderSummaryCard("Horyzont", calculation.getRequest().getHorizonSeconds() + " s"));
-        html.append(renderSummaryCard("Action bar", CurrentBuildCalculationSectionsRenderer.buildActionBarLabel(calculation.getRequest().getActionBar())));
-        html.append(renderSummaryCard("Total damage", Long.toString(calculation.getResult().getTotalDamage())));
+        html.append(renderSummaryCard("Poziom", Integer.toString(calculation.getRequest().getLevel())));
+        html.append(renderSummaryCard("Efektywne obrażenia broni", Long.toString(calculation.getRequest().getWeaponDamage())));
+        html.append(renderSummaryCard("Efektywna siła", String.format(Locale.US, "%.0f", calculation.getRequest().getStrength())));
+        html.append(renderSummaryCard("Efektywna inteligencja", String.format(Locale.US, "%.0f", calculation.getRequest().getIntelligence())));
+        html.append(renderSummaryCard("Horyzont symulacji", calculation.getRequest().getHorizonSeconds() + " s"));
+        html.append(renderSummaryCard("Pasek akcji", CurrentBuildCalculationSectionsRenderer.buildActionBarLabel(calculation.getRequest().getActionBar())));
+        html.append(renderSummaryCard("Łączne obrażenia", Long.toString(calculation.getResult().getTotalDamage())));
         html.append(renderSummaryCard("DPS", String.format(Locale.US, "%.4f", calculation.getResult().getDps())));
-        html.append(renderSummaryCard("Reactive contribution", Long.toString(calculation.getResult().getTotalReactiveDamage())));
+        html.append(renderSummaryCard("Wkład obrażeń reaktywnych", Long.toString(calculation.getResult().getTotalReactiveDamage())));
         html.append(renderSummaryCard("Judgement aktywny na końcu", calculation.getResult().isJudgementActiveAtEnd() ? "Tak" : "Nie"));
         html.append(renderSummaryCard("Resolve aktywny na końcu", calculation.getResult().isResolveActiveAtEnd() ? "Tak" : "Nie"));
-        html.append(renderSummaryCard("Active block chance na końcu", String.format(Locale.US, "%.2f%%", calculation.getResult().getActiveBlockChanceAtEnd() * 100.0d)));
-        html.append(renderSummaryCard("Active thorns bonus na końcu", String.format(Locale.US, "%.0f", calculation.getResult().getActiveThornsBonusAtEnd())));
+        html.append(renderSummaryCard("Końcowa szansa bloku", String.format(Locale.US, "%.2f%%", calculation.getResult().getActiveBlockChanceAtEnd() * 100.0d)));
+        html.append(renderSummaryCard("Końcowy bonus do kolców", String.format(Locale.US, "%.0f", calculation.getResult().getActiveThornsBonusAtEnd())));
         html.append("""
                     </div>
                 </section>
@@ -127,12 +134,12 @@ public final class CurrentBuildPageRenderer {
                     </div>
                     <div class="summary-grid compact-grid">
                 """)
-                .append(renderSummaryCard("Weapon damage", Long.toString(manualBaseStats.getWeaponDamage())))
-                .append(renderSummaryCard("Strength", formatWhole(manualBaseStats.getStrength())))
-                .append(renderSummaryCard("Intelligence", formatWhole(manualBaseStats.getIntelligence())))
-                .append(renderSummaryCard("Thorns", formatWhole(manualBaseStats.getThorns())))
-                .append(renderSummaryCard("Block chance [%]", formatPercentage(manualBaseStats.getBlockChance())))
-                .append(renderSummaryCard("Retribution chance [%]", formatPercentage(manualBaseStats.getRetributionChance())))
+                .append(renderSummaryCard("Obrażenia broni", Long.toString(manualBaseStats.getWeaponDamage())))
+                .append(renderSummaryCard("Siła", ItemLibraryPresentationSupport.formatWhole(manualBaseStats.getStrength())))
+                .append(renderSummaryCard("Inteligencja", ItemLibraryPresentationSupport.formatWhole(manualBaseStats.getIntelligence())))
+                .append(renderSummaryCard("Kolce", ItemLibraryPresentationSupport.formatWhole(manualBaseStats.getThorns())))
+                .append(renderSummaryCard("Szansa bloku [%]", formatPercentage(manualBaseStats.getBlockChance())))
+                .append(renderSummaryCard("Szansa retribution [%]", formatPercentage(manualBaseStats.getRetributionChance())))
                 .append("""
                     </div>
                     <div class="form-grid">
@@ -145,55 +152,139 @@ public final class CurrentBuildPageRenderer {
                 .toString();
     }
 
-    private static String renderActiveLibrarySection(CurrentBuildPageModel model) {
-        CurrentBuildImportableStats contribution = model.getActiveLibraryContribution();
+    private static String renderEquipmentSection(CurrentBuildPageModel model) {
         StringBuilder html = new StringBuilder("""
                 <section class="layer-panel">
                     <div class="layer-heading">
                         <span class="layer-index">2</span>
                         <div>
-                            <h3>Aktywne itemy z biblioteki</h3>
-                            <p class="helper">Ta warstwa pokazuje wyłącznie aktywne itemy z biblioteki. Możesz mieć wiele zapisanych itemów tego samego slotu, ale do current build trafia tylko jeden aktywny item per slot.</p>
+                            <h3>Ekwipunek aktualnego buildu</h3>
+                            <p class="helper">Ta sekcja pokazuje aktywne itemy per slot i steruje dokładnie tą samą selekcją biblioteki, z której korzysta aktualny build. Nie buduje osobnego runtime, tylko zmienia aktywny item dla wspieranego slotu.</p>
                         </div>
                     </div>
-                    <div class="summary-grid compact-grid">
-                """)
-                .append(renderSummaryCard("Weapon damage", Long.toString(contribution.getWeaponDamage())))
-                .append(renderSummaryCard("Strength", formatWhole(contribution.getStrength())))
-                .append(renderSummaryCard("Intelligence", formatWhole(contribution.getIntelligence())))
-                .append(renderSummaryCard("Thorns", formatWhole(contribution.getThorns())))
-                .append(renderSummaryCard("Block chance [%]", formatPercentage(contribution.getBlockChance())))
-                .append(renderSummaryCard("Retribution chance [%]", formatPercentage(contribution.getRetributionChance())))
-                .append("""
-                    </div>
-                    <div class="hero-links">
-                        <a class="nav-link" href=\"""")
-                .append(escapeHtml(model.getItemLibraryUrl()))
-                .append("\">Otwórz bibliotekę itemów</a>")
-                .append("""
-                    </div>
+                    <div class="equipment-shell">
+                        <div class="equipment-board">
                 """);
+        for (EquipmentSlot slot : EquipmentSlot.values()) {
+            html.append(renderEquipmentSlot(model, slot));
+        }
+        html.append("""
+                        </div>
+                        <aside class="equipment-side-panel">
+                            <h4>Biblioteka i import</h4>
+                            <p class="helper">Źródłem prawdy dla aktywnego itemu pozostaje biblioteka itemów. Możesz szybko przejść do biblioteki albo zaimportować kolejny item, a potem wrócić tutaj.</p>
+                            <div class="hero-links">
+                                <a class="nav-link" href="
+                """)
+                .append(escapeHtml(model.getItemLibraryUrl()))
+                .append("\">Otwórz bibliotekę itemów</a><a class=\"nav-link secondary-link\" href=\"")
+                .append(escapeHtml(model.getItemImportUrl()))
+                .append("\">Importuj item ze screena</a></div></aside></div>")
+                .append(renderUsedItemsSection(model))
+                .append("</section>");
+        return html.toString();
+    }
 
-        if (!model.hasActiveLibraryItems()) {
-            html.append("<p class=\"helper\">Brak aktywnych itemów w bibliotece. W tej warstwie nie ma jeszcze wkładu do current build.</p>");
-            html.append("</section>");
+    private static String renderEquipmentSlot(CurrentBuildPageModel model, EquipmentSlot slot) {
+        SavedImportedItem activeItem = findActiveItem(model, slot);
+        List<SavedImportedItem> slotItems = model.getSavedLibraryItems().stream()
+                .filter(item -> item.getSlot() == slot)
+                .sorted(Comparator.comparingLong(SavedImportedItem::getItemId))
+                .toList();
+
+        StringBuilder html = new StringBuilder("<article class=\"equipment-slot equipment-slot-")
+                .append(slot.name().toLowerCase(Locale.ROOT))
+                .append("\"><div class=\"slot-header\"><div><span class=\"slot-kicker\">")
+                .append("Slot ekwipunku")
+                .append("</span><h4>")
+                .append(escapeHtml(ItemLibraryPresentationSupport.slotDisplayName(slot)))
+                .append("</h4></div>")
+                .append(renderSlotStatusBadge(activeItem))
+                .append("</div>");
+
+        if (activeItem == null) {
+            html.append("<p class=\"slot-item-name slot-item-empty\">Slot jest pusty</p>")
+                    .append("<p class=\"slot-helper\">")
+                    .append(slotItems.isEmpty()
+                            ? "Brak zapisanych itemów dla tego slotu. Zaimportuj item albo zapisz go w bibliotece."
+                            : "W tym slocie nie ustawiono jeszcze aktywnego itemu.")
+                    .append("</p>");
+        } else {
+            html.append("<p class=\"slot-item-name\">")
+                    .append(escapeHtml(activeItem.getDisplayName()))
+                    .append("</p><p class=\"slot-helper\">")
+                    .append(escapeHtml(ItemLibraryPresentationSupport.userItemIdentifier(activeItem)))
+                    .append("</p><p class=\"slot-contribution\">")
+                    .append(escapeHtml(ItemLibraryPresentationSupport.shortContributionLabel(activeItem)))
+                    .append("</p>");
+        }
+
+        if (slotItems.isEmpty()) {
+            html.append("<div class=\"slot-empty-actions\"><a class=\"nav-link secondary-link\" href=\"")
+                    .append(escapeHtml(model.getItemImportUrl()))
+                    .append("\">Dodaj item do biblioteki</a></div></article>");
             return html.toString();
         }
 
-        html.append("<table class=\"data-table\"><thead><tr><th>Slot</th><th>Item</th><th>Źródło</th><th>Wkład</th></tr></thead><tbody>");
+        html.append("<label class=\"slot-select-label\">")
+                .append(activeItem == null ? "Wybierz item dla slotu" : "Zmień item dla slotu")
+                .append("<select name=\"selectedItemId_")
+                .append(slot.name())
+                .append("\">")
+                .append(renderSlotOption("", activeItem == null ? "Wybierz zapisany item" : "Pozostaw bez zmiany", false));
+        for (SavedImportedItem item : slotItems) {
+            boolean selected = activeItem != null && item.getItemId() == activeItem.getItemId();
+            html.append(renderSlotOption(Long.toString(item.getItemId()), buildSlotOptionLabel(item), selected));
+        }
+        html.append("</select></label><div class=\"slot-actions\">")
+                .append("<button type=\"submit\" name=\"slotAction\" value=\"setActiveSlotItem:")
+                .append(slot.name())
+                .append("\">")
+                .append(activeItem == null ? "Wybierz item" : "Zmień item")
+                .append("</button>");
+        if (activeItem != null) {
+            html.append("<button type=\"submit\" name=\"slotAction\" value=\"clearActiveSlotItem:")
+                    .append(slot.name())
+                    .append("\" class=\"secondary-button\">Wyczyść slot</button>");
+        }
+        html.append("</div></article>");
+        return html.toString();
+    }
+
+    private static String renderUsedItemsSection(CurrentBuildPageModel model) {
+        StringBuilder html = new StringBuilder("""
+                <section class="subpanel">
+                    <h3>Użyte itemy</h3>
+                    <p class="helper">Tutaj widać dokładnie, które aktywne itemy z biblioteki składają się na aktualny build i jaki jest ich łączny wkład do wejścia obliczeń.</p>
+                    <div class="summary-grid compact-grid">
+                """);
+        CurrentBuildImportableStats contribution = model.getActiveLibraryContribution();
+        html.append(renderSummaryCard("Łączne obrażenia broni", Long.toString(contribution.getWeaponDamage())))
+                .append(renderSummaryCard("Łączna siła", ItemLibraryPresentationSupport.formatWhole(contribution.getStrength())))
+                .append(renderSummaryCard("Łączna inteligencja", ItemLibraryPresentationSupport.formatWhole(contribution.getIntelligence())))
+                .append(renderSummaryCard("Łączne kolce", ItemLibraryPresentationSupport.formatWhole(contribution.getThorns())))
+                .append(renderSummaryCard("Łączna szansa bloku [%]", formatPercentage(contribution.getBlockChance())))
+                .append(renderSummaryCard("Łączna szansa retribution [%]", formatPercentage(contribution.getRetributionChance())))
+                .append("</div>");
+
+        if (!model.hasActiveLibraryItems()) {
+            html.append("<div class=\"empty-state\"><h4>Brak użytych itemów</h4><p>Aktualny build korzysta tylko z bazy ręcznej. Ustaw aktywny item w jednym ze slotów albo przejdź do biblioteki itemów.</p></div></section>");
+            return html.toString();
+        }
+
+        html.append("<table class=\"data-table\"><thead><tr><th>Slot</th><th>Nazwa itemu</th><th>Identyfikator / źródło</th><th>Wkład do buildu</th></tr></thead><tbody>");
         for (SavedImportedItem item : model.getActiveLibraryItems()) {
             html.append("<tr><td>")
-                    .append(escapeHtml(item.getSlot().name()))
+                    .append(escapeHtml(ItemLibraryPresentationSupport.slotDisplayName(item.getSlot())))
                     .append("</td><td>")
                     .append(escapeHtml(item.getDisplayName()))
                     .append("</td><td>")
-                    .append(escapeHtml(item.getSourceImageName()))
+                    .append(escapeHtml(ItemLibraryPresentationSupport.userItemIdentifier(item)))
                     .append("</td><td>")
-                    .append(escapeHtml(buildItemContributionLabel(item)))
+                    .append(escapeHtml(ItemLibraryPresentationSupport.itemContributionLabel(item)))
                     .append("</td></tr>");
         }
-        html.append("</tbody></table>");
-        html.append("</section>");
+        html.append("</tbody></table></section>");
         return html.toString();
     }
 
@@ -204,37 +295,36 @@ public final class CurrentBuildPageRenderer {
                         <span class="layer-index">3</span>
                         <div>
                             <h3>Efektywne staty do obliczeń</h3>
-                            <p class="helper">To te finalne staty trafiają do pipeline’u `effective stats -&gt; CurrentBuildRequest -&gt; CurrentBuildSnapshotFactory -&gt; runtime`. Ta sekcja nie buduje alternatywnego flow, tylko pokazuje końcowy stan wejścia do obliczeń.</p>
+                            <p class="helper">To te finalne staty trafiają do pipeline’u `efektywne staty -&gt; CurrentBuildRequest -&gt; CurrentBuildSnapshotFactory -&gt; runtime`. Sekcja nie buduje alternatywnego flow, tylko pokazuje końcowy stan wejścia do obliczeń.</p>
                         </div>
                     </div>
-                    <div class="formula-strip">Baza ręczna + aktywne itemy z biblioteki = efektywne staty do obliczeń</div>
+                    <div class="formula-strip">Baza ręczna + aktywne itemy per slot = efektywne staty do obliczeń</div>
                 """);
         if (model.getEffectiveStats() == null) {
-            html.append("<p class=\"helper\">Efektywne staty nie są jeszcze dostępne, bo ręczna baza zawiera błędy walidacji.</p>")
-                    .append("</section>");
+            html.append("<p class=\"helper\">Efektywne staty nie są jeszcze dostępne, bo ręczna baza zawiera błędy walidacji.</p></section>");
             return html.toString();
         }
 
         CurrentBuildImportableStats effectiveStats = model.getEffectiveStats();
         html.append("<div class=\"summary-grid compact-grid\">")
-                .append(renderSummaryCard("Weapon damage", Long.toString(effectiveStats.getWeaponDamage())))
-                .append(renderSummaryCard("Strength", formatWhole(effectiveStats.getStrength())))
-                .append(renderSummaryCard("Intelligence", formatWhole(effectiveStats.getIntelligence())))
-                .append(renderSummaryCard("Thorns", formatWhole(effectiveStats.getThorns())))
-                .append(renderSummaryCard("Block chance [%]", formatPercentage(effectiveStats.getBlockChance())))
-                .append(renderSummaryCard("Retribution chance [%]", formatPercentage(effectiveStats.getRetributionChance())))
+                .append(renderSummaryCard("Obrażenia broni", Long.toString(effectiveStats.getWeaponDamage())))
+                .append(renderSummaryCard("Siła", ItemLibraryPresentationSupport.formatWhole(effectiveStats.getStrength())))
+                .append(renderSummaryCard("Inteligencja", ItemLibraryPresentationSupport.formatWhole(effectiveStats.getIntelligence())))
+                .append(renderSummaryCard("Kolce", ItemLibraryPresentationSupport.formatWhole(effectiveStats.getThorns())))
+                .append(renderSummaryCard("Szansa bloku [%]", formatPercentage(effectiveStats.getBlockChance())))
+                .append(renderSummaryCard("Szansa retribution [%]", formatPercentage(effectiveStats.getRetributionChance())))
                 .append("</div>")
-                .append("<p class=\"helper\">Do obliczeń runtime trafiają: weapon damage=")
+                .append("<p class=\"helper\">Do runtime trafiają: obrażenia broni=")
                 .append(escapeHtml(Long.toString(effectiveStats.getWeaponDamage())))
-                .append(", strength=")
-                .append(escapeHtml(formatWhole(effectiveStats.getStrength())))
-                .append(", intelligence=")
-                .append(escapeHtml(formatWhole(effectiveStats.getIntelligence())))
-                .append(", thorns=")
-                .append(escapeHtml(formatWhole(effectiveStats.getThorns())))
-                .append(", block chance=")
+                .append(", siła=")
+                .append(escapeHtml(ItemLibraryPresentationSupport.formatWhole(effectiveStats.getStrength())))
+                .append(", inteligencja=")
+                .append(escapeHtml(ItemLibraryPresentationSupport.formatWhole(effectiveStats.getIntelligence())))
+                .append(", kolce=")
+                .append(escapeHtml(ItemLibraryPresentationSupport.formatWhole(effectiveStats.getThorns())))
+                .append(", szansa bloku=")
                 .append(escapeHtml(formatPercentage(effectiveStats.getBlockChance())))
-                .append(", retribution chance=")
+                .append(", szansa retribution=")
                 .append(escapeHtml(formatPercentage(effectiveStats.getRetributionChance())))
                 .append(".</p></section>");
         return html.toString();
@@ -247,31 +337,31 @@ public final class CurrentBuildPageRenderer {
     private static String renderBuildStatsFields(CurrentBuildFormData formData) {
         return """
                 <label>
-                    Level bohatera
+                    Poziom bohatera
                     <input type="number" min="1" step="1" name="level" value="{{LEVEL}}">
                 </label>
                 <label>
-                    Weapon damage w bazie ręcznej
+                    Obrażenia broni w bazie ręcznej
                     <input type="number" step="1" name="weaponDamage" value="{{WEAPON_DAMAGE}}">
                 </label>
                 <label>
-                    Strength w bazie ręcznej
+                    Siła w bazie ręcznej
                     <input type="number" min="0" step="1" name="strength" value="{{STRENGTH}}">
                 </label>
                 <label>
-                    Intelligence w bazie ręcznej
+                    Inteligencja w bazie ręcznej
                     <input type="number" min="0" step="1" name="intelligence" value="{{INTELLIGENCE}}">
                 </label>
                 <label>
-                    Thorns w bazie ręcznej
+                    Kolce w bazie ręcznej
                     <input type="number" min="0" step="1" name="thorns" value="{{THORNS}}">
                 </label>
                 <label>
-                    Block chance w bazie ręcznej [%]
+                    Szansa bloku w bazie ręcznej [%]
                     <input type="number" min="0" step="0.01" name="blockChance" value="{{BLOCK_CHANCE}}">
                 </label>
                 <label>
-                    Retribution chance w bazie ręcznej [%]
+                    Szansa retribution w bazie ręcznej [%]
                     <input type="number" min="0" step="0.01" name="retributionChance" value="{{RETRIBUTION_CHANCE}}">
                 </label>
                 <label>
@@ -299,20 +389,20 @@ public final class CurrentBuildPageRenderer {
                     .append("""
                         <div class="form-grid">
                             <label>
-                                Rank
+                                Ranga
                                 <select name=\"""").append(CurrentBuildFormData.rankFieldName(skillId)).append("\">")
                     .append(renderRankOptions(skillConfig.getRank()))
                     .append("""
                                 </select>
                             </label>
                             <label>
-                                Bazowe rozszerzenie
+                                Bazowe ulepszenie
                                 <span class="checkbox-row">
                                     <input type="checkbox" name=\"""").append(CurrentBuildFormData.baseUpgradeFieldName(skillId)).append("\" value=\"true\" ")
                     .append(skillConfig.isBaseUpgrade() ? "checked" : "")
                     .append("""
 >
-                                    Włącz bazowe rozszerzenie
+                                    Włącz bazowe ulepszenie
                                 </span>
                             </label>
                             <label>
@@ -334,7 +424,7 @@ public final class CurrentBuildPageRenderer {
         for (int slot = 1; slot <= 4; slot++) {
             html.append("""
                     <label>
-                        Slot """).append(slot).append("""
+                        Miejsce """).append(slot).append("""
                         <select name=\"""").append(CurrentBuildFormData.actionBarFieldName(slot)).append("\">")
                     .append(renderActionBarOptions(formData.getActionBarSlot(slot)))
                     .append("""
@@ -383,8 +473,46 @@ public final class CurrentBuildPageRenderer {
         return renderOptions(options);
     }
 
-    private static String escapeHtml(String value) {
-        return CurrentBuildCalculationSectionsRenderer.escapeHtml(value);
+    private static String renderOptions(List<CurrentBuildPageModel.SelectOption> options) {
+        StringBuilder html = new StringBuilder();
+        for (CurrentBuildPageModel.SelectOption option : options) {
+            html.append("<option value=\"")
+                    .append(escapeHtml(option.getValue()))
+                    .append("\"");
+            if (option.isSelected()) {
+                html.append(" selected");
+            }
+            html.append(">")
+                    .append(escapeHtml(option.getLabel()))
+                    .append("</option>");
+        }
+        return html.toString();
+    }
+
+    private static String renderSlotOption(String value, String label, boolean selected) {
+        return "<option value=\"" + escapeHtml(value) + "\"" + (selected ? " selected" : "") + ">"
+                + escapeHtml(label)
+                + "</option>";
+    }
+
+    private static String buildSlotOptionLabel(SavedImportedItem item) {
+        return item.getDisplayName() + " | " + ItemLibraryPresentationSupport.shortContributionLabel(item);
+    }
+
+    private static String renderSlotStatusBadge(SavedImportedItem activeItem) {
+        if (activeItem == null) {
+            return "<span class=\"status-badge status-empty\">Pusty</span>";
+        }
+        return "<span class=\"status-badge status-active\">Aktywny</span>";
+    }
+
+    private static SavedImportedItem findActiveItem(CurrentBuildPageModel model, EquipmentSlot slot) {
+        for (SavedImportedItem item : model.getActiveLibraryItems()) {
+            if (item.getSlot() == slot) {
+                return item;
+            }
+        }
+        return null;
     }
 
     private static CurrentBuildImportableStats resolveManualBaseStats(CurrentBuildPageModel model) {
@@ -394,35 +522,12 @@ public final class CurrentBuildPageRenderer {
         return model.getEffectiveCurrentBuildResolution().getManualBaseStats();
     }
 
-    private static String formatWhole(double value) {
-        return String.format(Locale.US, "%.0f", value);
-    }
-
     private static String formatPercentage(double value) {
         return BigDecimal.valueOf(value).stripTrailingZeros().toPlainString();
     }
 
-    private static String buildItemContributionLabel(SavedImportedItem item) {
-        List<String> parts = new ArrayList<>();
-        if (item.getWeaponDamage() > 0L) {
-            parts.add("weapon=" + item.getWeaponDamage());
-        }
-        if (item.getStrength() > 0.0d) {
-            parts.add("str=" + formatWhole(item.getStrength()));
-        }
-        if (item.getIntelligence() > 0.0d) {
-            parts.add("int=" + formatWhole(item.getIntelligence()));
-        }
-        if (item.getThorns() > 0.0d) {
-            parts.add("thorns=" + formatWhole(item.getThorns()));
-        }
-        if (item.getBlockChance() > 0.0d) {
-            parts.add("block=" + formatPercentage(item.getBlockChance()) + "%");
-        }
-        if (item.getRetributionChance() > 0.0d) {
-            parts.add("retribution=" + formatPercentage(item.getRetributionChance()) + "%");
-        }
-        return parts.isEmpty() ? "Brak wkładu do current build" : String.join(", ", parts);
+    private static String escapeHtml(String value) {
+        return CurrentBuildCalculationSectionsRenderer.escapeHtml(value);
     }
 
     private static String loadTemplate() {

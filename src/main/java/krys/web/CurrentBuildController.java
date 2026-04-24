@@ -4,15 +4,18 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import krys.app.CurrentBuildCalculation;
 import krys.app.CurrentBuildCalculationService;
+import krys.item.EquipmentSlot;
 import krys.itemimport.CurrentBuildImportableStats;
 import krys.itemlibrary.EffectiveCurrentBuildResolution;
 import krys.itemlibrary.ItemLibraryService;
+import krys.itemlibrary.ItemLibraryPresentationSupport;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /** Kontroler HTTP dla pierwszego klikalnego GUI M8. */
 public final class CurrentBuildController implements HttpHandler {
@@ -47,7 +50,7 @@ public final class CurrentBuildController implements HttpHandler {
                 CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(
                         UrlEncodedFormSupport.parseQuery(exchange.getRequestURI().getRawQuery())
                 );
-                renderPage(exchange, buildPageModel(formData, List.of(), null, buildEffectiveResolution(formData, new ArrayList<>())));
+                renderPage(exchange, buildPageModel(formData, List.of(), List.of(), null, buildEffectiveResolution(formData, new ArrayList<>())));
                 return;
             }
             if ("POST".equals(method)) {
@@ -62,11 +65,14 @@ public final class CurrentBuildController implements HttpHandler {
     }
 
     private CurrentBuildPageModel handlePost(HttpExchange exchange) throws IOException {
-        CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(UrlEncodedFormSupport.parseBody(exchange));
+        Map<String, String> fields = UrlEncodedFormSupport.parseBody(exchange);
+        CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(fields);
         List<String> errors = new ArrayList<>();
+        List<String> messages = new ArrayList<>();
+        handlePageAction(fields, errors, messages);
         EffectiveCurrentBuildResolution resolution = buildEffectiveResolution(formData, errors);
         CurrentBuildCalculation calculation = tryCalculate(formData, resolution, errors);
-        return buildPageModel(formData, errors, calculation, resolution);
+        return buildPageModel(formData, messages, errors, calculation, resolution);
     }
 
     private CurrentBuildCalculation tryCalculate(CurrentBuildFormData formData,
@@ -95,18 +101,24 @@ public final class CurrentBuildController implements HttpHandler {
     }
 
     private CurrentBuildPageModel buildPageModel(CurrentBuildFormData formData,
+                                                 List<String> messages,
                                                  List<String> errors,
                                                  CurrentBuildCalculation calculation,
                                                  EffectiveCurrentBuildResolution resolution) {
+        String currentBuildQuery = CurrentBuildFormQuerySupport.toQuery(formData);
         return new CurrentBuildPageModel(
                 formData,
                 List.of(),
                 List.of(),
                 List.of(),
+                messages,
                 errors,
                 calculation,
                 resolution,
-                "/biblioteka-itemow?" + CurrentBuildFormQuerySupport.toQuery(formData),
+                itemLibraryService.getSavedItems(),
+                itemLibraryService.getSelection(),
+                "/biblioteka-itemow?" + currentBuildQuery,
+                "/importuj-item-ze-screena?" + currentBuildQuery,
                 buildChoiceHelpText()
         );
     }
@@ -130,12 +142,12 @@ public final class CurrentBuildController implements HttpHandler {
     private static ManualBaseStatsParseResult parseManualBaseStats(CurrentBuildFormData formData) {
         List<String> errors = new ArrayList<>();
 
-        Long weaponDamage = parseNonNegativeLongAllowingBlank(formData.getWeaponDamage(), "Weapon damage", errors);
-        Double strength = parseNonNegativeDoubleAllowingBlank(formData.getStrength(), "Strength", errors);
-        Double intelligence = parseNonNegativeDoubleAllowingBlank(formData.getIntelligence(), "Intelligence", errors);
-        Double thorns = parseNonNegativeDoubleAllowingBlank(formData.getThorns(), "Thorns", errors);
-        Double blockChance = parseNonNegativeDoubleAllowingBlank(formData.getBlockChance(), "Block chance", errors);
-        Double retributionChance = parseNonNegativeDoubleAllowingBlank(formData.getRetributionChance(), "Retribution chance", errors);
+        Long weaponDamage = parseNonNegativeLongAllowingBlank(formData.getWeaponDamage(), "Obrażenia broni", errors);
+        Double strength = parseNonNegativeDoubleAllowingBlank(formData.getStrength(), "Siła", errors);
+        Double intelligence = parseNonNegativeDoubleAllowingBlank(formData.getIntelligence(), "Inteligencja", errors);
+        Double thorns = parseNonNegativeDoubleAllowingBlank(formData.getThorns(), "Kolce", errors);
+        Double blockChance = parseNonNegativeDoubleAllowingBlank(formData.getBlockChance(), "Szansa bloku", errors);
+        Double retributionChance = parseNonNegativeDoubleAllowingBlank(formData.getRetributionChance(), "Szansa retribution", errors);
 
         if (!errors.isEmpty()) {
             return new ManualBaseStatsParseResult(null, errors);
@@ -193,7 +205,61 @@ public final class CurrentBuildController implements HttpHandler {
     }
 
     private static String buildChoiceHelpText() {
-        return "Pola formularza oznaczają ręczną bazę current build poza biblioteką itemów. Ta baza może być częściowo pusta albo zerowa. Aktywne itemy z biblioteki są dodawane deterministycznie jeszcze przed zbudowaniem finalnych effective stats, CurrentBuildRequest i wejściem do tego samego runtime.";
+        return "Ta sekcja opisuje ręczną bazę statów poza biblioteką itemów. Baza może być częściowo pusta albo zerowa. Aktywne itemy per slot są dodawane deterministycznie przed zbudowaniem finalnych efektywnych statów, CurrentBuildRequest i wejściem do tego samego runtime aktualnego buildu.";
+    }
+
+    private void handlePageAction(Map<String, String> fields, List<String> errors, List<String> messages) {
+        String slotAction = fields.getOrDefault("slotAction", "");
+        if (slotAction.isBlank()) {
+            return;
+        }
+
+        String[] actionParts = slotAction.split(":", 2);
+        if (actionParts.length != 2) {
+            errors.add("Nieobsługiwana akcja sekcji ekwipunku.");
+            return;
+        }
+
+        EquipmentSlot slot;
+        try {
+            slot = EquipmentSlot.valueOf(actionParts[1]);
+        } catch (IllegalArgumentException exception) {
+            errors.add("Nie wybrano poprawnego slotu ekwipunku.");
+            return;
+        }
+
+        switch (actionParts[0]) {
+            case "setActiveSlotItem" -> handleSetActiveSlotItem(fields, slot, errors, messages);
+            case "clearActiveSlotItem" -> {
+                itemLibraryService.clearActiveItem(slot);
+                messages.add("Wyczyszczono aktywny item dla slotu " + ItemLibraryPresentationSupport.slotDisplayName(slot) + ".");
+            }
+            default -> errors.add("Nieobsługiwana akcja sekcji ekwipunku.");
+        }
+    }
+
+    private void handleSetActiveSlotItem(Map<String, String> fields,
+                                         EquipmentSlot slot,
+                                         List<String> errors,
+                                         List<String> messages) {
+        String rawItemId = fields.get("selectedItemId_" + slot.name());
+        if (rawItemId == null || rawItemId.isBlank()) {
+            errors.add("Wybierz item dla slotu " + ItemLibraryPresentationSupport.slotDisplayName(slot) + ".");
+            return;
+        }
+        try {
+            long itemId = Long.parseLong(rawItemId);
+            if (itemId <= 0L) {
+                errors.add("Wybierz zapisany item dla slotu " + ItemLibraryPresentationSupport.slotDisplayName(slot) + ".");
+                return;
+            }
+            itemLibraryService.setActiveItem(slot, itemId);
+            messages.add("Zmieniono aktywny item dla slotu " + ItemLibraryPresentationSupport.slotDisplayName(slot) + ".");
+        } catch (NumberFormatException exception) {
+            errors.add("Wybierz poprawny item biblioteki dla slotu " + ItemLibraryPresentationSupport.slotDisplayName(slot) + ".");
+        } catch (IllegalArgumentException exception) {
+            errors.add(exception.getMessage());
+        }
     }
 
     private void renderPage(HttpExchange exchange, CurrentBuildPageModel pageModel) throws IOException {

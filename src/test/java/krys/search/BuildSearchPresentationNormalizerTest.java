@@ -126,8 +126,8 @@ class BuildSearchPresentationNormalizerTest {
 
         assertEquals(2, presentationView.normalizedResultCount());
         assertEquals(2, presentationView.topResults().size());
-        assertEquals("MAIN_HAND: MAIN_HAND / weapon-a.png", presentationView.topResults().get(0).getCandidate().getSelectedItemLibraryItemsDescription());
-        assertEquals("MAIN_HAND: MAIN_HAND / weapon-b.png", presentationView.topResults().get(1).getCandidate().getSelectedItemLibraryItemsDescription());
+        assertEquals("Broń główna: #1 / weapon-a.png", presentationView.topResults().get(0).getCandidate().getSelectedItemLibraryItemsDescription());
+        assertEquals("Broń główna: #2 / weapon-b.png", presentationView.topResults().get(1).getCandidate().getSelectedItemLibraryItemsDescription());
     }
 
     private static CurrentBuildRequest createAdvanceClashRequest(Map<SkillId, SkillState> learnedSkills, List<SkillId> actionBar) {

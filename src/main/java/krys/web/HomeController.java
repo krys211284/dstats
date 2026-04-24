@@ -29,7 +29,7 @@ public final class HomeController implements HttpHandler {
 
             HomePageModel pageModel = new HomePageModel(
                     AppModuleRegistry.groupedForHome(),
-                    "Strona główna porządkuje dostępne moduły i przyszłe sekcje dodatku bez zgadywania mechanik. Istniejące flow current build, importu, biblioteki i searcha pozostają cienkimi warstwami nad tym samym runtime."
+                    "Strona główna porządkuje dostępne moduły i przyszłe sekcje dodatku bez zgadywania mechanik. Istniejące flow aktualnego buildu, importu, biblioteki i searcha pozostają cienkimi warstwami nad tym samym runtime."
             );
             byte[] responseBytes = renderer.render(pageModel).getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", HTML_CONTENT_TYPE);

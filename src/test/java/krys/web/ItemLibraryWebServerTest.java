@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.StringJoiner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Testuje SSR biblioteki itemów: zapis, lista, aktywacja i sekcję active items na current build. */
@@ -57,7 +58,12 @@ class ItemLibraryWebServerTest {
         ));
         assertEquals(200, firstSave.statusCode());
         assertTrue(firstSave.body().contains("Zapisano item w bibliotece"));
-        assertTrue(firstSave.body().contains("OFF_HAND / shield-a.png"));
+        assertTrue(firstSave.body().contains("Ręka dodatkowa / shield-a.png"));
+        assertTrue(firstSave.body().contains("Item zapisany do biblioteki"));
+        assertTrue(firstSave.body().contains("Ustaw jako aktywny"));
+        assertTrue(firstSave.body().contains("Wróć do aktualnego buildu"));
+        assertTrue(firstSave.body().contains("Jesteś już na stronie biblioteki"));
+        assertFalse(firstSave.body().contains("Przejdź do biblioteki"));
 
         HttpResponse<String> secondSave = sendUrlEncodedPost("/biblioteka-itemow", Map.of(
                 "action", "saveImportedItem",
@@ -73,8 +79,8 @@ class ItemLibraryWebServerTest {
         ));
         assertEquals(200, secondSave.statusCode());
         assertTrue(secondSave.body().contains("Możesz mieć wiele zapisanych itemów tego samego slotu"));
-        assertTrue(secondSave.body().contains("OFF_HAND / shield-a.png"));
-        assertTrue(secondSave.body().contains("OFF_HAND / shield-b.png"));
+        assertTrue(secondSave.body().contains("Ręka dodatkowa / shield-a.png"));
+        assertTrue(secondSave.body().contains("Ręka dodatkowa / shield-b.png"));
 
         HttpResponse<String> activateResponse = sendUrlEncodedPost("/biblioteka-itemow", Map.of(
                 "action", "activateItem",
@@ -83,19 +89,19 @@ class ItemLibraryWebServerTest {
                 "currentBuildQuery", buildCurrentBuildQuery()
         ));
         assertEquals(200, activateResponse.statusCode());
-        assertTrue(activateResponse.body().contains("Aktywny item dla slotu OFF_HAND został zmieniony."));
+        assertTrue(activateResponse.body().contains("Aktywny item dla slotu Ręka dodatkowa został zmieniony."));
         assertTrue(activateResponse.body().contains("Nowy wybór zastępuje poprzedni aktywny item w tym samym slocie."));
         assertTrue(activateResponse.body().contains("class=\"status-badge status-active\">Aktywny</span>"));
         assertTrue(activateResponse.body().contains("Ustaw jako aktywny"));
-        assertTrue(activateResponse.body().contains("OFF_HAND / shield-b.png"));
+        assertTrue(activateResponse.body().contains("Ręka dodatkowa / shield-b.png"));
 
         HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build?" + buildCurrentBuildQuery());
         assertEquals(200, currentBuildResponse.statusCode());
-        assertTrue(currentBuildResponse.body().contains("Aktywne itemy z biblioteki"));
-        assertTrue(currentBuildResponse.body().contains("OFF_HAND / shield-b.png"));
+        assertTrue(currentBuildResponse.body().contains("Ekwipunek aktualnego buildu"));
+        assertTrue(currentBuildResponse.body().contains("Ręka dodatkowa / shield-b.png"));
         assertTrue(currentBuildResponse.body().contains("Efektywne staty do obliczeń"));
         assertTrue(currentBuildResponse.body().contains(">120<"));
-        assertTrue(currentBuildResponse.body().contains("Do obliczeń runtime trafiają: weapon damage=200, strength=150"));
+        assertTrue(currentBuildResponse.body().contains("Do runtime trafiają: obrażenia broni=200, siła=150"));
     }
 
     @Test

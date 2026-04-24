@@ -1,13 +1,11 @@
 package krys.web;
 
+import krys.itemlibrary.ItemLibraryPresentationSupport;
 import krys.itemlibrary.SavedImportedItem;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
 
 /** Renderuje prosty SSR minimalnej biblioteki itemów nad current build. */
 public final class ItemLibraryPageRenderer {
@@ -22,12 +20,13 @@ public final class ItemLibraryPageRenderer {
                 .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/biblioteka-itemow"))
                 .replace("{{MESSAGES}}", renderMessages(model.getMessages()))
                 .replace("{{ERRORS}}", renderErrors(model.getErrors()))
+                .replace("{{SAVE_FEEDBACK}}", renderSavedItemFeedback(model))
                 .replace("{{CURRENT_BUILD_URL}}", escapeHtml(buildCurrentBuildUrl(model.getCurrentBuildQuery())))
                 .replace("{{IMPORT_ITEM_URL}}", escapeHtml(buildItemImportUrl(model.getCurrentBuildQuery())))
                 .replace("{{LIBRARY_CONTENT}}", renderLibraryContent(model));
     }
 
-    private static String renderMessages(List<String> messages) {
+    private static String renderMessages(java.util.List<String> messages) {
         if (messages.isEmpty()) {
             return "";
         }
@@ -39,7 +38,7 @@ public final class ItemLibraryPageRenderer {
         return html.toString();
     }
 
-    private static String renderErrors(List<String> errors) {
+    private static String renderErrors(java.util.List<String> errors) {
         if (errors.isEmpty()) {
             return "";
         }
@@ -51,6 +50,32 @@ public final class ItemLibraryPageRenderer {
         return html.toString();
     }
 
+    private static String renderSavedItemFeedback(ItemLibraryPageModel model) {
+        if (!model.hasSavedItemFeedback()) {
+            return "";
+        }
+        SavedImportedItem savedItem = model.getSavedItemFeedback();
+        return new StringBuilder("""
+                <section class="panel save-feedback-panel">
+                    <h2>Item zapisany do biblioteki</h2>
+                    <div class="summary-grid">
+                """)
+                .append(renderSummaryCard("Nazwa zapisanego itemu", savedItem.getDisplayName()))
+                .append(renderSummaryCard("Slot", ItemLibraryPresentationSupport.slotDisplayName(savedItem.getSlot())))
+                .append(renderSummaryCard("Identyfikator", ItemLibraryPresentationSupport.userItemIdentifier(savedItem)))
+                .append(renderSummaryCard("Wkład do buildu", ItemLibraryPresentationSupport.itemContributionLabel(savedItem)))
+                .append("""
+                    </div>
+                    <p class="helper">Item został zapisany trwale w bibliotece. Jesteś już na stronie biblioteki, więc możesz od razu ustawić go jako aktywny dla tego slotu albo wrócić do aktualnego buildu.</p>
+                    <div class="hero-links">
+                """)
+                .append(renderActivateSavedItemForm(model, savedItem))
+                .append("<a class=\"nav-link secondary-button\" href=\"")
+                .append(escapeHtml(buildCurrentBuildUrl(model.getCurrentBuildQuery())))
+                .append("\">Wróć do aktualnego buildu</a></div></section>")
+                .toString();
+    }
+
     private static String renderLibraryContent(ItemLibraryPageModel model) {
         if (model.getSavedItems().isEmpty()) {
             return renderEmptyState(model);
@@ -60,9 +85,9 @@ public final class ItemLibraryPageRenderer {
                     <thead>
                     <tr>
                         <th>Slot</th>
-                        <th>Display name</th>
-                        <th>Plik źródłowy</th>
-                        <th>Wkład do current build</th>
+                        <th>Nazwa itemu</th>
+                        <th>Identyfikator / źródło</th>
+                        <th>Wkład do buildu</th>
                         <th>Status</th>
                         <th>Akcje</th>
                     </tr>
@@ -91,13 +116,13 @@ public final class ItemLibraryPageRenderer {
         for (SavedImportedItem item : model.getSavedItems()) {
             boolean active = model.getActiveSelection().isSelected(item.getSlot(), item.getItemId());
             html.append("<tr><td>")
-                    .append(escapeHtml(item.getSlot().name()))
+                    .append(escapeHtml(ItemLibraryPresentationSupport.slotDisplayName(item.getSlot())))
                     .append("</td><td>")
                     .append(escapeHtml(item.getDisplayName()))
                     .append("</td><td>")
-                    .append(escapeHtml(item.getSourceImageName()))
+                    .append(escapeHtml(ItemLibraryPresentationSupport.userItemIdentifier(item)))
                     .append("</td><td>")
-                    .append(escapeHtml(buildContributionLabel(item)))
+                    .append(escapeHtml(ItemLibraryPresentationSupport.itemContributionLabel(item)))
                     .append("</td><td>")
                     .append(renderStatusCell(active))
                     .append("</td><td>")
@@ -112,7 +137,7 @@ public final class ItemLibraryPageRenderer {
         if (active) {
             return """
                     <span class="status-badge status-active">Aktywny</span>
-                    <div class="status-note">Ten item zasila current build w swoim slocie.</div>
+                    <div class="status-note">Ten item zasila aktualny build w swoim slocie.</div>
                     """;
         }
         return """
@@ -143,6 +168,18 @@ public final class ItemLibraryPageRenderer {
         );
     }
 
+    private static String renderActivateSavedItemForm(ItemLibraryPageModel model, SavedImportedItem item) {
+        return """
+                <form method="post" action="/biblioteka-itemow" class="inline-form">
+                    <input type="hidden" name="action" value="activateItem">
+                    <input type="hidden" name="itemId" value="%s">
+                    <input type="hidden" name="slot" value="%s">
+                    <input type="hidden" name="currentBuildQuery" value="%s">
+                    <button type="submit">Ustaw jako aktywny</button>
+                </form>
+                """.formatted(item.getItemId(), escapeHtml(item.getSlot().name()), escapeHtml(model.getCurrentBuildQuery()));
+    }
+
     private static String renderDeleteForm(ItemLibraryPageModel model, SavedImportedItem item) {
         return """
                 <div class="action-stack">
@@ -156,27 +193,8 @@ public final class ItemLibraryPageRenderer {
                 """.formatted(item.getItemId(), escapeHtml(model.getCurrentBuildQuery()));
     }
 
-    private static String buildContributionLabel(SavedImportedItem item) {
-        List<String> labels = new ArrayList<>();
-        if (item.getWeaponDamage() > 0L) {
-            labels.add("weapon=" + item.getWeaponDamage());
-        }
-        if (item.getStrength() > 0.0d) {
-            labels.add("str=" + formatWhole(item.getStrength()));
-        }
-        if (item.getIntelligence() > 0.0d) {
-            labels.add("int=" + formatWhole(item.getIntelligence()));
-        }
-        if (item.getThorns() > 0.0d) {
-            labels.add("thorns=" + formatWhole(item.getThorns()));
-        }
-        if (item.getBlockChance() > 0.0d) {
-            labels.add("block=" + formatWhole(item.getBlockChance()) + "%");
-        }
-        if (item.getRetributionChance() > 0.0d) {
-            labels.add("retribution=" + formatWhole(item.getRetributionChance()) + "%");
-        }
-        return labels.isEmpty() ? "Brak wkładu" : String.join(", ", labels);
+    private static String renderSummaryCard(String label, String value) {
+        return CurrentBuildCalculationSectionsRenderer.renderSummaryCard(label, value);
     }
 
     private static String buildCurrentBuildUrl(String currentBuildQuery) {
@@ -191,10 +209,6 @@ public final class ItemLibraryPageRenderer {
             return "/importuj-item-ze-screena";
         }
         return "/importuj-item-ze-screena?" + currentBuildQuery;
-    }
-
-    private static String formatWhole(double value) {
-        return String.format(Locale.US, "%.0f", value);
     }
 
     private static String escapeHtml(String value) {

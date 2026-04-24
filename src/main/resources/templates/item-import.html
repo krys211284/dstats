@@ -130,6 +130,12 @@
         .summary-label { color: var(--muted); font-size: 0.88rem; margin-bottom: 6px; }
         .summary-value { font-size: 1.05rem; font-weight: 700; }
         .subpanel { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+        .empty-state {
+            padding: 18px;
+            border: 1px dashed rgba(109, 102, 92, 0.22);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.72);
+        }
         .data-table { width: 100%; border-collapse: collapse; font-size: 0.94rem; }
         .data-table th, .data-table td {
             padding: 10px 8px;
@@ -158,7 +164,7 @@
     {{GLOBAL_NAV}}
 
     <header class="hero">
-        <div class="eyebrow">Image-assisted item import</div>
+        <div class="eyebrow">Import itemu / SSR</div>
         <h1>Importuj pojedynczy item ze screena</h1>
         <p>To jest pierwszy foundation importu wspomaganego obrazem. Ekran nie udaje pełnego automatycznego OCR całej postaci: wgrywasz screenshot pojedynczego itemu, widzisz wstępny odczyt z poziomem niepewności, ręcznie poprawiasz pola i dopiero potem zatwierdzasz item do modelu aplikacji.</p>
     </header>
@@ -173,7 +179,7 @@
                 </label>
             </div>
             <p class="helper">{{HELP_TEXT}}</p>
-            <p class="helper">Jeżeli wejdziesz tu z formularza `Policz aktualny build`, ekran zachowa przekazane staty i po zatwierdzeniu itemu pozwoli zastosować item do current build albo dodać jego wkład do current build.</p>
+            <p class="helper">Jeżeli wejdziesz tu z formularza `Policz aktualny build`, ekran zachowa przekazane staty i po zatwierdzeniu itemu pozwoli zastosować item do aktualnego buildu albo dodać jego wkład do aktualnego buildu.</p>
             <div class="submit-row">
                 <button type="submit">Wczytaj i pokaż pola do potwierdzenia</button>
             </div>
