@@ -1,5 +1,6 @@
 package krys.search;
 
+import krys.itemimport.CurrentBuildImportableStats;
 import krys.skill.SkillId;
 
 import java.util.ArrayList;
@@ -26,6 +27,7 @@ public final class BuildSearchRequest {
     private final List<Integer> actionBarSizes;
     private final int horizonSeconds;
     private final int topResultsLimit;
+    private final CurrentBuildImportableStats activeHeroItemsContribution;
 
     public BuildSearchRequest(List<Integer> levelValues,
                               List<Long> weaponDamageValues,
@@ -49,7 +51,8 @@ public final class BuildSearchRequest {
                 skillSpaces,
                 actionBarSizes,
                 horizonSeconds,
-                topResultsLimit);
+                topResultsLimit,
+                new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d));
     }
 
     public BuildSearchRequest(boolean useItemLibrary,
@@ -64,6 +67,34 @@ public final class BuildSearchRequest {
                               List<Integer> actionBarSizes,
                               int horizonSeconds,
                               int topResultsLimit) {
+        this(useItemLibrary,
+                levelValues,
+                weaponDamageValues,
+                strengthValues,
+                intelligenceValues,
+                thornsValues,
+                blockChanceValues,
+                retributionChanceValues,
+                skillSpaces,
+                actionBarSizes,
+                horizonSeconds,
+                topResultsLimit,
+                new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d));
+    }
+
+    public BuildSearchRequest(boolean useItemLibrary,
+                              List<Integer> levelValues,
+                              List<Long> weaponDamageValues,
+                              List<Double> strengthValues,
+                              List<Double> intelligenceValues,
+                              List<Double> thornsValues,
+                              List<Double> blockChanceValues,
+                              List<Double> retributionChanceValues,
+                              Map<SkillId, BuildSearchSkillSpace> skillSpaces,
+                              List<Integer> actionBarSizes,
+                              int horizonSeconds,
+                              int topResultsLimit,
+                              CurrentBuildImportableStats activeHeroItemsContribution) {
         this.useItemLibrary = useItemLibrary;
         this.levelValues = Collections.unmodifiableList(normalizePositiveIntegers(levelValues, "Level"));
         this.weaponDamageValues = Collections.unmodifiableList(normalizeWeaponDamageValues(weaponDamageValues, useItemLibrary));
@@ -84,6 +115,9 @@ public final class BuildSearchRequest {
 
         this.horizonSeconds = horizonSeconds;
         this.topResultsLimit = topResultsLimit;
+        this.activeHeroItemsContribution = activeHeroItemsContribution == null
+                ? new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d)
+                : activeHeroItemsContribution;
     }
 
     public boolean isUseItemLibrary() {
@@ -136,6 +170,10 @@ public final class BuildSearchRequest {
 
     public int getTopResultsLimit() {
         return topResultsLimit;
+    }
+
+    public CurrentBuildImportableStats getActiveHeroItemsContribution() {
+        return activeHeroItemsContribution;
     }
 
     private static List<Integer> normalizePositiveIntegers(List<Integer> values, String label) {

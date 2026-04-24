@@ -1,5 +1,6 @@
 package krys.web;
 
+import krys.item.HeroEquipmentSlot;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
 import krys.itemlibrary.SavedImportedItem;
 
@@ -18,6 +19,7 @@ public final class ItemLibraryPageRenderer {
     public String render(ItemLibraryPageModel model) {
         return template
                 .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/biblioteka-itemow"))
+                .replace("{{HERO_CONTEXT}}", renderHeroContext(model))
                 .replace("{{MESSAGES}}", renderMessages(model.getMessages()))
                 .replace("{{ERRORS}}", renderErrors(model.getErrors()))
                 .replace("{{SAVE_FEEDBACK}}", renderSavedItemFeedback(model))
@@ -66,14 +68,37 @@ public final class ItemLibraryPageRenderer {
                 .append(renderSummaryCard("Wkład do buildu", ItemLibraryPresentationSupport.itemContributionLabel(savedItem)))
                 .append("""
                     </div>
-                    <p class="helper">Item został zapisany trwale w bibliotece. Jesteś już na stronie biblioteki, więc możesz od razu ustawić go jako aktywny dla tego slotu albo wrócić do aktualnego buildu.</p>
+                    <p class="helper">Item został zapisany trwale we wspólnej bibliotece. """)
+                .append(escapeHtml(buildHeroSaveFeedback(model)))
+                .append("""
+                    </p>
                     <div class="hero-links">
                 """)
-                .append(renderActivateSavedItemForm(model, savedItem))
+                .append(model.hasActiveHero() ? renderActivateSavedItemForm(model, savedItem) : "")
                 .append("<a class=\"nav-link secondary-button\" href=\"")
                 .append(escapeHtml(buildCurrentBuildUrl(model.getCurrentBuildQuery())))
                 .append("\">Wróć do aktualnego buildu</a></div></section>")
                 .toString();
+    }
+
+    private static String renderHeroContext(ItemLibraryPageModel model) {
+        if (!model.hasActiveHero()) {
+            return """
+                    <section class="panel panel-warning">
+                        <h2>Brak aktywnego bohatera</h2>
+                        <p>Biblioteka itemów pozostaje wspólna, ale bez aktywnego bohatera nie zobaczysz aktywnych slotów ani nie przypiszesz itemu do ekwipunku. Utwórz albo wybierz bohatera, aby pracować na jego buildzie.</p>
+                        <div class="hero-links">
+                            <a class="nav-link" href="/bohaterowie">Przejdź do modułu Bohaterowie</a>
+                        </div>
+                    </section>
+                    """;
+        }
+        return """
+                <section class="panel panel-success">
+                    <h2>Aktywny bohater biblioteki</h2>
+                    <p class="helper">Pracujesz teraz na bohaterze %s. Wspólna biblioteka itemów jest współdzielona, ale status aktywności i wybór slotów dotyczą tylko jego ekwipunku.</p>
+                </section>
+                """.formatted(escapeHtml(model.getActiveHero().getName()));
     }
 
     private static String renderLibraryContent(ItemLibraryPageModel model) {
@@ -114,7 +139,7 @@ public final class ItemLibraryPageRenderer {
     private static String renderItemRows(ItemLibraryPageModel model) {
         StringBuilder html = new StringBuilder();
         for (SavedImportedItem item : model.getSavedItems()) {
-            boolean active = model.getActiveSelection().isSelected(item.getSlot(), item.getItemId());
+            java.util.List<HeroEquipmentSlot> activeSlots = resolveActiveHeroSlots(model, item);
             html.append("<tr><td>")
                     .append(escapeHtml(ItemLibraryPresentationSupport.slotDisplayName(item.getSlot())))
                     .append("</td><td>")
@@ -124,60 +149,71 @@ public final class ItemLibraryPageRenderer {
                     .append("</td><td>")
                     .append(escapeHtml(ItemLibraryPresentationSupport.itemContributionLabel(item)))
                     .append("</td><td>")
-                    .append(renderStatusCell(active))
+                    .append(renderStatusCell(model, activeSlots))
                     .append("</td><td>")
-                    .append(renderActivateForm(model, item, active))
+                    .append(renderActivateForm(model, item, activeSlots))
                     .append(renderDeleteForm(model, item))
                     .append("</td></tr>");
         }
         return html.toString();
     }
 
-    private static String renderStatusCell(boolean active) {
-        if (active) {
+    private static String renderStatusCell(ItemLibraryPageModel model, java.util.List<HeroEquipmentSlot> activeSlots) {
+        if (!model.hasActiveHero()) {
+            return """
+                    <span class="status-badge status-inactive">Brak bohatera</span>
+                    <div class="status-note">Wybierz aktywnego bohatera, aby zobaczyć przypisane sloty.</div>
+                    """;
+        }
+        if (!activeSlots.isEmpty()) {
             return """
                     <span class="status-badge status-active">Aktywny</span>
-                    <div class="status-note">Ten item zasila aktualny build w swoim slocie.</div>
-                    """;
+                    <div class="status-note">Ten item zasila bohatera w slotach: %s.</div>
+                    """.formatted(escapeHtml(joinHeroSlots(activeSlots)));
         }
         return """
                 <span class="status-badge status-inactive">Nieaktywny</span>
-                <div class="status-note">Możesz go aktywować zamiast bieżącego wyboru w tym slocie.</div>
+                <div class="status-note">Możesz przypisać go do zgodnego slotu aktywnego bohatera.</div>
                 """;
     }
 
-    private static String renderActivateForm(ItemLibraryPageModel model, SavedImportedItem item, boolean active) {
-        if (active) {
-            return "<span class=\"helper\">Aktywny item dla tego slotu jest już ustawiony.</span>";
+    private static String renderActivateForm(ItemLibraryPageModel model, SavedImportedItem item, java.util.List<HeroEquipmentSlot> activeSlots) {
+        if (!model.hasActiveHero()) {
+            return "<span class=\"helper\">Brak aktywnego bohatera. Przypisz najpierw bohatera, aby ustawić aktywny item.</span>";
         }
+        if (!activeSlots.isEmpty()) {
+            return "<span class=\"helper\">Ten item jest już aktywny dla: " + escapeHtml(joinHeroSlots(activeSlots)) + ".</span>";
+        }
+        java.util.List<HeroEquipmentSlot> compatibleSlots = HeroEquipmentSlot.compatibleWith(item.getSlot());
         return """
                 <div class="action-stack">
                     <form method="post" action="/biblioteka-itemow" class="inline-form">
                         <input type="hidden" name="action" value="activateItem">
                         <input type="hidden" name="itemId" value="%s">
-                        <input type="hidden" name="slot" value="%s">
+                        %s
                         <input type="hidden" name="currentBuildQuery" value="%s">
                         <button type="submit">Ustaw jako aktywny</button>
                     </form>
-                    <span class="helper">Ustawienie aktywnego itemu zastępuje poprzedni aktywny item w tym samym slocie.</span>
+                    <span class="helper">Ustawienie aktywnego itemu przypisuje go do wybranego slotu aktywnego bohatera.</span>
                 </div>
                 """.formatted(
                 item.getItemId(),
-                escapeHtml(item.getSlot().name()),
+                renderHeroSlotField(compatibleSlots),
                 escapeHtml(model.getCurrentBuildQuery())
         );
     }
 
     private static String renderActivateSavedItemForm(ItemLibraryPageModel model, SavedImportedItem item) {
+        java.util.List<HeroEquipmentSlot> compatibleSlots = HeroEquipmentSlot.compatibleWith(item.getSlot());
         return """
                 <form method="post" action="/biblioteka-itemow" class="inline-form">
                     <input type="hidden" name="action" value="activateItem">
                     <input type="hidden" name="itemId" value="%s">
-                    <input type="hidden" name="slot" value="%s">
+                    %s
                     <input type="hidden" name="currentBuildQuery" value="%s">
                     <button type="submit">Ustaw jako aktywny</button>
                 </form>
-                """.formatted(item.getItemId(), escapeHtml(item.getSlot().name()), escapeHtml(model.getCurrentBuildQuery()));
+                """.formatted(item.getItemId(), renderHeroSlotField(compatibleSlots), escapeHtml(model.getCurrentBuildQuery()));
     }
 
     private static String renderDeleteForm(ItemLibraryPageModel model, SavedImportedItem item) {
@@ -209,6 +245,50 @@ public final class ItemLibraryPageRenderer {
             return "/importuj-item-ze-screena";
         }
         return "/importuj-item-ze-screena?" + currentBuildQuery;
+    }
+
+    private static java.util.List<HeroEquipmentSlot> resolveActiveHeroSlots(ItemLibraryPageModel model, SavedImportedItem item) {
+        if (!model.hasActiveHero()) {
+            return java.util.List.of();
+        }
+        java.util.List<HeroEquipmentSlot> activeSlots = new java.util.ArrayList<>();
+        for (HeroEquipmentSlot heroSlot : HeroEquipmentSlot.compatibleWith(item.getSlot())) {
+            if (model.getActiveSelection().isSelected(heroSlot, item.getItemId())) {
+                activeSlots.add(heroSlot);
+            }
+        }
+        return java.util.List.copyOf(activeSlots);
+    }
+
+    private static String renderHeroSlotField(java.util.List<HeroEquipmentSlot> compatibleSlots) {
+        if (compatibleSlots.size() == 1) {
+            return "<input type=\"hidden\" name=\"heroSlot\" value=\"" + escapeHtml(compatibleSlots.getFirst().name()) + "\">";
+        }
+        StringBuilder html = new StringBuilder("<label>Slot bohatera<select name=\"heroSlot\">");
+        for (HeroEquipmentSlot heroSlot : compatibleSlots) {
+            html.append("<option value=\"")
+                    .append(escapeHtml(heroSlot.name()))
+                    .append("\">")
+                    .append(escapeHtml(ItemLibraryPresentationSupport.heroSlotDisplayName(heroSlot)))
+                    .append("</option>");
+        }
+        html.append("</select></label>");
+        return html.toString();
+    }
+
+    private static String joinHeroSlots(java.util.List<HeroEquipmentSlot> heroSlots) {
+        java.util.List<String> labels = new java.util.ArrayList<>();
+        for (HeroEquipmentSlot heroSlot : heroSlots) {
+            labels.add(ItemLibraryPresentationSupport.heroSlotDisplayName(heroSlot));
+        }
+        return String.join(", ", labels);
+    }
+
+    private static String buildHeroSaveFeedback(ItemLibraryPageModel model) {
+        if (!model.hasActiveHero()) {
+            return "Nie masz jeszcze aktywnego bohatera, więc item nie może zostać od razu przypisany do slotu.";
+        }
+        return "Pracujesz teraz na bohaterze " + model.getActiveHero().getName() + ", więc możesz od razu przypisać item do zgodnego slotu jego ekwipunku.";
     }
 
     private static String escapeHtml(String value) {

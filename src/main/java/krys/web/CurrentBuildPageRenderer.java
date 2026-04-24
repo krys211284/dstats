@@ -1,8 +1,10 @@
 package krys.web;
 
 import krys.app.CurrentBuildCalculation;
-import krys.item.EquipmentSlot;
+import krys.hero.HeroClassDefs;
+import krys.item.HeroEquipmentSlot;
 import krys.itemimport.CurrentBuildImportableStats;
+import krys.itemlibrary.HeroSlotItemAssignment;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
 import krys.itemlibrary.SavedImportedItem;
 import krys.skill.PaladinSkillDefs;
@@ -29,14 +31,48 @@ public final class CurrentBuildPageRenderer {
     public String render(CurrentBuildPageModel model) {
         return template
                 .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/policz-aktualny-build"))
+                .replace("{{HERO_CONTEXT}}", renderHeroContext(model))
                 .replace("{{FORM_MESSAGES}}", renderMessages(model.getMessages()))
-                .replace("{{MANUAL_BASE_SECTION}}", renderManualBaseSection(model))
-                .replace("{{EQUIPMENT_SECTION}}", renderEquipmentSection(model))
-                .replace("{{EFFECTIVE_STATS_SECTION}}", renderEffectiveStatsSection(model))
-                .replace("{{SKILL_CONFIG_FIELDS}}", renderSkillConfigFields(model.getFormData()))
-                .replace("{{ACTION_BAR_FIELDS}}", renderActionBarFields(model.getFormData()))
+                .replace("{{ENTRY_SECTION}}", renderEntrySection(model))
                 .replace("{{FORM_ERRORS}}", renderErrors(model.getValidationErrors()))
                 .replace("{{RESULT_SECTION}}", renderResultSection(model));
+    }
+
+    private static String renderHeroContext(CurrentBuildPageModel model) {
+        if (!model.hasActiveHero()) {
+            return """
+                    <section class="panel panel-warning">
+                        <h2>Brak aktywnego bohatera</h2>
+                        <p>Ten ekran działa w kontekście aktywnego bohatera. Utwórz pierwszego bohatera albo wybierz istniejącego, aby zarządzać ekwipunkiem, skillami, paskiem akcji i wynikiem symulacji.</p>
+                        <div class="hero-links">
+                            <a class="nav-link" href="/bohaterowie">Przejdź do modułu Bohaterowie</a>
+                        </div>
+                    </section>
+                    """;
+        }
+        return new StringBuilder("""
+                <section class="panel hero-context-panel">
+                    <div class="layer-heading">
+                        <span class="layer-index">B</span>
+                        <div>
+                            <h2>Aktywny bohater</h2>
+                            <p class="helper">Cały ekran aktualnego buildu pracuje na stanie tego bohatera: jego ekwipunku, skillach, pasku akcji i ręcznych nadpisaniach statów.</p>
+                        </div>
+                    </div>
+                    <div class="summary-grid compact-grid">
+                """)
+                .append(renderSummaryCard("Nazwa bohatera", model.getActiveHero().getName()))
+                .append(renderSummaryCard("Klasa postaci", HeroClassDefs.get(model.getActiveHero().getHeroClass()).getDisplayName()))
+                .append(renderSummaryCard("Poziom bohatera", model.getFormData().getLevel()))
+                .append(renderSummaryCard("Aktywny kontekst", "Build bohatera"))
+                .append("""
+                    </div>
+                    <div class="hero-links">
+                        <a class="nav-link secondary-link" href="
+                """)
+                .append(escapeHtml(model.getHeroesUrl()))
+                .append("\">Zmień aktywnego bohatera</a></div></section>")
+                .toString();
     }
 
     private static String renderMessages(List<String> messages) {
@@ -79,13 +115,16 @@ public final class CurrentBuildPageRenderer {
     }
 
     private static String renderResultSection(CurrentBuildPageModel model) {
+        if (!model.hasActiveHero()) {
+            return "";
+        }
         if (!model.hasResult()) {
             return """
                     <section class="panel result-panel">
                         <h2>Wynik symulacji</h2>
                         <p>To jest aktualny foundation manual simulation dla trybu „Policz aktualny build”. Ustaw bazę ręczną, aktywne itemy, skille i pasek akcji, a potem uruchom obliczenie.</p>
                     </section>
-                    """;
+                """;
         }
 
         CurrentBuildCalculation calculation = model.getCalculation();
@@ -121,11 +160,11 @@ public final class CurrentBuildPageRenderer {
     private static String renderManualBaseSection(CurrentBuildPageModel model) {
         CurrentBuildImportableStats manualBaseStats = resolveManualBaseStats(model);
         return new StringBuilder("""
-                <section class="layer-panel">
+                <section class="subpanel advanced-panel">
                     <div class="layer-heading">
-                        <span class="layer-index">1</span>
+                        <span class="layer-index">A</span>
                         <div>
-                            <h3>Baza ręczna</h3>
+                            <h3>Ręczne nadpisanie statów</h3>
                             <p class="helper">""")
                 .append(escapeHtml(model.getChoiceHelpText()))
                 .append("""
@@ -152,27 +191,68 @@ public final class CurrentBuildPageRenderer {
                 .toString();
     }
 
+    private static String renderEntrySection(CurrentBuildPageModel model) {
+        if (!model.hasActiveHero()) {
+            return "";
+        }
+        return """
+                <section class="panel">
+                    <h2>Ekran buildu bohatera</h2>
+                    <form method="post" action="/policz-aktualny-build">
+                """
+                + renderEquipmentSection(model)
+                + renderEffectiveStatsSection(model)
+                + """
+                        <section class="subpanel">
+                            <h3>Nauczone skille</h3>
+                """
+                + renderSkillConfigFields(model.getFormData())
+                + """
+                        </section>
+                        <section class="subpanel">
+                            <h3>Pasek akcji</h3>
+                            <div class="form-grid">
+                """
+                + renderActionBarFields(model.getFormData())
+                + """
+                            </div>
+                        </section>
+                        <details class="advanced-details">
+                            <summary>Zaawansowane: baza ręczna i ręczne nadpisanie statów</summary>
+                """
+                + renderManualBaseSection(model)
+                + """
+                        </details>
+                        <div class="submit-row">
+                            <button type="submit">Policz aktualny build</button>
+                            <button type="submit" formmethod="get" formaction="/importuj-item-ze-screena" class="secondary-button">Importuj item dla aktywnego bohatera</button>
+                        </div>
+                    </form>
+                </section>
+                """;
+    }
+
     private static String renderEquipmentSection(CurrentBuildPageModel model) {
         StringBuilder html = new StringBuilder("""
-                <section class="layer-panel">
+                <section class="layer-panel layer-panel-hero">
                     <div class="layer-heading">
-                        <span class="layer-index">2</span>
+                        <span class="layer-index">1</span>
                         <div>
                             <h3>Ekwipunek aktualnego buildu</h3>
-                            <p class="helper">Ta sekcja pokazuje aktywne itemy per slot i steruje dokładnie tą samą selekcją biblioteki, z której korzysta aktualny build. Nie buduje osobnego runtime, tylko zmienia aktywny item dla wspieranego slotu.</p>
+                            <p class="helper">To jest pełny ekran slotów aktywnego bohatera. Wybór itemu w slocie steruje wyłącznie przypisaniem bibliotecznego itemu do konkretnego bohatera i nadal kończy się tym samym pipeline’em runtime.</p>
                         </div>
                     </div>
                     <div class="equipment-shell">
                         <div class="equipment-board">
                 """);
-        for (EquipmentSlot slot : EquipmentSlot.values()) {
+        for (HeroEquipmentSlot slot : HeroEquipmentSlot.values()) {
             html.append(renderEquipmentSlot(model, slot));
         }
         html.append("""
                         </div>
                         <aside class="equipment-side-panel">
                             <h4>Biblioteka i import</h4>
-                            <p class="helper">Źródłem prawdy dla aktywnego itemu pozostaje biblioteka itemów. Możesz szybko przejść do biblioteki albo zaimportować kolejny item, a potem wrócić tutaj.</p>
+                            <p class="helper">Źródłem itemów pozostaje wspólna biblioteka, ale aktywna selekcja per slot należy do tego bohatera. Możesz szybko przejść do biblioteki albo zaimportować kolejny item, a potem wrócić tutaj.</p>
                             <div class="hero-links">
                                 <a class="nav-link" href="
                 """)
@@ -185,19 +265,19 @@ public final class CurrentBuildPageRenderer {
         return html.toString();
     }
 
-    private static String renderEquipmentSlot(CurrentBuildPageModel model, EquipmentSlot slot) {
-        SavedImportedItem activeItem = findActiveItem(model, slot);
+    private static String renderEquipmentSlot(CurrentBuildPageModel model, HeroEquipmentSlot slot) {
+        HeroSlotItemAssignment activeItem = findActiveItem(model, slot);
         List<SavedImportedItem> slotItems = model.getSavedLibraryItems().stream()
-                .filter(item -> item.getSlot() == slot)
+                .filter(item -> slot.supports(item.getSlot()))
                 .sorted(Comparator.comparingLong(SavedImportedItem::getItemId))
                 .toList();
 
         StringBuilder html = new StringBuilder("<article class=\"equipment-slot equipment-slot-")
                 .append(slot.name().toLowerCase(Locale.ROOT))
                 .append("\"><div class=\"slot-header\"><div><span class=\"slot-kicker\">")
-                .append("Slot ekwipunku")
+                .append("Slot bohatera")
                 .append("</span><h4>")
-                .append(escapeHtml(ItemLibraryPresentationSupport.slotDisplayName(slot)))
+                .append(escapeHtml(ItemLibraryPresentationSupport.heroSlotDisplayName(slot)))
                 .append("</h4></div>")
                 .append(renderSlotStatusBadge(activeItem))
                 .append("</div>");
@@ -211,11 +291,11 @@ public final class CurrentBuildPageRenderer {
                     .append("</p>");
         } else {
             html.append("<p class=\"slot-item-name\">")
-                    .append(escapeHtml(activeItem.getDisplayName()))
+                    .append(escapeHtml(activeItem.getItem().getDisplayName()))
                     .append("</p><p class=\"slot-helper\">")
-                    .append(escapeHtml(ItemLibraryPresentationSupport.userItemIdentifier(activeItem)))
+                    .append(escapeHtml(ItemLibraryPresentationSupport.userItemIdentifier(activeItem.getItem())))
                     .append("</p><p class=\"slot-contribution\">")
-                    .append(escapeHtml(ItemLibraryPresentationSupport.shortContributionLabel(activeItem)))
+                    .append(escapeHtml(ItemLibraryPresentationSupport.shortContributionLabel(activeItem.getItem())))
                     .append("</p>");
         }
 
@@ -233,7 +313,7 @@ public final class CurrentBuildPageRenderer {
                 .append("\">")
                 .append(renderSlotOption("", activeItem == null ? "Wybierz zapisany item" : "Pozostaw bez zmiany", false));
         for (SavedImportedItem item : slotItems) {
-            boolean selected = activeItem != null && item.getItemId() == activeItem.getItemId();
+            boolean selected = activeItem != null && item.getItemId() == activeItem.getItem().getItemId();
             html.append(renderSlotOption(Long.toString(item.getItemId()), buildSlotOptionLabel(item), selected));
         }
         html.append("</select></label><div class=\"slot-actions\">")
@@ -273,15 +353,15 @@ public final class CurrentBuildPageRenderer {
         }
 
         html.append("<table class=\"data-table\"><thead><tr><th>Slot</th><th>Nazwa itemu</th><th>Identyfikator / źródło</th><th>Wkład do buildu</th></tr></thead><tbody>");
-        for (SavedImportedItem item : model.getActiveLibraryItems()) {
+        for (HeroSlotItemAssignment assignment : model.getActiveLibraryItems()) {
             html.append("<tr><td>")
-                    .append(escapeHtml(ItemLibraryPresentationSupport.slotDisplayName(item.getSlot())))
+                    .append(escapeHtml(ItemLibraryPresentationSupport.heroSlotDisplayName(assignment.getHeroSlot())))
                     .append("</td><td>")
-                    .append(escapeHtml(item.getDisplayName()))
+                    .append(escapeHtml(assignment.getItem().getDisplayName()))
                     .append("</td><td>")
-                    .append(escapeHtml(ItemLibraryPresentationSupport.userItemIdentifier(item)))
+                    .append(escapeHtml(ItemLibraryPresentationSupport.userItemIdentifier(assignment.getItem())))
                     .append("</td><td>")
-                    .append(escapeHtml(ItemLibraryPresentationSupport.itemContributionLabel(item)))
+                    .append(escapeHtml(ItemLibraryPresentationSupport.itemContributionLabel(assignment.getItem())))
                     .append("</td></tr>");
         }
         html.append("</tbody></table></section>");
@@ -292,7 +372,7 @@ public final class CurrentBuildPageRenderer {
         StringBuilder html = new StringBuilder("""
                 <section class="layer-panel layer-panel-emphasis">
                     <div class="layer-heading">
-                        <span class="layer-index">3</span>
+                        <span class="layer-index">2</span>
                         <div>
                             <h3>Efektywne staty do obliczeń</h3>
                             <p class="helper">To te finalne staty trafiają do pipeline’u `efektywne staty -&gt; CurrentBuildRequest -&gt; CurrentBuildSnapshotFactory -&gt; runtime`. Sekcja nie buduje alternatywnego flow, tylko pokazuje końcowy stan wejścia do obliczeń.</p>
@@ -499,16 +579,16 @@ public final class CurrentBuildPageRenderer {
         return item.getDisplayName() + " | " + ItemLibraryPresentationSupport.shortContributionLabel(item);
     }
 
-    private static String renderSlotStatusBadge(SavedImportedItem activeItem) {
+    private static String renderSlotStatusBadge(HeroSlotItemAssignment activeItem) {
         if (activeItem == null) {
             return "<span class=\"status-badge status-empty\">Pusty</span>";
         }
         return "<span class=\"status-badge status-active\">Aktywny</span>";
     }
 
-    private static SavedImportedItem findActiveItem(CurrentBuildPageModel model, EquipmentSlot slot) {
-        for (SavedImportedItem item : model.getActiveLibraryItems()) {
-            if (item.getSlot() == slot) {
+    private static HeroSlotItemAssignment findActiveItem(CurrentBuildPageModel model, HeroEquipmentSlot slot) {
+        for (HeroSlotItemAssignment item : model.getActiveLibraryItems()) {
+            if (item.getHeroSlot() == slot) {
                 return item;
             }
         }

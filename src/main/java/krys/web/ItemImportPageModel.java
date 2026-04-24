@@ -15,6 +15,7 @@ public final class ItemImportPageModel {
     private final ItemImageImportCandidateParseResult parseResult;
     private final List<String> validationErrors;
     private final ConfirmedImportView confirmedImportView;
+    private final HeroProfile activeHero;
     private final String helpText;
     private final String currentBuildQuery;
 
@@ -22,12 +23,14 @@ public final class ItemImportPageModel {
                                ItemImageImportCandidateParseResult parseResult,
                                List<String> validationErrors,
                                ConfirmedImportView confirmedImportView,
+                               HeroProfile activeHero,
                                String helpText,
                                String currentBuildQuery) {
         this.editableForm = editableForm;
         this.parseResult = parseResult;
         this.validationErrors = Collections.unmodifiableList(new ArrayList<>(validationErrors));
         this.confirmedImportView = confirmedImportView;
+        this.activeHero = activeHero;
         this.helpText = helpText;
         this.currentBuildQuery = currentBuildQuery;
     }
@@ -48,6 +51,10 @@ public final class ItemImportPageModel {
         return confirmedImportView;
     }
 
+    public HeroProfile getActiveHero() {
+        return activeHero;
+    }
+
     public String getHelpText() {
         return helpText;
     }
@@ -66,6 +73,10 @@ public final class ItemImportPageModel {
 
     public boolean hasConfirmedImport() {
         return confirmedImportView != null;
+    }
+
+    public boolean hasActiveHero() {
+        return activeHero != null;
     }
 
     /** Widok zatwierdzonego itemu i jego mapowania do aktualnego modelu buildu. */

@@ -72,6 +72,9 @@ public final class SearchBuildDetailsPageRenderer {
                     <div class="summary-grid">
                 """)
                 .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Wybrany wynik po normalizacji", selectedResultLabel))
+                .append(model.getActiveHero() == null
+                        ? ""
+                        : CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Aktywny bohater", model.getActiveHero().getName()))
                 .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Wejście buildu", candidate.getInputProfileDescription()))
                 .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Skille na pasku", candidate.getActionBarSkillsDescription()))
                 .append(CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Pasek akcji", candidate.getActionBarDescription()))

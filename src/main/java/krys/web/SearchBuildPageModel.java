@@ -11,15 +11,18 @@ public final class SearchBuildPageModel {
     private final SearchBuildFormData formData;
     private final List<String> validationErrors;
     private final BuildSearchResult result;
+    private final HeroProfile activeHero;
     private final String helpText;
 
     public SearchBuildPageModel(SearchBuildFormData formData,
                                 List<String> validationErrors,
                                 BuildSearchResult result,
+                                HeroProfile activeHero,
                                 String helpText) {
         this.formData = formData;
         this.validationErrors = Collections.unmodifiableList(new ArrayList<>(validationErrors));
         this.result = result;
+        this.activeHero = activeHero;
         this.helpText = helpText;
     }
 
@@ -35,11 +38,19 @@ public final class SearchBuildPageModel {
         return result;
     }
 
+    public HeroProfile getActiveHero() {
+        return activeHero;
+    }
+
     public String getHelpText() {
         return helpText;
     }
 
     public boolean hasResult() {
         return result != null;
+    }
+
+    public boolean hasActiveHero() {
+        return activeHero != null;
     }
 }

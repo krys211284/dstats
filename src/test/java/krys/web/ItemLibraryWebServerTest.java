@@ -43,7 +43,19 @@ class ItemLibraryWebServerTest {
     }
 
     @Test
+    void shouldRenderHeroWarningWhenNoActiveHeroExists() throws Exception {
+        HttpResponse<String> response = sendGet("/biblioteka-itemow");
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Brak aktywnego bohatera"));
+        assertTrue(response.body().contains("Biblioteka itemów pozostaje wspólna"));
+        assertTrue(response.body().contains("Przejdź do modułu Bohaterowie"));
+    }
+
+    @Test
     void shouldSaveItemsRenderLibraryAndUseActiveItemOnCurrentBuildPage() throws Exception {
+        createHero("Bibliotekarz", "13");
+        primeHeroBuildQuery(buildCurrentBuildQuery());
         HttpResponse<String> firstSave = sendUrlEncodedPost("/biblioteka-itemow", Map.of(
                 "action", "saveImportedItem",
                 "sourceImageName", "shield-a.png",
@@ -60,10 +72,9 @@ class ItemLibraryWebServerTest {
         assertTrue(firstSave.body().contains("Zapisano item w bibliotece"));
         assertTrue(firstSave.body().contains("Ręka dodatkowa / shield-a.png"));
         assertTrue(firstSave.body().contains("Item zapisany do biblioteki"));
+        assertTrue(firstSave.body().contains("Pracujesz teraz na bohaterze Bibliotekarz"));
         assertTrue(firstSave.body().contains("Ustaw jako aktywny"));
         assertTrue(firstSave.body().contains("Wróć do aktualnego buildu"));
-        assertTrue(firstSave.body().contains("Jesteś już na stronie biblioteki"));
-        assertFalse(firstSave.body().contains("Przejdź do biblioteki"));
 
         HttpResponse<String> secondSave = sendUrlEncodedPost("/biblioteka-itemow", Map.of(
                 "action", "saveImportedItem",
@@ -78,21 +89,19 @@ class ItemLibraryWebServerTest {
                 "currentBuildQuery", buildCurrentBuildQuery()
         ));
         assertEquals(200, secondSave.statusCode());
-        assertTrue(secondSave.body().contains("Możesz mieć wiele zapisanych itemów tego samego slotu"));
         assertTrue(secondSave.body().contains("Ręka dodatkowa / shield-a.png"));
         assertTrue(secondSave.body().contains("Ręka dodatkowa / shield-b.png"));
 
         HttpResponse<String> activateResponse = sendUrlEncodedPost("/biblioteka-itemow", Map.of(
                 "action", "activateItem",
                 "itemId", "2",
-                "slot", "OFF_HAND",
+                "heroSlot", "OFF_HAND",
                 "currentBuildQuery", buildCurrentBuildQuery()
         ));
         assertEquals(200, activateResponse.statusCode());
-        assertTrue(activateResponse.body().contains("Aktywny item dla slotu Ręka dodatkowa został zmieniony."));
-        assertTrue(activateResponse.body().contains("Nowy wybór zastępuje poprzedni aktywny item w tym samym slocie."));
+        assertTrue(activateResponse.body().contains("Aktywny item dla slotu Tarcza został zmieniony dla bohatera Bibliotekarz."));
         assertTrue(activateResponse.body().contains("class=\"status-badge status-active\">Aktywny</span>"));
-        assertTrue(activateResponse.body().contains("Ustaw jako aktywny"));
+        assertTrue(activateResponse.body().contains("slotach: Tarcza"));
         assertTrue(activateResponse.body().contains("Ręka dodatkowa / shield-b.png"));
 
         HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build?" + buildCurrentBuildQuery());
@@ -106,6 +115,8 @@ class ItemLibraryWebServerTest {
 
     @Test
     void shouldKeepCurrentBuildQueryWhenNavigatingFromLibraryToItemImport() throws Exception {
+        createHero("Bibliotekarz", "13");
+        primeHeroBuildQuery(buildCurrentBuildQuery());
         HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow?" + buildCurrentBuildQuery());
 
         assertEquals(200, libraryResponse.statusCode());
@@ -120,6 +131,8 @@ class ItemLibraryWebServerTest {
 
     @Test
     void shouldRenderEmptyStateWithImportLinkAndDeleteMessage() throws Exception {
+        createHero("Bibliotekarz", "13");
+        primeHeroBuildQuery(buildCurrentBuildQuery());
         HttpResponse<String> emptyResponse = sendGet("/biblioteka-itemow?" + buildCurrentBuildQuery());
 
         assertEquals(200, emptyResponse.statusCode());
@@ -151,6 +164,22 @@ class ItemLibraryWebServerTest {
         assertTrue(deleteResponse.body().contains("Usunięto item z biblioteki."));
         assertTrue(deleteResponse.body().contains("Biblioteka jest pusta"));
         assertTrue(deleteResponse.body().contains("Importuj item ze screena"));
+    }
+
+    private void createHero(String heroName, String heroLevel) throws Exception {
+        HttpResponse<String> response = sendUrlEncodedPost("/bohaterowie", Map.of(
+                "action", "createHero",
+                "heroName", heroName,
+                "heroClass", "PALADIN",
+                "heroLevel", heroLevel
+        ));
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Utworzono bohatera " + heroName + "."));
+    }
+
+    private void primeHeroBuildQuery(String currentBuildQuery) throws Exception {
+        HttpResponse<String> response = sendGet("/policz-aktualny-build?" + currentBuildQuery);
+        assertEquals(200, response.statusCode());
     }
 
     private static String buildCurrentBuildQuery() {

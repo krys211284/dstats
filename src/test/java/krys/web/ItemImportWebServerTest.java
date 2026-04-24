@@ -48,7 +48,19 @@ class ItemImportWebServerTest {
     }
 
     @Test
+    void shouldRenderEmptyStateWithoutActiveHero() throws Exception {
+        HttpResponse<String> response = sendGet("/importuj-item-ze-screena");
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Importuj pojedynczy item ze screena"));
+        assertTrue(response.body().contains("Brak aktywnego bohatera"));
+        assertTrue(response.body().contains("Najpierw wybierz bohatera"));
+        assertTrue(response.body().contains("Przejdź do modułu Bohaterowie"));
+    }
+
+    @Test
     void shouldRenderItemImportUploadForm() throws Exception {
+        createHero("Importer", "13");
         HttpResponse<String> response = sendGet("/importuj-item-ze-screena");
 
         assertEquals(200, response.statusCode());
@@ -57,19 +69,22 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("To jest import wspomagany pojedynczego itemu ze screena."));
         assertTrue(response.body().contains("Wstępnie rozpoznane pola"));
         assertTrue(response.body().contains("Tu pojawią się rozpoznane pola itemu"));
+        assertTrue(response.body().contains("Aktywny bohater importu"));
     }
 
     @Test
     void shouldExposeCurrentBuildIntegrationButtonWithoutRegressingCurrentBuildFlow() throws Exception {
+        createHero("Importer", "13");
         HttpResponse<String> response = sendGet("/policz-aktualny-build");
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("formaction=\"/importuj-item-ze-screena\""));
-        assertTrue(response.body().contains("Importuj item i wróć do aktualnego buildu"));
+        assertTrue(response.body().contains("Importuj item dla aktywnego bohatera"));
     }
 
     @Test
     void shouldUploadImageAndRenderManualConfirmationFields() throws Exception {
+        createHero("Importer", "13");
         HttpResponse<String> response = sendMultipartImagePost("/importuj-item-ze-screena", "sztylet.png", "image/png", PNG_1X1);
 
         assertEquals(200, response.statusCode());
@@ -86,6 +101,7 @@ class ItemImportWebServerTest {
 
     @Test
     void shouldConfirmImportedItemAndExposePrefillForCurrentBuild() throws Exception {
+        createHero("Importer", "13");
         String currentBuildQuery = "level=13&weaponDamage=200&strength=30&intelligence=11&thorns=70&blockChance=10&retributionChance=15&horizonSeconds=10"
                 + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
                 + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
@@ -108,7 +124,9 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("Zatwierdzony item"));
         assertTrue(response.body().contains("Mapowanie do modelu itemu aplikacji"));
         assertTrue(response.body().contains("Mapowanie do aktualnego modelu buildu"));
-        assertTrue(response.body().contains("Zaimportowany item: bulawa.png"));
+        assertTrue(response.body().contains("Plik źródłowy"));
+        assertTrue(response.body().contains("Aktywny bohater"));
+        assertTrue(response.body().contains("bulawa.png"));
         assertTrue(response.body().contains("Zastosuj do aktualnego buildu"));
         assertTrue(response.body().contains("Dodaj wkład itemu do aktualnego buildu"));
         assertTrue(response.body().contains("Zapisz do biblioteki"));
@@ -148,6 +166,7 @@ class ItemImportWebServerTest {
 
     @Test
     void shouldRenderNeutralBuildWebAppTitlesOnMainPages() throws Exception {
+        createHero("Importer", "13");
         HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build");
         HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow");
         HttpResponse<String> importResponse = sendGet("/importuj-item-ze-screena");
@@ -161,6 +180,17 @@ class ItemImportWebServerTest {
         assertFalse(libraryResponse.body().contains("Paladin WebApp"));
         assertFalse(importResponse.body().contains("Paladin WebApp"));
         assertFalse(searchResponse.body().contains("Paladin WebApp"));
+    }
+
+    private void createHero(String heroName, String heroLevel) throws Exception {
+        HttpResponse<String> response = sendUrlEncodedPost("/bohaterowie", Map.of(
+                "action", "createHero",
+                "heroName", heroName,
+                "heroClass", "PALADIN",
+                "heroLevel", heroLevel
+        ));
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Utworzono bohatera " + heroName + "."));
     }
 
     private HttpResponse<String> sendGet(String path) throws Exception {

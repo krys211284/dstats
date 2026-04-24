@@ -1,13 +1,16 @@
 package krys.itemlibrary;
 
 import krys.item.EquipmentSlot;
+import krys.item.HeroEquipmentSlot;
 import krys.itemimport.CurrentBuildImportableStats;
 import krys.itemimport.ValidatedImportedItem;
+import krys.web.HeroItemSelection;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -41,12 +44,21 @@ class ItemLibraryServiceTest {
 
         assertEquals(2, service.getSavedItems().size());
 
-        service.setActiveItem(EquipmentSlot.OFF_HAND, shieldA.getItemId());
-        assertEquals(List.of(shieldA.getItemId()), service.getActiveItems().stream().map(SavedImportedItem::getItemId).toList());
+        HeroItemSelection selectionA = HeroItemSelection.empty()
+                .withSelectedItem(HeroEquipmentSlot.OFF_HAND, shieldA.getItemId());
+        EffectiveCurrentBuildResolution resolutionA = service.resolveEffectiveCurrentBuild(
+                new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d),
+                selectionA
+        );
+        assertEquals(List.of(shieldA.getItemId()), resolutionA.getActiveItems().stream().map(assignment -> assignment.getItem().getItemId()).toList());
 
-        service.setActiveItem(EquipmentSlot.OFF_HAND, shieldB.getItemId());
-        assertEquals(List.of(shieldB.getItemId()), service.getActiveItems().stream().map(SavedImportedItem::getItemId).toList());
-        assertEquals(shieldB.getItemId(), service.getSelection().getSelectedItemId(EquipmentSlot.OFF_HAND));
+        HeroItemSelection selectionB = selectionA.withSelectedItem(HeroEquipmentSlot.OFF_HAND, shieldB.getItemId());
+        EffectiveCurrentBuildResolution resolutionB = service.resolveEffectiveCurrentBuild(
+                new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d),
+                selectionB
+        );
+        assertEquals(List.of(shieldB.getItemId()), resolutionB.getActiveItems().stream().map(assignment -> assignment.getItem().getItemId()).toList());
+        assertEquals(shieldB.getItemId(), selectionB.getSelectedItemId(HeroEquipmentSlot.OFF_HAND));
     }
 
     @Test
@@ -75,11 +87,14 @@ class ItemLibraryServiceTest {
                 25.0d
         ));
 
-        service.setActiveItem(EquipmentSlot.MAIN_HAND, weapon.getItemId());
-        service.setActiveItem(EquipmentSlot.OFF_HAND, shield.getItemId());
+        HeroItemSelection selection = new HeroItemSelection(Map.of(
+                HeroEquipmentSlot.MAIN_HAND, weapon.getItemId(),
+                HeroEquipmentSlot.OFF_HAND, shield.getItemId()
+        ));
 
         EffectiveCurrentBuildResolution resolution = service.resolveEffectiveCurrentBuild(
-                new CurrentBuildImportableStats(200L, 30.0d, 11.0d, 70.0d, 10.0d, 15.0d)
+                new CurrentBuildImportableStats(200L, 30.0d, 11.0d, 70.0d, 10.0d, 15.0d),
+                selection
         );
 
         assertEquals(2, resolution.getActiveItems().size());
@@ -165,7 +180,7 @@ class ItemLibraryServiceTest {
                 List.of(true, true, true, true, true, true),
                 combinations.stream()
                         .map(combination -> combination.getSelectedItems().stream()
-                                .map(SavedImportedItem::getSlot)
+                                .map(assignment -> assignment.getHeroSlot())
                                 .distinct()
                                 .count() == combination.getSelectedItems().size())
                         .toList()

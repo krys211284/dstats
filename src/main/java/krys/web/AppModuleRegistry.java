@@ -21,6 +21,16 @@ public final class AppModuleRegistry {
                     false
             ),
             new AppModule(
+                    "heroes",
+                    "Bohaterowie",
+                    "Zarządzanie wieloma bohaterami, aktywnym bohaterem i ich własnym kontekstem buildu.",
+                    AppModuleGroup.BUILD_TOOLS,
+                    AppModuleStatus.AVAILABLE,
+                    "/bohaterowie",
+                    true,
+                    false
+            ),
+            new AppModule(
                     "current-build",
                     "Policz aktualny build",
                     "Manual simulation nad istniejącym runtime i efektywnymi statami aktualnego buildu.",

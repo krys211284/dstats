@@ -5,9 +5,11 @@ import krys.search.BuildSearchRequest;
 import krys.search.BuildSearchSkillSpace;
 import krys.skill.SkillId;
 import krys.skill.SkillUpgradeChoice;
+import krys.skill.SkillState;
 
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 /** Surowe dane formularza GUI searcha M12, zachowywane także przy błędach walidacji. */
@@ -103,6 +105,33 @@ public final class SearchBuildFormData {
                 fields.getOrDefault("actionBarSizes", defaults.getActionBarSizes()),
                 fields.getOrDefault("horizonSeconds", defaults.getHorizonSeconds()),
                 fields.getOrDefault("topResultsLimit", defaults.getTopResultsLimit()),
+                skillConfigs
+        );
+    }
+
+    public static SearchBuildFormData fromHeroProfile(HeroProfile heroProfile) {
+        CurrentBuildFormData formData = heroProfile.getCurrentBuildFormData();
+        Map<SkillId, SkillSearchFormData> skillConfigs = new EnumMap<>(SkillId.class);
+        for (SkillId skillId : SkillId.values()) {
+            CurrentBuildFormData.SkillConfigFormData skillConfig = formData.getSkillConfig(skillId);
+            String rankValue = skillConfig.getRank();
+            String baseUpgradeValue = skillConfig.isBaseUpgrade() ? "true" : "false";
+            String choiceValue = skillConfig.getChoiceUpgrade();
+            skillConfigs.put(skillId, new SkillSearchFormData(rankValue, baseUpgradeValue, choiceValue));
+        }
+
+        return new SearchBuildFormData(
+                false,
+                formData.getLevel(),
+                formData.getWeaponDamage(),
+                formData.getStrength(),
+                formData.getIntelligence(),
+                formData.getThorns(),
+                formData.getBlockChance(),
+                formData.getRetributionChance(),
+                Integer.toString(countActiveActionBarSlots(formData)),
+                formData.getHorizonSeconds(),
+                "5",
                 skillConfigs
         );
     }
@@ -213,5 +242,15 @@ public final class SearchBuildFormData {
 
     private static String joinChoices(java.util.List<SkillUpgradeChoice> values) {
         return values.stream().map(Enum::name).collect(java.util.stream.Collectors.joining(","));
+    }
+
+    private static int countActiveActionBarSlots(CurrentBuildFormData formData) {
+        int count = 0;
+        for (String actionBarSlot : formData.getActionBarSlots()) {
+            if (!"NONE".equals(actionBarSlot)) {
+                count++;
+            }
+        }
+        return Math.max(count, 1);
     }
 }

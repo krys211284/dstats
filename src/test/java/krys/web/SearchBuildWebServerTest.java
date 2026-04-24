@@ -56,11 +56,22 @@ class SearchBuildWebServerTest {
     }
 
     @Test
+    void shouldRenderHeroWarningWhenNoActiveHeroExists() throws Exception {
+        HttpResponse<String> response = sendGet("/znajdz-najlepszy-build");
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Brak aktywnego bohatera"));
+        assertTrue(response.body().contains("Przejdź do modułu Bohaterowie"));
+    }
+
+    @Test
     void shouldRenderFormForSearchBuildPage() throws Exception {
+        createHero("Szperacz", "13");
         HttpResponse<String> response = sendGet("/znajdz-najlepszy-build");
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Znajdź najlepszy build"));
+        assertTrue(response.body().contains("Aktywny bohater searcha"));
         assertTrue(response.body().contains("Konfiguracja searcha"));
         assertTrue(response.body().contains("Tryb biblioteki itemów"));
         assertTrue(response.body().contains("Przestrzeń statów wejściowych"));
@@ -74,6 +85,7 @@ class SearchBuildWebServerTest {
 
     @Test
     void shouldRunSearchAndRenderRequiredSections() throws Exception {
+        createHero("Szperacz", "13");
         HttpResponse<String> response = sendPost(
                 "/znajdz-najlepszy-build",
                 buildReferenceSearchFields()
@@ -106,6 +118,7 @@ class SearchBuildWebServerTest {
 
     @Test
     void shouldAllowDrillDownFromSearchResultToCandidateDetailsOnSameRuntime() throws Exception {
+        createHero("Szperacz", "13");
         HttpResponse<String> searchResponse = sendPost(
                 "/znajdz-najlepszy-build",
                 buildReferenceSearchFields()
@@ -123,6 +136,7 @@ class SearchBuildWebServerTest {
         assertTrue(detailResponse.body().contains("Szczegóły wyniku searcha"));
         assertTrue(detailResponse.body().contains("Wybrany wynik po normalizacji"));
         assertTrue(detailResponse.body().contains("#1"));
+        assertTrue(detailResponse.body().contains("Aktywny bohater"));
         assertTrue(detailResponse.body().contains("Wejście buildu"));
         assertTrue(detailResponse.body().contains("Skille na pasku"));
         assertTrue(detailResponse.body().contains("Pasek akcji"));
@@ -149,6 +163,7 @@ class SearchBuildWebServerTest {
 
     @Test
     void shouldRenderSelectedLibraryItemsAndReuseSameCombinationInDrillDown() throws Exception {
+        createHero("Szperacz", "13");
         Map<String, String> fields = buildReferenceSearchFields();
         fields.put("useItemLibrary", "true");
         fields.put("weaponDamageValues", "0");
@@ -171,8 +186,8 @@ class SearchBuildWebServerTest {
         assertTrue(searchResponse.body().contains("Tryb biblioteki itemów"));
         assertTrue(searchResponse.body().contains("Włączony"));
         assertTrue(searchResponse.body().contains("Wybrane itemy z biblioteki"));
-        assertTrue(searchResponse.body().contains("Broń główna"));
-        assertTrue(searchResponse.body().contains("Ręka dodatkowa"));
+        assertTrue(searchResponse.body().contains("Broń"));
+        assertTrue(searchResponse.body().contains("Tarcza"));
         assertTrue(searchResponse.body().contains("Łączny wkład itemów"));
         assertTrue(searchResponse.body().contains("obrażenia broni=321"));
 
@@ -183,13 +198,24 @@ class SearchBuildWebServerTest {
         assertTrue(detailResponse.body().contains("Tryb biblioteki itemów"));
         assertTrue(detailResponse.body().contains("Włączony"));
         assertTrue(detailResponse.body().contains("Wybrane itemy z biblioteki"));
-        assertTrue(detailResponse.body().contains("Broń główna"));
-        assertTrue(detailResponse.body().contains("Ręka dodatkowa"));
+        assertTrue(detailResponse.body().contains("Broń"));
+        assertTrue(detailResponse.body().contains("Tarcza"));
         assertTrue(detailResponse.body().contains("obrażenia broni=321"));
         assertTrue(detailResponse.body().contains("inteligencja=11"));
 
         CurrentBuildCalculation expectedCalculation = calculateDrillDownExpectedResult(detailFields);
         assertTrue(detailResponse.body().contains(">" + expectedCalculation.getResult().getTotalDamage() + "<"));
+    }
+
+    private void createHero(String heroName, String heroLevel) throws Exception {
+        HttpResponse<String> response = sendPost("/bohaterowie", Map.of(
+                "action", "createHero",
+                "heroName", heroName,
+                "heroClass", "PALADIN",
+                "heroLevel", heroLevel
+        ));
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Utworzono bohatera " + heroName + "."));
     }
 
     private static Map<String, String> buildReferenceSearchFields() {

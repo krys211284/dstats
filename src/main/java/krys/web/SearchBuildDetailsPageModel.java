@@ -13,17 +13,20 @@ public final class SearchBuildDetailsPageModel {
     private final List<String> validationErrors;
     private final BuildSearchCandidate candidate;
     private final CurrentBuildCalculation calculation;
+    private final HeroProfile activeHero;
     private final String helpText;
 
     public SearchBuildDetailsPageModel(int selectedRank,
                                        List<String> validationErrors,
                                        BuildSearchCandidate candidate,
                                        CurrentBuildCalculation calculation,
+                                       HeroProfile activeHero,
                                        String helpText) {
         this.selectedRank = selectedRank;
         this.validationErrors = Collections.unmodifiableList(new ArrayList<>(validationErrors));
         this.candidate = candidate;
         this.calculation = calculation;
+        this.activeHero = activeHero;
         this.helpText = helpText;
     }
 
@@ -41,6 +44,10 @@ public final class SearchBuildDetailsPageModel {
 
     public CurrentBuildCalculation getCalculation() {
         return calculation;
+    }
+
+    public HeroProfile getActiveHero() {
+        return activeHero;
     }
 
     public String getHelpText() {

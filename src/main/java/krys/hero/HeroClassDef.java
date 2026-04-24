@@ -11,6 +11,7 @@ import java.util.List;
  */
 public final class HeroClassDef {
     private final HeroClass heroClass;
+    private final String displayName;
     private final ItemStatType mainStatType;
     private final int baseMainStatAtLevelOne;
     private final int mainStatPerLevel;
@@ -19,6 +20,7 @@ public final class HeroClassDef {
     private final int intelligencePerLevel;
 
     public HeroClassDef(HeroClass heroClass,
+                        String displayName,
                         ItemStatType mainStatType,
                         int baseMainStatAtLevelOne,
                         int mainStatPerLevel,
@@ -26,6 +28,7 @@ public final class HeroClassDef {
                         int baseIntelligenceAtLevelOne,
                         int intelligencePerLevel) {
         this.heroClass = heroClass;
+        this.displayName = displayName;
         this.mainStatType = mainStatType;
         this.baseMainStatAtLevelOne = baseMainStatAtLevelOne;
         this.mainStatPerLevel = mainStatPerLevel;
@@ -36,6 +39,10 @@ public final class HeroClassDef {
 
     public HeroClass getHeroClass() {
         return heroClass;
+    }
+
+    public String getDisplayName() {
+        return displayName;
     }
 
     public ItemStatType getMainStatType() {

@@ -94,6 +94,30 @@ final class CurrentBuildFormQuerySupport {
         );
     }
 
+    static CurrentBuildFormData withHeroLevel(CurrentBuildFormData baseFormData, int heroLevel) {
+        Map<SkillId, CurrentBuildFormData.SkillConfigFormData> copiedSkillConfigs = new EnumMap<>(SkillId.class);
+        for (SkillId skillId : SkillId.values()) {
+            CurrentBuildFormData.SkillConfigFormData skillConfig = baseFormData.getSkillConfig(skillId);
+            copiedSkillConfigs.put(skillId, new CurrentBuildFormData.SkillConfigFormData(
+                    skillConfig.getRank(),
+                    skillConfig.isBaseUpgrade(),
+                    skillConfig.getChoiceUpgrade()
+            ));
+        }
+        return new CurrentBuildFormData(
+                Integer.toString(heroLevel),
+                baseFormData.getWeaponDamage(),
+                baseFormData.getStrength(),
+                baseFormData.getIntelligence(),
+                baseFormData.getThorns(),
+                baseFormData.getBlockChance(),
+                baseFormData.getRetributionChance(),
+                baseFormData.getHorizonSeconds(),
+                copiedSkillConfigs,
+                baseFormData.getActionBarSlots()
+        );
+    }
+
     private static CurrentBuildFormData defaultImportContext() {
         CurrentBuildFormData defaults = CurrentBuildFormData.defaultValues();
         Map<SkillId, CurrentBuildFormData.SkillConfigFormData> copiedSkillConfigs = new EnumMap<>(SkillId.class);

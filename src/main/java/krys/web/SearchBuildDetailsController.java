@@ -5,7 +5,9 @@ import com.sun.net.httpserver.HttpHandler;
 import krys.app.CurrentBuildCalculation;
 import krys.app.CurrentBuildCalculationService;
 import krys.item.EquipmentSlot;
+import krys.item.HeroEquipmentSlot;
 import krys.itemlibrary.ItemLibrarySearchCombination;
+import krys.itemlibrary.HeroSlotItemAssignment;
 import krys.itemlibrary.SavedImportedItem;
 import krys.search.BuildSearchCandidate;
 import krys.itemimport.CurrentBuildImportableStats;
@@ -24,18 +26,22 @@ public final class SearchBuildDetailsController implements HttpHandler {
     private final CurrentBuildCalculationService calculationService;
     private final SearchBuildDetailsPageRenderer renderer;
     private final CurrentBuildFormMapper formMapper;
+    private final HeroService heroService;
 
     public SearchBuildDetailsController(CurrentBuildCalculationService calculationService,
-                                        SearchBuildDetailsPageRenderer renderer) {
-        this(calculationService, renderer, new CurrentBuildFormMapper());
+                                        SearchBuildDetailsPageRenderer renderer,
+                                        HeroService heroService) {
+        this(calculationService, renderer, new CurrentBuildFormMapper(), heroService);
     }
 
     SearchBuildDetailsController(CurrentBuildCalculationService calculationService,
                                  SearchBuildDetailsPageRenderer renderer,
-                                 CurrentBuildFormMapper formMapper) {
+                                 CurrentBuildFormMapper formMapper,
+                                 HeroService heroService) {
         this.calculationService = calculationService;
         this.renderer = renderer;
         this.formMapper = formMapper;
+        this.heroService = heroService;
     }
 
     @Override
@@ -81,6 +87,7 @@ public final class SearchBuildDetailsController implements HttpHandler {
                 errors,
                 candidate,
                 calculation,
+                heroService.getActiveHero().orElse(null),
                 "Drill-down M12 odtwarza reprezentanta znormalizowanego wyniku na tym samym runtime co flow „Policz aktualny build”."
         );
     }
@@ -112,11 +119,11 @@ public final class SearchBuildDetailsController implements HttpHandler {
             return ItemLibrarySearchCombination.empty();
         }
 
-        List<SavedImportedItem> selectedItems = new ArrayList<>();
+        List<HeroSlotItemAssignment> selectedItems = new ArrayList<>();
         for (int index = 0; index < selectedCount; index++) {
-            SavedImportedItem item = parseLibraryItem(fields, index, errors);
-            if (item != null) {
-                selectedItems.add(item);
+            HeroSlotItemAssignment assignment = parseLibraryItem(fields, index, errors);
+            if (assignment != null) {
+                selectedItems.add(assignment);
             }
         }
         if (!errors.isEmpty()) {
@@ -126,9 +133,15 @@ public final class SearchBuildDetailsController implements HttpHandler {
         return new ItemLibrarySearchCombination(selectedItems, aggregateContribution(selectedItems));
     }
 
-    private static SavedImportedItem parseLibraryItem(Map<String, String> fields, int index, List<String> errors) {
+    private static HeroSlotItemAssignment parseLibraryItem(Map<String, String> fields, int index, List<String> errors) {
         try {
-            return new SavedImportedItem(
+            HeroEquipmentSlot heroSlot = HeroEquipmentSlot.valueOf(requireField(
+                    fields,
+                    "itemLibraryHeroSlot_" + index,
+                    "slot bohatera dla itemu biblioteki",
+                    errors
+            ));
+            SavedImportedItem item = new SavedImportedItem(
                     parseLong(fields.get("itemLibraryItemId_" + index), "id itemu biblioteki", errors),
                     requireField(fields, "itemLibraryDisplayName_" + index, "display name itemu biblioteki", errors),
                     requireField(fields, "itemLibrarySourceImageName_" + index, "nazwę pliku źródłowego itemu biblioteki", errors),
@@ -140,20 +153,22 @@ public final class SearchBuildDetailsController implements HttpHandler {
                     parseDouble(fields.get("itemLibraryBlockChance_" + index), "block chance itemu biblioteki", errors),
                     parseDouble(fields.get("itemLibraryRetributionChance_" + index), "retribution chance itemu biblioteki", errors)
             );
+            return new HeroSlotItemAssignment(heroSlot, item);
         } catch (IllegalArgumentException exception) {
             errors.add("Drill-down searcha otrzymał niepoprawny item biblioteki.");
             return null;
         }
     }
 
-    private static CurrentBuildImportableStats aggregateContribution(List<SavedImportedItem> selectedItems) {
+    private static CurrentBuildImportableStats aggregateContribution(List<HeroSlotItemAssignment> selectedItems) {
         long weaponDamage = 0L;
         double strength = 0.0d;
         double intelligence = 0.0d;
         double thorns = 0.0d;
         double blockChance = 0.0d;
         double retributionChance = 0.0d;
-        for (SavedImportedItem item : selectedItems) {
+        for (HeroSlotItemAssignment assignment : selectedItems) {
+            SavedImportedItem item = assignment.getItem();
             weaponDamage += item.getWeaponDamage();
             strength += item.getStrength();
             intelligence += item.getIntelligence();

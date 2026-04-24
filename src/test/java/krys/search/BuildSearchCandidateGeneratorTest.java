@@ -1,6 +1,7 @@
 package krys.search;
 
 import krys.item.EquipmentSlot;
+import krys.item.HeroEquipmentSlot;
 import krys.itemlibrary.FileItemLibraryRepository;
 import krys.itemlibrary.ItemLibraryService;
 import krys.skill.SkillId;
@@ -141,7 +142,7 @@ class BuildSearchCandidateGeneratorTest {
         assertTrue(candidates.stream().allMatch(BuildSearchCandidate::usesItemLibrary));
         assertTrue(candidates.stream().allMatch(candidate ->
                 candidate.getItemLibraryCombination().getSelectedItems().stream()
-                        .map(item -> item.getSlot())
+                        .map(assignment -> assignment.getHeroSlot())
                         .distinct()
                         .count() == candidate.getItemLibraryCombination().getSelectedItems().size()
         ));
@@ -149,7 +150,7 @@ class BuildSearchCandidateGeneratorTest {
         assertTrue(candidates.stream().anyMatch(candidate ->
                 candidate.getCurrentBuildRequest().getWeaponDamage() == 300L
                         && candidate.getCurrentBuildRequest().getStrength() == 85.0d
-                        && candidate.getSelectedItemLibraryItemsDescription().contains("Broń główna")
+                        && candidate.getSelectedItemLibraryItemsDescription().contains("Broń")
         ));
         assertTrue(candidates.stream().anyMatch(candidate ->
                 candidate.getCurrentBuildRequest().getWeaponDamage() == 321L
@@ -160,6 +161,10 @@ class BuildSearchCandidateGeneratorTest {
                         && candidate.getCurrentBuildRequest().getRetributionChance() == 40.0d
                         && candidate.getItemLibraryContributionDescription().contains("obrażenia broni=321")
                         && candidate.getItemLibraryContributionDescription().contains("inteligencja=11")
+        ));
+        assertTrue(candidates.stream().anyMatch(candidate ->
+                candidate.getItemLibraryCombination().getSelectedItems().stream()
+                        .anyMatch(assignment -> assignment.getHeroSlot() == HeroEquipmentSlot.OFF_HAND)
         ));
     }
 

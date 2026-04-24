@@ -1,5 +1,6 @@
 package krys.web;
 
+import krys.itemimport.CurrentBuildImportableStats;
 import krys.search.BuildSearchRequest;
 import krys.search.BuildSearchSkillSpace;
 import krys.skill.SkillId;
@@ -14,6 +15,10 @@ import java.util.Map;
 /** Mapuje dane formularza GUI searcha M12 do istniejącego `BuildSearchRequest`. */
 final class SearchBuildFormMapper {
     MappingResult map(SearchBuildFormData formData) {
+        return map(formData, new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d));
+    }
+
+    MappingResult map(SearchBuildFormData formData, CurrentBuildImportableStats activeHeroItemsContribution) {
         List<String> errors = new ArrayList<>();
         int weaponDamageMinimum = formData.isUseItemLibrary() ? 0 : 1;
 
@@ -65,7 +70,8 @@ final class SearchBuildFormMapper {
                     skillSpaces,
                     actionBarSizes,
                     horizonSeconds,
-                    topResultsLimit
+                    topResultsLimit,
+                    activeHeroItemsContribution
             ), errors);
         } catch (IllegalArgumentException exception) {
             errors.add(exception.getMessage());

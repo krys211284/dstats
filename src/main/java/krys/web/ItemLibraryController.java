@@ -2,7 +2,7 @@ package krys.web;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import krys.item.EquipmentSlot;
+import krys.item.HeroEquipmentSlot;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
@@ -22,18 +22,22 @@ public final class ItemLibraryController implements HttpHandler {
     private final ItemLibraryService itemLibraryService;
     private final ItemLibraryPageRenderer renderer;
     private final ItemImportFormMapper itemImportFormMapper;
+    private final HeroService heroService;
 
     public ItemLibraryController(ItemLibraryService itemLibraryService,
-                                 ItemLibraryPageRenderer renderer) {
-        this(itemLibraryService, renderer, new ItemImportFormMapper());
+                                 ItemLibraryPageRenderer renderer,
+                                 HeroService heroService) {
+        this(itemLibraryService, renderer, new ItemImportFormMapper(), heroService);
     }
 
     ItemLibraryController(ItemLibraryService itemLibraryService,
                           ItemLibraryPageRenderer renderer,
-                          ItemImportFormMapper itemImportFormMapper) {
+                          ItemImportFormMapper itemImportFormMapper,
+                          HeroService heroService) {
         this.itemLibraryService = itemLibraryService;
         this.renderer = renderer;
         this.itemImportFormMapper = itemImportFormMapper;
+        this.heroService = heroService;
     }
 
     @Override
@@ -41,11 +45,9 @@ public final class ItemLibraryController implements HttpHandler {
         try {
             String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
             if ("GET".equals(method)) {
-                String currentBuildQuery = CurrentBuildFormQuerySupport.toQuery(
-                        CurrentBuildFormQuerySupport.resolveImportContext(
-                                UrlEncodedFormSupport.parseQuery(exchange.getRequestURI().getRawQuery())
-                        )
-                );
+                String currentBuildQuery = heroService.getActiveHero()
+                        .map(HeroProfile::getCurrentBuildQuery)
+                        .orElse("");
                 renderPage(exchange, buildPageModel(List.of(), List.of(), currentBuildQuery, null));
                 return;
             }
@@ -102,12 +104,14 @@ public final class ItemLibraryController implements HttpHandler {
     }
 
     private ItemLibraryPageModel handleActivateItem(Map<String, String> fields, String currentBuildQuery) {
+        HeroProfile activeHero = heroService.requireActiveHero();
         long itemId = parseItemId(fields.getOrDefault("itemId", ""));
-        EquipmentSlot slot = EquipmentSlot.valueOf(fields.getOrDefault("slot", ""));
-        itemLibraryService.setActiveItem(slot, itemId);
+        HeroEquipmentSlot heroSlot = HeroEquipmentSlot.valueOf(fields.getOrDefault("heroSlot", ""));
+        itemLibraryService.requireCompatibleItem(heroSlot, itemId);
+        heroService.setActiveHeroItem(heroSlot, itemId);
         return buildPageModel(
                 List.of(),
-                List.of("Aktywny item dla slotu " + ItemLibraryPresentationSupport.slotDisplayName(slot) + " został zmieniony. Nowy wybór zastępuje poprzedni aktywny item w tym samym slocie."),
+                List.of("Aktywny item dla slotu " + ItemLibraryPresentationSupport.heroSlotDisplayName(heroSlot) + " został zmieniony dla bohatera " + activeHero.getName() + "."),
                 currentBuildQuery,
                 null
         );
@@ -116,6 +120,7 @@ public final class ItemLibraryController implements HttpHandler {
     private ItemLibraryPageModel handleDeleteItem(Map<String, String> fields, String currentBuildQuery) {
         long itemId = parseItemId(fields.getOrDefault("itemId", ""));
         itemLibraryService.deleteItem(itemId);
+        heroService.clearItemFromAllHeroes(itemId);
         return buildPageModel(List.of(), List.of("Usunięto item z biblioteki."), currentBuildQuery, null);
     }
 
@@ -125,7 +130,8 @@ public final class ItemLibraryController implements HttpHandler {
                                                 SavedImportedItem savedItemFeedback) {
         return new ItemLibraryPageModel(
                 itemLibraryService.getSavedItems(),
-                itemLibraryService.getSelection(),
+                heroService.getActiveHero().orElse(null),
+                heroService.getActiveHero().map(HeroProfile::getItemSelection).orElse(HeroItemSelection.empty()),
                 errors,
                 messages,
                 currentBuildQuery,

@@ -9,12 +9,12 @@ import java.util.List;
 /** Wynik złożenia ręcznej bazy current build z aktywnymi itemami biblioteki. */
 public final class EffectiveCurrentBuildResolution {
     private final CurrentBuildImportableStats manualBaseStats;
-    private final List<SavedImportedItem> activeItems;
+    private final List<HeroSlotItemAssignment> activeItems;
     private final CurrentBuildImportableStats activeItemsContribution;
     private final CurrentBuildImportableStats effectiveStats;
 
     public EffectiveCurrentBuildResolution(CurrentBuildImportableStats manualBaseStats,
-                                           List<SavedImportedItem> activeItems,
+                                           List<HeroSlotItemAssignment> activeItems,
                                            CurrentBuildImportableStats activeItemsContribution,
                                            CurrentBuildImportableStats effectiveStats) {
         this.manualBaseStats = manualBaseStats;
@@ -27,7 +27,7 @@ public final class EffectiveCurrentBuildResolution {
         return manualBaseStats;
     }
 
-    public List<SavedImportedItem> getActiveItems() {
+    public List<HeroSlotItemAssignment> getActiveItems() {
         return activeItems;
     }
 

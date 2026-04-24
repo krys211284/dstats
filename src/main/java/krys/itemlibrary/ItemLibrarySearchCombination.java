@@ -8,10 +8,10 @@ import java.util.List;
 
 /** Reprezentuje pojedynczą kombinację searcha złożoną z co najwyżej jednego zapisanego itemu per slot. */
 public final class ItemLibrarySearchCombination {
-    private final List<SavedImportedItem> selectedItems;
+    private final List<HeroSlotItemAssignment> selectedItems;
     private final CurrentBuildImportableStats totalContribution;
 
-    public ItemLibrarySearchCombination(List<SavedImportedItem> selectedItems,
+    public ItemLibrarySearchCombination(List<HeroSlotItemAssignment> selectedItems,
                                         CurrentBuildImportableStats totalContribution) {
         this.selectedItems = Collections.unmodifiableList(new ArrayList<>(selectedItems));
         this.totalContribution = totalContribution;
@@ -24,7 +24,7 @@ public final class ItemLibrarySearchCombination {
         );
     }
 
-    public List<SavedImportedItem> getSelectedItems() {
+    public List<HeroSlotItemAssignment> getSelectedItems() {
         return selectedItems;
     }
 
@@ -42,8 +42,10 @@ public final class ItemLibrarySearchCombination {
         }
 
         List<String> labels = new ArrayList<>();
-        for (SavedImportedItem item : selectedItems) {
-            labels.add(ItemLibraryPresentationSupport.slotDisplayName(item.getSlot()) + ": " + ItemLibraryPresentationSupport.userItemIdentifier(item));
+        for (HeroSlotItemAssignment assignment : selectedItems) {
+            labels.add(ItemLibraryPresentationSupport.heroSlotDisplayName(assignment.getHeroSlot())
+                    + ": "
+                    + ItemLibraryPresentationSupport.userItemIdentifier(assignment.getItem()));
         }
         return String.join(" || ", labels);
     }
@@ -58,8 +60,8 @@ public final class ItemLibrarySearchCombination {
         }
 
         List<String> labels = new ArrayList<>();
-        for (SavedImportedItem item : selectedItems) {
-            labels.add(item.getSlot().name() + "#" + item.getItemId());
+        for (HeroSlotItemAssignment assignment : selectedItems) {
+            labels.add(assignment.getHeroSlot().name() + "#" + assignment.getItem().getItemId());
         }
         return String.join("|", labels);
     }

@@ -3,7 +3,9 @@ package krys.search;
 import krys.app.CurrentBuildRequest;
 import krys.combat.DamageEngine;
 import krys.item.EquipmentSlot;
+import krys.item.HeroEquipmentSlot;
 import krys.itemimport.CurrentBuildImportableStats;
+import krys.itemlibrary.HeroSlotItemAssignment;
 import krys.itemlibrary.ItemLibrarySearchCombination;
 import krys.itemlibrary.SavedImportedItem;
 import krys.simulation.ManualSimulationService;
@@ -73,32 +75,38 @@ class BuildSearchPresentationNormalizerTest {
     @Test
     void powinien_zachowac_oddzielne_wyniki_dla_roznych_kombinacji_itemow_biblioteki() {
         ItemLibrarySearchCombination firstCombination = new ItemLibrarySearchCombination(
-                List.of(new SavedImportedItem(
-                        1L,
-                        "MAIN_HAND / weapon-a.png",
-                        "weapon-a.png",
-                        EquipmentSlot.MAIN_HAND,
-                        300L,
-                        55.0d,
-                        0.0d,
-                        0.0d,
-                        0.0d,
-                        0.0d
+                List.of(new HeroSlotItemAssignment(
+                        HeroEquipmentSlot.MAIN_HAND,
+                        new SavedImportedItem(
+                                1L,
+                                "MAIN_HAND / weapon-a.png",
+                                "weapon-a.png",
+                                EquipmentSlot.MAIN_HAND,
+                                300L,
+                                55.0d,
+                                0.0d,
+                                0.0d,
+                                0.0d,
+                                0.0d
+                        )
                 )),
                 new CurrentBuildImportableStats(300L, 55.0d, 0.0d, 0.0d, 0.0d, 0.0d)
         );
         ItemLibrarySearchCombination secondCombination = new ItemLibrarySearchCombination(
-                List.of(new SavedImportedItem(
-                        2L,
-                        "MAIN_HAND / weapon-b.png",
-                        "weapon-b.png",
-                        EquipmentSlot.MAIN_HAND,
-                        300L,
-                        55.0d,
-                        0.0d,
-                        0.0d,
-                        0.0d,
-                        0.0d
+                List.of(new HeroSlotItemAssignment(
+                        HeroEquipmentSlot.MAIN_HAND,
+                        new SavedImportedItem(
+                                2L,
+                                "MAIN_HAND / weapon-b.png",
+                                "weapon-b.png",
+                                EquipmentSlot.MAIN_HAND,
+                                300L,
+                                55.0d,
+                                0.0d,
+                                0.0d,
+                                0.0d,
+                                0.0d
+                        )
                 )),
                 new CurrentBuildImportableStats(300L, 55.0d, 0.0d, 0.0d, 0.0d, 0.0d)
         );
@@ -126,8 +134,8 @@ class BuildSearchPresentationNormalizerTest {
 
         assertEquals(2, presentationView.normalizedResultCount());
         assertEquals(2, presentationView.topResults().size());
-        assertEquals("Broń główna: #1 / weapon-a.png", presentationView.topResults().get(0).getCandidate().getSelectedItemLibraryItemsDescription());
-        assertEquals("Broń główna: #2 / weapon-b.png", presentationView.topResults().get(1).getCandidate().getSelectedItemLibraryItemsDescription());
+        assertEquals("Broń: #1 / weapon-a.png", presentationView.topResults().get(0).getCandidate().getSelectedItemLibraryItemsDescription());
+        assertEquals("Broń: #2 / weapon-b.png", presentationView.topResults().get(1).getCandidate().getSelectedItemLibraryItemsDescription());
     }
 
     private static CurrentBuildRequest createAdvanceClashRequest(Map<SkillId, SkillState> learnedSkills, List<SkillId> actionBar) {

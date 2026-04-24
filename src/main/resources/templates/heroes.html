@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Build WebApp - Bohaterowie</title>
+    <style>
+        :root {
+            --bg: #f4efe7;
+            --panel: #fffaf3;
+            --line: #d8cab5;
+            --text: #26221d;
+            --muted: #6f685c;
+            --accent: #254f42;
+            --accent-soft: #d9ece5;
+            --success: #1f6a43;
+            --success-bg: #dff3e7;
+            --warning: #8b5a16;
+            --warning-bg: #f8e9cc;
+            --error: #8d1b1b;
+            --error-bg: #fde8e8;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Tahoma, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(37, 79, 66, 0.12), transparent 28%),
+                linear-gradient(180deg, #fbf8f4 0%, var(--bg) 100%);
+        }
+        .layout { max-width: 1240px; margin: 0 auto; padding: 24px 16px 48px; }
+        .panel {
+            margin-bottom: 18px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: rgba(255, 250, 243, 0.96);
+            box-shadow: 0 12px 24px rgba(38, 34, 29, 0.05);
+        }
+        .panel-success { background: var(--success-bg); border-color: rgba(31, 106, 67, 0.24); }
+        .panel-error { background: var(--error-bg); border-color: rgba(141, 27, 27, 0.24); }
+        .hero-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+        .hero-card { padding: 16px; border: 1px solid rgba(38, 34, 29, 0.08); border-radius: 16px; background: #fff; }
+        .hero-card-top { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+        .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+        .inline-form { display: inline-block; }
+        .status-badge { display: inline-block; padding: 5px 10px; border-radius: 999px; font-size: 0.82rem; font-weight: 800; }
+        .status-active { color: var(--success); background: var(--success-bg); }
+        .status-idle { color: var(--warning); background: var(--warning-bg); }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+        .summary-card { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+        .summary-label { color: var(--muted); font-size: 0.88rem; margin-bottom: 6px; }
+        .summary-value { font-size: 1.05rem; font-weight: 700; }
+        .empty-state { padding: 24px; border: 1px dashed var(--line); border-radius: 16px; background: rgba(255, 255, 255, 0.72); margin-bottom: 18px; }
+        label { display: grid; gap: 8px; font-weight: 600; }
+        input, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #fff;
+            color: var(--text);
+            font: inherit;
+        }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; align-items: end; }
+        button {
+            display: inline-block;
+            border: none;
+            border-radius: 999px;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #234739 0%, #3a6f5d 100%);
+            color: #f5fbf8;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .secondary-button { background: #ead7b8; color: #57330c; }
+        .message-list { margin: 0; padding-left: 20px; }
+        .helper { color: var(--muted); }
+    </style>
+</head>
+<body>
+<main class="layout">
+    {{GLOBAL_NAV}}
+
+    <section class="panel">
+        <h1>Bohaterowie</h1>
+        <p class="helper">To jest główny moduł organizujący aplikację wokół bohatera, jego buildu i aktywnych slotów. Biblioteka itemów pozostaje wspólna, ale aktywny wybór slotów należy do konkretnego bohatera.</p>
+    </section>
+
+    {{MESSAGES}}
+    {{ERRORS}}
+    {{ACTIVE_HERO_SECTION}}
+
+    <section class="panel">
+        <h2>Utwórz bohatera</h2>
+        <form method="post" action="/bohaterowie">
+            <input type="hidden" name="action" value="createHero">
+            <div class="form-grid">
+                <label>
+                    Nazwa bohatera
+                    <input type="text" name="heroName" value="">
+                </label>
+                <label>
+                    Klasa postaci
+                    <select name="heroClass">
+                        <option value="PALADIN">Paladyn</option>
+                    </select>
+                </label>
+                <label>
+                    Poziom bohatera
+                    <input type="number" min="1" step="1" name="heroLevel" value="13">
+                </label>
+            </div>
+            <div style="margin-top: 14px;">
+                <button type="submit">Utwórz bohatera</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="panel">
+        <h2>Lista bohaterów</h2>
+        {{HERO_LIST}}
+    </section>
+</main>
+</body>
+</html>

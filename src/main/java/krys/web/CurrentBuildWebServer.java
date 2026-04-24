@@ -32,18 +32,27 @@ public final class CurrentBuildWebServer implements AutoCloseable {
         ItemLibraryService itemLibraryService = new ItemLibraryService(
                 new FileItemLibraryRepository(itemLibraryDataDirectory)
         );
+        HeroService heroService = new HeroService(
+                new FileHeroProfileRepository(itemLibraryDataDirectory)
+        );
         CurrentBuildCalculationService calculationService = new CurrentBuildCalculationService(
                 new ManualSimulationService(new DamageEngine())
         );
         CurrentBuildController controller = new CurrentBuildController(
                 calculationService,
                 new CurrentBuildPageRenderer(),
-                itemLibraryService
+                itemLibraryService,
+                heroService
         );
         HomeController homeController = new HomeController(new HomePageRenderer());
+        HeroesController heroesController = new HeroesController(
+                heroService,
+                new HeroesPageRenderer()
+        );
         SearchBuildDetailsController searchBuildDetailsController = new SearchBuildDetailsController(
                 calculationService,
-                new SearchBuildDetailsPageRenderer()
+                new SearchBuildDetailsPageRenderer(),
+                heroService
         );
         BuildSearchCalculationService searchCalculationService = new BuildSearchCalculationService(
                 new BuildSearchEvaluationService(new ManualSimulationService(new DamageEngine())),
@@ -51,18 +60,23 @@ public final class CurrentBuildWebServer implements AutoCloseable {
         );
         SearchBuildController searchController = new SearchBuildController(
                 searchCalculationService,
-                new SearchBuildPageRenderer()
+                new SearchBuildPageRenderer(),
+                itemLibraryService,
+                heroService
         );
         ItemImportController itemImportController = new ItemImportController(
                 new ItemImageImportService(),
-                new ItemImportPageRenderer()
+                new ItemImportPageRenderer(),
+                heroService
         );
         ItemLibraryController itemLibraryController = new ItemLibraryController(
                 itemLibraryService,
-                new ItemLibraryPageRenderer()
+                new ItemLibraryPageRenderer(),
+                heroService
         );
         PlaceholderPageRenderer placeholderPageRenderer = new PlaceholderPageRenderer();
 
+        server.createContext("/bohaterowie", heroesController);
         server.createContext("/policz-aktualny-build", controller);
         server.createContext("/znajdz-najlepszy-build", searchController);
         server.createContext("/znajdz-najlepszy-build/szczegoly", searchBuildDetailsController);

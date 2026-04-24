@@ -28,6 +28,7 @@ public final class ItemImportPageRenderer {
     public String render(ItemImportPageModel model) {
         return template
                 .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/importuj-item-ze-screena"))
+                .replace("{{HERO_CONTEXT}}", renderHeroContext(model))
                 .replace("{{FORM_ERRORS}}", renderErrors(model.getValidationErrors()))
                 .replace("{{HELP_TEXT}}", escapeHtml(model.getHelpText()))
                 .replace("{{UPLOAD_ACTION}}", escapeHtml(buildUploadAction(model.getCurrentBuildQuery())))
@@ -56,6 +57,18 @@ public final class ItemImportPageRenderer {
     }
 
     private static String renderParseSection(ItemImportPageModel model) {
+        if (!model.hasActiveHero()) {
+            return """
+                    <section class="panel result-panel">
+                        <h2>Brak aktywnego bohatera</h2>
+                        <div class="empty-state">
+                            <h3>Najpierw wybierz bohatera</h3>
+                            <p>Import pojedynczego itemu działa w kontekście aktywnego bohatera. Utwórz pierwszego bohatera albo ustaw istniejącego, aby po imporcie wiedzieć, dla kogo zapisujesz item i czy chcesz przypisać go do jego ekwipunku.</p>
+                            <a class="link-button" href="/bohaterowie">Przejdź do modułu Bohaterowie</a>
+                        </div>
+                    </section>
+                    """;
+        }
         if (!model.hasEditableForm()) {
             return """
                     <section class="panel result-panel">
@@ -142,6 +155,9 @@ public final class ItemImportPageRenderer {
     }
 
     private static String renderConfirmSection(ItemImportPageModel model) {
+        if (!model.hasActiveHero()) {
+            return "";
+        }
         if (!model.hasConfirmedImport()) {
             return "";
         }
@@ -155,6 +171,7 @@ public final class ItemImportPageRenderer {
                     <div class="summary-grid">
                 """);
         html.append(renderSummaryCard("Plik źródłowy", importedItem.getSourceImageName()))
+                .append(renderSummaryCard("Aktywny bohater", model.getActiveHero().getName()))
                 .append(renderSummaryCard("Slot / typ itemu", ItemLibraryPresentationSupport.slotDisplayName(importedItem.getSlot())))
                 .append(renderSummaryCard("Obrażenia broni", Long.toString(importedItem.getWeaponDamage())))
                 .append(renderSummaryCard("Siła", formatWhole(importedItem.getStrength())))
@@ -280,6 +297,23 @@ public final class ItemImportPageRenderer {
 
     private static String renderSummaryCard(String label, String value) {
         return CurrentBuildCalculationSectionsRenderer.renderSummaryCard(label, value);
+    }
+
+    private static String renderHeroContext(ItemImportPageModel model) {
+        if (!model.hasActiveHero()) {
+            return """
+                    <section class="panel panel-error">
+                        <h2>Brak aktywnego bohatera</h2>
+                        <p>Ten moduł importu jest przygotowany pod pracę w kontekście bohatera i jego buildu. Bez aktywnego bohatera nie pokażemy dalszych akcji przypisania itemu.</p>
+                    </section>
+                    """;
+        }
+        return """
+                <section class="panel">
+                    <h2>Aktywny bohater importu</h2>
+                    <p class="helper">Importujesz teraz item dla bohatera %s. Po zapisaniu do biblioteki możesz od razu przypisać go do zgodnego slotu jego ekwipunku.</p>
+                </section>
+                """.formatted(escapeHtml(model.getActiveHero().getName()));
     }
 
     private static String renderRuntimeStatsLabel(List<ItemStat> stats) {

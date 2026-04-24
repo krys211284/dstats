@@ -17,6 +17,8 @@
             --error-bg: #fde8e8;
             --success-bg: #e6f3ea;
             --success-text: #245238;
+            --warning-bg: #f8e9cc;
+            --warning-text: #8b5a16;
         }
 
         * {
@@ -115,6 +117,12 @@
             border-color: rgba(36, 82, 56, 0.18);
             background: var(--success-bg);
             color: var(--success-text);
+        }
+
+        .panel-warning {
+            border-color: rgba(139, 90, 22, 0.22);
+            background: var(--warning-bg);
+            color: var(--warning-text);
         }
 
         .form-grid {
@@ -279,10 +287,7 @@
 
         .equipment-board {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            grid-template-areas:
-                "main chest off"
-                "ring chest boots";
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 14px;
         }
 
@@ -293,12 +298,6 @@
             background: #fff;
             min-height: 220px;
         }
-
-        .equipment-slot-main_hand { grid-area: main; }
-        .equipment-slot-off_hand { grid-area: off; }
-        .equipment-slot-chest { grid-area: chest; }
-        .equipment-slot-ring { grid-area: ring; }
-        .equipment-slot-boots { grid-area: boots; }
 
         .slot-header {
             display: flex;
@@ -392,6 +391,18 @@
             background: rgba(255, 255, 255, 0.74);
         }
 
+        .advanced-details {
+            margin-top: 16px;
+            padding: 14px 0 0;
+            border-top: 1px solid var(--line);
+        }
+
+        .advanced-details summary {
+            cursor: pointer;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
         .data-table {
             width: 100%;
             border-collapse: collapse;
@@ -449,12 +460,6 @@
         @media (max-width: 900px) {
             .equipment-board {
                 grid-template-columns: 1fr;
-                grid-template-areas:
-                    "main"
-                    "off"
-                    "chest"
-                    "ring"
-                    "boots";
             }
 
             .data-table,
@@ -490,38 +495,14 @@
     {{GLOBAL_NAV}}
 
     <header class="hero">
-        <div class="eyebrow">Current Build / SSR</div>
+        <div class="eyebrow">Bohater / Build / SSR</div>
         <h1>Policz aktualny build</h1>
-        <p>To jest główny ekran manual simulation nad istniejącym runtime. Użytkownik ustawia bazę ręczną, widzi aktywne itemy jako ekwipunek postaci, a aplikacja składa z tego jeden spójny stan wejściowy do tych samych obliczeń co wcześniej.</p>
+        <p>To jest ekran buildu aktywnego bohatera. Najpierw widzisz jego ekwipunek i użyte itemy, potem efektywne staty, skille, pasek akcji i wynik tej samej manual simulation co wcześniej.</p>
     </header>
 
+    {{HERO_CONTEXT}}
     {{FORM_MESSAGES}}
-
-    <section class="panel">
-        <h2>Wejście aktualnego buildu</h2>
-        <form method="post" action="/policz-aktualny-build">
-            {{MANUAL_BASE_SECTION}}
-            {{EQUIPMENT_SECTION}}
-            {{EFFECTIVE_STATS_SECTION}}
-
-            <section class="subpanel">
-                <h3>Nauczone skille</h3>
-                {{SKILL_CONFIG_FIELDS}}
-            </section>
-
-            <section class="subpanel">
-                <h3>Pasek akcji</h3>
-                <div class="form-grid">
-                    {{ACTION_BAR_FIELDS}}
-                </div>
-            </section>
-
-            <div class="submit-row">
-                <button type="submit">Policz aktualny build</button>
-                <button type="submit" formmethod="get" formaction="/importuj-item-ze-screena" class="secondary-button">Importuj item i wróć do aktualnego buildu</button>
-            </div>
-        </form>
-    </section>
+    {{ENTRY_SECTION}}
 
     {{FORM_ERRORS}}
 

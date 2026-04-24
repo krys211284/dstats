@@ -8,7 +8,7 @@ import java.util.Map;
 public final class HeroClassDefs {
     private static final Map<HeroClass, HeroClassDef> DEFINITIONS = Map.of(
             HeroClass.PALADIN,
-            new HeroClassDef(HeroClass.PALADIN, ItemStatType.STRENGTH, 10, 1, 1000.0d, 7, 1)
+            new HeroClassDef(HeroClass.PALADIN, "Paladyn", ItemStatType.STRENGTH, 10, 1, 1000.0d, 7, 1)
     );
 
     private HeroClassDefs() {

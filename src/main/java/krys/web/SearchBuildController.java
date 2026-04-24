@@ -2,6 +2,8 @@ package krys.web;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
+import krys.itemimport.CurrentBuildImportableStats;
+import krys.itemlibrary.ItemLibraryService;
 import krys.search.BuildSearchCalculationService;
 import krys.search.BuildSearchResult;
 
@@ -18,18 +20,26 @@ public final class SearchBuildController implements HttpHandler {
     private final BuildSearchCalculationService calculationService;
     private final SearchBuildPageRenderer renderer;
     private final SearchBuildFormMapper formMapper;
+    private final ItemLibraryService itemLibraryService;
+    private final HeroService heroService;
 
     public SearchBuildController(BuildSearchCalculationService calculationService,
-                                 SearchBuildPageRenderer renderer) {
-        this(calculationService, renderer, new SearchBuildFormMapper());
+                                 SearchBuildPageRenderer renderer,
+                                 ItemLibraryService itemLibraryService,
+                                 HeroService heroService) {
+        this(calculationService, renderer, new SearchBuildFormMapper(), itemLibraryService, heroService);
     }
 
     SearchBuildController(BuildSearchCalculationService calculationService,
                           SearchBuildPageRenderer renderer,
-                          SearchBuildFormMapper formMapper) {
+                          SearchBuildFormMapper formMapper,
+                          ItemLibraryService itemLibraryService,
+                          HeroService heroService) {
         this.calculationService = calculationService;
         this.renderer = renderer;
         this.formMapper = formMapper;
+        this.itemLibraryService = itemLibraryService;
+        this.heroService = heroService;
     }
 
     @Override
@@ -37,7 +47,13 @@ public final class SearchBuildController implements HttpHandler {
         try {
             String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
             if ("GET".equals(method)) {
-                renderPage(exchange, buildPageModel(SearchBuildFormData.defaultValues(), List.of(), null));
+                HeroProfile activeHero = heroService.getActiveHero().orElse(null);
+                renderPage(exchange, buildPageModel(
+                        activeHero == null ? SearchBuildFormData.defaultValues() : SearchBuildFormData.fromHeroProfile(activeHero),
+                        List.of(),
+                        null,
+                        activeHero
+                ));
                 return;
             }
             if ("POST".equals(method)) {
@@ -52,14 +68,20 @@ public final class SearchBuildController implements HttpHandler {
     }
 
     private SearchBuildPageModel handlePost(HttpExchange exchange) throws IOException {
+        HeroProfile activeHero = heroService.getActiveHero().orElse(null);
+        if (activeHero == null) {
+            return buildPageModel(SearchBuildFormData.defaultValues(), List.of("Brak aktywnego bohatera. Utwórz albo wybierz bohatera przed uruchomieniem searcha."), null, null);
+        }
         SearchBuildFormData formData = SearchBuildFormData.fromFormFields(UrlEncodedFormSupport.parseBody(exchange));
         List<String> errors = new ArrayList<>();
-        BuildSearchResult result = tryCalculate(formData, errors);
-        return buildPageModel(formData, errors, result);
+        BuildSearchResult result = tryCalculate(formData, activeHero, errors);
+        return buildPageModel(formData, errors, result, activeHero);
     }
 
-    private BuildSearchResult tryCalculate(SearchBuildFormData formData, List<String> errors) {
-        SearchBuildFormMapper.MappingResult mappingResult = formMapper.map(formData);
+    private BuildSearchResult tryCalculate(SearchBuildFormData formData, HeroProfile activeHero, List<String> errors) {
+        CurrentBuildImportableStats activeHeroItemsContribution =
+                itemLibraryService.resolveActiveItemsContribution(activeHero.getItemSelection());
+        SearchBuildFormMapper.MappingResult mappingResult = formMapper.map(formData, activeHeroItemsContribution);
         errors.addAll(mappingResult.getErrors());
         if (!errors.isEmpty() || mappingResult.getRequest() == null) {
             return null;
@@ -75,11 +97,13 @@ public final class SearchBuildController implements HttpHandler {
 
     private SearchBuildPageModel buildPageModel(SearchBuildFormData formData,
                                                 List<String> errors,
-                                                BuildSearchResult result) {
+                                                BuildSearchResult result,
+                                                HeroProfile activeHero) {
         return new SearchBuildPageModel(
                 formData,
                 errors,
                 result,
+                activeHero,
                 "GUI M12 jest cienką warstwą SSR nad backendowym search foundation. Opcjonalny tryb biblioteki itemów nadal składa efektywny aktualny build przez ten sam pipeline CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime i tylko podmienia źródło kandydatów itemowych."
         );
     }

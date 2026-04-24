@@ -11,6 +11,7 @@ import krys.skill.PaladinSkillDefs;
 import krys.skill.SkillId;
 import krys.skill.SkillState;
 import krys.skill.SkillUpgradeChoice;
+import krys.itemlibrary.HeroSlotItemAssignment;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,6 +31,7 @@ public final class SearchBuildPageRenderer {
     public String render(SearchBuildPageModel model) {
         return template
                 .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/znajdz-najlepszy-build"))
+                .replace("{{HERO_CONTEXT}}", renderHeroContext(model))
                 .replace("{{MAIN_SEARCH_FIELDS}}", renderMainSearchFields(model.getFormData()))
                 .replace("{{STAT_SPACE_FIELDS}}", renderStatSpaceFields(model.getFormData()))
                 .replace("{{LIBRARY_MODE_CARD}}", renderLibraryModeCard(model.getFormData()))
@@ -37,6 +39,26 @@ public final class SearchBuildPageRenderer {
                 .replace("{{FORM_ERRORS}}", renderErrors(model.getValidationErrors()))
                 .replace("{{HELP_TEXT}}", escapeHtml(model.getHelpText()))
                 .replace("{{RESULT_SECTION}}", renderResultSection(model));
+    }
+
+    private static String renderHeroContext(SearchBuildPageModel model) {
+        if (!model.hasActiveHero()) {
+            return """
+                    <section class="panel panel-error">
+                        <h2>Brak aktywnego bohatera</h2>
+                        <p>Search działa na stanie aktywnego bohatera: jego buildzie, skillach, pasku akcji i slotach. Utwórz albo wybierz bohatera, aby przygotować search w jego kontekście.</p>
+                        <div class="hero-links">
+                            <a class="nav-link" href="/bohaterowie">Przejdź do modułu Bohaterowie</a>
+                        </div>
+                    </section>
+                    """;
+        }
+        return """
+                <section class="panel">
+                    <h2>Aktywny bohater searcha</h2>
+                    <p class="helper">Search jest teraz przygotowywany dla bohatera %s. Domyślne wartości formularza pochodzą z jego aktualnego buildu, a tryb biblioteki itemów nadal kończy się tym samym runtime.</p>
+                </section>
+                """.formatted(escapeHtml(model.getActiveHero().getName()));
     }
 
     private static String renderMainSearchFields(SearchBuildFormData formData) {
@@ -176,6 +198,9 @@ public final class SearchBuildPageRenderer {
     }
 
     private static String renderResultSection(SearchBuildPageModel model) {
+        if (!model.hasActiveHero()) {
+            return "";
+        }
         if (!model.hasResult()) {
             return """
                     <section class="panel result-panel">
@@ -355,17 +380,18 @@ public final class SearchBuildPageRenderer {
         return html.toString();
     }
 
-    private static void appendLibraryItemHiddenFields(StringBuilder html, int index, krys.itemlibrary.SavedImportedItem item) {
-        appendHiddenField(html, "itemLibraryItemId_" + index, Long.toString(item.getItemId()));
-        appendHiddenField(html, "itemLibraryDisplayName_" + index, item.getDisplayName());
-        appendHiddenField(html, "itemLibrarySourceImageName_" + index, item.getSourceImageName());
-        appendHiddenField(html, "itemLibrarySlot_" + index, item.getSlot().name());
-        appendHiddenField(html, "itemLibraryWeaponDamage_" + index, Long.toString(item.getWeaponDamage()));
-        appendHiddenField(html, "itemLibraryStrength_" + index, Double.toString(item.getStrength()));
-        appendHiddenField(html, "itemLibraryIntelligence_" + index, Double.toString(item.getIntelligence()));
-        appendHiddenField(html, "itemLibraryThorns_" + index, Double.toString(item.getThorns()));
-        appendHiddenField(html, "itemLibraryBlockChance_" + index, Double.toString(item.getBlockChance()));
-        appendHiddenField(html, "itemLibraryRetributionChance_" + index, Double.toString(item.getRetributionChance()));
+    private static void appendLibraryItemHiddenFields(StringBuilder html, int index, HeroSlotItemAssignment assignment) {
+        appendHiddenField(html, "itemLibraryHeroSlot_" + index, assignment.getHeroSlot().name());
+        appendHiddenField(html, "itemLibraryItemId_" + index, Long.toString(assignment.getItem().getItemId()));
+        appendHiddenField(html, "itemLibraryDisplayName_" + index, assignment.getItem().getDisplayName());
+        appendHiddenField(html, "itemLibrarySourceImageName_" + index, assignment.getItem().getSourceImageName());
+        appendHiddenField(html, "itemLibrarySlot_" + index, assignment.getItem().getSlot().name());
+        appendHiddenField(html, "itemLibraryWeaponDamage_" + index, Long.toString(assignment.getItem().getWeaponDamage()));
+        appendHiddenField(html, "itemLibraryStrength_" + index, Double.toString(assignment.getItem().getStrength()));
+        appendHiddenField(html, "itemLibraryIntelligence_" + index, Double.toString(assignment.getItem().getIntelligence()));
+        appendHiddenField(html, "itemLibraryThorns_" + index, Double.toString(assignment.getItem().getThorns()));
+        appendHiddenField(html, "itemLibraryBlockChance_" + index, Double.toString(assignment.getItem().getBlockChance()));
+        appendHiddenField(html, "itemLibraryRetributionChance_" + index, Double.toString(assignment.getItem().getRetributionChance()));
     }
 
     private static void appendHiddenField(StringBuilder html, String name, String value) {

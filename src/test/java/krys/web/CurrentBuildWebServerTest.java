@@ -44,23 +44,38 @@ class CurrentBuildWebServerTest {
     }
 
     @Test
+    void shouldRenderEmptyStateWhenNoActiveHeroExists() throws Exception {
+        HttpResponse<String> response = sendGet("/policz-aktualny-build");
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Brak aktywnego bohatera"));
+        assertTrue(response.body().contains("Przejdź do modułu Bohaterowie"));
+        assertFalse(response.body().contains("name=\"level\""));
+    }
+
+    @Test
     void shouldRenderFormForCurrentBuildPage() throws Exception {
+        createHero("Testowy bohater", "13");
         HttpResponse<String> response = sendGet("/policz-aktualny-build");
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Policz aktualny build"));
-        assertTrue(response.body().contains("Wejście aktualnego buildu"));
-        assertTrue(response.body().contains("Baza ręczna"));
+        assertTrue(response.body().contains("Aktywny bohater"));
+        assertTrue(response.body().contains("Ekran buildu bohatera"));
         assertTrue(response.body().contains("Ekwipunek aktualnego buildu"));
         assertTrue(response.body().contains("Użyte itemy"));
         assertTrue(response.body().contains("Efektywne staty do obliczeń"));
-        assertTrue(response.body().contains("Broń główna"));
-        assertTrue(response.body().contains("Ręka dodatkowa"));
-        assertTrue(response.body().contains("Pancerz"));
-        assertTrue(response.body().contains("Pierścień"));
+        assertTrue(response.body().contains("Hełm"));
+        assertTrue(response.body().contains("Zbroja"));
+        assertTrue(response.body().contains("Rękawice"));
+        assertTrue(response.body().contains("Spodnie"));
         assertTrue(response.body().contains("Buty"));
-        assertFalse(response.body().contains(">MAIN_HAND<"));
-        assertFalse(response.body().contains(">OFF_HAND<"));
+        assertTrue(response.body().contains("Broń"));
+        assertTrue(response.body().contains("Amulet"));
+        assertTrue(response.body().contains("Pierścień 1"));
+        assertTrue(response.body().contains("Pierścień 2"));
+        assertTrue(response.body().contains("Tarcza"));
+        assertTrue(response.body().contains("Zaawansowane: baza ręczna i ręczne nadpisanie statów"));
         assertTrue(response.body().contains("Slot jest pusty"));
         assertTrue(response.body().contains("name=\"level\""));
         assertTrue(response.body().contains("<input type=\"number\" step=\"1\" name=\"weaponDamage\" value=\"8\">"));
@@ -70,10 +85,12 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("name=\"actionBar1\""));
         assertTrue(response.body().contains("name=\"horizonSeconds\""));
         assertTrue(response.body().contains("Otwórz bibliotekę itemów"));
+        assertTrue(response.body().indexOf("Ekwipunek aktualnego buildu") < response.body().indexOf("Efektywne staty do obliczeń"));
     }
 
     @Test
     void shouldRenderEquipmentSectionAndAllowChangingActiveItemPerSlot() throws Exception {
+        createHero("Testowy bohater", "13");
         HttpResponse<String> firstSave = sendPost("/biblioteka-itemow", Map.of(
                 "action", "saveImportedItem",
                 "sourceImageName", "sword-a.png",
@@ -118,7 +135,7 @@ class CurrentBuildWebServerTest {
         HttpResponse<String> activateResponse = sendPost("/policz-aktualny-build", fields);
 
         assertEquals(200, activateResponse.statusCode());
-        assertTrue(activateResponse.body().contains("Zmieniono aktywny item dla slotu Broń główna."));
+        assertTrue(activateResponse.body().contains("Zmieniono aktywny item dla slotu Broń."));
         assertTrue(activateResponse.body().contains("class=\"status-badge status-active\">Aktywny</span>"));
         assertTrue(activateResponse.body().contains("Broń główna / sword-b.png"));
         assertTrue(activateResponse.body().contains("Wyczyść slot"));
@@ -128,6 +145,7 @@ class CurrentBuildWebServerTest {
 
     @Test
     void shouldCalculateCurrentBuildAndRenderRequiredSections() throws Exception {
+        createHero("Testowy bohater", "13");
         HttpResponse<String> response = sendPost(
                 "/policz-aktualny-build",
                 buildHolyBoltJudgementFields()
@@ -154,6 +172,7 @@ class CurrentBuildWebServerTest {
 
     @Test
     void shouldRejectChoiceThatDoesNotBelongToSelectedSkill() throws Exception {
+        createHero("Testowy bohater", "13");
         HttpResponse<String> response = sendPost(
                 "/policz-aktualny-build",
                 buildInvalidHolyBoltChoiceFields()
@@ -166,6 +185,7 @@ class CurrentBuildWebServerTest {
 
     @Test
     void shouldRenderClashScenarioWithResolveAndReactiveBonuses() throws Exception {
+        createHero("Testowy bohater", "13");
         HttpResponse<String> response = sendPost(
                 "/policz-aktualny-build",
                 buildClashPunishmentFields(9)
@@ -192,6 +212,7 @@ class CurrentBuildWebServerTest {
 
     @Test
     void shouldRenderAdvanceScenarioWithCooldownAndWait() throws Exception {
+        createHero("Testowy bohater", "13");
         HttpResponse<String> response = sendPost(
                 "/policz-aktualny-build",
                 buildAdvanceFlashFields(10)
@@ -213,6 +234,7 @@ class CurrentBuildWebServerTest {
 
     @Test
     void shouldCalculateEffectiveCurrentBuildWhenManualBaseIsBlankOrZeroAndLibraryCompletesStats() throws Exception {
+        createHero("Testowy bohater", "13");
         HttpResponse<String> saveResponse = sendPost("/biblioteka-itemow", Map.of(
                 "action", "saveImportedItem",
                 "sourceImageName", "weapon-library.png",
@@ -230,7 +252,7 @@ class CurrentBuildWebServerTest {
         HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
                 "action", "activateItem",
                 "itemId", "1",
-                "slot", "MAIN_HAND",
+                "heroSlot", "MAIN_HAND",
                 "currentBuildQuery", buildCurrentBuildQuery()
         ));
         assertEquals(200, activateResponse.statusCode());
@@ -246,7 +268,7 @@ class CurrentBuildWebServerTest {
         HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
 
         assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("Baza ręczna"));
+        assertTrue(response.body().contains("Ręczne nadpisanie statów"));
         assertTrue(response.body().contains("Użyte itemy"));
         assertTrue(response.body().contains("Efektywne staty do obliczeń"));
         assertTrue(response.body().contains("Łączne obrażenia"));
@@ -260,6 +282,7 @@ class CurrentBuildWebServerTest {
 
     @Test
     void shouldPreserveDecimalPercentagesInCurrentBuildSummarySections() throws Exception {
+        createHero("Testowy bohater", "13");
         HttpResponse<String> saveResponse = sendPost("/biblioteka-itemow", Map.of(
                 "action", "saveImportedItem",
                 "sourceImageName", "decimal-shield.png",
@@ -277,7 +300,7 @@ class CurrentBuildWebServerTest {
         HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
                 "action", "activateItem",
                 "itemId", "1",
-                "slot", "OFF_HAND",
+                "heroSlot", "OFF_HAND",
                 "currentBuildQuery", buildCurrentBuildQuery()
         ));
         assertEquals(200, activateResponse.statusCode());
@@ -380,6 +403,17 @@ class CurrentBuildWebServerTest {
                 </div>
                 </article>
                 """;
+    }
+
+    private void createHero(String heroName, String heroLevel) throws Exception {
+        HttpResponse<String> response = sendPost("/bohaterowie", Map.of(
+                "action", "createHero",
+                "heroName", heroName,
+                "heroClass", "PALADIN",
+                "heroLevel", heroLevel
+        ));
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Utworzono bohatera " + heroName + "."));
     }
 
     private HttpResponse<String> sendGet(String path) throws Exception {

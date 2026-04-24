@@ -5,11 +5,13 @@ import krys.app.CurrentBuildSnapshotFactory;
 import krys.item.Item;
 import krys.item.ItemStatType;
 import krys.item.EquipmentSlot;
+import krys.item.HeroEquipmentSlot;
 import krys.itemimport.CurrentBuildImportableStats;
 import krys.simulation.HeroBuildSnapshot;
 import krys.skill.SkillId;
 import krys.skill.SkillState;
 import krys.skill.SkillUpgradeChoice;
+import krys.web.HeroItemSelection;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -36,10 +38,12 @@ class ItemLibraryCurrentBuildPipelineTest {
                 25.0d
         ));
         long itemId = service.getSavedItems().getFirst().getItemId();
-        service.setActiveItem(EquipmentSlot.OFF_HAND, itemId);
+        HeroItemSelection selection = HeroItemSelection.empty()
+                .withSelectedItem(HeroEquipmentSlot.OFF_HAND, itemId);
 
         EffectiveCurrentBuildResolution resolution = service.resolveEffectiveCurrentBuild(
-                new CurrentBuildImportableStats(200L, 30.0d, 11.0d, 70.0d, 10.0d, 15.0d)
+                new CurrentBuildImportableStats(200L, 30.0d, 11.0d, 70.0d, 10.0d, 15.0d),
+                selection
         );
         CurrentBuildRequest request = new CurrentBuildRequest(
                 13,
@@ -88,11 +92,14 @@ class ItemLibraryCurrentBuildPipelineTest {
                 20.0d,
                 25.0d
         ));
-        service.setActiveItem(EquipmentSlot.MAIN_HAND, mainHand.getItemId());
-        service.setActiveItem(EquipmentSlot.OFF_HAND, offHand.getItemId());
+        HeroItemSelection selection = new HeroItemSelection(Map.of(
+                HeroEquipmentSlot.MAIN_HAND, mainHand.getItemId(),
+                HeroEquipmentSlot.OFF_HAND, offHand.getItemId()
+        ));
 
         EffectiveCurrentBuildResolution resolution = service.resolveEffectiveCurrentBuild(
-                new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d)
+                new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d),
+                selection
         );
         CurrentBuildRequest request = new CurrentBuildRequest(
                 13,

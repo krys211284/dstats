@@ -32,9 +32,12 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - generator legalnych kandydatów searcha obejmujący aktualny foundation skilli i action bara,
 - ranking kandydatów po `total damage` i `DPS` liczonych przez ten sam runtime,
 - warstwę prezentacyjną normalizującą wyniki searcha po zakończonej ocenie kandydatów,
+- nowy pierwszorzędny byt produktu `bohater` z własnym kontekstem buildu, aktywnymi slotami, skillami i paskiem akcji,
+- moduł `Bohaterowie` z listą wielu bohaterów, tworzeniem, wyborem aktywnego bohatera i usuwaniem,
 - minimalne webowe GUI SSR dla trybu `Policz aktualny build`,
-- sekcję `Ekwipunek aktualnego buildu` pokazującą wspierane sloty jako stały układ SSR z aktywnym itemem albo pustym slotem,
-- bezpośrednią zmianę aktywnego itemu per slot z poziomu current build bez budowania osobnego runtime ekwipunku,
+- hero-centryczny ekran `Policz aktualny build`, który pracuje jawnie w kontekście aktywnego bohatera,
+- sekcję `Ekwipunek aktualnego buildu` pokazującą pełny układ slotów bohatera jako stały layout SSR z aktywnym itemem albo pustym slotem,
+- bezpośrednią zmianę aktywnego itemu per slot z poziomu current build w kontekście aktywnego bohatera bez budowania osobnego runtime ekwipunku,
 - sekcję `Użyte itemy` pokazującą, które aktywne itemy rzeczywiście składają się na bieżący build i jaki mają wkład,
 - prawdziwy ekran główny `/` działający jako hub aplikacji z grupami modułów i statusami,
 - globalną nawigację SSR wspólną dla głównych ekranów aplikacji,
@@ -49,9 +52,9 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - walidowany formularz zatwierdzonego itemu i mapowanie jego pól do aktualnego modelu buildu,
 - dwa czytelnie nazwane tryby zastosowania zatwierdzonego itemu do aktualnego buildu: `Zastosuj do aktualnego buildu` oraz `Dodaj wkład itemu do aktualnego buildu`,
 - minimalną trwałą bibliotekę zapisanych itemów z wieloma itemami tego samego slotu, zapisywaną lokalnie w stabilnym katalogu użytkownika,
-- wybór jednego aktywnego itemu per slot w bibliotece oraz deterministyczne dodawanie aktywnych itemów do ręcznej bazy current build,
+- wspólną bibliotekę zapisanych itemów oraz niezależny wybór aktywnego itemu per slot dla każdego bohatera,
 - wyraźny wynik zapisu importowanego itemu do biblioteki z nazwą, slotem, identyfikatorem i akcjami `Ustaw jako aktywny` oraz `Wróć do aktualnego buildu`,
-- nowy tryb searcha po bibliotece itemów, który generuje kombinacje zapisanych itemów per slot i nadal składa je do effective current build przed tym samym runtime,
+- nowy tryb searcha po bibliotece itemów, który generuje kombinacje zapisanych itemów per slot w kontekście aktywnego bohatera i nadal składa je do effective current build przed tym samym runtime,
 - uproszczony i bardziej produktowy formularz GUI searcha z wyeksponowanym trybem biblioteki itemów,
 - ujednolicony polski język głównych ekranów SSR, helperów, sekcji wynikowych i akcji użytkownika,
 - empty state sekcji `Wstępnie rozpoznane pola` w imporcie pojedynczego itemu,
@@ -94,6 +97,7 @@ Kontrakt app shell:
 - root `/` jest prawdziwym ekranem głównym aplikacji, a nie technicznym przekierowaniem do innego formularza,
 - ekran główny grupuje moduły w obszary `Narzędzia builda`, `Itemy i import` oraz `Systemy dodatku i przyszłe sekcje`,
 - istnieje centralny rejestr modułów opisujący `id`, nazwę, opis, grupę, status, URL oraz to, czy moduł jest aktywny czy placeholderowy,
+- moduł `Bohaterowie` jest częścią aktywnej nawigacji produktu i stanowi punkt wejścia do pracy na aktywnym bohaterze,
 - globalna nawigacja SSR jest renderowana z tego samego rejestru modułów, a nie z rozproszonych ręcznych linków w wielu ekranach,
 - istniejące flow `Policz aktualny build`, `Importuj item ze screena`, `Biblioteka itemów`, `Znajdź najlepszy build` i drill-down searcha pozostają cienkimi warstwami nad tym samym runtime,
 - placeholder pages są świadomą warstwą produktową przygotowującą architekturę aplikacji pod przyszłe sekcje, a nie atrapą zastępującą istniejącą logikę runtime.
@@ -116,16 +120,18 @@ Kontrakt aktualnej warstwy aplikacyjnej:
 - `ValidatedImportedItemToItemMapper` mapuje zatwierdzony item do aktualnego modelu `Item`,
 - `ImportedItemCurrentBuildContributionMapper` mapuje zatwierdzony item do aktualnego agregowanego modelu buildu używanego przez `CurrentBuildRequest`,
 - `ImportedItemCurrentBuildApplicationService` stosuje zatwierdzony item do istniejących statów current build w trybie `nadpisz` albo `dodaj wkład`,
-- `ItemLibraryRepository` trwale zapisuje minimalną bibliotekę zatwierdzonych itemów oraz aktywny wybór per slot bez bazy danych,
-- `ItemLibraryService` zapisuje zatwierdzony item do biblioteki, udostępnia listę zapisanych itemów, pilnuje jednego aktywnego itemu per slot i składa aktywne itemy do effective current build,
-- SSR current build pokazuje tę samą selekcję biblioteki jako `Ekwipunek aktualnego buildu` i zmienia aktywny item per slot bez budowania bocznego modelu equipment runtime,
+- `HeroProfileRepository` trwale zapisuje bohaterów aplikacji oraz identyfikator aktywnego bohatera bez systemu kont użytkowników,
+- `HeroService` zarządza listą bohaterów, aktywnym bohaterem, jego kontekstem buildu i jego aktywnymi slotami,
+- `ItemLibraryRepository` trwale zapisuje minimalną wspólną bibliotekę zatwierdzonych itemów bez duplikowania jej per bohater,
+- `ItemLibraryService` zapisuje zatwierdzony item do biblioteki, udostępnia listę zapisanych itemów, waliduje zgodność itemu z hero slotem i składa aktywne itemy wybranego bohatera do effective current build,
+- SSR current build pokazuje selekcję aktywnych slotów aktywnego bohatera jako `Ekwipunek aktualnego buildu` i zmienia aktywny item per slot bez budowania bocznego modelu equipment runtime,
 - `ItemLibraryDataDirectoryResolver` rozwiązuje katalog trwałych danych biblioteki itemów przez `dstats.dataDir` albo domyślny katalog użytkownika `~/.dstats/item-library/` i wykonuje bezpieczną migrację z legacy `target/item-library-runtime/`,
-- biblioteka itemów pozostaje warstwą aplikacyjną przed `CurrentBuildRequest`,
-- effective current build jest składany jako `ręczna baza formularza, która może pozostać częściowo pusta albo zerowa + aktywne itemy z biblioteki -> finalne effective current build stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
-- current build nadal pokazuje trzy kontraktowe warstwy `Baza ręczna`, `Ekwipunek aktualnego buildu / użyte itemy` oraz `Efektywne staty do obliczeń`,
-- tryb searcha po bibliotece itemów używa analogicznego kontraktu `ręczna baza searcha, która może pozostać częściowo pusta albo zerowa + kandydacka kombinacja zapisanych itemów z biblioteki -> finalne effective current build stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
+- biblioteka itemów pozostaje warstwą aplikacyjną przed `CurrentBuildRequest`, a aktywny wybór slotów należy do konkretnego bohatera,
+- effective current build jest składany jako `bohater + jego ręczne nadpisanie statów + jego aktywne itemy per slot -> finalne effective current build stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
+- ekran `Policz aktualny build` jest ekranem bohatera i pokazuje hierarchię `bohater -> ekwipunek -> użyte itemy -> efektywne staty -> skille -> pasek akcji -> wynik`, a ręczna baza pozostaje tylko w sekcji zaawansowanej,
+- tryb searcha po bibliotece itemów używa analogicznego kontraktu `aktywny bohater + jego ręczna baza searcha + kandydacka kombinacja zapisanych itemów z biblioteki -> finalne effective current build stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
 - walidacja wejścia current build dotyczy finalnych effective stats mapowanych do `CurrentBuildRequest`, a nie wyłącznie surowej ręcznej bazy formularza,
-- GUI importu itemu pozostaje cienką warstwą wejściową nad obecnym modelem current build i nie implementuje alternatywnego runtime,
+- GUI importu itemu pozostaje cienką warstwą wejściową nad obecnym modelem current build w kontekście aktywnego bohatera i nie implementuje alternatywnego runtime,
 - CLI searcha mapuje argumenty do `BuildSearchRequest` przez `BuildSearchCliRequestParser`,
 - GUI searcha mapuje formularz do `BuildSearchRequest` przez `SearchBuildFormMapper`,
 - `BuildSearchCalculationService` generuje legalnych kandydatów przez `BuildSearchCandidateGenerator`,
@@ -317,18 +323,19 @@ Aktualny foundation repo obejmuje minimalną bibliotekę zapisanych itemów jako
 Kontrakt biblioteki itemów:
 - `SavedImportedItem` jest trwałą wersją zatwierdzonego itemu z własnym stabilnym `itemId`,
 - biblioteka może przechowywać wiele itemów tego samego slotu,
-- `ActiveItemSelection` przechowuje najwyżej jeden aktywny `savedItemId` per `EquipmentSlot`,
-- aktywacja itemu jest walidowana względem slotu; nie można ustawić jako aktywnego itemu z innego slotu,
-- usunięcie itemu czyści aktywny wybór dla tego itemu, jeśli był aktywny,
+- `HeroItemSelection` przechowuje najwyżej jeden aktywny `savedItemId` per `HeroEquipmentSlot` dla konkretnego bohatera,
+- biblioteka jest wspólna dla wszystkich bohaterów, ale aktywna selekcja slotów jest niezależna per bohater,
+- aktywacja itemu jest walidowana względem hero slotu; nie można ustawić jako aktywnego itemu z innego typu slotu,
+- usunięcie itemu czyści aktywny wybór tego itemu u wszystkich bohaterów, jeśli był aktywny,
 - biblioteka jest lokalną biblioteką użytkownika, a nie systemem kont, chmurą ani współdzielonym inventory,
 - biblioteka nie jest pełnym inventory managerem, stashem ani porównywarką itemów.
 
 Kontrakt integracji biblioteki z current build:
-- pola formularza `Policz aktualny build` oznaczają ręczną bazę poza biblioteką itemów,
+- pola formularza `Policz aktualny build` oznaczają ręczne nadpisanie statów poza biblioteką itemów,
 - ręczna baza może być częściowo pusta albo zerowa, jeżeli finalne effective stats zostaną domknięte przez aktywne itemy z biblioteki,
-- aktywne itemy z biblioteki są deterministycznie dodawane do tej bazy,
+- aktywne itemy z biblioteki są deterministycznie dodawane do tej bazy w kontekście aktywnego bohatera,
 - użytkownik nie powinien ręcznie wpisywać tych samych statów, które pochodzą już z aktywnych itemów,
-- ekran `Policz aktualny build` pokazuje wspierane sloty jako sekcję `Ekwipunek aktualnego buildu`, ale jest to wyłącznie warstwa prezentacji i sterowania tą samą aktywną selekcją biblioteki,
+- ekran `Policz aktualny build` pokazuje pełny layout slotów bohatera jako sekcję `Ekwipunek aktualnego buildu`, ale jest to wyłącznie warstwa prezentacji i sterowania aktywną selekcją slotów bohatera,
 - zmiana itemu per slot z poziomu current build nie buduje osobnego equipment runtime i nie omija `ItemLibraryService`,
 - sekcja `Użyte itemy` pokazuje slot, nazwę, identyfikator / źródło i wkład każdego aktywnego itemu użytego przez build,
 - effective current build nadal kończy się zwykłym `CurrentBuildRequest`,
@@ -752,7 +759,9 @@ Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny bu
 - ekran główny `/` jako hub produktu z listą modułów, grup i statusów,
 - centralny app shell z globalną nawigacją SSR na głównych ekranach aplikacji,
 - centralny rejestr modułów aktywnych i placeholderowych,
+- moduł `Bohaterowie` jako produktowy punkt wejścia do zarządzania listą bohaterów i aktywnym bohaterem,
 - lekkie placeholder pages dla przyszłych sekcji dodatku i sezonu,
+- aktywnego bohatera jako kontekst dla current build, importu, biblioteki itemów, searcha i drill-downu,
 - główną ścieżkę użytkownika opartą o `CurrentBuildRequest`, a nie o testowy snapshot,
 - wspólną usługę aplikacyjną `CurrentBuildCalculationService` dla GUI i CLI,
 - wspólną fabrykę runtime `CurrentBuildSnapshotFactory` budującą `HeroBuildSnapshot`,
@@ -773,7 +782,7 @@ Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny bu
 - prosty ekran SSR `/biblioteka-itemow` z listą zapisanych itemów i wyborem aktywnego itemu per slot,
 - sekcję `Ekwipunek aktualnego buildu` na ekranie `Policz aktualny build`,
 - sekcję `Użyte itemy` na ekranie `Policz aktualny build`,
-- zmianę aktywnego itemu per slot bezpośrednio z current build przez ten sam stan biblioteki itemów,
+- zmianę aktywnego itemu per slot bezpośrednio z current build przez ten sam stan biblioteki itemów, ale w kontekście aktywnego bohatera,
 - dwie czytelnie nazwane akcje zastosowania zatwierdzonego itemu do aktualnego buildu: `Zastosuj do aktualnego buildu` i `Dodaj wkład itemu do aktualnego buildu`,
 - akcję `Zapisz do biblioteki` po zatwierdzeniu importu pojedynczego itemu,
 - wynik zapisu itemu do biblioteki z dalszymi akcjami użytkownika,
@@ -796,7 +805,7 @@ Kontrakt ekranu głównego `/`:
 - ekran główny nie obiecuje mechanik dodatku, które nie zostały jeszcze ustabilizowane.
 
 Kontrakt globalnej nawigacji:
-- globalna nawigacja SSR jest widoczna co najmniej na ekranach `Strona główna`, `Policz aktualny build`, `Importuj item ze screena`, `Biblioteka itemów` oraz `Znajdź najlepszy build`,
+- globalna nawigacja SSR jest widoczna co najmniej na ekranach `Strona główna`, `Bohaterowie`, `Policz aktualny build`, `Importuj item ze screena`, `Biblioteka itemów` oraz `Znajdź najlepszy build`,
 - nawigacja jest renderowana z centralnego modelu modułów i prowadzi do aktywnych sekcji aplikacji,
 - nawigacja nie buduje alternatywnego frontendu JS i pozostaje prostym SSR.
 
@@ -809,6 +818,7 @@ Kontrakt statusów modułów:
 
 Aktualne moduły `Dostępne`:
 - `Strona główna`
+- `Bohaterowie`
 - `Policz aktualny build`
 - `Znajdź najlepszy build`
 - `Importuj item ze screena`
@@ -975,11 +985,14 @@ java '-Dfile.encoding=UTF-8' -cp target/classes krys.app.CalculateCurrentBuildCl
 Kontrakt prezentacji dla tego smoke testu:
 - GUI jest po polsku i jasno komunikuje, że to aktualny foundation manual simulation, a nie pełny produkt końcowy.
 - GUI pokazuje globalną nawigację SSR prowadzącą do ekranu głównego i głównych modułów aplikacji.
+- GUI wymaga aktywnego bohatera i jasno komunikuje empty state, jeżeli bohater nie został jeszcze utworzony.
+- GUI pokazuje, dla którego bohatera pracujemy, oraz pozwala przejść do modułu `Bohaterowie`.
 - GUI pozwala ustawić level, staty buildu, konfigurację wszystkich skilli foundation oraz action bar, a następnie kliknąć `Policz aktualny build`.
 - GUI pozwala z tego samego formularza przejść do importu pojedynczego itemu ze screena z zachowaniem aktualnego kontekstu current build.
-- GUI rozdziela trzy czytelne warstwy: `Baza ręczna`, `Ekwipunek aktualnego buildu / Użyte itemy` oraz `Efektywne staty do obliczeń`.
-- GUI pokazuje, że pola formularza są ręczną bazą poza biblioteką itemów i mogą pozostać częściowo puste albo zerowe, jeżeli aktywne itemy dopełnią finalne effective stats.
-- GUI pokazuje wspierane sloty ekwipunku, aktywny item albo pusty slot, skrót wkładu itemu, status aktywności oraz akcje `Wybierz item`, `Zmień item` i `Wyczyść slot` dla tych samych aktywnych itemów biblioteki.
+- GUI rozdziela warstwy: `Aktywny bohater`, `Ekwipunek aktualnego buildu`, `Użyte itemy`, `Efektywne staty do obliczeń`, `Skille`, `Pasek akcji`, `Wynik symulacji`, a ręczna baza pozostaje w sekcji zaawansowanej.
+- GUI pokazuje, że ręczne nadpisanie statów jest jedynie warstwą pomocniczą w kontekście bohatera i może pozostać częściowo puste albo zerowe, jeżeli aktywne itemy dopełnią finalne effective stats.
+- GUI pokazuje pełny stały layout slotów bohatera: `Hełm`, `Zbroja`, `Rękawice`, `Spodnie`, `Buty`, `Broń`, `Amulet`, `Pierścień 1`, `Pierścień 2`, `Tarcza`.
+- GUI pokazuje wspierane sloty ekwipunku, aktywny item albo pusty slot, skrót wkładu itemu, status aktywności oraz akcje `Wybierz item`, `Zmień item` i `Wyczyść slot` dla aktywnych slotów tego bohatera.
 - GUI pokazuje aktywny wkład biblioteki oraz finalne efektywne staty użyte do obliczeń na tym samym pipeline `effective stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`.
 - GUI i CLI przechodzą przez ten sam kontrakt `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> CurrentBuildCalculationService -> runtime`.
 - scenariusze referencyjne są trybem pomocniczym do smoke testów i regresji, a nie główną ścieżką produktu.
@@ -1003,6 +1016,7 @@ http://127.0.0.1:8080/znajdz-najlepszy-build
 Kontrakt prezentacji dla smoke testu GUI searcha:
 - GUI searcha jest po polsku i jasno komunikuje, że to minimalny SSR nad istniejącym backendem searcha,
 - GUI searcha pokazuje globalną nawigację SSR wspólną z ekranem głównym i pozostałymi głównymi modułami,
+- GUI searcha wymaga aktywnego bohatera i pokazuje jego kontekst nad formularzem,
 - GUI searcha pozwala ustawić poziom, obrażenia broni, siłę, inteligencję, kolce, szansę bloku, szansę retribution, zakresy skilli foundation, rozmiary action bara, limit wyników, horyzont symulacji oraz opcjonalny tryb biblioteki itemów,
 - GUI searcha przechodzi przez kontrakt `SearchBuildFormMapper -> BuildSearchRequest -> BuildSearchCalculationService -> BuildSearchPresentationNormalizer`,
 - GUI searcha wyraźnie eksponuje `Tryb biblioteki itemów` jako osobną decyzję produktową w formularzu,
@@ -1043,6 +1057,7 @@ http://127.0.0.1:8080/importuj-item-ze-screena
 Kontrakt prezentacji dla smoke testu importu itemu:
 - GUI importu jest po polsku i jasno komunikuje, że to import wspomagany pojedynczego itemu, a nie pełny automatyczny import całej postaci,
 - GUI importu pokazuje globalną nawigację SSR wspólną z ekranem głównym i pozostałymi głównymi modułami,
+- GUI importu wymaga aktywnego bohatera i w empty state kieruje użytkownika do modułu `Bohaterowie`,
 - GUI przyjmuje upload obrazu pojedynczego itemu przez `multipart/form-data`,
 - GUI waliduje technicznie, czy upload jest prawidłowym obrazem,
 - GUI przed pierwszym uploadem pokazuje sensowny empty state sekcji `Wstępnie rozpoznane pola`,
@@ -1050,6 +1065,7 @@ Kontrakt prezentacji dla smoke testu importu itemu:
 - GUI pokazuje ręczny formularz zatwierdzenia obejmujący `slot`, `weapon damage`, `strength`, `intelligence`, `thorns`, `block chance` i `retribution chance`,
 - zatwierdzony item jest mapowany do aktualnego modelu `Item` oraz do agregowanych pól current build,
 - GUI po zatwierdzeniu itemu pozwala także wybrać akcję `Zapisz do biblioteki`,
+- GUI po zatwierdzeniu itemu pokazuje, dla jakiego aktywnego bohatera pracujemy,
 - GUI po zapisie do biblioteki pokazuje nazwę itemu, slot i identyfikator oraz na stronie biblioteki upraszcza dalsze akcje do `Ustaw jako aktywny` i `Wróć do aktualnego buildu`,
 - GUI pozwala przejść do `Policz aktualny build` w dwóch czytelnie nazwanych trybach: `Zastosuj do aktualnego buildu` albo `Dodaj wkład itemu do aktualnego buildu`,
 - jeżeli import został otwarty z formularza current build, tryb `dodaj wkład` wykorzystuje przekazane staty bez ręcznego sumowania przez użytkownika,
@@ -1065,10 +1081,11 @@ http://127.0.0.1:8080/biblioteka-itemow
 Kontrakt prezentacji dla smoke testu biblioteki itemów:
 - GUI biblioteki jest po polsku i jasno komunikuje, że to minimalna warstwa zapisanych itemów nad current build,
 - GUI biblioteki pokazuje globalną nawigację SSR wspólną z ekranem głównym i pozostałymi głównymi modułami,
+- GUI biblioteki pokazuje aktywnego bohatera albo empty state bez bohatera,
 - GUI biblioteki pokazuje listę zapisanych itemów wraz ze slotem, nazwą, źródłem i wkładem do current build,
 - GUI biblioteki pozwala mieć wiele itemów tego samego slotu,
-- GUI biblioteki wyraźnie oznacza aktywny item badge'em `Aktywny`, przy nieaktywnym pokazuje akcję `Ustaw jako aktywny` i komunikuje zasadę `jeden aktywny item per slot`,
-- ustawienie nowego aktywnego itemu w bibliotece zastępuje poprzedni aktywny wybór w tym samym slocie,
+- GUI biblioteki wyraźnie oznacza aktywny item badge'em `Aktywny`, przy nieaktywnym pokazuje akcję `Ustaw jako aktywny` i komunikuje, że przypisanie dotyczy zgodnego slotu aktywnego bohatera,
+- ustawienie nowego aktywnego itemu w bibliotece zastępuje poprzedni aktywny wybór tylko w tym samym slocie aktywnego bohatera,
 - pusty stan biblioteki zawiera krótki komunikat SSR oraz bezpośredni link do importu itemu,
 - aktywny item z biblioteki trafia do effective current build dopiero przez istniejący pipeline current build,
 - GUI biblioteki działa na lokalnym trwałym storage użytkownika poza `target/`, więc restart aplikacji i nowy build widzą tę samą bibliotekę, chyba że ustawiono inne `dstats.dataDir`,
@@ -1116,16 +1133,25 @@ Minimalny zakres testów obejmuje:
 - zgodność cumulative damage z `stepTrace`,
 - tickową manual simulation,
 - render ekranu głównego app shell pod `/`,
+- render modułu `Bohaterowie`,
+- utworzenie pierwszego bohatera,
+- listę wielu bohaterów,
+- ustawienie aktywnego bohatera,
+- usunięcie bohatera,
+- render empty state przy braku bohatera,
+- obecność aktywnego bohatera w głównym UI,
 - obecność grup modułów na ekranie głównym,
 - obecność statusów modułów na ekranie głównym,
 - obecność globalnej nawigacji na głównych stronach SSR,
 - routing do istniejących sekcji po dodaniu app shell,
 - render placeholder pages przyszłych sekcji,
 - endpoint formularza GUI dla `Policz aktualny build`,
+- current build w kontekście aktywnego bohatera,
 - uruchomienie obliczenia przez GUI nad tym samym runtime,
 - render sekcji `Ekwipunek aktualnego buildu`,
-- render wspieranych slotów, aktywnego itemu albo pustego slotu oraz sekcji `Użyte itemy`,
-- SSR zmianę aktywnego itemu per slot bez zmiany runtime,
+- render pełnego układu slotów bohatera, aktywnego itemu albo pustego slotu oraz sekcji `Użyte itemy`,
+- SSR zmianę aktywnego itemu per slot dla konkretnego bohatera bez zmiany runtime,
+- niezależność aktywnych slotów między różnymi bohaterami,
 - obecność kluczowych sekcji wyniku w GUI: `Łączne obrażenia`, `DPS`, debug bezpośrednich trafień, debug opóźnionych trafień, debug obrażeń reaktywnych i `Ślad kroków symulacji`,
 - obecność sekcji reactive debug w GUI dla scenariusza `Clash`,
 - obecność `WAIT` i stanu cooldownu w GUI dla scenariusza `Advance`,
@@ -1156,12 +1182,14 @@ Minimalny zakres testów obejmuje:
 - flow, w którym ręczna baza current build jest częściowo pusta albo zerowa, ale aktywne itemy dopełniają finalne effective stats przed `CurrentBuildRequest`,
 - potwierdzenie, że effective current build nadal kończy się ścieżką `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
 - GET formularza GUI importu itemu,
+- empty state importu bez aktywnego bohatera,
 - empty state sekcji `Wstępnie rozpoznane pola`,
 - upload obrazu itemu i render sekcji wstępnego rozpoznania,
 - zatwierdzenie itemu i render dwóch trybów przejścia do current build,
 - zapis itemu do biblioteki z poziomu SSR po zatwierdzeniu importu,
 - render wyniku zapisu itemu do biblioteki z akcjami dalszego flow,
 - GET strony biblioteki itemów,
+- empty state biblioteki bez aktywnego bohatera,
 - zachowanie `currentBuildQuery` w flow `biblioteka itemów -> import kolejnego itemu -> powrót do current build`,
 - SSR ustawienia aktywnego itemu w bibliotece,
 - render sekcji aktywnych itemów na `/policz-aktualny-build`,

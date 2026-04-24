@@ -143,7 +143,14 @@ public final class BuildSearchCandidateGenerator {
                                                               CurrentBuildImportableStats manualBaseStats,
                                                               ItemLibrarySearchCombination itemLibraryCombination) {
         if (!request.isUseItemLibrary()) {
-            return manualBaseStats;
+            return new CurrentBuildImportableStats(
+                    manualBaseStats.getWeaponDamage() + request.getActiveHeroItemsContribution().getWeaponDamage(),
+                    manualBaseStats.getStrength() + request.getActiveHeroItemsContribution().getStrength(),
+                    manualBaseStats.getIntelligence() + request.getActiveHeroItemsContribution().getIntelligence(),
+                    manualBaseStats.getThorns() + request.getActiveHeroItemsContribution().getThorns(),
+                    manualBaseStats.getBlockChance() + request.getActiveHeroItemsContribution().getBlockChance(),
+                    manualBaseStats.getRetributionChance() + request.getActiveHeroItemsContribution().getRetributionChance()
+            );
         }
         return itemLibraryService.resolveEffectiveStats(manualBaseStats, itemLibraryCombination);
     }

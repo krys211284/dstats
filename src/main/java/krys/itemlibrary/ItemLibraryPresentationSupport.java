@@ -1,6 +1,7 @@
 package krys.itemlibrary;
 
 import krys.item.EquipmentSlot;
+import krys.item.HeroEquipmentSlot;
 import krys.item.ItemStatType;
 import krys.itemimport.CurrentBuildImportableStats;
 
@@ -16,12 +17,20 @@ public final class ItemLibraryPresentationSupport {
 
     public static String slotDisplayName(EquipmentSlot slot) {
         return switch (slot) {
+            case HELMET -> "Hełm";
+            case AMULET -> "Amulet";
             case MAIN_HAND -> "Broń główna";
             case OFF_HAND -> "Ręka dodatkowa";
             case CHEST -> "Pancerz";
+            case GLOVES -> "Rękawice";
+            case PANTS -> "Spodnie";
             case RING -> "Pierścień";
             case BOOTS -> "Buty";
         };
+    }
+
+    public static String heroSlotDisplayName(HeroEquipmentSlot slot) {
+        return slot.getDisplayName();
     }
 
     public static String itemStatDisplayName(ItemStatType statType) {

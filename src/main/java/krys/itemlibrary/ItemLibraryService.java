@@ -1,18 +1,20 @@
 package krys.itemlibrary;
 
 import krys.item.EquipmentSlot;
+import krys.item.HeroEquipmentSlot;
 import krys.itemimport.CurrentBuildImportableStats;
 import krys.itemimport.ImportedItemCurrentBuildApplicationService;
 import krys.itemimport.ImportedItemCurrentBuildContribution;
 import krys.itemimport.ValidatedImportedItem;
+import krys.web.HeroItemSelection;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 /** Warstwa aplikacyjna minimalnej biblioteki itemów nad current build. */
 public final class ItemLibraryService {
@@ -59,42 +61,28 @@ public final class ItemLibraryService {
                 .toList();
     }
 
-    public ActiveItemSelection getSelection() {
-        return sanitizeSelection(repository.loadSelection());
-    }
-
-    public void setActiveItem(EquipmentSlot slot, long itemId) {
-        SavedImportedItem item = repository.findById(itemId)
-                .orElseThrow(() -> new IllegalArgumentException("Nie znaleziono itemu o podanym id w bibliotece."));
-        if (item.getSlot() != slot) {
-            throw new IllegalArgumentException("Nie można ustawić jako aktywnego itemu z innego slotu.");
-        }
-        repository.saveSelection(getSelection().withSelectedItem(slot, itemId));
-    }
-
-    public void clearActiveItem(EquipmentSlot slot) {
-        repository.saveSelection(getSelection().withoutSlot(slot));
-    }
-
     public void deleteItem(long itemId) {
         repository.delete(itemId);
-        repository.saveSelection(getSelection().withoutItemId(itemId));
     }
 
-    public List<SavedImportedItem> getActiveItems() {
-        ActiveItemSelection selection = getSelection();
-        Map<Long, SavedImportedItem> itemsById = repository.findAll().stream()
-                .collect(Collectors.toMap(SavedImportedItem::getItemId, Function.identity()));
-        return selection.getSelectedItemIdsBySlot().entrySet().stream()
-                .map(entry -> itemsById.get(entry.getValue()))
-                .filter(item -> item != null)
-                .sorted(Comparator.comparing((SavedImportedItem item) -> item.getSlot().name())
-                        .thenComparing(SavedImportedItem::getItemId))
+    public SavedImportedItem requireCompatibleItem(HeroEquipmentSlot heroSlot, long itemId) {
+        SavedImportedItem item = repository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Nie znaleziono itemu o podanym id w bibliotece."));
+        if (!heroSlot.supports(item.getSlot())) {
+            throw new IllegalArgumentException("Nie można ustawić jako aktywnego itemu z niepasującego typu slotu.");
+        }
+        return item;
+    }
+
+    public List<SavedImportedItem> getCompatibleItems(HeroEquipmentSlot heroSlot) {
+        return getSavedItems().stream()
+                .filter(item -> heroSlot.supports(item.getSlot()))
                 .toList();
     }
 
-    public EffectiveCurrentBuildResolution resolveEffectiveCurrentBuild(CurrentBuildImportableStats manualBaseStats) {
-        List<SavedImportedItem> activeItems = getActiveItems();
+    public EffectiveCurrentBuildResolution resolveEffectiveCurrentBuild(CurrentBuildImportableStats manualBaseStats,
+                                                                        HeroItemSelection selection) {
+        List<HeroSlotItemAssignment> activeItems = resolveAssignments(selection);
         CurrentBuildImportableStats activeContribution = aggregateContribution(activeItems);
         CurrentBuildImportableStats effectiveStats = applyContribution(manualBaseStats, activeContribution);
         return new EffectiveCurrentBuildResolution(manualBaseStats, activeItems, activeContribution, effectiveStats);
@@ -106,16 +94,25 @@ public final class ItemLibraryService {
             throw new IllegalArgumentException("Tryb searcha po bibliotece itemów wymaga co najmniej jednego zapisanego itemu.");
         }
 
-        Map<EquipmentSlot, List<SavedImportedItem>> itemsBySlot = new EnumMap<>(EquipmentSlot.class);
-        for (EquipmentSlot slot : EquipmentSlot.values()) {
+        Map<HeroEquipmentSlot, List<SavedImportedItem>> itemsBySlot = new EnumMap<>(HeroEquipmentSlot.class);
+        for (HeroEquipmentSlot slot : HeroEquipmentSlot.values()) {
             itemsBySlot.put(slot, new ArrayList<>());
         }
         for (SavedImportedItem item : savedItems) {
-            itemsBySlot.get(item.getSlot()).add(item);
+            for (HeroEquipmentSlot heroSlot : HeroEquipmentSlot.compatibleWith(item.getSlot())) {
+                itemsBySlot.get(heroSlot).add(item);
+            }
         }
 
         List<ItemLibrarySearchCombination> combinations = new ArrayList<>();
-        generateSearchCombinationsRecursive(EquipmentSlot.values(), itemsBySlot, 0, new ArrayList<>(), combinations);
+        generateSearchCombinationsRecursive(
+                HeroEquipmentSlot.values(),
+                itemsBySlot,
+                0,
+                new ArrayList<>(),
+                new HashSet<>(),
+                combinations
+        );
         return combinations;
     }
 
@@ -124,10 +121,11 @@ public final class ItemLibraryService {
         return applyContribution(manualBaseStats, combination.getTotalContribution());
     }
 
-    private void generateSearchCombinationsRecursive(EquipmentSlot[] orderedSlots,
-                                                     Map<EquipmentSlot, List<SavedImportedItem>> itemsBySlot,
+    private void generateSearchCombinationsRecursive(HeroEquipmentSlot[] orderedSlots,
+                                                     Map<HeroEquipmentSlot, List<SavedImportedItem>> itemsBySlot,
                                                      int index,
-                                                     List<SavedImportedItem> currentSelection,
+                                                     List<HeroSlotItemAssignment> currentSelection,
+                                                     Set<Long> usedItemIds,
                                                      List<ItemLibrarySearchCombination> combinations) {
         if (index >= orderedSlots.length) {
             combinations.add(new ItemLibrarySearchCombination(
@@ -137,24 +135,32 @@ public final class ItemLibraryService {
             return;
         }
 
-        EquipmentSlot slot = orderedSlots[index];
-        generateSearchCombinationsRecursive(orderedSlots, itemsBySlot, index + 1, currentSelection, combinations);
+        HeroEquipmentSlot slot = orderedSlots[index];
+        generateSearchCombinationsRecursive(orderedSlots, itemsBySlot, index + 1, currentSelection, usedItemIds, combinations);
         for (SavedImportedItem item : itemsBySlot.get(slot)) {
-            currentSelection.add(item);
-            generateSearchCombinationsRecursive(orderedSlots, itemsBySlot, index + 1, currentSelection, combinations);
+            if (!usedItemIds.add(item.getItemId())) {
+                continue;
+            }
+            currentSelection.add(new HeroSlotItemAssignment(slot, item));
+            generateSearchCombinationsRecursive(orderedSlots, itemsBySlot, index + 1, currentSelection, usedItemIds, combinations);
             currentSelection.removeLast();
+            usedItemIds.remove(item.getItemId());
         }
     }
 
-    private CurrentBuildImportableStats aggregateContribution(List<SavedImportedItem> items) {
+    public CurrentBuildImportableStats resolveActiveItemsContribution(HeroItemSelection selection) {
+        return aggregateContribution(resolveAssignments(selection));
+    }
+
+    private CurrentBuildImportableStats aggregateContribution(List<HeroSlotItemAssignment> items) {
         long weaponDamage = 0L;
         double strength = 0.0d;
         double intelligence = 0.0d;
         double thorns = 0.0d;
         double blockChance = 0.0d;
         double retributionChance = 0.0d;
-        for (SavedImportedItem item : items) {
-            ImportedItemCurrentBuildContribution contribution = contributionMapper.map(item);
+        for (HeroSlotItemAssignment assignment : items) {
+            ImportedItemCurrentBuildContribution contribution = contributionMapper.map(assignment.getItem());
             weaponDamage += contribution.getWeaponDamage();
             strength += contribution.getStrength();
             intelligence += contribution.getIntelligence();
@@ -188,24 +194,26 @@ public final class ItemLibraryService {
         );
     }
 
-    private ActiveItemSelection sanitizeSelection(ActiveItemSelection selection) {
-        Map<Long, SavedImportedItem> itemsById = repository.findAll().stream()
-                .collect(Collectors.toMap(SavedImportedItem::getItemId, Function.identity()));
-
-        ActiveItemSelection sanitizedSelection = ActiveItemSelection.empty();
-        boolean changed = false;
-        for (Map.Entry<EquipmentSlot, Long> entry : selection.getSelectedItemIdsBySlot().entrySet()) {
+    private List<HeroSlotItemAssignment> resolveAssignments(HeroItemSelection selection) {
+        List<HeroSlotItemAssignment> assignments = new ArrayList<>();
+        if (selection == null) {
+            return assignments;
+        }
+        Map<Long, SavedImportedItem> itemsById = new java.util.HashMap<>();
+        for (SavedImportedItem item : repository.findAll()) {
+            itemsById.put(item.getItemId(), item);
+        }
+        for (Map.Entry<HeroEquipmentSlot, Long> entry : selection.getSelectedItemIdsBySlot().entrySet()) {
             SavedImportedItem item = itemsById.get(entry.getValue());
-            if (item == null || item.getSlot() != entry.getKey()) {
-                changed = true;
+            if (item == null || !entry.getKey().supports(item.getSlot())) {
                 continue;
             }
-            sanitizedSelection = sanitizedSelection.withSelectedItem(entry.getKey(), item.getItemId());
+            assignments.add(new HeroSlotItemAssignment(entry.getKey(), item));
         }
-        if (changed) {
-            repository.saveSelection(sanitizedSelection);
-        }
-        return sanitizedSelection;
+        assignments.sort(Comparator
+                .comparing((HeroSlotItemAssignment assignment) -> assignment.getHeroSlot().name())
+                .thenComparing(assignment -> assignment.getItem().getItemId()));
+        return assignments;
     }
 
     private static String buildDisplayName(ValidatedImportedItem importedItem) {

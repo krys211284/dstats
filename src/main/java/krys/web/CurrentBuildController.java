@@ -4,7 +4,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import krys.app.CurrentBuildCalculation;
 import krys.app.CurrentBuildCalculationService;
-import krys.item.EquipmentSlot;
+import krys.item.HeroEquipmentSlot;
 import krys.itemimport.CurrentBuildImportableStats;
 import krys.itemlibrary.EffectiveCurrentBuildResolution;
 import krys.itemlibrary.ItemLibraryService;
@@ -25,21 +25,25 @@ public final class CurrentBuildController implements HttpHandler {
     private final CurrentBuildPageRenderer renderer;
     private final CurrentBuildFormMapper formMapper;
     private final ItemLibraryService itemLibraryService;
+    private final HeroService heroService;
 
     public CurrentBuildController(CurrentBuildCalculationService calculationService,
                                   CurrentBuildPageRenderer renderer,
-                                  ItemLibraryService itemLibraryService) {
-        this(calculationService, renderer, new CurrentBuildFormMapper(), itemLibraryService);
+                                  ItemLibraryService itemLibraryService,
+                                  HeroService heroService) {
+        this(calculationService, renderer, new CurrentBuildFormMapper(), itemLibraryService, heroService);
     }
 
     CurrentBuildController(CurrentBuildCalculationService calculationService,
                            CurrentBuildPageRenderer renderer,
                            CurrentBuildFormMapper formMapper,
-                           ItemLibraryService itemLibraryService) {
+                           ItemLibraryService itemLibraryService,
+                           HeroService heroService) {
         this.calculationService = calculationService;
         this.renderer = renderer;
         this.formMapper = formMapper;
         this.itemLibraryService = itemLibraryService;
+        this.heroService = heroService;
     }
 
     @Override
@@ -47,9 +51,19 @@ public final class CurrentBuildController implements HttpHandler {
         try {
             String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
             if ("GET".equals(method)) {
-                CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(
-                        UrlEncodedFormSupport.parseQuery(exchange.getRequestURI().getRawQuery())
-                );
+                HeroProfile activeHero = heroService.getActiveHero().orElse(null);
+                if (activeHero == null) {
+                    renderPage(exchange, buildEmptyPageModel());
+                    return;
+                }
+                Map<String, String> queryFields = UrlEncodedFormSupport.parseQuery(exchange.getRequestURI().getRawQuery());
+                CurrentBuildFormData formData = queryFields.isEmpty()
+                        ? activeHero.getCurrentBuildFormData()
+                        : CurrentBuildFormData.fromFormFields(queryFields);
+                if (!queryFields.isEmpty()) {
+                    heroService.updateActiveHeroBuildFormData(formData);
+                    activeHero = heroService.requireActiveHero();
+                }
                 renderPage(exchange, buildPageModel(formData, List.of(), List.of(), null, buildEffectiveResolution(formData, new ArrayList<>())));
                 return;
             }
@@ -65,11 +79,17 @@ public final class CurrentBuildController implements HttpHandler {
     }
 
     private CurrentBuildPageModel handlePost(HttpExchange exchange) throws IOException {
+        HeroProfile activeHero = heroService.getActiveHero().orElse(null);
+        if (activeHero == null) {
+            return buildEmptyPageModel();
+        }
         Map<String, String> fields = UrlEncodedFormSupport.parseBody(exchange);
         CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(fields);
+        heroService.updateActiveHeroBuildFormData(formData);
         List<String> errors = new ArrayList<>();
         List<String> messages = new ArrayList<>();
         handlePageAction(fields, errors, messages);
+        formData = heroService.requireActiveHero().getCurrentBuildFormData();
         EffectiveCurrentBuildResolution resolution = buildEffectiveResolution(formData, errors);
         CurrentBuildCalculation calculation = tryCalculate(formData, resolution, errors);
         return buildPageModel(formData, messages, errors, calculation, resolution);
@@ -106,6 +126,7 @@ public final class CurrentBuildController implements HttpHandler {
                                                  CurrentBuildCalculation calculation,
                                                  EffectiveCurrentBuildResolution resolution) {
         String currentBuildQuery = CurrentBuildFormQuerySupport.toQuery(formData);
+        HeroProfile activeHero = heroService.getActiveHero().orElse(null);
         return new CurrentBuildPageModel(
                 formData,
                 List.of(),
@@ -115,10 +136,30 @@ public final class CurrentBuildController implements HttpHandler {
                 errors,
                 calculation,
                 resolution,
+                activeHero,
                 itemLibraryService.getSavedItems(),
-                itemLibraryService.getSelection(),
-                "/biblioteka-itemow?" + currentBuildQuery,
-                "/importuj-item-ze-screena?" + currentBuildQuery,
+                "/biblioteka-itemow",
+                "/importuj-item-ze-screena",
+                "/bohaterowie",
+                buildChoiceHelpText()
+        );
+    }
+
+    private CurrentBuildPageModel buildEmptyPageModel() {
+        return new CurrentBuildPageModel(
+                CurrentBuildFormData.defaultValues(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                itemLibraryService.getSavedItems(),
+                "/biblioteka-itemow",
+                "/importuj-item-ze-screena",
+                "/bohaterowie",
                 buildChoiceHelpText()
         );
     }
@@ -128,7 +169,10 @@ public final class CurrentBuildController implements HttpHandler {
         ManualBaseStatsParseResult manualBaseParseResult = parseManualBaseStats(formData);
         errors.addAll(manualBaseParseResult.getErrors());
         if (!manualBaseParseResult.isValid()) {
-            EffectiveCurrentBuildResolution zeroBaseResolution = itemLibraryService.resolveEffectiveCurrentBuild(zeroStats());
+            EffectiveCurrentBuildResolution zeroBaseResolution = itemLibraryService.resolveEffectiveCurrentBuild(
+                    zeroStats(),
+                    heroService.requireActiveHero().getItemSelection()
+            );
             return new EffectiveCurrentBuildResolution(
                     zeroStats(),
                     zeroBaseResolution.getActiveItems(),
@@ -136,7 +180,7 @@ public final class CurrentBuildController implements HttpHandler {
                     null
             );
         }
-        return itemLibraryService.resolveEffectiveCurrentBuild(manualBaseParseResult.getStats());
+        return itemLibraryService.resolveEffectiveCurrentBuild(manualBaseParseResult.getStats(), heroService.requireActiveHero().getItemSelection());
     }
 
     private static ManualBaseStatsParseResult parseManualBaseStats(CurrentBuildFormData formData) {
@@ -205,7 +249,7 @@ public final class CurrentBuildController implements HttpHandler {
     }
 
     private static String buildChoiceHelpText() {
-        return "Ta sekcja opisuje ręczną bazę statów poza biblioteką itemów. Baza może być częściowo pusta albo zerowa. Aktywne itemy per slot są dodawane deterministycznie przed zbudowaniem finalnych efektywnych statów, CurrentBuildRequest i wejściem do tego samego runtime aktualnego buildu.";
+        return "Ręczne nadpisanie statów pozostaje częścią kontekstu bohatera, ale nie buduje osobnego runtime. Aktywne itemy per slot są dodawane deterministycznie przed zbudowaniem finalnych efektywnych statów, CurrentBuildRequest i wejściem do tego samego runtime aktualnego buildu.";
     }
 
     private void handlePageAction(Map<String, String> fields, List<String> errors, List<String> messages) {
@@ -220,9 +264,9 @@ public final class CurrentBuildController implements HttpHandler {
             return;
         }
 
-        EquipmentSlot slot;
+        HeroEquipmentSlot slot;
         try {
-            slot = EquipmentSlot.valueOf(actionParts[1]);
+            slot = HeroEquipmentSlot.valueOf(actionParts[1]);
         } catch (IllegalArgumentException exception) {
             errors.add("Nie wybrano poprawnego slotu ekwipunku.");
             return;
@@ -231,32 +275,33 @@ public final class CurrentBuildController implements HttpHandler {
         switch (actionParts[0]) {
             case "setActiveSlotItem" -> handleSetActiveSlotItem(fields, slot, errors, messages);
             case "clearActiveSlotItem" -> {
-                itemLibraryService.clearActiveItem(slot);
-                messages.add("Wyczyszczono aktywny item dla slotu " + ItemLibraryPresentationSupport.slotDisplayName(slot) + ".");
+                heroService.clearActiveHeroItem(slot);
+                messages.add("Wyczyszczono aktywny item dla slotu " + ItemLibraryPresentationSupport.heroSlotDisplayName(slot) + ".");
             }
             default -> errors.add("Nieobsługiwana akcja sekcji ekwipunku.");
         }
     }
 
     private void handleSetActiveSlotItem(Map<String, String> fields,
-                                         EquipmentSlot slot,
+                                         HeroEquipmentSlot slot,
                                          List<String> errors,
                                          List<String> messages) {
         String rawItemId = fields.get("selectedItemId_" + slot.name());
         if (rawItemId == null || rawItemId.isBlank()) {
-            errors.add("Wybierz item dla slotu " + ItemLibraryPresentationSupport.slotDisplayName(slot) + ".");
+            errors.add("Wybierz item dla slotu " + ItemLibraryPresentationSupport.heroSlotDisplayName(slot) + ".");
             return;
         }
         try {
             long itemId = Long.parseLong(rawItemId);
             if (itemId <= 0L) {
-                errors.add("Wybierz zapisany item dla slotu " + ItemLibraryPresentationSupport.slotDisplayName(slot) + ".");
+                errors.add("Wybierz zapisany item dla slotu " + ItemLibraryPresentationSupport.heroSlotDisplayName(slot) + ".");
                 return;
             }
-            itemLibraryService.setActiveItem(slot, itemId);
-            messages.add("Zmieniono aktywny item dla slotu " + ItemLibraryPresentationSupport.slotDisplayName(slot) + ".");
+            itemLibraryService.requireCompatibleItem(slot, itemId);
+            heroService.setActiveHeroItem(slot, itemId);
+            messages.add("Zmieniono aktywny item dla slotu " + ItemLibraryPresentationSupport.heroSlotDisplayName(slot) + ".");
         } catch (NumberFormatException exception) {
-            errors.add("Wybierz poprawny item biblioteki dla slotu " + ItemLibraryPresentationSupport.slotDisplayName(slot) + ".");
+            errors.add("Wybierz poprawny item biblioteki dla slotu " + ItemLibraryPresentationSupport.heroSlotDisplayName(slot) + ".");
         } catch (IllegalArgumentException exception) {
             errors.add(exception.getMessage());
         }

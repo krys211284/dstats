@@ -1,9 +1,9 @@
 package krys.web;
 
 import krys.app.CurrentBuildCalculation;
-import krys.itemlibrary.ActiveItemSelection;
 import krys.itemimport.CurrentBuildImportableStats;
 import krys.itemlibrary.EffectiveCurrentBuildResolution;
+import krys.itemlibrary.HeroSlotItemAssignment;
 import krys.itemlibrary.SavedImportedItem;
 
 import java.util.ArrayList;
@@ -20,10 +20,11 @@ public final class CurrentBuildPageModel {
     private final List<String> validationErrors;
     private final CurrentBuildCalculation calculation;
     private final EffectiveCurrentBuildResolution effectiveCurrentBuildResolution;
+    private final HeroProfile activeHero;
     private final List<SavedImportedItem> savedLibraryItems;
-    private final ActiveItemSelection activeItemSelection;
     private final String itemLibraryUrl;
     private final String itemImportUrl;
+    private final String heroesUrl;
     private final String choiceHelpText;
 
     public CurrentBuildPageModel(CurrentBuildFormData formData,
@@ -34,10 +35,11 @@ public final class CurrentBuildPageModel {
                                  List<String> validationErrors,
                                  CurrentBuildCalculation calculation,
                                  EffectiveCurrentBuildResolution effectiveCurrentBuildResolution,
+                                 HeroProfile activeHero,
                                  List<SavedImportedItem> savedLibraryItems,
-                                 ActiveItemSelection activeItemSelection,
                                  String itemLibraryUrl,
                                  String itemImportUrl,
+                                 String heroesUrl,
                                  String choiceHelpText) {
         this.formData = formData;
         this.skillOptions = Collections.unmodifiableList(new ArrayList<>(skillOptions));
@@ -47,10 +49,11 @@ public final class CurrentBuildPageModel {
         this.validationErrors = Collections.unmodifiableList(new ArrayList<>(validationErrors));
         this.calculation = calculation;
         this.effectiveCurrentBuildResolution = effectiveCurrentBuildResolution;
+        this.activeHero = activeHero;
         this.savedLibraryItems = Collections.unmodifiableList(new ArrayList<>(savedLibraryItems));
-        this.activeItemSelection = activeItemSelection;
         this.itemLibraryUrl = itemLibraryUrl;
         this.itemImportUrl = itemImportUrl;
+        this.heroesUrl = heroesUrl;
         this.choiceHelpText = choiceHelpText;
     }
 
@@ -86,12 +89,12 @@ public final class CurrentBuildPageModel {
         return effectiveCurrentBuildResolution;
     }
 
-    public List<SavedImportedItem> getSavedLibraryItems() {
-        return savedLibraryItems;
+    public HeroProfile getActiveHero() {
+        return activeHero;
     }
 
-    public ActiveItemSelection getActiveItemSelection() {
-        return activeItemSelection;
+    public List<SavedImportedItem> getSavedLibraryItems() {
+        return savedLibraryItems;
     }
 
     public String getItemLibraryUrl() {
@@ -102,8 +105,16 @@ public final class CurrentBuildPageModel {
         return itemImportUrl;
     }
 
+    public String getHeroesUrl() {
+        return heroesUrl;
+    }
+
     public String getChoiceHelpText() {
         return choiceHelpText;
+    }
+
+    public boolean hasActiveHero() {
+        return activeHero != null;
     }
 
     public boolean hasResult() {
@@ -118,7 +129,7 @@ public final class CurrentBuildPageModel {
         return !savedLibraryItems.isEmpty();
     }
 
-    public List<SavedImportedItem> getActiveLibraryItems() {
+    public List<HeroSlotItemAssignment> getActiveLibraryItems() {
         if (effectiveCurrentBuildResolution == null) {
             return List.of();
         }
