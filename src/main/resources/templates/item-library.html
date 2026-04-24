@@ -32,6 +32,34 @@
             margin: 0 auto;
             padding: 28px 16px 48px;
         }
+        .app-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 22px;
+            padding: 14px 16px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: rgba(255, 250, 241, 0.94);
+            box-shadow: 0 10px 20px rgba(92, 63, 22, 0.05);
+        }
+        .app-nav-title { font-weight: 800; }
+        .app-nav-links { display: flex; flex-wrap: wrap; gap: 10px; }
+        .app-nav-link {
+            padding: 10px 14px;
+            border-radius: 999px;
+            text-decoration: none;
+            color: var(--text);
+            background: #fff;
+            border: 1px solid rgba(42, 36, 29, 0.08);
+            font-weight: 700;
+        }
+        .app-nav-link-active {
+            background: linear-gradient(135deg, #7c3f00 0%, #a95e10 100%);
+            color: #fff9f2;
+        }
         .panel {
             margin-bottom: 18px;
             padding: 18px;
@@ -156,6 +184,8 @@
 </head>
 <body>
 <main class="layout">
+    {{GLOBAL_NAV}}
+
     <section class="panel">
         <h1>Biblioteka itemów</h1>
         <p class="helper">To jest minimalny foundation zapisanych itemów nad current build. Biblioteka nie buduje osobnego runtime i nie jest jeszcze pełnym inventory managerem.</p>

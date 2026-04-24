@@ -25,6 +25,7 @@ public final class CurrentBuildPageRenderer {
 
     public String render(CurrentBuildPageModel model) {
         return template
+                .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/policz-aktualny-build"))
                 .replace("{{MANUAL_BASE_SECTION}}", renderManualBaseSection(model))
                 .replace("{{ACTIVE_LIBRARY_SECTION}}", renderActiveLibrarySection(model))
                 .replace("{{EFFECTIVE_STATS_SECTION}}", renderEffectiveStatsSection(model))

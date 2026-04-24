@@ -31,6 +31,10 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - ranking kandydatów po `total damage` i `DPS` liczonych przez ten sam runtime,
 - warstwę prezentacyjną normalizującą wyniki searcha po zakończonej ocenie kandydatów,
 - minimalne webowe GUI SSR dla trybu `Policz aktualny build`,
+- prawdziwy ekran główny `/` działający jako hub aplikacji z grupami modułów i statusami,
+- globalną nawigację SSR wspólną dla głównych ekranów aplikacji,
+- centralny rejestr modułów aplikacji z opisem, grupą, statusem i URL,
+- placeholder pages dla przyszłych sekcji dodatku i sezonu bez implementacji ich mechaniki,
 - pierwszy SSR flow `Importuj item ze screena` dla pojedynczego itemu z ręcznym potwierdzeniem użytkownika,
 - realny odczyt OCR pojedynczego screena itemu dla ograniczonego zakresu pól foundation,
 - preprocessing obrazu itemu przed OCR z heurystycznym wycięciem obszaru tekstowego oraz kilkoma wariantami obrazu,
@@ -74,6 +78,17 @@ Kontrakt architektoniczny jest wspólny dla obu trybów:
 - Ten sam foundation ma pozostać bazą dla przyszłej manual simulation i build search.
 - Search nie może docelowo używać skróconej lub alternatywnej logiki względem manual simulation.
 
+### 3.1.1. App shell i moduły
+Aktualny frontend SSR posiada produktową warstwę app shell nad istniejącymi flow obliczeń.
+
+Kontrakt app shell:
+- root `/` jest prawdziwym ekranem głównym aplikacji, a nie technicznym przekierowaniem do innego formularza,
+- ekran główny grupuje moduły w obszary `Narzędzia builda`, `Itemy i import` oraz `Systemy dodatku i przyszłe sekcje`,
+- istnieje centralny rejestr modułów opisujący `id`, nazwę, opis, grupę, status, URL oraz to, czy moduł jest aktywny czy placeholderowy,
+- globalna nawigacja SSR jest renderowana z tego samego rejestru modułów, a nie z rozproszonych ręcznych linków w wielu ekranach,
+- istniejące flow `Policz aktualny build`, `Importuj item ze screena`, `Biblioteka itemów`, `Znajdź najlepszy build` i drill-down searcha pozostają cienkimi warstwami nad tym samym runtime,
+- placeholder pages są świadomą warstwą produktową przygotowującą architekturę aplikacji pod przyszłe sekcje, a nie atrapą zastępującą istniejącą logikę runtime.
+
 ### 3.2. Wspólne wejście runtime
 Produktowy model wejścia użytkownika dla manual simulation ma postać `CurrentBuildRequest`.
 
@@ -112,6 +127,9 @@ Kontrakt aktualnej warstwy aplikacyjnej:
 - GUI searcha jest cienkim SSR nad `BuildSearchCalculationService` i nie implementuje bocznej logiki searcha,
 - GUI searcha pokazuje audit/preflight obok wyniku, ale nie implementuje live progressu,
 - drill-down GUI searcha mapuje wybranego reprezentanta wyniku po normalizacji do `CurrentBuildRequest` i uruchamia ten sam `CurrentBuildCalculationService` co flow `Policz aktualny build`,
+- `AppModuleRegistry` jest centralnym rejestrem modułów aplikacji używanym przez ekran główny, placeholder pages i globalną nawigację,
+- `HomeController` oraz `HomePageRenderer` budują SSR hub aplikacji na `/`,
+- `PlaceholderPageController` oraz `PlaceholderPageRenderer` obsługują przyszłe sekcje dodatku i sezonu bez implementacji ich mechaniki,
 - scenariusze referencyjne pozostają wyłącznie trybem pomocniczym budowanym już na `CurrentBuildRequest`,
 - `SampleBuildFactory` nie jest główną ścieżką flow użytkownika; pozostaje pomocą testową niższego poziomu.
 
@@ -715,6 +733,10 @@ Poza aktualnym zakresem foundation searcha pozostają:
 ## 10. UI, debug i prezentacja wyników
 ### 10.1. Zasady ogólne
 Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny build`, osobne CLI backendowego searcha, minimalne GUI SSR dla flow `Znajdź najlepszy build`, audit/preflight search space, drill-down SSR szczegółów wybranego wyniku oraz pierwszy SSR flow importu pojedynczego itemu ze screena. Aktualny foundation dostarcza:
+- ekran główny `/` jako hub produktu z listą modułów, grup i statusów,
+- centralny app shell z globalną nawigacją SSR na głównych ekranach aplikacji,
+- centralny rejestr modułów aktywnych i placeholderowych,
+- lekkie placeholder pages dla przyszłych sekcji dodatku i sezonu,
 - główną ścieżkę użytkownika opartą o `CurrentBuildRequest`, a nie o testowy snapshot,
 - wspólną usługę aplikacyjną `CurrentBuildCalculationService` dla GUI i CLI,
 - wspólną fabrykę runtime `CurrentBuildSnapshotFactory` budującą `HeroBuildSnapshot`,
@@ -742,10 +764,55 @@ Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny bu
 - sekcję audit / preflight searcha w GUI searcha,
 - osobną stronę SSR szczegółów reprezentanta znormalizowanego wyniku searcha.
 
-### 10.2. Konfiguracja do porównania
+### 10.3. Konfiguracja do porównania
 Na obecnym etapie foundation nie ma warstwy prezentacji konfiguracji do porównania.
 
-### 10.3. Debug single hit
+### 10.2. App shell, menu i statusy modułów
+Aktualny frontend SSR ma produktową warstwę app shell porządkującą istniejące i przyszłe sekcje aplikacji bez zmiany logiki runtime.
+
+Kontrakt ekranu głównego `/`:
+- root renderuje stronę główną aplikacji, a nie formularz current build,
+- ekran główny pokazuje dostępne moduły, przyszłe placeholdery, grupy funkcjonalne i status każdego modułu,
+- ekran główny używa centralnego rejestru modułów zamiast ręcznie rozproszonych linków,
+- ekran główny nie obiecuje mechanik dodatku, które nie zostały jeszcze ustabilizowane.
+
+Kontrakt globalnej nawigacji:
+- globalna nawigacja SSR jest widoczna co najmniej na ekranach `Strona główna`, `Policz aktualny build`, `Importuj item ze screena`, `Biblioteka itemów` oraz `Znajdź najlepszy build`,
+- nawigacja jest renderowana z centralnego modelu modułów i prowadzi do aktywnych sekcji aplikacji,
+- nawigacja nie buduje alternatywnego frontendu JS i pozostaje prostym SSR.
+
+Kontrakt statusów modułów:
+- `Dostępne` oznacza moduł działający na aktualnym foundation repo,
+- `W przygotowaniu` oznacza moduł produktowo zaplanowany, ale bez doprecyzowanej jeszcze logiki,
+- `Po premierze dodatku` oznacza sekcję odłożoną do czasu stabilizacji zasad po premierze,
+- `Wymaga dodatku` oznacza sekcję zależną od nowych systemów dodatku,
+- `Sezonowe` oznacza sekcję planowaną jako warstwa produktowa dla sezonu lub wydarzenia.
+
+Aktualne moduły `Dostępne`:
+- `Strona główna`
+- `Policz aktualny build`
+- `Znajdź najlepszy build`
+- `Importuj item ze screena`
+- `Biblioteka itemów`
+
+Aktualne placeholdery przyszłych sekcji:
+- `Plany Wojenne`
+- `Medalion`
+- `Kostka Horadrimów`
+- `Filtr łupów`
+- `Drzewka umiejętności 3.0`
+- `System przedmiotów 3.0`
+- `Wieża / rankingi`
+- `Rezonująca Nienawiść`
+- `Wędkarstwo`
+
+Kontrakt placeholder pages:
+- placeholder ma własny URL, nazwę, opis, status i grupę modułu,
+- placeholder jasno komunikuje, że szczegółowa logika zostanie doprecyzowana po stabilizacji zasad po premierze dodatku,
+- placeholder nie implementuje mechaniki, nowych formuł, nowych systemów itemów ani osobnego runtime,
+- placeholder jest częścią świadomie zaprojektowanej architektury aplikacji, a nie techniczną atrapą pozostawioną zamiast ukończonego flow.
+
+### 10.4. Debug single hit
 Aktualny foundation implementuje debug danych oraz ich minimalny render w GUI i CLI. W kodzie istnieją:
 - `DamageBreakdown` jako wynik końcowy pojedynczego uderzenia,
 - `DamageComponentBreakdown` jako wynik debug pojedynczych komponentów,
@@ -754,7 +821,7 @@ Aktualny foundation implementuje debug danych oraz ich minimalny render w GUI i 
 
 `SimulationResult` nie modeluje jednego globalnego „selected skill” ani jednego globalnego `singleHitBreakdown` dla całej symulacji wieloskillowej.
 
-### 10.4. Delayed i reactive debug
+### 10.5. Delayed i reactive debug
 Aktualny foundation implementuje delayed debug dla `Judgement`:
 - informację, kiedy delayed hit został nałożony,
 - informację, kiedy miał detonować,
@@ -775,7 +842,7 @@ Aktualny foundation implementuje reactive debug dla `Thorns`, `Retribution` i us
 - sumaryczny wkład reactive do wyniku końcowego,
 - informację, czy `Resolve` oraz reactive bonusy pozostały aktywne na końcu horyzontu.
 
-### 10.5. Wynik searcha
+### 10.6. Wynik searcha
 Aktualny foundation implementuje backendowy wynik searcha, preflight / audit, minimalny progress CLI, render w CLI i minimalnym GUI SSR oraz drill-down pojedynczego reprezentanta znormalizowanego wyniku.
 
 Minimalny kontrakt prezentacyjny audytu / preflightu searcha:
@@ -815,7 +882,7 @@ Kontrakt progresu CLI searcha:
 
 Minimalne GUI searcha, audit oraz drill-down są częścią aktualnego zakresu. Poza zakresem pozostają live progress GUI, CSV, bogatsza warstwa UX i dodatkowe operacje na wynikach ponad prosty render SSR.
 
-### 10.6. Trace i formatowanie
+### 10.7. Trace i formatowanie
 Aktualny foundation implementuje `stepTrace` w modelu danych i udostępnia go przez CLI oraz webowe GUI.
 
 Kontrakt prezentacyjny trace:
@@ -826,7 +893,34 @@ Kontrakt prezentacyjny trace:
 - dla każdego kroku pokazuje co najmniej `cooldown=true/false` oraz `cooldownRemaining`,
 - CSV i pełny docelowy UX pozostają poza aktualnym zakresem repo.
 
-### 10.7. Smoke testy użytkownika
+### 10.8. Smoke testy użytkownika
+Aktualny smoke test app shell obejmuje ekran główny, globalną nawigację i placeholdery przyszłych sekcji.
+
+Smoke test ekranu głównego:
+
+```text
+http://127.0.0.1:8080/
+```
+
+Kontrakt prezentacji dla smoke testu ekranu głównego:
+- ekran główny działa jako hub aplikacji i renderuje się pod `/`,
+- ekran główny pokazuje grupy `Narzędzia builda`, `Itemy i import` oraz `Systemy dodatku i przyszłe sekcje`,
+- ekran główny pokazuje status modułów i odróżnia moduły dostępne od placeholderów,
+- ekran główny korzysta z tego samego centralnego rejestru modułów co globalna nawigacja i routing placeholder pages,
+- ekran główny nie obiecuje szczegółowej mechaniki nowych systemów dodatku.
+
+Smoke test placeholdera przyszłej sekcji:
+
+```text
+http://127.0.0.1:8080/medalion
+```
+
+Kontrakt prezentacji dla smoke testu placeholdera:
+- placeholder ma własny SSR URL i własny tytuł strony,
+- placeholder pokazuje nazwę sekcji, grupę, status i krótki opis produktowy,
+- placeholder jasno komunikuje odłożenie szczegółowej logiki do czasu stabilizacji zasad po premierze dodatku,
+- placeholder nie implementuje obliczeń, nowych formuł ani alternatywnego runtime.
+
 Aktualny podstawowy smoke test manual simulation pozostaje oparty o GUI oraz równoległe CLI i scenariusz:
 - `Advance`
 - `rank 5`
@@ -861,6 +955,7 @@ java '-Dfile.encoding=UTF-8' -cp target/classes krys.app.CalculateCurrentBuildCl
 
 Kontrakt prezentacji dla tego smoke testu:
 - GUI jest po polsku i jasno komunikuje, że to aktualny foundation manual simulation, a nie pełny produkt końcowy.
+- GUI pokazuje globalną nawigację SSR prowadzącą do ekranu głównego i głównych modułów aplikacji.
 - GUI pozwala ustawić level, staty buildu, konfigurację wszystkich skilli foundation oraz action bar, a następnie kliknąć `Policz aktualny build`.
 - GUI pozwala z tego samego formularza przejść do importu pojedynczego itemu ze screena z zachowaniem aktualnego kontekstu current build.
 - GUI rozdziela trzy czytelne warstwy: `Baza ręczna`, `Aktywne itemy z biblioteki` oraz `Efektywne staty do obliczeń`.
@@ -887,6 +982,7 @@ http://127.0.0.1:8080/znajdz-najlepszy-build
 
 Kontrakt prezentacji dla smoke testu GUI searcha:
 - GUI searcha jest po polsku i jasno komunikuje, że to minimalny SSR nad istniejącym backendem searcha,
+- GUI searcha pokazuje globalną nawigację SSR wspólną z ekranem głównym i pozostałymi głównymi modułami,
 - GUI searcha pozwala ustawić level, weapon damage, strength, intelligence, thorns, block chance, retribution chance, zakresy skilli foundation, rozmiary action bara, top N, horyzont symulacji oraz opcjonalny tryb biblioteki itemów,
 - GUI searcha przechodzi przez kontrakt `SearchBuildFormMapper -> BuildSearchRequest -> BuildSearchCalculationService -> BuildSearchPresentationNormalizer`,
 - GUI searcha pokazuje audit / preflight searcha obok wyniku,
@@ -925,6 +1021,7 @@ http://127.0.0.1:8080/importuj-item-ze-screena
 
 Kontrakt prezentacji dla smoke testu importu itemu:
 - GUI importu jest po polsku i jasno komunikuje, że to import wspomagany pojedynczego itemu, a nie pełny automatyczny import całej postaci,
+- GUI importu pokazuje globalną nawigację SSR wspólną z ekranem głównym i pozostałymi głównymi modułami,
 - GUI przyjmuje upload obrazu pojedynczego itemu przez `multipart/form-data`,
 - GUI waliduje technicznie, czy upload jest prawidłowym obrazem,
 - GUI wykonuje preprocessing i realny OCR kilku wariantów pojedynczego screena, a następnie pokazuje metadane obrazu, poziom pewności oraz uwagi dla pól wstępnego odczytu,
@@ -944,6 +1041,7 @@ http://127.0.0.1:8080/biblioteka-itemow
 
 Kontrakt prezentacji dla smoke testu biblioteki itemów:
 - GUI biblioteki jest po polsku i jasno komunikuje, że to minimalna warstwa zapisanych itemów nad current build,
+- GUI biblioteki pokazuje globalną nawigację SSR wspólną z ekranem głównym i pozostałymi głównymi modułami,
 - GUI biblioteki pokazuje listę zapisanych itemów wraz ze slotem, nazwą, źródłem i wkładem do current build,
 - GUI biblioteki pozwala mieć wiele itemów tego samego slotu,
 - GUI biblioteki wyraźnie oznacza aktywny item badge'em `Aktywny`, przy nieaktywnym pokazuje akcję `Ustaw jako aktywny` i komunikuje zasadę `jeden aktywny item per slot`,
@@ -994,6 +1092,12 @@ Minimalny zakres testów obejmuje:
 - tie-break według kolejności na pasku,
 - zgodność cumulative damage z `stepTrace`,
 - tickową manual simulation,
+- render ekranu głównego app shell pod `/`,
+- obecność grup modułów na ekranie głównym,
+- obecność statusów modułów na ekranie głównym,
+- obecność globalnej nawigacji na głównych stronach SSR,
+- routing do istniejących sekcji po dodaniu app shell,
+- render placeholder pages przyszłych sekcji,
 - endpoint formularza GUI dla `Policz aktualny build`,
 - uruchomienie obliczenia przez GUI nad tym samym runtime,
 - obecność kluczowych sekcji wyniku w GUI: `total damage`, `DPS`, direct hit debug, delayed hit debug, reactive debug i `stepTrace`,
@@ -1116,7 +1220,7 @@ Dodatkowe aktualne referencje kontraktowe:
 ## 12. Zasady dostarczania
 - Projekt dostarczany jest jako pełna paczka projektu.
 - Nie wolno dostarczać pojedynczych plików jako substytutu gotowego projektu.
-- Nie wolno zostawiać placeholderów w logice, testach ani UI.
+- Nie wolno zostawiać technicznych placeholderów w logice, testach ani UI zamiast ukończonego istniejącego flow; wyjątkiem są jawnie opisane produktowe placeholder pages przyszłych modułów w app shell.
 - Każda zmiana logiki wymaga:
   - aktualizacji kodu,
   - aktualizacji testów,

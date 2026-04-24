@@ -26,6 +26,7 @@ public final class ItemImportPageRenderer {
 
     public String render(ItemImportPageModel model) {
         return template
+                .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/importuj-item-ze-screena"))
                 .replace("{{FORM_ERRORS}}", renderErrors(model.getValidationErrors()))
                 .replace("{{HELP_TEXT}}", escapeHtml(model.getHelpText()))
                 .replace("{{UPLOAD_ACTION}}", escapeHtml(buildUploadAction(model.getCurrentBuildQuery())))

@@ -26,6 +26,31 @@
                 linear-gradient(180deg, #fbf8f2 0%, var(--bg) 100%);
         }
         .layout { max-width: 1240px; margin: 0 auto; padding: 28px 16px 48px; }
+        .app-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 22px;
+            padding: 14px 16px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: rgba(255, 250, 243, 0.94);
+            box-shadow: 0 10px 20px rgba(42, 35, 29, 0.05);
+        }
+        .app-nav-title { font-weight: 800; }
+        .app-nav-links { display: flex; flex-wrap: wrap; gap: 10px; }
+        .app-nav-link {
+            padding: 10px 14px;
+            border-radius: 999px;
+            text-decoration: none;
+            color: var(--text);
+            background: #fff;
+            border: 1px solid rgba(42, 35, 29, 0.08);
+            font-weight: 700;
+        }
+        .app-nav-link-active { background: linear-gradient(135deg, #2b523a 0%, #467859 100%); color: #f7fbf7; }
         .hero { margin-bottom: 18px; }
         .eyebrow {
             display: inline-block;
@@ -133,6 +158,8 @@
 </head>
 <body>
 <main class="layout">
+    {{GLOBAL_NAV}}
+
     <header class="hero">
         <div class="eyebrow">M12 / Search GUI SSR</div>
         <h1>Znajdź najlepszy build</h1>

@@ -19,6 +19,7 @@ public final class ItemLibraryPageRenderer {
 
     public String render(ItemLibraryPageModel model) {
         return template
+                .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/biblioteka-itemow"))
                 .replace("{{MESSAGES}}", renderMessages(model.getMessages()))
                 .replace("{{ERRORS}}", renderErrors(model.getErrors()))
                 .replace("{{CURRENT_BUILD_URL}}", escapeHtml(buildCurrentBuildUrl(model.getCurrentBuildQuery())))

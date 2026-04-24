@@ -40,6 +40,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
                 new CurrentBuildPageRenderer(),
                 itemLibraryService
         );
+        HomeController homeController = new HomeController(new HomePageRenderer());
         SearchBuildDetailsController searchBuildDetailsController = new SearchBuildDetailsController(
                 calculationService,
                 new SearchBuildDetailsPageRenderer()
@@ -60,13 +61,17 @@ public final class CurrentBuildWebServer implements AutoCloseable {
                 itemLibraryService,
                 new ItemLibraryPageRenderer()
         );
+        PlaceholderPageRenderer placeholderPageRenderer = new PlaceholderPageRenderer();
 
         server.createContext("/policz-aktualny-build", controller);
         server.createContext("/znajdz-najlepszy-build", searchController);
         server.createContext("/znajdz-najlepszy-build/szczegoly", searchBuildDetailsController);
         server.createContext("/importuj-item-ze-screena", itemImportController);
         server.createContext("/biblioteka-itemow", itemLibraryController);
-        server.createContext("/", new RootHandler(controller));
+        for (AppModule module : AppModuleRegistry.placeholderModules()) {
+            server.createContext(module.getUrl(), new PlaceholderPageController(module, placeholderPageRenderer));
+        }
+        server.createContext("/", new RootHandler(homeController));
     }
 
     public void start() {
@@ -109,16 +114,16 @@ public final class CurrentBuildWebServer implements AutoCloseable {
 
     /** Obsługuje ekran wejściowy pod rootem i odrzuca pozostałe ścieżki. */
     private static final class RootHandler implements HttpHandler {
-        private final CurrentBuildController controller;
+        private final HomeController homeController;
 
-        private RootHandler(CurrentBuildController controller) {
-            this.controller = controller;
+        private RootHandler(HomeController homeController) {
+            this.homeController = homeController;
         }
 
         @Override
         public void handle(HttpExchange exchange) throws IOException {
             if ("/".equals(exchange.getRequestURI().getPath())) {
-                controller.handle(exchange);
+                homeController.handle(exchange);
                 return;
             }
 

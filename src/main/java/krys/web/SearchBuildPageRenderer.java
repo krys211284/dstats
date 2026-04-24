@@ -29,6 +29,7 @@ public final class SearchBuildPageRenderer {
 
     public String render(SearchBuildPageModel model) {
         return template
+                .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/znajdz-najlepszy-build"))
                 .replace("{{SEARCH_SPACE_FIELDS}}", renderSearchSpaceFields(model.getFormData()))
                 .replace("{{SKILL_SPACE_FIELDS}}", renderSkillSpaceFields(model.getFormData()))
                 .replace("{{FORM_ERRORS}}", renderErrors(model.getValidationErrors()))
