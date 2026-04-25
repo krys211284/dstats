@@ -95,6 +95,14 @@
         }
         .summary-label { color: var(--muted); font-size: 0.88rem; margin-bottom: 6px; }
         .summary-value { font-size: 1.05rem; font-weight: 700; }
+        .section-kicker {
+            display: block;
+            margin-bottom: 4px;
+            color: var(--muted);
+            font-size: 0.78rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
         .nav-link,
         button {
             display: inline-block;
@@ -140,6 +148,88 @@
             display: grid;
             gap: 8px;
             margin-bottom: 8px;
+        }
+        .library-groups {
+            display: grid;
+            gap: 18px;
+        }
+        .slot-group {
+            padding-top: 4px;
+        }
+        .slot-group-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(112, 96, 79, 0.18);
+        }
+        .slot-group-head h3 {
+            margin: 0;
+        }
+        .slot-count,
+        .slot-chip {
+            display: inline-block;
+            padding: 4px 10px;
+            border: 1px solid rgba(42, 36, 29, 0.12);
+            border-radius: 999px;
+            background: #fff;
+            color: #57330c;
+            font-size: 0.82rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+        .item-card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+        }
+        .item-card {
+            display: grid;
+            gap: 12px;
+            padding: 14px;
+            border: 1px solid rgba(112, 96, 79, 0.2);
+            border-radius: 8px;
+            background: #fff;
+        }
+        .item-card-active {
+            border-color: rgba(30, 85, 102, 0.4);
+            box-shadow: inset 4px 0 0 #1e5566;
+        }
+        .item-card-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .item-card h4 {
+            margin: 8px 0 0;
+            font-size: 1.02rem;
+        }
+        .item-meta-grid {
+            display: grid;
+            gap: 8px;
+        }
+        .item-meta {
+            display: grid;
+            gap: 3px;
+        }
+        .item-meta span {
+            color: var(--muted);
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+        .item-meta strong {
+            font-size: 0.93rem;
+            font-weight: 800;
+        }
+        .item-actions,
+        .assign-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
         }
         .status-badge {
             display: inline-block;
@@ -205,9 +295,9 @@
 
     <section class="panel">
         <h1>Biblioteka itemów</h1>
-        <p class="helper">To jest minimalny foundation zapisanych itemów nad aktualnym buildem. Biblioteka nie buduje osobnego runtime i nie jest jeszcze pełnym inventory managerem.</p>
+        <p class="helper">Przegląd zapisanych itemów dla aktywnego bohatera. Biblioteka pokazuje slot, wkład i stan użycia, ale nadal tylko steruje wyborem itemu przed istniejącym current build.</p>
         <div class="info-strip">
-            Możesz mieć wiele zapisanych itemów tego samego slotu, ale aktywny pozostaje najwyżej jeden item per slot. Ustawienie nowego aktywnego itemu od razu zastępuje poprzedni aktywny wybór w tym samym slocie.
+            Możesz mieć wiele zapisanych itemów tego samego slotu. Akcja Załóż bohaterowi wypełnia pusty zgodny slot, a Zmień w slocie zastępuje item w tym slocie aktywnego bohatera.
         </div>
         <div class="hero-links">
             <a class="nav-link" href="{{CURRENT_BUILD_URL}}">Wróć do aktualnego buildu</a>

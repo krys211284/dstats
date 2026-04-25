@@ -107,11 +107,16 @@ public final class ItemLibraryController implements HttpHandler {
         HeroProfile activeHero = heroService.requireActiveHero();
         long itemId = parseItemId(fields.getOrDefault("itemId", ""));
         HeroEquipmentSlot heroSlot = HeroEquipmentSlot.valueOf(fields.getOrDefault("heroSlot", ""));
-        itemLibraryService.requireCompatibleItem(heroSlot, itemId);
+        SavedImportedItem item = itemLibraryService.requireCompatibleItem(heroSlot, itemId);
+        Long previousItemId = activeHero.getItemSelection().getSelectedItemId(heroSlot);
         heroService.setActiveHeroItem(heroSlot, itemId);
+        String slotName = ItemLibraryPresentationSupport.heroSlotDisplayName(heroSlot);
+        String message = previousItemId == null
+                ? "Założono item " + item.getDisplayName() + " w slocie " + slotName + " bohatera " + activeHero.getName() + "."
+                : "Zmieniono item w slocie " + slotName + " bohatera " + activeHero.getName() + " na " + item.getDisplayName() + ".";
         return buildPageModel(
                 List.of(),
-                List.of("Aktywny item dla slotu " + ItemLibraryPresentationSupport.heroSlotDisplayName(heroSlot) + " został zmieniony dla bohatera " + activeHero.getName() + "."),
+                List.of(message),
                 currentBuildQuery,
                 null
         );

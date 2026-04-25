@@ -17,10 +17,9 @@ import java.util.Map;
 import java.util.StringJoiner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Testuje SSR biblioteki itemów: zapis, lista, aktywacja i sekcję active items na current build. */
+/** Testuje SSR biblioteki itemów: zapis, przegląd, założenie itemu i sekcję active items na current build. */
 class ItemLibraryWebServerTest {
     private CurrentBuildWebServer webServer;
     private HttpClient httpClient;
@@ -73,8 +72,11 @@ class ItemLibraryWebServerTest {
         assertTrue(firstSave.body().contains("Ręka dodatkowa / shield-a.png"));
         assertTrue(firstSave.body().contains("Item zapisany do biblioteki"));
         assertTrue(firstSave.body().contains("Pracujesz teraz na bohaterze Bibliotekarz"));
-        assertTrue(firstSave.body().contains("Ustaw jako aktywny"));
+        assertTrue(firstSave.body().contains("Załóż bohaterowi: Tarcza"));
         assertTrue(firstSave.body().contains("Wróć do aktualnego buildu"));
+        assertTrue(firstSave.body().contains("Slot itemu"));
+        assertTrue(firstSave.body().contains("Skrót wkładu"));
+        assertTrue(firstSave.body().contains("Nie używany przez aktywnego bohatera"));
 
         HttpResponse<String> secondSave = sendUrlEncodedPost("/biblioteka-itemow", Map.of(
                 "action", "saveImportedItem",
@@ -91,6 +93,7 @@ class ItemLibraryWebServerTest {
         assertEquals(200, secondSave.statusCode());
         assertTrue(secondSave.body().contains("Ręka dodatkowa / shield-a.png"));
         assertTrue(secondSave.body().contains("Ręka dodatkowa / shield-b.png"));
+        assertTrue(secondSave.body().contains("2 itemy"));
 
         HttpResponse<String> activateResponse = sendUrlEncodedPost("/biblioteka-itemow", Map.of(
                 "action", "activateItem",
@@ -99,9 +102,12 @@ class ItemLibraryWebServerTest {
                 "currentBuildQuery", buildCurrentBuildQuery()
         ));
         assertEquals(200, activateResponse.statusCode());
-        assertTrue(activateResponse.body().contains("Aktywny item dla slotu Tarcza został zmieniony dla bohatera Bibliotekarz."));
-        assertTrue(activateResponse.body().contains("class=\"status-badge status-active\">Aktywny</span>"));
-        assertTrue(activateResponse.body().contains("slotach: Tarcza"));
+        assertTrue(activateResponse.body().contains("Założono item Ręka dodatkowa / shield-b.png w slocie Tarcza bohatera Bibliotekarz."));
+        assertTrue(activateResponse.body().contains("class=\"status-badge status-active\">Używany</span>"));
+        assertTrue(activateResponse.body().contains("Używany przez aktywnego bohatera w slocie: Tarcza."));
+        assertTrue(activateResponse.body().contains("Już założony w slocie Tarcza."));
+        assertTrue(activateResponse.body().contains("Zmień w slocie: Tarcza"));
+        assertTrue(activateResponse.body().contains("Pokaż slot w current build"));
         assertTrue(activateResponse.body().contains("Ręka dodatkowa / shield-b.png"));
 
         HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build?" + buildCurrentBuildQuery());
