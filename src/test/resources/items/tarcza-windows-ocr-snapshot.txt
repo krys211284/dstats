@@ -1,0 +1,13 @@
+# Snapshot realnego outputu Windows OCR dla src/test/resources/items/tarcza.png.
+# Zebrany przez ItemImageOcrPreprocessor + WindowsItemOcrTextReader.
+# Ten fixture zabezpiecza regres, w którym liczby nagłówkowe 800 / 1 131 mogły trafiać do foundation affixów.
+---original---
+NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU * Starożytna legendarna tarcza Moc przedmiotu: 800 Q' 1 131 pkt. pancerza (Wytrzymałość: * 45% redukcji blokowanych obrażeń [451% 20,0% szansy na blok [20,0]% +100% obrażeń od broni w głównej ręce [100]% +114 - 121] +494 cierni [473 - 506] +7,0% szansy na szczęśliwy traf [7,0 13,2% redukcji czasu odnowienia Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [81% Zadajesz obrażenia zwiększone o [5,0 - Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek. Puste @ Przewiń w dół
+---text-crop---
+NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU * Starożytna legendarna tarcza Moc przedmiotu: 800 1 131 pkt. pancerza (Wytrzymałoś 45% redukcji blokowanych obrażeń [451% 20,0% szansy na blok [20,0]% +100% obrażeń od broni w głównej ręce [100]% +114 siły +[107 - 121] +494 cierni [473 - 506] +7,0% szansy na szczęśliwy traf [7,0 13,2% redukcji czasu odnowienia Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [8]%
+---text-crop-gray-x2-contrast---
+NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU * Starożytna legendarna tarcza Moc przedmiotu: 800 1 131 pkt. pancerza (Wytrzymałoś 45% redukcji blokowanych obrażeń [45 % 20,0% szansy na blok [20,01% +100% obrażeń od broni w głównej ręce [1001% +114 siły +[107 - 121] +494 cierni [473 - 506] +7,0% szansy na szczęśliwy traf [7,0 13,2% redukcji czasu odnowienia Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [81%
+---text-crop-gray-x3-threshold---
+EGIDA WEWNĘTRZNEGO SPOKOJU Starożytna legendarna tarcza Moc przedmiotu: 800 1 131 pkt. pancerza (Wytrzymałoś 45% redukcji blokowanych obrażeń 20,0% szansy na blok [20,01% +100% obrażeń od broni w głównej ręce [1001% +114 siły +[107- 121] +494 cierni [473 - 506] +7,0% szansy na szczęśliwy traf [7,0 13,2% redukcji czasu odnowienia Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [81%
+---text-crop-gray-x3-sharpen---
+NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU * Starożytna legendarna tarcza Moc przedmiotu: 800 1 131 pkt. pancerza (Wytrzymałoś 45% redukcji blokowanych obrażeń [451% 20,0% szansy na blok [20,01% +100% obrażeń od broni w głównej ręce [1001% +114 siły +1107 - 121] +494 cierni [473 - 5061 +7,0% szansy na szczęśliwy traf [7,0 13,2% redukcji czasu odnowienia Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [81%

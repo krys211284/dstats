@@ -334,6 +334,7 @@ Minimalny zakres rozpoznawania tekstu OCR dla M13.1:
 - parser może rozpoznać `Retribution chance` tylko wtedy, gdy OCR zawiera jednoznaczną frazę `retribution chance` albo `szansa na odwet`,
 - jeżeli linia affixu zawiera jednocześnie realny roll i zakres referencyjny w `[]` albo `()`, parser ma wybierać realny roll jako wartość affixu,
 - liczby z zakresu referencyjnego w `[]` albo `()` nie są domyślną wartością affixu i nie mogą wygrywać z głównym rollem linii,
+- uszkodzone fragmenty zakresów z OCR, np. `[1001%`, nie mogą powodować odrzucenia kolejnego poprawnego rolla affixu,
 - bazowa wartość pancerza itemu, np. `1 131 pkt. pancerza`, nie jest affixem i nie może zasilać pól `strength`, `thorns` ani `block chance`,
 - nieobsługiwane affixy nie mogą być mapowane do statów foundation.
 
@@ -1209,7 +1210,8 @@ Minimalny zakres testów obejmuje:
 - rozpoznanie ograniczonych pól foundation z pojedynczego screena itemu do `candidate parse result`,
 - pełny odczyt widocznego itemu do `FullItemRead` niezależnie od mappingu foundation,
 - zachowanie pełnych linii itemu w formularzu potwierdzenia i w zapisie biblioteki,
-- odczyt `src/test/resources/items/tarcza.png` jako pełniejszego modelu itemu z nazwą, typem, rzadkością, mocą, bazowym pancerzem, affixami i aspektem,
+- odczyt `src/test/resources/items/tarcza.png` jako pełniejszego modelu itemu z nazwą, typem, rzadkością, mocą, bazowym pancerzem, stabilnymi implicitami, affixami i efektem legendarnym, bez stabilizowania sezonowego wpisu `Rozjuszenie`,
+- snapshot realnego outputu Windows OCR dla `src/test/resources/items/tarcza.png`, który zabezpiecza ścieżkę regresji `800 / 1 131` bez fake OCR readera jako głównej weryfikacji,
 - odczyt `src/test/resources/items/buty.png` jako pełniejszego modelu itemu bez halucynowania nieobsługiwanych foundation statów,
 - rozpoznanie polskich fraz foundation dla `Strength`, `Thorns` i `Block chance`,
 - wybór realnego rolla zamiast liczby z zakresu referencyjnego dla linii typu `+114 do siły [107 - 121]`,

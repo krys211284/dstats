@@ -22,7 +22,7 @@ final class ItemImageImportTextParser {
                 List.of("WEAPON\\s*DAMAGE"), List.of("DAMAGE"));
         ItemImportFieldCandidate<Double> strengthCandidate = detectDouble(lines, "Strength",
                 List.of("STRENGTH", "(?:DO\\s+)?SILY", "(?:DO\\s+)?SILE", "(?:DO\\s+)?SILA"),
-                List.of("STRENGTH", "SIL"));
+                List.of("STRENGTH"));
         ItemImportFieldCandidate<Double> intelligenceCandidate = detectDouble(lines, "Intelligence",
                 List.of("INTELLIGENCE", "(?:DO\\s+)?INTELIGENCJI", "(?:DO\\s+)?INTELIGENCJA"),
                 List.of("INTELIGENC"));
@@ -117,16 +117,21 @@ final class ItemImageImportTextParser {
 
         for (String line : lines) {
             FullItemReadLineType type = classifyFullReadLine(line);
+            String collapsedLine = collapse(line);
             readLines.add(new FullItemReadLine(type, line));
             if (type == FullItemReadLineType.ITEM_NAME && itemName.isBlank()) {
                 itemName = line;
-            } else if (type == FullItemReadLineType.TYPE_OR_SLOT && itemTypeLine.isBlank()) {
+            }
+            if (itemTypeLine.isBlank() && isItemTypeLine(collapsedLine)) {
                 itemTypeLine = line;
-            } else if (type == FullItemReadLineType.RARITY && rarity.isBlank()) {
+            }
+            if (rarity.isBlank() && isRarityLine(collapsedLine)) {
                 rarity = line;
-            } else if (type == FullItemReadLineType.ITEM_POWER && itemPower.isBlank()) {
+            }
+            if (type == FullItemReadLineType.ITEM_POWER && itemPower.isBlank()) {
                 itemPower = line;
-            } else if (type == FullItemReadLineType.BASE_STAT && baseItemValue.isBlank()) {
+            }
+            if (type == FullItemReadLineType.BASE_STAT && baseItemValue.isBlank()) {
                 baseItemValue = line;
             }
         }
@@ -139,7 +144,7 @@ final class ItemImageImportTextParser {
         if (collapsedLine.contains("MOCPRZEDMIOTU") || collapsedLine.contains("MOCYPRZEDMIOTU") || collapsedLine.contains("ITEMPOWER")) {
             return FullItemReadLineType.ITEM_POWER;
         }
-        if (containsAny(collapsedLine, List.of("LEGENDARNY", "LEGENDARY", "UNIKATOWY", "UNIQUE", "RZADKI", "RARE", "MAGICZNY", "MAGIC"))) {
+        if (isRarityLine(collapsedLine)) {
             return FullItemReadLineType.RARITY;
         }
         if (isItemTypeLine(collapsedLine)) {
@@ -168,6 +173,16 @@ final class ItemImageImportTextParser {
         ));
     }
 
+    private static boolean isRarityLine(String collapsedLine) {
+        return containsAny(collapsedLine, List.of(
+                "LEGENDARNY", "LEGENDARNA", "LEGENDARNE", "LEGENDARY",
+                "STAROZYTNY", "STAROZYTNA", "STAROZYTNE", "ANCESTRAL",
+                "UNIKATOWY", "UNIKATOWA", "UNIQUE",
+                "RZADKI", "RZADKA", "RARE",
+                "MAGICZNY", "MAGICZNA", "MAGIC"
+        ));
+    }
+
     private static ItemImportFieldCandidate<Long> detectLong(List<String> lines,
                                                              String label,
                                                              List<String> exactTokens,
@@ -190,6 +205,11 @@ final class ItemImageImportTextParser {
                                                                  List<String> fuzzyPhrases) {
         for (String line : lines) {
             String normalizedLine = normalizeLineForPattern(line);
+            Optional<Double> polishLeadingRoll = extractPolishLeadingRoll(normalizedLine, label);
+            if (polishLeadingRoll.isPresent()) {
+                return field(line, polishLeadingRoll.get(), ItemImportFieldConfidence.HIGH,
+                        label + " rozpoznany bezpośrednio z tekstu OCR.");
+            }
             for (String phrase : exactPhrases) {
                 Optional<Double> number = extractNumberNearPhrase(normalizedLine, phrase);
                 if (number.isPresent()) {
@@ -209,6 +229,28 @@ final class ItemImageImportTextParser {
             }
         }
         return ItemImportFieldCandidate.unknown("Nie udało się rozpoznać pola `" + label + "` z OCR.");
+    }
+
+    private static Optional<Double> extractPolishLeadingRoll(String normalizedLine, String label) {
+        String pattern = switch (label) {
+            case "Strength" -> "\\b([0-9OISBL]+(?:[.,][0-9OISBL]+)?)\\s+(?:DO\\s+)?SIL[AY]?\\b";
+            case "Thorns" -> "\\b([0-9OISBL]+(?:[.,][0-9OISBL]+)?)\\s+(?:DO\\s+)?CIERN\\w*\\b";
+            case "Block chance" -> "\\b([0-9OISBL]+(?:[.,][0-9OISBL]+)?)\\s*%?\\s+SZANS[AY]\\s+NA\\s+BLOK\\b";
+            default -> "";
+        };
+        if (pattern.isBlank()) {
+            return Optional.empty();
+        }
+        Matcher matcher = Pattern.compile(pattern).matcher(normalizedLine);
+        while (matcher.find()) {
+            int tokenStart = matcher.start(1);
+            int tokenEnd = matcher.end(1);
+            if (isInsideReferenceRange(normalizedLine, tokenStart) || isBaseItemValue(normalizedLine, tokenStart, tokenEnd)) {
+                continue;
+            }
+            return parseNumericToken(matcher.group(1));
+        }
+        return Optional.empty();
     }
 
     private static Optional<Double> extractNumberNearPhrase(String normalizedLine, String phraseRegex) {
@@ -276,10 +318,13 @@ final class ItemImageImportTextParser {
     private static NumericTokenCandidate selectBestCandidateForPhrase(List<NumericTokenCandidate> numericCandidates,
                                                                       int phraseStart,
                                                                       int phraseEnd) {
-        return numericCandidates.stream()
+        List<NumericTokenCandidate> safeCandidates = numericCandidates.stream()
                 .filter(candidate -> !candidate.insideReferenceRange())
                 .filter(candidate -> !candidate.baseItemValue())
                 .filter(candidate -> !overlapsPhrase(candidate, phraseStart, phraseEnd))
+                .toList();
+
+        return safeCandidates.stream()
                 .min(Comparator
                         .comparingInt((NumericTokenCandidate candidate) -> distanceToPhrase(candidate, phraseStart, phraseEnd))
                         .thenComparingInt(candidate -> candidate.start() >= phraseEnd ? 0 : 1)
@@ -304,12 +349,29 @@ final class ItemImageImportTextParser {
         int squareOpen = normalizedLine.lastIndexOf('[', tokenStart);
         int squareClose = normalizedLine.lastIndexOf(']', tokenStart);
         if (squareOpen >= 0 && squareOpen > squareClose) {
-            return true;
+            return isStillInsideBrokenOcrRange(normalizedLine, squareOpen, tokenStart);
         }
 
         int roundOpen = normalizedLine.lastIndexOf('(', tokenStart);
         int roundClose = normalizedLine.lastIndexOf(')', tokenStart);
-        return roundOpen >= 0 && roundOpen > roundClose;
+        return roundOpen >= 0 && roundOpen > roundClose
+                && isStillInsideBrokenOcrRange(normalizedLine, roundOpen, tokenStart);
+    }
+
+    private static boolean isStillInsideBrokenOcrRange(String normalizedLine, int rangeOpen, int tokenStart) {
+        String textBetweenOpenAndToken = normalizedLine.substring(rangeOpen + 1, tokenStart);
+        if (textBetweenOpenAndToken.length() > 20) {
+            return false;
+        }
+        if (textBetweenOpenAndToken.contains("%")) {
+            return false;
+        }
+        for (int index = 0; index < textBetweenOpenAndToken.length(); index++) {
+            if (Character.isLetter(textBetweenOpenAndToken.charAt(index))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean isBaseItemValue(String normalizedLine, int tokenStart, int tokenEnd) {
@@ -394,7 +456,6 @@ final class ItemImageImportTextParser {
         return normalizePolishText(line)
                 .toUpperCase(Locale.ROOT)
                 .replace('+', ' ')
-                .replace('%', ' ')
                 .replaceAll("\\s+", " ")
                 .trim();
     }
