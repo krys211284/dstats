@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
@@ -102,6 +103,11 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("Ręczne potwierdzenie itemu"));
         assertTrue(response.body().contains("name=\"sourceImageName\" value=\"sztylet.png\""));
         assertTrue(response.body().contains("name=\"slot\""));
+        assertTrue(response.body().contains("Ręczna weryfikacja affixów"));
+        assertTrue(response.body().contains("Dodaj affix"));
+        assertTrue(response.body().contains("name=\"newAffixType\""));
+        assertTrue(response.body().contains("name=\"newAffixValue\""));
+        assertTrue(response.body().contains("Projekcja do aktualnego runtime"));
     }
 
     @Test
@@ -195,7 +201,8 @@ class ItemImportWebServerTest {
                         new FullItemReadLine(FullItemReadLineType.AFFIX, "13,2% redukcji czasu odnowienia"),
                         new FullItemReadLine(FullItemReadLineType.ASPECT, "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"),
                         new FullItemReadLine(FullItemReadLineType.ASPECT, "Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."),
-                        new FullItemReadLine(FullItemReadLineType.OTHER, "Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [8]%")
+                        new FullItemReadLine(FullItemReadLineType.OTHER, "Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [8]%"),
+                        new FullItemReadLine(FullItemReadLineType.SOCKET, "Puste gniazdo")
                 )
         ));
 
@@ -224,22 +231,27 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("<div class=\"summary-value\">800</div>"));
         assertTrue(response.body().contains("<div class=\"summary-label\">Pancerz</div>"));
         assertTrue(response.body().contains("<div class=\"summary-value\">1 131</div>"));
-        assertTrue(response.body().contains("Sprawdź odczyt itemu"));
+        assertTrue(response.body().contains("Pełny zapis itemu"));
+        assertTrue(response.body().contains("Linie bazowe / implicit"));
+        assertTrue(response.body().contains("45% redukcji blokowanych obrażeń [45]%"));
+        assertTrue(response.body().contains("20,0% szansy na blok [20,01]%"));
+        assertTrue(response.body().contains("+100% obrażeń od broni w głównej ręce [100]%"));
         assertTrue(response.body().contains("Affixy"));
         assertTrue(response.body().contains("+114 siły [107 - 121]"));
         assertTrue(response.body().contains("+494 cierni [473 - 506]"));
         assertTrue(response.body().contains("+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%"));
         assertTrue(response.body().contains("13,2% redukcji czasu odnowienia"));
-        assertTrue(response.body().contains("Efekt legendarny / specjalny"));
+        assertTrue(response.body().contains("Aspekt / efekt legendarny"));
         assertTrue(response.body().contains("Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"));
         assertTrue(response.body().contains("Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."));
-        assertTrue(response.body().contains("Dodatkowe linie"));
+        assertTrue(response.body().contains("Dodatkowe / sezonowe linie"));
         assertTrue(response.body().contains("Rozjuszenie: +8%"));
-        assertTrue(response.body().contains("Linie bazowe / implicit"));
-        assertTrue(response.body().contains("45% redukcji blokowanych obrażeń [45]%"));
-        assertTrue(response.body().contains("20,0% szansy na blok [20,01]%"));
-        assertTrue(response.body().contains("+100% obrażeń od broni w głównej ręce [100]%"));
-        assertTrue(response.body().indexOf("Affixy") < response.body().indexOf("Linie bazowe / implicit"));
+        assertTrue(response.body().contains("Socket / gniazdo"));
+        assertTrue(response.body().contains("Puste gniazdo"));
+        assertTrue(response.body().indexOf("Linie bazowe / implicit") < response.body().indexOf("Affixy"));
+        assertTrue(response.body().indexOf("Affixy") < response.body().indexOf("Aspekt / efekt legendarny"));
+        assertTrue(response.body().indexOf("Aspekt / efekt legendarny") < response.body().indexOf("Dodatkowe / sezonowe linie"));
+        assertTrue(response.body().indexOf("Dodatkowe / sezonowe linie") < response.body().indexOf("Socket / gniazdo"));
         assertFalse(response.body().contains("Szczegóły techniczne OCR"));
         assertFalse(response.body().contains("Typ linii"));
         assertTrue(response.body().contains("Mapowanie do aktualnego modelu buildu"));
@@ -250,6 +262,94 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("<div class=\"summary-label\">Szansa bloku [%]</div>"));
         assertTrue(response.body().contains("<div class=\"summary-value\">20</div>"));
         assertFalse(response.body().contains(">OFF_HAND<"));
+    }
+
+    @Test
+    void shouldConfirmItemWithEditedAffixListAndSaveEditedFullReadToLibrary() throws Exception {
+        createHero("Importer", "13");
+        String fullShieldRead = FullItemReadFormCodec.encode(new FullItemRead(
+                "NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU",
+                "Starożytna legendarna tarcza",
+                "Starożytna legendarna",
+                "Moc przedmiotu: 800",
+                "Pancerz: 1 131 pkt.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.ITEM_NAME, "NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU"),
+                        new FullItemReadLine(FullItemReadLineType.TYPE_OR_SLOT, "Starożytna legendarna tarcza"),
+                        new FullItemReadLine(FullItemReadLineType.ITEM_POWER, "Moc przedmiotu: 800"),
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT, "Pancerz: 1 131 pkt."),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "45% redukcji blokowanych obrażeń [45]%"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "20,0% szansy na blok [20,01]%"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+100% obrażeń od broni w głównej ręce [100]%"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+114 siły [107 - 121]"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+494 cierni [473 - 506]"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "13,2% redukcji czasu odnowienia"),
+                        new FullItemReadLine(FullItemReadLineType.ASPECT, "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"),
+                        new FullItemReadLine(FullItemReadLineType.OTHER, "Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [8]%"),
+                        new FullItemReadLine(FullItemReadLineType.SOCKET, "Puste gniazdo")
+                )
+        ));
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("sourceImageName", "tarcza.png");
+        fields.put("slot", "OFF_HAND");
+        fields.put("weaponDamage", "0");
+        fields.put("strength", "0");
+        fields.put("intelligence", "0");
+        fields.put("thorns", "0");
+        fields.put("blockChance", "20.0");
+        fields.put("retributionChance", "0");
+        fields.put("fullItemRead", fullShieldRead);
+        fields.put("currentBuildQuery", "");
+        fields.put("affixCount", "4");
+        fields.put("affixType_0", "STRENGTH");
+        fields.put("affixValue_0", "120");
+        fields.put("affixOriginalType_0", "STRENGTH");
+        fields.put("affixOriginalValue_0", "114");
+        fields.put("affixSourceText_0", "+114 siły [107 - 121]");
+        fields.put("affixType_1", "THORNS");
+        fields.put("affixValue_1", "494");
+        fields.put("affixOriginalType_1", "THORNS");
+        fields.put("affixOriginalValue_1", "494");
+        fields.put("affixSourceText_1", "+494 cierni [473 - 506]");
+        fields.put("affixType_2", "LUCKY_HIT_CHANCE");
+        fields.put("affixValue_2", "7.0");
+        fields.put("affixOriginalType_2", "LUCKY_HIT_CHANCE");
+        fields.put("affixOriginalValue_2", "7");
+        fields.put("affixSourceText_2", "+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%");
+        fields.put("affixRemoved_2", "true");
+        fields.put("affixType_3", "COOLDOWN_REDUCTION");
+        fields.put("affixValue_3", "13.2");
+        fields.put("affixOriginalType_3", "COOLDOWN_REDUCTION");
+        fields.put("affixOriginalValue_3", "13.2");
+        fields.put("affixSourceText_3", "13,2% redukcji czasu odnowienia");
+        fields.put("newAffixType", "INTELLIGENCE");
+        fields.put("newAffixValue", "33");
+
+        HttpResponse<String> response = sendUrlEncodedPost("/importuj-item-ze-screena", fields);
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Zatwierdzony item zapisany do biblioteki"));
+        assertTrue(response.body().contains("+120 siły"));
+        assertTrue(response.body().contains("+494 cierni [473 - 506]"));
+        assertTrue(response.body().contains("13,2% redukcji czasu odnowienia"));
+        assertTrue(response.body().contains("+33 inteligencji"));
+        assertFalse(response.body().contains("+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%"));
+        assertTrue(response.body().contains("<div class=\"summary-label\">Siła</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-value\">120</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-label\">Inteligencja</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-value\">33</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-label\">Kolce</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-value\">494</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-label\">Szansa bloku [%]</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-value\">20</div>"));
+
+        HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow");
+
+        assertEquals(200, libraryResponse.statusCode());
+        assertTrue(libraryResponse.body().contains("+120 siły"));
+        assertTrue(libraryResponse.body().contains("+33 inteligencji"));
+        assertFalse(libraryResponse.body().contains("+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%"));
     }
 
     @Test

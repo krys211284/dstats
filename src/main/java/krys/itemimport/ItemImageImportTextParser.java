@@ -153,7 +153,7 @@ final class ItemImageImportTextParser {
         if (containsAny(collapsedLine, List.of("PANCERZ", "ARMOR", "WEAPONDAMAGE", "OBRAZENIABRONI", "DAMAGEPERSECOND"))) {
             return FullItemReadLineType.BASE_STAT;
         }
-        if (containsAny(collapsedLine, List.of("GNIAZDO", "GNIAZDA", "SOCKET", "SOCKETS"))) {
+        if (containsAny(collapsedLine, List.of("GNIAZDO", "GNIAZDA", "SOCKET", "SOCKETS", "PUSTE"))) {
             return FullItemReadLineType.SOCKET;
         }
         if (containsAny(collapsedLine, List.of("ASPEKT", "ASPECT", "LEGENDARNA", "LEGENDARYPOWER"))) {

@@ -2,6 +2,9 @@ package krys.itemlibrary;
 
 import krys.item.EquipmentSlot;
 import krys.itemimport.FullItemRead;
+import krys.itemimport.ImportedItemAffix;
+
+import java.util.List;
 
 /** Trwale zapisany item z biblioteki użytkownika z własnym stabilnym identyfikatorem. */
 public final class SavedImportedItem {
@@ -16,6 +19,7 @@ public final class SavedImportedItem {
     private final double blockChance;
     private final double retributionChance;
     private final FullItemRead fullItemRead;
+    private final List<ImportedItemAffix> affixes;
 
     public SavedImportedItem(long itemId,
                              String displayName,
@@ -41,6 +45,21 @@ public final class SavedImportedItem {
                              double blockChance,
                              double retributionChance,
                              FullItemRead fullItemRead) {
+        this(itemId, displayName, sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance, fullItemRead, List.of());
+    }
+
+    public SavedImportedItem(long itemId,
+                             String displayName,
+                             String sourceImageName,
+                             EquipmentSlot slot,
+                             long weaponDamage,
+                             double strength,
+                             double intelligence,
+                             double thorns,
+                             double blockChance,
+                             double retributionChance,
+                             FullItemRead fullItemRead,
+                             List<ImportedItemAffix> affixes) {
         if (itemId < 0L) {
             throw new IllegalArgumentException("Id itemu nie może być ujemne.");
         }
@@ -73,6 +92,7 @@ public final class SavedImportedItem {
         this.blockChance = blockChance;
         this.retributionChance = retributionChance;
         this.fullItemRead = fullItemRead == null ? FullItemRead.empty() : fullItemRead;
+        this.affixes = affixes == null ? List.of() : List.copyOf(affixes);
     }
 
     private static void validateNonNegative(String label, double value) {
@@ -123,5 +143,9 @@ public final class SavedImportedItem {
 
     public FullItemRead getFullItemRead() {
         return fullItemRead;
+    }
+
+    public List<ImportedItemAffix> getAffixes() {
+        return affixes;
     }
 }

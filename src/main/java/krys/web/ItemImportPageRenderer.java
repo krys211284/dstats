@@ -8,6 +8,8 @@ import krys.itemimport.FullItemReadFormCodec;
 import krys.itemimport.FullItemReadLine;
 import krys.itemimport.FullItemReadLineType;
 import krys.itemimport.ImportedItemCurrentBuildContribution;
+import krys.itemimport.ImportedItemAffix;
+import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ItemImageImportCandidateParseResult;
 import krys.itemimport.ItemImportEditableForm;
 import krys.itemimport.ItemImportFieldCandidate;
@@ -140,18 +142,21 @@ public final class ItemImportPageRenderer {
                 .append(renderHiddenField("sourceImageName", form.getSourceImageName()))
                 .append(renderHiddenField("currentBuildQuery", model.getCurrentBuildQuery()))
                 .append(renderHiddenField("fullItemRead", FullItemReadFormCodec.encode(form.getFullItemRead())))
+                .append(renderHiddenField("weaponDamage", form.getWeaponDamage()))
+                .append(renderHiddenField("strength", form.getStrength()))
+                .append(renderHiddenField("intelligence", form.getIntelligence()))
+                .append(renderHiddenField("thorns", form.getThorns()))
+                .append(renderHiddenField("blockChance", form.getBlockChance()))
+                .append(renderHiddenField("retributionChance", form.getRetributionChance()))
                 .append("""
                             <div class="form-grid">
                 """)
                 .append(renderSlotSelect(form.getSlot()))
-                .append(renderNumberField("weaponDamage", "Obrażenia broni", form.getWeaponDamage(), "1"))
-                .append(renderNumberField("strength", "Siła", form.getStrength(), "1"))
-                .append(renderNumberField("intelligence", "Inteligencja", form.getIntelligence(), "1"))
-                .append(renderNumberField("thorns", "Kolce", form.getThorns(), "1"))
-                .append(renderNumberField("blockChance", "Szansa bloku [%]", form.getBlockChance(), "0.01"))
-                .append(renderNumberField("retributionChance", "Szansa retribution [%]", form.getRetributionChance(), "0.01"))
                 .append("""
                             </div>
+                """)
+                .append(renderAffixEditor(form))
+                .append("""
                             <div class="submit-row">
                                 <button type="submit">Zatwierdź item</button>
                             </div>
@@ -257,13 +262,14 @@ public final class ItemImportPageRenderer {
                 .append("</div>")
                 .append("""
                     <div class="item-read-groups">
-                        <h4>Sprawdź odczyt itemu</h4>
+                        <h4>Pełny zapis itemu</h4>
                     """)
+                .append(renderLineGroup("Linie bazowe / implicit", groupedLines(fullItemRead, ItemReadLineGroup.IMPLICIT)))
                 .append(renderLineGroup("Affixy", groupedLines(fullItemRead, ItemReadLineGroup.AFFIX), true))
-                .append(renderLineGroup("Efekt legendarny / specjalny", groupedLines(fullItemRead, ItemReadLineGroup.SPECIAL)))
-                .append(renderLineGroup("Dodatkowe linie", groupedLines(fullItemRead, ItemReadLineGroup.OTHER)))
+                .append(renderLineGroup("Aspekt / efekt legendarny", groupedLines(fullItemRead, ItemReadLineGroup.SPECIAL)))
+                .append(renderLineGroup("Dodatkowe / sezonowe linie", groupedLines(fullItemRead, ItemReadLineGroup.OTHER)))
+                .append(renderLineGroup("Socket / gniazdo", groupedLines(fullItemRead, ItemReadLineGroup.SOCKET)))
                 .append("</div>")
-                .append(renderCollapsedLineGroup("Linie bazowe / implicit", groupedLines(fullItemRead, ItemReadLineGroup.IMPLICIT)))
                 .append("</section>");
         return html.toString();
     }
@@ -297,28 +303,6 @@ public final class ItemImportPageRenderer {
         return html.toString();
     }
 
-    private static String renderCollapsedLineGroup(String heading, List<FullItemReadLine> lines) {
-        if (lines.isEmpty()) {
-            return "";
-        }
-        return """
-                <details class="secondary-item-lines">
-                    <summary>%s</summary>
-                    <ul class="item-line-list">
-                        %s
-                    </ul>
-                </details>
-                """.formatted(escapeHtml(heading), renderLineItems(lines));
-    }
-
-    private static String renderLineItems(List<FullItemReadLine> lines) {
-        StringBuilder html = new StringBuilder();
-        for (FullItemReadLine line : lines) {
-            html.append("<li>").append(escapeHtml(line.getText())).append("</li>");
-        }
-        return html.toString();
-    }
-
     private static List<FullItemReadLine> groupedLines(FullItemRead fullItemRead, ItemReadLineGroup group) {
         List<FullItemReadLine> lines = new ArrayList<>();
         for (FullItemReadLine line : fullItemRead.getLines()) {
@@ -337,6 +321,9 @@ public final class ItemImportPageRenderer {
                 || line.getType() == FullItemReadLineType.ITEM_POWER
                 || line.getType() == FullItemReadLineType.BASE_STAT) {
             return ItemReadLineGroup.HEADER;
+        }
+        if (line.getType() == FullItemReadLineType.SOCKET) {
+            return ItemReadLineGroup.SOCKET;
         }
         if (normalized.contains("REDUKCJI BLOKOWANYCH OBRAZEN")
                 || normalized.contains("SZANSY NA BLOK")
@@ -454,6 +441,114 @@ public final class ItemImportPageRenderer {
         return html.toString();
     }
 
+    private static String renderAffixEditor(ItemImportEditableForm form) {
+        StringBuilder html = new StringBuilder("""
+                <section class="subpanel">
+                    <h3>Ręczna weryfikacja affixów</h3>
+                    <p class="helper">Ta lista jest głównym modelem korekty itemu. Możesz zmienić typ i wartość affixu, oznaczyć błędny wiersz do usunięcia albo dodać brakujący affix. Niżej aplikacja pokazuje tylko projekcję tych danych do obecnego runtime.</p>
+                    <input type="hidden" name="affixCount" value="%s">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Typ affixu</th>
+                                <th>Wartość</th>
+                                <th>Odczyt OCR / źródło</th>
+                                <th>Usuń</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                """.formatted(form.getAffixes().size()));
+        for (int index = 0; index < form.getAffixes().size(); index++) {
+            ImportedItemAffix affix = form.getAffixes().get(index);
+            html.append("""
+                    <tr>
+                        <td>
+                            <select name="affixType_%s">%s</select>
+                            <input type="hidden" name="affixOriginalType_%s" value="%s">
+                        </td>
+                        <td>
+                            <input type="number" min="0" step="0.01" name="affixValue_%s" value="%s">
+                            <input type="hidden" name="affixOriginalValue_%s" value="%s">
+                        </td>
+                        <td>
+                            %s
+                            <input type="hidden" name="affixSourceText_%s" value="%s">
+                        </td>
+                        <td><label class="checkbox-label"><input type="checkbox" name="affixRemoved_%s" value="true"> Usuń</label></td>
+                    </tr>
+                    """.formatted(
+                    index,
+                    renderAffixTypeOptions(affix.getType()),
+                    index,
+                    affix.getType().name(),
+                    index,
+                    formatDecimal(affix.getValue()),
+                    index,
+                    formatDecimal(affix.getValue()),
+                    escapeHtml(affix.toDisplayLine()),
+                    index,
+                    escapeHtml(affix.getSourceText()),
+                    index
+            ));
+        }
+        html.append("""
+                        </tbody>
+                    </table>
+                    <div class="add-affix-row">
+                        <h4>Dodaj affix</h4>
+                        <div class="form-grid">
+                            <label>
+                                Typ affixu
+                                <select name="newAffixType">
+                                    <option value="">Nie dodawaj</option>
+                                    %s
+                                </select>
+                            </label>
+                            <label>
+                                Wartość
+                                <input type="number" min="0" step="0.01" name="newAffixValue" value="">
+                            </label>
+                        </div>
+                    </div>
+                    <section class="subpanel">
+                        <h4>Projekcja do aktualnego runtime</h4>
+                        <p class="helper">Te pola są wtórnym widokiem kompatybilności. Aktualny runtime użyje tylko obsługiwanego podzbioru: siła, inteligencja, kolce, szansa bloku, szansa retribution i obrażenia broni.</p>
+                        <div class="summary-grid compact-grid">
+                            %s
+                            %s
+                            %s
+                            %s
+                            %s
+                            %s
+                        </div>
+                    </section>
+                </section>
+                """.formatted(
+                renderAffixTypeOptions(null),
+                renderSummaryCard("Obrażenia broni", emptyNumberLabel(form.getWeaponDamage())),
+                renderSummaryCard("Siła", emptyNumberLabel(projectedAffixValue(form, ImportedItemAffixType.STRENGTH, form.getStrength()))),
+                renderSummaryCard("Inteligencja", emptyNumberLabel(projectedAffixValue(form, ImportedItemAffixType.INTELLIGENCE, form.getIntelligence()))),
+                renderSummaryCard("Kolce", emptyNumberLabel(projectedAffixValue(form, ImportedItemAffixType.THORNS, form.getThorns()))),
+                renderSummaryCard("Szansa bloku [%]", emptyNumberLabel(projectedAffixValue(form, ImportedItemAffixType.BLOCK_CHANCE, form.getBlockChance()))),
+                renderSummaryCard("Szansa retribution [%]", emptyNumberLabel(projectedAffixValue(form, ImportedItemAffixType.RETRIBUTION_CHANCE, form.getRetributionChance())))
+        ));
+        return html.toString();
+    }
+
+    private static String renderAffixTypeOptions(ImportedItemAffixType selectedType) {
+        StringBuilder html = new StringBuilder();
+        for (ImportedItemAffixType type : ImportedItemAffixType.values()) {
+            html.append("<option value=\"")
+                    .append(type.name())
+                    .append("\"")
+                    .append(type == selectedType ? " selected" : "")
+                    .append(">")
+                    .append(escapeHtml(type.getDisplayName()))
+                    .append("</option>");
+        }
+        return html.toString();
+    }
+
     private static String renderCandidateRow(String label, ItemImportFieldCandidate<?> candidate) {
         String suggestedValue = renderCandidateValue(candidate.getSuggestedValue());
         String note = candidate.getNote() == null || candidate.getNote().isBlank() ? "-" : candidate.getNote();
@@ -559,6 +654,27 @@ public final class ItemImportPageRenderer {
         return String.format(Locale.US, "%.0f", value);
     }
 
+    private static String formatDecimal(double value) {
+        if (Math.rint(value) == value) {
+            return String.format(Locale.US, "%.0f", value);
+        }
+        return String.format(Locale.US, "%.2f", value);
+    }
+
+    private static String projectedAffixValue(ItemImportEditableForm form, ImportedItemAffixType type, String fallbackValue) {
+        double total = 0.0d;
+        for (ImportedItemAffix affix : form.getAffixes()) {
+            if (affix.getType() == type) {
+                total += affix.getValue();
+            }
+        }
+        return total > 0.0d ? formatDecimal(total) : fallbackValue;
+    }
+
+    private static String emptyNumberLabel(String value) {
+        return value == null || value.isBlank() ? "0" : value;
+    }
+
     private static String emptyLabel(String value) {
         return value == null || value.isBlank() ? "Brak pewnego odczytu" : value;
     }
@@ -583,6 +699,7 @@ public final class ItemImportPageRenderer {
         IMPLICIT,
         AFFIX,
         SPECIAL,
+        SOCKET,
         OTHER
     }
 }

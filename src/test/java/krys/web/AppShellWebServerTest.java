@@ -53,6 +53,7 @@ class AppShellWebServerTest {
         assertTrue(response.body().contains("Znajdź najlepszy build"));
         assertTrue(response.body().contains("Importuj item ze screena"));
         assertTrue(response.body().contains("Biblioteka itemów"));
+        assertTrue(response.body().contains("Baza wiedzy itemów"));
         assertTrue(response.body().contains("Plany Wojenne"));
         assertTrue(response.body().contains("Medalion"));
         assertTrue(response.body().contains("Kostka Horadrimów"));
@@ -76,6 +77,7 @@ class AppShellWebServerTest {
         assertNavigation(sendGet("/policz-aktualny-build"), "/policz-aktualny-build");
         assertNavigation(sendGet("/importuj-item-ze-screena"), "/importuj-item-ze-screena");
         assertNavigation(sendGet("/biblioteka-itemow"), "/biblioteka-itemow");
+        assertNavigation(sendGet("/baza-wiedzy-itemow"), "/baza-wiedzy-itemow");
         assertNavigation(sendGet("/znajdz-najlepszy-build"), "/znajdz-najlepszy-build");
     }
 
@@ -140,6 +142,7 @@ class AppShellWebServerTest {
         assertEquals(200, sendGet("/policz-aktualny-build").statusCode());
         assertEquals(200, sendGet("/importuj-item-ze-screena").statusCode());
         assertEquals(200, sendGet("/biblioteka-itemow").statusCode());
+        assertEquals(200, sendGet("/baza-wiedzy-itemow").statusCode());
         assertEquals(200, sendGet("/znajdz-najlepszy-build").statusCode());
         assertEquals(404, sendGet("/nieznana-sekcja").statusCode());
     }
@@ -155,6 +158,7 @@ class AppShellWebServerTest {
         assertTrue(response.body().contains(">Znajdź najlepszy build</a>"));
         assertTrue(response.body().contains(">Importuj item ze screena</a>"));
         assertTrue(response.body().contains(">Biblioteka itemów</a>"));
+        assertTrue(response.body().contains(">Baza wiedzy itemów</a>"));
         assertTrue(response.body().contains("class=\"app-nav-link app-nav-link-active\" href=\"" + activePath + "\""));
     }
 

@@ -41,5 +41,9 @@ class ItemImportEditableFormFactoryTest {
         assertEquals("25", form.getRetributionChance());
         assertEquals("Miecz testowy", form.getFullItemRead().getItemName());
         assertEquals(1, form.getFullItemRead().getLines().size());
+        assertEquals(1, form.getAffixes().size());
+        assertEquals(ImportedItemAffixType.STRENGTH, form.getAffixes().getFirst().getType());
+        assertEquals(55.0d, form.getAffixes().getFirst().getValue());
+        assertEquals("+55 Strength", form.getAffixes().getFirst().getSourceText());
     }
 }

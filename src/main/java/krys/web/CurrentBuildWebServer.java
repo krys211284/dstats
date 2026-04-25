@@ -9,6 +9,8 @@ import krys.itemlibrary.FileItemLibraryRepository;
 import krys.itemlibrary.ItemLibraryDataDirectoryResolver;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemimport.ItemImageImportService;
+import krys.itemknowledge.FileItemKnowledgeRepository;
+import krys.itemknowledge.ItemKnowledgeService;
 import krys.search.BuildSearchCalculationService;
 import krys.search.BuildSearchEvaluationService;
 import krys.simulation.ManualSimulationService;
@@ -31,6 +33,9 @@ public final class CurrentBuildWebServer implements AutoCloseable {
 
         ItemLibraryService itemLibraryService = new ItemLibraryService(
                 new FileItemLibraryRepository(itemLibraryDataDirectory)
+        );
+        ItemKnowledgeService itemKnowledgeService = new ItemKnowledgeService(
+                new FileItemKnowledgeRepository(itemLibraryDataDirectory)
         );
         HeroService heroService = new HeroService(
                 new FileHeroProfileRepository(itemLibraryDataDirectory)
@@ -68,7 +73,12 @@ public final class CurrentBuildWebServer implements AutoCloseable {
                 new ItemImageImportService(),
                 new ItemImportPageRenderer(),
                 itemLibraryService,
+                itemKnowledgeService,
                 heroService
+        );
+        ItemKnowledgeController itemKnowledgeController = new ItemKnowledgeController(
+                itemKnowledgeService,
+                new ItemKnowledgePageRenderer()
         );
         ItemLibraryController itemLibraryController = new ItemLibraryController(
                 itemLibraryService,
@@ -83,6 +93,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
         server.createContext("/znajdz-najlepszy-build/szczegoly", searchBuildDetailsController);
         server.createContext("/importuj-item-ze-screena", itemImportController);
         server.createContext("/biblioteka-itemow", itemLibraryController);
+        server.createContext("/baza-wiedzy-itemow", itemKnowledgeController);
         for (AppModule module : AppModuleRegistry.placeholderModules()) {
             server.createContext(module.getUrl(), new PlaceholderPageController(module, placeholderPageRenderer));
         }
@@ -110,6 +121,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
         System.out.println("GUI search dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/znajdz-najlepszy-build");
         System.out.println("GUI importu itemu dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/importuj-item-ze-screena");
         System.out.println("GUI biblioteki itemów dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/biblioteka-itemow");
+        System.out.println("GUI bazy wiedzy itemów dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/baza-wiedzy-itemow");
         System.out.println("Drill-down searcha jest dostępny z poziomu listy wyników GUI searcha.");
 
         synchronized (CurrentBuildWebServer.class) {

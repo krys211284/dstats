@@ -37,8 +37,10 @@ class ItemImageImportServiceTest {
             "+494 cierni [473 - 506]",
             "+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%",
             "13,2% redukcji czasu odnowienia",
+            "Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [8]%",
             "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%",
-            "Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."
+            "Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek.",
+            "Puste gniazdo"
     );
 
     @Test
@@ -148,7 +150,7 @@ class ItemImageImportServiceTest {
         for (String expectedLine : STABLE_SHIELD_LINES) {
             assertTrue(fullReadLines.contains(expectedLine), "Brak stabilnej linii tarczy: " + expectedLine);
         }
-        assertFalse(fullReadLines.stream().anyMatch(line -> line.contains("Rozjuszenie")));
+        assertTrue(result.getFullItemRead().getLines().stream().anyMatch(line -> line.getType() == FullItemReadLineType.SOCKET));
     }
 
     @Test

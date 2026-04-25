@@ -64,14 +64,15 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - centralny rejestr modułów aplikacji z opisem, grupą, statusem i URL,
 - placeholder pages dla przyszłych sekcji dodatku i sezonu bez implementacji ich mechaniki,
 - pierwszy SSR flow `Importuj item ze screena` dla pojedynczego itemu z ręcznym potwierdzeniem użytkownika,
-- realny odczyt OCR pojedynczego screena itemu dla ograniczonego zakresu pól foundation,
+- realny odczyt OCR pojedynczego screena itemu jako pełniejszego rekordu itemu oraz osobną projekcję kompatybilności do pól foundation,
 - preprocessing obrazu itemu przed OCR z heurystycznym wycięciem obszaru tekstowego oraz kilkoma wariantami obrazu,
 - deterministyczne scalanie wyników OCR z kilku wariantów bez zmiany runtime current build, simulation i searcha,
 - parser polskich affixów foundation dla rozpoznawalnych fraz slotu i statów,
 - model wstępnego rozpoznania z poziomem pewności i uwagami per pole,
-- walidowany formularz zatwierdzonego itemu i mapowanie jego pól do aktualnego modelu buildu,
+- walidowany formularz zatwierdzonego itemu z edytowalną listą affixów jako główną warstwą ręcznej korekty oraz osobnym mapowaniem do aktualnego modelu buildu,
 - automatyczny zapis zatwierdzonego itemu do biblioteki po ręcznym potwierdzeniu pól importu,
 - minimalną trwałą bibliotekę zapisanych itemów z wieloma itemami tego samego slotu, zapisywaną lokalnie w stabilnym katalogu użytkownika,
+- osobną bazę wiedzy itemów uczącą się wyłącznie z ręcznie zatwierdzonych itemów, z aktywną epoką wiedzy, obserwowanymi typami affixów, obserwowanymi aspektami i resetem sezonowym,
 - wspólną bibliotekę zapisanych itemów oraz niezależny wybór aktywnego itemu per slot dla każdego bohatera,
 - wyraźny wynik zapisu importowanego itemu do biblioteki z nazwą, slotem, identyfikatorem i akcjami `Załóż bohaterowi`, `Zmień w slocie` oraz `Wróć do aktualnego buildu`,
 - nowy tryb searcha po bibliotece itemów, który generuje kombinacje zapisanych itemów per slot w kontekście aktywnego bohatera i nadal składa je do effective current build przed tym samym runtime,
@@ -309,20 +310,22 @@ Kontrakt domenowy importu itemu:
 - `ItemImageImportRequest` reprezentuje upload pojedynczego obrazu itemu,
 - `FullItemRead` reprezentuje pełniejszy odczyt widocznego itemu z OCR: nazwę, typ / slot, rzadkość, moc przedmiotu, bazową wartość, affixy, aspekt / moc, gniazda i inne zachowane linie,
 - `ItemImageImportCandidateParseResult` reprezentuje wstępny odczyt OCR wraz z metadanymi obrazu, pełnym odczytem itemu, poziomem pewności i uwagami per pole foundation po scaleniu kilku wariantów OCR,
-- `ItemImportEditableForm` reprezentuje ręcznie edytowalny formularz potwierdzenia,
-- `ValidatedImportedItem` reprezentuje item zatwierdzony po walidacji,
+- `ImportedItemAffix` reprezentuje pojedynczy edytowalny affix itemu: typ z katalogu, wartość i źródłową linię OCR, jeżeli została zachowana,
+- `ImportedItemAffixType` jest katalogiem znanych typów affixów używanym wspólnie przez UI ręcznej walidacji i projekcję do runtime,
+- `ItemImportEditableForm` reprezentuje ręcznie edytowalny formularz potwierdzenia, którego głównym modelem korekty jest lista affixów, a nie sztywna tabela kilku pól foundation,
+- `ValidatedImportedItem` reprezentuje item zatwierdzony po walidacji razem z pełnym rekordem affixów po edycji użytkownika,
 - `ValidatedImportedItemToItemMapper` mapuje zatwierdzony item do aktualnego modelu `Item`,
 - `ImportedItemCurrentBuildContributionMapper` mapuje zatwierdzony item do agregowanych pól aktualnego modelu current build,
-- `ItemLibraryService` zapisuje zatwierdzony item razem z `FullItemRead` do biblioteki,
-- mapping foundation pozostaje osobną warstwą: z pełnego odczytu i ręcznie potwierdzonych pól do aktualnie wspieranego podzbioru runtime.
+- `ItemLibraryService` zapisuje zatwierdzony item razem z `FullItemRead` i listą affixów po ręcznej edycji do biblioteki,
+- mapping foundation pozostaje osobną warstwą: z pełnego odczytu, listy affixów i ręcznie potwierdzonego slotu do aktualnie wspieranego podzbioru runtime.
 
 Kontrakt prezentacji pełnego odczytu itemu:
-- główny widok pełnego odczytu nie jest technicznym dumpem OCR, tylko podglądem itemu,
+- główny widok pełnego odczytu nie jest technicznym dumpem OCR, tylko rekordem produktu możliwie 1:1 względem screena,
 - nagłówek itemu pokazuje osobno nazwę, typ, rzadkość, moc przedmiotu oraz bazową wartość, np. `Pancerz` albo bazowe obrażenia,
-- pierwszoplanowe sekcje pełnego odczytu to `Affixy` oraz `Efekt legendarny / specjalny`, bo to one pozwalają użytkownikowi szybko zweryfikować najważniejszy odczyt itemu,
-- dodatkowe właściwości są pokazywane jako `Dodatkowe linie`,
-- `Linie bazowe / implicit` pozostają warstwą pomocniczą i nie mogą przesłaniać affixów,
-- mapowanie do aktualnego modelu buildu pozostaje osobną sekcją i pokazuje wyłącznie pola foundation używane przez obecny runtime,
+- pełny zapis itemu pokazuje osobno i w czytelnej kolejności linie bazowe / implicit, affixy, aspekt / efekt legendarny, dodatkowe / sezonowe linie oraz socket / gniazdo,
+- sekcja ręcznej walidacji affixów pozwala zmienić typ affixu, poprawić jego wartość, usunąć błędny affix albo dodać brakujący affix z katalogu znanych typów,
+- pełny odczyt nie usuwa widocznych informacji tylko dlatego, że obecny runtime ich jeszcze nie wykorzystuje,
+- mapowanie do aktualnego modelu buildu pozostaje osobną sekcją i pokazuje wyłącznie wtórną projekcję foundation używaną przez obecny runtime,
 - surowy techniczny dump OCR nie jest częścią zwykłego głównego flow użytkownika.
 
 Minimalny zakres pól foundation mapowanych do runtime:
@@ -353,16 +356,47 @@ Jawne ograniczenia aktualnego foundation importu:
 - heurystyczne wycięcie obszaru tekstowego ma ograniczać wpływ ramki, grafiki itemu i dolnego overlayu, ale nie daje gwarancji pełnego odcięcia każdego zakłócającego elementu,
 - przy równorzędnych sprzecznych odczytach z kilku wariantów OCR pole pozostaje z obniżoną pewnością zamiast sztucznego podbicia pewności,
 - gdy parser nie potrafi bezpiecznie odróżnić głównego rolla od wartości referencyjnych, pole ma pozostać nierozpoznane zamiast zgadywania,
-- użytkownik musi ręcznie zatwierdzić albo poprawić pola przed użyciem itemu,
+- użytkownik musi ręcznie zatwierdzić item przed użyciem, a główną warstwą korekty jest lista affixów z możliwością zmiany typu, wartości, usunięcia i dodania wiersza,
 - przed pierwszym uploadem sekcja `Wstępnie rozpoznane pola` pokazuje jawny empty state i komunikuje, gdzie pojawi się wynik OCR,
 - po `Zatwierdź item` zatwierdzony item jest automatycznie zapisywany do biblioteki,
 - po automatycznym zapisie użytkownik dostaje czytelne potwierdzenie z nazwą itemu, plikiem źródłowym, slotem, identyfikatorem biblioteki, wkładem oraz dalszymi akcjami `Załóż bohaterowi`, `Przejdź do biblioteki` i `Wróć do aktualnego buildu`,
-- pełniejszy odczyt itemu jest prezentowany osobno od sekcji `Mapowanie do aktualnego modelu buildu` jako nagłówek itemu, affixy, efekt specjalny, dodatkowe linie oraz pomocnicze linie bazowe / implicit,
+- pełniejszy odczyt itemu jest prezentowany osobno od sekcji `Mapowanie do aktualnego modelu buildu` jako pełny zapis itemu z nagłówkiem, implicitami, affixami, efektem specjalnym, dodatkowymi liniami i socketem / gniazdem,
+- projekcja foundation powstaje z edytowalnej listy affixów i pól kompatybilności potrzebnych obecnemu runtime; nie jest docelowym modelem itemu,
 - flow nie importuje jeszcze całego ekwipunku ani całej postaci,
 - flow nie buduje jeszcze pełnego wielo-itemowego workflow ani sesji inventory,
 - flow nie omija obecnego modelu current build i nie buduje bocznego modelu runtime.
 
-### 4.6. Minimalna biblioteka zapisanych itemów
+### 4.6. Baza wiedzy o itemach
+Aktualny foundation repo obejmuje osobną bazę wiedzy o itemach jako warstwę obserwacji i przyszłych sugestii. Nie jest to biblioteka konkretnych itemów użytkownika i nie jest to runtime.
+
+Kontrakt domenowy bazy wiedzy:
+- `ItemKnowledgeService` uczy bazę wyłącznie po ręcznym zatwierdzeniu itemu w imporcie, po ostatecznej korekcie listy affixów,
+- baza nie uczy się z surowego OCR, wstępnych kandydatów ani niezatwierdzonego formularza,
+- `ItemKnowledgeSnapshot` reprezentuje aktywną epokę wiedzy oraz wpisy obserwacji pogrupowane po slocie i typie itemu,
+- `ItemKnowledgeEntry` zapamiętuje dla typu itemu liczbę zatwierdzonych itemów, obserwowane typy affixów, obserwowane aspekty / efekty specjalne oraz liczniki wystąpień,
+- baza korzysta z istniejących `ImportedItemAffix`, `ImportedItemAffixType` i `FullItemRead`; nie wprowadza drugiego konkurencyjnego modelu affixów,
+- baza wiedzy jest odseparowana od `SavedImportedItem`: zapis konkretnego itemu pozostaje źródłem prawdy dla itemu użytkownika, a baza wiedzy przechowuje tylko zagregowane obserwacje,
+- obserwacje są zapisywane w osobnym pliku `item-knowledge.db` w katalogu danych aplikacji.
+
+Kontrakt epoki i resetu:
+- każda baza ma aktywną epokę wiedzy, np. `Epoka wiedzy 1` albo nazwaną epokę sezonową,
+- reset bazy wiedzy rozpoczyna kolejną epokę i czyści aktywne obserwacje,
+- reset jest przeznaczony na zmianę sezonu, patcha albo sytuację, w której użytkownik nie chce mieszać nowych obserwacji ze starymi.
+
+Kontrakt UI bazy wiedzy:
+- ekran `/baza-wiedzy-itemow` pokazuje aktywną epokę, liczbę typów itemów, liczbę zatwierdzonych obserwacji, liczbę obserwacji affixów i aspektów,
+- ekran pokazuje wpisy wiedzy per typ itemu z listą zaobserwowanych typów affixów i aspektów,
+- ekran pozwala rozpocząć nową epokę wiedzy i wyczyścić aktywne obserwacje,
+- baza wiedzy na tym etapie nie podpowiada automatycznie affixów, nie ostrzega o nietypowych affixach i nie wpływa na search; przygotowuje model pod te przyszłe scenariusze.
+
+Poza aktualnym zakresem bazy wiedzy pozostają:
+- automatyczne poprawianie konkretnego itemu użytkownika,
+- autopodpowiedzi w formularzu importu,
+- warningi zgodności affixów z typem itemu,
+- wyszukiwanie idealnego itemu po bazie wiedzy,
+- archiwalny przegląd poprzednich epok.
+
+### 4.7. Minimalna biblioteka zapisanych itemów
 Aktualny foundation repo obejmuje minimalną bibliotekę zapisanych itemów jako warstwę aplikacyjną nad current build, a nie osobny model runtime.
 
 Kontrakt biblioteki itemów:
@@ -818,6 +852,7 @@ Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny bu
 - osobny input flow `ItemImageImportRequest -> ItemImageImportService -> ItemImportFormMapper` dla importu obrazu itemu,
 - preprocessing OCR i deterministyczne scalanie wyniku per pole jeszcze przed ręcznym potwierdzeniem użytkownika,
 - trwałą bibliotekę itemów opartą o prosty lokalny zapis plikowy bez bazy danych,
+- osobną bazę wiedzy itemów opartą o prosty lokalny zapis plikowy, z aktywną epoką i resetem obserwacji,
 - osobną usługę `BuildSearchCalculationService` dla backendowego searcha,
 - prosty serwer HTTP z SSR bez rozbudowanego frontendu JS,
 - pojedynczy ekran formularza dla `Brandish`, `Holy Bolt`, `Clash` i `Advance`,
@@ -830,10 +865,12 @@ Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny bu
 - osobny ekran GUI SSR importu wspomaganego obrazem dla pojedynczego itemu,
 - render realnie rozpoznanych pól OCR, poziomu niepewności, empty state przed uploadem i ręcznego potwierdzenia pól itemu,
 - prosty ekran SSR `/biblioteka-itemow` z listą zapisanych itemów i wyborem aktywnego itemu per slot,
+- prosty ekran SSR `/baza-wiedzy-itemow` ze statusem epoki, licznikami obserwacji, listą zaobserwowanych affixów / aspektów oraz resetem wiedzy,
 - sekcję `Ekwipunek aktualnego buildu` na ekranie `Policz aktualny build`,
 - sekcję `Użyte itemy` na ekranie `Policz aktualny build`,
 - zmianę aktywnego itemu per slot bezpośrednio z current build przez ten sam stan biblioteki itemów, ale w kontekście aktywnego bohatera,
 - automatyczny zapis zatwierdzonego itemu do biblioteki po kliknięciu `Zatwierdź item`,
+- uczenie bazy wiedzy dopiero po kliknięciu `Zatwierdź item`, z listy affixów po ręcznej korekcie i z zatwierdzonego pełnego odczytu,
 - akcje dalszego flow po zatwierdzeniu importu: `Załóż bohaterowi`, `Przejdź do biblioteki` i `Wróć do aktualnego buildu`,
 - wynik zapisu itemu do biblioteki z dalszymi akcjami użytkownika,
 - wejście do importu itemu bez sesji wielu itemów, z możliwością zachowania kontekstu current build przez query string,
@@ -1118,14 +1155,31 @@ Kontrakt prezentacji dla smoke testu importu itemu:
 - GUI waliduje technicznie, czy upload jest prawidłowym obrazem,
 - GUI przed pierwszym uploadem pokazuje sensowny empty state sekcji `Wstępnie rozpoznane pola`,
 - GUI wykonuje preprocessing i realny OCR kilku wariantów pojedynczego screena, a następnie pokazuje metadane obrazu, poziom pewności oraz uwagi dla pól wstępnego odczytu,
-- GUI pokazuje sekcję `Pełny odczyt widocznego itemu` jako czytelny podgląd itemu z nagłówkiem, wyeksponowanymi affixami, efektem specjalnym i dodatkowymi liniami, oddzielony od tabeli pól foundation,
-- GUI pokazuje ręczny formularz zatwierdzenia obejmujący `slot`, `weapon damage`, `strength`, `intelligence`, `thorns`, `block chance` i `retribution chance`,
-- zatwierdzony item jest mapowany do aktualnego modelu `Item`, do agregowanych pól current build oraz automatycznie zapisywany jako `SavedImportedItem` z pełnym odczytem `FullItemRead` w bibliotece,
+- GUI pokazuje sekcję `Pełny odczyt widocznego itemu` jako czytelny rekord itemu z nagłówkiem, liniami bazowymi / implicit, affixami, aspektem / efektem legendarnym, dodatkowymi liniami i socketem / gniazdem, oddzielony od tabeli pól foundation,
+- GUI pokazuje ręczny formularz zatwierdzenia z edytowalną listą affixów: użytkownik może zmienić typ i wartość affixu, oznaczyć wiersz do usunięcia albo dodać brakujący affix z katalogu,
+- pola foundation są prezentowane jako wtórna projekcja do aktualnego runtime, a nie jako główny model ręcznej walidacji itemu,
+- zatwierdzony item jest mapowany do aktualnego modelu `Item`, do agregowanych pól current build oraz automatycznie zapisywany jako `SavedImportedItem` z pełnym odczytem `FullItemRead` i listą affixów w bibliotece,
+- po zatwierdzeniu itemu baza wiedzy zapisuje obserwacje typów affixów i aspektów dla typu itemu, ale nie zmienia konkretnego itemu użytkownika,
 - GUI po zatwierdzeniu itemu pokazuje, dla jakiego aktywnego bohatera pracujemy,
 - GUI po zatwierdzeniu itemu pokazuje nazwę itemu / plik źródłowy, slot, identyfikator biblioteki, wkład oraz akcje `Załóż bohaterowi`, `Przejdź do biblioteki` i `Wróć do aktualnego buildu`,
 - GUI po zatwierdzeniu pokazuje `Pełny odczyt zapisany w bibliotece` jako podgląd itemu oraz osobno `Mapowanie do aktualnego modelu buildu`,
 - flow nie obiecuje pełnej bezbłędności OCR i wymaga ręcznego potwierdzenia użytkownika przed użyciem danych,
 - poza zakresem pozostają pełny wielo-itemowy workflow i pełny OCR całej postaci.
+
+Smoke test GUI bazy wiedzy itemów:
+
+```text
+http://127.0.0.1:8080/baza-wiedzy-itemow
+```
+
+Kontrakt prezentacji dla smoke testu bazy wiedzy itemów:
+- GUI bazy wiedzy jest po polsku i jasno komunikuje, że to osobna warstwa obserwacji, a nie biblioteka konkretnych itemów ani runtime,
+- GUI pokazuje aktywną epokę wiedzy oraz liczniki wpisów, zatwierdzonych obserwacji itemów, obserwacji affixów i obserwacji aspektów,
+- GUI pokazuje obserwacje pogrupowane po typie itemu i slocie,
+- GUI pokazuje zaobserwowane typy affixów i aspekty / efekty specjalne z licznikami wystąpień,
+- GUI pozwala rozpocząć nową epokę wiedzy i wyczyścić aktywne obserwacje,
+- pusty stan prowadzi użytkownika do importu itemu,
+- GUI bazy wiedzy nie stosuje sugestii automatycznie i nie zmienia zapisanych itemów użytkownika.
 
 Smoke test GUI biblioteki itemów:
 
@@ -1219,22 +1273,29 @@ Minimalny zakres testów obejmuje:
 - rozpoznanie ograniczonych pól foundation z pojedynczego screena itemu do `candidate parse result`,
 - pełny odczyt widocznego itemu do `FullItemRead` niezależnie od mappingu foundation,
 - zachowanie pełnych linii itemu w formularzu potwierdzenia i w zapisie biblioteki,
-- odczyt `src/test/resources/items/tarcza.png` jako pełniejszego modelu itemu z nazwą, typem, rzadkością, mocą, bazowym pancerzem, stabilnymi implicitami, affixami i efektem legendarnym, bez stabilizowania sezonowego wpisu `Rozjuszenie`,
+- odczyt `src/test/resources/items/tarcza.png` jako pełniejszego modelu itemu z nazwą, typem, rzadkością, mocą, bazowym pancerzem, stabilnymi implicitami, affixami, sezonową linią `Rozjuszenie`, efektem legendarnym i gniazdem,
 - snapshot realnego outputu Windows OCR dla `src/test/resources/items/tarcza.png`, który zabezpiecza ścieżkę regresji `800 / 1 131` bez fake OCR readera jako głównej weryfikacji,
-- render pełnego odczytu itemu jako produktowego podglądu z osobnymi polami nagłówka, affixami na pierwszym planie, efektem specjalnym i implicitami zredukowanymi do warstwy pomocniczej,
+- render pełnego odczytu itemu jako produktowego podglądu 1:1 z osobnymi polami nagłówka, implicitami, affixami, efektem specjalnym, dodatkowymi liniami i socketem / gniazdem,
+- render edytowalnej listy affixów jako głównego modelu ręcznej walidacji importowanego itemu,
+- projekcję aktualnych statów runtime z listy affixów z zachowaniem pełnych affixów nieobsługiwanych jeszcze przez runtime,
 - odczyt `src/test/resources/items/buty.png` jako pełniejszego modelu itemu bez halucynowania nieobsługiwanych foundation statów,
 - rozpoznanie polskich fraz foundation dla `Strength`, `Thorns` i `Block chance`,
 - wybór realnego rolla zamiast liczby z zakresu referencyjnego dla linii typu `+114 do siły [107 - 121]`,
 - rozpoznanie slotu dla co najmniej `buty` i `tarcza`,
 - brak halucynacji dla nieobsługiwanych affixów OCR,
 - mapowanie wstępnie rozpoznanych pól itemu do formularza ręcznego potwierdzenia,
+- mapowanie rozpoznanych linii affixów do katalogu `ImportedItemAffixType`,
 - walidację ręcznie poprawionego itemu,
 - mapowanie zatwierdzonego itemu do aktualnego modelu `Item`,
 - mapowanie zatwierdzonego itemu do aktualnego agregowanego modelu current build,
 - aplikowanie zatwierdzonego itemu do current build w trybie `nadpisz`,
 - aplikowanie zatwierdzonego itemu do current build w trybie `dodaj wkład`,
 - zapis zatwierdzonego itemu do trwałej biblioteki,
+- trwały zapis i odczyt listy affixów po ręcznej edycji w bibliotece itemów,
 - trwały zapis i odczyt pełniejszego `FullItemRead` w bibliotece itemów,
+- uczenie bazy wiedzy z zatwierdzonego itemu po ręcznej edycji affixów,
+- trwały zapis i odczyt aktywnej epoki bazy wiedzy oraz liczników affixów i aspektów,
+- reset bazy wiedzy przez rozpoczęcie nowej epoki,
 - odczyt listy zapisanych itemów z biblioteki,
 - wiele itemów tego samego slotu w bibliotece,
 - aktywację jednego itemu per slot i zmianę aktywnego itemu z A na B,
@@ -1251,11 +1312,15 @@ Minimalny zakres testów obejmuje:
 - empty state importu bez aktywnego bohatera,
 - empty state sekcji `Wstępnie rozpoznane pola`,
 - upload obrazu itemu i render sekcji wstępnego rozpoznania,
+- dodanie, usunięcie oraz zmiana typu i wartości affixu w flow potwierdzenia importu,
 - regresję parsera, w której bazowy pancerz tarczy `1 131 pkt. pancerza` nie może zostać rozlany do pól siły, kolców ani szansy bloku,
 - rozpoznanie realnych rolli tarczy `+114 siły`, `+494 cierni` i `+20,0% szansy na blok` mimo obecności bazowego pancerza,
 - zatwierdzenie itemu z automatycznym zapisem do biblioteki,
 - render potwierdzenia automatycznego zapisu itemu do biblioteki z akcjami dalszego flow,
 - render pełnego odczytu itemu w GUI importu i w GUI biblioteki,
+- GET strony bazy wiedzy itemów,
+- SSR statusu aktywnej epoki, liczników obserwacji i wpisów wiedzy per typ itemu,
+- SSR resetu bazy wiedzy i pustego stanu nowej epoki,
 - GET strony biblioteki itemów,
 - empty state biblioteki bez aktywnego bohatera,
 - zachowanie `currentBuildQuery` w flow `biblioteka itemów -> import kolejnego itemu -> powrót do current build`,

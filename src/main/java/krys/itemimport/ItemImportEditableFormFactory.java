@@ -6,6 +6,8 @@ import java.util.Locale;
 
 /** Buduje formularz ręcznego potwierdzenia z wstępnie rozpoznanych pól. */
 public final class ItemImportEditableFormFactory {
+    private final ImportedItemAffixExtractor affixExtractor = new ImportedItemAffixExtractor();
+
     public ItemImportEditableForm create(ItemImageImportCandidateParseResult parseResult) {
         return new ItemImportEditableForm(
                 parseResult.getImageMetadata().getOriginalFilename(),
@@ -16,7 +18,8 @@ public final class ItemImportEditableFormFactory {
                 toDoubleValue(parseResult.getThornsCandidate().getSuggestedValue()),
                 toDoubleValue(parseResult.getBlockChanceCandidate().getSuggestedValue()),
                 toDoubleValue(parseResult.getRetributionChanceCandidate().getSuggestedValue()),
-                parseResult.getFullItemRead()
+                parseResult.getFullItemRead(),
+                affixExtractor.extractEditableAffixes(parseResult.getFullItemRead())
         );
     }
 

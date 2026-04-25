@@ -4,8 +4,12 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import krys.item.Item;
 import krys.itemimport.FullItemRead;
+import krys.itemimport.FullItemReadAffixUpdater;
 import krys.itemimport.FullItemReadFormCodec;
 import krys.itemimport.ImportedItemCurrentBuildContribution;
+import krys.itemimport.ImportedItemAffix;
+import krys.itemimport.ImportedItemAffixExtractor;
+import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ImportedItemCurrentBuildContributionMapper;
 import krys.itemimport.ItemImageImportCandidateParseResult;
 import krys.itemimport.ItemImageImportRequest;
@@ -15,6 +19,7 @@ import krys.itemimport.ItemImportEditableFormFactory;
 import krys.itemimport.ItemImportFormMapper;
 import krys.itemimport.ValidatedImportedItem;
 import krys.itemimport.ValidatedImportedItemToItemMapper;
+import krys.itemknowledge.ItemKnowledgeService;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
 
@@ -34,12 +39,22 @@ public final class ItemImportController implements HttpHandler {
     private final ItemImportFormMapper formMapper;
     private final ValidatedImportedItemToItemMapper itemMapper;
     private final ImportedItemCurrentBuildContributionMapper contributionMapper;
+    private final FullItemReadAffixUpdater fullItemReadAffixUpdater;
     private final ItemLibraryService itemLibraryService;
+    private final ItemKnowledgeService itemKnowledgeService;
     private final HeroService heroService;
 
     public ItemImportController(ItemImageImportService imageImportService,
                                 ItemImportPageRenderer renderer,
                                 ItemLibraryService itemLibraryService,
+                                HeroService heroService) {
+        this(imageImportService, renderer, itemLibraryService, null, heroService);
+    }
+
+    public ItemImportController(ItemImageImportService imageImportService,
+                                ItemImportPageRenderer renderer,
+                                ItemLibraryService itemLibraryService,
+                                ItemKnowledgeService itemKnowledgeService,
                                 HeroService heroService) {
         this(
                 imageImportService,
@@ -48,7 +63,9 @@ public final class ItemImportController implements HttpHandler {
                 new ItemImportFormMapper(),
                 new ValidatedImportedItemToItemMapper(),
                 new ImportedItemCurrentBuildContributionMapper(),
+                new FullItemReadAffixUpdater(),
                 itemLibraryService,
+                itemKnowledgeService,
                 heroService
         );
     }
@@ -59,7 +76,9 @@ public final class ItemImportController implements HttpHandler {
                          ItemImportFormMapper formMapper,
                          ValidatedImportedItemToItemMapper itemMapper,
                          ImportedItemCurrentBuildContributionMapper contributionMapper,
+                         FullItemReadAffixUpdater fullItemReadAffixUpdater,
                          ItemLibraryService itemLibraryService,
+                         ItemKnowledgeService itemKnowledgeService,
                          HeroService heroService) {
         this.imageImportService = imageImportService;
         this.renderer = renderer;
@@ -67,7 +86,9 @@ public final class ItemImportController implements HttpHandler {
         this.formMapper = formMapper;
         this.itemMapper = itemMapper;
         this.contributionMapper = contributionMapper;
+        this.fullItemReadAffixUpdater = fullItemReadAffixUpdater;
         this.itemLibraryService = itemLibraryService;
+        this.itemKnowledgeService = itemKnowledgeService;
         this.heroService = heroService;
     }
 
@@ -140,6 +161,11 @@ public final class ItemImportController implements HttpHandler {
     private ItemImportPageModel handleConfirmation(HttpExchange exchange) throws IOException {
         Map<String, String> fields = UrlEncodedFormSupport.parseBody(exchange);
         String currentBuildQuery = fields.getOrDefault("currentBuildQuery", "");
+        FullItemRead decodedFullItemRead = FullItemReadFormCodec.decode(fields.getOrDefault("fullItemRead", ""));
+        List<ImportedItemAffix> affixes = parseAffixes(fields);
+        if (affixes.isEmpty()) {
+            affixes = new ImportedItemAffixExtractor().extractEditableAffixes(decodedFullItemRead);
+        }
         ItemImportEditableForm form = new ItemImportEditableForm(
                 fields.getOrDefault("sourceImageName", "nieznany-item"),
                 fields.getOrDefault("slot", ""),
@@ -149,7 +175,8 @@ public final class ItemImportController implements HttpHandler {
                 fields.getOrDefault("thorns", ""),
                 fields.getOrDefault("blockChance", ""),
                 fields.getOrDefault("retributionChance", ""),
-                FullItemReadFormCodec.decode(fields.getOrDefault("fullItemRead", ""))
+                decodedFullItemRead,
+                affixes
         );
 
         ItemImportFormMapper.MappingResult mappingResult = formMapper.map(form);
@@ -165,8 +192,11 @@ public final class ItemImportController implements HttpHandler {
 
         HeroProfile activeHero = heroService.requireActiveHero();
         ValidatedImportedItem importedItem = mappingResult.getItem();
-        FullItemRead fullItemRead = form.getFullItemRead();
+        FullItemRead fullItemRead = fullItemReadAffixUpdater.withEditedAffixes(form.getFullItemRead(), form.getAffixes());
         SavedImportedItem savedItem = itemLibraryService.saveImportedItem(importedItem, fullItemRead);
+        if (itemKnowledgeService != null) {
+            itemKnowledgeService.learnFromConfirmedItem(importedItem, fullItemRead);
+        }
         Item mappedItem = itemMapper.map(importedItem);
         ImportedItemCurrentBuildContribution contribution = contributionMapper.map(importedItem);
         return new ItemImportPageModel(
@@ -183,6 +213,59 @@ public final class ItemImportController implements HttpHandler {
                 buildHelpText(),
                 currentBuildQuery
         );
+    }
+
+    private static List<ImportedItemAffix> parseAffixes(Map<String, String> fields) {
+        List<ImportedItemAffix> affixes = new java.util.ArrayList<>();
+        int affixCount = parseAffixCount(fields.get("affixCount"));
+        for (int index = 0; index < affixCount; index++) {
+            if ("true".equals(fields.get("affixRemoved_" + index))) {
+                continue;
+            }
+            parseAffixRow(fields, index).ifPresent(affixes::add);
+        }
+        parseNewAffix(fields).ifPresent(affixes::add);
+        return affixes;
+    }
+
+    private static java.util.Optional<ImportedItemAffix> parseAffixRow(Map<String, String> fields, int index) {
+        String typeValue = fields.getOrDefault("affixType_" + index, "");
+        String value = fields.getOrDefault("affixValue_" + index, "");
+        String originalType = fields.getOrDefault("affixOriginalType_" + index, "");
+        String originalValue = fields.getOrDefault("affixOriginalValue_" + index, "");
+        String sourceText = fields.getOrDefault("affixSourceText_" + index, "");
+        return parseAffix(typeValue, value, typeValue.equals(originalType) && value.equals(originalValue) ? sourceText : "");
+    }
+
+    private static java.util.Optional<ImportedItemAffix> parseNewAffix(Map<String, String> fields) {
+        return parseAffix(fields.getOrDefault("newAffixType", ""), fields.getOrDefault("newAffixValue", ""), "");
+    }
+
+    private static java.util.Optional<ImportedItemAffix> parseAffix(String rawType, String rawValue, String sourceText) {
+        if (rawType == null || rawType.isBlank() || rawValue == null || rawValue.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        try {
+            ImportedItemAffixType type = ImportedItemAffixType.valueOf(rawType);
+            double value = Double.parseDouble(rawValue.replace(',', '.'));
+            if (value < 0.0d) {
+                return java.util.Optional.empty();
+            }
+            return java.util.Optional.of(new ImportedItemAffix(type, value, sourceText));
+        } catch (IllegalArgumentException exception) {
+            return java.util.Optional.empty();
+        }
+    }
+
+    private static int parseAffixCount(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return 0;
+        }
+        try {
+            return Math.max(0, Integer.parseInt(rawValue));
+        } catch (NumberFormatException exception) {
+            return 0;
+        }
     }
 
     private ItemImportPageModel emptyPageModel(String currentBuildQuery, HeroProfile activeHero) {

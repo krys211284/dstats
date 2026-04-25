@@ -55,7 +55,8 @@ public final class ItemLibraryService {
                 importedItem.getThorns(),
                 importedItem.getBlockChance(),
                 importedItem.getRetributionChance(),
-                fullItemRead
+                fullItemRead,
+                importedItem.getAffixes()
         );
         return repository.save(itemToSave);
     }

@@ -2,6 +2,8 @@ package krys.itemimport;
 
 import krys.item.EquipmentSlot;
 
+import java.util.List;
+
 /** Zatwierdzony przez użytkownika pojedynczy item gotowy do mapowania do modelu aplikacji. */
 public final class ValidatedImportedItem {
     private final String sourceImageName;
@@ -12,6 +14,7 @@ public final class ValidatedImportedItem {
     private final double thorns;
     private final double blockChance;
     private final double retributionChance;
+    private final List<ImportedItemAffix> affixes;
 
     public ValidatedImportedItem(String sourceImageName,
                                  EquipmentSlot slot,
@@ -21,6 +24,18 @@ public final class ValidatedImportedItem {
                                  double thorns,
                                  double blockChance,
                                  double retributionChance) {
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance, List.of());
+    }
+
+    public ValidatedImportedItem(String sourceImageName,
+                                 EquipmentSlot slot,
+                                 long weaponDamage,
+                                 double strength,
+                                 double intelligence,
+                                 double thorns,
+                                 double blockChance,
+                                 double retributionChance,
+                                 List<ImportedItemAffix> affixes) {
         this.sourceImageName = sourceImageName == null || sourceImageName.isBlank() ? "item" : sourceImageName;
         this.slot = slot;
         this.weaponDamage = weaponDamage;
@@ -29,6 +44,7 @@ public final class ValidatedImportedItem {
         this.thorns = thorns;
         this.blockChance = blockChance;
         this.retributionChance = retributionChance;
+        this.affixes = affixes == null ? List.of() : List.copyOf(affixes);
     }
 
     public String getSourceImageName() {
@@ -61,5 +77,9 @@ public final class ValidatedImportedItem {
 
     public double getRetributionChance() {
         return retributionChance;
+    }
+
+    public List<ImportedItemAffix> getAffixes() {
+        return affixes;
     }
 }

@@ -12,11 +12,12 @@ public final class ItemImportFormMapper {
         List<String> errors = new ArrayList<>();
         EquipmentSlot slot = parseSlot(form.getSlot(), errors);
         Long weaponDamage = parseLong(form.getWeaponDamage(), "Weapon damage", errors);
-        Double strength = parseDouble(form.getStrength(), "Strength", errors);
-        Double intelligence = parseDouble(form.getIntelligence(), "Intelligence", errors);
-        Double thorns = parseDouble(form.getThorns(), "Thorns", errors);
-        Double blockChance = parseDouble(form.getBlockChance(), "Block chance", errors);
-        Double retributionChance = parseDouble(form.getRetributionChance(), "Retribution chance", errors);
+        RuntimeProjection projection = projectAffixes(form.getAffixes());
+        Double strength = projectedOrFallback(projection.strength(), form.getStrength(), "Strength", errors);
+        Double intelligence = projectedOrFallback(projection.intelligence(), form.getIntelligence(), "Intelligence", errors);
+        Double thorns = projectedOrFallback(projection.thorns(), form.getThorns(), "Thorns", errors);
+        Double blockChance = projectedOrFallback(projection.blockChance(), form.getBlockChance(), "Block chance", errors);
+        Double retributionChance = projectedOrFallback(projection.retributionChance(), form.getRetributionChance(), "Retribution chance", errors);
 
         if (slot == null || weaponDamage == null || strength == null || intelligence == null
                 || thorns == null || blockChance == null || retributionChance == null) {
@@ -42,8 +43,36 @@ public final class ItemImportFormMapper {
                 intelligence,
                 thorns,
                 blockChance,
-                retributionChance
+                retributionChance,
+                form.getAffixes()
         ), errors);
+    }
+
+    private static RuntimeProjection projectAffixes(List<ImportedItemAffix> affixes) {
+        double strength = 0.0d;
+        double intelligence = 0.0d;
+        double thorns = 0.0d;
+        double blockChance = 0.0d;
+        double retributionChance = 0.0d;
+        for (ImportedItemAffix affix : affixes) {
+            switch (affix.getType().getRuntimeProjection()) {
+                case STRENGTH -> strength += affix.getValue();
+                case INTELLIGENCE -> intelligence += affix.getValue();
+                case THORNS -> thorns += affix.getValue();
+                case BLOCK_CHANCE -> blockChance += affix.getValue();
+                case RETRIBUTION_CHANCE -> retributionChance += affix.getValue();
+                case NONE -> {
+                }
+            }
+        }
+        return new RuntimeProjection(strength, intelligence, thorns, blockChance, retributionChance);
+    }
+
+    private static Double projectedOrFallback(double projectedValue, String rawFallback, String label, List<String> errors) {
+        if (projectedValue > 0.0d) {
+            return projectedValue;
+        }
+        return parseDouble(rawFallback, label, errors);
     }
 
     private static EquipmentSlot parseSlot(String rawValue, List<String> errors) {
@@ -109,5 +138,12 @@ public final class ItemImportFormMapper {
         public List<String> getErrors() {
             return errors;
         }
+    }
+
+    private record RuntimeProjection(double strength,
+                                     double intelligence,
+                                     double thorns,
+                                     double blockChance,
+                                     double retributionChance) {
     }
 }

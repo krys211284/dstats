@@ -4,6 +4,8 @@ import krys.item.EquipmentSlot;
 import krys.itemimport.FullItemRead;
 import krys.itemimport.FullItemReadLine;
 import krys.itemimport.FullItemReadLineType;
+import krys.itemimport.ImportedItemAffix;
+import krys.itemimport.ImportedItemAffixType;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -51,7 +53,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     item.getThorns(),
                     item.getBlockChance(),
                     item.getRetributionChance(),
-                    item.getFullItemRead()
+                    item.getFullItemRead(),
+                    item.getAffixes()
             );
         }
 
@@ -147,7 +150,7 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
 
     private SavedImportedItem parseItem(String line) {
         String[] tokens = line.split("\\|", -1);
-        if ((tokens.length != 11 && tokens.length != 12) || !ITEM_PREFIX.equals(tokens[0])) {
+        if ((tokens.length != 11 && tokens.length != 12 && tokens.length != 13) || !ITEM_PREFIX.equals(tokens[0])) {
             throw new IllegalStateException("Plik biblioteki itemów ma niepoprawny format.");
         }
         return new SavedImportedItem(
@@ -161,7 +164,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                 Double.parseDouble(tokens[8]),
                 Double.parseDouble(tokens[9]),
                 Double.parseDouble(tokens[10]),
-                tokens.length == 12 ? decodeFullItemRead(tokens[11]) : FullItemRead.empty()
+                tokens.length >= 12 ? decodeFullItemRead(tokens[11]) : FullItemRead.empty(),
+                tokens.length == 13 ? decodeAffixes(tokens[12]) : List.of()
         );
     }
 
@@ -181,7 +185,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     formatDouble(item.getThorns()),
                     formatDouble(item.getBlockChance()),
                     formatDouble(item.getRetributionChance()),
-                    encodeFullItemRead(item.getFullItemRead())
+                    encodeFullItemRead(item.getFullItemRead()),
+                    encodeAffixes(item.getAffixes())
             ));
         }
         try {
@@ -256,5 +261,33 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
             }
         }
         return new FullItemRead(itemName, itemTypeLine, rarity, itemPower, baseItemValue, lines);
+    }
+
+    private static String encodeAffixes(List<ImportedItemAffix> affixes) {
+        List<String> payloadLines = new ArrayList<>();
+        for (ImportedItemAffix affix : affixes) {
+            payloadLines.add(affix.getType().name() + "|" + formatDouble(affix.getValue()) + "|" + encode(affix.getSourceText()));
+        }
+        return encode(String.join("\n", payloadLines));
+    }
+
+    private static List<ImportedItemAffix> decodeAffixes(String encodedPayload) {
+        String payload = decode(encodedPayload);
+        List<ImportedItemAffix> affixes = new ArrayList<>();
+        for (String line : payload.split("\\R")) {
+            if (line.isBlank()) {
+                continue;
+            }
+            String[] tokens = line.split("\\|", -1);
+            if (tokens.length < 2) {
+                continue;
+            }
+            affixes.add(new ImportedItemAffix(
+                    ImportedItemAffixType.valueOf(tokens[0]),
+                    Double.parseDouble(tokens[1]),
+                    tokens.length >= 3 ? decode(tokens[2]) : ""
+            ));
+        }
+        return affixes;
     }
 }

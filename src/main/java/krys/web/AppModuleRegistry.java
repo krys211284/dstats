@@ -71,6 +71,16 @@ public final class AppModuleRegistry {
                     false
             ),
             new AppModule(
+                    "item-knowledge",
+                    "Baza wiedzy itemów",
+                    "Osobna warstwa obserwacji ucząca się z ręcznie zatwierdzonych itemów.",
+                    AppModuleGroup.ITEMS_AND_IMPORT,
+                    AppModuleStatus.AVAILABLE,
+                    "/baza-wiedzy-itemow",
+                    true,
+                    false
+            ),
+            new AppModule(
                     "war-plans",
                     "Plany Wojenne",
                     "Placeholder pod przyszły moduł produktowy sezonowej progresji i planowania aktywności.",

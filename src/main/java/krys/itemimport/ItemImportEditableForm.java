@@ -1,5 +1,7 @@
 package krys.itemimport;
 
+import java.util.List;
+
 /** Edytowalny formularz itemu wypełniany przez użytkownika po wstępnym odczycie obrazu. */
 public final class ItemImportEditableForm {
     private final String sourceImageName;
@@ -11,6 +13,7 @@ public final class ItemImportEditableForm {
     private final String blockChance;
     private final String retributionChance;
     private final FullItemRead fullItemRead;
+    private final List<ImportedItemAffix> affixes;
 
     public ItemImportEditableForm(String sourceImageName,
                                   String slot,
@@ -32,6 +35,19 @@ public final class ItemImportEditableForm {
                                   String blockChance,
                                   String retributionChance,
                                   FullItemRead fullItemRead) {
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance, fullItemRead, List.of());
+    }
+
+    public ItemImportEditableForm(String sourceImageName,
+                                  String slot,
+                                  String weaponDamage,
+                                  String strength,
+                                  String intelligence,
+                                  String thorns,
+                                  String blockChance,
+                                  String retributionChance,
+                                  FullItemRead fullItemRead,
+                                  List<ImportedItemAffix> affixes) {
         this.sourceImageName = sourceImageName;
         this.slot = slot;
         this.weaponDamage = weaponDamage;
@@ -41,6 +57,7 @@ public final class ItemImportEditableForm {
         this.blockChance = blockChance;
         this.retributionChance = retributionChance;
         this.fullItemRead = fullItemRead == null ? FullItemRead.empty() : fullItemRead;
+        this.affixes = affixes == null ? List.of() : List.copyOf(affixes);
     }
 
     public String getSourceImageName() {
@@ -77,5 +94,9 @@ public final class ItemImportEditableForm {
 
     public FullItemRead getFullItemRead() {
         return fullItemRead;
+    }
+
+    public List<ImportedItemAffix> getAffixes() {
+        return affixes;
     }
 }
