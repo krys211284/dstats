@@ -6,6 +6,7 @@ import krys.item.ItemStat;
 import krys.itemimport.FullItemRead;
 import krys.itemimport.FullItemReadFormCodec;
 import krys.itemimport.FullItemReadLine;
+import krys.itemimport.FullItemReadLineType;
 import krys.itemimport.ImportedItemCurrentBuildContribution;
 import krys.itemimport.ItemImageImportCandidateParseResult;
 import krys.itemimport.ItemImportEditableForm;
@@ -246,23 +247,187 @@ public final class ItemImportPageRenderer {
         StringBuilder html = new StringBuilder("""
                 <section class="subpanel">
                     <h3>%s</h3>
-                    <div class="summary-grid compact-grid">
+                    <div class="item-read-header">
                 """.formatted(escapeHtml(heading)));
-        html.append(renderSummaryCard("Nazwa itemu", emptyLabel(fullItemRead.getItemName())))
-                .append(renderSummaryCard("Typ / slot", emptyLabel(fullItemRead.getItemTypeLine())))
-                .append(renderSummaryCard("Rzadkość", emptyLabel(fullItemRead.getRarity())))
-                .append(renderSummaryCard("Moc przedmiotu", emptyLabel(fullItemRead.getItemPower())))
-                .append(renderSummaryCard("Bazowa wartość", emptyLabel(fullItemRead.getBaseItemValue())))
-                .append("</div><table class=\"data-table\"><thead><tr><th>Typ linii</th><th>Odczytana linia</th></tr></thead><tbody>");
-        for (FullItemReadLine line : fullItemRead.getLines()) {
-            html.append("<tr><td>")
-                    .append(escapeHtml(line.getType().getDisplayName()))
-                    .append("</td><td>")
-                    .append(escapeHtml(line.getText()))
-                    .append("</td></tr>");
-        }
-        html.append("</tbody></table></section>");
+        html.append(renderItemHeaderField("Nazwa", emptyLabel(fullItemRead.getItemName())))
+                .append(renderItemHeaderField("Typ", simplifyItemType(fullItemRead.getItemTypeLine())))
+                .append(renderItemHeaderField("Rzadkość", simplifyRarity(fullItemRead.getRarity())))
+                .append(renderItemHeaderField("Moc przedmiotu", simplifyItemPower(fullItemRead.getItemPower())))
+                .append(renderItemHeaderField(baseValueLabel(fullItemRead.getBaseItemValue()), simplifyBaseValue(fullItemRead.getBaseItemValue())))
+                .append("</div>")
+                .append("""
+                    <div class="item-read-groups">
+                        <h4>Sprawdź odczyt itemu</h4>
+                    """)
+                .append(renderLineGroup("Affixy", groupedLines(fullItemRead, ItemReadLineGroup.AFFIX), true))
+                .append(renderLineGroup("Efekt legendarny / specjalny", groupedLines(fullItemRead, ItemReadLineGroup.SPECIAL)))
+                .append(renderLineGroup("Dodatkowe linie", groupedLines(fullItemRead, ItemReadLineGroup.OTHER)))
+                .append("</div>")
+                .append(renderCollapsedLineGroup("Linie bazowe / implicit", groupedLines(fullItemRead, ItemReadLineGroup.IMPLICIT)))
+                .append("</section>");
         return html.toString();
+    }
+
+    private static String renderItemHeaderField(String label, String value) {
+        return """
+                <div class="item-header-field">
+                    <div class="summary-label">%s</div>
+                    <div class="summary-value">%s</div>
+                </div>
+                """.formatted(escapeHtml(label), escapeHtml(value));
+    }
+
+    private static String renderLineGroup(String heading, List<FullItemReadLine> lines) {
+        return renderLineGroup(heading, lines, false);
+    }
+
+    private static String renderLineGroup(String heading, List<FullItemReadLine> lines, boolean primary) {
+        if (lines.isEmpty()) {
+            return "";
+        }
+        StringBuilder html = new StringBuilder("""
+                <section class="item-line-group%s">
+                    <h5>%s</h5>
+                    <ul class="item-line-list">
+                """.formatted(primary ? " item-line-group-primary" : "", escapeHtml(heading)));
+        for (FullItemReadLine line : lines) {
+            html.append("<li>").append(escapeHtml(line.getText())).append("</li>");
+        }
+        html.append("</ul></section>");
+        return html.toString();
+    }
+
+    private static String renderCollapsedLineGroup(String heading, List<FullItemReadLine> lines) {
+        if (lines.isEmpty()) {
+            return "";
+        }
+        return """
+                <details class="secondary-item-lines">
+                    <summary>%s</summary>
+                    <ul class="item-line-list">
+                        %s
+                    </ul>
+                </details>
+                """.formatted(escapeHtml(heading), renderLineItems(lines));
+    }
+
+    private static String renderLineItems(List<FullItemReadLine> lines) {
+        StringBuilder html = new StringBuilder();
+        for (FullItemReadLine line : lines) {
+            html.append("<li>").append(escapeHtml(line.getText())).append("</li>");
+        }
+        return html.toString();
+    }
+
+    private static List<FullItemReadLine> groupedLines(FullItemRead fullItemRead, ItemReadLineGroup group) {
+        List<FullItemReadLine> lines = new ArrayList<>();
+        for (FullItemReadLine line : fullItemRead.getLines()) {
+            if (classifyPresentationLine(line) == group) {
+                lines.add(line);
+            }
+        }
+        return lines;
+    }
+
+    private static ItemReadLineGroup classifyPresentationLine(FullItemReadLine line) {
+        String normalized = normalizeForDisplayRules(line.getText());
+        if (line.getType() == FullItemReadLineType.ITEM_NAME
+                || line.getType() == FullItemReadLineType.TYPE_OR_SLOT
+                || line.getType() == FullItemReadLineType.RARITY
+                || line.getType() == FullItemReadLineType.ITEM_POWER
+                || line.getType() == FullItemReadLineType.BASE_STAT) {
+            return ItemReadLineGroup.HEADER;
+        }
+        if (normalized.contains("REDUKCJI BLOKOWANYCH OBRAZEN")
+                || normalized.contains("SZANSY NA BLOK")
+                || normalized.contains("OBRAZEN OD BRONI W GLOWNEJ RECE")) {
+            return ItemReadLineGroup.IMPLICIT;
+        }
+        if (line.getType() == FullItemReadLineType.ASPECT
+                || normalized.contains("ZADAJESZ OBRAZENIA ZWIEKSZONE")
+                || normalized.contains("TA PREMIA JEST")) {
+            return ItemReadLineGroup.SPECIAL;
+        }
+        if (line.getType() == FullItemReadLineType.AFFIX && !normalized.contains("ROZJUSZENIE")) {
+            return ItemReadLineGroup.AFFIX;
+        }
+        return ItemReadLineGroup.OTHER;
+    }
+
+    private static String simplifyItemType(String itemTypeLine) {
+        String normalized = normalizeForDisplayRules(itemTypeLine);
+        if (normalized.contains("TARCZA") || normalized.contains("SHIELD")) {
+            return "Tarcza";
+        }
+        if (normalized.contains("BUTY") || normalized.contains("BOOTS")) {
+            return "Buty";
+        }
+        if (normalized.contains("BRON GLOWNA") || normalized.contains("MAIN HAND")) {
+            return "Broń główna";
+        }
+        if (normalized.contains("REKA DODATKOWA") || normalized.contains("OFF HAND")) {
+            return "Ręka dodatkowa";
+        }
+        return emptyLabel(itemTypeLine);
+    }
+
+    private static String simplifyRarity(String rarity) {
+        String normalized = normalizeForDisplayRules(rarity);
+        List<String> parts = new ArrayList<>();
+        if (normalized.contains("STAROZYTNA") || normalized.contains("STAROZYTNY") || normalized.contains("ANCESTRAL")) {
+            parts.add("Starożytna");
+        }
+        if (normalized.contains("LEGENDARNA") || normalized.contains("LEGENDARNY") || normalized.contains("LEGENDARY")) {
+            parts.add("legendarna");
+        } else if (normalized.contains("UNIKATOWA") || normalized.contains("UNIKATOWY") || normalized.contains("UNIQUE")) {
+            parts.add("unikatowa");
+        } else if (normalized.contains("RZADKA") || normalized.contains("RZADKI") || normalized.contains("RARE")) {
+            parts.add("rzadka");
+        }
+        if (!parts.isEmpty()) {
+            return String.join(" ", parts);
+        }
+        return emptyLabel(rarity);
+    }
+
+    private static String simplifyItemPower(String itemPower) {
+        String value = firstNumber(itemPower);
+        return value.isBlank() ? emptyLabel(itemPower) : value;
+    }
+
+    private static String baseValueLabel(String baseItemValue) {
+        String normalized = normalizeForDisplayRules(baseItemValue);
+        if (normalized.contains("PANCERZ") || normalized.contains("ARMOR")) {
+            return "Pancerz";
+        }
+        if (normalized.contains("OBRAZEN") || normalized.contains("DAMAGE")) {
+            return "Bazowe obrażenia";
+        }
+        return "Bazowa wartość";
+    }
+
+    private static String simplifyBaseValue(String baseItemValue) {
+        String value = firstNumber(baseItemValue);
+        return value.isBlank() ? emptyLabel(baseItemValue) : value;
+    }
+
+    private static String firstNumber(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\d+(?:\\s\\d{3})*(?:[,.]\\d+)?").matcher(value);
+        return matcher.find() ? matcher.group() : "";
+    }
+
+    private static String normalizeForDisplayRules(String value) {
+        if (value == null) {
+            return "";
+        }
+        return java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
+                .replace('Ł', 'L')
+                .replace('ł', 'l')
+                .replaceAll("\\p{M}", "")
+                .toUpperCase(Locale.ROOT);
     }
 
     private static String renderAssignSavedItemForms(ItemImportPageModel model, SavedImportedItem savedItem) {
@@ -411,5 +576,13 @@ public final class ItemImportPageRenderer {
         } catch (IOException exception) {
             throw new IllegalStateException("Nie udało się wczytać szablonu strony importu itemu", exception);
         }
+    }
+
+    private enum ItemReadLineGroup {
+        HEADER,
+        IMPLICIT,
+        AFFIX,
+        SPECIAL,
+        OTHER
     }
 }

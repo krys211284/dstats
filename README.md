@@ -316,6 +316,15 @@ Kontrakt domenowy importu itemu:
 - `ItemLibraryService` zapisuje zatwierdzony item razem z `FullItemRead` do biblioteki,
 - mapping foundation pozostaje osobną warstwą: z pełnego odczytu i ręcznie potwierdzonych pól do aktualnie wspieranego podzbioru runtime.
 
+Kontrakt prezentacji pełnego odczytu itemu:
+- główny widok pełnego odczytu nie jest technicznym dumpem OCR, tylko podglądem itemu,
+- nagłówek itemu pokazuje osobno nazwę, typ, rzadkość, moc przedmiotu oraz bazową wartość, np. `Pancerz` albo bazowe obrażenia,
+- pierwszoplanowe sekcje pełnego odczytu to `Affixy` oraz `Efekt legendarny / specjalny`, bo to one pozwalają użytkownikowi szybko zweryfikować najważniejszy odczyt itemu,
+- dodatkowe właściwości są pokazywane jako `Dodatkowe linie`,
+- `Linie bazowe / implicit` pozostają warstwą pomocniczą i nie mogą przesłaniać affixów,
+- mapowanie do aktualnego modelu buildu pozostaje osobną sekcją i pokazuje wyłącznie pola foundation używane przez obecny runtime,
+- surowy techniczny dump OCR nie jest częścią zwykłego głównego flow użytkownika.
+
 Minimalny zakres pól foundation mapowanych do runtime:
 - `slot / typ itemu`,
 - `weapon damage`, jeżeli dotyczy,
@@ -348,7 +357,7 @@ Jawne ograniczenia aktualnego foundation importu:
 - przed pierwszym uploadem sekcja `Wstępnie rozpoznane pola` pokazuje jawny empty state i komunikuje, gdzie pojawi się wynik OCR,
 - po `Zatwierdź item` zatwierdzony item jest automatycznie zapisywany do biblioteki,
 - po automatycznym zapisie użytkownik dostaje czytelne potwierdzenie z nazwą itemu, plikiem źródłowym, slotem, identyfikatorem biblioteki, wkładem oraz dalszymi akcjami `Załóż bohaterowi`, `Przejdź do biblioteki` i `Wróć do aktualnego buildu`,
-- pełniejszy odczyt itemu jest prezentowany osobno od sekcji `Mapowanie do aktualnego modelu buildu`,
+- pełniejszy odczyt itemu jest prezentowany osobno od sekcji `Mapowanie do aktualnego modelu buildu` jako nagłówek itemu, affixy, efekt specjalny, dodatkowe linie oraz pomocnicze linie bazowe / implicit,
 - flow nie importuje jeszcze całego ekwipunku ani całej postaci,
 - flow nie buduje jeszcze pełnego wielo-itemowego workflow ani sesji inventory,
 - flow nie omija obecnego modelu current build i nie buduje bocznego modelu runtime.
@@ -1109,12 +1118,12 @@ Kontrakt prezentacji dla smoke testu importu itemu:
 - GUI waliduje technicznie, czy upload jest prawidłowym obrazem,
 - GUI przed pierwszym uploadem pokazuje sensowny empty state sekcji `Wstępnie rozpoznane pola`,
 - GUI wykonuje preprocessing i realny OCR kilku wariantów pojedynczego screena, a następnie pokazuje metadane obrazu, poziom pewności oraz uwagi dla pól wstępnego odczytu,
-- GUI pokazuje sekcję `Pełny odczyt widocznego itemu`, oddzieloną od tabeli pól foundation,
+- GUI pokazuje sekcję `Pełny odczyt widocznego itemu` jako czytelny podgląd itemu z nagłówkiem, wyeksponowanymi affixami, efektem specjalnym i dodatkowymi liniami, oddzielony od tabeli pól foundation,
 - GUI pokazuje ręczny formularz zatwierdzenia obejmujący `slot`, `weapon damage`, `strength`, `intelligence`, `thorns`, `block chance` i `retribution chance`,
 - zatwierdzony item jest mapowany do aktualnego modelu `Item`, do agregowanych pól current build oraz automatycznie zapisywany jako `SavedImportedItem` z pełnym odczytem `FullItemRead` w bibliotece,
 - GUI po zatwierdzeniu itemu pokazuje, dla jakiego aktywnego bohatera pracujemy,
 - GUI po zatwierdzeniu itemu pokazuje nazwę itemu / plik źródłowy, slot, identyfikator biblioteki, wkład oraz akcje `Załóż bohaterowi`, `Przejdź do biblioteki` i `Wróć do aktualnego buildu`,
-- GUI po zatwierdzeniu pokazuje `Pełny odczyt zapisany w bibliotece` oraz osobno `Mapowanie do aktualnego modelu buildu`,
+- GUI po zatwierdzeniu pokazuje `Pełny odczyt zapisany w bibliotece` jako podgląd itemu oraz osobno `Mapowanie do aktualnego modelu buildu`,
 - flow nie obiecuje pełnej bezbłędności OCR i wymaga ręcznego potwierdzenia użytkownika przed użyciem danych,
 - poza zakresem pozostają pełny wielo-itemowy workflow i pełny OCR całej postaci.
 
@@ -1212,6 +1221,7 @@ Minimalny zakres testów obejmuje:
 - zachowanie pełnych linii itemu w formularzu potwierdzenia i w zapisie biblioteki,
 - odczyt `src/test/resources/items/tarcza.png` jako pełniejszego modelu itemu z nazwą, typem, rzadkością, mocą, bazowym pancerzem, stabilnymi implicitami, affixami i efektem legendarnym, bez stabilizowania sezonowego wpisu `Rozjuszenie`,
 - snapshot realnego outputu Windows OCR dla `src/test/resources/items/tarcza.png`, który zabezpiecza ścieżkę regresji `800 / 1 131` bez fake OCR readera jako głównej weryfikacji,
+- render pełnego odczytu itemu jako produktowego podglądu z osobnymi polami nagłówka, affixami na pierwszym planie, efektem specjalnym i implicitami zredukowanymi do warstwy pomocniczej,
 - odczyt `src/test/resources/items/buty.png` jako pełniejszego modelu itemu bez halucynowania nieobsługiwanych foundation statów,
 - rozpoznanie polskich fraz foundation dla `Strength`, `Thorns` i `Block chance`,
 - wybór realnego rolla zamiast liczby z zakresu referencyjnego dla linii typu `+114 do siły [107 - 121]`,

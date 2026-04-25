@@ -173,6 +173,86 @@ class ItemImportWebServerTest {
     }
 
     @Test
+    void shouldRenderFullItemReadAsProductPreviewSeparateFromFoundationMapping() throws Exception {
+        createHero("Importer", "13");
+        String fullShieldRead = FullItemReadFormCodec.encode(new FullItemRead(
+                "NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU",
+                "Starożytna legendarna tarcza",
+                "Starożytna legendarna tarcza",
+                "Moc przedmiotu: 800",
+                "Pancerz: 1 131 pkt.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.ITEM_NAME, "NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU"),
+                        new FullItemReadLine(FullItemReadLineType.TYPE_OR_SLOT, "Starożytna legendarna tarcza"),
+                        new FullItemReadLine(FullItemReadLineType.ITEM_POWER, "Moc przedmiotu: 800"),
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT, "Pancerz: 1 131 pkt."),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "45% redukcji blokowanych obrażeń [45]%"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "20,0% szansy na blok [20,01]%"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+100% obrażeń od broni w głównej ręce [100]%"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+114 siły [107 - 121]"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+494 cierni [473 - 506]"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "13,2% redukcji czasu odnowienia"),
+                        new FullItemReadLine(FullItemReadLineType.ASPECT, "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"),
+                        new FullItemReadLine(FullItemReadLineType.ASPECT, "Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."),
+                        new FullItemReadLine(FullItemReadLineType.OTHER, "Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [8]%")
+                )
+        ));
+
+        HttpResponse<String> response = sendUrlEncodedPost("/importuj-item-ze-screena", Map.of(
+                "sourceImageName", "tarcza.png",
+                "slot", "OFF_HAND",
+                "weaponDamage", "0",
+                "strength", "114",
+                "intelligence", "0",
+                "thorns", "494",
+                "blockChance", "20.0",
+                "retributionChance", "0",
+                "fullItemRead", fullShieldRead,
+                "currentBuildQuery", ""
+        ));
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Pełny odczyt zapisany w bibliotece"));
+        assertTrue(response.body().contains("<div class=\"summary-label\">Nazwa</div>"));
+        assertTrue(response.body().contains("NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU"));
+        assertTrue(response.body().contains("<div class=\"summary-label\">Typ</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-value\">Tarcza</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-label\">Rzadkość</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-value\">Starożytna legendarna</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-label\">Moc przedmiotu</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-value\">800</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-label\">Pancerz</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-value\">1 131</div>"));
+        assertTrue(response.body().contains("Sprawdź odczyt itemu"));
+        assertTrue(response.body().contains("Affixy"));
+        assertTrue(response.body().contains("+114 siły [107 - 121]"));
+        assertTrue(response.body().contains("+494 cierni [473 - 506]"));
+        assertTrue(response.body().contains("+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%"));
+        assertTrue(response.body().contains("13,2% redukcji czasu odnowienia"));
+        assertTrue(response.body().contains("Efekt legendarny / specjalny"));
+        assertTrue(response.body().contains("Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"));
+        assertTrue(response.body().contains("Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."));
+        assertTrue(response.body().contains("Dodatkowe linie"));
+        assertTrue(response.body().contains("Rozjuszenie: +8%"));
+        assertTrue(response.body().contains("Linie bazowe / implicit"));
+        assertTrue(response.body().contains("45% redukcji blokowanych obrażeń [45]%"));
+        assertTrue(response.body().contains("20,0% szansy na blok [20,01]%"));
+        assertTrue(response.body().contains("+100% obrażeń od broni w głównej ręce [100]%"));
+        assertTrue(response.body().indexOf("Affixy") < response.body().indexOf("Linie bazowe / implicit"));
+        assertFalse(response.body().contains("Szczegóły techniczne OCR"));
+        assertFalse(response.body().contains("Typ linii"));
+        assertTrue(response.body().contains("Mapowanie do aktualnego modelu buildu"));
+        assertTrue(response.body().contains("<div class=\"summary-label\">Siła</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-value\">114</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-label\">Kolce</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-value\">494</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-label\">Szansa bloku [%]</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-value\">20</div>"));
+        assertFalse(response.body().contains(">OFF_HAND<"));
+    }
+
+    @Test
     void shouldRenderNeutralBuildWebAppTitlesOnMainPages() throws Exception {
         createHero("Importer", "13");
         HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build");
