@@ -79,6 +79,7 @@ class ItemImageImportCandidateMergerTest {
                                                             ItemImportFieldCandidate<Double> retributionChanceCandidate) {
         return new ItemImageImportCandidateParseResult(
                 metadata,
+                FullItemRead.empty(),
                 slotCandidate,
                 weaponDamageCandidate,
                 strengthCandidate,

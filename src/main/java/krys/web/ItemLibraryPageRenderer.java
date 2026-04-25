@@ -2,6 +2,8 @@ package krys.web;
 
 import krys.item.EquipmentSlot;
 import krys.item.HeroEquipmentSlot;
+import krys.itemimport.FullItemRead;
+import krys.itemimport.FullItemReadLine;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
 import krys.itemlibrary.SavedImportedItem;
 
@@ -178,10 +180,37 @@ public final class ItemLibraryPageRenderer {
                 .append(renderMeta("Zgodne sloty bohatera", joinHeroSlots(HeroEquipmentSlot.compatibleWith(item.getSlot()))))
                 .append("</div>")
                 .append(renderUsageDetails(model, activeSlots))
+                .append(renderFullItemPreview(item.getFullItemRead()))
                 .append("<div class=\"item-actions\">")
                 .append(renderItemActions(model, item, activeSlots))
                 .append("</div></article>")
                 .toString();
+    }
+
+    private static String renderFullItemPreview(FullItemRead fullItemRead) {
+        if (fullItemRead == null || !fullItemRead.hasAnyData()) {
+            return "<div class=\"status-note\">Brak zapisanego pełnego odczytu OCR dla tego itemu.</div>";
+        }
+        StringBuilder html = new StringBuilder("""
+                <details class="item-read-details">
+                    <summary>Pełniejszy odczyt itemu</summary>
+                    <div class="item-meta-grid">
+                """);
+        html.append(renderMeta("Nazwa itemu", emptyLabel(fullItemRead.getItemName())))
+                .append(renderMeta("Typ / slot", emptyLabel(fullItemRead.getItemTypeLine())))
+                .append(renderMeta("Rzadkość", emptyLabel(fullItemRead.getRarity())))
+                .append(renderMeta("Moc przedmiotu", emptyLabel(fullItemRead.getItemPower())))
+                .append(renderMeta("Bazowa wartość", emptyLabel(fullItemRead.getBaseItemValue())))
+                .append("</div><ul class=\"item-read-lines\">");
+        for (FullItemReadLine line : fullItemRead.getLines()) {
+            html.append("<li><strong>")
+                    .append(escapeHtml(line.getType().getDisplayName()))
+                    .append(":</strong> ")
+                    .append(escapeHtml(line.getText()))
+                    .append("</li>");
+        }
+        html.append("</ul></details>");
+        return html.toString();
     }
 
     private static String renderUsageBadge(ItemLibraryPageModel model, List<HeroEquipmentSlot> activeSlots) {
@@ -323,6 +352,10 @@ public final class ItemLibraryPageRenderer {
             return "Nie masz jeszcze aktywnego bohatera, więc item nie może zostać od razu przypisany do slotu.";
         }
         return "Pracujesz teraz na bohaterze " + model.getActiveHero().getName() + ", więc możesz od razu przypisać item do zgodnego slotu jego ekwipunku.";
+    }
+
+    private static String emptyLabel(String value) {
+        return value == null || value.isBlank() ? "Brak pewnego odczytu" : value;
     }
 
     private static String escapeHtml(String value) {

@@ -1,14 +1,18 @@
 package krys.web;
 
 import krys.item.EquipmentSlot;
+import krys.item.HeroEquipmentSlot;
 import krys.item.ItemStat;
-import krys.itemimport.CurrentBuildItemApplicationMode;
+import krys.itemimport.FullItemRead;
+import krys.itemimport.FullItemReadFormCodec;
+import krys.itemimport.FullItemReadLine;
 import krys.itemimport.ImportedItemCurrentBuildContribution;
 import krys.itemimport.ItemImageImportCandidateParseResult;
 import krys.itemimport.ItemImportEditableForm;
 import krys.itemimport.ItemImportFieldCandidate;
 import krys.itemimport.ValidatedImportedItem;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
+import krys.itemlibrary.SavedImportedItem;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -99,6 +103,7 @@ public final class ItemImportPageRenderer {
                     .append("<p class=\"helper\">")
                     .append(escapeHtml(parseResult.getImportNotice()))
                     .append("</p>")
+                    .append(renderFullItemReadSection(parseResult.getFullItemRead(), "Pełny odczyt widocznego itemu"))
                     .append("""
                     <table class="data-table">
                         <thead>
@@ -133,6 +138,7 @@ public final class ItemImportPageRenderer {
                 """)
                 .append(renderHiddenField("sourceImageName", form.getSourceImageName()))
                 .append(renderHiddenField("currentBuildQuery", model.getCurrentBuildQuery()))
+                .append(renderHiddenField("fullItemRead", FullItemReadFormCodec.encode(form.getFullItemRead())))
                 .append("""
                             <div class="form-grid">
                 """)
@@ -165,15 +171,18 @@ public final class ItemImportPageRenderer {
 
         ItemImportPageModel.ConfirmedImportView confirmed = model.getConfirmedImportView();
         ValidatedImportedItem importedItem = confirmed.getImportedItem();
+        SavedImportedItem savedItem = confirmed.getSavedItem();
         ImportedItemCurrentBuildContribution contribution = confirmed.getContribution();
         StringBuilder html = new StringBuilder("""
                 <section class="panel result-panel">
-                    <h2>Zatwierdzony item</h2>
+                    <h2>Zatwierdzony item zapisany do biblioteki</h2>
                     <div class="summary-grid">
                 """);
         html.append(renderSummaryCard("Plik źródłowy", importedItem.getSourceImageName()))
                 .append(renderSummaryCard("Aktywny bohater", model.getActiveHero().getName()))
                 .append(renderSummaryCard("Slot / typ itemu", ItemLibraryPresentationSupport.slotDisplayName(importedItem.getSlot())))
+                .append(renderSummaryCard("Identyfikator biblioteki", ItemLibraryPresentationSupport.userItemIdentifier(savedItem)))
+                .append(renderSummaryCard("Wkład itemu", ItemLibraryPresentationSupport.itemContributionLabel(savedItem)))
                 .append(renderSummaryCard("Obrażenia broni", Long.toString(importedItem.getWeaponDamage())))
                 .append(renderSummaryCard("Siła", formatWhole(importedItem.getStrength())))
                 .append(renderSummaryCard("Inteligencja", formatWhole(importedItem.getIntelligence())))
@@ -181,6 +190,7 @@ public final class ItemImportPageRenderer {
                 .append(renderSummaryCard("Szansa bloku [%]", formatWhole(importedItem.getBlockChance())))
                 .append(renderSummaryCard("Szansa retribution [%]", formatWhole(importedItem.getRetributionChance())))
                 .append("</div>")
+                .append(renderFullItemReadSection(savedItem.getFullItemRead(), "Pełny odczyt zapisany w bibliotece"))
                 .append("""
                     <section class="subpanel">
                         <h3>Mapowanie do modelu itemu aplikacji</h3>
@@ -204,43 +214,78 @@ public final class ItemImportPageRenderer {
                 .append(renderSummaryCard("Szansa retribution [%]", formatWhole(contribution.getRetributionChance())))
                 .append("""
                         </div>
-                        <p class="helper">Import pozostaje wspomagany: zatwierdzony item zasila aktualny agregowany model buildu przez jawne mapowanie pól, a nie przez ukryty automat OCR.</p>
+                        <p class="helper">Import pozostaje wspomagany: zatwierdzony item został zapisany do biblioteki przez jawnie potwierdzone pola, a nie przez ukryty automat OCR. Założenie itemu nadal tylko ustawia wybór biblioteki dla aktywnego bohatera przed tym samym current build.</p>
                         <div class="action-links">
-                            <a class="link-button" href=\"""")
-                .append(escapeHtml(confirmed.getOverwriteCurrentBuildUrl()))
-                .append("\">")
-                .append(escapeHtml(CurrentBuildItemApplicationMode.OVERWRITE.getDisplayName()))
-                .append("</a>")
+                    """)
+                .append(renderAssignSavedItemForms(model, savedItem))
+                .append("<a class=\"link-button secondary-button\" href=\"/biblioteka-itemow\">Przejdź do biblioteki</a>")
                 .append("<a class=\"link-button secondary-button\" href=\"")
-                .append(escapeHtml(confirmed.getAddContributionCurrentBuildUrl()))
-                .append("\">")
-                .append(escapeHtml(CurrentBuildItemApplicationMode.ADD_CONTRIBUTION.getDisplayName()))
-                .append("</a>")
+                .append(escapeHtml(buildCurrentBuildUrl(model.getCurrentBuildQuery())))
+                .append("\">Wróć do aktualnego buildu</a>")
                 .append("""
                         </div>
-                        <form method="post" action="/biblioteka-itemow" class="submit-row">
-                    """)
-                .append(renderHiddenField("action", "saveImportedItem"))
-                .append(renderHiddenField("currentBuildQuery", model.getCurrentBuildQuery()))
-                .append(renderHiddenField("sourceImageName", importedItem.getSourceImageName()))
-                .append(renderHiddenField("slot", importedItem.getSlot().name()))
-                .append(renderHiddenField("weaponDamage", Long.toString(importedItem.getWeaponDamage())))
-                .append(renderHiddenField("strength", formatWhole(importedItem.getStrength())))
-                .append(renderHiddenField("intelligence", formatWhole(importedItem.getIntelligence())))
-                .append(renderHiddenField("thorns", formatWhole(importedItem.getThorns())))
-                .append(renderHiddenField("blockChance", formatWhole(importedItem.getBlockChance())))
-                .append(renderHiddenField("retributionChance", formatWhole(importedItem.getRetributionChance())))
-                .append("""
-                            <button type="submit">Zapisz do biblioteki</button>
-                        </form>
-                    """)
-                .append("""
-                        <p class="helper">`Zastosuj do aktualnego buildu` zachowuje techniczne znaczenie trybu `nadpisz`: podstawia wkład itemu tylko w polach, które item rzeczywiście wnosi. `Dodaj wkład itemu do aktualnego buildu` sumuje ten wkład do statów aktualnego buildu przekazanych do importu.</p>
                     """)
                 .append("""
                     </section>
                 </section>
                 """);
+        return html.toString();
+    }
+
+    private static String renderFullItemReadSection(FullItemRead fullItemRead, String heading) {
+        if (fullItemRead == null || !fullItemRead.hasAnyData()) {
+            return """
+                    <section class="subpanel">
+                        <h3>%s</h3>
+                        <div class="empty-state">
+                            <p>OCR nie dostarczył stabilnych linii pełnego odczytu itemu. Foundation mapping nadal można potwierdzić ręcznie.</p>
+                        </div>
+                    </section>
+                    """.formatted(escapeHtml(heading));
+        }
+        StringBuilder html = new StringBuilder("""
+                <section class="subpanel">
+                    <h3>%s</h3>
+                    <div class="summary-grid compact-grid">
+                """.formatted(escapeHtml(heading)));
+        html.append(renderSummaryCard("Nazwa itemu", emptyLabel(fullItemRead.getItemName())))
+                .append(renderSummaryCard("Typ / slot", emptyLabel(fullItemRead.getItemTypeLine())))
+                .append(renderSummaryCard("Rzadkość", emptyLabel(fullItemRead.getRarity())))
+                .append(renderSummaryCard("Moc przedmiotu", emptyLabel(fullItemRead.getItemPower())))
+                .append(renderSummaryCard("Bazowa wartość", emptyLabel(fullItemRead.getBaseItemValue())))
+                .append("</div><table class=\"data-table\"><thead><tr><th>Typ linii</th><th>Odczytana linia</th></tr></thead><tbody>");
+        for (FullItemReadLine line : fullItemRead.getLines()) {
+            html.append("<tr><td>")
+                    .append(escapeHtml(line.getType().getDisplayName()))
+                    .append("</td><td>")
+                    .append(escapeHtml(line.getText()))
+                    .append("</td></tr>");
+        }
+        html.append("</tbody></table></section>");
+        return html.toString();
+    }
+
+    private static String renderAssignSavedItemForms(ItemImportPageModel model, SavedImportedItem savedItem) {
+        StringBuilder html = new StringBuilder();
+        for (HeroEquipmentSlot heroSlot : HeroEquipmentSlot.compatibleWith(savedItem.getSlot())) {
+            boolean slotEmpty = model.getActiveHero().getItemSelection().getSelectedItemId(heroSlot) == null;
+            String actionLabel = slotEmpty ? "Załóż bohaterowi" : "Zmień w slocie";
+            html.append("""
+                    <form method="post" action="/biblioteka-itemow" class="inline-form">
+                        <input type="hidden" name="action" value="activateItem">
+                        <input type="hidden" name="itemId" value="%s">
+                        <input type="hidden" name="heroSlot" value="%s">
+                        <input type="hidden" name="currentBuildQuery" value="%s">
+                        <button type="submit">%s: %s</button>
+                    </form>
+                    """.formatted(
+                    savedItem.getItemId(),
+                    heroSlot.name(),
+                    escapeHtml(model.getCurrentBuildQuery()),
+                    escapeHtml(actionLabel),
+                    escapeHtml(ItemLibraryPresentationSupport.heroSlotDisplayName(heroSlot))
+            ));
+        }
         return html.toString();
     }
 
@@ -296,6 +341,13 @@ public final class ItemImportPageRenderer {
         return "/importuj-item-ze-screena?" + currentBuildQuery;
     }
 
+    private static String buildCurrentBuildUrl(String currentBuildQuery) {
+        if (currentBuildQuery == null || currentBuildQuery.isBlank()) {
+            return "/policz-aktualny-build";
+        }
+        return "/policz-aktualny-build?" + currentBuildQuery;
+    }
+
     private static String renderSummaryCard(String label, String value) {
         return CurrentBuildCalculationSectionsRenderer.renderSummaryCard(label, value);
     }
@@ -340,6 +392,10 @@ public final class ItemImportPageRenderer {
 
     private static String formatWhole(double value) {
         return String.format(Locale.US, "%.0f", value);
+    }
+
+    private static String emptyLabel(String value) {
+        return value == null || value.isBlank() ? "Brak pewnego odczytu" : value;
     }
 
     private static String escapeHtml(String value) {

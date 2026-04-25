@@ -47,6 +47,7 @@ final class ItemImageImportTextParser {
 
         return new ItemImageImportCandidateParseResult(
                 metadata,
+                buildFullItemRead(lines),
                 slotCandidate,
                 weaponDamageCandidate,
                 strengthCandidate,
@@ -104,6 +105,67 @@ final class ItemImageImportTextParser {
             }
         }
         return ItemImportFieldCandidate.unknown("Nie udało się rozpoznać slotu / typu itemu z OCR.");
+    }
+
+    private static FullItemRead buildFullItemRead(List<String> lines) {
+        List<FullItemReadLine> readLines = new ArrayList<>();
+        String itemName = "";
+        String itemTypeLine = "";
+        String rarity = "";
+        String itemPower = "";
+        String baseItemValue = "";
+
+        for (String line : lines) {
+            FullItemReadLineType type = classifyFullReadLine(line);
+            readLines.add(new FullItemReadLine(type, line));
+            if (type == FullItemReadLineType.ITEM_NAME && itemName.isBlank()) {
+                itemName = line;
+            } else if (type == FullItemReadLineType.TYPE_OR_SLOT && itemTypeLine.isBlank()) {
+                itemTypeLine = line;
+            } else if (type == FullItemReadLineType.RARITY && rarity.isBlank()) {
+                rarity = line;
+            } else if (type == FullItemReadLineType.ITEM_POWER && itemPower.isBlank()) {
+                itemPower = line;
+            } else if (type == FullItemReadLineType.BASE_STAT && baseItemValue.isBlank()) {
+                baseItemValue = line;
+            }
+        }
+        return new FullItemRead(itemName, itemTypeLine, rarity, itemPower, baseItemValue, readLines);
+    }
+
+    private static FullItemReadLineType classifyFullReadLine(String line) {
+        String collapsedLine = collapse(line);
+        String normalizedLine = normalizeLineForPattern(line);
+        if (collapsedLine.contains("MOCPRZEDMIOTU") || collapsedLine.contains("MOCYPRZEDMIOTU") || collapsedLine.contains("ITEMPOWER")) {
+            return FullItemReadLineType.ITEM_POWER;
+        }
+        if (containsAny(collapsedLine, List.of("LEGENDARNY", "LEGENDARY", "UNIKATOWY", "UNIQUE", "RZADKI", "RARE", "MAGICZNY", "MAGIC"))) {
+            return FullItemReadLineType.RARITY;
+        }
+        if (isItemTypeLine(collapsedLine)) {
+            return FullItemReadLineType.TYPE_OR_SLOT;
+        }
+        if (containsAny(collapsedLine, List.of("PANCERZ", "ARMOR", "WEAPONDAMAGE", "OBRAZENIABRONI", "DAMAGEPERSECOND"))) {
+            return FullItemReadLineType.BASE_STAT;
+        }
+        if (containsAny(collapsedLine, List.of("GNIAZDO", "GNIAZDA", "SOCKET", "SOCKETS"))) {
+            return FullItemReadLineType.SOCKET;
+        }
+        if (containsAny(collapsedLine, List.of("ASPEKT", "ASPECT", "LEGENDARNA", "LEGENDARYPOWER"))) {
+            return FullItemReadLineType.ASPECT;
+        }
+        if (normalizedLine.startsWith("+") || normalizedLine.contains("[") || normalizedLine.contains("]") || collectNumericCandidates(normalizedLine).size() > 0) {
+            return FullItemReadLineType.AFFIX;
+        }
+        return FullItemReadLineType.ITEM_NAME;
+    }
+
+    private static boolean isItemTypeLine(String collapsedLine) {
+        return containsAny(collapsedLine, List.of(
+                "MAINHAND", "OFFHAND", "CHEST", "RING", "BOOTS", "BUTY", "BUCIORY", "OBUWIE",
+                "SHIELD", "TARCZA", "SWORD", "AXE", "MACE", "HAMMER", "DAGGER", "WEAPON",
+                "FOCUS", "ARMOR", "CHESTPLATE", "BREASTPLATE", "BAND"
+        ));
     }
 
     private static ItemImportFieldCandidate<Long> detectLong(List<String> lines,
@@ -204,7 +266,8 @@ final class ItemImageImportTextParser {
                     rawToken,
                     matcher.start(1),
                     matcher.end(1),
-                    isInsideReferenceRange(normalizedLine, matcher.start(1))
+                    isInsideReferenceRange(normalizedLine, matcher.start(1)),
+                    isBaseItemValue(normalizedLine, matcher.start(1), matcher.end(1))
             ));
         }
         return candidates;
@@ -215,6 +278,7 @@ final class ItemImageImportTextParser {
                                                                       int phraseEnd) {
         return numericCandidates.stream()
                 .filter(candidate -> !candidate.insideReferenceRange())
+                .filter(candidate -> !candidate.baseItemValue())
                 .filter(candidate -> !overlapsPhrase(candidate, phraseStart, phraseEnd))
                 .min(Comparator
                         .comparingInt((NumericTokenCandidate candidate) -> distanceToPhrase(candidate, phraseStart, phraseEnd))
@@ -246,6 +310,20 @@ final class ItemImageImportTextParser {
         int roundOpen = normalizedLine.lastIndexOf('(', tokenStart);
         int roundClose = normalizedLine.lastIndexOf(')', tokenStart);
         return roundOpen >= 0 && roundOpen > roundClose;
+    }
+
+    private static boolean isBaseItemValue(String normalizedLine, int tokenStart, int tokenEnd) {
+        Matcher armorMatcher = Pattern.compile("\\b(?:PANCERZ\\w*|ARMOR)\\b").matcher(normalizedLine);
+        while (armorMatcher.find()) {
+            if (armorMatcher.start() < tokenEnd) {
+                continue;
+            }
+            String textBetweenTokenAndArmor = normalizedLine.substring(tokenEnd, armorMatcher.start());
+            if (textBetweenTokenAndArmor.matches("[\\s.,:+\\-]*(?:[0-9OISBL]+[\\s.,:+\\-]*)*(?:(?:PKT|PTS?|POINTS?)\\.?[\\s.,:+\\-]*)?")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean overlapsPhrase(NumericTokenCandidate candidate, int phraseStart, int phraseEnd) {
@@ -328,6 +406,10 @@ final class ItemImageImportTextParser {
                 .replaceAll("\\p{M}", "");
     }
 
-    private record NumericTokenCandidate(String rawToken, int start, int end, boolean insideReferenceRange) {
+    private record NumericTokenCandidate(String rawToken,
+                                         int start,
+                                         int end,
+                                         boolean insideReferenceRange,
+                                         boolean baseItemValue) {
     }
 }

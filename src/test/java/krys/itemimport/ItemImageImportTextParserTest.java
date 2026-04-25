@@ -49,6 +49,41 @@ class ItemImageImportTextParserTest {
     }
 
     @Test
+    void shouldIgnoreShieldBaseArmorWhenAffixRollIsMissingFromOcrLine() {
+        String ocrText = """
+                Tarcza
+                1 131 pkt. pancerza do siły [107 - 121]
+                1 131 pkt. pancerza do cierni [473 - 506]
+                1 131 pkt. pancerza szansy na blok [18,0 - 22,5]
+                """;
+
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, ocrText);
+
+        assertEquals(EquipmentSlot.OFF_HAND, result.getSlotCandidate().getSuggestedValue());
+        assertNull(result.getStrengthCandidate().getSuggestedValue());
+        assertNull(result.getThornsCandidate().getSuggestedValue());
+        assertNull(result.getBlockChanceCandidate().getSuggestedValue());
+    }
+
+    @Test
+    void shouldRecognizeShieldRollsWithoutLeakingBaseArmorIntoAffixes() {
+        String ocrText = """
+                Tarcza
+                1 131 pkt. pancerza
+                +114 do siły [107 - 121]
+                +494 cierni [473 - 506]
+                +20,0% szansy na blok [18,0 - 22,5]
+                """;
+
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, ocrText);
+
+        assertEquals(EquipmentSlot.OFF_HAND, result.getSlotCandidate().getSuggestedValue());
+        assertEquals(114.0d, result.getStrengthCandidate().getSuggestedValue());
+        assertEquals(494.0d, result.getThornsCandidate().getSuggestedValue());
+        assertEquals(20.0d, result.getBlockChanceCandidate().getSuggestedValue());
+    }
+
+    @Test
     void shouldRecognizeBootSlotWithoutHallucinatingUnsupportedAffixes() {
         String ocrText = """
                 Buty

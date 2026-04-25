@@ -10,6 +10,7 @@ public final class ItemImportEditableForm {
     private final String thorns;
     private final String blockChance;
     private final String retributionChance;
+    private final FullItemRead fullItemRead;
 
     public ItemImportEditableForm(String sourceImageName,
                                   String slot,
@@ -19,6 +20,18 @@ public final class ItemImportEditableForm {
                                   String thorns,
                                   String blockChance,
                                   String retributionChance) {
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance, FullItemRead.empty());
+    }
+
+    public ItemImportEditableForm(String sourceImageName,
+                                  String slot,
+                                  String weaponDamage,
+                                  String strength,
+                                  String intelligence,
+                                  String thorns,
+                                  String blockChance,
+                                  String retributionChance,
+                                  FullItemRead fullItemRead) {
         this.sourceImageName = sourceImageName;
         this.slot = slot;
         this.weaponDamage = weaponDamage;
@@ -27,6 +40,7 @@ public final class ItemImportEditableForm {
         this.thorns = thorns;
         this.blockChance = blockChance;
         this.retributionChance = retributionChance;
+        this.fullItemRead = fullItemRead == null ? FullItemRead.empty() : fullItemRead;
     }
 
     public String getSourceImageName() {
@@ -59,5 +73,9 @@ public final class ItemImportEditableForm {
 
     public String getRetributionChance() {
         return retributionChance;
+    }
+
+    public FullItemRead getFullItemRead() {
+        return fullItemRead;
     }
 }

@@ -3,10 +3,9 @@ package krys.web;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import krys.item.Item;
-import krys.itemimport.CurrentBuildImportableStats;
-import krys.itemimport.CurrentBuildItemApplicationMode;
+import krys.itemimport.FullItemRead;
+import krys.itemimport.FullItemReadFormCodec;
 import krys.itemimport.ImportedItemCurrentBuildContribution;
-import krys.itemimport.ImportedItemCurrentBuildApplicationService;
 import krys.itemimport.ImportedItemCurrentBuildContributionMapper;
 import krys.itemimport.ItemImageImportCandidateParseResult;
 import krys.itemimport.ItemImageImportRequest;
@@ -16,6 +15,8 @@ import krys.itemimport.ItemImportEditableFormFactory;
 import krys.itemimport.ItemImportFormMapper;
 import krys.itemimport.ValidatedImportedItem;
 import krys.itemimport.ValidatedImportedItemToItemMapper;
+import krys.itemlibrary.ItemLibraryService;
+import krys.itemlibrary.SavedImportedItem;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -26,8 +27,6 @@ import java.util.Map;
 /** Kontroler SSR dla pierwszego foundation importu pojedynczego itemu ze screena. */
 public final class ItemImportController implements HttpHandler {
     private static final String HTML_CONTENT_TYPE = "text/html; charset=UTF-8";
-    private static final long CURRENT_BUILD_DEFAULT_WEAPON_DAMAGE =
-            Long.parseLong(CurrentBuildFormData.defaultValues().getWeaponDamage());
 
     private final ItemImageImportService imageImportService;
     private final ItemImportPageRenderer renderer;
@@ -35,11 +34,12 @@ public final class ItemImportController implements HttpHandler {
     private final ItemImportFormMapper formMapper;
     private final ValidatedImportedItemToItemMapper itemMapper;
     private final ImportedItemCurrentBuildContributionMapper contributionMapper;
-    private final ImportedItemCurrentBuildApplicationService applicationService;
+    private final ItemLibraryService itemLibraryService;
     private final HeroService heroService;
 
     public ItemImportController(ItemImageImportService imageImportService,
                                 ItemImportPageRenderer renderer,
+                                ItemLibraryService itemLibraryService,
                                 HeroService heroService) {
         this(
                 imageImportService,
@@ -48,7 +48,7 @@ public final class ItemImportController implements HttpHandler {
                 new ItemImportFormMapper(),
                 new ValidatedImportedItemToItemMapper(),
                 new ImportedItemCurrentBuildContributionMapper(),
-                new ImportedItemCurrentBuildApplicationService(),
+                itemLibraryService,
                 heroService
         );
     }
@@ -59,7 +59,7 @@ public final class ItemImportController implements HttpHandler {
                          ItemImportFormMapper formMapper,
                          ValidatedImportedItemToItemMapper itemMapper,
                          ImportedItemCurrentBuildContributionMapper contributionMapper,
-                         ImportedItemCurrentBuildApplicationService applicationService,
+                         ItemLibraryService itemLibraryService,
                          HeroService heroService) {
         this.imageImportService = imageImportService;
         this.renderer = renderer;
@@ -67,7 +67,7 @@ public final class ItemImportController implements HttpHandler {
         this.formMapper = formMapper;
         this.itemMapper = itemMapper;
         this.contributionMapper = contributionMapper;
-        this.applicationService = applicationService;
+        this.itemLibraryService = itemLibraryService;
         this.heroService = heroService;
     }
 
@@ -148,7 +148,8 @@ public final class ItemImportController implements HttpHandler {
                 fields.getOrDefault("intelligence", ""),
                 fields.getOrDefault("thorns", ""),
                 fields.getOrDefault("blockChance", ""),
-                fields.getOrDefault("retributionChance", "")
+                fields.getOrDefault("retributionChance", ""),
+                FullItemReadFormCodec.decode(fields.getOrDefault("fullItemRead", ""))
         );
 
         ItemImportFormMapper.MappingResult mappingResult = formMapper.map(form);
@@ -163,8 +164,9 @@ public final class ItemImportController implements HttpHandler {
         }
 
         HeroProfile activeHero = heroService.requireActiveHero();
-        CurrentBuildFormData contextFormData = CurrentBuildFormQuerySupport.fromSerializedQuery(currentBuildQuery);
         ValidatedImportedItem importedItem = mappingResult.getItem();
+        FullItemRead fullItemRead = form.getFullItemRead();
+        SavedImportedItem savedItem = itemLibraryService.saveImportedItem(importedItem, fullItemRead);
         Item mappedItem = itemMapper.map(importedItem);
         ImportedItemCurrentBuildContribution contribution = contributionMapper.map(importedItem);
         return new ItemImportPageModel(
@@ -173,10 +175,9 @@ public final class ItemImportController implements HttpHandler {
                 List.of(),
                 new ItemImportPageModel.ConfirmedImportView(
                         importedItem,
+                        savedItem,
                         mappedItem,
-                        contribution,
-                        buildCurrentBuildPrefillUrl(contextFormData, contribution, CurrentBuildItemApplicationMode.OVERWRITE),
-                        buildCurrentBuildPrefillUrl(contextFormData, contribution, CurrentBuildItemApplicationMode.ADD_CONTRIBUTION)
+                        contribution
                 ),
                 activeHero,
                 buildHelpText(),
@@ -198,23 +199,6 @@ public final class ItemImportController implements HttpHandler {
 
     private static String buildHelpText() {
         return "To jest import wspomagany pojedynczego itemu ze screena. Foundation sprawdza obraz, pokazuje niepewność pól i wymaga ręcznego zatwierdzenia użytkownika. Nie jest to jeszcze pełny automatyczny import całej postaci.";
-    }
-
-    private String buildCurrentBuildPrefillUrl(CurrentBuildFormData contextFormData,
-                                               ImportedItemCurrentBuildContribution contribution,
-                                               CurrentBuildItemApplicationMode mode) {
-        CurrentBuildImportableStats contextStats = CurrentBuildFormQuerySupport.importableStats(contextFormData);
-        CurrentBuildImportableStats appliedStats = applicationService.apply(contextStats, contribution, mode);
-        CurrentBuildImportableStats normalizedStats = new CurrentBuildImportableStats(
-                appliedStats.getWeaponDamage() > 0L ? appliedStats.getWeaponDamage() : CURRENT_BUILD_DEFAULT_WEAPON_DAMAGE,
-                appliedStats.getStrength(),
-                appliedStats.getIntelligence(),
-                appliedStats.getThorns(),
-                appliedStats.getBlockChance(),
-                appliedStats.getRetributionChance()
-        );
-        CurrentBuildFormData updatedFormData = CurrentBuildFormQuerySupport.withAppliedStats(contextFormData, normalizedStats);
-        return "/policz-aktualny-build?" + CurrentBuildFormQuerySupport.toQuery(updatedFormData);
     }
 
     private void renderPage(HttpExchange exchange, ItemImportPageModel pageModel) throws IOException {

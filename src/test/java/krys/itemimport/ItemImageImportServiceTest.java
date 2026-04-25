@@ -10,6 +10,8 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
@@ -45,6 +47,70 @@ class ItemImageImportServiceTest {
         assertEquals(494.0d, result.getThornsCandidate().getSuggestedValue());
         assertEquals(20.0d, result.getBlockChanceCandidate().getSuggestedValue());
         assertNull(result.getIntelligenceCandidate().getSuggestedValue());
+    }
+
+    @Test
+    void shouldReadFullShieldItemFromFixtureAndKeepFoundationMappingSeparate() throws Exception {
+        byte[] imageBytes = Files.readAllBytes(Path.of("src/test/resources/items/tarcza.png"));
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new FakeOcrTextReader(Map.of(
+                        "original", "Nieugaszony Bastion\nLegendarny przedmiot\nTarcza\n800 mocy przedmiotu\n1 131 pkt. pancerza\n+114 do siły [107 - 121]\n+494 cierni [473 - 506]\n+20,0% szansy na blok [18,0 - 22,5]\nAspekt niezłomnej ściany",
+                        "text-crop", "Tarcza\n1 131 pkt. pancerza",
+                        "text-crop-gray-x2-contrast", "+114 do siły [107 - 121]\n+494 cierni [473 - 506]",
+                        "text-crop-gray-x3-threshold", "+20,0% szansy na blok [18,0 - 22,5]",
+                        "text-crop-gray-x3-sharpen", "800 mocy przedmiotu"
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(
+                new ItemImageImportRequest("tarcza.png", "image/png", imageBytes)
+        );
+
+        assertEquals("tarcza.png", result.getImageMetadata().getOriginalFilename());
+        assertEquals("OFF_HAND", result.getSlotCandidate().getSuggestedValue().name());
+        assertEquals(114.0d, result.getStrengthCandidate().getSuggestedValue());
+        assertEquals(494.0d, result.getThornsCandidate().getSuggestedValue());
+        assertEquals(20.0d, result.getBlockChanceCandidate().getSuggestedValue());
+        assertEquals("Nieugaszony Bastion", result.getFullItemRead().getItemName());
+        assertEquals("Tarcza", result.getFullItemRead().getItemTypeLine());
+        assertEquals("Legendarny przedmiot", result.getFullItemRead().getRarity());
+        assertEquals("800 mocy przedmiotu", result.getFullItemRead().getItemPower());
+        assertEquals("1 131 pkt. pancerza", result.getFullItemRead().getBaseItemValue());
+        assertEquals(true, result.getFullItemRead().getLines().stream().anyMatch(line -> line.getText().contains("Aspekt niezłomnej ściany")));
+    }
+
+    @Test
+    void shouldReadFullBootItemFromFixtureWithoutHallucinatingFoundationStats() throws Exception {
+        byte[] imageBytes = Files.readAllBytes(Path.of("src/test/resources/items/buty.png"));
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new FakeOcrTextReader(Map.of(
+                        "original", "Marsz Pokutnika\nRzadki przedmiot\nButy\n800 mocy przedmiotu\n354 pkt. pancerza\n+12,5% szybkości ruchu\n+7,0% uniku\n2 gniazda",
+                        "text-crop", "Buty\n+12,5% szybkości ruchu",
+                        "text-crop-gray-x2-contrast", "+7,0% uniku",
+                        "text-crop-gray-x3-threshold", "2 gniazda",
+                        "text-crop-gray-x3-sharpen", "800 mocy przedmiotu"
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(
+                new ItemImageImportRequest("buty.png", "image/png", imageBytes)
+        );
+
+        assertEquals("BOOTS", result.getSlotCandidate().getSuggestedValue().name());
+        assertNull(result.getStrengthCandidate().getSuggestedValue());
+        assertNull(result.getThornsCandidate().getSuggestedValue());
+        assertNull(result.getBlockChanceCandidate().getSuggestedValue());
+        assertEquals("Marsz Pokutnika", result.getFullItemRead().getItemName());
+        assertEquals("Buty", result.getFullItemRead().getItemTypeLine());
+        assertEquals("800 mocy przedmiotu", result.getFullItemRead().getItemPower());
+        assertEquals(true, result.getFullItemRead().getLines().stream().anyMatch(line -> line.getText().contains("+12,5% szybkości ruchu")));
+        assertEquals(true, result.getFullItemRead().getLines().stream().anyMatch(line -> line.getType() == FullItemReadLineType.SOCKET));
     }
 
     @Test

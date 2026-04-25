@@ -67,6 +67,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
         ItemImportController itemImportController = new ItemImportController(
                 new ItemImageImportService(),
                 new ItemImportPageRenderer(),
+                itemLibraryService,
                 heroService
         );
         ItemLibraryController itemLibraryController = new ItemLibraryController(

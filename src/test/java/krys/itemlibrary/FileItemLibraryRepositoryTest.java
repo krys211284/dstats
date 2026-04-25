@@ -1,6 +1,9 @@
 package krys.itemlibrary;
 
 import krys.item.EquipmentSlot;
+import krys.itemimport.FullItemRead;
+import krys.itemimport.FullItemReadLine;
+import krys.itemimport.FullItemReadLineType;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -28,7 +31,15 @@ class FileItemLibraryRepositoryTest {
                 0.0d,
                 494.0d,
                 20.0d,
-                0.0d
+                0.0d,
+                new FullItemRead(
+                        "Nieugaszony Bastion",
+                        "Tarcza",
+                        "Legendarny",
+                        "800 mocy przedmiotu",
+                        "1 131 pkt. pancerza",
+                        List.of(new FullItemReadLine(FullItemReadLineType.AFFIX, "+114 do siły [107 - 121]"))
+                )
         ));
         SavedImportedItem secondItem = repository.save(new SavedImportedItem(
                 0L,
@@ -51,6 +62,9 @@ class FileItemLibraryRepositoryTest {
         assertEquals(firstItem.getItemId(), savedItems.get(0).getItemId());
         assertEquals(secondItem.getItemId(), savedItems.get(1).getItemId());
         assertEquals(EquipmentSlot.OFF_HAND, savedItems.get(0).getSlot());
+        assertEquals("Nieugaszony Bastion", savedItems.get(0).getFullItemRead().getItemName());
+        assertEquals("1 131 pkt. pancerza", savedItems.get(0).getFullItemRead().getBaseItemValue());
+        assertEquals("+114 do siły [107 - 121]", savedItems.get(0).getFullItemRead().getLines().getFirst().getText());
         assertTrue(reloadedRepository.findById(secondItem.getItemId()).isPresent());
         assertEquals(secondItem.getItemId(), reloadedRepository.loadSelection().getSelectedItemId(EquipmentSlot.OFF_HAND));
     }

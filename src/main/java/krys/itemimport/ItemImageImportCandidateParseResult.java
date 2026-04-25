@@ -5,6 +5,7 @@ import krys.item.EquipmentSlot;
 /** Wynik wstępnego odczytu itemu ze screena przed ręcznym potwierdzeniem użytkownika. */
 public final class ItemImageImportCandidateParseResult {
     private final ItemImageMetadata imageMetadata;
+    private final FullItemRead fullItemRead;
     private final ItemImportFieldCandidate<EquipmentSlot> slotCandidate;
     private final ItemImportFieldCandidate<Long> weaponDamageCandidate;
     private final ItemImportFieldCandidate<Double> strengthCandidate;
@@ -15,6 +16,7 @@ public final class ItemImageImportCandidateParseResult {
     private final String importNotice;
 
     public ItemImageImportCandidateParseResult(ItemImageMetadata imageMetadata,
+                                               FullItemRead fullItemRead,
                                                ItemImportFieldCandidate<EquipmentSlot> slotCandidate,
                                                ItemImportFieldCandidate<Long> weaponDamageCandidate,
                                                ItemImportFieldCandidate<Double> strengthCandidate,
@@ -24,6 +26,7 @@ public final class ItemImageImportCandidateParseResult {
                                                ItemImportFieldCandidate<Double> retributionChanceCandidate,
                                                String importNotice) {
         this.imageMetadata = imageMetadata;
+        this.fullItemRead = fullItemRead == null ? FullItemRead.empty() : fullItemRead;
         this.slotCandidate = slotCandidate;
         this.weaponDamageCandidate = weaponDamageCandidate;
         this.strengthCandidate = strengthCandidate;
@@ -36,6 +39,10 @@ public final class ItemImageImportCandidateParseResult {
 
     public ItemImageMetadata getImageMetadata() {
         return imageMetadata;
+    }
+
+    public FullItemRead getFullItemRead() {
+        return fullItemRead;
     }
 
     public ItemImportFieldCandidate<EquipmentSlot> getSlotCandidate() {

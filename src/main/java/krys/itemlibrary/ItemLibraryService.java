@@ -3,6 +3,7 @@ package krys.itemlibrary;
 import krys.item.EquipmentSlot;
 import krys.item.HeroEquipmentSlot;
 import krys.itemimport.CurrentBuildImportableStats;
+import krys.itemimport.FullItemRead;
 import krys.itemimport.ImportedItemCurrentBuildApplicationService;
 import krys.itemimport.ImportedItemCurrentBuildContribution;
 import krys.itemimport.ValidatedImportedItem;
@@ -39,6 +40,10 @@ public final class ItemLibraryService {
     }
 
     public SavedImportedItem saveImportedItem(ValidatedImportedItem importedItem) {
+        return saveImportedItem(importedItem, FullItemRead.empty());
+    }
+
+    public SavedImportedItem saveImportedItem(ValidatedImportedItem importedItem, FullItemRead fullItemRead) {
         SavedImportedItem itemToSave = new SavedImportedItem(
                 0L,
                 buildDisplayName(importedItem),
@@ -49,7 +54,8 @@ public final class ItemLibraryService {
                 importedItem.getIntelligence(),
                 importedItem.getThorns(),
                 importedItem.getBlockChance(),
-                importedItem.getRetributionChance()
+                importedItem.getRetributionChance(),
+                fullItemRead
         );
         return repository.save(itemToSave);
     }

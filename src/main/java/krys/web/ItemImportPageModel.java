@@ -4,6 +4,7 @@ import krys.itemimport.ImportedItemCurrentBuildContribution;
 import krys.itemimport.ItemImageImportCandidateParseResult;
 import krys.itemimport.ItemImportEditableForm;
 import krys.itemimport.ValidatedImportedItem;
+import krys.itemlibrary.SavedImportedItem;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -82,25 +83,26 @@ public final class ItemImportPageModel {
     /** Widok zatwierdzonego itemu i jego mapowania do aktualnego modelu buildu. */
     public static final class ConfirmedImportView {
         private final ValidatedImportedItem importedItem;
+        private final SavedImportedItem savedItem;
         private final krys.item.Item mappedItem;
         private final ImportedItemCurrentBuildContribution contribution;
-        private final String overwriteCurrentBuildUrl;
-        private final String addContributionCurrentBuildUrl;
 
         public ConfirmedImportView(ValidatedImportedItem importedItem,
+                                   SavedImportedItem savedItem,
                                    krys.item.Item mappedItem,
-                                   ImportedItemCurrentBuildContribution contribution,
-                                   String overwriteCurrentBuildUrl,
-                                   String addContributionCurrentBuildUrl) {
+                                   ImportedItemCurrentBuildContribution contribution) {
             this.importedItem = importedItem;
+            this.savedItem = savedItem;
             this.mappedItem = mappedItem;
             this.contribution = contribution;
-            this.overwriteCurrentBuildUrl = overwriteCurrentBuildUrl;
-            this.addContributionCurrentBuildUrl = addContributionCurrentBuildUrl;
         }
 
         public ValidatedImportedItem getImportedItem() {
             return importedItem;
+        }
+
+        public SavedImportedItem getSavedItem() {
+            return savedItem;
         }
 
         public krys.item.Item getMappedItem() {
@@ -109,14 +111,6 @@ public final class ItemImportPageModel {
 
         public ImportedItemCurrentBuildContribution getContribution() {
             return contribution;
-        }
-
-        public String getOverwriteCurrentBuildUrl() {
-            return overwriteCurrentBuildUrl;
-        }
-
-        public String getAddContributionCurrentBuildUrl() {
-            return addContributionCurrentBuildUrl;
         }
     }
 }

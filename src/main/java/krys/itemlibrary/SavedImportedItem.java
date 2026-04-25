@@ -1,6 +1,7 @@
 package krys.itemlibrary;
 
 import krys.item.EquipmentSlot;
+import krys.itemimport.FullItemRead;
 
 /** Trwale zapisany item z biblioteki użytkownika z własnym stabilnym identyfikatorem. */
 public final class SavedImportedItem {
@@ -14,6 +15,7 @@ public final class SavedImportedItem {
     private final double thorns;
     private final double blockChance;
     private final double retributionChance;
+    private final FullItemRead fullItemRead;
 
     public SavedImportedItem(long itemId,
                              String displayName,
@@ -25,6 +27,20 @@ public final class SavedImportedItem {
                              double thorns,
                              double blockChance,
                              double retributionChance) {
+        this(itemId, displayName, sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance, FullItemRead.empty());
+    }
+
+    public SavedImportedItem(long itemId,
+                             String displayName,
+                             String sourceImageName,
+                             EquipmentSlot slot,
+                             long weaponDamage,
+                             double strength,
+                             double intelligence,
+                             double thorns,
+                             double blockChance,
+                             double retributionChance,
+                             FullItemRead fullItemRead) {
         if (itemId < 0L) {
             throw new IllegalArgumentException("Id itemu nie może być ujemne.");
         }
@@ -56,6 +72,7 @@ public final class SavedImportedItem {
         this.thorns = thorns;
         this.blockChance = blockChance;
         this.retributionChance = retributionChance;
+        this.fullItemRead = fullItemRead == null ? FullItemRead.empty() : fullItemRead;
     }
 
     private static void validateNonNegative(String label, double value) {
@@ -102,5 +119,9 @@ public final class SavedImportedItem {
 
     public double getRetributionChance() {
         return retributionChance;
+    }
+
+    public FullItemRead getFullItemRead() {
+        return fullItemRead;
     }
 }

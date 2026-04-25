@@ -15,6 +15,7 @@ final class ItemImageImportCandidateMerger {
                 parseResults.stream().map(ItemImageImportCandidateParseResult::getSlotCandidate).toList(),
                 "Nie udało się rozpoznać slotu / typu itemu z OCR."
         );
+        FullItemRead fullItemRead = mergeFullItemRead(parseResults);
         ItemImportFieldCandidate<Long> weaponDamageCandidate = mergeField(
                 parseResults.stream().map(ItemImageImportCandidateParseResult::getWeaponDamageCandidate).toList(),
                 "Nie udało się rozpoznać pola `WEAPON DAMAGE` z OCR."
@@ -42,6 +43,7 @@ final class ItemImageImportCandidateMerger {
 
         return new ItemImageImportCandidateParseResult(
                 metadata,
+                fullItemRead,
                 slotCandidate,
                 weaponDamageCandidate,
                 strengthCandidate,
@@ -52,6 +54,48 @@ final class ItemImageImportCandidateMerger {
                 buildImportNotice(analyzedVariantCount, slotCandidate, weaponDamageCandidate, strengthCandidate,
                         intelligenceCandidate, thornsCandidate, blockChanceCandidate, retributionChanceCandidate)
         );
+    }
+
+    private static FullItemRead mergeFullItemRead(List<ItemImageImportCandidateParseResult> parseResults) {
+        List<FullItemReadLine> mergedLines = new ArrayList<>();
+        List<String> seenLines = new ArrayList<>();
+        String itemName = "";
+        String itemTypeLine = "";
+        String rarity = "";
+        String itemPower = "";
+        String baseItemValue = "";
+
+        for (ItemImageImportCandidateParseResult parseResult : parseResults) {
+            FullItemRead read = parseResult.getFullItemRead();
+            if (read == null || !read.hasAnyData()) {
+                continue;
+            }
+            if (itemName.isBlank() && !read.getItemName().isBlank()) {
+                itemName = read.getItemName();
+            }
+            if (itemTypeLine.isBlank() && !read.getItemTypeLine().isBlank()) {
+                itemTypeLine = read.getItemTypeLine();
+            }
+            if (rarity.isBlank() && !read.getRarity().isBlank()) {
+                rarity = read.getRarity();
+            }
+            if (itemPower.isBlank() && !read.getItemPower().isBlank()) {
+                itemPower = read.getItemPower();
+            }
+            if (baseItemValue.isBlank() && !read.getBaseItemValue().isBlank()) {
+                baseItemValue = read.getBaseItemValue();
+            }
+            for (FullItemReadLine line : read.getLines()) {
+                String key = line.getType().name() + "\n" + line.getText().toUpperCase(java.util.Locale.ROOT);
+                if (line.getText().isBlank() || seenLines.contains(key)) {
+                    continue;
+                }
+                seenLines.add(key);
+                mergedLines.add(line);
+            }
+        }
+
+        return new FullItemRead(itemName, itemTypeLine, rarity, itemPower, baseItemValue, mergedLines);
     }
 
     private static <T> ItemImportFieldCandidate<T> mergeField(List<ItemImportFieldCandidate<T>> candidates,

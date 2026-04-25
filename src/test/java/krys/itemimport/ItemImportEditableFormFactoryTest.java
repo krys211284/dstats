@@ -11,6 +11,14 @@ class ItemImportEditableFormFactoryTest {
     void shouldMapSuggestedFieldsToEditableForm() {
         ItemImageImportCandidateParseResult parseResult = new ItemImageImportCandidateParseResult(
                 new ItemImageMetadata("miecz.png", "image/png", "PNG", 1200, 800),
+                new FullItemRead(
+                        "Miecz testowy",
+                        "Broń główna",
+                        "Legendarny",
+                        "800 mocy przedmiotu",
+                        "321 obrażeń broni",
+                        java.util.List.of(new FullItemReadLine(FullItemReadLineType.AFFIX, "+55 Strength"))
+                ),
                 new ItemImportFieldCandidate<>("MAIN_HAND", EquipmentSlot.MAIN_HAND, ItemImportFieldConfidence.MEDIUM, "slot"),
                 new ItemImportFieldCandidate<>("321", 321L, ItemImportFieldConfidence.HIGH, "weapon"),
                 new ItemImportFieldCandidate<>("+55 Strength", 55.0d, ItemImportFieldConfidence.HIGH, "str"),
@@ -31,5 +39,7 @@ class ItemImportEditableFormFactoryTest {
         assertEquals("90", form.getThorns());
         assertEquals("18", form.getBlockChance());
         assertEquals("25", form.getRetributionChance());
+        assertEquals("Miecz testowy", form.getFullItemRead().getItemName());
+        assertEquals(1, form.getFullItemRead().getLines().size());
     }
 }

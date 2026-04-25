@@ -15,7 +15,8 @@ public final class ItemImportEditableFormFactory {
                 toDoubleValue(parseResult.getIntelligenceCandidate().getSuggestedValue()),
                 toDoubleValue(parseResult.getThornsCandidate().getSuggestedValue()),
                 toDoubleValue(parseResult.getBlockChanceCandidate().getSuggestedValue()),
-                toDoubleValue(parseResult.getRetributionChanceCandidate().getSuggestedValue())
+                toDoubleValue(parseResult.getRetributionChanceCandidate().getSuggestedValue()),
+                parseResult.getFullItemRead()
         );
     }
 

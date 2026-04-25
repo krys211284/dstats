@@ -1,6 +1,9 @@
 package krys.itemlibrary;
 
 import krys.item.EquipmentSlot;
+import krys.itemimport.FullItemRead;
+import krys.itemimport.FullItemReadLine;
+import krys.itemimport.FullItemReadLineType;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -47,7 +50,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     item.getIntelligence(),
                     item.getThorns(),
                     item.getBlockChance(),
-                    item.getRetributionChance()
+                    item.getRetributionChance(),
+                    item.getFullItemRead()
             );
         }
 
@@ -143,7 +147,7 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
 
     private SavedImportedItem parseItem(String line) {
         String[] tokens = line.split("\\|", -1);
-        if (tokens.length != 11 || !ITEM_PREFIX.equals(tokens[0])) {
+        if ((tokens.length != 11 && tokens.length != 12) || !ITEM_PREFIX.equals(tokens[0])) {
             throw new IllegalStateException("Plik biblioteki itemów ma niepoprawny format.");
         }
         return new SavedImportedItem(
@@ -156,7 +160,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                 Double.parseDouble(tokens[7]),
                 Double.parseDouble(tokens[8]),
                 Double.parseDouble(tokens[9]),
-                Double.parseDouble(tokens[10])
+                Double.parseDouble(tokens[10]),
+                tokens.length == 12 ? decodeFullItemRead(tokens[11]) : FullItemRead.empty()
         );
     }
 
@@ -175,7 +180,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     formatDouble(item.getIntelligence()),
                     formatDouble(item.getThorns()),
                     formatDouble(item.getBlockChance()),
-                    formatDouble(item.getRetributionChance())
+                    formatDouble(item.getRetributionChance()),
+                    encodeFullItemRead(item.getFullItemRead())
             ));
         }
         try {
@@ -205,5 +211,50 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
 
     private static String formatDouble(double value) {
         return String.format(Locale.US, "%.4f", value);
+    }
+
+    private static String encodeFullItemRead(FullItemRead fullItemRead) {
+        FullItemRead safeRead = fullItemRead == null ? FullItemRead.empty() : fullItemRead;
+        List<String> payloadLines = new ArrayList<>();
+        payloadLines.add("NAME|" + encode(safeRead.getItemName()));
+        payloadLines.add("TYPE|" + encode(safeRead.getItemTypeLine()));
+        payloadLines.add("RARITY|" + encode(safeRead.getRarity()));
+        payloadLines.add("POWER|" + encode(safeRead.getItemPower()));
+        payloadLines.add("BASE|" + encode(safeRead.getBaseItemValue()));
+        for (FullItemReadLine line : safeRead.getLines()) {
+            payloadLines.add("LINE|" + line.getType().name() + "|" + encode(line.getText()));
+        }
+        return encode(String.join("\n", payloadLines));
+    }
+
+    private static FullItemRead decodeFullItemRead(String encodedPayload) {
+        String payload = decode(encodedPayload);
+        String itemName = "";
+        String itemTypeLine = "";
+        String rarity = "";
+        String itemPower = "";
+        String baseItemValue = "";
+        List<FullItemReadLine> lines = new ArrayList<>();
+        for (String line : payload.split("\\R")) {
+            String[] tokens = line.split("\\|", -1);
+            if (tokens.length < 2) {
+                continue;
+            }
+            switch (tokens[0]) {
+                case "NAME" -> itemName = decode(tokens[1]);
+                case "TYPE" -> itemTypeLine = decode(tokens[1]);
+                case "RARITY" -> rarity = decode(tokens[1]);
+                case "POWER" -> itemPower = decode(tokens[1]);
+                case "BASE" -> baseItemValue = decode(tokens[1]);
+                case "LINE" -> {
+                    if (tokens.length >= 3) {
+                        lines.add(new FullItemReadLine(FullItemReadLineType.valueOf(tokens[1]), decode(tokens[2])));
+                    }
+                }
+                default -> {
+                }
+            }
+        }
+        return new FullItemRead(itemName, itemTypeLine, rarity, itemPower, baseItemValue, lines);
     }
 }

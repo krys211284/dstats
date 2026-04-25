@@ -1,5 +1,9 @@
 package krys.web;
 
+import krys.itemimport.FullItemRead;
+import krys.itemimport.FullItemReadFormCodec;
+import krys.itemimport.FullItemReadLine;
+import krys.itemimport.FullItemReadLineType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
 
@@ -100,7 +105,7 @@ class ItemImportWebServerTest {
     }
 
     @Test
-    void shouldConfirmImportedItemAndExposePrefillForCurrentBuild() throws Exception {
+    void shouldConfirmImportedItemAutomaticallySaveItToLibraryAndExposeNextActions() throws Exception {
         createHero("Importer", "13");
         String currentBuildQuery = "level=13&weaponDamage=200&strength=30&intelligence=11&thorns=70&blockChance=10&retributionChance=15&horizonSeconds=10"
                 + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
@@ -117,51 +122,54 @@ class ItemImportWebServerTest {
                 "thorns", "90",
                 "blockChance", "18",
                 "retributionChance", "25",
+                "fullItemRead", FullItemReadFormCodec.encode(new FullItemRead(
+                        "Młot Importera",
+                        "Broń główna",
+                        "Legendarny",
+                        "800 mocy przedmiotu",
+                        "321 obrażeń broni",
+                        List.of(
+                                new FullItemReadLine(FullItemReadLineType.ITEM_NAME, "Młot Importera"),
+                                new FullItemReadLine(FullItemReadLineType.TYPE_OR_SLOT, "Broń główna"),
+                                new FullItemReadLine(FullItemReadLineType.AFFIX, "+55 Strength"),
+                                new FullItemReadLine(FullItemReadLineType.ASPECT, "Aspekt testowego impetu")
+                        )
+                )),
                 "currentBuildQuery", currentBuildQuery
         ));
 
         assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("Zatwierdzony item"));
+        assertTrue(response.body().contains("Zatwierdzony item zapisany do biblioteki"));
         assertTrue(response.body().contains("Mapowanie do modelu itemu aplikacji"));
         assertTrue(response.body().contains("Mapowanie do aktualnego modelu buildu"));
         assertTrue(response.body().contains("Plik źródłowy"));
         assertTrue(response.body().contains("Aktywny bohater"));
         assertTrue(response.body().contains("bulawa.png"));
-        assertTrue(response.body().contains("Zastosuj do aktualnego buildu"));
-        assertTrue(response.body().contains("Dodaj wkład itemu do aktualnego buildu"));
-        assertTrue(response.body().contains("Zapisz do biblioteki"));
-        assertFalse(response.body().contains("Nadpisz aktualny build wkładem itemu"));
+        assertTrue(response.body().contains("Identyfikator biblioteki"));
+        assertTrue(response.body().contains("Wkład itemu"));
+        assertTrue(response.body().contains("Pełny odczyt zapisany w bibliotece"));
+        assertTrue(response.body().contains("Młot Importera"));
+        assertTrue(response.body().contains("Aspekt testowego impetu"));
+        assertTrue(response.body().contains("Załóż bohaterowi: Broń"));
+        assertTrue(response.body().contains("Przejdź do biblioteki"));
+        assertTrue(response.body().contains("Wróć do aktualnego buildu"));
+        assertFalse(response.body().contains("Zapisz do biblioteki"));
+        assertFalse(response.body().contains("Zastosuj do aktualnego buildu"));
+        assertFalse(response.body().contains("Dodaj wkład itemu do aktualnego buildu"));
         assertTrue(response.body().contains("Slot w modelu aplikacji"));
         assertTrue(response.body().contains("Staty modelu itemu"));
         assertFalse(response.body().contains(">MAIN_HAND<"));
-        assertTrue(response.body().contains("/policz-aktualny-build?level=13&amp;weaponDamage=321&amp;strength=55&amp;intelligence=11&amp;thorns=90&amp;blockChance=18&amp;retributionChance=25"));
-        assertTrue(response.body().contains("/policz-aktualny-build?level=13&amp;weaponDamage=521&amp;strength=85&amp;intelligence=11&amp;thorns=160&amp;blockChance=28&amp;retributionChance=40"));
 
-        HttpResponse<String> overwriteResponse = sendGet(
-                "/policz-aktualny-build?level=13&weaponDamage=321&strength=55&intelligence=11&thorns=90&blockChance=18&retributionChance=25&horizonSeconds=10"
-                        + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
-                        + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
-                        + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
-                        + "&rank_ADVANCE=5&baseUpgrade_ADVANCE=true&choiceUpgrade_ADVANCE=RIGHT"
-                        + "&actionBar1=ADVANCE&actionBar2=NONE&actionBar3=NONE&actionBar4=NONE"
-        );
-        assertEquals(200, overwriteResponse.statusCode());
-        assertTrue(overwriteResponse.body().contains("name=\"weaponDamage\" value=\"321\""));
-        assertTrue(overwriteResponse.body().contains("name=\"strength\" value=\"55\""));
-        assertTrue(overwriteResponse.body().contains("name=\"intelligence\" value=\"11\""));
+        HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow");
 
-        HttpResponse<String> addResponse = sendGet(
-                "/policz-aktualny-build?level=13&weaponDamage=521&strength=85&intelligence=11&thorns=160&blockChance=28&retributionChance=40&horizonSeconds=10"
-                        + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
-                        + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
-                        + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
-                        + "&rank_ADVANCE=5&baseUpgrade_ADVANCE=true&choiceUpgrade_ADVANCE=RIGHT"
-                        + "&actionBar1=ADVANCE&actionBar2=NONE&actionBar3=NONE&actionBar4=NONE"
-        );
-        assertEquals(200, addResponse.statusCode());
-        assertTrue(addResponse.body().contains("name=\"weaponDamage\" value=\"521\""));
-        assertTrue(addResponse.body().contains("name=\"strength\" value=\"85\""));
-        assertTrue(addResponse.body().contains("name=\"thorns\" value=\"160\""));
+        assertEquals(200, libraryResponse.statusCode());
+        assertFalse(libraryResponse.body().contains("Biblioteka jest pusta"));
+        assertTrue(libraryResponse.body().contains("Broń główna / bulawa.png"));
+        assertTrue(libraryResponse.body().contains("obr. broni +321"));
+        assertTrue(libraryResponse.body().contains("Załóż bohaterowi: Broń"));
+        assertTrue(libraryResponse.body().contains("Pełniejszy odczyt itemu"));
+        assertTrue(libraryResponse.body().contains("Młot Importera"));
+        assertTrue(libraryResponse.body().contains("Aspekt testowego impetu"));
     }
 
     @Test
