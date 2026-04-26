@@ -106,16 +106,20 @@ class ItemImportWebServerTest {
         assertFalse(response.body().contains("<th>Pewność</th>"));
         assertFalse(response.body().contains("<th>Uwagi</th>"));
         assertTrue(response.body().contains("Ręczna weryfikacja affixów"));
+        assertTrue(response.body().contains("Typ itemu"));
+        assertTrue(response.body().contains("Slot ekwipunku"));
+        assertTrue(response.body().contains("Aspekt"));
         assertTrue(response.body().contains("Dodaj affix"));
         assertTrue(response.body().contains("name=\"newAffixType\""));
         assertTrue(response.body().contains("name=\"newAffixValue\""));
-        assertTrue(response.body().contains("name=\"formAction\" value=\"addAffix\""));
+        assertTrue(response.body().contains("type=\"button\" id=\"addAffixButton\""));
+        assertFalse(response.body().contains("name=\"formAction\" value=\"addAffix\""));
         assertTrue(response.body().contains("name=\"formAction\" value=\"confirmItem\""));
-        assertTrue(response.body().contains("Projekcja do aktualnego runtime"));
+        assertFalse(response.body().contains("Projekcja do aktualnego runtime"));
     }
 
     @Test
-    void shouldAddAffixWithoutSavingItemAndUpdateRuntimeProjection() throws Exception {
+    void shouldKeepAffixAddAsClientSideEditActionWithoutSavingItem() throws Exception {
         createHero("Importer", "13");
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("formAction", "addAffix");
@@ -152,10 +156,7 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("Ręczna weryfikacja affixów"));
         assertTrue(response.body().contains("name=\"affixType_1\""));
         assertTrue(response.body().contains("name=\"affixValue_1\" value=\"494\""));
-        assertTrue(response.body().contains("<div class=\"summary-label\">Siła</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-value\">114</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-label\">Kolce</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-value\">494</div>"));
+        assertFalse(response.body().contains("Projekcja do aktualnego runtime"));
 
         HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow");
 
@@ -199,13 +200,13 @@ class ItemImportWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Zatwierdzony item zapisany do biblioteki"));
-        assertTrue(response.body().contains("Mapowanie do modelu itemu aplikacji"));
-        assertTrue(response.body().contains("Mapowanie do aktualnego modelu buildu"));
+        assertFalse(response.body().contains("Mapowanie do modelu itemu aplikacji"));
+        assertFalse(response.body().contains("Mapowanie do aktualnego modelu buildu"));
         assertTrue(response.body().contains("Plik źródłowy"));
         assertTrue(response.body().contains("Aktywny bohater"));
         assertTrue(response.body().contains("bulawa.png"));
         assertTrue(response.body().contains("Identyfikator biblioteki"));
-        assertTrue(response.body().contains("Wkład itemu"));
+        assertFalse(response.body().contains("Wkład itemu"));
         assertTrue(response.body().contains("Pełny odczyt zapisany w bibliotece"));
         assertTrue(response.body().contains("Młot Importera"));
         assertTrue(response.body().contains("Aspekt testowego impetu"));
@@ -215,8 +216,8 @@ class ItemImportWebServerTest {
         assertFalse(response.body().contains("Zapisz do biblioteki"));
         assertFalse(response.body().contains("Zastosuj do aktualnego buildu"));
         assertFalse(response.body().contains("Dodaj wkład itemu do aktualnego buildu"));
-        assertTrue(response.body().contains("Slot w modelu aplikacji"));
-        assertTrue(response.body().contains("Staty modelu itemu"));
+        assertFalse(response.body().contains("Slot w modelu aplikacji"));
+        assertFalse(response.body().contains("Staty modelu itemu"));
         assertFalse(response.body().contains(">MAIN_HAND<"));
 
         HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow");
@@ -259,18 +260,23 @@ class ItemImportWebServerTest {
                 )
         ));
 
-        HttpResponse<String> response = sendUrlEncodedPost("/importuj-item-ze-screena", Map.of(
-                "sourceImageName", "tarcza.png",
-                "slot", "OFF_HAND",
-                "weaponDamage", "0",
-                "strength", "114",
-                "intelligence", "0",
-                "thorns", "494",
-                "blockChance", "20.0",
-                "retributionChance", "0",
-                "fullItemRead", fullShieldRead,
-                "currentBuildQuery", ""
-        ));
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("sourceImageName", "tarcza.png");
+        fields.put("slot", "OFF_HAND");
+        fields.put("fullItemRead", fullShieldRead);
+        fields.put("currentBuildQuery", "");
+        fields.put("affixCount", "4");
+        fields.put("affixType_0", "STRENGTH");
+        fields.put("affixValue_0", "114");
+        fields.put("affixType_1", "THORNS");
+        fields.put("affixValue_1", "494");
+        fields.put("affixGreater_1", "true");
+        fields.put("affixType_2", "LUCKY_HIT_CHANCE");
+        fields.put("affixValue_2", "7.0");
+        fields.put("affixType_3", "COOLDOWN_REDUCTION");
+        fields.put("affixValue_3", "13.2");
+
+        HttpResponse<String> response = sendUrlEncodedPost("/importuj-item-ze-screena", fields);
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Pełny odczyt zapisany w bibliotece"));
@@ -290,9 +296,9 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("20,0% szansy na blok [20,01]%"));
         assertTrue(response.body().contains("+100% obrażeń od broni w głównej ręce [100]%"));
         assertTrue(response.body().contains("Affixy"));
-        assertTrue(response.body().contains("+114 siły [107 - 121]"));
-        assertTrue(response.body().contains("+494 cierni [473 - 506]"));
-        assertTrue(response.body().contains("+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%"));
+        assertTrue(response.body().contains("+114 siły"));
+        assertTrue(response.body().contains("+494 cierni"));
+        assertTrue(response.body().contains("+7% szansy na szczęśliwy traf"));
         assertTrue(response.body().contains("13,2% redukcji czasu odnowienia"));
         assertTrue(response.body().contains("Aspekt / efekt legendarny"));
         assertTrue(response.body().contains("Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"));
@@ -309,13 +315,8 @@ class ItemImportWebServerTest {
         assertTrue(response.body().indexOf("Dodatkowe / sezonowe linie") < response.body().indexOf("Socket / gniazdo"));
         assertFalse(response.body().contains("Szczegóły techniczne OCR"));
         assertFalse(response.body().contains("Typ linii"));
-        assertTrue(response.body().contains("Mapowanie do aktualnego modelu buildu"));
-        assertTrue(response.body().contains("<div class=\"summary-label\">Siła</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-value\">114</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-label\">Kolce</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-value\">494</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-label\">Szansa bloku [%]</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-value\">20</div>"));
+        assertFalse(response.body().contains("Mapowanie do aktualnego modelu buildu"));
+        assertFalse(response.body().contains("Projekcja do aktualnego runtime"));
         assertFalse(response.body().contains(">OFF_HAND<"));
     }
 
@@ -390,25 +391,98 @@ class ItemImportWebServerTest {
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Zatwierdzony item zapisany do biblioteki"));
         assertTrue(response.body().contains("+120 siły"));
-        assertTrue(response.body().contains("+494 cierni [473 - 506]"));
+        assertFalse(response.body().contains("+114 siły [107 - 121]"));
+        assertTrue(response.body().contains("+494 cierni"));
         assertTrue(response.body().contains("13,2% redukcji czasu odnowienia"));
         assertTrue(response.body().contains("+33 inteligencji"));
         assertFalse(response.body().contains("+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%"));
-        assertTrue(response.body().contains("<div class=\"summary-label\">Siła</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-value\">120</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-label\">Inteligencja</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-value\">33</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-label\">Kolce</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-value\">494</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-label\">Szansa bloku [%]</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-value\">20</div>"));
+        assertFalse(response.body().contains("Mapowanie do aktualnego modelu buildu"));
+        assertFalse(response.body().contains("Projekcja do aktualnego runtime"));
 
         HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow");
 
         assertEquals(200, libraryResponse.statusCode());
         assertTrue(libraryResponse.body().contains("+120 siły"));
+        assertFalse(libraryResponse.body().contains("+114 siły [107 - 121]"));
+        assertTrue(libraryResponse.body().contains("+494 cierni"));
         assertTrue(libraryResponse.body().contains("+33 inteligencji"));
         assertFalse(libraryResponse.body().contains("+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%"));
+    }
+
+    @Test
+    void shouldNotRestoreRemovedAffixesFromHiddenFoundationFallbacks() throws Exception {
+        createHero("Importer", "13");
+        String fullRead = FullItemReadFormCodec.encode(new FullItemRead(
+                "Tarcza bez affixów",
+                "Tarcza",
+                "Legendarny",
+                "Moc przedmiotu: 800",
+                "Pancerz: 1 131 pkt.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+114 siły [107 - 121]"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+494 cierni [473 - 506]")
+                )
+        ));
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("sourceImageName", "tarcza.png");
+        fields.put("slot", "OFF_HAND");
+        fields.put("weaponDamage", "0");
+        fields.put("strength", "114");
+        fields.put("thorns", "494");
+        fields.put("fullItemRead", fullRead);
+        fields.put("currentBuildQuery", "");
+        fields.put("formAction", "confirmItem");
+        fields.put("affixCount", "0");
+
+        HttpResponse<String> response = sendUrlEncodedPost("/importuj-item-ze-screena", fields);
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Zatwierdzony item zapisany do biblioteki"));
+        assertFalse(response.body().contains("+114 siły"));
+        assertFalse(response.body().contains("+494 cierni"));
+
+        HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow");
+
+        assertEquals(200, libraryResponse.statusCode());
+        assertFalse(libraryResponse.body().contains("+114 siły"));
+        assertFalse(libraryResponse.body().contains("+494 cierni"));
+    }
+
+    @Test
+    void shouldRejectInvalidAffixRowsInsteadOfSilentlyDroppingThem() throws Exception {
+        createHero("Importer", "13");
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("sourceImageName", "tarcza.png");
+        fields.put("slot", "OFF_HAND");
+        fields.put("fullItemRead", FullItemReadFormCodec.encode(FullItemRead.empty()));
+        fields.put("currentBuildQuery", "");
+        fields.put("formAction", "confirmItem");
+        fields.put("affixCount", "5");
+        fields.put("affixType_0", "THORNS");
+        fields.put("affixValue_0", "494");
+        fields.put("affixType_1", "STRENGTH");
+        fields.put("affixValue_1", "");
+        fields.put("affixType_2", "");
+        fields.put("affixValue_2", "120");
+        fields.put("affixType_3", "INTELLIGENCE");
+        fields.put("affixValue_3", "abc");
+        fields.put("affixType_4", "STRENGTH");
+        fields.put("affixValue_4", "-1");
+
+        HttpResponse<String> response = sendUrlEncodedPost("/importuj-item-ze-screena", fields);
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Błędy formularza"));
+        assertTrue(response.body().contains("Affix #2: wartość affixu jest wymagana"));
+        assertTrue(response.body().contains("Affix #3: typ affixu jest wymagany"));
+        assertTrue(response.body().contains("Affix #4: affix ma niepoprawny typ albo wartość"));
+        assertTrue(response.body().contains("Affix #5"));
+        assertTrue(response.body().contains("name=\"affixType_0\""));
+        assertTrue(response.body().contains("name=\"affixValue_0\" value=\"494\""));
+        assertFalse(response.body().contains("Zatwierdzony item zapisany do biblioteki"));
+
+        HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow");
+        assertTrue(libraryResponse.body().contains("Biblioteka jest pusta"));
     }
 
     @Test

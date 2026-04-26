@@ -21,13 +21,6 @@ public final class AspectRegistry {
                         EnumSet.of(EquipmentSlot.OFF_HAND),
                         EnumSet.of(HeroClass.PALADIN),
                         List.of("legendary", "damage")
-                ),
-                new AspectDefinition(
-                        "main-hand-test-aspect",
-                        "Aspekt testowy broni głównej",
-                        EnumSet.of(EquipmentSlot.MAIN_HAND),
-                        EnumSet.of(HeroClass.PALADIN),
-                        List.of("test", "weapon")
                 )
         ));
     }

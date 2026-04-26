@@ -17,11 +17,13 @@ class ItemImportFormMapperTest {
                 "topor.png",
                 "MAIN_HAND",
                 "444",
-                "70",
                 "0",
                 "0",
                 "0",
-                "0"
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 70.0d, "+70 siły"))
         );
 
         ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
@@ -63,7 +65,14 @@ class ItemImportFormMapperTest {
                 "0",
                 "20.0",
                 "0",
-                FullItemRead.empty(),
+                new FullItemRead(
+                        "Tarcza",
+                        "Tarcza",
+                        "Legendarny",
+                        "Moc przedmiotu: 800",
+                        "Pancerz: 1 131 pkt.",
+                        List.of(new FullItemReadLine(FullItemReadLineType.AFFIX, "20,0% szansy na blok [20,01]%"))
+                ),
                 List.of(
                         new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 114.0d, "+114 siły [107 - 121]"),
                         new ImportedItemAffix(ImportedItemAffixType.THORNS, 494.0d, "+494 cierni [473 - 506]"),

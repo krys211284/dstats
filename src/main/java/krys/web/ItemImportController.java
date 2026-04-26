@@ -8,7 +8,6 @@ import krys.itemimport.FullItemReadAffixUpdater;
 import krys.itemimport.FullItemReadFormCodec;
 import krys.itemimport.ImportedItemCurrentBuildContribution;
 import krys.itemimport.ImportedItemAffix;
-import krys.itemimport.ImportedItemAffixExtractor;
 import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ImportedItemCurrentBuildContributionMapper;
@@ -165,13 +164,11 @@ public final class ItemImportController implements HttpHandler {
         String currentBuildQuery = fields.getOrDefault("currentBuildQuery", "");
         FullItemRead decodedFullItemRead = FullItemReadFormCodec.decode(fields.getOrDefault("fullItemRead", ""));
         String formAction = fields.getOrDefault("formAction", "confirmItem");
-        List<ImportedItemAffix> affixes = parseExistingAffixes(fields);
-        if (affixes.isEmpty() && parseAffixCount(fields.get("affixCount")) == 0) {
-            affixes = new ImportedItemAffixExtractor().extractEditableAffixes(decodedFullItemRead);
-        }
+        AffixParseResult affixParseResult = parseExistingAffixes(fields);
+        List<ImportedItemAffix> affixes = affixParseResult.affixes();
         if ("addAffix".equals(formAction)) {
             java.util.ArrayList<ImportedItemAffix> updatedAffixes = new java.util.ArrayList<>(affixes);
-            parseNewAffix(fields).ifPresent(updatedAffixes::add);
+            parseNewAffix(fields, affixParseResult.errors()).ifPresent(updatedAffixes::add);
             ItemImportEditableForm form = buildEditableForm(fields, decodedFullItemRead, updatedAffixes);
             return new ItemImportPageModel(
                     form,
@@ -187,11 +184,13 @@ public final class ItemImportController implements HttpHandler {
         ItemImportEditableForm form = buildEditableForm(fields, decodedFullItemRead, affixes);
 
         ItemImportFormMapper.MappingResult mappingResult = formMapper.map(form);
-        if (!mappingResult.getErrors().isEmpty() || mappingResult.getItem() == null) {
+        java.util.ArrayList<String> allErrors = new java.util.ArrayList<>(affixParseResult.errors());
+        allErrors.addAll(mappingResult.getErrors());
+        if (!allErrors.isEmpty() || mappingResult.getItem() == null) {
             return buildErrorPageModel(
                     form,
                     null,
-                    mappingResult.getErrors(),
+                    allErrors,
                     currentBuildQuery,
                     heroService.requireActiveHero()
             );
@@ -242,41 +241,35 @@ public final class ItemImportController implements HttpHandler {
         );
     }
 
-    private static List<ImportedItemAffix> parseExistingAffixes(Map<String, String> fields) {
+    private static AffixParseResult parseExistingAffixes(Map<String, String> fields) {
         List<ImportedItemAffix> affixes = new java.util.ArrayList<>();
+        List<String> errors = new java.util.ArrayList<>();
         int affixCount = parseAffixCount(fields.get("affixCount"));
         for (int index = 0; index < affixCount; index++) {
             if ("true".equals(fields.get("affixRemoved_" + index))) {
                 continue;
             }
-            parseAffixRow(fields, index).ifPresent(affixes::add);
+            parseAffixRow(fields, index, errors).ifPresent(affixes::add);
         }
-        return affixes;
+        return new AffixParseResult(affixes, errors);
     }
 
-    private static java.util.Optional<ImportedItemAffix> parseAffixRow(Map<String, String> fields, int index) {
+    private static java.util.Optional<ImportedItemAffix> parseAffixRow(Map<String, String> fields, int index, List<String> errors) {
         String typeValue = fields.getOrDefault("affixType_" + index, "");
         String value = fields.getOrDefault("affixValue_" + index, "");
-        String originalType = fields.getOrDefault("affixOriginalType_" + index, "");
-        String originalValue = fields.getOrDefault("affixOriginalValue_" + index, "");
-        String originalGreaterAffix = fields.getOrDefault("affixOriginalGreater_" + index, "false");
-        String sourceText = fields.getOrDefault("affixSourceText_" + index, "");
         boolean greaterAffix = "true".equals(fields.get("affixGreater_" + index));
-        boolean unchanged = typeValue.equals(originalType)
-                && value.equals(originalValue)
-                && Boolean.toString(greaterAffix).equals(originalGreaterAffix);
-        return parseAffix(typeValue, value, greaterAffix, unchanged ? sourceText : "", index,
-                unchanged ? ImportedItemAffixSource.OCR : ImportedItemAffixSource.CORRECTED);
+        return parseAffix(typeValue, value, greaterAffix, "", index, ImportedItemAffixSource.CORRECTED, errors);
     }
 
-    private static java.util.Optional<ImportedItemAffix> parseNewAffix(Map<String, String> fields) {
+    private static java.util.Optional<ImportedItemAffix> parseNewAffix(Map<String, String> fields, List<String> errors) {
         return parseAffix(
                 fields.getOrDefault("newAffixType", ""),
                 fields.getOrDefault("newAffixValue", ""),
                 "true".equals(fields.get("newAffixGreater")),
                 "",
                 parseAffixCount(fields.get("affixCount")),
-                ImportedItemAffixSource.MANUAL
+                ImportedItemAffixSource.MANUAL,
+                errors
         );
     }
 
@@ -285,18 +278,31 @@ public final class ItemImportController implements HttpHandler {
                                                                     boolean greaterAffix,
                                                                     String sourceText,
                                                                     int displayOrder,
-                                                                    ImportedItemAffixSource source) {
-        if (rawType == null || rawType.isBlank() || rawValue == null || rawValue.isBlank()) {
+                                                                    ImportedItemAffixSource source,
+                                                                    List<String> errors) {
+        boolean missingType = rawType == null || rawType.isBlank();
+        boolean missingValue = rawValue == null || rawValue.isBlank();
+        if (missingType && missingValue) {
+            return java.util.Optional.empty();
+        }
+        if (missingType) {
+            errors.add("Affix #" + (displayOrder + 1) + ": typ affixu jest wymagany, jeśli podano wartość.");
+            return java.util.Optional.empty();
+        }
+        if (missingValue) {
+            errors.add("Affix #" + (displayOrder + 1) + ": wartość affixu jest wymagana, jeśli podano typ.");
             return java.util.Optional.empty();
         }
         try {
             ImportedItemAffixType type = ImportedItemAffixType.valueOf(rawType);
             double value = Double.parseDouble(rawValue.replace(',', '.'));
             if (value < 0.0d) {
+                errors.add("Affix #" + (displayOrder + 1) + ": wartość affixu nie może być ujemna.");
                 return java.util.Optional.empty();
             }
             return java.util.Optional.of(new ImportedItemAffix(type, value, defaultUnit(type), greaterAffix, displayOrder, sourceText, source));
         } catch (IllegalArgumentException exception) {
+            errors.add("Affix #" + (displayOrder + 1) + ": affix ma niepoprawny typ albo wartość.");
             return java.util.Optional.empty();
         }
     }
@@ -352,5 +358,8 @@ public final class ItemImportController implements HttpHandler {
         exchange.getResponseHeaders().set("Content-Type", HTML_CONTENT_TYPE);
         exchange.sendResponseHeaders(200, responseBytes.length);
         exchange.getResponseBody().write(responseBytes);
+    }
+
+    private record AffixParseResult(List<ImportedItemAffix> affixes, List<String> errors) {
     }
 }

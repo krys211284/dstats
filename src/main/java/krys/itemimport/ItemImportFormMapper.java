@@ -21,13 +21,13 @@ public final class ItemImportFormMapper {
     public MappingResult map(ItemImportEditableForm form) {
         List<String> errors = new ArrayList<>();
         EquipmentSlot slot = parseSlot(form.getSlot(), errors);
-        Long weaponDamage = parseLong(form.getWeaponDamage(), "Weapon damage", errors);
+        Long weaponDamage = parseLong(resolveVisibleWeaponDamage(form), "Weapon damage", errors);
         RuntimeProjection projection = projectAffixes(form.getAffixes());
-        Double strength = projectedOrFallback(projection.strength(), form.getStrength(), "Strength", errors);
-        Double intelligence = projectedOrFallback(projection.intelligence(), form.getIntelligence(), "Intelligence", errors);
-        Double thorns = projectedOrFallback(projection.thorns(), form.getThorns(), "Thorns", errors);
-        Double blockChance = projectedOrFallback(projection.blockChance(), form.getBlockChance(), "Block chance", errors);
-        Double retributionChance = projectedOrFallback(projection.retributionChance(), form.getRetributionChance(), "Retribution chance", errors);
+        Double strength = projection.strength();
+        Double intelligence = projection.intelligence();
+        Double thorns = projection.thorns();
+        Double blockChance = projection.blockChance() + visibleImplicitBlockChance(form.getFullItemRead());
+        Double retributionChance = projection.retributionChance();
 
         if (slot == null || weaponDamage == null || strength == null || intelligence == null
                 || thorns == null || blockChance == null || retributionChance == null) {
@@ -97,13 +97,6 @@ public final class ItemImportFormMapper {
         return new RuntimeProjection(strength, intelligence, thorns, blockChance, retributionChance);
     }
 
-    private static Double projectedOrFallback(double projectedValue, String rawFallback, String label, List<String> errors) {
-        if (projectedValue > 0.0d) {
-            return projectedValue;
-        }
-        return parseDouble(rawFallback, label, errors);
-    }
-
     private static EquipmentSlot parseSlot(String rawValue, List<String> errors) {
         if (rawValue == null || rawValue.isBlank()) {
             errors.add("Slot itemu jest wymagany.");
@@ -149,6 +142,41 @@ public final class ItemImportFormMapper {
             errors.add(label + " musi być liczbą.");
             return null;
         }
+    }
+
+    private static String resolveVisibleWeaponDamage(ItemImportEditableForm form) {
+        if (form.getWeaponDamage() != null && !form.getWeaponDamage().isBlank()) {
+            return form.getWeaponDamage();
+        }
+        String baseItemValue = form.getFullItemRead().getBaseItemValue();
+        String normalized = normalize(baseItemValue);
+        if (!normalized.contains("OBRAZEN") && !normalized.contains("DAMAGE")) {
+            return "";
+        }
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\d+(?:\\s\\d{3})*").matcher(baseItemValue);
+        return matcher.find() ? matcher.group().replace(" ", "") : "";
+    }
+
+    private static double visibleImplicitBlockChance(FullItemRead fullItemRead) {
+        for (FullItemReadLine line : fullItemRead.getLines()) {
+            String normalized = normalize(line.getText());
+            if (!normalized.contains("SZANSY NA BLOK") && !normalized.contains("BLOCK CHANCE")) {
+                continue;
+            }
+            java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("([0-9]+(?:[,.][0-9]+)?)").matcher(line.getText());
+            if (matcher.find()) {
+                return Double.parseDouble(matcher.group(1).replace(',', '.'));
+            }
+        }
+        return 0.0d;
+    }
+
+    private static String normalize(String value) {
+        return java.text.Normalizer.normalize(value == null ? "" : value, java.text.Normalizer.Form.NFD)
+                .replace('Ł', 'L')
+                .replace('ł', 'l')
+                .replaceAll("\\p{M}", "")
+                .toUpperCase(Locale.ROOT);
     }
 
     public static final class MappingResult {

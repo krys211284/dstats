@@ -37,7 +37,7 @@ class ItemImageImportServiceTest {
             "+100% obrażeń od broni w głównej ręce [100]%",
             "+114 siły [107 - 121]",
             "+494 cierni [473 - 506]",
-            "+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%",
+            "+7,0% szansy na szczęśliwy traf [7,0",
             "13,2% redukcji czasu odnowienia",
             "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%",
             "Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."
@@ -52,7 +52,7 @@ class ItemImageImportServiceTest {
             "+100% obrażeń od broni w głównej ręce [100]%",
             "+114 siły [107 - 121]",
             "+494 cierni [473 - 506]",
-            "+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%",
+            "+7,0% szansy na szczęśliwy traf [7,0",
             "13,2% redukcji czasu odnowienia",
             SEASONAL_SHIELD_LINE,
             "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%",
@@ -157,7 +157,7 @@ class ItemImageImportServiceTest {
                 new FakeOcrTextReader(Map.of(
                         "original", String.join("\n", SHIELD_OCR_LINES_WITH_SEASONAL_NOISE),
                         "text-crop", "Starożytna legendarna tarcza\nPancerz: 1 131 pkt.\n45% redukcji blokowanych obrażeń [45]%",
-                        "text-crop-gray-x2-contrast", "+114 siły [107 - 121]\n+494 cierni [473 - 506]\n+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%",
+                        "text-crop-gray-x2-contrast", "+114 siły [107 - 121]\n+494 cierni [473 - 506]\n+7,0% szansy na szczęśliwy traf [7,0",
                         "text-crop-gray-x3-threshold", "20,0% szansy na blok [20,01]%\n+100% obrażeń od broni w głównej ręce [100]%",
                         "text-crop-gray-x3-sharpen", "Moc przedmiotu: 800\n13,2% redukcji czasu odnowienia"
                 )),
@@ -191,6 +191,20 @@ class ItemImageImportServiceTest {
                 .anyMatch(affix -> affix.getSourceText().contains("Rozjuszenie")),
                 "Sezonowe Rozjuszenie nie może trafić do edytowalnych affixów itemu.");
         assertTrue(result.getFullItemRead().getLines().stream().anyMatch(line -> line.getType() == FullItemReadLineType.SOCKET));
+        assertLineTypeContains(result, FullItemReadLineType.BASE_STAT, "1 131 pkt.");
+        assertLineTypeContains(result, FullItemReadLineType.IMPLICIT, "45% redukcji blokowanych obrażeń");
+        assertLineTypeContains(result, FullItemReadLineType.IMPLICIT, "20,0% szansy na blok");
+        assertLineTypeContains(result, FullItemReadLineType.IMPLICIT, "+100% obrażeń od broni w głównej ręce");
+        assertLineTypeContains(result, FullItemReadLineType.AFFIX, "+494 cierni");
+        assertLineTypeContains(result, FullItemReadLineType.AFFIX, "+7,0% szansy na szczęśliwy traf");
+        assertLineTypeContains(result, FullItemReadLineType.AFFIX, "13,2% redukcji czasu odnowienia");
+        assertLineTypeContains(result, FullItemReadLineType.AFFIX, "+114 siły");
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.COOLDOWN_REDUCTION, true);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.THORNS, false);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.STRENGTH, false);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.LUCKY_HIT_CHANCE, false);
     }
 
     @Test
@@ -285,6 +299,14 @@ class ItemImageImportServiceTest {
                 .filter(affix -> affix.getType() == expectedType)
                 .count();
         assertEquals(1L, count, "Edytowalny affix występuje niepoprawną liczbę razy: " + expectedType.getDisplayName());
+    }
+
+    private static void assertAffixGreaterFlag(ItemImportEditableForm form, ImportedItemAffixType expectedType, boolean expectedGreaterAffix) {
+        ImportedItemAffix affix = form.getAffixes().stream()
+                .filter(candidate -> candidate.getType() == expectedType)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Brak affixu: " + expectedType.getDisplayName()));
+        assertEquals(expectedGreaterAffix, affix.isGreaterAffix(), expectedType.getDisplayName());
     }
 
     private static void assertLineTypeContains(

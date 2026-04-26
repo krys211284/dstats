@@ -125,19 +125,15 @@ public final class ItemImportPageRenderer {
                 .append(renderHiddenField("sourceImageName", form.getSourceImageName()))
                 .append(renderHiddenField("currentBuildQuery", model.getCurrentBuildQuery()))
                 .append(renderHiddenField("fullItemRead", FullItemReadFormCodec.encode(form.getFullItemRead())))
-                .append(renderHiddenField("weaponDamage", form.getWeaponDamage()))
-                .append(renderHiddenField("strength", form.getStrength()))
-                .append(renderHiddenField("intelligence", form.getIntelligence()))
-                .append(renderHiddenField("thorns", form.getThorns()))
-                .append(renderHiddenField("blockChance", form.getBlockChance()))
-                .append(renderHiddenField("retributionChance", form.getRetributionChance()))
                 .append(renderHiddenField("ocrSuggestedAspectId", form.getOcrSuggestedAspectId()))
                 .append(renderHiddenField("ocrAspectConfidence", form.getOcrAspectConfidence().name()))
                 .append("""
-                            <div class="form-grid">
+                            <div class="manual-confirm-grid">
                 """)
+                .append(renderReadonlyItemType(form))
                 .append(renderSlotSelect(form.getSlot()))
                 .append(renderAspectSelect(form))
+                .append(renderVisibleWeaponDamageField(form))
                 .append("""
                             </div>
                 """)
@@ -164,7 +160,6 @@ public final class ItemImportPageRenderer {
         ItemImportPageModel.ConfirmedImportView confirmed = model.getConfirmedImportView();
         ValidatedImportedItem importedItem = confirmed.getImportedItem();
         SavedImportedItem savedItem = confirmed.getSavedItem();
-        ImportedItemCurrentBuildContribution contribution = confirmed.getContribution();
         StringBuilder html = new StringBuilder("""
                 <section class="panel result-panel">
                     <h2>Zatwierdzony item zapisany do biblioteki</h2>
@@ -174,39 +169,13 @@ public final class ItemImportPageRenderer {
                 .append(renderSummaryCard("Aktywny bohater", model.getActiveHero().getName()))
                 .append(renderSummaryCard("Slot / typ itemu", ItemLibraryPresentationSupport.slotDisplayName(importedItem.getSlot())))
                 .append(renderSummaryCard("Identyfikator biblioteki", ItemLibraryPresentationSupport.userItemIdentifier(savedItem)))
-                .append(renderSummaryCard("Wkład itemu", ItemLibraryPresentationSupport.itemContributionLabel(savedItem)))
-                .append(renderSummaryCard("Obrażenia broni", Long.toString(importedItem.getWeaponDamage())))
-                .append(renderSummaryCard("Siła", formatWhole(importedItem.getStrength())))
-                .append(renderSummaryCard("Inteligencja", formatWhole(importedItem.getIntelligence())))
-                .append(renderSummaryCard("Kolce", formatWhole(importedItem.getThorns())))
-                .append(renderSummaryCard("Szansa bloku [%]", formatWhole(importedItem.getBlockChance())))
-                .append(renderSummaryCard("Szansa retribution [%]", formatWhole(importedItem.getRetributionChance())))
+                .append(renderSummaryCard("Wybrany aspekt", selectedAspectLabel(importedItem.getSelectedAspectId())))
                 .append("</div>")
                 .append(renderFullItemReadSection(savedItem.getFullItemRead(), "Pełny odczyt zapisany w bibliotece"))
                 .append("""
                     <section class="subpanel">
-                        <h3>Mapowanie do modelu itemu aplikacji</h3>
-                        <div class="summary-grid compact-grid">
-                """)
-                .append(renderSummaryCard("Nazwa itemu", confirmed.getMappedItem().getName()))
-                .append(renderSummaryCard("Slot w modelu aplikacji", ItemLibraryPresentationSupport.slotDisplayName(confirmed.getMappedItem().getSlot())))
-                .append(renderSummaryCard("Staty modelu itemu", renderRuntimeStatsLabel(confirmed.getMappedItem().getStats())))
-                .append("""
-                        </div>
-                    </section>
-                    <section class="subpanel">
-                        <h3>Mapowanie do aktualnego modelu buildu</h3>
-                        <div class="summary-grid compact-grid">
-                """)
-                .append(renderSummaryCard("Obrażenia broni", Long.toString(contribution.getWeaponDamage())))
-                .append(renderSummaryCard("Siła", formatWhole(contribution.getStrength())))
-                .append(renderSummaryCard("Inteligencja", formatWhole(contribution.getIntelligence())))
-                .append(renderSummaryCard("Kolce", formatWhole(contribution.getThorns())))
-                .append(renderSummaryCard("Szansa bloku [%]", formatWhole(contribution.getBlockChance())))
-                .append(renderSummaryCard("Szansa retribution [%]", formatWhole(contribution.getRetributionChance())))
-                .append("""
-                        </div>
-                        <p class="helper">Import pozostaje wspomagany: zatwierdzony item został zapisany do biblioteki przez jawnie potwierdzone pola, a nie przez ukryty automat OCR. Założenie itemu nadal tylko ustawia wybór biblioteki dla aktywnego bohatera przed tym samym current build.</p>
+                        <h3>Dalsze akcje</h3>
+                        <p class="helper">Import pozostaje wspomagany: zatwierdzony item został zapisany do biblioteki przez jawnie widoczny formularz korekty, a nie przez ukryty automat OCR.</p>
                         <div class="action-links">
                     """)
                 .append(renderAssignSavedItemForms(model, savedItem))
@@ -308,8 +277,10 @@ public final class ItemImportPageRenderer {
                 || line.getType() == FullItemReadLineType.BASE_STAT) {
             return ItemReadLineGroup.HEADER;
         }
-        if (normalized.contains("REDUKCJI BLOKOWANYCH OBRAZEN")
+        if (line.getType() == FullItemReadLineType.IMPLICIT
+                || normalized.contains("REDUKCJI BLOKOWANYCH OBRAZEN")
                 || normalized.contains("SZANSY NA BLOK")
+                || normalized.contains("SZANSA NA BLOK")
                 || normalized.contains("OBRAZEN OD BRONI W GLOWNEJ RECE")) {
             return ItemReadLineGroup.IMPLICIT;
         }
@@ -431,19 +402,19 @@ public final class ItemImportPageRenderer {
         StringBuilder html = new StringBuilder("""
                 <section class="subpanel">
                     <h3>Ręczna weryfikacja affixów</h3>
-                    <p class="helper">Ta lista jest głównym modelem korekty itemu. Możesz zmienić typ i wartość affixu, oznaczyć błędny wiersz do usunięcia albo dodać brakujący affix. Niżej aplikacja pokazuje tylko projekcję tych danych do obecnego runtime.</p>
-                    <input type="hidden" name="affixCount" value="%s">
-                    <table class="data-table">
+                    <p class="helper">Ta lista jest głównym modelem korekty itemu. Finalny zapis użyje tylko aktywnych wierszy widocznych w tej tabeli.</p>
+                    <input type="hidden" id="affixCount" name="affixCount" value="%s">
+                    <table class="data-table" id="affixTable">
                         <thead>
                             <tr>
                                 <th>Typ affixu</th>
                                 <th>Wartość</th>
                                 <th>Greater Affix</th>
                                 <th>Odczyt OCR / źródło</th>
-                                <th>Usuń</th>
+                                <th>Akcja</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="affixRows">
                 """.formatted(form.getAffixes().size()));
         for (int index = 0; index < form.getAffixes().size(); index++) {
             ImportedItemAffix affix = form.getAffixes().get(index);
@@ -451,41 +422,28 @@ public final class ItemImportPageRenderer {
                     <tr>
                         <td>
                             <select name="affixType_%s">%s</select>
-                            <input type="hidden" name="affixOriginalType_%s" value="%s">
                         </td>
                         <td>
                             <input type="number" min="0" step="0.01" name="affixValue_%s" value="%s">
-                            <input type="hidden" name="affixOriginalValue_%s" value="%s">
                         </td>
                         <td>
                             <label class="checkbox-label"><input type="checkbox" name="affixGreater_%s" value="true"%s> Gwiazdka</label>
-                            <input type="hidden" name="affixOriginalGreater_%s" value="%s">
                         </td>
                         <td>
                             %s
                             <div class="helper">Źródło: %s</div>
-                            <input type="hidden" name="affixSourceText_%s" value="%s">
                         </td>
-                        <td><label class="checkbox-label"><input type="checkbox" name="affixRemoved_%s" value="true"> Usuń</label></td>
+                        <td><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
                     </tr>
                     """.formatted(
                     index,
                     renderAffixTypeOptions(affix.getType()),
                     index,
-                    affix.getType().name(),
-                    index,
-                    formatDecimal(affix.getValue()),
-                    index,
                     formatDecimal(affix.getValue()),
                     index,
                     affix.isGreaterAffix() ? " checked" : "",
-                    index,
-                    Boolean.toString(affix.isGreaterAffix()),
                     escapeHtml(affix.toDisplayLine()),
-                    escapeHtml(affix.getSource().name()),
-                    index,
-                    escapeHtml(affix.getRawOcrLine()),
-                    index
+                    escapeHtml(affix.getSource().name())
             ));
         }
         html.append("""
@@ -506,32 +464,24 @@ public final class ItemImportPageRenderer {
                                 <input type="number" min="0" step="0.01" name="newAffixValue" value="">
                             </label>
                             <label class="checkbox-label">
-                                <input type="checkbox" name="newAffixGreater" value="true"> Greater Affix
+                                <input type="checkbox" id="newAffixGreater" value="true"> Greater Affix
                             </label>
                         </div>
-                        <button type="submit" name="formAction" value="addAffix">Dodaj affix</button>
+                        <button type="button" id="addAffixButton">Dodaj affix</button>
                     </div>
-                    <section class="subpanel">
-                        <h4>Projekcja do aktualnego runtime</h4>
-                        <p class="helper">Te pola są wtórnym widokiem kompatybilności. Aktualny runtime użyje tylko obsługiwanego podzbioru: siła, inteligencja, kolce, szansa bloku, szansa retribution i obrażenia broni.</p>
-                        <div class="summary-grid compact-grid">
-                            %s
-                            %s
-                            %s
-                            %s
-                            %s
-                            %s
-                        </div>
-                    </section>
+                    <template id="affixRowTemplate">
+                        <tr>
+                            <td><select name="affixType___INDEX__">%s</select></td>
+                            <td><input type="number" min="0" step="0.01" name="affixValue___INDEX__" value="__VALUE__"></td>
+                            <td><label class="checkbox-label"><input type="checkbox" name="affixGreater___INDEX__" value="true"> Gwiazdka</label></td>
+                            <td><span class="helper">Dodany ręcznie</span></td>
+                            <td><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
+                        </tr>
+                    </template>
                 </section>
                 """.formatted(
                 renderAffixTypeOptions(null),
-                renderSummaryCard("Obrażenia broni", emptyNumberLabel(form.getWeaponDamage())),
-                renderSummaryCard("Siła", emptyNumberLabel(projectedAffixValue(form, ImportedItemAffixType.STRENGTH, form.getStrength()))),
-                renderSummaryCard("Inteligencja", emptyNumberLabel(projectedAffixValue(form, ImportedItemAffixType.INTELLIGENCE, form.getIntelligence()))),
-                renderSummaryCard("Kolce", emptyNumberLabel(projectedAffixValue(form, ImportedItemAffixType.THORNS, form.getThorns()))),
-                renderSummaryCard("Szansa bloku [%]", emptyNumberLabel(projectedAffixValue(form, ImportedItemAffixType.BLOCK_CHANCE, form.getBlockChance()))),
-                renderSummaryCard("Szansa retribution [%]", emptyNumberLabel(projectedAffixValue(form, ImportedItemAffixType.RETRIBUTION_CHANCE, form.getRetributionChance())))
+                renderAffixTypeOptions(null)
         ));
         return html.toString();
     }
@@ -572,6 +522,41 @@ public final class ItemImportPageRenderer {
         return html.toString();
     }
 
+    private static String selectedAspectLabel(String selectedAspectId) {
+        if (selectedAspectId == null || selectedAspectId.isBlank()) {
+            return "Brak";
+        }
+        return ASPECT_REGISTRY.findById(selectedAspectId)
+                .map(AspectDefinition::getDisplayName)
+                .orElse(selectedAspectId);
+    }
+
+    private static String renderReadonlyItemType(ItemImportEditableForm form) {
+        String itemType = simplifyItemType(form.getFullItemRead().getItemTypeLine());
+        return """
+                <div class="readonly-form-field">
+                    <div class="summary-label">Typ itemu</div>
+                    <div class="summary-value">%s</div>
+                </div>
+                """.formatted(escapeHtml(itemType));
+    }
+
+    private static String renderVisibleWeaponDamageField(ItemImportEditableForm form) {
+        String weaponDamage = form.getWeaponDamage();
+        if (weaponDamage == null || weaponDamage.isBlank()) {
+            String baseItemValue = form.getFullItemRead().getBaseItemValue();
+            String normalized = normalizeForDisplayRules(baseItemValue);
+            if (!normalized.contains("OBRAZEN") && !normalized.contains("DAMAGE")) {
+                return "";
+            }
+            weaponDamage = simplifyBaseValue(baseItemValue).replace(" ", "");
+        }
+        if (weaponDamage == null || weaponDamage.isBlank()) {
+            return "";
+        }
+        return renderNumberField("weaponDamage", "Bazowe obrażenia broni", weaponDamage, "1");
+    }
+
     private static EquipmentSlot parseSlot(String rawSlot) {
         if (rawSlot == null || rawSlot.isBlank()) {
             return null;
@@ -607,7 +592,7 @@ public final class ItemImportPageRenderer {
     private static String renderSlotSelect(String selectedSlot) {
         StringBuilder html = new StringBuilder("""
                 <label>
-                    Slot / typ itemu
+                    Slot ekwipunku
                     <select name="slot">
                 """);
         html.append(renderSlotOption("", "Wybierz slot", selectedSlot == null || selectedSlot.isBlank()));

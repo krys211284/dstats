@@ -2,8 +2,16 @@ package krys.itemlibrary;
 
 import krys.item.EquipmentSlot;
 import krys.itemimport.FullItemRead;
+import krys.itemimport.FullItemReadAffixUpdater;
 import krys.itemimport.FullItemReadLine;
 import krys.itemimport.FullItemReadLineType;
+import krys.itemimport.ItemImageImportCandidateParseResult;
+import krys.itemimport.ItemImageMetadata;
+import krys.itemimport.ItemImportEditableForm;
+import krys.itemimport.ItemImportEditableFormFactory;
+import krys.itemimport.ItemImportFieldCandidate;
+import krys.itemimport.ItemImportFieldConfidence;
+import krys.itemimport.ItemImportFormMapper;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
@@ -15,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Testuje trwały zapis minimalnej biblioteki itemów bez bazy danych. */
@@ -81,5 +90,59 @@ class FileItemLibraryRepositoryTest {
         assertEquals("inner-calm", savedItems.get(0).getSelectedAspectId());
         assertTrue(reloadedRepository.findById(secondItem.getItemId()).isPresent());
         assertEquals(secondItem.getItemId(), reloadedRepository.loadSelection().getSelectedItemId(EquipmentSlot.OFF_HAND));
+    }
+
+    @Test
+    void shouldPersistBootItemStructureAfterDraftFormSaveAndReload() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("boot-item-library-repo");
+        FileItemLibraryRepository repository = new FileItemLibraryRepository(tempDirectory);
+        ItemLibraryService service = new ItemLibraryService(repository);
+        FullItemRead fullItemRead = new FullItemRead(
+                "Marsz Pokutnika",
+                "Buty",
+                "Rzadki przedmiot",
+                "800 mocy przedmiotu",
+                "354 pkt. pancerza",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.ITEM_NAME, "Marsz Pokutnika"),
+                        new FullItemReadLine(FullItemReadLineType.TYPE_OR_SLOT, "Buty"),
+                        new FullItemReadLine(FullItemReadLineType.ITEM_POWER, "800 mocy przedmiotu"),
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT, "354 pkt. pancerza"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+12,5% szybkości ruchu"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+7,0% uniku"),
+                        new FullItemReadLine(FullItemReadLineType.SOCKET, "2 gniazda")
+                )
+        );
+        ItemImageImportCandidateParseResult parseResult = new ItemImageImportCandidateParseResult(
+                new ItemImageMetadata("buty.png", "image/png", "PNG", 1200, 800),
+                fullItemRead,
+                new ItemImportFieldCandidate<>("Buty", EquipmentSlot.BOOTS, ItemImportFieldConfidence.HIGH, "slot"),
+                ItemImportFieldCandidate.unknown("weapon"),
+                ItemImportFieldCandidate.unknown("str"),
+                ItemImportFieldCandidate.unknown("int"),
+                ItemImportFieldCandidate.unknown("thorns"),
+                ItemImportFieldCandidate.unknown("block"),
+                ItemImportFieldCandidate.unknown("retribution"),
+                "Import wspomagany"
+        );
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
+        ItemImportFormMapper.MappingResult mappingResult = new ItemImportFormMapper().map(form);
+        assertTrue(mappingResult.getErrors().isEmpty(), () -> String.join(", ", mappingResult.getErrors()));
+        service.saveImportedItem(
+                mappingResult.getItem(),
+                new FullItemReadAffixUpdater().withEditedAffixes(form.getFullItemRead(), form.getAffixes())
+        );
+
+        SavedImportedItem savedItem = new FileItemLibraryRepository(tempDirectory).findAll().getFirst();
+
+        assertEquals(EquipmentSlot.BOOTS, savedItem.getSlot());
+        assertEquals("354 pkt. pancerza", savedItem.getFullItemRead().getBaseItemValue());
+        assertEquals(2, savedItem.getAffixes().size());
+        assertTrue(savedItem.getFullItemRead().getLines().stream()
+                .filter(line -> line.getType() == FullItemReadLineType.BASE_STAT)
+                .anyMatch(line -> line.getText().contains("354 pkt. pancerza")));
+        assertFalse(savedItem.getAffixes().stream()
+                .anyMatch(affix -> affix.getSourceText().contains("354 pkt. pancerza")));
     }
 }

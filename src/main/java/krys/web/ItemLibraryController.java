@@ -8,6 +8,9 @@ import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
 import krys.itemimport.ItemImportEditableForm;
 import krys.itemimport.ItemImportFormMapper;
+import krys.itemimport.ImportedItemAffix;
+import krys.itemimport.ImportedItemAffixSource;
+import krys.itemimport.ImportedItemAffixType;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -87,7 +90,9 @@ public final class ItemLibraryController implements HttpHandler {
                 fields.getOrDefault("intelligence", ""),
                 fields.getOrDefault("thorns", ""),
                 fields.getOrDefault("blockChance", ""),
-                fields.getOrDefault("retributionChance", "")
+                fields.getOrDefault("retributionChance", ""),
+                krys.itemimport.FullItemRead.empty(),
+                legacyAffixes(fields)
         );
         ItemImportFormMapper.MappingResult mappingResult = itemImportFormMapper.map(form);
         if (!mappingResult.getErrors().isEmpty() || mappingResult.getItem() == null) {
@@ -154,6 +159,32 @@ public final class ItemLibraryController implements HttpHandler {
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException("Niepoprawne id itemu biblioteki.");
         }
+    }
+
+    private static List<ImportedItemAffix> legacyAffixes(Map<String, String> fields) {
+        java.util.ArrayList<ImportedItemAffix> affixes = new java.util.ArrayList<>();
+        addLegacyAffix(affixes, ImportedItemAffixType.STRENGTH, fields.get("strength"));
+        addLegacyAffix(affixes, ImportedItemAffixType.INTELLIGENCE, fields.get("intelligence"));
+        addLegacyAffix(affixes, ImportedItemAffixType.THORNS, fields.get("thorns"));
+        addLegacyAffix(affixes, ImportedItemAffixType.BLOCK_CHANCE, fields.get("blockChance"));
+        addLegacyAffix(affixes, ImportedItemAffixType.RETRIBUTION_CHANCE, fields.get("retributionChance"));
+        return affixes;
+    }
+
+    private static void addLegacyAffix(List<ImportedItemAffix> affixes, ImportedItemAffixType type, String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return;
+        }
+        double value = Double.parseDouble(rawValue.replace(',', '.'));
+        if (value <= 0.0d) {
+            return;
+        }
+        String unit = switch (type) {
+            case BLOCK_CHANCE, RETRIBUTION_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
+                 MOVEMENT_SPEED, DODGE_CHANCE -> "%";
+            case STRENGTH, INTELLIGENCE, THORNS -> "";
+        };
+        affixes.add(new ImportedItemAffix(type, value, unit, false, affixes.size(), "", ImportedItemAffixSource.MANUAL));
     }
 
     private void renderPage(HttpExchange exchange, ItemLibraryPageModel pageModel) throws IOException {

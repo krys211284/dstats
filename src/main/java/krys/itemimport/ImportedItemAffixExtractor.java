@@ -30,7 +30,7 @@ public final class ImportedItemAffixExtractor {
                         type.get(),
                         value.get(),
                         defaultUnit(type.get()),
-                        isGreaterAffixLine(line.getText()),
+                        isGreaterAffixLine(line),
                         displayOrder,
                         line.getText(),
                         ImportedItemAffixSource.OCR
@@ -69,8 +69,20 @@ public final class ImportedItemAffixExtractor {
                 + normalize(affix.getSourceText()).replaceAll("\\s+", " ").trim();
     }
 
-    private static boolean isGreaterAffixLine(String line) {
-        return line != null && line.trim().startsWith("*");
+    private static boolean isGreaterAffixLine(FullItemReadLine line) {
+        if (line == null || !isEditableAffixLine(line)) {
+            return false;
+        }
+        String trimmedLine = line.getText().trim();
+        return trimmedLine.startsWith("*")
+                || trimmedLine.startsWith("★")
+                || trimmedLine.startsWith("⭐")
+                || trimmedLine.startsWith("✦")
+                || !hasRollRangeOrRangeFragment(trimmedLine);
+    }
+
+    static boolean hasRollRangeOrRangeFragment(String line) {
+        return line != null && line.contains("[");
     }
 
     private static String defaultUnit(ImportedItemAffixType type) {

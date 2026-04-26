@@ -2,8 +2,12 @@ package krys.web;
 
 import krys.item.EquipmentSlot;
 import krys.item.HeroEquipmentSlot;
+import krys.itemimport.AspectDefinition;
+import krys.itemimport.AspectRegistry;
 import krys.itemimport.FullItemRead;
 import krys.itemimport.FullItemReadLine;
+import krys.itemimport.FullItemReadLineType;
+import krys.itemimport.ImportedItemAffix;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
 import krys.itemlibrary.SavedImportedItem;
 
@@ -15,6 +19,7 @@ import java.util.List;
 
 /** Renderuje SSR biblioteki itemów jako przegląd zapisanych itemów nad current build. */
 public final class ItemLibraryPageRenderer {
+    private static final AspectRegistry ASPECT_REGISTRY = new AspectRegistry();
     private final String template;
 
     public ItemLibraryPageRenderer() {
@@ -180,37 +185,115 @@ public final class ItemLibraryPageRenderer {
                 .append(renderMeta("Zgodne sloty bohatera", joinHeroSlots(HeroEquipmentSlot.compatibleWith(item.getSlot()))))
                 .append("</div>")
                 .append(renderUsageDetails(model, activeSlots))
-                .append(renderFullItemPreview(item.getFullItemRead()))
+                .append(renderFullItemPreview(item))
                 .append("<div class=\"item-actions\">")
                 .append(renderItemActions(model, item, activeSlots))
                 .append("</div></article>")
                 .toString();
     }
 
-    private static String renderFullItemPreview(FullItemRead fullItemRead) {
+    private static String renderFullItemPreview(SavedImportedItem item) {
+        FullItemRead fullItemRead = item.getFullItemRead();
         if (fullItemRead == null || !fullItemRead.hasAnyData()) {
             return "<div class=\"status-note\">Brak zapisanego pełnego odczytu OCR dla tego itemu.</div>";
         }
+        List<String> baseStats = collectBaseStats(fullItemRead);
+        List<String> implicitLines = collectLines(fullItemRead, ItemReadLineGroup.IMPLICIT);
+        List<String> affixLines = item.getAffixes().stream()
+                .map(ImportedItemAffix::toDisplayLine)
+                .toList();
+        List<String> aspectLines = collectAspectLines(item, fullItemRead);
+        List<String> socketLines = collectLines(fullItemRead, ItemReadLineGroup.SOCKET);
+        List<String> diagnosticLines = collectLines(fullItemRead, ItemReadLineGroup.OTHER);
+
         StringBuilder html = new StringBuilder("""
                 <details class="item-read-details">
                     <summary>Pełniejszy odczyt itemu</summary>
+                    <section class="item-line-group item-line-group-basic">
+                        <h5>Dane podstawowe</h5>
                     <div class="item-meta-grid">
                 """);
         html.append(renderMeta("Nazwa itemu", emptyLabel(fullItemRead.getItemName())))
-                .append(renderMeta("Typ / slot", emptyLabel(fullItemRead.getItemTypeLine())))
-                .append(renderMeta("Rzadkość", emptyLabel(fullItemRead.getRarity())))
-                .append(renderMeta("Moc przedmiotu", emptyLabel(fullItemRead.getItemPower())))
-                .append(renderMeta("Bazowa wartość", emptyLabel(fullItemRead.getBaseItemValue())))
-                .append("</div><ul class=\"item-read-lines\">");
-        for (FullItemReadLine line : fullItemRead.getLines()) {
-            html.append("<li><strong>")
-                    .append(escapeHtml(line.getType().getDisplayName()))
-                    .append(":</strong> ")
-                    .append(escapeHtml(line.getText()))
-                    .append("</li>");
-        }
-        html.append("</ul></details>");
+                .append(renderMeta("Typ itemu", simplifyItemType(fullItemRead.getItemTypeLine())))
+                .append(renderMeta("Slot ekwipunku", ItemLibraryPresentationSupport.slotDisplayName(item.getSlot())))
+                .append(renderMeta("Rzadkość", simplifyRarity(fullItemRead.getRarity())))
+                .append(renderMeta("Moc przedmiotu", simplifyItemPower(fullItemRead.getItemPower())))
+                .append("</div></section>")
+                .append(renderTextLineGroup("Base stats", baseStats))
+                .append(renderTextLineGroup("Implicit / linie bazowe", implicitLines))
+                .append(renderTextLineGroup("Affixy", affixLines))
+                .append(renderTextLineGroup("Aspekt / efekt legendarny", aspectLines))
+                .append(renderTextLineGroup("Socket / gniazdo", socketLines))
+                .append(renderTextLineGroup("Diagnostyka OCR", diagnosticLines))
+                .append("</details>");
         return html.toString();
+    }
+
+    private static String renderTextLineGroup(String heading, List<String> lines) {
+        StringBuilder html = new StringBuilder("""
+                <section class="item-line-group">
+                    <h5>%s</h5>
+                """.formatted(escapeHtml(heading)));
+        if (lines.isEmpty()) {
+            html.append("<p class=\"helper\">Brak zapisanych linii w tej sekcji.</p></section>");
+            return html.toString();
+        }
+        html.append("<ul class=\"item-read-lines\">");
+        for (String line : lines) {
+            html.append("<li>").append(escapeHtml(line)).append("</li>");
+        }
+        html.append("</ul></section>");
+        return html.toString();
+    }
+
+    private static List<String> collectBaseStats(FullItemRead fullItemRead) {
+        List<String> lines = new ArrayList<>();
+        addUnique(lines, fullItemRead.getBaseItemValue());
+        for (FullItemReadLine line : fullItemRead.getLines()) {
+            if (line.getType() == FullItemReadLineType.BASE_STAT) {
+                addUnique(lines, line.getText());
+            }
+        }
+        return lines;
+    }
+
+    private static List<String> collectLines(FullItemRead fullItemRead, ItemReadLineGroup group) {
+        List<String> lines = new ArrayList<>();
+        for (FullItemReadLine line : fullItemRead.getLines()) {
+            if (classifyPresentationLine(line) == group) {
+                addUnique(lines, line.getText());
+            }
+        }
+        return lines;
+    }
+
+    private static List<String> collectAspectLines(SavedImportedItem item, FullItemRead fullItemRead) {
+        List<String> lines = new ArrayList<>();
+        if (!item.getSelectedAspectId().isBlank()) {
+            String aspectLabel = ASPECT_REGISTRY.findById(item.getSelectedAspectId())
+                    .map(AspectDefinition::getDisplayName)
+                    .orElse(item.getSelectedAspectId());
+            addUnique(lines, "Wybrany aspekt: " + aspectLabel);
+        }
+        for (FullItemReadLine line : fullItemRead.getLines()) {
+            if (classifyPresentationLine(line) == ItemReadLineGroup.SPECIAL) {
+                addUnique(lines, line.getText());
+            }
+        }
+        return lines;
+    }
+
+    private static void addUnique(List<String> lines, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        String normalizedValue = normalizeForDisplayRules(value).replaceAll("\\s+", " ").trim();
+        for (String line : lines) {
+            if (normalizeForDisplayRules(line).replaceAll("\\s+", " ").trim().equals(normalizedValue)) {
+                return;
+            }
+        }
+        lines.add(value);
     }
 
     private static String renderUsageBadge(ItemLibraryPageModel model, List<HeroEquipmentSlot> activeSlots) {
@@ -303,6 +386,96 @@ public final class ItemLibraryPageRenderer {
         return CurrentBuildCalculationSectionsRenderer.renderSummaryCard(label, value);
     }
 
+    private static ItemReadLineGroup classifyPresentationLine(FullItemReadLine line) {
+        String normalized = normalizeForDisplayRules(line.getText());
+        if (line.getType() == FullItemReadLineType.ITEM_NAME
+                || line.getType() == FullItemReadLineType.TYPE_OR_SLOT
+                || line.getType() == FullItemReadLineType.RARITY
+                || line.getType() == FullItemReadLineType.ITEM_POWER
+                || line.getType() == FullItemReadLineType.BASE_STAT) {
+            return ItemReadLineGroup.HEADER;
+        }
+        if (line.getType() == FullItemReadLineType.IMPLICIT
+                || normalized.contains("REDUKCJI BLOKOWANYCH OBRAZEN")
+                || normalized.contains("SZANSY NA BLOK")
+                || normalized.contains("SZANSA NA BLOK")
+                || normalized.contains("OBRAZEN OD BRONI W GLOWNEJ RECE")) {
+            return ItemReadLineGroup.IMPLICIT;
+        }
+        if (line.getType() == FullItemReadLineType.ASPECT
+                || normalized.contains("ZADAJESZ OBRAZENIA ZWIEKSZONE")
+                || normalized.contains("TA PREMIA JEST")) {
+            return ItemReadLineGroup.SPECIAL;
+        }
+        if (line.getType() == FullItemReadLineType.SOCKET) {
+            return ItemReadLineGroup.SOCKET;
+        }
+        if (line.getType() == FullItemReadLineType.AFFIX && !normalized.contains("ROZJUSZENIE")) {
+            return ItemReadLineGroup.AFFIX;
+        }
+        return ItemReadLineGroup.OTHER;
+    }
+
+    private static String simplifyItemType(String itemTypeLine) {
+        String normalized = normalizeForDisplayRules(itemTypeLine);
+        if (normalized.contains("TARCZA") || normalized.contains("SHIELD")) {
+            return "Tarcza";
+        }
+        if (normalized.contains("BUTY") || normalized.contains("BOOTS")) {
+            return "Buty";
+        }
+        if (normalized.contains("BRON GLOWNA") || normalized.contains("MAIN HAND")) {
+            return "Broń główna";
+        }
+        if (normalized.contains("REKA DODATKOWA") || normalized.contains("OFF HAND")) {
+            return "Ręka dodatkowa";
+        }
+        return emptyLabel(itemTypeLine);
+    }
+
+    private static String simplifyRarity(String rarity) {
+        String normalized = normalizeForDisplayRules(rarity);
+        List<String> parts = new ArrayList<>();
+        if (normalized.contains("STAROZYTNA") || normalized.contains("STAROZYTNY") || normalized.contains("ANCESTRAL")) {
+            parts.add("Starożytna");
+        }
+        if (normalized.contains("LEGENDARNA") || normalized.contains("LEGENDARNY") || normalized.contains("LEGENDARY")) {
+            parts.add("legendarna");
+        } else if (normalized.contains("UNIKATOWA") || normalized.contains("UNIKATOWY") || normalized.contains("UNIQUE")) {
+            parts.add("unikatowa");
+        } else if (normalized.contains("RZADKA") || normalized.contains("RZADKI") || normalized.contains("RARE")) {
+            parts.add("rzadka");
+        }
+        if (!parts.isEmpty()) {
+            return String.join(" ", parts);
+        }
+        return emptyLabel(rarity);
+    }
+
+    private static String simplifyItemPower(String itemPower) {
+        String value = firstNumber(itemPower);
+        return value.isBlank() ? emptyLabel(itemPower) : value;
+    }
+
+    private static String firstNumber(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\d+(?:\\s\\d{3})*(?:[,.]\\d+)?").matcher(value);
+        return matcher.find() ? matcher.group() : "";
+    }
+
+    private static String normalizeForDisplayRules(String value) {
+        if (value == null) {
+            return "";
+        }
+        return java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
+                .replace('Ł', 'L')
+                .replace('ł', 'l')
+                .replaceAll("\\p{M}", "")
+                .toUpperCase(java.util.Locale.ROOT);
+    }
+
     private static String buildCurrentBuildUrl(String currentBuildQuery) {
         if (currentBuildQuery == null || currentBuildQuery.isBlank()) {
             return "/policz-aktualny-build";
@@ -371,5 +544,14 @@ public final class ItemLibraryPageRenderer {
         } catch (IOException exception) {
             throw new IllegalStateException("Nie udało się wczytać szablonu strony biblioteki itemów.", exception);
         }
+    }
+
+    private enum ItemReadLineGroup {
+        HEADER,
+        IMPLICIT,
+        AFFIX,
+        SPECIAL,
+        SOCKET,
+        OTHER
     }
 }

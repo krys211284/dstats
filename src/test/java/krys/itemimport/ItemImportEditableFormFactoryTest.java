@@ -53,4 +53,39 @@ class ItemImportEditableFormFactoryTest {
         assertEquals(ItemImportFieldConfidence.HIGH, form.getOcrAspectConfidence());
         assertEquals("inner-calm", form.getSelectedAspectId());
     }
+
+    @Test
+    void shouldKeepGreaterAffixMarkerAsStructuredFieldForKnownOcrSymbols() {
+        ItemImageImportCandidateParseResult parseResult = new ItemImageImportCandidateParseResult(
+                new ItemImageMetadata("gwiazdki.png", "image/png", "PNG", 1200, 800),
+                new FullItemRead(
+                        "Test gwiazdek",
+                        "Tarcza",
+                        "Legendarny",
+                        "800 mocy przedmiotu",
+                        "1 131 pkt. pancerza",
+                        java.util.List.of(
+                                new FullItemReadLine(FullItemReadLineType.AFFIX, "* +55 siły"),
+                                new FullItemReadLine(FullItemReadLineType.AFFIX, "★ +12 inteligencji"),
+                                new FullItemReadLine(FullItemReadLineType.AFFIX, "⭐ +90 cierni"),
+                                new FullItemReadLine(FullItemReadLineType.AFFIX, "✦ +7,0% szansy na szczęśliwy traf")
+                        )
+                ),
+                new ItemImportFieldCandidate<>("OFF_HAND", EquipmentSlot.OFF_HAND, ItemImportFieldConfidence.MEDIUM, "slot"),
+                ItemImportFieldCandidate.unknown("weapon"),
+                ItemImportFieldCandidate.unknown("str"),
+                ItemImportFieldCandidate.unknown("int"),
+                ItemImportFieldCandidate.unknown("thorns"),
+                ItemImportFieldCandidate.unknown("block"),
+                ItemImportFieldCandidate.unknown("retribution"),
+                "Import wspomagany"
+        );
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
+
+        assertEquals(4, form.getAffixes().size());
+        for (ImportedItemAffix affix : form.getAffixes()) {
+            assertEquals(true, affix.isGreaterAffix());
+        }
+    }
 }

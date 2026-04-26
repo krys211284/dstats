@@ -82,6 +82,19 @@
             gap: 14px;
             align-items: end;
         }
+        .manual-confirm-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(240px, 1fr));
+            gap: 14px;
+            align-items: end;
+        }
+        .readonly-form-field {
+            min-height: 78px;
+            padding: 11px 12px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #fff;
+        }
         label { display: grid; gap: 8px; font-weight: 600; }
         .checkbox-label { display: inline-flex; gap: 8px; align-items: center; font-weight: 600; }
         input[type="file"], input[type="number"], select {
@@ -196,6 +209,7 @@
         .data-table thead th { color: var(--muted); font-weight: 700; }
         .error-list { margin: 0; padding-left: 20px; color: var(--error); }
         @media (max-width: 900px) {
+            .manual-confirm-grid { grid-template-columns: 1fr; }
             .data-table, .data-table thead, .data-table tbody, .data-table tr, .data-table th, .data-table td { display: block; }
             .data-table thead { display: none; }
             .data-table tr {
@@ -245,5 +259,67 @@
 
     {{CONFIRM_SECTION}}
 </main>
+<script>
+(() => {
+    const rows = document.getElementById('affixRows');
+    const count = document.getElementById('affixCount');
+    const template = document.getElementById('affixRowTemplate');
+    const addButton = document.getElementById('addAffixButton');
+    const newType = document.querySelector('[name="newAffixType"]');
+    const newValue = document.querySelector('[name="newAffixValue"]');
+    const newGreater = document.getElementById('newAffixGreater');
+    if (!rows || !count || !template || !addButton || !newType || !newValue) {
+        return;
+    }
+
+    const renumberRows = () => {
+        Array.from(rows.querySelectorAll('tr')).forEach((row, index) => {
+            const type = row.querySelector('select[name^="affixType_"]');
+            const value = row.querySelector('input[name^="affixValue_"]');
+            const greater = row.querySelector('input[name^="affixGreater_"]');
+            if (type) type.name = `affixType_${index}`;
+            if (value) value.name = `affixValue_${index}`;
+            if (greater) greater.name = `affixGreater_${index}`;
+        });
+        count.value = rows.querySelectorAll('tr').length.toString();
+    };
+
+    rows.addEventListener('click', event => {
+        const button = event.target.closest('.remove-affix-button');
+        if (!button) {
+            return;
+        }
+        const row = button.closest('tr');
+        if (row) {
+            row.remove();
+            renumberRows();
+        }
+    });
+
+    addButton.addEventListener('click', () => {
+        const index = rows.querySelectorAll('tr').length;
+        const wrapper = document.createElement('tbody');
+        wrapper.innerHTML = template.innerHTML.replaceAll('__INDEX__', index).replaceAll('__VALUE__', newValue.value);
+        const row = wrapper.querySelector('tr');
+        if (!row) {
+            return;
+        }
+        const type = row.querySelector(`select[name="affixType_${index}"]`);
+        const greater = row.querySelector(`input[name="affixGreater_${index}"]`);
+        if (type) type.value = newType.value;
+        if (greater && newGreater) greater.checked = newGreater.checked;
+        rows.appendChild(row);
+        newType.value = '';
+        newValue.value = '';
+        if (newGreater) newGreater.checked = false;
+        renumberRows();
+    });
+
+    const form = rows.closest('form');
+    if (form) {
+        form.addEventListener('submit', renumberRows);
+    }
+})();
+</script>
 </body>
 </html>

@@ -195,19 +195,19 @@ final class ItemImageImportTextParser {
         appendFirstMatch(extractedLines, line,
                 "\\b([0-9][0-9 ]*\\s+pkt\\.\\s+pancerza)\\b", 1);
         appendFirstMatch(extractedLines, line,
-                "\\b(45%\\s+redukcji\\s+blokowanych\\s+obrażeń(?:\\s*\\[[^\\s]+\\s*%?)?)", 1);
+                "\\b([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+blokowanych\\s+obrażeń(?:\\s*\\[[0-9,.\\s\\-]*(?:\\]%?)?)?)", 1);
         appendFirstMatch(extractedLines, line,
-                "\\b(20,0%\\s+szansy\\s+na\\s+blok(?:\\s*\\[[^\\s]+\\s*%?)?)", 1);
+                "\\b([0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+blok(?:\\s*\\[[0-9,.\\s\\-]*(?:\\]%?)?)?)", 1);
         appendFirstMatch(extractedLines, line,
-                "(\\+100%\\s+obrażeń\\s+od\\s+broni\\s+w\\s+głównej\\s+ręce(?:\\s*\\[[^\\s]+\\s*%?)?)", 1);
+                "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+obrażeń\\s+od\\s+broni\\s+w\\s+głównej\\s+ręce(?:\\s*\\[[0-9,.\\s\\-]*(?:\\]%?)?)?)", 1);
         appendFirstMatch(extractedLines, line,
-                "(\\+114\\s+siły(?:\\s+\\+?\\[[^\\]]+\\])?)", 1);
+                "(\\+[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?siły(?:\\s*\\[[0-9,.\\s\\-]*(?:\\])?)?)", 1);
         appendFirstMatch(extractedLines, line,
-                "(\\+494\\s+cierni(?:\\s*\\[[0-9,.\\s\\-]+\\]?)?)", 1);
+                "(\\+[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?cierni(?:\\s*\\[[0-9,.\\s\\-]*(?:\\])?)?)", 1);
         appendFirstMatch(extractedLines, line,
-                "(\\+7,0%\\s+szansy\\s+na\\s+szczęśliwy\\s+traf(?:\\s*\\[[0-9,.]+(?:\\s*-\\s*[0-9,.]+\\]%?)?)?)", 1);
+                "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+szczęśliwy\\s+traf(?:\\s*\\[[0-9,.\\s\\-]*(?:\\]%?)?)?)", 1);
         appendFirstMatch(extractedLines, line,
-                "\\b(13,2%\\s+redukcji\\s+czasu\\s+odnowienia)\\b", 1);
+                "\\b([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+czasu\\s+odnowienia(?:\\s*\\[[0-9,.\\s\\-]*(?:\\]%?)?)?)", 1);
         appendLegendaryEffectLine(extractedLines, line);
         appendFirstMatch(extractedLines, line,
                 "\\b(Ta\\s+premia\\s+jest\\s+trzy\\s+razy\\s+większa,\\s+jeśli\\s+stoisz\\s+w\\s+bezruchu\\s+przez\\s+co\\s+najmniej\\s+3\\s+sek\\.)", 1);
@@ -266,6 +266,9 @@ final class ItemImageImportTextParser {
         }
         if (containsAny(collapsedLine, List.of("PANCERZ", "ARMOR", "WEAPONDAMAGE", "OBRAZENIABRONI", "DAMAGEPERSECOND"))) {
             return FullItemReadLineType.BASE_STAT;
+        }
+        if (containsAny(collapsedLine, List.of("REDUKCJIBLOKOWANYCHOBRAZEN", "SZANSYNABLOK", "SZANSANABLOK", "OBRAZENODBRONIWGLOWNEJRECE"))) {
+            return FullItemReadLineType.IMPLICIT;
         }
         if (containsAny(collapsedLine, List.of("ASPEKT", "ASPECT", "LEGENDARYPOWER", "ZADAJESZOBRAZENIAZWIEKSZONE", "TAPREMIAJEST"))) {
             return FullItemReadLineType.ASPECT;

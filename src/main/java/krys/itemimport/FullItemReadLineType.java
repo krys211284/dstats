@@ -7,6 +7,7 @@ public enum FullItemReadLineType {
     RARITY("Rzadkość"),
     ITEM_POWER("Moc przedmiotu"),
     BASE_STAT("Bazowa wartość"),
+    IMPLICIT("Implicit / linia bazowa"),
     AFFIX("Affix"),
     ASPECT("Aspekt / moc"),
     SOCKET("Gniazdo"),

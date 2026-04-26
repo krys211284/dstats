@@ -84,7 +84,15 @@ public final class ImportedItemAffix {
 
     public String toDisplayLine() {
         String displayLine = sourceText.isBlank() ? type.formatLine(value) : sourceText;
-        return greaterAffix && !displayLine.trim().startsWith("*") ? "* " + displayLine : displayLine;
+        return greaterAffix && !startsWithGreaterMarker(displayLine) ? "* " + displayLine : displayLine;
+    }
+
+    private static boolean startsWithGreaterMarker(String line) {
+        String trimmedLine = line == null ? "" : line.trim();
+        return trimmedLine.startsWith("*")
+                || trimmedLine.startsWith("★")
+                || trimmedLine.startsWith("⭐")
+                || trimmedLine.startsWith("✦");
     }
 
     private static String defaultUnit(ImportedItemAffixType type) {
