@@ -323,10 +323,13 @@ Kontrakt prezentacji pełnego odczytu itemu:
 - główny widok pełnego odczytu nie jest technicznym dumpem OCR, tylko rekordem produktu możliwie 1:1 względem screena,
 - nagłówek itemu pokazuje osobno nazwę, typ, rzadkość, moc przedmiotu oraz bazową wartość, np. `Pancerz` albo bazowe obrażenia,
 - pełny zapis itemu pokazuje osobno i w czytelnej kolejności linie bazowe / implicit, affixy, aspekt / efekt legendarny, dodatkowe / sezonowe linie oraz socket / gniazdo,
-- sekcja ręcznej walidacji affixów pozwala zmienić typ affixu, poprawić jego wartość, usunąć błędny affix albo dodać brakujący affix z katalogu znanych typów,
+- klasyfikacja semantyczna aspektu / efektu legendarnego ma pierwszeństwo przed technicznym typem linii OCR, więc treść aspektu nie może trafiać do `Socket / gniazdo`,
+- sekcja ręcznej walidacji affixów jest głównym modelem korekty itemu i pozwala zmienić typ affixu, poprawić jego wartość, usunąć błędny affix albo dodać brakujący affix z katalogu znanych typów,
+- `Dodaj affix` jest osobną akcją edycji formularza: aktualizuje listę affixów i projekcję runtime, ale nie zapisuje itemu do biblioteki,
+- `Zatwierdź item` jest osobną końcową akcją walidacji i zapisu zatwierdzonego itemu do biblioteki,
 - pełny odczyt nie usuwa widocznych informacji tylko dlatego, że obecny runtime ich jeszcze nie wykorzystuje,
 - mapowanie do aktualnego modelu buildu pozostaje osobną sekcją i pokazuje wyłącznie wtórną projekcję foundation używaną przez obecny runtime,
-- surowy techniczny dump OCR nie jest częścią zwykłego głównego flow użytkownika.
+- techniczne kandydaty OCR, tabela pewności i surowy techniczny dump OCR nie są częścią zwykłego głównego flow użytkownika.
 
 Minimalny zakres pól foundation mapowanych do runtime:
 - `slot / typ itemu`,
@@ -360,6 +363,7 @@ Jawne ograniczenia aktualnego foundation importu:
 - gdy parser nie potrafi bezpiecznie odróżnić głównego rolla od wartości referencyjnych, pole ma pozostać nierozpoznane zamiast zgadywania,
 - użytkownik musi ręcznie zatwierdzić item przed użyciem, a główną warstwą korekty jest lista affixów z możliwością zmiany typu, wartości, usunięcia i dodania wiersza,
 - przed pierwszym uploadem sekcja `Wstępnie rozpoznane pola` pokazuje jawny empty state i komunikuje, gdzie pojawi się wynik OCR,
+- akcja `Dodaj affix` zmienia tylko bieżący formularz i projekcję runtime; nie zapisuje itemu ani nie uczy bazy wiedzy,
 - po `Zatwierdź item` zatwierdzony item jest automatycznie zapisywany do biblioteki,
 - po automatycznym zapisie użytkownik dostaje czytelne potwierdzenie z nazwą itemu, plikiem źródłowym, slotem, identyfikatorem biblioteki, wkładem oraz dalszymi akcjami `Załóż bohaterowi`, `Przejdź do biblioteki` i `Wróć do aktualnego buildu`,
 - pełniejszy odczyt itemu jest prezentowany osobno od sekcji `Mapowanie do aktualnego modelu buildu` jako pełny zapis itemu z nagłówkiem, implicitami, affixami, efektem specjalnym, dodatkowymi liniami i socketem / gniazdem,
@@ -1156,10 +1160,11 @@ Kontrakt prezentacji dla smoke testu importu itemu:
 - GUI przyjmuje upload obrazu pojedynczego itemu przez `multipart/form-data`,
 - GUI waliduje technicznie, czy upload jest prawidłowym obrazem,
 - GUI przed pierwszym uploadem pokazuje sensowny empty state sekcji `Wstępnie rozpoznane pola`,
-- GUI wykonuje preprocessing i realny OCR kilku wariantów pojedynczego screena, a następnie pokazuje metadane obrazu, poziom pewności oraz uwagi dla pól wstępnego odczytu,
-- GUI pokazuje sekcję `Pełny odczyt widocznego itemu` jako czytelny rekord itemu z nagłówkiem, liniami bazowymi / implicit, affixami, aspektem / efektem legendarnym, dodatkowymi liniami i socketem / gniazdem, oddzielony od tabeli pól foundation,
-- GUI pokazuje ręczny formularz zatwierdzenia z edytowalną listą affixów: użytkownik może zmienić typ i wartość affixu, oznaczyć wiersz do usunięcia albo dodać brakujący affix z katalogu,
+- GUI wykonuje preprocessing i realny OCR kilku wariantów pojedynczego screena, a następnie pokazuje metadane obrazu oraz produktowy odczyt itemu bez domyślnej tabeli technicznych kandydatów OCR,
+- GUI pokazuje sekcję `Pełny odczyt widocznego itemu` jako czytelny rekord itemu z nagłówkiem, liniami bazowymi / implicit, affixami, aspektem / efektem legendarnym, dodatkowymi liniami i socketem / gniazdem,
+- GUI pokazuje ręczny formularz zatwierdzenia z edytowalną listą affixów: użytkownik może zmienić typ i wartość affixu, oznaczyć wiersz do usunięcia albo dodać brakujący affix z katalogu przez osobną akcję `Dodaj affix`,
 - pola foundation są prezentowane jako wtórna projekcja do aktualnego runtime, a nie jako główny model ręcznej walidacji itemu,
+- kliknięcie `Dodaj affix` nie zapisuje itemu do biblioteki; zapis następuje dopiero po kliknięciu `Zatwierdź item`,
 - zatwierdzony item jest mapowany do aktualnego modelu `Item`, do agregowanych pól current build oraz automatycznie zapisywany jako `SavedImportedItem` z pełnym odczytem `FullItemRead` i listą affixów w bibliotece,
 - po zatwierdzeniu itemu baza wiedzy zapisuje obserwacje typów affixów i aspektów dla typu itemu, ale nie zmienia konkretnego itemu użytkownika,
 - GUI po zatwierdzeniu itemu pokazuje, dla jakiego aktywnego bohatera pracujemy,

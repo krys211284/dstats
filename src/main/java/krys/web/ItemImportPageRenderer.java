@@ -77,6 +77,9 @@ public final class ItemImportPageRenderer {
                     </section>
                     """;
         }
+        if (model.hasConfirmedImport()) {
+            return "";
+        }
         if (!model.hasEditableForm()) {
             return """
                     <section class="panel result-panel">
@@ -106,32 +109,9 @@ public final class ItemImportPageRenderer {
                     .append("<p class=\"helper\">")
                     .append(escapeHtml(parseResult.getImportNotice()))
                     .append("</p>")
-                    .append(renderFullItemReadSection(parseResult.getFullItemRead(), "Pełny odczyt widocznego itemu"))
-                    .append("""
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Pole</th>
-                                <th>Sugerowana wartość</th>
-                                <th>Pewność</th>
-                                <th>Uwagi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                """)
-                .append(renderCandidateRow("Slot / typ itemu", parseResult.getSlotCandidate()))
-                .append(renderCandidateRow("Obrażenia broni", parseResult.getWeaponDamageCandidate()))
-                .append(renderCandidateRow("Siła", parseResult.getStrengthCandidate()))
-                .append(renderCandidateRow("Inteligencja", parseResult.getIntelligenceCandidate()))
-                .append(renderCandidateRow("Kolce", parseResult.getThornsCandidate()))
-                .append(renderCandidateRow("Szansa bloku", parseResult.getBlockChanceCandidate()))
-                .append(renderCandidateRow("Szansa retribution", parseResult.getRetributionChanceCandidate()))
-                .append("""
-                        </tbody>
-                    </table>
-                    """);
-        } else {
-            html.append("<p class=\"helper\">Brak pełnego odczytu obrazu w bieżącym renderze. Możesz dalej ręcznie poprawić pola i zatwierdzić item.</p>");
+                    .append(renderFullItemReadSection(parseResult.getFullItemRead(), "Pełny odczyt widocznego itemu"));
+        } else if (form.getFullItemRead().hasAnyData()) {
+            html.append(renderFullItemReadSection(form.getFullItemRead(), "Pełny odczyt widocznego itemu"));
         }
 
         html.append("""
@@ -158,7 +138,7 @@ public final class ItemImportPageRenderer {
                 .append(renderAffixEditor(form))
                 .append("""
                             <div class="submit-row">
-                                <button type="submit">Zatwierdź item</button>
+                                <button type="submit" name="formAction" value="confirmItem">Zatwierdź item</button>
                             </div>
                         </form>
                     </section>
@@ -322,9 +302,6 @@ public final class ItemImportPageRenderer {
                 || line.getType() == FullItemReadLineType.BASE_STAT) {
             return ItemReadLineGroup.HEADER;
         }
-        if (line.getType() == FullItemReadLineType.SOCKET) {
-            return ItemReadLineGroup.SOCKET;
-        }
         if (normalized.contains("REDUKCJI BLOKOWANYCH OBRAZEN")
                 || normalized.contains("SZANSY NA BLOK")
                 || normalized.contains("OBRAZEN OD BRONI W GLOWNEJ RECE")) {
@@ -334,6 +311,9 @@ public final class ItemImportPageRenderer {
                 || normalized.contains("ZADAJESZ OBRAZENIA ZWIEKSZONE")
                 || normalized.contains("TA PREMIA JEST")) {
             return ItemReadLineGroup.SPECIAL;
+        }
+        if (line.getType() == FullItemReadLineType.SOCKET) {
+            return ItemReadLineGroup.SOCKET;
         }
         if (line.getType() == FullItemReadLineType.AFFIX && !normalized.contains("ROZJUSZENIE")) {
             return ItemReadLineGroup.AFFIX;
@@ -509,6 +489,7 @@ public final class ItemImportPageRenderer {
                                 <input type="number" min="0" step="0.01" name="newAffixValue" value="">
                             </label>
                         </div>
+                        <button type="submit" name="formAction" value="addAffix">Dodaj affix</button>
                     </div>
                     <section class="subpanel">
                         <h4>Projekcja do aktualnego runtime</h4>

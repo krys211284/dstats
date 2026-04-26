@@ -162,22 +162,27 @@ public final class ItemImportController implements HttpHandler {
         Map<String, String> fields = UrlEncodedFormSupport.parseBody(exchange);
         String currentBuildQuery = fields.getOrDefault("currentBuildQuery", "");
         FullItemRead decodedFullItemRead = FullItemReadFormCodec.decode(fields.getOrDefault("fullItemRead", ""));
-        List<ImportedItemAffix> affixes = parseAffixes(fields);
-        if (affixes.isEmpty()) {
+        String formAction = fields.getOrDefault("formAction", "confirmItem");
+        List<ImportedItemAffix> affixes = parseExistingAffixes(fields);
+        if (affixes.isEmpty() && parseAffixCount(fields.get("affixCount")) == 0) {
             affixes = new ImportedItemAffixExtractor().extractEditableAffixes(decodedFullItemRead);
         }
-        ItemImportEditableForm form = new ItemImportEditableForm(
-                fields.getOrDefault("sourceImageName", "nieznany-item"),
-                fields.getOrDefault("slot", ""),
-                fields.getOrDefault("weaponDamage", ""),
-                fields.getOrDefault("strength", ""),
-                fields.getOrDefault("intelligence", ""),
-                fields.getOrDefault("thorns", ""),
-                fields.getOrDefault("blockChance", ""),
-                fields.getOrDefault("retributionChance", ""),
-                decodedFullItemRead,
-                affixes
-        );
+        if ("addAffix".equals(formAction)) {
+            java.util.ArrayList<ImportedItemAffix> updatedAffixes = new java.util.ArrayList<>(affixes);
+            parseNewAffix(fields).ifPresent(updatedAffixes::add);
+            ItemImportEditableForm form = buildEditableForm(fields, decodedFullItemRead, updatedAffixes);
+            return new ItemImportPageModel(
+                    form,
+                    null,
+                    List.of(),
+                    null,
+                    heroService.requireActiveHero(),
+                    buildHelpText(),
+                    currentBuildQuery
+            );
+        }
+
+        ItemImportEditableForm form = buildEditableForm(fields, decodedFullItemRead, affixes);
 
         ItemImportFormMapper.MappingResult mappingResult = formMapper.map(form);
         if (!mappingResult.getErrors().isEmpty() || mappingResult.getItem() == null) {
@@ -215,7 +220,24 @@ public final class ItemImportController implements HttpHandler {
         );
     }
 
-    private static List<ImportedItemAffix> parseAffixes(Map<String, String> fields) {
+    private static ItemImportEditableForm buildEditableForm(Map<String, String> fields,
+                                                            FullItemRead decodedFullItemRead,
+                                                            List<ImportedItemAffix> affixes) {
+        return new ItemImportEditableForm(
+                fields.getOrDefault("sourceImageName", "nieznany-item"),
+                fields.getOrDefault("slot", ""),
+                fields.getOrDefault("weaponDamage", ""),
+                fields.getOrDefault("strength", ""),
+                fields.getOrDefault("intelligence", ""),
+                fields.getOrDefault("thorns", ""),
+                fields.getOrDefault("blockChance", ""),
+                fields.getOrDefault("retributionChance", ""),
+                decodedFullItemRead,
+                affixes
+        );
+    }
+
+    private static List<ImportedItemAffix> parseExistingAffixes(Map<String, String> fields) {
         List<ImportedItemAffix> affixes = new java.util.ArrayList<>();
         int affixCount = parseAffixCount(fields.get("affixCount"));
         for (int index = 0; index < affixCount; index++) {
@@ -224,7 +246,6 @@ public final class ItemImportController implements HttpHandler {
             }
             parseAffixRow(fields, index).ifPresent(affixes::add);
         }
-        parseNewAffix(fields).ifPresent(affixes::add);
         return affixes;
     }
 

@@ -267,10 +267,13 @@ final class ItemImageImportTextParser {
         if (containsAny(collapsedLine, List.of("PANCERZ", "ARMOR", "WEAPONDAMAGE", "OBRAZENIABRONI", "DAMAGEPERSECOND"))) {
             return FullItemReadLineType.BASE_STAT;
         }
+        if (containsAny(collapsedLine, List.of("ASPEKT", "ASPECT", "LEGENDARYPOWER", "ZADAJESZOBRAZENIAZWIEKSZONE", "TAPREMIAJEST"))) {
+            return FullItemReadLineType.ASPECT;
+        }
         if (containsAny(collapsedLine, List.of("GNIAZDO", "GNIAZDA", "SOCKET", "SOCKETS", "PUSTE"))) {
             return FullItemReadLineType.SOCKET;
         }
-        if (containsAny(collapsedLine, List.of("ASPEKT", "ASPECT", "LEGENDARNA", "LEGENDARYPOWER"))) {
+        if (containsAny(collapsedLine, List.of("LEGENDARNA"))) {
             return FullItemReadLineType.ASPECT;
         }
         if (normalizedLine.startsWith("+") || normalizedLine.contains("[") || normalizedLine.contains("]") || collectNumericCandidates(normalizedLine).size() > 0) {

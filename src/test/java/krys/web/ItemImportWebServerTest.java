@@ -98,16 +98,69 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("sztylet.png"));
         assertTrue(response.body().contains("Rozmiar obrazu"));
         assertTrue(response.body().contains("1 x 1"));
-        assertTrue(response.body().contains("Nie udało się rozpoznać pola `WEAPON DAMAGE` z OCR.")
-                || response.body().contains("OCR nie rozpoznał czytelnego tekstu z obrazu."));
         assertTrue(response.body().contains("Ręczne potwierdzenie itemu"));
         assertTrue(response.body().contains("name=\"sourceImageName\" value=\"sztylet.png\""));
         assertTrue(response.body().contains("name=\"slot\""));
+        assertFalse(response.body().contains("<th>Pole</th>"));
+        assertFalse(response.body().contains("<th>Sugerowana wartość</th>"));
+        assertFalse(response.body().contains("<th>Pewność</th>"));
+        assertFalse(response.body().contains("<th>Uwagi</th>"));
         assertTrue(response.body().contains("Ręczna weryfikacja affixów"));
         assertTrue(response.body().contains("Dodaj affix"));
         assertTrue(response.body().contains("name=\"newAffixType\""));
         assertTrue(response.body().contains("name=\"newAffixValue\""));
+        assertTrue(response.body().contains("name=\"formAction\" value=\"addAffix\""));
+        assertTrue(response.body().contains("name=\"formAction\" value=\"confirmItem\""));
         assertTrue(response.body().contains("Projekcja do aktualnego runtime"));
+    }
+
+    @Test
+    void shouldAddAffixWithoutSavingItemAndUpdateRuntimeProjection() throws Exception {
+        createHero("Importer", "13");
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("formAction", "addAffix");
+        fields.put("sourceImageName", "tarcza.png");
+        fields.put("slot", "OFF_HAND");
+        fields.put("weaponDamage", "0");
+        fields.put("strength", "0");
+        fields.put("intelligence", "0");
+        fields.put("thorns", "0");
+        fields.put("blockChance", "20.0");
+        fields.put("retributionChance", "0");
+        fields.put("fullItemRead", FullItemReadFormCodec.encode(new FullItemRead(
+                "NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU",
+                "Starożytna legendarna tarcza",
+                "Starożytna legendarna",
+                "Moc przedmiotu: 800",
+                "Pancerz: 1 131 pkt.",
+                List.of(new FullItemReadLine(FullItemReadLineType.AFFIX, "+114 siły [107 - 121]"))
+        )));
+        fields.put("currentBuildQuery", "");
+        fields.put("affixCount", "1");
+        fields.put("affixType_0", "STRENGTH");
+        fields.put("affixValue_0", "114");
+        fields.put("affixOriginalType_0", "STRENGTH");
+        fields.put("affixOriginalValue_0", "114");
+        fields.put("affixSourceText_0", "+114 siły [107 - 121]");
+        fields.put("newAffixType", "THORNS");
+        fields.put("newAffixValue", "494");
+
+        HttpResponse<String> response = sendUrlEncodedPost("/importuj-item-ze-screena", fields);
+
+        assertEquals(200, response.statusCode());
+        assertFalse(response.body().contains("Zatwierdzony item zapisany do biblioteki"));
+        assertTrue(response.body().contains("Ręczna weryfikacja affixów"));
+        assertTrue(response.body().contains("name=\"affixType_1\""));
+        assertTrue(response.body().contains("name=\"affixValue_1\" value=\"494\""));
+        assertTrue(response.body().contains("<div class=\"summary-label\">Siła</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-value\">114</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-label\">Kolce</div>"));
+        assertTrue(response.body().contains("<div class=\"summary-value\">494</div>"));
+
+        HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow");
+
+        assertEquals(200, libraryResponse.statusCode());
+        assertTrue(libraryResponse.body().contains("Biblioteka jest pusta"));
     }
 
     @Test
@@ -200,7 +253,7 @@ class ItemImportWebServerTest {
                         new FullItemReadLine(FullItemReadLineType.AFFIX, "+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%"),
                         new FullItemReadLine(FullItemReadLineType.AFFIX, "13,2% redukcji czasu odnowienia"),
                         new FullItemReadLine(FullItemReadLineType.ASPECT, "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"),
-                        new FullItemReadLine(FullItemReadLineType.ASPECT, "Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."),
+                        new FullItemReadLine(FullItemReadLineType.SOCKET, "Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."),
                         new FullItemReadLine(FullItemReadLineType.OTHER, "Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [8]%"),
                         new FullItemReadLine(FullItemReadLineType.SOCKET, "Puste gniazdo")
                 )
@@ -248,6 +301,8 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("Rozjuszenie: +8%"));
         assertTrue(response.body().contains("Socket / gniazdo"));
         assertTrue(response.body().contains("Puste gniazdo"));
+        assertTrue(response.body().indexOf("Aspekt / efekt legendarny") < response.body().indexOf("Ta premia jest trzy razy większa"));
+        assertTrue(response.body().indexOf("Ta premia jest trzy razy większa") < response.body().indexOf("Socket / gniazdo"));
         assertTrue(response.body().indexOf("Linie bazowe / implicit") < response.body().indexOf("Affixy"));
         assertTrue(response.body().indexOf("Affixy") < response.body().indexOf("Aspekt / efekt legendarny"));
         assertTrue(response.body().indexOf("Aspekt / efekt legendarny") < response.body().indexOf("Dodatkowe / sezonowe linie"));
@@ -301,7 +356,8 @@ class ItemImportWebServerTest {
         fields.put("retributionChance", "0");
         fields.put("fullItemRead", fullShieldRead);
         fields.put("currentBuildQuery", "");
-        fields.put("affixCount", "4");
+        fields.put("formAction", "confirmItem");
+        fields.put("affixCount", "5");
         fields.put("affixType_0", "STRENGTH");
         fields.put("affixValue_0", "120");
         fields.put("affixOriginalType_0", "STRENGTH");
@@ -323,8 +379,11 @@ class ItemImportWebServerTest {
         fields.put("affixOriginalType_3", "COOLDOWN_REDUCTION");
         fields.put("affixOriginalValue_3", "13.2");
         fields.put("affixSourceText_3", "13,2% redukcji czasu odnowienia");
-        fields.put("newAffixType", "INTELLIGENCE");
-        fields.put("newAffixValue", "33");
+        fields.put("affixType_4", "INTELLIGENCE");
+        fields.put("affixValue_4", "33");
+        fields.put("affixOriginalType_4", "INTELLIGENCE");
+        fields.put("affixOriginalValue_4", "33");
+        fields.put("affixSourceText_4", "");
 
         HttpResponse<String> response = sendUrlEncodedPost("/importuj-item-ze-screena", fields);
 

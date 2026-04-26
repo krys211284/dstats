@@ -118,6 +118,8 @@ class ItemImageImportServiceTest {
         assertFullReadContains(result, "+7,0% szansy na szczęśliwy traf");
         assertFullReadContains(result, "13,2% redukcji czasu odnowienia");
         assertFullReadContains(result, "11,0%[x]");
+        assertFullAspectIntegrity(result);
+        assertSocketPurity(result);
 
         ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
         ItemImportFormMapper.MappingResult mappingResult = new ItemImportFormMapper().map(form);
@@ -128,13 +130,15 @@ class ItemImageImportServiceTest {
         assertEquals(494.0d, item.getThorns());
         assertEquals(20.0d, item.getBlockChance());
 
-        assertFullReadLineOccursOnce(result, "45% redukcji blokowanych obrażeń");
-        assertFullReadLineOccursOnce(result, "20,0% szansy na blok");
-        assertFullReadLineOccursOnce(result, "+100% obrażeń od broni w głównej ręce");
-        assertFullReadLineOccursOnce(result, "+114 siły");
-        assertFullReadLineOccursOnce(result, "+494 cierni");
-        assertFullReadLineOccursOnce(result, "+7,0% szansy na szczęśliwy traf");
-        assertFullReadLineOccursOnce(result, "13,2% redukcji czasu odnowienia");
+        assertExactlyOnePerLine(result, List.of(
+                "45% redukcji blokowanych obrażeń",
+                "20,0% szansy na blok",
+                "+100% obrażeń od broni w głównej ręce",
+                "+114 siły",
+                "+494 cierni",
+                "+7,0% szansy na szczęśliwy traf",
+                "13,2% redukcji czasu odnowienia"
+        ));
 
         assertAffixTypeOccursOnce(form, ImportedItemAffixType.STRENGTH);
         assertAffixTypeOccursOnce(form, ImportedItemAffixType.THORNS);
@@ -219,6 +223,8 @@ class ItemImageImportServiceTest {
         assertTrue(result.getFullItemRead().getLines().stream().anyMatch(line -> line.getText().contains("+12,5% szybkości ruchu")));
         assertTrue(result.getFullItemRead().getLines().stream().anyMatch(line -> line.getType() == FullItemReadLineType.SOCKET));
         assertFalse(result.getFullItemRead().getLines().stream().anyMatch(line -> line.getText().contains("Rozjuszenie")));
+        assertExactlyOnePerLine(result, List.of("+12,5% szybkości ruchu", "+7,0% uniku"));
+        assertSocketPurity(result);
     }
 
     private static void assertShieldFoundationMapping(ItemImageImportCandidateParseResult result) {
@@ -251,16 +257,18 @@ class ItemImageImportServiceTest {
                 "Pełny odczyt itemu nie zawiera stabilnego tekstu: " + expectedText);
     }
 
-    private static void assertFullReadLineOccursOnce(ItemImageImportCandidateParseResult result, String expectedText) {
-        List<String> matchingLines = result.getFullItemRead().getLines().stream()
-                .map(FullItemReadLine::getText)
-                .filter(line -> line.contains(expectedText))
-                .toList();
-        assertEquals(1, matchingLines.size(),
-                "Stabilna linia pełnego odczytu występuje niepoprawną liczbę razy: "
-                        + expectedText
-                        + " -> "
-                        + matchingLines);
+    private static void assertExactlyOnePerLine(ItemImageImportCandidateParseResult result, List<String> expectedTexts) {
+        for (String expectedText : expectedTexts) {
+            List<String> matchingLines = result.getFullItemRead().getLines().stream()
+                    .map(FullItemReadLine::getText)
+                    .filter(line -> line.contains(expectedText))
+                    .toList();
+            assertEquals(1, matchingLines.size(),
+                    "Stabilna linia pełnego odczytu występuje niepoprawną liczbę razy: "
+                            + expectedText
+                            + " -> "
+                            + matchingLines);
+        }
     }
 
     private static void assertAffixTypeOccursOnce(ItemImportEditableForm form, ImportedItemAffixType expectedType) {
@@ -268,6 +276,39 @@ class ItemImageImportServiceTest {
                 .filter(affix -> affix.getType() == expectedType)
                 .count();
         assertEquals(1L, count, "Edytowalny affix występuje niepoprawną liczbę razy: " + expectedType.getDisplayName());
+    }
+
+    private static void assertLineTypeContains(
+            ItemImageImportCandidateParseResult result,
+            FullItemReadLineType lineType,
+            String expectedText
+    ) {
+        assertTrue(result.getFullItemRead().getLines().stream()
+                        .filter(line -> line.getType() == lineType)
+                        .map(FullItemReadLine::getText)
+                        .anyMatch(line -> line.contains(expectedText)),
+                "Linie typu " + lineType + " nie zawierają tekstu: " + expectedText);
+    }
+
+    private static void assertFullAspectIntegrity(ItemImageImportCandidateParseResult result) {
+        assertLineTypeContains(result, FullItemReadLineType.ASPECT, "11,0%[x]");
+        assertLineTypeContains(result, FullItemReadLineType.ASPECT, "Ta premia jest trzy razy większa");
+        long aspectLineCount = result.getFullItemRead().getLines().stream()
+                .filter(line -> line.getType() == FullItemReadLineType.ASPECT)
+                .map(FullItemReadLine::getText)
+                .filter(line -> line.contains("Zadajesz obrażenia zwiększone")
+                        || line.contains("Ta premia jest trzy razy większa"))
+                .count();
+        assertEquals(2L, aspectLineCount, "Aspekt tarczy musi składać się z dwóch stabilnych linii efektu.");
+    }
+
+    private static void assertSocketPurity(ItemImageImportCandidateParseResult result) {
+        assertFalse(result.getFullItemRead().getLines().stream()
+                        .filter(line -> line.getType() == FullItemReadLineType.SOCKET)
+                        .map(FullItemReadLine::getText)
+                        .anyMatch(line -> line.contains("Zadajesz obrażenia zwiększone")
+                                || line.contains("Ta premia jest trzy razy większa")),
+                "Socket / gniazdo nie może zawierać fragmentów aspektu legendarnego.");
     }
 
     @Test
