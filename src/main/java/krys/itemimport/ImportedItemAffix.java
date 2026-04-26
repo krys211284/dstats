@@ -4,6 +4,11 @@ package krys.itemimport;
 public final class ImportedItemAffix {
     private final ImportedItemAffixType type;
     private final double value;
+    private final String unit;
+    private final boolean greaterAffix;
+    private final int displayOrder;
+    private final String rawOcrLine;
+    private final ImportedItemAffixSource source;
     private final String sourceText;
 
     public ImportedItemAffix(ImportedItemAffixType type, double value) {
@@ -11,6 +16,16 @@ public final class ImportedItemAffix {
     }
 
     public ImportedItemAffix(ImportedItemAffixType type, double value, String sourceText) {
+        this(type, value, defaultUnit(type), false, 0, sourceText, ImportedItemAffixSource.OCR);
+    }
+
+    public ImportedItemAffix(ImportedItemAffixType type,
+                             double value,
+                             String unit,
+                             boolean greaterAffix,
+                             int displayOrder,
+                             String rawOcrLine,
+                             ImportedItemAffixSource source) {
         if (type == null) {
             throw new IllegalArgumentException("Typ affixu jest wymagany.");
         }
@@ -19,7 +34,12 @@ public final class ImportedItemAffix {
         }
         this.type = type;
         this.value = value;
-        this.sourceText = sourceText == null ? "" : sourceText;
+        this.unit = unit == null ? "" : unit;
+        this.greaterAffix = greaterAffix;
+        this.displayOrder = Math.max(0, displayOrder);
+        this.rawOcrLine = rawOcrLine == null ? "" : rawOcrLine;
+        this.source = source == null ? ImportedItemAffixSource.MANUAL : source;
+        this.sourceText = this.rawOcrLine;
     }
 
     public ImportedItemAffixType getType() {
@@ -30,11 +50,51 @@ public final class ImportedItemAffix {
         return value;
     }
 
+    public String getLabel() {
+        return type.getDisplayName();
+    }
+
+    public String getName() {
+        return type.getDisplayName();
+    }
+
+    public String getUnit() {
+        return unit;
+    }
+
+    public boolean isGreaterAffix() {
+        return greaterAffix;
+    }
+
+    public int getDisplayOrder() {
+        return displayOrder;
+    }
+
+    public String getRawOcrLine() {
+        return rawOcrLine;
+    }
+
+    public ImportedItemAffixSource getSource() {
+        return source;
+    }
+
     public String getSourceText() {
         return sourceText;
     }
 
     public String toDisplayLine() {
-        return sourceText.isBlank() ? type.formatLine(value) : sourceText;
+        String displayLine = sourceText.isBlank() ? type.formatLine(value) : sourceText;
+        return greaterAffix && !displayLine.trim().startsWith("*") ? "* " + displayLine : displayLine;
+    }
+
+    private static String defaultUnit(ImportedItemAffixType type) {
+        if (type == null) {
+            return "";
+        }
+        return switch (type) {
+            case BLOCK_CHANCE, RETRIBUTION_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
+                 MOVEMENT_SPEED, DODGE_CHANCE -> "%";
+            case STRENGTH, INTELLIGENCE, THORNS -> "";
+        };
     }
 }

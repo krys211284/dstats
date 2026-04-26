@@ -9,6 +9,7 @@ import krys.itemimport.FullItemReadFormCodec;
 import krys.itemimport.ImportedItemCurrentBuildContribution;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixExtractor;
+import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ImportedItemCurrentBuildContributionMapper;
 import krys.itemimport.ItemImageImportCandidateParseResult;
@@ -16,6 +17,7 @@ import krys.itemimport.ItemImageImportRequest;
 import krys.itemimport.ItemImageImportService;
 import krys.itemimport.ItemImportEditableForm;
 import krys.itemimport.ItemImportEditableFormFactory;
+import krys.itemimport.ItemImportFieldConfidence;
 import krys.itemimport.ItemImportFormMapper;
 import krys.itemimport.ValidatedImportedItem;
 import krys.itemimport.ValidatedImportedItemToItemMapper;
@@ -233,7 +235,10 @@ public final class ItemImportController implements HttpHandler {
                 fields.getOrDefault("blockChance", ""),
                 fields.getOrDefault("retributionChance", ""),
                 decodedFullItemRead,
-                affixes
+                affixes,
+                fields.getOrDefault("ocrSuggestedAspectId", ""),
+                parseConfidence(fields.getOrDefault("ocrAspectConfidence", "")),
+                fields.getOrDefault("selectedAspectId", "")
         );
     }
 
@@ -254,15 +259,33 @@ public final class ItemImportController implements HttpHandler {
         String value = fields.getOrDefault("affixValue_" + index, "");
         String originalType = fields.getOrDefault("affixOriginalType_" + index, "");
         String originalValue = fields.getOrDefault("affixOriginalValue_" + index, "");
+        String originalGreaterAffix = fields.getOrDefault("affixOriginalGreater_" + index, "false");
         String sourceText = fields.getOrDefault("affixSourceText_" + index, "");
-        return parseAffix(typeValue, value, typeValue.equals(originalType) && value.equals(originalValue) ? sourceText : "");
+        boolean greaterAffix = "true".equals(fields.get("affixGreater_" + index));
+        boolean unchanged = typeValue.equals(originalType)
+                && value.equals(originalValue)
+                && Boolean.toString(greaterAffix).equals(originalGreaterAffix);
+        return parseAffix(typeValue, value, greaterAffix, unchanged ? sourceText : "", index,
+                unchanged ? ImportedItemAffixSource.OCR : ImportedItemAffixSource.CORRECTED);
     }
 
     private static java.util.Optional<ImportedItemAffix> parseNewAffix(Map<String, String> fields) {
-        return parseAffix(fields.getOrDefault("newAffixType", ""), fields.getOrDefault("newAffixValue", ""), "");
+        return parseAffix(
+                fields.getOrDefault("newAffixType", ""),
+                fields.getOrDefault("newAffixValue", ""),
+                "true".equals(fields.get("newAffixGreater")),
+                "",
+                parseAffixCount(fields.get("affixCount")),
+                ImportedItemAffixSource.MANUAL
+        );
     }
 
-    private static java.util.Optional<ImportedItemAffix> parseAffix(String rawType, String rawValue, String sourceText) {
+    private static java.util.Optional<ImportedItemAffix> parseAffix(String rawType,
+                                                                    String rawValue,
+                                                                    boolean greaterAffix,
+                                                                    String sourceText,
+                                                                    int displayOrder,
+                                                                    ImportedItemAffixSource source) {
         if (rawType == null || rawType.isBlank() || rawValue == null || rawValue.isBlank()) {
             return java.util.Optional.empty();
         }
@@ -272,10 +295,29 @@ public final class ItemImportController implements HttpHandler {
             if (value < 0.0d) {
                 return java.util.Optional.empty();
             }
-            return java.util.Optional.of(new ImportedItemAffix(type, value, sourceText));
+            return java.util.Optional.of(new ImportedItemAffix(type, value, defaultUnit(type), greaterAffix, displayOrder, sourceText, source));
         } catch (IllegalArgumentException exception) {
             return java.util.Optional.empty();
         }
+    }
+
+    private static ItemImportFieldConfidence parseConfidence(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return ItemImportFieldConfidence.UNKNOWN;
+        }
+        try {
+            return ItemImportFieldConfidence.valueOf(rawValue);
+        } catch (IllegalArgumentException exception) {
+            return ItemImportFieldConfidence.UNKNOWN;
+        }
+    }
+
+    private static String defaultUnit(ImportedItemAffixType type) {
+        return switch (type) {
+            case BLOCK_CHANCE, RETRIBUTION_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
+                 MOVEMENT_SPEED, DODGE_CHANCE -> "%";
+            case STRENGTH, INTELLIGENCE, THORNS -> "";
+        };
     }
 
     private static int parseAffixCount(String rawValue) {

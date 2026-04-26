@@ -5,6 +5,7 @@ import krys.itemimport.FullItemRead;
 import krys.itemimport.FullItemReadLine;
 import krys.itemimport.FullItemReadLineType;
 import krys.itemimport.ImportedItemAffix;
+import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
 import org.junit.jupiter.api.Test;
 
@@ -43,9 +44,10 @@ class FileItemLibraryRepositoryTest {
                         List.of(new FullItemReadLine(FullItemReadLineType.AFFIX, "+114 do siły [107 - 121]"))
                 ),
                 List.of(
-                        new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 114.0d, "+114 do siły [107 - 121]"),
+                        new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 114.0d, "", true, 0, "* +114 do siły [107 - 121]", ImportedItemAffixSource.OCR),
                         new ImportedItemAffix(ImportedItemAffixType.THORNS, 494.0d, "+494 cierni [473 - 506]")
-                )
+                ),
+                "inner-calm"
         ));
         SavedImportedItem secondItem = repository.save(new SavedImportedItem(
                 0L,
@@ -74,7 +76,9 @@ class FileItemLibraryRepositoryTest {
         assertEquals(2, savedItems.get(0).getAffixes().size());
         assertEquals(ImportedItemAffixType.STRENGTH, savedItems.get(0).getAffixes().getFirst().getType());
         assertEquals(114.0d, savedItems.get(0).getAffixes().getFirst().getValue());
-        assertEquals("+114 do siły [107 - 121]", savedItems.get(0).getAffixes().getFirst().getSourceText());
+        assertEquals("* +114 do siły [107 - 121]", savedItems.get(0).getAffixes().getFirst().getSourceText());
+        assertTrue(savedItems.get(0).getAffixes().getFirst().isGreaterAffix());
+        assertEquals("inner-calm", savedItems.get(0).getSelectedAspectId());
         assertTrue(reloadedRepository.findById(secondItem.getItemId()).isPresent());
         assertEquals(secondItem.getItemId(), reloadedRepository.loadSelection().getSelectedItemId(EquipmentSlot.OFF_HAND));
     }

@@ -10,17 +10,21 @@ class ItemImportEditableFormFactoryTest {
     @Test
     void shouldMapSuggestedFieldsToEditableForm() {
         ItemImageImportCandidateParseResult parseResult = new ItemImageImportCandidateParseResult(
-                new ItemImageMetadata("miecz.png", "image/png", "PNG", 1200, 800),
+                new ItemImageMetadata("tarcza.png", "image/png", "PNG", 1200, 800),
                 new FullItemRead(
-                        "Miecz testowy",
-                        "Broń główna",
+                        "Tarcza testowa",
+                        "Tarcza",
                         "Legendarny",
                         "800 mocy przedmiotu",
-                        "321 obrażeń broni",
-                        java.util.List.of(new FullItemReadLine(FullItemReadLineType.AFFIX, "+55 Strength"))
+                        "1 131 pkt. pancerza",
+                        java.util.List.of(
+                                new FullItemReadLine(FullItemReadLineType.AFFIX, "+55 Strength"),
+                                new FullItemReadLine(FullItemReadLineType.ASPECT, "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"),
+                                new FullItemReadLine(FullItemReadLineType.ASPECT, "Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek.")
+                        )
                 ),
-                new ItemImportFieldCandidate<>("MAIN_HAND", EquipmentSlot.MAIN_HAND, ItemImportFieldConfidence.MEDIUM, "slot"),
-                new ItemImportFieldCandidate<>("321", 321L, ItemImportFieldConfidence.HIGH, "weapon"),
+                new ItemImportFieldCandidate<>("OFF_HAND", EquipmentSlot.OFF_HAND, ItemImportFieldConfidence.MEDIUM, "slot"),
+                ItemImportFieldCandidate.unknown("weapon"),
                 new ItemImportFieldCandidate<>("+55 Strength", 55.0d, ItemImportFieldConfidence.HIGH, "str"),
                 new ItemImportFieldCandidate<>("+12 Intelligence", 12.0d, ItemImportFieldConfidence.MEDIUM, "int"),
                 new ItemImportFieldCandidate<>("+90 Thorns", 90.0d, ItemImportFieldConfidence.HIGH, "thorns"),
@@ -31,19 +35,22 @@ class ItemImportEditableFormFactoryTest {
 
         ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
 
-        assertEquals("miecz.png", form.getSourceImageName());
-        assertEquals("MAIN_HAND", form.getSlot());
-        assertEquals("321", form.getWeaponDamage());
+        assertEquals("tarcza.png", form.getSourceImageName());
+        assertEquals("OFF_HAND", form.getSlot());
+        assertEquals("", form.getWeaponDamage());
         assertEquals("55", form.getStrength());
         assertEquals("12", form.getIntelligence());
         assertEquals("90", form.getThorns());
         assertEquals("18", form.getBlockChance());
         assertEquals("25", form.getRetributionChance());
-        assertEquals("Miecz testowy", form.getFullItemRead().getItemName());
-        assertEquals(1, form.getFullItemRead().getLines().size());
+        assertEquals("Tarcza testowa", form.getFullItemRead().getItemName());
+        assertEquals(3, form.getFullItemRead().getLines().size());
         assertEquals(1, form.getAffixes().size());
         assertEquals(ImportedItemAffixType.STRENGTH, form.getAffixes().getFirst().getType());
         assertEquals(55.0d, form.getAffixes().getFirst().getValue());
         assertEquals("+55 Strength", form.getAffixes().getFirst().getSourceText());
+        assertEquals("inner-calm", form.getOcrSuggestedAspectId());
+        assertEquals(ItemImportFieldConfidence.HIGH, form.getOcrAspectConfidence());
+        assertEquals("inner-calm", form.getSelectedAspectId());
     }
 }

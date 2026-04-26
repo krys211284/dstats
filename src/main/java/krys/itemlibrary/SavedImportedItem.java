@@ -20,6 +20,7 @@ public final class SavedImportedItem {
     private final double retributionChance;
     private final FullItemRead fullItemRead;
     private final List<ImportedItemAffix> affixes;
+    private final String selectedAspectId;
 
     public SavedImportedItem(long itemId,
                              String displayName,
@@ -60,6 +61,23 @@ public final class SavedImportedItem {
                              double retributionChance,
                              FullItemRead fullItemRead,
                              List<ImportedItemAffix> affixes) {
+        this(itemId, displayName, sourceImageName, slot, weaponDamage, strength, intelligence, thorns,
+                blockChance, retributionChance, fullItemRead, affixes, "");
+    }
+
+    public SavedImportedItem(long itemId,
+                             String displayName,
+                             String sourceImageName,
+                             EquipmentSlot slot,
+                             long weaponDamage,
+                             double strength,
+                             double intelligence,
+                             double thorns,
+                             double blockChance,
+                             double retributionChance,
+                             FullItemRead fullItemRead,
+                             List<ImportedItemAffix> affixes,
+                             String selectedAspectId) {
         if (itemId < 0L) {
             throw new IllegalArgumentException("Id itemu nie może być ujemne.");
         }
@@ -93,6 +111,7 @@ public final class SavedImportedItem {
         this.retributionChance = retributionChance;
         this.fullItemRead = fullItemRead == null ? FullItemRead.empty() : fullItemRead;
         this.affixes = affixes == null ? List.of() : List.copyOf(affixes);
+        this.selectedAspectId = selectedAspectId == null ? "" : selectedAspectId;
     }
 
     private static void validateNonNegative(String label, double value) {
@@ -147,5 +166,9 @@ public final class SavedImportedItem {
 
     public List<ImportedItemAffix> getAffixes() {
         return affixes;
+    }
+
+    public String getSelectedAspectId() {
+        return selectedAspectId;
     }
 }

@@ -81,4 +81,52 @@ class ItemImportFormMapperTest {
         assertEquals(20.0d, result.getItem().getBlockChance());
         assertEquals(4, result.getItem().getAffixes().size());
     }
+
+    @Test
+    void shouldAcceptAspectAllowedForImportedItemSlot() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(),
+                "inner-calm",
+                ItemImportFieldConfidence.HIGH,
+                "inner-calm"
+        );
+
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+
+        assertTrue(result.getErrors().isEmpty(), () -> String.join(", ", result.getErrors()));
+        assertEquals("inner-calm", result.getItem().getSelectedAspectId());
+    }
+
+    @Test
+    void shouldRejectAspectOutsideImportedItemSlot() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "buty.png",
+                "BOOTS",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(),
+                "inner-calm",
+                ItemImportFieldConfidence.HIGH,
+                "inner-calm"
+        );
+
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+
+        assertNull(result.getItem());
+        assertTrue(result.getErrors().contains("Wybrany aspekt nie pasuje do slotu itemu."));
+    }
 }

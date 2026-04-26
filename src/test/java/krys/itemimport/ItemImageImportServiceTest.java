@@ -122,6 +122,9 @@ class ItemImageImportServiceTest {
         assertSocketPurity(result);
 
         ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+        assertEquals("inner-calm", form.getOcrSuggestedAspectId());
+        assertEquals(ItemImportFieldConfidence.HIGH, form.getOcrAspectConfidence());
+        assertEquals("inner-calm", form.getSelectedAspectId());
         ItemImportFormMapper.MappingResult mappingResult = new ItemImportFormMapper().map(form);
         assertTrue(mappingResult.getErrors().isEmpty(), () -> String.join(", ", mappingResult.getErrors()));
         ValidatedImportedItem item = mappingResult.getItem();
@@ -225,6 +228,12 @@ class ItemImageImportServiceTest {
         assertFalse(result.getFullItemRead().getLines().stream().anyMatch(line -> line.getText().contains("Rozjuszenie")));
         assertExactlyOnePerLine(result, List.of("+12,5% szybkości ruchu", "+7,0% uniku"));
         assertSocketPurity(result);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+        assertEquals(2, form.getAffixes().size());
+        assertEquals(ImportedItemAffixType.MOVEMENT_SPEED, form.getAffixes().get(0).getType());
+        assertEquals(12.5d, form.getAffixes().get(0).getValue());
+        assertEquals(ImportedItemAffixType.DODGE_CHANCE, form.getAffixes().get(1).getType());
+        assertEquals(7.0d, form.getAffixes().get(1).getValue());
     }
 
     private static void assertShieldFoundationMapping(ItemImageImportCandidateParseResult result) {

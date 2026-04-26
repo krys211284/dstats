@@ -5,6 +5,7 @@ import krys.itemimport.FullItemRead;
 import krys.itemimport.FullItemReadLine;
 import krys.itemimport.FullItemReadLineType;
 import krys.itemimport.ImportedItemAffix;
+import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
 
 import java.io.IOException;
@@ -54,7 +55,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     item.getBlockChance(),
                     item.getRetributionChance(),
                     item.getFullItemRead(),
-                    item.getAffixes()
+                    item.getAffixes(),
+                    item.getSelectedAspectId()
             );
         }
 
@@ -150,7 +152,7 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
 
     private SavedImportedItem parseItem(String line) {
         String[] tokens = line.split("\\|", -1);
-        if ((tokens.length != 11 && tokens.length != 12 && tokens.length != 13) || !ITEM_PREFIX.equals(tokens[0])) {
+        if ((tokens.length != 11 && tokens.length != 12 && tokens.length != 13 && tokens.length != 14) || !ITEM_PREFIX.equals(tokens[0])) {
             throw new IllegalStateException("Plik biblioteki itemów ma niepoprawny format.");
         }
         return new SavedImportedItem(
@@ -165,7 +167,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                 Double.parseDouble(tokens[9]),
                 Double.parseDouble(tokens[10]),
                 tokens.length >= 12 ? decodeFullItemRead(tokens[11]) : FullItemRead.empty(),
-                tokens.length == 13 ? decodeAffixes(tokens[12]) : List.of()
+                tokens.length >= 13 ? decodeAffixes(tokens[12]) : List.of(),
+                tokens.length >= 14 ? decode(tokens[13]) : ""
         );
     }
 
@@ -186,7 +189,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     formatDouble(item.getBlockChance()),
                     formatDouble(item.getRetributionChance()),
                     encodeFullItemRead(item.getFullItemRead()),
-                    encodeAffixes(item.getAffixes())
+                    encodeAffixes(item.getAffixes()),
+                    encode(item.getSelectedAspectId())
             ));
         }
         try {
@@ -266,7 +270,15 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
     private static String encodeAffixes(List<ImportedItemAffix> affixes) {
         List<String> payloadLines = new ArrayList<>();
         for (ImportedItemAffix affix : affixes) {
-            payloadLines.add(affix.getType().name() + "|" + formatDouble(affix.getValue()) + "|" + encode(affix.getSourceText()));
+            payloadLines.add(String.join("|",
+                    affix.getType().name(),
+                    formatDouble(affix.getValue()),
+                    encode(affix.getUnit()),
+                    Boolean.toString(affix.isGreaterAffix()),
+                    Integer.toString(affix.getDisplayOrder()),
+                    encode(affix.getRawOcrLine()),
+                    affix.getSource().name()
+            ));
         }
         return encode(String.join("\n", payloadLines));
     }
@@ -282,11 +294,21 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
             if (tokens.length < 2) {
                 continue;
             }
-            affixes.add(new ImportedItemAffix(
-                    ImportedItemAffixType.valueOf(tokens[0]),
-                    Double.parseDouble(tokens[1]),
-                    tokens.length >= 3 ? decode(tokens[2]) : ""
-            ));
+            ImportedItemAffixType type = ImportedItemAffixType.valueOf(tokens[0]);
+            double value = Double.parseDouble(tokens[1]);
+            if (tokens.length >= 7) {
+                affixes.add(new ImportedItemAffix(
+                        type,
+                        value,
+                        decode(tokens[2]),
+                        Boolean.parseBoolean(tokens[3]),
+                        Integer.parseInt(tokens[4]),
+                        decode(tokens[5]),
+                        ImportedItemAffixSource.valueOf(tokens[6])
+                ));
+            } else {
+                affixes.add(new ImportedItemAffix(type, value, tokens.length >= 3 ? decode(tokens[2]) : ""));
+            }
         }
         return affixes;
     }

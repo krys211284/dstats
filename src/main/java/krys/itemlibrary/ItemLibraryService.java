@@ -56,7 +56,8 @@ public final class ItemLibraryService {
                 importedItem.getBlockChance(),
                 importedItem.getRetributionChance(),
                 fullItemRead,
-                importedItem.getAffixes()
+                importedItem.getAffixes(),
+                importedItem.getSelectedAspectId()
         );
         return repository.save(itemToSave);
     }

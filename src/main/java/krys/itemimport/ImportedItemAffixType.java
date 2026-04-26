@@ -12,7 +12,9 @@ public enum ImportedItemAffixType {
     BLOCK_CHANCE("Szansa na blok", "%s%% szansy na blok", RuntimeProjection.BLOCK_CHANCE),
     RETRIBUTION_CHANCE("Szansa retribution", "%s%% szansy retribution", RuntimeProjection.RETRIBUTION_CHANCE),
     LUCKY_HIT_CHANCE("Szansa na szczęśliwy traf", "+%s%% szansy na szczęśliwy traf", RuntimeProjection.NONE),
-    COOLDOWN_REDUCTION("Redukcja czasu odnowienia", "%s%% redukcji czasu odnowienia", RuntimeProjection.NONE);
+    COOLDOWN_REDUCTION("Redukcja czasu odnowienia", "%s%% redukcji czasu odnowienia", RuntimeProjection.NONE),
+    MOVEMENT_SPEED("Szybkość ruchu", "+%s%% szybkości ruchu", RuntimeProjection.NONE),
+    DODGE_CHANCE("Unik", "+%s%% uniku", RuntimeProjection.NONE);
 
     private final String displayName;
     private final String linePattern;
@@ -58,6 +60,12 @@ public enum ImportedItemAffixType {
         }
         if (normalized.contains("CZASU ODNOWIENIA") || normalized.contains("COOLDOWN")) {
             return Optional.of(COOLDOWN_REDUCTION);
+        }
+        if (normalized.contains("SZYBKOSCI RUCHU") || normalized.contains("MOVEMENT SPEED")) {
+            return Optional.of(MOVEMENT_SPEED);
+        }
+        if (normalized.contains("UNIKU") || normalized.contains("DODGE")) {
+            return Optional.of(DODGE_CHANCE);
         }
         return Optional.empty();
     }

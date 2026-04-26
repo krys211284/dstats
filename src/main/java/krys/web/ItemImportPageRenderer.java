@@ -3,6 +3,8 @@ package krys.web;
 import krys.item.EquipmentSlot;
 import krys.item.HeroEquipmentSlot;
 import krys.item.ItemStat;
+import krys.itemimport.AspectDefinition;
+import krys.itemimport.AspectRegistry;
 import krys.itemimport.FullItemRead;
 import krys.itemimport.FullItemReadFormCodec;
 import krys.itemimport.FullItemReadLine;
@@ -27,6 +29,7 @@ import java.util.Locale;
 /** Renderuje prosty SSR dla flow importu pojedynczego itemu ze screena z ręcznym zatwierdzeniem. */
 public final class ItemImportPageRenderer {
     private final String template;
+    private static final AspectRegistry ASPECT_REGISTRY = new AspectRegistry();
 
     public ItemImportPageRenderer() {
         this.template = loadTemplate();
@@ -128,10 +131,13 @@ public final class ItemImportPageRenderer {
                 .append(renderHiddenField("thorns", form.getThorns()))
                 .append(renderHiddenField("blockChance", form.getBlockChance()))
                 .append(renderHiddenField("retributionChance", form.getRetributionChance()))
+                .append(renderHiddenField("ocrSuggestedAspectId", form.getOcrSuggestedAspectId()))
+                .append(renderHiddenField("ocrAspectConfidence", form.getOcrAspectConfidence().name()))
                 .append("""
                             <div class="form-grid">
                 """)
                 .append(renderSlotSelect(form.getSlot()))
+                .append(renderAspectSelect(form))
                 .append("""
                             </div>
                 """)
@@ -432,6 +438,7 @@ public final class ItemImportPageRenderer {
                             <tr>
                                 <th>Typ affixu</th>
                                 <th>Wartość</th>
+                                <th>Greater Affix</th>
                                 <th>Odczyt OCR / źródło</th>
                                 <th>Usuń</th>
                             </tr>
@@ -451,7 +458,12 @@ public final class ItemImportPageRenderer {
                             <input type="hidden" name="affixOriginalValue_%s" value="%s">
                         </td>
                         <td>
+                            <label class="checkbox-label"><input type="checkbox" name="affixGreater_%s" value="true"%s> Gwiazdka</label>
+                            <input type="hidden" name="affixOriginalGreater_%s" value="%s">
+                        </td>
+                        <td>
                             %s
+                            <div class="helper">Źródło: %s</div>
                             <input type="hidden" name="affixSourceText_%s" value="%s">
                         </td>
                         <td><label class="checkbox-label"><input type="checkbox" name="affixRemoved_%s" value="true"> Usuń</label></td>
@@ -465,9 +477,14 @@ public final class ItemImportPageRenderer {
                     formatDecimal(affix.getValue()),
                     index,
                     formatDecimal(affix.getValue()),
-                    escapeHtml(affix.toDisplayLine()),
                     index,
-                    escapeHtml(affix.getSourceText()),
+                    affix.isGreaterAffix() ? " checked" : "",
+                    index,
+                    Boolean.toString(affix.isGreaterAffix()),
+                    escapeHtml(affix.toDisplayLine()),
+                    escapeHtml(affix.getSource().name()),
+                    index,
+                    escapeHtml(affix.getRawOcrLine()),
                     index
             ));
         }
@@ -487,6 +504,9 @@ public final class ItemImportPageRenderer {
                             <label>
                                 Wartość
                                 <input type="number" min="0" step="0.01" name="newAffixValue" value="">
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="newAffixGreater" value="true"> Greater Affix
                             </label>
                         </div>
                         <button type="submit" name="formAction" value="addAffix">Dodaj affix</button>
@@ -514,6 +534,53 @@ public final class ItemImportPageRenderer {
                 renderSummaryCard("Szansa retribution [%]", emptyNumberLabel(projectedAffixValue(form, ImportedItemAffixType.RETRIBUTION_CHANCE, form.getRetributionChance())))
         ));
         return html.toString();
+    }
+
+    private static String renderAspectSelect(ItemImportEditableForm form) {
+        EquipmentSlot selectedSlot = parseSlot(form.getSlot());
+        List<AspectDefinition> allowedAspects = ASPECT_REGISTRY.allowedForSlot(selectedSlot);
+        String selectedAspectId = form.getSelectedAspectId();
+        StringBuilder html = new StringBuilder("""
+                <label>
+                    Aspekt
+                    <select name="selectedAspectId">
+                        <option value="">Brak wybranego aspektu</option>
+                """);
+        for (AspectDefinition aspect : allowedAspects) {
+            html.append("<option value=\"")
+                    .append(escapeHtml(aspect.getId()))
+                    .append("\"")
+                    .append(aspect.getId().equals(selectedAspectId) ? " selected" : "")
+                    .append(">")
+                    .append(escapeHtml(aspect.getDisplayName()))
+                    .append("</option>");
+        }
+        html.append("""
+                    </select>
+                """);
+        if (!form.getOcrSuggestedAspectId().isBlank()) {
+            String suggestionLabel = ASPECT_REGISTRY.findById(form.getOcrSuggestedAspectId())
+                    .map(AspectDefinition::getDisplayName)
+                    .orElse(form.getOcrSuggestedAspectId());
+            html.append("<span class=\"helper\">Sugestia OCR: ")
+                    .append(escapeHtml(suggestionLabel))
+                    .append(" (")
+                    .append(escapeHtml(form.getOcrAspectConfidence().getDisplayName()))
+                    .append(")</span>");
+        }
+        html.append("</label>");
+        return html.toString();
+    }
+
+    private static EquipmentSlot parseSlot(String rawSlot) {
+        if (rawSlot == null || rawSlot.isBlank()) {
+            return null;
+        }
+        try {
+            return EquipmentSlot.valueOf(rawSlot);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
     }
 
     private static String renderAffixTypeOptions(ImportedItemAffixType selectedType) {

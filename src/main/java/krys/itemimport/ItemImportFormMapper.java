@@ -8,6 +8,16 @@ import java.util.Locale;
 
 /** Waliduje ręcznie poprawiony formularz itemu i buduje zatwierdzony model domenowy. */
 public final class ItemImportFormMapper {
+    private final AspectRegistry aspectRegistry;
+
+    public ItemImportFormMapper() {
+        this(new AspectRegistry());
+    }
+
+    ItemImportFormMapper(AspectRegistry aspectRegistry) {
+        this.aspectRegistry = aspectRegistry;
+    }
+
     public MappingResult map(ItemImportEditableForm form) {
         List<String> errors = new ArrayList<>();
         EquipmentSlot slot = parseSlot(form.getSlot(), errors);
@@ -30,6 +40,7 @@ public final class ItemImportFormMapper {
         if (slot != EquipmentSlot.MAIN_HAND && weaponDamage > 0L) {
             errors.add("Weapon damage można ustawić wyłącznie dla slotu MAIN_HAND.");
         }
+        String selectedAspectId = validateAspect(form.getSelectedAspectId(), slot, errors);
 
         if (!errors.isEmpty()) {
             return new MappingResult(null, errors);
@@ -44,8 +55,26 @@ public final class ItemImportFormMapper {
                 thorns,
                 blockChance,
                 retributionChance,
-                form.getAffixes()
+                form.getAffixes(),
+                selectedAspectId
         ), errors);
+    }
+
+    private String validateAspect(String rawAspectId, EquipmentSlot slot, List<String> errors) {
+        if (rawAspectId == null || rawAspectId.isBlank()) {
+            return "";
+        }
+        AspectDefinition aspect = aspectRegistry.findById(rawAspectId)
+                .orElse(null);
+        if (aspect == null) {
+            errors.add("Wybrany aspekt nie istnieje w rejestrze aspektów.");
+            return "";
+        }
+        if (!aspect.allowsSlot(slot)) {
+            errors.add("Wybrany aspekt nie pasuje do slotu itemu.");
+            return "";
+        }
+        return aspect.getId();
     }
 
     private static RuntimeProjection projectAffixes(List<ImportedItemAffix> affixes) {

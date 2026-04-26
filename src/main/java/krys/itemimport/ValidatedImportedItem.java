@@ -15,6 +15,7 @@ public final class ValidatedImportedItem {
     private final double blockChance;
     private final double retributionChance;
     private final List<ImportedItemAffix> affixes;
+    private final String selectedAspectId;
 
     public ValidatedImportedItem(String sourceImageName,
                                  EquipmentSlot slot,
@@ -36,6 +37,19 @@ public final class ValidatedImportedItem {
                                  double blockChance,
                                  double retributionChance,
                                  List<ImportedItemAffix> affixes) {
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance, affixes, "");
+    }
+
+    public ValidatedImportedItem(String sourceImageName,
+                                 EquipmentSlot slot,
+                                 long weaponDamage,
+                                 double strength,
+                                 double intelligence,
+                                 double thorns,
+                                 double blockChance,
+                                 double retributionChance,
+                                 List<ImportedItemAffix> affixes,
+                                 String selectedAspectId) {
         this.sourceImageName = sourceImageName == null || sourceImageName.isBlank() ? "item" : sourceImageName;
         this.slot = slot;
         this.weaponDamage = weaponDamage;
@@ -45,6 +59,7 @@ public final class ValidatedImportedItem {
         this.blockChance = blockChance;
         this.retributionChance = retributionChance;
         this.affixes = affixes == null ? List.of() : List.copyOf(affixes);
+        this.selectedAspectId = selectedAspectId == null ? "" : selectedAspectId;
     }
 
     public String getSourceImageName() {
@@ -81,5 +96,9 @@ public final class ValidatedImportedItem {
 
     public List<ImportedItemAffix> getAffixes() {
         return affixes;
+    }
+
+    public String getSelectedAspectId() {
+        return selectedAspectId;
     }
 }

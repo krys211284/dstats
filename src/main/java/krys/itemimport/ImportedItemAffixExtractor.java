@@ -18,6 +18,7 @@ public final class ImportedItemAffixExtractor {
             return List.of();
         }
         Map<String, ImportedItemAffix> affixes = new LinkedHashMap<>();
+        int displayOrder = 0;
         for (FullItemReadLine line : fullItemRead.getLines()) {
             if (!isEditableAffixLine(line)) {
                 continue;
@@ -25,8 +26,17 @@ public final class ImportedItemAffixExtractor {
             Optional<ImportedItemAffixType> type = ImportedItemAffixType.detectFromLine(line.getText());
             Optional<Double> value = firstNumber(line.getText());
             if (type.isPresent() && value.isPresent()) {
-                ImportedItemAffix affix = new ImportedItemAffix(type.get(), value.get(), line.getText());
+                ImportedItemAffix affix = new ImportedItemAffix(
+                        type.get(),
+                        value.get(),
+                        defaultUnit(type.get()),
+                        isGreaterAffixLine(line.getText()),
+                        displayOrder,
+                        line.getText(),
+                        ImportedItemAffixSource.OCR
+                );
                 affixes.putIfAbsent(editableAffixDeduplicationKey(affix), affix);
+                displayOrder++;
             }
         }
         return new ArrayList<>(affixes.values());
@@ -57,6 +67,18 @@ public final class ImportedItemAffixExtractor {
                 + String.format(Locale.US, "%.4f", affix.getValue())
                 + "|"
                 + normalize(affix.getSourceText()).replaceAll("\\s+", " ").trim();
+    }
+
+    private static boolean isGreaterAffixLine(String line) {
+        return line != null && line.trim().startsWith("*");
+    }
+
+    private static String defaultUnit(ImportedItemAffixType type) {
+        return switch (type) {
+            case BLOCK_CHANCE, RETRIBUTION_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
+                 MOVEMENT_SPEED, DODGE_CHANCE -> "%";
+            case STRENGTH, INTELLIGENCE, THORNS -> "";
+        };
     }
 
     private static String normalize(String value) {
