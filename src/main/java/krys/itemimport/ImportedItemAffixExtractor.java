@@ -1,7 +1,10 @@
 package krys.itemimport;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -14,7 +17,7 @@ public final class ImportedItemAffixExtractor {
         if (fullItemRead == null || !fullItemRead.hasAnyData()) {
             return List.of();
         }
-        List<ImportedItemAffix> affixes = new ArrayList<>();
+        Map<String, ImportedItemAffix> affixes = new LinkedHashMap<>();
         for (FullItemReadLine line : fullItemRead.getLines()) {
             if (!isEditableAffixLine(line)) {
                 continue;
@@ -22,10 +25,11 @@ public final class ImportedItemAffixExtractor {
             Optional<ImportedItemAffixType> type = ImportedItemAffixType.detectFromLine(line.getText());
             Optional<Double> value = firstNumber(line.getText());
             if (type.isPresent() && value.isPresent()) {
-                affixes.add(new ImportedItemAffix(type.get(), value.get(), line.getText()));
+                ImportedItemAffix affix = new ImportedItemAffix(type.get(), value.get(), line.getText());
+                affixes.putIfAbsent(editableAffixDeduplicationKey(affix), affix);
             }
         }
-        return affixes;
+        return new ArrayList<>(affixes.values());
     }
 
     static boolean isEditableAffixLine(FullItemReadLine line) {
@@ -45,6 +49,14 @@ public final class ImportedItemAffixExtractor {
             return Optional.empty();
         }
         return Optional.of(Double.parseDouble(matcher.group(1).replace(',', '.')));
+    }
+
+    private static String editableAffixDeduplicationKey(ImportedItemAffix affix) {
+        return affix.getType().name()
+                + "|"
+                + String.format(Locale.US, "%.4f", affix.getValue())
+                + "|"
+                + normalize(affix.getSourceText()).replaceAll("\\s+", " ").trim();
     }
 
     private static String normalize(String value) {

@@ -59,6 +59,15 @@ final class ItemImageOcrPreprocessor {
                 cropBox.width(),
                 cropBox.height()
         ));
+        CropBox bottomEffectCropBox = bottomEffectCrop(originalImage);
+        variants.add(new ItemImageOcrVariant(
+                "bottom-effect-x4",
+                upscale(crop(originalImage, bottomEffectCropBox), 4.0d),
+                bottomEffectCropBox.x(),
+                bottomEffectCropBox.y(),
+                bottomEffectCropBox.width(),
+                bottomEffectCropBox.height()
+        ));
         return List.copyOf(variants);
     }
 
@@ -124,6 +133,14 @@ final class ItemImageOcrPreprocessor {
         int croppedWidth = Math.max(1, width - x - (width / 10));
         int croppedHeight = Math.max(1, height - y - (height / 5));
         return new CropBox(x, y, croppedWidth, croppedHeight);
+    }
+
+    private static CropBox bottomEffectCrop(BufferedImage image) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        int y = clamp((int) Math.round(height * 0.78d), 0, height - 1);
+        int bottom = clamp((int) Math.round(height * 0.96d), y + 1, height);
+        return new CropBox(0, y, width, bottom - y);
     }
 
     private static boolean isLikelyTextPixel(BufferedImage image, int x, int y) {

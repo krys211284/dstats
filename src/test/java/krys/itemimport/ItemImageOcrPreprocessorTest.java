@@ -26,7 +26,8 @@ class ItemImageOcrPreprocessorTest {
                         "text-crop",
                         "text-crop-gray-x2-contrast",
                         "text-crop-gray-x3-threshold",
-                        "text-crop-gray-x3-sharpen"
+                        "text-crop-gray-x3-sharpen",
+                        "bottom-effect-x4"
                 ),
                 variants.stream().map(ItemImageOcrVariant::getVariantId).toList()
         );
@@ -38,6 +39,10 @@ class ItemImageOcrPreprocessorTest {
                 "crop powinien odciąć dolny overlay");
         assertTrue(variants.get(2).getImage().getWidth() > croppedVariant.getImage().getWidth());
         assertTrue(variants.get(3).getImage().getWidth() > variants.get(2).getImage().getWidth());
+        assertTrue(variants.get(5).getSourceY() > screenshot.getHeight() / 2,
+                "dodatkowy crop efektu powinien sprawdzać dolną część tooltipa");
+        assertTrue(variants.get(5).getImage().getWidth() > screenshot.getWidth(),
+                "dodatkowy crop efektu powinien być mocno powiększony dla OCR");
     }
 
     private static BufferedImage buildDecoratedTooltipScreenshot() {

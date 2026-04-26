@@ -2,9 +2,15 @@ package krys.itemimport;
 
 import krys.item.EquipmentSlot;
 
+import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Scala wyniki z wielu wariantów OCR w jeden deterministyczny candidate parse result. */
 final class ItemImageImportCandidateMerger {
@@ -57,8 +63,7 @@ final class ItemImageImportCandidateMerger {
     }
 
     private static FullItemRead mergeFullItemRead(List<ItemImageImportCandidateParseResult> parseResults) {
-        List<FullItemReadLine> mergedLines = new ArrayList<>();
-        List<String> seenLines = new ArrayList<>();
+        Map<String, FullItemReadLine> mergedLines = new LinkedHashMap<>();
         String itemName = "";
         String itemTypeLine = "";
         String rarity = "";
@@ -86,16 +91,91 @@ final class ItemImageImportCandidateMerger {
                 baseItemValue = read.getBaseItemValue();
             }
             for (FullItemReadLine line : read.getLines()) {
-                String key = line.getType().name() + "\n" + line.getText().toUpperCase(java.util.Locale.ROOT);
-                if (line.getText().isBlank() || seenLines.contains(key)) {
+                if (line.getText().isBlank()) {
                     continue;
                 }
-                seenLines.add(key);
-                mergedLines.add(line);
+                String key = fullReadLineDeduplicationKey(line);
+                FullItemReadLine existingLine = mergedLines.get(key);
+                if (existingLine == null || lineQualityScore(line) > lineQualityScore(existingLine)) {
+                    mergedLines.put(key, line);
+                }
             }
         }
 
-        return new FullItemRead(itemName, itemTypeLine, rarity, itemPower, baseItemValue, mergedLines);
+        return new FullItemRead(itemName, itemTypeLine, rarity, itemPower, baseItemValue, List.copyOf(mergedLines.values()));
+    }
+
+    private static String fullReadLineDeduplicationKey(FullItemReadLine line) {
+        String normalized = normalizeForDeduplication(line.getText());
+        FullItemReadLineType type = line.getType();
+        if (type == FullItemReadLineType.ITEM_POWER && normalized.contains("MOC PRZEDMIOTU")) {
+            return "ITEM_POWER:" + firstNumber(normalized);
+        }
+        if (type == FullItemReadLineType.BASE_STAT && normalized.contains("PANCERZ")) {
+            return "BASE_ARMOR:" + firstNumber(normalized);
+        }
+        if (normalized.contains("REDUKCJI BLOKOWANYCH OBRAZEN")) {
+            return "IMPLICIT:BLOCKED_DAMAGE_REDUCTION";
+        }
+        if (normalized.contains("SZANSY NA BLOK")) {
+            return "IMPLICIT:BLOCK_CHANCE";
+        }
+        if (normalized.contains("OBRAZEN OD BRONI W GLOWNEJ RECE")) {
+            return "IMPLICIT:MAIN_HAND_WEAPON_DAMAGE";
+        }
+        if (normalized.contains(" SILY")) {
+            return "AFFIX:STRENGTH:" + firstNumber(normalized);
+        }
+        if (normalized.contains("CIERNI")) {
+            return "AFFIX:THORNS:" + firstNumber(normalized);
+        }
+        if (normalized.contains("SZCZESLIWY TRAF")) {
+            return "AFFIX:LUCKY_HIT:" + firstNumber(normalized);
+        }
+        if (normalized.contains("CZASU ODNOWIENIA")) {
+            return "AFFIX:COOLDOWN_REDUCTION:" + firstNumber(normalized);
+        }
+        if (normalized.contains("ZADAJESZ OBRAZENIA ZWIEKSZONE")) {
+            return "ASPECT:DAMAGE_WHILE_STANDING";
+        }
+        if (normalized.contains("TA PREMIA JEST TRZY RAZY WIEKSZA")) {
+            return "ASPECT:STANDING_STILL_MULTIPLIER";
+        }
+        if (normalized.contains("ROZJUSZENIE")) {
+            return "SEASONAL:ROZJUSZENIE:" + firstNumber(normalized);
+        }
+        return type.name() + ":" + normalized.replaceAll("\\s+", " ").trim();
+    }
+
+    private static int lineQualityScore(FullItemReadLine line) {
+        String text = line.getText();
+        int score = text.length();
+        if (text.contains("[") && text.contains("]")) {
+            score += 20;
+        }
+        if (text.contains("%[x]")) {
+            score += 30;
+        }
+        if (text.contains("+[")) {
+            score -= 3;
+        }
+        if (text.contains("1001") || text.contains("451") || text.contains("5061")) {
+            score -= 5;
+        }
+        return score;
+    }
+
+    private static String firstNumber(String normalizedText) {
+        Matcher matcher = Pattern.compile("[0-9]+(?:[,.][0-9]+)?").matcher(normalizedText);
+        return matcher.find() ? matcher.group().replace(',', '.') : "";
+    }
+
+    private static String normalizeForDeduplication(String value) {
+        return Normalizer.normalize(value == null ? "" : value, Normalizer.Form.NFD)
+                .replace('Ł', 'L')
+                .replace('ł', 'l')
+                .replaceAll("\\p{M}", "")
+                .toUpperCase(Locale.ROOT);
     }
 
     private static <T> ItemImportFieldCandidate<T> mergeField(List<ItemImportFieldCandidate<T>> candidates,

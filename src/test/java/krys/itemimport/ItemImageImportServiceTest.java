@@ -25,7 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Test realnego rozpoznania ograniczonych pól foundation z pojedynczego screena itemu. */
 class ItemImageImportServiceTest {
-    private static final List<String> STABLE_SHIELD_LINES = List.of(
+    private static final String SEASONAL_SHIELD_LINE =
+            "Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [8]%";
+    private static final List<String> STABLE_SHIELD_CONTRACT_LINES = List.of(
             "NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU",
             "Starożytna legendarna tarcza",
             "Moc przedmiotu: 800",
@@ -37,7 +39,22 @@ class ItemImageImportServiceTest {
             "+494 cierni [473 - 506]",
             "+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%",
             "13,2% redukcji czasu odnowienia",
-            "Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [8]%",
+            "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%",
+            "Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."
+    );
+    private static final List<String> SHIELD_OCR_LINES_WITH_SEASONAL_NOISE = List.of(
+            "NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU",
+            "Starożytna legendarna tarcza",
+            "Moc przedmiotu: 800",
+            "Pancerz: 1 131 pkt.",
+            "45% redukcji blokowanych obrażeń [45]%",
+            "20,0% szansy na blok [20,01]%",
+            "+100% obrażeń od broni w głównej ręce [100]%",
+            "+114 siły [107 - 121]",
+            "+494 cierni [473 - 506]",
+            "+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%",
+            "13,2% redukcji czasu odnowienia",
+            SEASONAL_SHIELD_LINE,
             "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%",
             "Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek.",
             "Puste gniazdo"
@@ -87,21 +104,42 @@ class ItemImageImportServiceTest {
         );
 
         assertEquals("tarcza.png", result.getImageMetadata().getOriginalFilename());
-        assertEquals("OFF_HAND", result.getSlotCandidate().getSuggestedValue().name());
-        assertEquals(114.0d, result.getStrengthCandidate().getSuggestedValue(),
-                () -> result.getStrengthCandidate().getRawValue());
-        assertEquals(494.0d, result.getThornsCandidate().getSuggestedValue());
-        assertEquals(20.0d, result.getBlockChanceCandidate().getSuggestedValue());
+        assertShieldFoundationMapping(result);
         assertNull(result.getWeaponDamageCandidate().getSuggestedValue());
-        assertNotEquals(800.0d, result.getStrengthCandidate().getSuggestedValue());
-        assertNotEquals(1131.0d, result.getStrengthCandidate().getSuggestedValue());
-        assertNotEquals(800.0d, result.getThornsCandidate().getSuggestedValue());
-        assertNotEquals(1131.0d, result.getThornsCandidate().getSuggestedValue());
-        assertNotEquals(45.0d, result.getBlockChanceCandidate().getSuggestedValue());
-        assertNotEquals(100.0d, result.getBlockChanceCandidate().getSuggestedValue());
-        assertTrue(result.getFullItemRead().getLines().stream()
-                .map(FullItemReadLine::getText)
-                .anyMatch(line -> line.contains("Moc przedmiotu: 800")));
+        assertHeaderAndUnrelatedNumbersDoNotLeakToShieldFoundationCandidates(result);
+        assertEquals("NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU", result.getFullItemRead().getItemName());
+        assertEquals("1 131 pkt. pancerza", result.getFullItemRead().getBaseItemValue());
+        assertFullReadContains(result, "Moc przedmiotu: 800");
+        assertFullReadContains(result, "45% redukcji blokowanych obrażeń");
+        assertFullReadContains(result, "20,0% szansy na blok");
+        assertFullReadContains(result, "+100% obrażeń od broni w głównej ręce");
+        assertFullReadContains(result, "+114 siły");
+        assertFullReadContains(result, "+494 cierni");
+        assertFullReadContains(result, "+7,0% szansy na szczęśliwy traf");
+        assertFullReadContains(result, "13,2% redukcji czasu odnowienia");
+        assertFullReadContains(result, "11,0%[x]");
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+        ItemImportFormMapper.MappingResult mappingResult = new ItemImportFormMapper().map(form);
+        assertTrue(mappingResult.getErrors().isEmpty(), () -> String.join(", ", mappingResult.getErrors()));
+        ValidatedImportedItem item = mappingResult.getItem();
+        assertEquals(114.0d, item.getStrength());
+        assertNotEquals(342.0d, item.getStrength());
+        assertEquals(494.0d, item.getThorns());
+        assertEquals(20.0d, item.getBlockChance());
+
+        assertFullReadLineOccursOnce(result, "45% redukcji blokowanych obrażeń");
+        assertFullReadLineOccursOnce(result, "20,0% szansy na blok");
+        assertFullReadLineOccursOnce(result, "+100% obrażeń od broni w głównej ręce");
+        assertFullReadLineOccursOnce(result, "+114 siły");
+        assertFullReadLineOccursOnce(result, "+494 cierni");
+        assertFullReadLineOccursOnce(result, "+7,0% szansy na szczęśliwy traf");
+        assertFullReadLineOccursOnce(result, "13,2% redukcji czasu odnowienia");
+
+        assertAffixTypeOccursOnce(form, ImportedItemAffixType.STRENGTH);
+        assertAffixTypeOccursOnce(form, ImportedItemAffixType.THORNS);
+        assertAffixTypeOccursOnce(form, ImportedItemAffixType.LUCKY_HIT_CHANCE);
+        assertAffixTypeOccursOnce(form, ImportedItemAffixType.COOLDOWN_REDUCTION);
     }
 
     @Test
@@ -110,7 +148,7 @@ class ItemImageImportServiceTest {
         ItemImageImportService service = new ItemImageImportService(
                 new ItemImageOcrPreprocessor(),
                 new FakeOcrTextReader(Map.of(
-                        "original", String.join("\n", STABLE_SHIELD_LINES),
+                        "original", String.join("\n", SHIELD_OCR_LINES_WITH_SEASONAL_NOISE),
                         "text-crop", "Starożytna legendarna tarcza\nPancerz: 1 131 pkt.\n45% redukcji blokowanych obrażeń [45]%",
                         "text-crop-gray-x2-contrast", "+114 siły [107 - 121]\n+494 cierni [473 - 506]\n+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%",
                         "text-crop-gray-x3-threshold", "20,0% szansy na blok [20,01]%\n+100% obrażeń od broni w głównej ręce [100]%",
@@ -125,19 +163,9 @@ class ItemImageImportServiceTest {
         );
 
         assertEquals("tarcza.png", result.getImageMetadata().getOriginalFilename());
-        assertEquals("OFF_HAND", result.getSlotCandidate().getSuggestedValue().name());
-        assertEquals(114.0d, result.getStrengthCandidate().getSuggestedValue());
-        assertEquals(494.0d, result.getThornsCandidate().getSuggestedValue());
-        assertEquals(20.0d, result.getBlockChanceCandidate().getSuggestedValue());
+        assertShieldFoundationMapping(result);
         assertNull(result.getWeaponDamageCandidate().getSuggestedValue());
-        assertNotEquals(800.0d, result.getStrengthCandidate().getSuggestedValue());
-        assertNotEquals(1131.0d, result.getStrengthCandidate().getSuggestedValue());
-        assertNotEquals(45.0d, result.getStrengthCandidate().getSuggestedValue());
-        assertNotEquals(100.0d, result.getStrengthCandidate().getSuggestedValue());
-        assertNotEquals(800.0d, result.getThornsCandidate().getSuggestedValue());
-        assertNotEquals(1131.0d, result.getThornsCandidate().getSuggestedValue());
-        assertNotEquals(45.0d, result.getBlockChanceCandidate().getSuggestedValue());
-        assertNotEquals(100.0d, result.getBlockChanceCandidate().getSuggestedValue());
+        assertHeaderAndUnrelatedNumbersDoNotLeakToShieldFoundationCandidates(result);
 
         assertEquals("NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU", result.getFullItemRead().getItemName());
         assertEquals("Starożytna legendarna tarcza", result.getFullItemRead().getItemTypeLine());
@@ -147,9 +175,14 @@ class ItemImageImportServiceTest {
         List<String> fullReadLines = result.getFullItemRead().getLines().stream()
                 .map(FullItemReadLine::getText)
                 .toList();
-        for (String expectedLine : STABLE_SHIELD_LINES) {
+        for (String expectedLine : STABLE_SHIELD_CONTRACT_LINES) {
             assertTrue(fullReadLines.contains(expectedLine), "Brak stabilnej linii tarczy: " + expectedLine);
         }
+        assertFalse(STABLE_SHIELD_CONTRACT_LINES.contains(SEASONAL_SHIELD_LINE),
+                "Sezonowe Rozjuszenie nie jest stabilną właściwością kontraktu regresyjnego tarczy.");
+        assertFalse(new ImportedItemAffixExtractor().extractEditableAffixes(result.getFullItemRead()).stream()
+                .anyMatch(affix -> affix.getSourceText().contains("Rozjuszenie")),
+                "Sezonowe Rozjuszenie nie może trafić do edytowalnych affixów itemu.");
         assertTrue(result.getFullItemRead().getLines().stream().anyMatch(line -> line.getType() == FullItemReadLineType.SOCKET));
     }
 
@@ -186,6 +219,55 @@ class ItemImageImportServiceTest {
         assertTrue(result.getFullItemRead().getLines().stream().anyMatch(line -> line.getText().contains("+12,5% szybkości ruchu")));
         assertTrue(result.getFullItemRead().getLines().stream().anyMatch(line -> line.getType() == FullItemReadLineType.SOCKET));
         assertFalse(result.getFullItemRead().getLines().stream().anyMatch(line -> line.getText().contains("Rozjuszenie")));
+    }
+
+    private static void assertShieldFoundationMapping(ItemImageImportCandidateParseResult result) {
+        assertEquals("OFF_HAND", result.getSlotCandidate().getSuggestedValue().name());
+        assertEquals(114.0d, result.getStrengthCandidate().getSuggestedValue(),
+                () -> result.getStrengthCandidate().getRawValue());
+        assertEquals(494.0d, result.getThornsCandidate().getSuggestedValue());
+        assertEquals(20.0d, result.getBlockChanceCandidate().getSuggestedValue());
+    }
+
+    private static void assertHeaderAndUnrelatedNumbersDoNotLeakToShieldFoundationCandidates(
+            ItemImageImportCandidateParseResult result
+    ) {
+        assertCandidateIsNotAnyOf(result.getStrengthCandidate(), 800.0d, 1131.0d, 45.0d, 100.0d);
+        assertCandidateIsNotAnyOf(result.getThornsCandidate(), 800.0d, 1131.0d, 45.0d, 100.0d);
+        assertCandidateIsNotAnyOf(result.getBlockChanceCandidate(), 800.0d, 1131.0d, 45.0d, 100.0d);
+    }
+
+    private static void assertCandidateIsNotAnyOf(ItemImportFieldCandidate<Double> candidate, double... forbiddenValues) {
+        for (double forbiddenValue : forbiddenValues) {
+            assertNotEquals(forbiddenValue, candidate.getSuggestedValue(),
+                    () -> "Niepowiązana liczba wyciekła do foundation candidate z linii: " + candidate.getRawValue());
+        }
+    }
+
+    private static void assertFullReadContains(ItemImageImportCandidateParseResult result, String expectedText) {
+        assertTrue(result.getFullItemRead().getLines().stream()
+                        .map(FullItemReadLine::getText)
+                        .anyMatch(line -> line.contains(expectedText)),
+                "Pełny odczyt itemu nie zawiera stabilnego tekstu: " + expectedText);
+    }
+
+    private static void assertFullReadLineOccursOnce(ItemImageImportCandidateParseResult result, String expectedText) {
+        List<String> matchingLines = result.getFullItemRead().getLines().stream()
+                .map(FullItemReadLine::getText)
+                .filter(line -> line.contains(expectedText))
+                .toList();
+        assertEquals(1, matchingLines.size(),
+                "Stabilna linia pełnego odczytu występuje niepoprawną liczbę razy: "
+                        + expectedText
+                        + " -> "
+                        + matchingLines);
+    }
+
+    private static void assertAffixTypeOccursOnce(ItemImportEditableForm form, ImportedItemAffixType expectedType) {
+        long count = form.getAffixes().stream()
+                .filter(affix -> affix.getType() == expectedType)
+                .count();
+        assertEquals(1L, count, "Edytowalny affix występuje niepoprawną liczbę razy: " + expectedType.getDisplayName());
     }
 
     @Test

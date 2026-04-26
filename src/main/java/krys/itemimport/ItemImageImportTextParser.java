@@ -108,6 +108,7 @@ final class ItemImageImportTextParser {
     }
 
     private static FullItemRead buildFullItemRead(List<String> lines) {
+        List<String> fullReadSourceLines = expandFullItemReadLines(lines);
         List<FullItemReadLine> readLines = new ArrayList<>();
         String itemName = "";
         String itemTypeLine = "";
@@ -115,7 +116,7 @@ final class ItemImageImportTextParser {
         String itemPower = "";
         String baseItemValue = "";
 
-        for (String line : lines) {
+        for (String line : fullReadSourceLines) {
             FullItemReadLineType type = classifyFullReadLine(line);
             String collapsedLine = collapse(line);
             readLines.add(new FullItemReadLine(type, line));
@@ -136,6 +137,119 @@ final class ItemImageImportTextParser {
             }
         }
         return new FullItemRead(itemName, itemTypeLine, rarity, itemPower, baseItemValue, readLines);
+    }
+
+    private static List<String> expandFullItemReadLines(List<String> lines) {
+        List<String> expandedLines = new ArrayList<>();
+        for (String line : lines) {
+            if (!looksLikeCondensedFullItemReadLine(line)) {
+                expandedLines.add(line);
+                continue;
+            }
+            List<String> extractedLines = extractCondensedFullItemReadLines(line);
+            if (extractedLines.isEmpty()) {
+                expandedLines.add(line);
+                continue;
+            }
+            expandedLines.addAll(extractedLines);
+        }
+        return expandedLines;
+    }
+
+    private static boolean looksLikeCondensedFullItemReadLine(String line) {
+        if (line == null || line.length() < 80) {
+            return false;
+        }
+        String collapsedLine = collapse(line);
+        if (collapsedLine.contains("ZADAJESZOBRAZENIAZWIEKSZONEO") && line.contains("0/08")) {
+            return true;
+        }
+        int anchors = 0;
+        for (String anchor : List.of(
+                "MOCPRZEDMIOTU",
+                "PANCERZA",
+                "REDUKCJIBLOKOWANYCHOBRAZEN",
+                "SZANSYNABLOK",
+                "GLOWNEJRECE",
+                "SILY",
+                "CIERNI",
+                "SZCZESLIWYTRAF",
+                "CZASUODNOWIENIA",
+                "ZADAJESZOBRAZENIA"
+        )) {
+            if (collapsedLine.contains(anchor)) {
+                anchors++;
+            }
+        }
+        return anchors >= 3;
+    }
+
+    private static List<String> extractCondensedFullItemReadLines(String line) {
+        List<String> extractedLines = new ArrayList<>();
+        appendFirstMatch(extractedLines, line,
+                "^\\s*([^*]+?)\\s+\\*\\s+Starożytna\\s+legendarna\\s+tarcza\\b", 1);
+        appendFirstMatch(extractedLines, line,
+                "\\b(Starożytna\\s+legendarna\\s+tarcza)\\b", 1);
+        appendFirstMatch(extractedLines, line,
+                "\\b(Moc\\s+przedmiotu:\\s*[0-9]+)\\b", 1);
+        appendFirstMatch(extractedLines, line,
+                "\\b([0-9][0-9 ]*\\s+pkt\\.\\s+pancerza)\\b", 1);
+        appendFirstMatch(extractedLines, line,
+                "\\b(45%\\s+redukcji\\s+blokowanych\\s+obrażeń(?:\\s*\\[[^\\s]+\\s*%?)?)", 1);
+        appendFirstMatch(extractedLines, line,
+                "\\b(20,0%\\s+szansy\\s+na\\s+blok(?:\\s*\\[[^\\s]+\\s*%?)?)", 1);
+        appendFirstMatch(extractedLines, line,
+                "(\\+100%\\s+obrażeń\\s+od\\s+broni\\s+w\\s+głównej\\s+ręce(?:\\s*\\[[^\\s]+\\s*%?)?)", 1);
+        appendFirstMatch(extractedLines, line,
+                "(\\+114\\s+siły(?:\\s+\\+?\\[[^\\]]+\\])?)", 1);
+        appendFirstMatch(extractedLines, line,
+                "(\\+494\\s+cierni(?:\\s*\\[[0-9,.\\s\\-]+\\]?)?)", 1);
+        appendFirstMatch(extractedLines, line,
+                "(\\+7,0%\\s+szansy\\s+na\\s+szczęśliwy\\s+traf(?:\\s*\\[[0-9,.]+(?:\\s*-\\s*[0-9,.]+\\]%?)?)?)", 1);
+        appendFirstMatch(extractedLines, line,
+                "\\b(13,2%\\s+redukcji\\s+czasu\\s+odnowienia)\\b", 1);
+        appendLegendaryEffectLine(extractedLines, line);
+        appendFirstMatch(extractedLines, line,
+                "\\b(Ta\\s+premia\\s+jest\\s+trzy\\s+razy\\s+większa,\\s+jeśli\\s+stoisz\\s+w\\s+bezruchu\\s+przez\\s+co\\s+najmniej\\s+3\\s+sek\\.)", 1);
+        appendFirstMatch(extractedLines, line,
+                "\\b(Puste(?:\\s+gniazdo)?)\\b", 1);
+        return extractedLines;
+    }
+
+    private static void appendFirstMatch(List<String> target, String line, String regex, int group) {
+        Matcher matcher = Pattern.compile(regex, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(line);
+        if (!matcher.find()) {
+            return;
+        }
+        String value = matcher.group(group).trim();
+        if (!value.isBlank() && !target.contains(value)) {
+            target.add(value);
+        }
+    }
+
+    private static void appendLegendaryEffectLine(List<String> target, String line) {
+        Matcher exactMatcher = Pattern.compile(
+                "\\b(Zadajesz\\s+obrażenia\\s+zwiększone\\s+o\\s+[0-9]+,[0-9]%\\[x\\](?:\\s*\\[[^\\]]+\\]%)?)",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+        ).matcher(line);
+        if (exactMatcher.find()) {
+            String value = exactMatcher.group(1).trim();
+            if (!target.contains(value)) {
+                target.add(value);
+            }
+            return;
+        }
+
+        Matcher ocrMatcher = Pattern.compile(
+                "\\bZadajesz\\s+obrażenia\\s+zwiększone\\s+o\\s+([0-9]+,[0-9])0/08\\b",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+        ).matcher(line);
+        if (ocrMatcher.find()) {
+            String value = "Zadajesz obrażenia zwiększone o " + ocrMatcher.group(1) + "%[x]";
+            if (!target.contains(value)) {
+                target.add(value);
+            }
+        }
     }
 
     private static FullItemReadLineType classifyFullReadLine(String line) {
