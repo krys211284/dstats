@@ -62,6 +62,32 @@ public final class ItemLibraryService {
         return repository.save(itemToSave);
     }
 
+    public SavedImportedItem updateImportedItem(long itemId, ValidatedImportedItem importedItem, FullItemRead fullItemRead) {
+        SavedImportedItem existingItem = repository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Nie znaleziono itemu o podanym id w bibliotece."));
+        SavedImportedItem itemToSave = new SavedImportedItem(
+                existingItem.getItemId(),
+                buildDisplayName(importedItem),
+                existingItem.getSourceImageName(),
+                importedItem.getSlot(),
+                importedItem.getWeaponDamage(),
+                importedItem.getStrength(),
+                importedItem.getIntelligence(),
+                importedItem.getThorns(),
+                importedItem.getBlockChance(),
+                importedItem.getRetributionChance(),
+                fullItemRead,
+                importedItem.getAffixes(),
+                importedItem.getSelectedAspectId()
+        );
+        return repository.save(itemToSave);
+    }
+
+    public SavedImportedItem requireItem(long itemId) {
+        return repository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Nie znaleziono itemu o podanym id w bibliotece."));
+    }
+
     public List<SavedImportedItem> getSavedItems() {
         return repository.findAll().stream()
                 .sorted(Comparator.comparing((SavedImportedItem item) -> item.getSlot().name())

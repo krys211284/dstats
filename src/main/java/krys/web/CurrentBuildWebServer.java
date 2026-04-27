@@ -85,6 +85,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
                 new ItemLibraryPageRenderer(),
                 heroService
         );
+        ItemEditController itemEditController = new ItemEditController(itemLibraryService);
         PlaceholderPageRenderer placeholderPageRenderer = new PlaceholderPageRenderer();
 
         server.createContext("/bohaterowie", heroesController);
@@ -92,6 +93,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
         server.createContext("/znajdz-najlepszy-build", searchController);
         server.createContext("/znajdz-najlepszy-build/szczegoly", searchBuildDetailsController);
         server.createContext("/importuj-item-ze-screena", itemImportController);
+        server.createContext("/biblioteka-itemow/edytuj", itemEditController);
         server.createContext("/biblioteka-itemow", itemLibraryController);
         server.createContext("/baza-wiedzy-itemow", itemKnowledgeController);
         for (AppModule module : AppModuleRegistry.placeholderModules()) {

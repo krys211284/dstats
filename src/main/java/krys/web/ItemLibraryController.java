@@ -3,6 +3,7 @@ package krys.web;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import krys.item.HeroEquipmentSlot;
+import krys.itemlibrary.ItemLibraryFilter;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
@@ -14,9 +15,11 @@ import krys.itemimport.ImportedItemAffixType;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TreeSet;
 
 /** Kontroler SSR minimalnej biblioteki zapisanych itemów z aktywnym wyborem per slot. */
 public final class ItemLibraryController implements HttpHandler {
@@ -51,7 +54,8 @@ public final class ItemLibraryController implements HttpHandler {
                 String currentBuildQuery = heroService.getActiveHero()
                         .map(HeroProfile::getCurrentBuildQuery)
                         .orElse("");
-                renderPage(exchange, buildPageModel(List.of(), List.of(), currentBuildQuery, null));
+                ItemLibraryFilter filter = ItemLibraryFilter.fromFields(UrlEncodedFormSupport.parseQuery(exchange.getRequestURI().getRawQuery()));
+                renderPage(exchange, buildPageModel(List.of(), List.of(), currentBuildQuery, null, filter));
                 return;
             }
             if ("POST".equals(method)) {
@@ -74,10 +78,10 @@ public final class ItemLibraryController implements HttpHandler {
                 case "saveImportedItem" -> handleSaveImportedItem(fields, currentBuildQuery);
                 case "activateItem" -> handleActivateItem(fields, currentBuildQuery);
                 case "deleteItem" -> handleDeleteItem(fields, currentBuildQuery);
-                default -> buildPageModel(List.of("Nieobsługiwana akcja biblioteki itemów."), List.of(), currentBuildQuery, null);
+                default -> buildPageModel(List.of("Nieobsługiwana akcja biblioteki itemów."), List.of(), currentBuildQuery, null, filterFromFields(fields));
             };
         } catch (IllegalArgumentException exception) {
-            return buildPageModel(List.of(exception.getMessage()), List.of(), currentBuildQuery, null);
+            return buildPageModel(List.of(exception.getMessage()), List.of(), currentBuildQuery, null, filterFromFields(fields));
         }
     }
 
@@ -104,7 +108,8 @@ public final class ItemLibraryController implements HttpHandler {
                 List.of(),
                 List.of("Zapisano item w bibliotece: " + savedItem.getDisplayName() + "."),
                 currentBuildQuery,
-                savedItem
+                savedItem,
+                filterFromFields(fields)
         );
     }
 
@@ -123,7 +128,8 @@ public final class ItemLibraryController implements HttpHandler {
                 List.of(),
                 List.of(message),
                 currentBuildQuery,
-                null
+                null,
+                filterFromFields(fields)
         );
     }
 
@@ -131,22 +137,58 @@ public final class ItemLibraryController implements HttpHandler {
         long itemId = parseItemId(fields.getOrDefault("itemId", ""));
         itemLibraryService.deleteItem(itemId);
         heroService.clearItemFromAllHeroes(itemId);
-        return buildPageModel(List.of(), List.of("Usunięto item z biblioteki."), currentBuildQuery, null);
+        return buildPageModel(List.of(), List.of("Usunięto item z biblioteki."), currentBuildQuery, null, filterFromFields(fields));
+    }
+
+    private ItemLibraryPageModel buildPageModel(List<String> errors,
+                                                List<String> messages,
+                                                String currentBuildQuery,
+                                                SavedImportedItem savedItemFeedback,
+                                                ItemLibraryFilter filter) {
+        List<SavedImportedItem> allItems = itemLibraryService.getSavedItems();
+        HeroItemSelection activeSelection = heroService.getActiveHero().map(HeroProfile::getItemSelection).orElse(HeroItemSelection.empty());
+        List<SavedImportedItem> filteredItems = allItems.stream()
+                .filter(item -> filter.matches(item, isActive(activeSelection, item)))
+                .toList();
+        return new ItemLibraryPageModel(
+                filteredItems,
+                heroService.getActiveHero().orElse(null),
+                activeSelection,
+                errors,
+                messages,
+                currentBuildQuery,
+                savedItemFeedback,
+                filter,
+                availableItemTypes(allItems),
+                allItems.size()
+        );
     }
 
     private ItemLibraryPageModel buildPageModel(List<String> errors,
                                                 List<String> messages,
                                                 String currentBuildQuery,
                                                 SavedImportedItem savedItemFeedback) {
-        return new ItemLibraryPageModel(
-                itemLibraryService.getSavedItems(),
-                heroService.getActiveHero().orElse(null),
-                heroService.getActiveHero().map(HeroProfile::getItemSelection).orElse(HeroItemSelection.empty()),
-                errors,
-                messages,
-                currentBuildQuery,
-                savedItemFeedback
-        );
+        return buildPageModel(errors, messages, currentBuildQuery, savedItemFeedback, ItemLibraryFilter.empty());
+    }
+
+    private static ItemLibraryFilter filterFromFields(Map<String, String> fields) {
+        return ItemLibraryFilter.fromFields(fields);
+    }
+
+    private static boolean isActive(HeroItemSelection activeSelection, SavedImportedItem item) {
+        if (activeSelection == null || item == null) {
+            return false;
+        }
+        return activeSelection.getSelectedItemIdsBySlot().values().stream()
+                .anyMatch(itemId -> itemId != null && itemId == item.getItemId());
+    }
+
+    private static List<String> availableItemTypes(List<SavedImportedItem> items) {
+        TreeSet<String> itemTypes = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        for (SavedImportedItem item : items) {
+            itemTypes.add(ItemLibraryFilter.resolvedItemType(item));
+        }
+        return new ArrayList<>(itemTypes);
     }
 
     private static long parseItemId(String rawValue) {

@@ -448,16 +448,26 @@ Aktualny foundation repo obejmuje minimalną bibliotekę zapisanych itemów jako
 Kontrakt biblioteki itemów:
 - `SavedImportedItem` jest trwałą wersją zatwierdzonego itemu z własnym stabilnym `itemId`,
 - biblioteka może przechowywać wiele itemów tego samego slotu,
-- ekran `/biblioteka-itemow` pokazuje zapisane itemy pogrupowane po slocie jako przegląd kart z nazwą, slotem, identyfikatorem / źródłem, skrótem wkładu i statusem użycia przez aktywnego bohatera,
+- ekran `/biblioteka-itemow` pokazuje zapisane itemy pogrupowane po slocie jako czysty przegląd kart z nazwą, slotem, identyfikatorem / źródłem, skrótem wkładu i statusem użycia przez aktywnego bohatera,
+- normalny widok biblioteki nie pokazuje komunikatów OCR-weryfikacyjnych z importu, takich jak niepełny odczyt efektu aspektu; te komunikaty pozostają częścią importu i formularza edycji, gdzie użytkownik zatwierdza dane,
 - `SavedImportedItem` przechowuje także `FullItemRead`, czyli pełniejszy opis rozpoznanych linii itemu niezależny od aktualnie wspieranych pól runtime,
 - `SavedImportedItem` przechowuje strukturalną listę affixów z polem `greaterAffix` oraz finalny `selectedAspectId`; surowy tekst aspektu w `FullItemRead` nie zastępuje wyboru z registry,
 - karta itemu w bibliotece pokazuje podgląd `Pełniejszy odczyt itemu` jako semantyczny zapis, a nie płaski dump OCR,
-- podgląd biblioteki pokazuje osobne sekcje `Dane podstawowe`, `Base stats`, `Implicit / linie bazowe`, `Affixy`, `Aspekt / efekt legendarny`, `Socket / gniazdo` oraz opcjonalną diagnostykę OCR,
+- podgląd biblioteki pokazuje osobne sekcje `Dane podstawowe`, `Base stats`, `Implicit / linie bazowe`, `Affixy`, `Aspekt / efekt legendarny`, `Socket / gniazdo` oraz diagnostykę OCR tylko wtedy, gdy istnieją faktyczne linie diagnostyczne; pusta sekcja `Diagnostyka OCR` nie jest renderowana,
 - biblioteka renderuje właściwe affixy z zatwierdzonej listy `SavedImportedItem.getAffixes()`, dzięki czemu ręczne usunięcie albo korekta affixu nie jest cofana przez surowy `FullItemRead`,
 - base staty i implicity nie mogą być renderowane jako `Affix`; `Greater Affix` jest pokazywany wyłącznie prezentacyjną gwiazdką przy affixach z `greaterAffix=true`,
 - biblioteka normalizuje base staty defensywnie: moc przedmiotu pozostaje w `Dane podstawowe`, pancerz pozostaje w `Base stats`, a sklejki OCR typu `800 1 131 pkt. pancerza` nie są renderowane jako osobna wartość,
-- sekcja aspektu pokazuje finalny `selectedAspectId` przez nazwę z `AspectRegistry`, opis efektu znanego aspektu z registry oraz pomocniczy `Odczyt OCR efektu` z konkretnego itemu; oczywiście sklejone albo zdublowane surowe warianty OCR efektu są odfiltrowywane z prezentacji,
-- UI importu i biblioteki nie pokazują oderwanego ogona efektu typu `Ta premia jest trzy razy większa...` jako samodzielnego efektu; jeśli brakuje pierwszej części, widoczny jest neutralny komunikat o niepełnym odczycie OCR,
+- sekcja aspektu w normalnym widoku biblioteki pokazuje finalny `selectedAspectId` przez nazwę z `AspectRegistry` oraz opis efektu znanego aspektu z registry; raw OCR effect nie jest pokazywany jako finalny aspekt ani jako zwykła treść biblioteki,
+- UI importu i formularz edycji mogą pokazywać pomocniczy `Odczyt OCR efektu` albo neutralny komunikat o niepełnym odczycie OCR, bo tam użytkownik zatwierdza dane; normalny widok biblioteki tych komunikatów nie pokazuje,
+- każdy zapisany item ma akcję `Edytuj`, prowadzącą do SSR formularza `/biblioteka-itemow/edytuj?itemId=<id>`,
+- formularz edycji startuje z danych `SavedImportedItem`: `sourceImageName`, `slot`, `FullItemRead`, strukturalne affixy, `greaterAffix` i finalny `selectedAspectId`; OCR nie jest uruchamiany ponownie,
+- zapis edycji używa tego samego mapowania i walidacji co import, aktualizuje istniejący item pod tym samym `itemId`, zachowuje `sourceImageName`, zapisuje zaktualizowany `FullItemRead` po korekcie affixów oraz zachowuje finalny `selectedAspectId`,
+- jeśli edytowany item jest aktualnie założony bohaterowi, aktywna selekcja nadal wskazuje ten sam `itemId`, więc zmiana automatycznie wpływa na używany item bez ponownego przypisania,
+- panel filtrów biblioteki działa jako SSR GET query params i obejmuje: `q`, `slot`, `type`, `status`, `aspect`, `affix` oraz `greater=true`,
+- filtr `q` przeszukuje strukturalne dane itemu: nazwę itemu, plik źródłowy, displayName wybranego aspektu i nazwy / linie zatwierdzonych affixów,
+- filtry domenowe działają na strukturze `SavedImportedItem`: `slot`, `selectedAspectId`, lista `affixes`, `greaterAffix`, `FullItemRead.itemTypeLine` i `FullItemRead.itemName`, a nie na przypadkowym płaskim OCR dumpie,
+- filtr aspektu obsługuje wszystkie aspekty z `ApplicationAspectRegistry` oraz wartość `brak aspektu`; filtr statusu rozróżnia itemy założone i nieużywane względem aktywnego bohatera,
+- UI filtrów pokazuje liczbę wyników, zachowuje wybrane wartości po filtrowaniu oraz ma akcję `Wyczyść filtry`,
 - `HeroItemSelection` przechowuje najwyżej jeden aktywny `savedItemId` per `HeroEquipmentSlot` dla konkretnego bohatera,
 - biblioteka jest wspólna dla wszystkich bohaterów, ale aktywna selekcja slotów jest niezależna per bohater,
 - założenie itemu z biblioteki jest walidowane względem hero slotu; nie można przypisać itemu z niepasującego typu slotu,
@@ -478,7 +488,7 @@ Kontrakt integracji biblioteki z current build:
 - effective current build nadal kończy się zwykłym `CurrentBuildRequest`,
 - walidacja requestu dotyczy dopiero finalnych effective stats po zsumowaniu ręcznej bazy i aktywnych itemów,
 - `CurrentBuildSnapshotFactory` i runtime nadal pracują na tych samych płaskich polach co wcześniej,
-- P1.3.1 rozszerza wyłącznie `AspectRegistry` i SSR prezentację aspektu o semantyczny opis efektu oraz rozdzielenie opisu registry od pomocniczego OCR effect konkretnego itemu; `Damage Engine`, manual simulation, search runtime i projekcja DPS nie zostały zmienione,
+- P1.3.2 rozszerza wyłącznie bibliotekę itemów o czysty widok, edycję zapisanych itemów i filtry SSR po danych strukturalnych; `Damage Engine`, manual simulation, search runtime i projekcja DPS nie zostały zmienione,
 - biblioteka itemów nie buduje alternatywnego snapshot flow i nie omija istniejącego runtime.
 
 Kontrakt integracji biblioteki z backendowym searchem:
@@ -1224,6 +1234,22 @@ Kontrakt prezentacji dla smoke testu importu itemu:
 - flow nie obiecuje pełnej bezbłędności OCR i wymaga ręcznego potwierdzenia użytkownika przed użyciem danych,
 - poza zakresem pozostają pełny wielo-itemowy workflow i pełny OCR całej postaci.
 
+Smoke test GUI biblioteki itemów:
+
+```text
+http://127.0.0.1:8080/biblioteka-itemow
+```
+
+Kontrakt prezentacji dla smoke testu biblioteki itemów:
+- GUI biblioteki jest czystym widokiem zapisanych itemów i nie pokazuje raw OCR effect ani komunikatów OCR-weryfikacyjnych w normalnym podglądzie kart,
+- sekcja `Aspekt / efekt legendarny` pokazuje finalny aspekt z `selectedAspectId` przez nazwę z `AspectRegistry` i opis efektu z registry; jeśli aspekt nie jest wybrany, pokazuje `Brak wybranego aspektu.`,
+- pusta `Diagnostyka OCR` nie jest renderowana; diagnostyka może pojawić się tylko jako osobny szczegół techniczny, gdy są zapisane faktyczne linie diagnostyczne,
+- każdy item pokazuje akcję `Edytuj`, która otwiera `/biblioteka-itemow/edytuj?itemId=<id>` bez ponownego OCR,
+- zapis edycji aktualizuje istniejący item po tym samym `itemId`, więc aktywny item pozostaje założony i zaczyna działać z nowymi danymi przez tę samą selekcję,
+- panel filtrów obsługuje `q`, `slot`, `type`, `status`, `aspect`, `affix` i `greater=true`, pokazuje liczbę wyników oraz zachowuje wybrane wartości po filtrowaniu,
+- filtry działają na danych strukturalnych zapisanego itemu, a nie na płaskim dumpie OCR,
+- `Wyczyść filtry` wraca do pełnej listy zapisanych itemów.
+
 Smoke test GUI bazy wiedzy itemów:
 
 ```text
@@ -1337,13 +1363,16 @@ Minimalny zakres testów obejmuje:
 - zachowanie zakresu `+114 siły [107 - 121]`, brak sklejania `+7,0% szansy na szczęśliwy traf [7,0` z `13,2% redukcji czasu odnowienia` oraz ostrożne oznaczanie `Greater Affix`: cooldown bez zakresu jest `greaterAffix=true`, a siła, ciernie i lucky hit z zakresem albo fragmentem zakresu pozostają `greaterAffix=false`,
 - render biblioteki dla tarczy bez płaskich wpisów typu `Affix: 45% redukcji blokowanych obrażeń`, bez dublowania mocy przedmiotu i bazowej wartości jako dodatkowych bulletów oraz z osobnymi sekcjami semantycznymi,
 - render biblioteki bez sklejki base stat `800 1 131 pkt. pancerza`, z prezentacyjną gwiazdką wyłącznie dla affixów `greaterAffix=true` oraz bez oczywiście zdublowanych/sklejonych wariantów raw OCR aspektu,
-- prezentację aspektu w imporcie i bibliotece: `selectedAspectId` renderuje się jako nazwa z `AspectRegistry`, opis efektu pochodzi z registry bez zgadywania rolli procentowych, pełny efekt OCR konkretnego itemu jest pokazywany jako `Odczyt OCR efektu`, a sam ogon efektu bez kontekstu jest zastępowany komunikatem o niepełnej ręcznej weryfikacji,
+- prezentację aspektu: import i formularz edycji pokazują `selectedAspectId`, opis efektu z `AspectRegistry` oraz pomocniczy OCR effect, a normalny widok biblioteki pokazuje tylko finalny aspekt i opis z registry bez raw OCR effect,
 - snapshot realnego outputu Windows OCR dla `src/test/resources/items/tarcza.png`, który zabezpiecza ścieżkę regresji `800 / 1 131`, nazwę, bazową wartość i efekt legendarny bez fake OCR readera jako głównej weryfikacji,
 - mapowanie tekstu aspektu z `tarcza.png` do sugestii `ocrSuggestedAspectId`, bez zapisu dowolnego tekstu OCR jako finalnego aspektu itemu,
 - walidację, że aspekt zgodny ze slotem itemu przechodzi, a aspekt spoza `allowedItemSlots` jest odrzucany,
 - przepływ nieznanego aspektu OCR: brak dopasowania w `AspectRegistry` zostawia `selectedAspectId` pusty, pokazuje komunikat w UI i zachowuje raw OCR tylko jako pomocniczy `FullItemRead`,
 - bazę wiedzy aspektów opartą o finalny `selectedAspectId`, bez tworzenia obserwacji aspektu z raw OCR, gdy użytkownik nie zatwierdził aspektu z katalogu,
 - fallback SSR `<noscript>` dla `Dodaj affix` obok głównego flow JS bez przeładowania,
+- czysty widok biblioteki bez pustej `Diagnostyka OCR` i bez komunikatów OCR-weryfikacyjnych w normalnym podglądzie itemu,
+- edycję zapisanego itemu przez `/biblioteka-itemow/edytuj?itemId=<id>` z aktualizacją tego samego `itemId`, zachowaniem `greaterAffix`, `selectedAspectId` i wpływem na aktywnie założony item,
+- filtry biblioteki po danych strukturalnych: `q`, slot, typ itemu, status użycia, aspekt, affix oraz `greater=true`,
 - brak ukrytego fallbacku, który po usunięciu affixu przywraca `Siła = 114` albo inne wartości z OCR / foundation,
 - edycję affixu tak, że finalny zapis zawiera nową wartość, a stara wartość z OCR nie wraca do biblioteki,
 - usunięcie wszystkich affixów z formularza bez ponownego odzyskania ich z `FullItemRead`,

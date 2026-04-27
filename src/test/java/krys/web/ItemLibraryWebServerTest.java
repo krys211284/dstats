@@ -1,5 +1,9 @@
 package krys.web;
 
+import krys.itemimport.FullItemRead;
+import krys.itemimport.FullItemReadFormCodec;
+import krys.itemimport.FullItemReadLine;
+import krys.itemimport.FullItemReadLineType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,10 +17,13 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Testuje SSR biblioteki itemów: zapis, przegląd, założenie itemu i sekcję active items na current build. */
@@ -107,6 +114,7 @@ class ItemLibraryWebServerTest {
         assertTrue(activateResponse.body().contains("Używany przez aktywnego bohatera w slocie: Tarcza."));
         assertTrue(activateResponse.body().contains("Już założony w slocie Tarcza."));
         assertTrue(activateResponse.body().contains("Zmień w slocie: Tarcza"));
+        assertTrue(activateResponse.body().contains(">Edytuj</a>"));
         assertTrue(activateResponse.body().contains("Pokaż slot w current build"));
         assertTrue(activateResponse.body().contains("Ręka dodatkowa / shield-b.png"));
 
@@ -172,6 +180,123 @@ class ItemLibraryWebServerTest {
         assertTrue(deleteResponse.body().contains("Importuj item ze screena"));
     }
 
+    @Test
+    void shouldOpenEditFormAndUpdateExistingActiveItemWithoutChangingItemId() throws Exception {
+        createHero("Edytor", "13");
+        primeHeroBuildQuery(buildCurrentBuildQuery());
+        HttpResponse<String> importResponse = sendUrlEncodedPost("/importuj-item-ze-screena", shieldImportFields(
+                "tarcza-edit.png",
+                "Tarcza Edytora",
+                "STRENGTH",
+                "114",
+                true,
+                true
+        ));
+        assertEquals(200, importResponse.statusCode());
+
+        HttpResponse<String> activateResponse = sendUrlEncodedPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", "1",
+                "heroSlot", "OFF_HAND",
+                "currentBuildQuery", buildCurrentBuildQuery()
+        ));
+        assertEquals(200, activateResponse.statusCode());
+
+        HttpResponse<String> editForm = sendGet("/biblioteka-itemow/edytuj?itemId=1");
+
+        assertEquals(200, editForm.statusCode());
+        assertTrue(editForm.body().contains("Edytuj zapisany item"));
+        assertTrue(editForm.body().contains("name=\"itemId\" value=\"1\""));
+        assertTrue(editForm.body().contains("name=\"affixType_0\""));
+        assertTrue(editForm.body().contains("name=\"affixValue_0\" value=\"114\""));
+        assertTrue(editForm.body().contains("name=\"affixGreater_0\" value=\"true\" checked"));
+        assertTrue(editForm.body().contains("value=\"inner-calm\""));
+        assertTrue(editForm.body().contains("selected>Aspekt Wewnętrznego Spokoju"));
+        assertTrue(editForm.body().contains("Tarcza Edytora"));
+
+        Map<String, String> updateFields = shieldUpdateFields("1", "tarcza-edit.png", "Tarcza Edytora", "120", true, "inner-calm");
+        HttpResponse<String> updateResponse = sendUrlEncodedPost("/biblioteka-itemow/edytuj", updateFields);
+
+        assertEquals(200, updateResponse.statusCode());
+        assertTrue(updateResponse.body().contains("Zapisano zmiany itemu."));
+        assertTrue(updateResponse.body().contains("name=\"itemId\" value=\"1\""));
+        assertTrue(updateResponse.body().contains("name=\"affixValue_0\" value=\"120\""));
+        assertTrue(updateResponse.body().contains("name=\"affixGreater_0\" value=\"true\" checked"));
+
+        HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow");
+
+        assertEquals(200, libraryResponse.statusCode());
+        assertTrue(libraryResponse.body().contains("1 item"));
+        assertTrue(libraryResponse.body().contains("* +120 siły"));
+        assertFalse(libraryResponse.body().contains("+114 siły"));
+        assertTrue(libraryResponse.body().contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
+        assertTrue(libraryResponse.body().contains("class=\"status-badge status-active\">Używany</span>"));
+
+        HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build?" + buildCurrentBuildQuery());
+        assertEquals(200, currentBuildResponse.statusCode());
+        assertTrue(currentBuildResponse.body().contains("Ręka dodatkowa / tarcza-edit.png"));
+        assertTrue(currentBuildResponse.body().contains("Do runtime trafiają: obrażenia broni=200, siła=150"));
+
+        Map<String, String> removeAffixFields = shieldUpdateFields("1", "tarcza-edit.png", "Tarcza Edytora", "120", true, "inner-calm");
+        removeAffixFields.put("affixCount", "0");
+        HttpResponse<String> removeResponse = sendUrlEncodedPost("/biblioteka-itemow/edytuj", removeAffixFields);
+        assertEquals(200, removeResponse.statusCode());
+
+        HttpResponse<String> afterRemove = sendGet("/biblioteka-itemow");
+        assertFalse(afterRemove.body().contains("+120 siły"));
+        assertTrue(afterRemove.body().contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
+    }
+
+    @Test
+    void shouldShowErrorWhenEditingMissingItem() throws Exception {
+        HttpResponse<String> response = sendGet("/biblioteka-itemow/edytuj?itemId=999");
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Nie znaleziono itemu o podanym id w bibliotece."));
+    }
+
+    @Test
+    void shouldFilterLibraryByStructuredItemDataAndPreserveFilterUi() throws Exception {
+        createHero("Filtrator", "13");
+        sendUrlEncodedPost("/importuj-item-ze-screena", shieldImportFields("tarcza-a.png", "Tarcza Alfa", "STRENGTH", "114", false, true));
+        sendUrlEncodedPost("/importuj-item-ze-screena", shieldImportFields("tarcza-b.png", "Tarcza Beta", "THORNS", "494", false, false));
+        sendUrlEncodedPost("/importuj-item-ze-screena", bootsImportFields("buty-speed.png", "Buty Szybkie", true));
+        sendUrlEncodedPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", "1",
+                "heroSlot", "OFF_HAND",
+                "currentBuildQuery", ""
+        ));
+
+        HttpResponse<String> all = sendGet("/biblioteka-itemow");
+        assertTrue(all.body().contains("Filtry biblioteki"));
+        assertTrue(all.body().contains("Znaleziono 3 itemy"));
+        assertTrue(all.body().contains("name=\"q\""));
+        assertTrue(all.body().contains("Wyczyść filtry"));
+
+        assertOnlyContains("/biblioteka-itemow?slot=BOOTS", "Buty / buty-speed.png", "Ręka dodatkowa / tarcza-a.png");
+        assertOnlyContains("/biblioteka-itemow?type=" + encode("Tarcza"), "Ręka dodatkowa / tarcza-a.png", "Buty / buty-speed.png");
+        assertOnlyContains("/biblioteka-itemow?status=used", "Ręka dodatkowa / tarcza-a.png", "Ręka dodatkowa / tarcza-b.png");
+        assertOnlyContains("/biblioteka-itemow?status=unused", "Ręka dodatkowa / tarcza-b.png", "Ręka dodatkowa / tarcza-a.png");
+        assertOnlyContains("/biblioteka-itemow?aspect=inner-calm", "Ręka dodatkowa / tarcza-a.png", "Ręka dodatkowa / tarcza-b.png");
+        assertOnlyContains("/biblioteka-itemow?aspect=__NONE__", "Ręka dodatkowa / tarcza-b.png", "Ręka dodatkowa / tarcza-a.png");
+        assertOnlyContains("/biblioteka-itemow?affix=THORNS", "Ręka dodatkowa / tarcza-b.png", "Ręka dodatkowa / tarcza-a.png");
+        assertOnlyContains("/biblioteka-itemow?greater=true", "Buty / buty-speed.png", "Ręka dodatkowa / tarcza-a.png");
+        assertOnlyContains("/biblioteka-itemow?q=Alfa", "Ręka dodatkowa / tarcza-a.png", "Ręka dodatkowa / tarcza-b.png");
+        assertOnlyContains("/biblioteka-itemow?q=tarcza-b", "Ręka dodatkowa / tarcza-b.png", "Ręka dodatkowa / tarcza-a.png");
+        assertOnlyContains("/biblioteka-itemow?q=" + encode("Wewnętrznego"), "Ręka dodatkowa / tarcza-a.png", "Ręka dodatkowa / tarcza-b.png");
+        assertOnlyContains("/biblioteka-itemow?q=" + encode("Ciernie"), "Ręka dodatkowa / tarcza-b.png", "Ręka dodatkowa / tarcza-a.png");
+
+        HttpResponse<String> selected = sendGet("/biblioteka-itemow?slot=BOOTS&greater=true");
+        assertTrue(selected.body().contains("<option value=\"BOOTS\" selected>Buty</option>"));
+        assertTrue(selected.body().contains("name=\"greater\" value=\"true\" checked"));
+
+        HttpResponse<String> cleared = sendGet("/biblioteka-itemow");
+        assertTrue(cleared.body().contains("Ręka dodatkowa / tarcza-a.png"));
+        assertTrue(cleared.body().contains("Ręka dodatkowa / tarcza-b.png"));
+        assertTrue(cleared.body().contains("Buty / buty-speed.png"));
+    }
+
     private void createHero(String heroName, String heroLevel) throws Exception {
         HttpResponse<String> response = sendUrlEncodedPost("/bohaterowie", Map.of(
                 "action", "createHero",
@@ -186,6 +311,111 @@ class ItemLibraryWebServerTest {
     private void primeHeroBuildQuery(String currentBuildQuery) throws Exception {
         HttpResponse<String> response = sendGet("/policz-aktualny-build?" + currentBuildQuery);
         assertEquals(200, response.statusCode());
+    }
+
+    private void assertOnlyContains(String path, String expected, String forbidden) throws Exception {
+        HttpResponse<String> response = sendGet(path);
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains(expected), path);
+        assertFalse(response.body().contains(forbidden), path);
+    }
+
+    private static Map<String, String> shieldImportFields(String sourceImageName,
+                                                          String itemName,
+                                                          String affixType,
+                                                          String affixValue,
+                                                          boolean greaterAffix,
+                                                          boolean selectedAspect) {
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("sourceImageName", sourceImageName);
+        fields.put("slot", "OFF_HAND");
+        fields.put("weaponDamage", "0");
+        fields.put("fullItemRead", FullItemReadFormCodec.encode(new FullItemRead(
+                itemName,
+                "Tarcza",
+                "Legendarny",
+                "Moc przedmiotu: 800",
+                "1 131 pkt. pancerza",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.ITEM_NAME, itemName),
+                        new FullItemReadLine(FullItemReadLineType.TYPE_OR_SLOT, "Tarcza"),
+                        new FullItemReadLine(FullItemReadLineType.IMPLICIT, "20,0% szansy na blok [20,0]%"),
+                        new FullItemReadLine(FullItemReadLineType.ASPECT, "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%")
+                )
+        )));
+        fields.put("currentBuildQuery", "");
+        fields.put("formAction", "confirmItem");
+        fields.put("selectedAspectId", selectedAspect ? "inner-calm" : "");
+        fields.put("affixCount", "1");
+        fields.put("affixType_0", affixType);
+        fields.put("affixValue_0", affixValue);
+        if (greaterAffix) {
+            fields.put("affixGreater_0", "true");
+        }
+        return fields;
+    }
+
+    private static Map<String, String> bootsImportFields(String sourceImageName, String itemName, boolean greaterAffix) {
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("sourceImageName", sourceImageName);
+        fields.put("slot", "BOOTS");
+        fields.put("weaponDamage", "0");
+        fields.put("fullItemRead", FullItemReadFormCodec.encode(new FullItemRead(
+                itemName,
+                "Buty",
+                "Legendarny",
+                "Moc przedmiotu: 800",
+                "354 pkt. pancerza",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.ITEM_NAME, itemName),
+                        new FullItemReadLine(FullItemReadLineType.TYPE_OR_SLOT, "Buty"),
+                        new FullItemReadLine(FullItemReadLineType.SOCKET, "2 gniazda")
+                )
+        )));
+        fields.put("currentBuildQuery", "");
+        fields.put("formAction", "confirmItem");
+        fields.put("affixCount", "1");
+        fields.put("affixType_0", "MOVEMENT_SPEED");
+        fields.put("affixValue_0", "12.5");
+        if (greaterAffix) {
+            fields.put("affixGreater_0", "true");
+        }
+        return fields;
+    }
+
+    private static Map<String, String> shieldUpdateFields(String itemId,
+                                                          String sourceImageName,
+                                                          String itemName,
+                                                          String strength,
+                                                          boolean greaterAffix,
+                                                          String selectedAspectId) {
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("action", "updateItem");
+        fields.put("itemId", itemId);
+        fields.put("sourceImageName", sourceImageName);
+        fields.put("slot", "OFF_HAND");
+        fields.put("weaponDamage", "0");
+        fields.put("fullItemRead", FullItemReadFormCodec.encode(new FullItemRead(
+                itemName,
+                "Tarcza",
+                "Legendarny",
+                "Moc przedmiotu: 800",
+                "1 131 pkt. pancerza",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.ITEM_NAME, itemName),
+                        new FullItemReadLine(FullItemReadLineType.TYPE_OR_SLOT, "Tarcza"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+114 siły"),
+                        new FullItemReadLine(FullItemReadLineType.ASPECT, "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%")
+                )
+        )));
+        fields.put("selectedAspectId", selectedAspectId);
+        fields.put("affixCount", "1");
+        fields.put("affixType_0", "STRENGTH");
+        fields.put("affixValue_0", strength);
+        if (greaterAffix) {
+            fields.put("affixGreater_0", "true");
+        }
+        return fields;
     }
 
     private static String buildCurrentBuildQuery() {

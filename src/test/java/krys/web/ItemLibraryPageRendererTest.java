@@ -83,15 +83,17 @@ class ItemLibraryPageRendererTest {
         assertTrue(html.contains("+114 siły [107 - 121]"));
         assertTrue(html.contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
         assertTrue(html.contains("Opis aspektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
-        assertTrue(html.contains("Odczyt OCR efektu: Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]% Ta premia jest trzy razy większa"));
-        assertTrue(html.contains("Ta premia jest trzy razy większa"));
+        assertFalse(html.contains("Odczyt OCR efektu:"));
+        assertFalse(html.contains("Zadajesz obrażenia zwiększone o 11,0%[x]"));
+        assertFalse(html.contains("Odczyt efektu OCR niepełny / wymaga ręcznej weryfikacji."));
         assertFalse(html.contains("Affix: 45% redukcji blokowanych obrażeń"));
         assertFalse(html.contains("Affix: 20,0% szansy na blok"));
         assertFalse(html.contains("Affix: +100% obrażeń od broni w głównej ręce"));
+        assertFalse(html.contains("Brak zapisanych linii w tej sekcji."));
         assertFalse(html.contains("800 1 131 pkt. pancerza"));
         assertFalse(html.contains("* +114 siły"));
         assertFalse(html.contains("Zadajesz obrażenia zwiększone o [5,0 - Ta premia"));
-        assertEquals(1, countOccurrences(html, "Ta premia jest trzy razy większa"));
+        assertEquals(0, countOccurrences(html, "Ta premia jest trzy razy większa"));
         assertFalse(html.contains("Projekcja do aktualnego runtime"));
         assertFalse(html.contains("Łączne obrażenia"));
         assertFalse(html.contains("<h2>DPS</h2>"));
@@ -128,7 +130,7 @@ class ItemLibraryPageRendererTest {
 
         assertTrue(html.contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
         assertTrue(html.contains("Opis aspektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
-        assertTrue(html.contains("Odczyt efektu OCR niepełny / wymaga ręcznej weryfikacji."));
+        assertFalse(html.contains("Odczyt efektu OCR niepełny / wymaga ręcznej weryfikacji."));
         assertFalse(html.contains("<li>Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek.</li>"));
     }
 
@@ -178,6 +180,7 @@ class ItemLibraryPageRendererTest {
         assertTrue(html.contains("Brak wybranego aspektu."));
         assertTrue(html.contains("Socket / gniazdo"));
         assertTrue(html.contains("2 gniazda"));
+        assertFalse(html.contains("Diagnostyka OCR"));
         assertFalse(html.contains("Affix: 354 pkt. pancerza"));
         assertFalse(html.contains("Projekcja do aktualnego runtime"));
     }
@@ -210,7 +213,7 @@ class ItemLibraryPageRendererTest {
         String html = render(List.of(item));
 
         assertTrue(html.contains("Brak wybranego aspektu."));
-        assertTrue(html.contains("Odczyt OCR efektu: Aspekt zupełnie nieznany z OCR"));
+        assertFalse(html.contains("Odczyt OCR efektu: Aspekt zupełnie nieznany z OCR"));
         assertFalse(html.contains("Wybrany aspekt: Aspekt zupełnie nieznany z OCR"));
     }
 

@@ -9,11 +9,14 @@ import krys.itemimport.FullItemRead;
 import krys.itemimport.FullItemReadLine;
 import krys.itemimport.FullItemReadLineType;
 import krys.itemimport.ImportedItemAffix;
+import krys.itemimport.ImportedItemAffixType;
+import krys.itemlibrary.ItemLibraryFilter;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
 import krys.itemlibrary.SavedImportedItem;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,7 +40,7 @@ public final class ItemLibraryPageRenderer {
                 .replace("{{SAVE_FEEDBACK}}", renderSavedItemFeedback(model))
                 .replace("{{CURRENT_BUILD_URL}}", escapeHtml(buildCurrentBuildUrl(model.getCurrentBuildQuery())))
                 .replace("{{IMPORT_ITEM_URL}}", escapeHtml(buildItemImportUrl(model.getCurrentBuildQuery())))
-                .replace("{{LIBRARY_CONTENT}}", renderLibraryContent(model));
+                .replace("{{LIBRARY_CONTENT}}", renderFilters(model) + renderLibraryContent(model));
     }
 
     private static String renderMessages(java.util.List<String> messages) {
@@ -118,6 +121,11 @@ public final class ItemLibraryPageRenderer {
             return renderEmptyState(model);
         }
         StringBuilder html = new StringBuilder("<div class=\"library-groups\">");
+        html.append("<p class=\"helper\">Znaleziono ")
+                .append(model.getSavedItems().size())
+                .append(resultCountLabel(model.getSavedItems().size()))
+                .append(model.getFilter().isEmpty() ? "" : " z " + model.getTotalSavedItemCount())
+                .append(".</p>");
         for (EquipmentSlot slot : EquipmentSlot.values()) {
             List<SavedImportedItem> slotItems = model.getSavedItems().stream()
                     .filter(item -> item.getSlot() == slot)
@@ -132,6 +140,15 @@ public final class ItemLibraryPageRenderer {
     }
 
     private static String renderEmptyState(ItemLibraryPageModel model) {
+        if (model.getTotalSavedItemCount() > 0) {
+            return """
+                    <div class="empty-state">
+                        <h3>Brak itemów dla wybranych filtrów</h3>
+                        <p>Zmień filtry albo wyczyść je, aby wrócić do pełnej listy zapisanych itemów.</p>
+                        <a class="nav-link" href="/biblioteka-itemow">Wyczyść filtry</a>
+                    </div>
+                    """;
+        }
         return """
                 <div class="empty-state">
                     <h3>Biblioteka jest pusta</h3>
@@ -225,7 +242,7 @@ public final class ItemLibraryPageRenderer {
                 .append(renderTextLineGroup("Affixy", affixLines))
                 .append(renderTextLineGroup("Aspekt / efekt legendarny", aspectLines))
                 .append(renderTextLineGroup("Socket / gniazdo", socketLines))
-                .append(renderTextLineGroup("Diagnostyka OCR", diagnosticLines))
+                .append(renderDiagnostics(diagnosticLines))
                 .append("</details>");
         return html.toString();
     }
@@ -281,10 +298,29 @@ public final class ItemLibraryPageRenderer {
         } else {
             addUnique(lines, "Brak wybranego aspektu.");
         }
-        for (String effectLine : ItemAspectEffectPresentation.effectLines(fullItemRead)) {
-            addUnique(lines, effectLine);
-        }
         return lines;
+    }
+
+    private static String renderDiagnostics(List<String> diagnosticLines) {
+        if (diagnosticLines.isEmpty()) {
+            return "";
+        }
+        return """
+                <details class="item-line-group">
+                    <summary>Diagnostyka OCR</summary>
+                    <ul class="item-read-lines">
+                        %s
+                    </ul>
+                </details>
+                """.formatted(renderListItems(diagnosticLines));
+    }
+
+    private static String renderListItems(List<String> lines) {
+        StringBuilder html = new StringBuilder();
+        for (String line : lines) {
+            html.append("<li>").append(escapeHtml(line)).append("</li>");
+        }
+        return html.toString();
     }
 
     private static String normalizedBaseStatLine(String line) {
@@ -351,13 +387,18 @@ public final class ItemLibraryPageRenderer {
     }
 
     private static String renderItemActions(ItemLibraryPageModel model, SavedImportedItem item, List<HeroEquipmentSlot> activeSlots) {
+        String editLink = "<a class=\"nav-link secondary-link\" href=\""
+                + escapeHtml(buildEditItemUrl(model, item))
+                + "\">Edytuj</a>";
         if (!model.hasActiveHero()) {
             return """
                     <a class="nav-link secondary-link" href="/bohaterowie">Wybierz bohatera</a>
                     """
+                    + editLink
                     + renderDeleteForm(model, item);
         }
         return renderAssignmentForms(model, item)
+                + editLink
                 + "<a class=\"nav-link secondary-link\" href=\""
                 + escapeHtml(buildCurrentBuildUrl(model.getCurrentBuildQuery()))
                 + "\">Pokaż slot w current build</a>"
@@ -383,12 +424,14 @@ public final class ItemLibraryPageRenderer {
                         <input type="hidden" name="itemId" value="%s">
                         <input type="hidden" name="heroSlot" value="%s">
                         <input type="hidden" name="currentBuildQuery" value="%s">
+                        %s
                         <button type="submit">%s: %s</button>
                     </form>
                     """.formatted(
                     item.getItemId(),
                     heroSlot.name(),
                     escapeHtml(model.getCurrentBuildQuery()),
+                    renderFilterHiddenFields(model.getFilter()),
                     escapeHtml(actionLabel),
                     escapeHtml(ItemLibraryPresentationSupport.heroSlotDisplayName(heroSlot))
             ));
@@ -404,10 +447,212 @@ public final class ItemLibraryPageRenderer {
                         <input type="hidden" name="action" value="deleteItem">
                         <input type="hidden" name="itemId" value="%s">
                         <input type="hidden" name="currentBuildQuery" value="%s">
+                        %s
                         <button type="submit" class="secondary-button">Usuń</button>
                     </form>
                 </div>
-                """.formatted(item.getItemId(), escapeHtml(model.getCurrentBuildQuery()));
+                """.formatted(item.getItemId(), escapeHtml(model.getCurrentBuildQuery()), renderFilterHiddenFields(model.getFilter()));
+    }
+
+    private static String renderFilters(ItemLibraryPageModel model) {
+        ItemLibraryFilter filter = model.getFilter();
+        return """
+                <section class="panel">
+                    <h2>Filtry biblioteki</h2>
+                    <form method="get" action="/biblioteka-itemow" class="form-grid">
+                        <label>
+                            Szukaj
+                            <input type="text" name="q" value="%s" placeholder="Nazwa, plik, aspekt albo affix">
+                        </label>
+                        <label>
+                            Slot
+                            <select name="slot">
+                                <option value="">Wszystkie</option>
+                                %s
+                            </select>
+                        </label>
+                        <label>
+                            Typ itemu
+                            <select name="type">
+                                <option value="">Wszystkie</option>
+                                %s
+                            </select>
+                        </label>
+                        <label>
+                            Status użycia
+                            <select name="status">
+                                %s
+                            </select>
+                        </label>
+                        <label>
+                            Aspekt
+                            <select name="aspect">
+                                <option value="">Wszystkie</option>
+                                <option value="%s"%s>Brak aspektu</option>
+                                %s
+                            </select>
+                        </label>
+                        <label>
+                            Affix
+                            <select name="affix">
+                                <option value="">Wszystkie</option>
+                                %s
+                            </select>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="greater" value="true"%s> Tylko itemy z Greater Affix
+                        </label>
+                        <div class="submit-row">
+                            <button type="submit">Filtruj</button>
+                            <a class="nav-link secondary-link" href="/biblioteka-itemow">Wyczyść filtry</a>
+                        </div>
+                    </form>
+                    <p class="helper">Znaleziono %s%s.</p>
+                </section>
+                """.formatted(
+                escapeHtml(filter.getQuery()),
+                renderSlotFilterOptions(filter.getSlot()),
+                renderItemTypeFilterOptions(model.getAvailableItemTypes(), filter.getItemType()),
+                renderStatusFilterOptions(filter.getStatus()),
+                ItemLibraryFilter.ASPECT_NONE,
+                ItemLibraryFilter.ASPECT_NONE.equals(filter.getAspect()) ? " selected" : "",
+                renderAspectFilterOptions(filter.getAspect()),
+                renderAffixFilterOptions(filter.getAffix()),
+                filter.isGreaterOnly() ? " checked" : "",
+                model.getSavedItems().size(),
+                resultCountLabel(model.getSavedItems().size())
+        );
+    }
+
+    private static String renderSlotFilterOptions(String selectedSlot) {
+        StringBuilder html = new StringBuilder();
+        for (EquipmentSlot slot : EquipmentSlot.values()) {
+            html.append("<option value=\"")
+                    .append(slot.name())
+                    .append("\"")
+                    .append(slot.name().equals(selectedSlot) ? " selected" : "")
+                    .append(">")
+                    .append(escapeHtml(ItemLibraryPresentationSupport.slotDisplayName(slot)))
+                    .append("</option>");
+        }
+        return html.toString();
+    }
+
+    private static String renderItemTypeFilterOptions(List<String> itemTypes, String selectedItemType) {
+        StringBuilder html = new StringBuilder();
+        for (String itemType : itemTypes) {
+            html.append("<option value=\"")
+                    .append(escapeHtml(itemType))
+                    .append("\"")
+                    .append(itemType.equals(selectedItemType) ? " selected" : "")
+                    .append(">")
+                    .append(escapeHtml(itemType))
+                    .append("</option>");
+        }
+        return html.toString();
+    }
+
+    private static String renderStatusFilterOptions(String selectedStatus) {
+        return renderFilterOption("", "Wszystkie", selectedStatus.isBlank())
+                + renderFilterOption("used", "Założone", "used".equals(selectedStatus))
+                + renderFilterOption("unused", "Nieużywane", "unused".equals(selectedStatus));
+    }
+
+    private static String renderAspectFilterOptions(String selectedAspect) {
+        StringBuilder html = new StringBuilder();
+        for (AspectDefinition aspect : ASPECT_REGISTRY.all()) {
+            html.append("<option value=\"")
+                    .append(escapeHtml(aspect.getId()))
+                    .append("\"")
+                    .append(aspect.getId().equals(selectedAspect) ? " selected" : "")
+                    .append(">")
+                    .append(escapeHtml(aspect.getDisplayName()))
+                    .append("</option>");
+        }
+        return html.toString();
+    }
+
+    private static String renderAffixFilterOptions(String selectedAffix) {
+        StringBuilder html = new StringBuilder();
+        for (ImportedItemAffixType type : ImportedItemAffixType.values()) {
+            html.append("<option value=\"")
+                    .append(type.name())
+                    .append("\"")
+                    .append(type.name().equals(selectedAffix) ? " selected" : "")
+                    .append(">")
+                    .append(escapeHtml(type.getDisplayName()))
+                    .append("</option>");
+        }
+        return html.toString();
+    }
+
+    private static String renderFilterOption(String value, String label, boolean selected) {
+        return "<option value=\"" + escapeHtml(value) + "\"" + (selected ? " selected" : "") + ">"
+                + escapeHtml(label)
+                + "</option>";
+    }
+
+    private static String renderFilterHiddenFields(ItemLibraryFilter filter) {
+        StringBuilder html = new StringBuilder();
+        appendHiddenFilter(html, "q", filter.getQuery());
+        appendHiddenFilter(html, "slot", filter.getSlot());
+        appendHiddenFilter(html, "type", filter.getItemType());
+        appendHiddenFilter(html, "status", filter.getStatus());
+        appendHiddenFilter(html, "aspect", filter.getAspect());
+        appendHiddenFilter(html, "affix", filter.getAffix());
+        if (filter.isGreaterOnly()) {
+            appendHiddenFilter(html, "greater", "true");
+        }
+        return html.toString();
+    }
+
+    private static void appendHiddenFilter(StringBuilder html, String name, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        html.append("<input type=\"hidden\" name=\"")
+                .append(escapeHtml(name))
+                .append("\" value=\"")
+                .append(escapeHtml(value))
+                .append("\">");
+    }
+
+    private static String buildEditItemUrl(ItemLibraryPageModel model, SavedImportedItem item) {
+        String filterQuery = buildFilterQuery(model.getFilter());
+        String url = "/biblioteka-itemow/edytuj?itemId=" + item.getItemId();
+        if (!filterQuery.isBlank()) {
+            url += "&" + filterQuery;
+        }
+        return url;
+    }
+
+    private static String buildFilterQuery(ItemLibraryFilter filter) {
+        List<String> parts = new ArrayList<>();
+        appendQueryPart(parts, "q", filter.getQuery());
+        appendQueryPart(parts, "slot", filter.getSlot());
+        appendQueryPart(parts, "type", filter.getItemType());
+        appendQueryPart(parts, "status", filter.getStatus());
+        appendQueryPart(parts, "aspect", filter.getAspect());
+        appendQueryPart(parts, "affix", filter.getAffix());
+        if (filter.isGreaterOnly()) {
+            appendQueryPart(parts, "greater", "true");
+        }
+        return String.join("&", parts);
+    }
+
+    private static void appendQueryPart(List<String> parts, String name, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        parts.add(encodeUrl(name) + "=" + encodeUrl(value));
+    }
+
+    private static String encodeUrl(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private static String resultCountLabel(int count) {
+        return count == 1 ? " item" : " itemy";
     }
 
     private static String renderSummaryCard(String label, String value) {

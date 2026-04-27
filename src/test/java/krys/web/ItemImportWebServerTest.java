@@ -230,7 +230,7 @@ class ItemImportWebServerTest {
         assertTrue(libraryResponse.body().contains("Załóż bohaterowi: Broń"));
         assertTrue(libraryResponse.body().contains("Pełniejszy odczyt itemu"));
         assertTrue(libraryResponse.body().contains("Młot Importera"));
-        assertTrue(libraryResponse.body().contains("Aspekt testowego impetu"));
+        assertFalse(libraryResponse.body().contains("Aspekt testowego impetu"));
     }
 
     @Test
