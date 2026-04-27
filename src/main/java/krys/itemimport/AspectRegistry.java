@@ -1,10 +1,8 @@
 package krys.itemimport;
 
-import krys.hero.HeroClass;
 import krys.item.EquipmentSlot;
 
 import java.text.Normalizer;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -14,15 +12,7 @@ public final class AspectRegistry {
     private final List<AspectDefinition> definitions;
 
     public AspectRegistry() {
-        this(List.of(
-                new AspectDefinition(
-                        "inner-calm",
-                        "Aspekt Wewnętrznego Spokoju",
-                        EnumSet.of(EquipmentSlot.OFF_HAND),
-                        EnumSet.of(HeroClass.PALADIN),
-                        List.of("legendary", "damage")
-                )
-        ));
+        this(ApplicationAspectRegistry.seedDefinitions());
     }
 
     public AspectRegistry(List<AspectDefinition> definitions) {

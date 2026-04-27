@@ -320,6 +320,35 @@
         form.addEventListener('submit', renumberRows);
     }
 })();
+
+(() => {
+    const slotSelect = document.getElementById('itemSlotSelect');
+    const aspectSelect = document.getElementById('aspectSelect');
+    if (!slotSelect || !aspectSelect) {
+        return;
+    }
+
+    const refreshAspectOptions = () => {
+        const slot = slotSelect.value;
+        Array.from(aspectSelect.options).forEach(option => {
+            if (!option.value) {
+                option.hidden = false;
+                option.disabled = false;
+                return;
+            }
+            const allowedSlots = (option.dataset.allowedSlots || '').split(',').filter(Boolean);
+            const allowed = allowedSlots.includes(slot);
+            option.hidden = !allowed;
+            option.disabled = !allowed;
+            if (!allowed && option.selected) {
+                aspectSelect.value = '';
+            }
+        });
+    };
+
+    slotSelect.addEventListener('change', refreshAspectOptions);
+    refreshAspectOptions();
+})();
 </script>
 </body>
 </html>

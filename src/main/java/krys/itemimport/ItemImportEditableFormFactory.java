@@ -7,7 +7,15 @@ import java.util.Locale;
 /** Buduje formularz ręcznego potwierdzenia z wstępnie rozpoznanych pól. */
 public final class ItemImportEditableFormFactory {
     private final ImportedItemAffixExtractor affixExtractor = new ImportedItemAffixExtractor();
-    private final AspectRegistry aspectRegistry = new AspectRegistry();
+    private final AspectRegistry aspectRegistry;
+
+    public ItemImportEditableFormFactory() {
+        this(ApplicationAspectRegistry.get());
+    }
+
+    ItemImportEditableFormFactory(AspectRegistry aspectRegistry) {
+        this.aspectRegistry = aspectRegistry;
+    }
 
     public ItemImportEditableForm create(ItemImageImportCandidateParseResult parseResult) {
         ItemImportDraft draft = createDraft(parseResult);

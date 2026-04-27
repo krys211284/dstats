@@ -2,6 +2,7 @@ package krys.web;
 
 import krys.item.EquipmentSlot;
 import krys.item.HeroEquipmentSlot;
+import krys.itemimport.ApplicationAspectRegistry;
 import krys.itemimport.AspectDefinition;
 import krys.itemimport.AspectRegistry;
 import krys.itemimport.FullItemRead;
@@ -19,7 +20,7 @@ import java.util.List;
 
 /** Renderuje SSR biblioteki itemów jako przegląd zapisanych itemów nad current build. */
 public final class ItemLibraryPageRenderer {
-    private static final AspectRegistry ASPECT_REGISTRY = new AspectRegistry();
+    private static final AspectRegistry ASPECT_REGISTRY = ApplicationAspectRegistry.get();
     private final String template;
 
     public ItemLibraryPageRenderer() {
@@ -270,10 +271,15 @@ public final class ItemLibraryPageRenderer {
     private static List<String> collectAspectLines(SavedImportedItem item, FullItemRead fullItemRead) {
         List<String> lines = new ArrayList<>();
         if (!item.getSelectedAspectId().isBlank()) {
-            String aspectLabel = ASPECT_REGISTRY.findById(item.getSelectedAspectId())
-                    .map(AspectDefinition::getDisplayName)
-                    .orElse(item.getSelectedAspectId());
-            addUnique(lines, "Wybrany aspekt: " + aspectLabel);
+            AspectDefinition aspect = ASPECT_REGISTRY.findById(item.getSelectedAspectId()).orElse(null);
+            if (aspect == null) {
+                addUnique(lines, "Wybrany aspekt: " + item.getSelectedAspectId());
+            } else {
+                addUnique(lines, "Wybrany aspekt: " + aspect.getDisplayName());
+                addUnique(lines, "Opis aspektu: " + aspect.getEffectDescription());
+            }
+        } else {
+            addUnique(lines, "Brak wybranego aspektu.");
         }
         for (String effectLine : ItemAspectEffectPresentation.effectLines(fullItemRead)) {
             addUnique(lines, effectLine);

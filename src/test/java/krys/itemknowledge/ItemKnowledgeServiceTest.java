@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /** Testuje uczenie bazy wiedzy wyłącznie z zatwierdzonych itemów. */
 class ItemKnowledgeServiceTest {
@@ -36,7 +37,7 @@ class ItemKnowledgeServiceTest {
         assertEquals(2, entry.getAffixTypeCounts().get(ImportedItemAffixType.STRENGTH));
         assertEquals(2, entry.getAffixTypeCounts().get(ImportedItemAffixType.THORNS));
         assertEquals(2, entry.getAffixTypeCounts().get(ImportedItemAffixType.LUCKY_HIT_CHANCE));
-        assertEquals(2, entry.getAspectCounts().get("Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"));
+        assertEquals(2, entry.getAspectCounts().get("inner-calm"));
 
         ItemKnowledgeSnapshot resetSnapshot = service.resetKnowledge("Sezon testowy");
 
@@ -44,6 +45,18 @@ class ItemKnowledgeServiceTest {
         assertEquals("Sezon testowy", resetSnapshot.getActiveEpoch().label());
         assertEquals(0, resetSnapshot.getEntryCount());
         assertEquals(0, resetSnapshot.getItemObservationCount());
+    }
+
+    @Test
+    void shouldNotLearnArbitraryAspectFromRawOcrWhenSelectedAspectIsEmpty() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-knowledge-service-no-aspect");
+        ItemKnowledgeService service = new ItemKnowledgeService(new FileItemKnowledgeRepository(tempDirectory));
+
+        service.learnFromConfirmedItem(shieldItemWithoutSelectedAspect(), shieldRead());
+
+        ItemKnowledgeEntry entry = service.getSnapshot().getEntries().getFirst();
+        assertEquals(0, entry.getTotalAspectObservations());
+        assertFalse(entry.getAspectCounts().containsKey("Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"));
     }
 
     private static ValidatedImportedItem shieldItem() {
@@ -60,7 +73,23 @@ class ItemKnowledgeServiceTest {
                         new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 114.0d, "+114 siły [107 - 121]"),
                         new ImportedItemAffix(ImportedItemAffixType.THORNS, 494.0d, "+494 cierni [473 - 506]"),
                         new ImportedItemAffix(ImportedItemAffixType.LUCKY_HIT_CHANCE, 7.0d, "+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%")
-                )
+                ),
+                "inner-calm"
+        );
+    }
+
+    private static ValidatedImportedItem shieldItemWithoutSelectedAspect() {
+        return new ValidatedImportedItem(
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                114.0d,
+                0.0d,
+                494.0d,
+                20.0d,
+                0.0d,
+                List.of(new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 114.0d, "+114 siły [107 - 121]")),
+                ""
         );
     }
 

@@ -3,6 +3,7 @@ package krys.web;
 import krys.item.EquipmentSlot;
 import krys.item.HeroEquipmentSlot;
 import krys.item.ItemStat;
+import krys.itemimport.ApplicationAspectRegistry;
 import krys.itemimport.AspectDefinition;
 import krys.itemimport.AspectRegistry;
 import krys.itemimport.FullItemRead;
@@ -29,7 +30,7 @@ import java.util.Locale;
 /** Renderuje prosty SSR dla flow importu pojedynczego itemu ze screena z ręcznym zatwierdzeniem. */
 public final class ItemImportPageRenderer {
     private final String template;
-    private static final AspectRegistry ASPECT_REGISTRY = new AspectRegistry();
+    private static final AspectRegistry ASPECT_REGISTRY = ApplicationAspectRegistry.get();
 
     public ItemImportPageRenderer() {
         this.template = loadTemplate();
@@ -484,6 +485,9 @@ public final class ItemImportPageRenderer {
                             </label>
                         </div>
                         <button type="button" id="addAffixButton">Dodaj affix</button>
+                        <noscript>
+                            <button type="submit" name="formAction" value="addAffix">Dodaj affix</button>
+                        </noscript>
                     </div>
                     <template id="affixRowTemplate">
                         <tr>
@@ -504,38 +508,93 @@ public final class ItemImportPageRenderer {
 
     private static String renderAspectSelect(ItemImportEditableForm form) {
         EquipmentSlot selectedSlot = parseSlot(form.getSlot());
-        List<AspectDefinition> allowedAspects = ASPECT_REGISTRY.allowedForSlot(selectedSlot);
         String selectedAspectId = form.getSelectedAspectId();
+        AspectDefinition selectedAspect = selectedAspectId == null || selectedAspectId.isBlank()
+                ? null
+                : ASPECT_REGISTRY.findById(selectedAspectId).orElse(null);
+        boolean selectedAspectKnown = selectedAspectId != null
+                && !selectedAspectId.isBlank()
+                && selectedAspect != null;
+        boolean selectedAspectAllowed = selectedAspectKnown
+                && selectedAspect.allowsSlot(selectedSlot);
         StringBuilder html = new StringBuilder("""
                 <label>
                     Aspekt
-                    <select name="selectedAspectId">
-                        <option value="">Brak wybranego aspektu</option>
-                """);
-        for (AspectDefinition aspect : allowedAspects) {
+                    <select name="selectedAspectId" id="aspectSelect">
+                        <option value="%s"%s>Brak wybranego aspektu</option>
+                """.formatted("", selectedAspectId == null || selectedAspectId.isBlank() ? " selected" : ""));
+        for (AspectDefinition aspect : ASPECT_REGISTRY.all()) {
+            boolean allowed = selectedSlot != null && aspect.allowsSlot(selectedSlot);
+            boolean selected = aspect.getId().equals(selectedAspectId);
             html.append("<option value=\"")
                     .append(escapeHtml(aspect.getId()))
                     .append("\"")
-                    .append(aspect.getId().equals(selectedAspectId) ? " selected" : "")
+                    .append(" data-allowed-slots=\"")
+                    .append(escapeHtml(allowedSlotNames(aspect)))
+                    .append("\"")
+                    .append(selected ? " selected" : "")
+                    .append(!allowed && !selected ? " disabled hidden" : "")
                     .append(">")
                     .append(escapeHtml(aspect.getDisplayName()))
+                    .append(selected && !allowed ? " (niezgodny ze slotem)" : "")
                     .append("</option>");
         }
         html.append("""
                     </select>
                 """);
+        if (selectedAspect != null) {
+            html.append("<span class=\"helper\">Wybrany aspekt: ")
+                    .append(escapeHtml(selectedAspect.getDisplayName()))
+                    .append("</span><span class=\"helper\">Opis aspektu: ")
+                    .append(escapeHtml(selectedAspect.getEffectDescription()))
+                    .append("</span>");
+        } else {
+            html.append("<span class=\"helper\">Brak wybranego aspektu.</span>");
+        }
         if (!form.getOcrSuggestedAspectId().isBlank()) {
             String suggestionLabel = ASPECT_REGISTRY.findById(form.getOcrSuggestedAspectId())
                     .map(AspectDefinition::getDisplayName)
                     .orElse(form.getOcrSuggestedAspectId());
             html.append("<span class=\"helper\">Sugestia OCR: ")
                     .append(escapeHtml(suggestionLabel))
-                    .append(" (")
+                    .append("</span><span class=\"helper\">Pewność OCR sugestii: ")
                     .append(escapeHtml(form.getOcrAspectConfidence().getDisplayName()))
-                    .append(")</span>");
+                    .append(". Dopasowano w katalogu aspektów.</span>");
+        } else if (hasAspectText(form.getFullItemRead())) {
+            html.append("<span class=\"helper\">OCR wykrył tekst aspektu, ale nie znaleziono dopasowania w katalogu aspektów. Wybierz ręcznie albo zostaw brak.</span>");
+        }
+        if (selectedAspectKnown && !selectedAspectAllowed) {
+            html.append("<span class=\"helper\">Wybrany aspekt nie pasuje do obecnego slotu itemu i wymaga zmiany przed zapisem.</span>");
+        }
+        for (String effectLine : ItemAspectEffectPresentation.effectLines(form.getFullItemRead())) {
+            html.append("<span class=\"helper\">")
+                    .append(escapeHtml(effectLine))
+                    .append("</span>");
         }
         html.append("</label>");
         return html.toString();
+    }
+
+    private static String allowedSlotNames(AspectDefinition aspect) {
+        return aspect.getAllowedItemSlots().stream()
+                .map(EquipmentSlot::name)
+                .sorted()
+                .reduce("", (left, right) -> left.isBlank() ? right : left + "," + right);
+    }
+
+    private static boolean hasAspectText(FullItemRead fullItemRead) {
+        if (fullItemRead == null || !fullItemRead.hasAnyData()) {
+            return false;
+        }
+        for (FullItemReadLine line : fullItemRead.getLines()) {
+            String normalized = normalizeForDisplayRules(line.getText());
+            if (line.getType() == FullItemReadLineType.ASPECT
+                    || normalized.contains("ZADAJESZ OBRAZENIA ZWIEKSZONE")
+                    || normalized.contains("TA PREMIA JEST")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String selectedAspectLabel(String selectedAspectId) {
@@ -609,7 +668,7 @@ public final class ItemImportPageRenderer {
         StringBuilder html = new StringBuilder("""
                 <label>
                     Slot ekwipunku
-                    <select name="slot">
+                    <select name="slot" id="itemSlotSelect">
                 """);
         html.append(renderSlotOption("", "Wybierz slot", selectedSlot == null || selectedSlot.isBlank()));
         for (EquipmentSlot slot : EquipmentSlot.values()) {

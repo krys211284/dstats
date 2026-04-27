@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.StringJoiner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Testuje minimalny UI bazy wiedzy i uczenie po zatwierdzonym imporcie. */
@@ -68,7 +69,8 @@ class ItemKnowledgeWebServerTest {
         assertTrue(learnedKnowledge.body().contains("Siła"));
         assertTrue(learnedKnowledge.body().contains("Ciernie"));
         assertTrue(learnedKnowledge.body().contains("Szansa na szczęśliwy traf"));
-        assertTrue(learnedKnowledge.body().contains("Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"));
+        assertTrue(learnedKnowledge.body().contains("inner-calm"));
+        assertFalse(learnedKnowledge.body().contains("Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"));
         assertTrue(learnedKnowledge.body().contains("<div class=\"summary-value\">1</div>"));
 
         HttpResponse<String> resetResponse = sendUrlEncodedPost("/baza-wiedzy-itemow", Map.of(
@@ -107,6 +109,9 @@ class ItemKnowledgeWebServerTest {
         fields.put("retributionChance", "0");
         fields.put("fullItemRead", fullShieldRead);
         fields.put("currentBuildQuery", "");
+        fields.put("selectedAspectId", "inner-calm");
+        fields.put("ocrSuggestedAspectId", "inner-calm");
+        fields.put("ocrAspectConfidence", "HIGH");
         fields.put("affixCount", "3");
         fields.put("affixType_0", "STRENGTH");
         fields.put("affixValue_0", "114");

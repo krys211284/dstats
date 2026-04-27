@@ -11,7 +11,7 @@ public final class ItemImportFormMapper {
     private final AspectRegistry aspectRegistry;
 
     public ItemImportFormMapper() {
-        this(new AspectRegistry());
+        this(ApplicationAspectRegistry.get());
     }
 
     ItemImportFormMapper(AspectRegistry aspectRegistry) {

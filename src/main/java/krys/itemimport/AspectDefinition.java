@@ -11,12 +11,14 @@ import java.util.Set;
 public final class AspectDefinition {
     private final String id;
     private final String displayName;
+    private final String effectDescription;
     private final Set<EquipmentSlot> allowedItemSlots;
     private final Set<HeroClass> heroClasses;
     private final List<String> tags;
 
     public AspectDefinition(String id,
                             String displayName,
+                            String effectDescription,
                             Set<EquipmentSlot> allowedItemSlots,
                             Set<HeroClass> heroClasses,
                             List<String> tags) {
@@ -26,11 +28,15 @@ public final class AspectDefinition {
         if (displayName == null || displayName.isBlank()) {
             throw new IllegalArgumentException("Nazwa aspektu jest wymagana.");
         }
+        if (effectDescription == null || effectDescription.isBlank()) {
+            throw new IllegalArgumentException("Opis efektu aspektu jest wymagany.");
+        }
         if (allowedItemSlots == null || allowedItemSlots.isEmpty()) {
             throw new IllegalArgumentException("Aspekt musi mieć co najmniej jeden dozwolony slot.");
         }
         this.id = id;
         this.displayName = displayName;
+        this.effectDescription = effectDescription;
         this.allowedItemSlots = EnumSet.copyOf(allowedItemSlots);
         this.heroClasses = heroClasses == null || heroClasses.isEmpty()
                 ? EnumSet.noneOf(HeroClass.class)
@@ -44,6 +50,10 @@ public final class AspectDefinition {
 
     public String getDisplayName() {
         return displayName;
+    }
+
+    public String getEffectDescription() {
+        return effectDescription;
     }
 
     public Set<EquipmentSlot> getAllowedItemSlots() {

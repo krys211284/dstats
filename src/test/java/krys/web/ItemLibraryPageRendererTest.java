@@ -82,7 +82,8 @@ class ItemLibraryPageRendererTest {
         assertTrue(html.contains("* 13,2% redukcji czasu odnowienia"));
         assertTrue(html.contains("+114 siły [107 - 121]"));
         assertTrue(html.contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
-        assertTrue(html.contains("Efekt OCR: Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]% Ta premia jest trzy razy większa"));
+        assertTrue(html.contains("Opis aspektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
+        assertTrue(html.contains("Odczyt OCR efektu: Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]% Ta premia jest trzy razy większa"));
         assertTrue(html.contains("Ta premia jest trzy razy większa"));
         assertFalse(html.contains("Affix: 45% redukcji blokowanych obrażeń"));
         assertFalse(html.contains("Affix: 20,0% szansy na blok"));
@@ -126,6 +127,7 @@ class ItemLibraryPageRendererTest {
         String html = render(List.of(shield));
 
         assertTrue(html.contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
+        assertTrue(html.contains("Opis aspektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
         assertTrue(html.contains("Odczyt efektu OCR niepełny / wymaga ręcznej weryfikacji."));
         assertFalse(html.contains("<li>Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek.</li>"));
     }
@@ -173,10 +175,43 @@ class ItemLibraryPageRendererTest {
         assertTrue(html.contains("Affixy"));
         assertTrue(html.contains("* +12,5% szybkości ruchu"));
         assertTrue(html.contains("* +7,0% uniku"));
+        assertTrue(html.contains("Brak wybranego aspektu."));
         assertTrue(html.contains("Socket / gniazdo"));
         assertTrue(html.contains("2 gniazda"));
         assertFalse(html.contains("Affix: 354 pkt. pancerza"));
         assertFalse(html.contains("Projekcja do aktualnego runtime"));
+    }
+
+    @Test
+    void shouldShowNoSelectedAspectButKeepRawOcrEffectAsHelperRead() {
+        SavedImportedItem item = new SavedImportedItem(
+                1L,
+                "Ręka dodatkowa / unknown.png",
+                "unknown.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                new FullItemRead(
+                        "Tarcza testowa",
+                        "Tarcza",
+                        "Legendarny",
+                        "Moc przedmiotu: 800",
+                        "1 131 pkt. pancerza",
+                        List.of(new FullItemReadLine(FullItemReadLineType.ASPECT, "Aspekt zupełnie nieznany z OCR"))
+                ),
+                List.of(),
+                ""
+        );
+
+        String html = render(List.of(item));
+
+        assertTrue(html.contains("Brak wybranego aspektu."));
+        assertTrue(html.contains("Odczyt OCR efektu: Aspekt zupełnie nieznany z OCR"));
+        assertFalse(html.contains("Wybrany aspekt: Aspekt zupełnie nieznany z OCR"));
     }
 
     private static String render(List<SavedImportedItem> items) {

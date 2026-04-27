@@ -88,4 +88,34 @@ class ItemImportEditableFormFactoryTest {
             assertEquals(true, affix.isGreaterAffix());
         }
     }
+
+    @Test
+    void shouldKeepUnknownOcrAspectAsSuggestionMissWithoutSelectingFinalAspect() {
+        ItemImageImportCandidateParseResult parseResult = new ItemImageImportCandidateParseResult(
+                new ItemImageMetadata("unknown.png", "image/png", "PNG", 1200, 800),
+                new FullItemRead(
+                        "Tarcza testowa",
+                        "Tarcza",
+                        "Legendarny",
+                        "800 mocy przedmiotu",
+                        "1 131 pkt. pancerza",
+                        java.util.List.of(new FullItemReadLine(FullItemReadLineType.ASPECT, "Aspekt zupełnie nieznany z OCR"))
+                ),
+                new ItemImportFieldCandidate<>("OFF_HAND", EquipmentSlot.OFF_HAND, ItemImportFieldConfidence.MEDIUM, "slot"),
+                ItemImportFieldCandidate.unknown("weapon"),
+                ItemImportFieldCandidate.unknown("str"),
+                ItemImportFieldCandidate.unknown("int"),
+                ItemImportFieldCandidate.unknown("thorns"),
+                ItemImportFieldCandidate.unknown("block"),
+                ItemImportFieldCandidate.unknown("retribution"),
+                "Import wspomagany"
+        );
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
+
+        assertEquals("", form.getOcrSuggestedAspectId());
+        assertEquals(ItemImportFieldConfidence.UNKNOWN, form.getOcrAspectConfidence());
+        assertEquals("", form.getSelectedAspectId());
+        assertEquals("Aspekt zupełnie nieznany z OCR", form.getFullItemRead().getLines().getFirst().getText());
+    }
 }

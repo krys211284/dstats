@@ -75,11 +75,17 @@ class ItemImportPageRendererTest {
         assertTrue(html.contains("name=\"affixValue_1\" value=\"494\""));
         assertTrue(html.contains("Dodaj affix"));
         assertTrue(html.contains("type=\"button\" id=\"addAffixButton\""));
+        assertTrue(html.contains("<noscript>"));
+        assertTrue(html.contains("name=\"formAction\" value=\"addAffix\""));
         assertTrue(html.contains("name=\"newAffixType\""));
         assertTrue(html.contains("name=\"newAffixValue\""));
         assertTrue(html.contains("Aspekt Wewnętrznego Spokoju"));
         assertFalse(html.contains(">Aspekt Wewnętrznego Spokoju (wysoka)<"));
+        assertTrue(html.contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
+        assertTrue(html.contains("Opis aspektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
         assertTrue(html.contains("Sugestia OCR: Aspekt Wewnętrznego Spokoju"));
+        assertTrue(html.contains("Pewność OCR sugestii: wysoka"));
+        assertTrue(html.contains("Dopasowano w katalogu aspektów."));
         assertTrue(html.contains("wysoka"));
         assertFalse(html.contains("Projekcja do aktualnego runtime"));
         assertFalse(html.contains("Mapowanie do aktualnego modelu buildu"));
@@ -204,9 +210,53 @@ class ItemImportPageRendererTest {
                 ""
         ));
 
-        assertTrue(html.contains("Efekt OCR: Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]% Ta premia jest trzy razy większa"));
+        assertTrue(html.contains("Opis aspektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
+        assertTrue(html.contains("Odczyt OCR efektu: Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]% Ta premia jest trzy razy większa"));
         assertFalse(html.contains("Zadajesz obrażenia zwiększone o [5,0 - Ta premia"));
-        assertEquals(1, countOccurrences(html, "Ta premia jest trzy razy większa"));
+        assertEquals(2, countOccurrences(html, "Ta premia jest trzy razy większa"));
+        assertFalse(html.contains("Opis aspektu: Zadajesz obrażenia zwiększone o 11,0%"));
+    }
+
+    @Test
+    void shouldRenderUnknownAspectRegistryMessageWhenOcrTextHasNoMatch() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "unknown.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                new FullItemRead(
+                        "Tarcza testowa",
+                        "Tarcza",
+                        "Legendarny",
+                        "Moc przedmiotu: 800",
+                        "1 131 pkt. pancerza",
+                        List.of(new FullItemReadLine(FullItemReadLineType.ASPECT, "Aspekt zupełnie nieznany z OCR"))
+                ),
+                List.of(),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                ""
+        );
+        HeroProfile activeHero = new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty());
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                null,
+                List.of(),
+                null,
+                activeHero,
+                "Import testowy",
+                ""
+        ));
+
+        assertTrue(html.contains("OCR wykrył tekst aspektu, ale nie znaleziono dopasowania w katalogu aspektów. Wybierz ręcznie albo zostaw brak."));
+        assertTrue(html.contains("Brak wybranego aspektu."));
+        assertTrue(html.contains("Odczyt OCR efektu: Aspekt zupełnie nieznany z OCR"));
+        assertTrue(html.contains("<option value=\"\" selected"));
     }
 
     private static int countOccurrences(String value, String needle) {

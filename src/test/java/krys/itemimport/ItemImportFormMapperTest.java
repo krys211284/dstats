@@ -138,4 +138,28 @@ class ItemImportFormMapperTest {
         assertNull(result.getItem());
         assertTrue(result.getErrors().contains("Wybrany aspekt nie pasuje do slotu itemu."));
     }
+
+    @Test
+    void shouldRejectAspectWhenSlotWasChangedToIncompatibleOne() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "tarcza.png",
+                "BOOTS",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(),
+                "inner-calm",
+                ItemImportFieldConfidence.HIGH,
+                "inner-calm"
+        );
+
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+
+        assertNull(result.getItem());
+        assertTrue(result.getErrors().contains("Wybrany aspekt nie pasuje do slotu itemu."));
+    }
 }

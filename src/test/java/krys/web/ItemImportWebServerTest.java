@@ -113,7 +113,8 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("name=\"newAffixType\""));
         assertTrue(response.body().contains("name=\"newAffixValue\""));
         assertTrue(response.body().contains("type=\"button\" id=\"addAffixButton\""));
-        assertFalse(response.body().contains("name=\"formAction\" value=\"addAffix\""));
+        assertTrue(response.body().contains("<noscript>"));
+        assertTrue(response.body().contains("name=\"formAction\" value=\"addAffix\""));
         assertTrue(response.body().contains("name=\"formAction\" value=\"confirmItem\""));
         assertFalse(response.body().contains("Projekcja do aktualnego runtime"));
     }
@@ -479,6 +480,39 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("Affix #5"));
         assertTrue(response.body().contains("name=\"affixType_0\""));
         assertTrue(response.body().contains("name=\"affixValue_0\" value=\"494\""));
+        assertFalse(response.body().contains("Zatwierdzony item zapisany do biblioteki"));
+
+        HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow");
+        assertTrue(libraryResponse.body().contains("Biblioteka jest pusta"));
+    }
+
+    @Test
+    void shouldRejectSelectedAspectThatDoesNotMatchChangedSlot() throws Exception {
+        createHero("Importer", "13");
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("sourceImageName", "buty.png");
+        fields.put("slot", "BOOTS");
+        fields.put("weaponDamage", "0");
+        fields.put("fullItemRead", FullItemReadFormCodec.encode(new FullItemRead(
+                "Buty testowe",
+                "Buty",
+                "Legendarny",
+                "Moc przedmiotu: 800",
+                "354 pkt. pancerza",
+                List.of(new FullItemReadLine(FullItemReadLineType.ASPECT, "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"))
+        )));
+        fields.put("currentBuildQuery", "");
+        fields.put("formAction", "confirmItem");
+        fields.put("selectedAspectId", "inner-calm");
+        fields.put("ocrSuggestedAspectId", "inner-calm");
+        fields.put("ocrAspectConfidence", "HIGH");
+        fields.put("affixCount", "0");
+
+        HttpResponse<String> response = sendUrlEncodedPost("/importuj-item-ze-screena", fields);
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Wybrany aspekt nie pasuje do slotu itemu."));
+        assertTrue(response.body().contains("Wybrany aspekt nie pasuje do obecnego slotu itemu"));
         assertFalse(response.body().contains("Zatwierdzony item zapisany do biblioteki"));
 
         HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow");

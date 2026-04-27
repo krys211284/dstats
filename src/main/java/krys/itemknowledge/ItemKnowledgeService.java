@@ -2,8 +2,6 @@ package krys.itemknowledge;
 
 import krys.item.EquipmentSlot;
 import krys.itemimport.FullItemRead;
-import krys.itemimport.FullItemReadLine;
-import krys.itemimport.FullItemReadLineType;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ValidatedImportedItem;
@@ -38,7 +36,7 @@ public final class ItemKnowledgeService {
         }
         ItemKnowledgeEntry updatedEntry = entriesByKey
                 .getOrDefault(key, ItemKnowledgeEntry.empty(key))
-                .withObservation(affixObservationCounts(importedItem), aspectObservationCounts(safeRead));
+                .withObservation(affixObservationCounts(importedItem), aspectObservationCounts(importedItem));
         entriesByKey.put(key, updatedEntry);
 
         ItemKnowledgeSnapshot updatedSnapshot = new ItemKnowledgeSnapshot(snapshot.getActiveEpoch(), entriesByKey.values().stream().toList());
@@ -61,12 +59,11 @@ public final class ItemKnowledgeService {
         return counts;
     }
 
-    private static Map<String, Integer> aspectObservationCounts(FullItemRead fullItemRead) {
+    private static Map<String, Integer> aspectObservationCounts(ValidatedImportedItem importedItem) {
         Map<String, Integer> counts = new LinkedHashMap<>();
-        for (FullItemReadLine line : fullItemRead.getLines()) {
-            if (line.getType() == FullItemReadLineType.ASPECT && line.getText() != null && !line.getText().isBlank()) {
-                counts.merge(line.getText(), 1, Integer::sum);
-            }
+        String selectedAspectId = importedItem.getSelectedAspectId();
+        if (selectedAspectId != null && !selectedAspectId.isBlank()) {
+            counts.put(selectedAspectId, 1);
         }
         return counts;
     }

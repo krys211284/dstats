@@ -52,12 +52,12 @@ final class ItemAspectEffectPresentation {
         if (!safeHeads.isEmpty()) {
             String tail = tails.isEmpty() ? "" : tails.getFirst();
             for (String head : safeHeads) {
-                addUnique(result, "Efekt OCR: " + (tail.isBlank() ? head : head + " " + tail));
+                addUnique(result, "Odczyt OCR efektu: " + (tail.isBlank() ? head : head + " " + tail));
             }
             return result;
         }
         for (String effect : otherEffects) {
-            addUnique(result, "Efekt OCR: " + effect);
+            addUnique(result, "Odczyt OCR efektu: " + effect);
         }
         if (result.isEmpty() && (!tails.isEmpty() || skippedBrokenEffect)) {
             result.add(INCOMPLETE_EFFECT_MESSAGE);
