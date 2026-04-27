@@ -1,6 +1,8 @@
 package krys.web;
 
 import krys.item.EquipmentSlot;
+import krys.item.HeroEquipmentSlot;
+import krys.hero.HeroClass;
 import krys.itemimport.FullItemRead;
 import krys.itemimport.FullItemReadLine;
 import krys.itemimport.FullItemReadLineType;
@@ -11,6 +13,7 @@ import krys.itemlibrary.SavedImportedItem;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -67,6 +70,18 @@ class ItemLibraryPageRendererTest {
 
         String html = render(List.of(shield));
 
+        assertTrue(html.contains("<table class=\"data-table item-index-table\">"));
+        assertTrue(html.contains("<th>Item</th>"));
+        assertTrue(html.contains("<th>Slot / typ</th>"));
+        assertTrue(html.contains("<th>Aspekt</th>"));
+        assertTrue(html.contains("<th>Affixy</th>"));
+        assertTrue(html.contains("<th>Akcje</th>"));
+        assertFalse(html.contains("<th>GA</th>"));
+        assertFalse(html.contains("<th>Status</th>"));
+        assertFalse(html.contains("<th>Źródło</th>"));
+        assertEquals(1, countOccurrences(html, "class=\"item-index-row\""));
+        assertFalse(html.contains("class=\"item-card-grid\""));
+        assertTrue(html.contains("Szczegóły"));
         assertTrue(html.contains("Dane podstawowe"));
         assertTrue(html.contains("Base stats"));
         assertTrue(html.contains("Implicit / linie bazowe"));
@@ -80,7 +95,9 @@ class ItemLibraryPageRendererTest {
         assertTrue(html.contains("+494 cierni [473 - 506]"));
         assertTrue(html.contains("+7,0% szansy na szczęśliwy traf [7,0"));
         assertTrue(html.contains("* 13,2% redukcji czasu odnowienia"));
+        assertTrue(html.contains("★ 13,2% redukcji czasu odnowienia"));
         assertTrue(html.contains("+114 siły [107 - 121]"));
+        assertTrue(html.contains("Aspekt Wewnętrznego Spokoju"));
         assertTrue(html.contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
         assertTrue(html.contains("Opis aspektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
         assertFalse(html.contains("Odczyt OCR efektu:"));
@@ -177,6 +194,8 @@ class ItemLibraryPageRendererTest {
         assertTrue(html.contains("Affixy"));
         assertTrue(html.contains("* +12,5% szybkości ruchu"));
         assertTrue(html.contains("* +7,0% uniku"));
+        assertTrue(html.contains("★ +12,5% szybkości ruchu"));
+        assertTrue(html.contains("★ +7% uniku"));
         assertTrue(html.contains("Brak wybranego aspektu."));
         assertTrue(html.contains("Socket / gniazdo"));
         assertTrue(html.contains("2 gniazda"));
@@ -215,6 +234,41 @@ class ItemLibraryPageRendererTest {
         assertTrue(html.contains("Brak wybranego aspektu."));
         assertFalse(html.contains("Odczyt OCR efektu: Aspekt zupełnie nieznany z OCR"));
         assertFalse(html.contains("Wybrany aspekt: Aspekt zupełnie nieznany z OCR"));
+    }
+
+    @Test
+    void shouldShowActiveBadgeNearItemNameWithoutStatusColumn() {
+        SavedImportedItem shield = new SavedImportedItem(
+                1L,
+                "Ręka dodatkowa / tarcza.png",
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                new FullItemRead("Tarcza aktywna", "Tarcza", "Legendarny", "Moc przedmiotu: 800", "1 131 pkt. pancerza", List.of()),
+                List.of(),
+                ""
+        );
+        HeroItemSelection selection = new HeroItemSelection(Map.of(HeroEquipmentSlot.OFF_HAND, 1L));
+        HeroProfile hero = new HeroProfile(1L, "Tester", HeroClass.PALADIN, "level=13", selection);
+
+        String html = new ItemLibraryPageRenderer().render(new ItemLibraryPageModel(
+                List.of(shield),
+                hero,
+                selection,
+                List.of(),
+                List.of(),
+                "",
+                null
+        ));
+
+        assertTrue(html.contains("Tarcza aktywna"));
+        assertTrue(html.contains("<span class=\"status-badge status-active\">Założony</span>"));
+        assertFalse(html.contains("<th>Status</th>"));
     }
 
     private static String render(List<SavedImportedItem> items) {

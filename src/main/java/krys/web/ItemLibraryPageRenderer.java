@@ -120,22 +120,31 @@ public final class ItemLibraryPageRenderer {
         if (model.getSavedItems().isEmpty()) {
             return renderEmptyState(model);
         }
-        StringBuilder html = new StringBuilder("<div class=\"library-groups\">");
-        html.append("<p class=\"helper\">Znaleziono ")
+        StringBuilder html = new StringBuilder("<div class=\"library-index\">");
+        html.append("<p class=\"helper library-result-count\">Znaleziono ")
                 .append(model.getSavedItems().size())
                 .append(resultCountLabel(model.getSavedItems().size()))
                 .append(model.getFilter().isEmpty() ? "" : " z " + model.getTotalSavedItemCount())
-                .append(".</p>");
-        for (EquipmentSlot slot : EquipmentSlot.values()) {
-            List<SavedImportedItem> slotItems = model.getSavedItems().stream()
-                    .filter(item -> item.getSlot() == slot)
-                    .toList();
-            if (slotItems.isEmpty()) {
-                continue;
-            }
-            html.append(renderSlotGroup(model, slot, slotItems));
+                .append(".</p><div class=\"item-index-scroll\"><table class=\"data-table item-index-table\">")
+                .append("""
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Slot / typ</th>
+                                <th>Aspekt</th>
+                                <th>Affixy</th>
+                                <th>Akcje</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        """);
+        for (SavedImportedItem item : model.getSavedItems()) {
+            html.append(renderItemIndexRow(model, item));
         }
-        html.append("</div>");
+        html.append("""
+                        </tbody>
+                    </table></div></div>
+                """);
         return html.toString();
     }
 
@@ -158,56 +167,104 @@ public final class ItemLibraryPageRenderer {
                 """.formatted(escapeHtml(buildItemImportUrl(model.getCurrentBuildQuery())));
     }
 
-    private static String renderSlotGroup(ItemLibraryPageModel model, EquipmentSlot slot, List<SavedImportedItem> slotItems) {
-        String countLabel = slotItems.size() == 1 ? "1 item" : slotItems.size() + " itemy";
-        StringBuilder html = new StringBuilder("""
-                <section class="slot-group">
-                    <div class="slot-group-head">
-                        <div>
-                            <span class="section-kicker">Slot itemu</span>
-                            <h3>""")
-                .append(escapeHtml(ItemLibraryPresentationSupport.slotDisplayName(slot)))
-                .append("""
-                            </h3>
-                        </div>
-                        <span class="slot-count">""")
-                .append(escapeHtml(countLabel))
-                .append("""
-                        </span>
-                    </div>
-                    <div class="item-card-grid">
-                """);
-        for (SavedImportedItem item : slotItems) {
-            html.append(renderItemCard(model, item));
+    private static String renderItemIndexRow(ItemLibraryPageModel model, SavedImportedItem item) {
+        List<HeroEquipmentSlot> activeSlots = resolveActiveHeroSlots(model, item);
+        return new StringBuilder("<tr class=\"item-index-row")
+                .append(activeSlots.isEmpty() ? "" : " item-index-row-active")
+                .append("\" data-item-id=\"")
+                .append(item.getItemId())
+                .append("\"><td>")
+                .append(renderItemCell(item, activeSlots))
+                .append("</td><td>")
+                .append(renderSlotTypeCell(item))
+                .append("</td><td>")
+                .append(renderAspectSummary(item))
+                .append("</td><td>")
+                .append(renderAffixSummary(item))
+                .append("</td><td class=\"actions-cell\"><div class=\"item-actions\">")
+                .append(renderItemDetailsDisclosure(item))
+                .append(renderItemActions(model, item, activeSlots))
+                .append("</div></td></tr>")
+                .toString();
+    }
+
+    private static String renderItemCell(SavedImportedItem item, List<HeroEquipmentSlot> activeSlots) {
+        FullItemRead fullItemRead = item.getFullItemRead();
+        String itemName = fullItemRead != null && !fullItemRead.getItemName().isBlank()
+                ? fullItemRead.getItemName()
+                : item.getDisplayName();
+        List<String> meta = new ArrayList<>();
+        if (fullItemRead != null) {
+            String rarity = simplifyRarity(fullItemRead.getRarity());
+            String power = simplifyItemPower(fullItemRead.getItemPower());
+            if (!"Brak pewnego odczytu".equals(rarity)) {
+                meta.add(rarity);
+            }
+            if (!"Brak pewnego odczytu".equals(power)) {
+                meta.add("Moc " + power);
+            }
         }
-        html.append("""
-                    </div>
-                </section>
-                """);
+        return new StringBuilder("<div class=\"item-title-line\"><span class=\"item-name\">")
+                .append(escapeHtml(itemName))
+                .append("</span>")
+                .append(activeSlots.isEmpty() ? "" : "<span class=\"status-badge status-active\">Założony</span>")
+                .append("</div>")
+                .append(meta.isEmpty() ? "" : "<div class=\"item-submeta\">" + escapeHtml(String.join(" • ", meta)) + "</div>")
+                .toString();
+    }
+
+    private static String renderSlotTypeCell(SavedImportedItem item) {
+        String itemType = simplifyItemType(item.getFullItemRead().getItemTypeLine());
+        return """
+                <div class="slot-type-cell">
+                    <strong>%s</strong>
+                    <span>%s</span>
+                </div>
+                """.formatted(
+                escapeHtml(ItemLibraryPresentationSupport.slotDisplayName(item.getSlot())),
+                escapeHtml(itemType)
+        );
+    }
+
+    private static String renderAspectSummary(SavedImportedItem item) {
+        if (item.getSelectedAspectId().isBlank()) {
+            return "<span class=\"muted-value\">Brak</span>";
+        }
+        AspectDefinition aspect = ASPECT_REGISTRY.findById(item.getSelectedAspectId()).orElse(null);
+        return aspect == null
+                ? escapeHtml(item.getSelectedAspectId())
+                : escapeHtml(aspect.getDisplayName());
+    }
+
+    private static String renderAffixSummary(SavedImportedItem item) {
+        if (item.getAffixes().isEmpty()) {
+            return "<span class=\"muted-value\">Brak zatwierdzonych affixów</span>";
+        }
+        StringBuilder html = new StringBuilder("<div class=\"affix-summary\">");
+        for (ImportedItemAffix affix : item.getAffixes()) {
+            html.append("<span>")
+                    .append(escapeHtml(compactAffixLine(affix)))
+                    .append("</span>");
+        }
+        html.append("</div>");
         return html.toString();
     }
 
-    private static String renderItemCard(ItemLibraryPageModel model, SavedImportedItem item) {
-        List<HeroEquipmentSlot> activeSlots = resolveActiveHeroSlots(model, item);
-        return new StringBuilder("<article class=\"item-card")
-                .append(activeSlots.isEmpty() ? "" : " item-card-active")
-                .append("\"><div class=\"item-card-head\"><div><span class=\"slot-chip\">")
-                .append(escapeHtml(ItemLibraryPresentationSupport.slotDisplayName(item.getSlot())))
-                .append("</span><h4>")
-                .append(escapeHtml(item.getDisplayName()))
-                .append("</h4></div>")
-                .append(renderUsageBadge(model, activeSlots))
-                .append("</div><div class=\"item-meta-grid\">")
-                .append(renderMeta("Identyfikator / źródło", ItemLibraryPresentationSupport.userItemIdentifier(item)))
-                .append(renderMeta("Skrót wkładu", ItemLibraryPresentationSupport.shortContributionLabel(item)))
-                .append(renderMeta("Zgodne sloty bohatera", joinHeroSlots(HeroEquipmentSlot.compatibleWith(item.getSlot()))))
-                .append("</div>")
-                .append(renderUsageDetails(model, activeSlots))
-                .append(renderFullItemPreview(item))
-                .append("<div class=\"item-actions\">")
-                .append(renderItemActions(model, item, activeSlots))
-                .append("</div></article>")
-                .toString();
+    private static String compactAffixLine(ImportedItemAffix affix) {
+        String line = affix.getType().formatLine(affix.getValue());
+        if (!affix.isGreaterAffix()) {
+            return line;
+        }
+        return "★ " + line.replaceFirst("^[*★⭐✦]\\s*", "");
+    }
+
+    private static String renderItemDetailsDisclosure(SavedImportedItem item) {
+        return """
+                <details class="item-row-details">
+                    <summary>Szczegóły</summary>
+                    %s
+                </details>
+                """.formatted(renderFullItemPreview(item));
     }
 
     private static String renderFullItemPreview(SavedImportedItem item) {
@@ -225,8 +282,7 @@ public final class ItemLibraryPageRenderer {
         List<String> diagnosticLines = collectLines(fullItemRead, ItemReadLineGroup.OTHER);
 
         StringBuilder html = new StringBuilder("""
-                <details class="item-read-details">
-                    <summary>Pełniejszy odczyt itemu</summary>
+                <div class="item-read-details">
                     <section class="item-line-group item-line-group-basic">
                         <h5>Dane podstawowe</h5>
                     <div class="item-meta-grid">
@@ -236,6 +292,8 @@ public final class ItemLibraryPageRenderer {
                 .append(renderMeta("Slot ekwipunku", ItemLibraryPresentationSupport.slotDisplayName(item.getSlot())))
                 .append(renderMeta("Rzadkość", simplifyRarity(fullItemRead.getRarity())))
                 .append(renderMeta("Moc przedmiotu", simplifyItemPower(fullItemRead.getItemPower())))
+                .append(renderMeta("Identyfikator", item.getDisplayName()))
+                .append(renderMeta("Źródło", item.getSourceImageName()))
                 .append("</div></section>")
                 .append(renderTextLineGroup("Base stats", baseStats))
                 .append(renderTextLineGroup("Implicit / linie bazowe", implicitLines))
@@ -243,7 +301,7 @@ public final class ItemLibraryPageRenderer {
                 .append(renderTextLineGroup("Aspekt / efekt legendarny", aspectLines))
                 .append(renderTextLineGroup("Socket / gniazdo", socketLines))
                 .append(renderDiagnostics(diagnosticLines))
-                .append("</details>");
+                .append("</div>");
         return html.toString();
     }
 
@@ -358,32 +416,6 @@ public final class ItemLibraryPageRenderer {
             }
         }
         lines.add(value);
-    }
-
-    private static String renderUsageBadge(ItemLibraryPageModel model, List<HeroEquipmentSlot> activeSlots) {
-        if (!model.hasActiveHero()) {
-            return "<span class=\"status-badge status-inactive\">Brak bohatera</span>";
-        }
-        if (!activeSlots.isEmpty()) {
-            return "<span class=\"status-badge status-active\">Używany</span>";
-        }
-        return "<span class=\"status-badge status-inactive\">Nie używany</span>";
-    }
-
-    private static String renderUsageDetails(ItemLibraryPageModel model, List<HeroEquipmentSlot> activeSlots) {
-        if (!model.hasActiveHero()) {
-            return """
-                    <div class="status-note">Brak aktywnego bohatera. Wybierz albo utwórz bohatera, aby zobaczyć użycie itemu i założyć go do slotu.</div>
-                    """;
-        }
-        if (!activeSlots.isEmpty()) {
-            return """
-                    <div class="status-note">Używany przez aktywnego bohatera w slocie: %s.</div>
-                    """.formatted(escapeHtml(joinHeroSlots(activeSlots)));
-        }
-        return """
-                <div class="status-note">Nie używany przez aktywnego bohatera. Możesz założyć go do zgodnego slotu.</div>
-                """;
     }
 
     private static String renderItemActions(ItemLibraryPageModel model, SavedImportedItem item, List<HeroEquipmentSlot> activeSlots) {

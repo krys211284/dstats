@@ -149,6 +149,72 @@
             gap: 8px;
             margin-bottom: 8px;
         }
+        .library-index {
+            display: grid;
+            gap: 12px;
+        }
+        .library-result-count {
+            margin: 0;
+        }
+        .item-index-scroll {
+            overflow-x: auto;
+        }
+        .item-index-table th:nth-child(1) { width: 24%; }
+        .item-index-table th:nth-child(2) { width: 16%; }
+        .item-index-table th:nth-child(3) { width: 18%; }
+        .item-index-table th:nth-child(4) { width: 24%; }
+        .item-index-table th:nth-child(5) { width: 18%; }
+        .item-index-row-active {
+            background: rgba(216, 237, 242, 0.28);
+        }
+        .item-title-line {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+        .item-name {
+            font-weight: 800;
+        }
+        .item-submeta,
+        .muted-value,
+        .slot-type-cell span {
+            color: var(--muted);
+            font-size: 0.88rem;
+        }
+        .slot-type-cell {
+            display: grid;
+            gap: 3px;
+        }
+        .affix-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 10px;
+            max-height: 3.1em;
+            overflow: hidden;
+            line-height: 1.45;
+        }
+        .affix-summary span {
+            white-space: nowrap;
+        }
+        .actions-cell {
+            min-width: 210px;
+        }
+        .item-row-details {
+            width: 100%;
+        }
+        .item-row-details summary {
+            display: inline-block;
+            border-radius: 999px;
+            padding: 10px 16px;
+            background: #ead7b8;
+            color: #57330c;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .item-row-details[open] summary {
+            margin-bottom: 10px;
+        }
         .library-groups {
             display: grid;
             gap: 18px;
@@ -325,7 +391,7 @@
 
     <section class="panel">
         <h1>Biblioteka itemów</h1>
-        <p class="helper">Przegląd zapisanych itemów dla aktywnego bohatera. Biblioteka pokazuje slot, wkład i stan użycia, ale nadal tylko steruje wyborem itemu przed istniejącym current build.</p>
+        <p class="helper">Przegląd zapisanych itemów we wspólnej bibliotece. Aktywny bohater określa status użycia, zgodność slotów i akcje założenia itemu.</p>
         <div class="info-strip">
             Możesz mieć wiele zapisanych itemów tego samego slotu. Akcja Załóż bohaterowi wypełnia pusty zgodny slot, a Zmień w slocie zastępuje item w tym slocie aktywnego bohatera.
         </div>

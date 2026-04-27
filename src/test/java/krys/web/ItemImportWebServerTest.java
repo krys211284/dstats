@@ -226,9 +226,10 @@ class ItemImportWebServerTest {
         assertEquals(200, libraryResponse.statusCode());
         assertFalse(libraryResponse.body().contains("Biblioteka jest pusta"));
         assertTrue(libraryResponse.body().contains("Broń główna / bulawa.png"));
-        assertTrue(libraryResponse.body().contains("obr. broni +321"));
+        assertTrue(libraryResponse.body().contains("<th>Item</th>"));
+        assertTrue(libraryResponse.body().contains("<th>Slot / typ</th>"));
         assertTrue(libraryResponse.body().contains("Załóż bohaterowi: Broń"));
-        assertTrue(libraryResponse.body().contains("Pełniejszy odczyt itemu"));
+        assertTrue(libraryResponse.body().contains("Szczegóły"));
         assertTrue(libraryResponse.body().contains("Młot Importera"));
         assertFalse(libraryResponse.body().contains("Aspekt testowego impetu"));
     }

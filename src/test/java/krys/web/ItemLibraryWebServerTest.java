@@ -81,9 +81,9 @@ class ItemLibraryWebServerTest {
         assertTrue(firstSave.body().contains("Pracujesz teraz na bohaterze Bibliotekarz"));
         assertTrue(firstSave.body().contains("Załóż bohaterowi: Tarcza"));
         assertTrue(firstSave.body().contains("Wróć do aktualnego buildu"));
-        assertTrue(firstSave.body().contains("Slot itemu"));
-        assertTrue(firstSave.body().contains("Skrót wkładu"));
-        assertTrue(firstSave.body().contains("Nie używany przez aktywnego bohatera"));
+        assertTrue(firstSave.body().contains("<th>Item</th>"));
+        assertTrue(firstSave.body().contains("<th>Slot / typ</th>"));
+        assertTrue(firstSave.body().contains("<th>Affixy</th>"));
 
         HttpResponse<String> secondSave = sendUrlEncodedPost("/biblioteka-itemow", Map.of(
                 "action", "saveImportedItem",
@@ -110,8 +110,7 @@ class ItemLibraryWebServerTest {
         ));
         assertEquals(200, activateResponse.statusCode());
         assertTrue(activateResponse.body().contains("Założono item Ręka dodatkowa / shield-b.png w slocie Tarcza bohatera Bibliotekarz."));
-        assertTrue(activateResponse.body().contains("class=\"status-badge status-active\">Używany</span>"));
-        assertTrue(activateResponse.body().contains("Używany przez aktywnego bohatera w slocie: Tarcza."));
+        assertTrue(activateResponse.body().contains("class=\"status-badge status-active\">Założony</span>"));
         assertTrue(activateResponse.body().contains("Już założony w slocie Tarcza."));
         assertTrue(activateResponse.body().contains("Zmień w slocie: Tarcza"));
         assertTrue(activateResponse.body().contains(">Edytuj</a>"));
@@ -228,9 +227,10 @@ class ItemLibraryWebServerTest {
         assertEquals(200, libraryResponse.statusCode());
         assertTrue(libraryResponse.body().contains("1 item"));
         assertTrue(libraryResponse.body().contains("* +120 siły"));
+        assertTrue(libraryResponse.body().contains("★ +120 siły"));
         assertFalse(libraryResponse.body().contains("+114 siły"));
         assertTrue(libraryResponse.body().contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
-        assertTrue(libraryResponse.body().contains("class=\"status-badge status-active\">Używany</span>"));
+        assertTrue(libraryResponse.body().contains("class=\"status-badge status-active\">Założony</span>"));
 
         HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build?" + buildCurrentBuildQuery());
         assertEquals(200, currentBuildResponse.statusCode());
