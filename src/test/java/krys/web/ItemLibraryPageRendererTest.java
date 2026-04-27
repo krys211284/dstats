@@ -81,7 +81,10 @@ class ItemLibraryPageRendererTest {
         assertFalse(html.contains("<th>Źródło</th>"));
         assertEquals(1, countOccurrences(html, "class=\"item-index-row\""));
         assertFalse(html.contains("class=\"item-card-grid\""));
-        assertTrue(html.contains("Szczegóły"));
+        assertTrue(html.contains("<a class=\"item-name item-details-link\" href=\"#item-details-1\""));
+        assertFalse(html.contains("<summary>Szczegóły</summary>"));
+        assertTrue(html.contains("<section id=\"item-details-1\" class=\"item-details-modal\" role=\"dialog\""));
+        assertTrue(html.contains("<a class=\"modal-close\" href=\"#biblioteka-lista\" aria-label=\"Zamknij szczegóły itemu\">×</a>"));
         assertTrue(html.contains("Dane podstawowe"));
         assertTrue(html.contains("Base stats"));
         assertTrue(html.contains("Implicit / linie bazowe"));
@@ -96,8 +99,10 @@ class ItemLibraryPageRendererTest {
         assertTrue(html.contains("+7,0% szansy na szczęśliwy traf [7,0"));
         assertTrue(html.contains("* 13,2% redukcji czasu odnowienia"));
         assertTrue(html.contains("★ 13,2% redukcji czasu odnowienia"));
+        assertTrue(html.contains("<ul class=\"affix-summary\"><li>+494 cierni</li><li>+7% szansy na szczęśliwy traf</li><li>★ 13,2% redukcji czasu odnowienia</li><li>+114 siły</li></ul>"));
         assertTrue(html.contains("+114 siły [107 - 121]"));
         assertTrue(html.contains("Aspekt Wewnętrznego Spokoju"));
+        assertTrue(html.contains("<span class=\"aspect-summary\" title=\"Zwiększa zadawane obrażenia podczas stania w bezruchu"));
         assertTrue(html.contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
         assertTrue(html.contains("Opis aspektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
         assertFalse(html.contains("Odczyt OCR efektu:"));
@@ -115,6 +120,13 @@ class ItemLibraryPageRendererTest {
         assertFalse(html.contains("Łączne obrażenia"));
         assertFalse(html.contains("<h2>DPS</h2>"));
         assertEquals(1, countOccurrences(html, ">Moc przedmiotu<"));
+        assertFalse(html.contains("Pokaż slot w current build"));
+        assertFalse(html.contains(">Załóż bohaterowi:"));
+        assertFalse(html.contains(">Zmień w slocie:"));
+        assertTrue(html.contains("class=\"icon-action edit-action\""));
+        assertTrue(html.contains("aria-label=\"Edytuj item Ręka dodatkowa / tarcza.png\""));
+        assertTrue(html.contains("class=\"icon-action delete-action\""));
+        assertTrue(html.contains("aria-label=\"Usuń item Ręka dodatkowa / tarcza.png\""));
     }
 
     @Test
@@ -196,6 +208,7 @@ class ItemLibraryPageRendererTest {
         assertTrue(html.contains("* +7,0% uniku"));
         assertTrue(html.contains("★ +12,5% szybkości ruchu"));
         assertTrue(html.contains("★ +7% uniku"));
+        assertTrue(html.contains("<ul class=\"affix-summary\"><li>★ +12,5% szybkości ruchu</li><li>★ +7% uniku</li></ul>"));
         assertTrue(html.contains("Brak wybranego aspektu."));
         assertTrue(html.contains("Socket / gniazdo"));
         assertTrue(html.contains("2 gniazda"));
@@ -268,6 +281,10 @@ class ItemLibraryPageRendererTest {
 
         assertTrue(html.contains("Tarcza aktywna"));
         assertTrue(html.contains("<span class=\"status-badge status-active\">Założony</span>"));
+        assertTrue(html.contains("<div class=\"item-actions\"><div class=\"assign-actions\"><span class=\"icon-action assign-action assign-action-selected\""));
+        assertTrue(html.contains("aria-label=\"Item Ręka dodatkowa / tarcza.png jest już założony w slocie Tarcza\""));
+        assertTrue(html.contains("class=\"icon-action edit-action\""));
+        assertTrue(html.contains("class=\"icon-action delete-action\""));
         assertFalse(html.contains("<th>Status</th>"));
     }
 

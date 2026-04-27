@@ -120,7 +120,7 @@ public final class ItemLibraryPageRenderer {
         if (model.getSavedItems().isEmpty()) {
             return renderEmptyState(model);
         }
-        StringBuilder html = new StringBuilder("<div class=\"library-index\">");
+        StringBuilder html = new StringBuilder("<div id=\"biblioteka-lista\" class=\"library-index\">");
         html.append("<p class=\"helper library-result-count\">Znaleziono ")
                 .append(model.getSavedItems().size())
                 .append(resultCountLabel(model.getSavedItems().size()))
@@ -143,8 +143,12 @@ public final class ItemLibraryPageRenderer {
         }
         html.append("""
                         </tbody>
-                    </table></div></div>
+                    </table></div>
                 """);
+        for (SavedImportedItem item : model.getSavedItems()) {
+            html.append(renderItemDetailsModal(item));
+        }
+        html.append("</div>");
         return html.toString();
     }
 
@@ -182,7 +186,6 @@ public final class ItemLibraryPageRenderer {
                 .append("</td><td>")
                 .append(renderAffixSummary(item))
                 .append("</td><td class=\"actions-cell\"><div class=\"item-actions\">")
-                .append(renderItemDetailsDisclosure(item))
                 .append(renderItemActions(model, item, activeSlots))
                 .append("</div></td></tr>")
                 .toString();
@@ -204,9 +207,13 @@ public final class ItemLibraryPageRenderer {
                 meta.add("Moc " + power);
             }
         }
-        return new StringBuilder("<div class=\"item-title-line\"><span class=\"item-name\">")
+        return new StringBuilder("<div class=\"item-title-line\"><a class=\"item-name item-details-link\" href=\"#item-details-")
+                .append(item.getItemId())
+                .append("\" aria-haspopup=\"dialog\" aria-controls=\"item-details-")
+                .append(item.getItemId())
+                .append("\">")
                 .append(escapeHtml(itemName))
-                .append("</span>")
+                .append("</a>")
                 .append(activeSlots.isEmpty() ? "" : "<span class=\"status-badge status-active\">Założony</span>")
                 .append("</div>")
                 .append(meta.isEmpty() ? "" : "<div class=\"item-submeta\">" + escapeHtml(String.join(" • ", meta)) + "</div>")
@@ -231,22 +238,29 @@ public final class ItemLibraryPageRenderer {
             return "<span class=\"muted-value\">Brak</span>";
         }
         AspectDefinition aspect = ASPECT_REGISTRY.findById(item.getSelectedAspectId()).orElse(null);
-        return aspect == null
-                ? escapeHtml(item.getSelectedAspectId())
-                : escapeHtml(aspect.getDisplayName());
+        if (aspect == null) {
+            return escapeHtml(item.getSelectedAspectId());
+        }
+        return "<span class=\"aspect-summary\" title=\""
+                + escapeHtml(aspect.getEffectDescription())
+                + "\" aria-label=\""
+                + escapeHtml(aspect.getDisplayName() + ". " + aspect.getEffectDescription())
+                + "\">"
+                + escapeHtml(aspect.getDisplayName())
+                + "</span>";
     }
 
     private static String renderAffixSummary(SavedImportedItem item) {
         if (item.getAffixes().isEmpty()) {
             return "<span class=\"muted-value\">Brak zatwierdzonych affixów</span>";
         }
-        StringBuilder html = new StringBuilder("<div class=\"affix-summary\">");
+        StringBuilder html = new StringBuilder("<ul class=\"affix-summary\">");
         for (ImportedItemAffix affix : item.getAffixes()) {
-            html.append("<span>")
+            html.append("<li>")
                     .append(escapeHtml(compactAffixLine(affix)))
-                    .append("</span>");
+                    .append("</li>");
         }
-        html.append("</div>");
+        html.append("</ul>");
         return html.toString();
     }
 
@@ -258,13 +272,28 @@ public final class ItemLibraryPageRenderer {
         return "★ " + line.replaceFirst("^[*★⭐✦]\\s*", "");
     }
 
-    private static String renderItemDetailsDisclosure(SavedImportedItem item) {
+    private static String renderItemDetailsModal(SavedImportedItem item) {
+        String title = item.getFullItemRead() != null && !item.getFullItemRead().getItemName().isBlank()
+                ? item.getFullItemRead().getItemName()
+                : item.getDisplayName();
         return """
-                <details class="item-row-details">
-                    <summary>Szczegóły</summary>
-                    %s
-                </details>
-                """.formatted(renderFullItemPreview(item));
+                <section id="item-details-%s" class="item-details-modal" role="dialog" aria-modal="true" aria-labelledby="item-details-title-%s">
+                    <a class="modal-backdrop" href="#biblioteka-lista" aria-label="Zamknij szczegóły itemu"></a>
+                    <div class="item-details-dialog">
+                        <div class="modal-head">
+                            <h3 id="item-details-title-%s">%s</h3>
+                            <a class="modal-close" href="#biblioteka-lista" aria-label="Zamknij szczegóły itemu">×</a>
+                        </div>
+                        %s
+                    </div>
+                </section>
+                """.formatted(
+                item.getItemId(),
+                item.getItemId(),
+                item.getItemId(),
+                escapeHtml(title),
+                renderFullItemPreview(item)
+        );
     }
 
     private static String renderFullItemPreview(SavedImportedItem item) {
@@ -419,54 +448,95 @@ public final class ItemLibraryPageRenderer {
     }
 
     private static String renderItemActions(ItemLibraryPageModel model, SavedImportedItem item, List<HeroEquipmentSlot> activeSlots) {
-        String editLink = "<a class=\"nav-link secondary-link\" href=\""
+        String editLink = "<a class=\"icon-action edit-action\" href=\""
                 + escapeHtml(buildEditItemUrl(model, item))
-                + "\">Edytuj</a>";
+                + "\" title=\"Edytuj\" aria-label=\"Edytuj item "
+                + escapeHtml(item.getDisplayName())
+                + "\">✎<span class=\"sr-only\">Edytuj</span></a>";
         if (!model.hasActiveHero()) {
-            return """
-                    <a class="nav-link secondary-link" href="/bohaterowie">Wybierz bohatera</a>
-                    """
+            return "<a class=\"icon-action assign-action\" href=\"/bohaterowie\" title=\"Wybierz bohatera\" aria-label=\"Wybierz bohatera, aby założyć item "
+                    + escapeHtml(item.getDisplayName())
+                    + "\">⇧<span class=\"sr-only\">Wybierz bohatera</span></a>"
                     + editLink
                     + renderDeleteForm(model, item);
         }
-        return renderAssignmentForms(model, item)
+        return renderAssignmentForms(model, item, true)
                 + editLink
-                + "<a class=\"nav-link secondary-link\" href=\""
-                + escapeHtml(buildCurrentBuildUrl(model.getCurrentBuildQuery()))
-                + "\">Pokaż slot w current build</a>"
                 + renderDeleteForm(model, item);
     }
 
     private static String renderAssignmentForms(ItemLibraryPageModel model, SavedImportedItem item) {
+        return renderAssignmentForms(model, item, false);
+    }
+
+    private static String renderAssignmentForms(ItemLibraryPageModel model, SavedImportedItem item, boolean compact) {
         StringBuilder html = new StringBuilder("<div class=\"assign-actions\">");
         for (HeroEquipmentSlot heroSlot : HeroEquipmentSlot.compatibleWith(item.getSlot())) {
             Long selectedItemId = model.getActiveSelection().getSelectedItemId(heroSlot);
             boolean slotEmpty = selectedItemId == null;
             boolean thisItemSelected = selectedItemId != null && selectedItemId == item.getItemId();
             String actionLabel = slotEmpty ? "Załóż bohaterowi" : "Zmień w slocie";
+            String heroSlotLabel = ItemLibraryPresentationSupport.heroSlotDisplayName(heroSlot);
             if (thisItemSelected) {
-                html.append("<span class=\"helper\">Już założony w slocie ")
-                        .append(escapeHtml(ItemLibraryPresentationSupport.heroSlotDisplayName(heroSlot)))
-                        .append(".</span>");
+                if (compact) {
+                    html.append("<span class=\"icon-action assign-action assign-action-selected\" title=\"Już założony w slocie ")
+                            .append(escapeHtml(heroSlotLabel))
+                            .append("\" aria-label=\"Item ")
+                            .append(escapeHtml(item.getDisplayName()))
+                            .append(" jest już założony w slocie ")
+                            .append(escapeHtml(heroSlotLabel))
+                            .append("\">✓<span class=\"sr-only\">Już założony</span></span>");
+                } else {
+                    html.append("<span class=\"helper\">Już założony w slocie ")
+                            .append(escapeHtml(heroSlotLabel))
+                            .append(".</span>");
+                }
                 continue;
             }
-            html.append("""
-                    <form method="post" action="/biblioteka-itemow" class="inline-form">
-                        <input type="hidden" name="action" value="activateItem">
-                        <input type="hidden" name="itemId" value="%s">
-                        <input type="hidden" name="heroSlot" value="%s">
-                        <input type="hidden" name="currentBuildQuery" value="%s">
-                        %s
-                        <button type="submit">%s: %s</button>
-                    </form>
-                    """.formatted(
-                    item.getItemId(),
-                    heroSlot.name(),
-                    escapeHtml(model.getCurrentBuildQuery()),
-                    renderFilterHiddenFields(model.getFilter()),
-                    escapeHtml(actionLabel),
-                    escapeHtml(ItemLibraryPresentationSupport.heroSlotDisplayName(heroSlot))
-            ));
+            String assignAriaLabel = slotEmpty
+                    ? "Załóż item " + item.getDisplayName() + " bohaterowi w slocie " + heroSlotLabel
+                    : "Zmień item w slocie " + heroSlotLabel + " na " + item.getDisplayName();
+            String assignIcon = slotEmpty ? "⇧" : "⇄";
+            if (compact) {
+                html.append("""
+                        <form method="post" action="/biblioteka-itemow" class="inline-form action-form">
+                            <input type="hidden" name="action" value="activateItem">
+                            <input type="hidden" name="itemId" value="%s">
+                            <input type="hidden" name="heroSlot" value="%s">
+                            <input type="hidden" name="currentBuildQuery" value="%s">
+                            %s
+                            <button type="submit" class="icon-action assign-action" title="%s: %s" aria-label="%s">%s<span class="sr-only">%s</span></button>
+                        </form>
+                        """.formatted(
+                        item.getItemId(),
+                        heroSlot.name(),
+                        escapeHtml(model.getCurrentBuildQuery()),
+                        renderFilterHiddenFields(model.getFilter()),
+                        escapeHtml(actionLabel),
+                        escapeHtml(heroSlotLabel),
+                        escapeHtml(assignAriaLabel),
+                        escapeHtml(assignIcon),
+                        escapeHtml(actionLabel)
+                ));
+            } else {
+                html.append("""
+                        <form method="post" action="/biblioteka-itemow" class="inline-form">
+                            <input type="hidden" name="action" value="activateItem">
+                            <input type="hidden" name="itemId" value="%s">
+                            <input type="hidden" name="heroSlot" value="%s">
+                            <input type="hidden" name="currentBuildQuery" value="%s">
+                            %s
+                            <button type="submit">%s: %s</button>
+                        </form>
+                        """.formatted(
+                        item.getItemId(),
+                        heroSlot.name(),
+                        escapeHtml(model.getCurrentBuildQuery()),
+                        renderFilterHiddenFields(model.getFilter()),
+                        escapeHtml(actionLabel),
+                        escapeHtml(heroSlotLabel)
+                ));
+            }
         }
         html.append("</div>");
         return html.toString();
@@ -474,16 +544,19 @@ public final class ItemLibraryPageRenderer {
 
     private static String renderDeleteForm(ItemLibraryPageModel model, SavedImportedItem item) {
         return """
-                <div class="action-stack">
-                    <form method="post" action="/biblioteka-itemow" class="inline-form">
-                        <input type="hidden" name="action" value="deleteItem">
-                        <input type="hidden" name="itemId" value="%s">
-                        <input type="hidden" name="currentBuildQuery" value="%s">
-                        %s
-                        <button type="submit" class="secondary-button">Usuń</button>
-                    </form>
-                </div>
-                """.formatted(item.getItemId(), escapeHtml(model.getCurrentBuildQuery()), renderFilterHiddenFields(model.getFilter()));
+                <form method="post" action="/biblioteka-itemow" class="inline-form action-form">
+                    <input type="hidden" name="action" value="deleteItem">
+                    <input type="hidden" name="itemId" value="%s">
+                    <input type="hidden" name="currentBuildQuery" value="%s">
+                    %s
+                    <button type="submit" class="icon-action delete-action" title="Usuń" aria-label="Usuń item %s">×<span class="sr-only">Usuń</span></button>
+                </form>
+                """.formatted(
+                item.getItemId(),
+                escapeHtml(model.getCurrentBuildQuery()),
+                renderFilterHiddenFields(model.getFilter()),
+                escapeHtml(item.getDisplayName())
+        );
     }
 
     private static String renderFilters(ItemLibraryPageModel model) {

@@ -111,10 +111,17 @@ class ItemLibraryWebServerTest {
         assertEquals(200, activateResponse.statusCode());
         assertTrue(activateResponse.body().contains("Założono item Ręka dodatkowa / shield-b.png w slocie Tarcza bohatera Bibliotekarz."));
         assertTrue(activateResponse.body().contains("class=\"status-badge status-active\">Założony</span>"));
-        assertTrue(activateResponse.body().contains("Już założony w slocie Tarcza."));
-        assertTrue(activateResponse.body().contains("Zmień w slocie: Tarcza"));
-        assertTrue(activateResponse.body().contains(">Edytuj</a>"));
-        assertTrue(activateResponse.body().contains("Pokaż slot w current build"));
+        assertTrue(activateResponse.body().contains("class=\"icon-action assign-action assign-action-selected\""));
+        assertTrue(activateResponse.body().contains("aria-label=\"Item Ręka dodatkowa / shield-b.png jest już założony w slocie Tarcza\""));
+        assertTrue(activateResponse.body().contains("class=\"icon-action assign-action\" title=\"Zmień w slocie: Tarcza\""));
+        assertTrue(activateResponse.body().contains("aria-label=\"Zmień item w slocie Tarcza na Ręka dodatkowa / shield-a.png\""));
+        assertFalse(activateResponse.body().contains(">Załóż bohaterowi:"));
+        assertFalse(activateResponse.body().contains(">Zmień w slocie:"));
+        assertTrue(activateResponse.body().contains("class=\"icon-action edit-action\""));
+        assertTrue(activateResponse.body().contains("aria-label=\"Edytuj item Ręka dodatkowa / shield-b.png\""));
+        assertTrue(activateResponse.body().contains("class=\"icon-action delete-action\""));
+        assertTrue(activateResponse.body().contains("aria-label=\"Usuń item Ręka dodatkowa / shield-b.png\""));
+        assertFalse(activateResponse.body().contains("Pokaż slot w current build"));
         assertTrue(activateResponse.body().contains("Ręka dodatkowa / shield-b.png"));
 
         HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build?" + buildCurrentBuildQuery());

@@ -228,8 +228,11 @@ class ItemImportWebServerTest {
         assertTrue(libraryResponse.body().contains("Broń główna / bulawa.png"));
         assertTrue(libraryResponse.body().contains("<th>Item</th>"));
         assertTrue(libraryResponse.body().contains("<th>Slot / typ</th>"));
-        assertTrue(libraryResponse.body().contains("Załóż bohaterowi: Broń"));
-        assertTrue(libraryResponse.body().contains("Szczegóły"));
+        assertTrue(libraryResponse.body().contains("class=\"icon-action assign-action\" title=\"Załóż bohaterowi: Broń\""));
+        assertTrue(libraryResponse.body().contains("aria-label=\"Załóż item Broń główna / bulawa.png bohaterowi w slocie Broń\""));
+        assertFalse(libraryResponse.body().contains(">Załóż bohaterowi: Broń</button>"));
+        assertTrue(libraryResponse.body().contains("class=\"item-name item-details-link\""));
+        assertTrue(libraryResponse.body().contains("class=\"item-details-modal\""));
         assertTrue(libraryResponse.body().contains("Młot Importera"));
         assertFalse(libraryResponse.body().contains("Aspekt testowego impetu"));
     }
