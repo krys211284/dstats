@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 /** Mapuje surowy tekst OCR ograniczonego foundation do candidate parse result pojedynczego itemu. */
 final class ItemImageImportTextParser {
     private static final Pattern OCR_NUMBER_PATTERN = Pattern.compile("([0-9OISBL]+(?:[.,][0-9OISBL]+)?)");
+    private static final String ROLL_RANGE_FRAGMENT = "\\[[0-9]+(?:[,.][0-9]+)?(?:\\s*-\\s*[0-9]+(?:[,.][0-9]+)?)?(?:\\]%?)?";
 
     ItemImageImportCandidateParseResult parse(ItemImageMetadata metadata, String ocrText) {
         List<String> lines = normalizedLines(ocrText);
@@ -193,21 +194,21 @@ final class ItemImageImportTextParser {
         appendFirstMatch(extractedLines, line,
                 "\\b(Moc\\s+przedmiotu:\\s*[0-9]+)\\b", 1);
         appendFirstMatch(extractedLines, line,
-                "\\b([0-9][0-9 ]*\\s+pkt\\.\\s+pancerza)\\b", 1);
+                "\\b([0-9]+(?:\\s[0-9]{3})*\\s+pkt\\.\\s+pancerza)\\b", 1);
         appendFirstMatch(extractedLines, line,
-                "\\b([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+blokowanych\\s+obrażeń(?:\\s*\\[[0-9,.\\s\\-]*(?:\\]%?)?)?)", 1);
+                "\\b([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+blokowanych\\s+obrażeń(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
-                "\\b([0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+blok(?:\\s*\\[[0-9,.\\s\\-]*(?:\\]%?)?)?)", 1);
+                "\\b([0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+blok(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
-                "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+obrażeń\\s+od\\s+broni\\s+w\\s+głównej\\s+ręce(?:\\s*\\[[0-9,.\\s\\-]*(?:\\]%?)?)?)", 1);
+                "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+obrażeń\\s+od\\s+broni\\s+w\\s+głównej\\s+ręce(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
-                "(\\+[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?siły(?:\\s*\\[[0-9,.\\s\\-]*(?:\\])?)?)", 1);
+                "(\\+[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?siły(?:\\s*\\+?\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
-                "(\\+[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?cierni(?:\\s*\\[[0-9,.\\s\\-]*(?:\\])?)?)", 1);
+                "(\\+[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?cierni(?:\\s*\\+?\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
-                "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+szczęśliwy\\s+traf(?:\\s*\\[[0-9,.\\s\\-]*(?:\\]%?)?)?)", 1);
+                "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+szczęśliwy\\s+traf(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
-                "\\b([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+czasu\\s+odnowienia(?:\\s*\\[[0-9,.\\s\\-]*(?:\\]%?)?)?)", 1);
+                "\\b([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+czasu\\s+odnowienia(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendLegendaryEffectLine(extractedLines, line);
         appendFirstMatch(extractedLines, line,
                 "\\b(Ta\\s+premia\\s+jest\\s+trzy\\s+razy\\s+większa,\\s+jeśli\\s+stoisz\\s+w\\s+bezruchu\\s+przez\\s+co\\s+najmniej\\s+3\\s+sek\\.)", 1);
@@ -221,10 +222,18 @@ final class ItemImageImportTextParser {
         if (!matcher.find()) {
             return;
         }
-        String value = matcher.group(group).trim();
+        String value = normalizeExtractedFullReadLine(matcher.group(group).trim());
         if (!value.isBlank() && !target.contains(value)) {
             target.add(value);
         }
+    }
+
+    private static String normalizeExtractedFullReadLine(String line) {
+        return line == null ? "" : line
+                .replaceAll("\\s+\\+\\s*\\[", " [")
+                .replaceAll("\\+\\[", "[")
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     private static void appendLegendaryEffectLine(List<String> target, String line) {

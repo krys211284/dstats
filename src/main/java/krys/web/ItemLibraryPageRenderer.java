@@ -248,10 +248,10 @@ public final class ItemLibraryPageRenderer {
 
     private static List<String> collectBaseStats(FullItemRead fullItemRead) {
         List<String> lines = new ArrayList<>();
-        addUnique(lines, fullItemRead.getBaseItemValue());
+        addUnique(lines, normalizedBaseStatLine(fullItemRead.getBaseItemValue()));
         for (FullItemReadLine line : fullItemRead.getLines()) {
             if (line.getType() == FullItemReadLineType.BASE_STAT) {
-                addUnique(lines, line.getText());
+                addUnique(lines, normalizedBaseStatLine(line.getText()));
             }
         }
         return lines;
@@ -275,12 +275,34 @@ public final class ItemLibraryPageRenderer {
                     .orElse(item.getSelectedAspectId());
             addUnique(lines, "Wybrany aspekt: " + aspectLabel);
         }
-        for (FullItemReadLine line : fullItemRead.getLines()) {
-            if (classifyPresentationLine(line) == ItemReadLineGroup.SPECIAL) {
-                addUnique(lines, line.getText());
-            }
+        for (String effectLine : ItemAspectEffectPresentation.effectLines(fullItemRead)) {
+            addUnique(lines, effectLine);
         }
         return lines;
+    }
+
+    private static String normalizedBaseStatLine(String line) {
+        String normalized = normalizeForDisplayRules(line);
+        if (!normalized.contains("PANCERZ")) {
+            return line;
+        }
+        java.util.regex.Matcher armorWithUnit = java.util.regex.Pattern
+                .compile("([0-9]+(?:\\s[0-9]{3})*\\s+pkt\\.?\\s+pancerza)", java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(line == null ? "" : line);
+        String lastMatch = "";
+        while (armorWithUnit.find()) {
+            lastMatch = armorWithUnit.group(1).trim();
+        }
+        if (!lastMatch.isBlank()) {
+            return lastMatch;
+        }
+        java.util.regex.Matcher armorValue = java.util.regex.Pattern
+                .compile("([0-9]+(?:\\s[0-9]{3})*)\\s+pkt\\.?", java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(line == null ? "" : line);
+        while (armorValue.find()) {
+            lastMatch = armorValue.group(1).trim() + " pkt.";
+        }
+        return lastMatch.isBlank() ? line : lastMatch;
     }
 
     private static void addUnique(List<String> lines, String value) {

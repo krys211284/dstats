@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Testuje strukturę SSR formularza ręcznej walidacji affixów itemu. */
@@ -120,5 +121,101 @@ class ItemImportPageRendererTest {
 
         assertTrue(html.contains("name=\"affixGreater_0\" value=\"true\" checked"));
         assertTrue(html.contains("* 13,2% redukcji czasu odnowienia"));
+    }
+
+    @Test
+    void shouldRenderIncompleteAspectEffectMessageInsteadOfOrphanTail() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                new FullItemRead(
+                        "Tarcza testowa",
+                        "Tarcza",
+                        "Legendarny",
+                        "Moc przedmiotu: 800",
+                        "1 131 pkt. pancerza",
+                        List.of(new FullItemReadLine(FullItemReadLineType.ASPECT,
+                                "Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."))
+                ),
+                List.of(),
+                "inner-calm",
+                ItemImportFieldConfidence.HIGH,
+                "inner-calm"
+        );
+        HeroProfile activeHero = new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty());
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                null,
+                List.of(),
+                null,
+                activeHero,
+                "Import testowy",
+                ""
+        ));
+
+        assertTrue(html.contains("Odczyt efektu OCR niepełny / wymaga ręcznej weryfikacji."));
+        assertFalse(html.contains("<li>Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek.</li>"));
+    }
+
+    @Test
+    void shouldRenderFullAspectEffectOnceWhenHeadAndTailAreAvailable() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                new FullItemRead(
+                        "Tarcza testowa",
+                        "Tarcza",
+                        "Legendarny",
+                        "Moc przedmiotu: 800",
+                        "1 131 pkt. pancerza",
+                        List.of(
+                                new FullItemReadLine(FullItemReadLineType.ASPECT, "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"),
+                                new FullItemReadLine(FullItemReadLineType.ASPECT, "Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."),
+                                new FullItemReadLine(FullItemReadLineType.ASPECT, "Zadajesz obrażenia zwiększone o [5,0 - Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek.")
+                        )
+                ),
+                List.of(),
+                "inner-calm",
+                ItemImportFieldConfidence.HIGH,
+                "inner-calm"
+        );
+        HeroProfile activeHero = new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty());
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                null,
+                List.of(),
+                null,
+                activeHero,
+                "Import testowy",
+                ""
+        ));
+
+        assertTrue(html.contains("Efekt OCR: Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]% Ta premia jest trzy razy większa"));
+        assertFalse(html.contains("Zadajesz obrażenia zwiększone o [5,0 - Ta premia"));
+        assertEquals(1, countOccurrences(html, "Ta premia jest trzy razy większa"));
+    }
+
+    private static int countOccurrences(String value, String needle) {
+        int count = 0;
+        int index = value.indexOf(needle);
+        while (index >= 0) {
+            count++;
+            index = value.indexOf(needle, index + needle.length());
+        }
+        return count;
     }
 }

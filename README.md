@@ -321,7 +321,9 @@ Kontrakt domenowy importu itemu:
 - `ImportedItemAffixType` jest katalogiem znanych typów affixów używanym wspólnie przez UI ręcznej walidacji i projekcję do runtime,
 - `greaterAffix` jest trwałym polem boolean modelu affixu, niezależnym od surowej linii OCR i od prezentacyjnej gwiazdki w UI,
 - OCR oznacza `greaterAffix=true`, gdy rozpoznany edytowalny affix zaczyna się od markera `*`, `★`, `⭐` albo `✦`,
-- OCR oznacza `greaterAffix=true` także wtedy, gdy rozpoznany edytowalny affix z sekcji affixów nie ma żadnego bracketowego zakresu rolla; fragment zaczynający się od `[`, także uszkodzony OCR typu `[7,0` albo `[107`, blokuje tę heurystykę i nie jest traktowany jako pewny Greater Affix,
+- parser ma zachować bracketowy zakres rolla, jeżeli OCR go odczytał, także gdy OCR doda techniczny znak przed nawiasem, np. `+[107 - 121]`,
+- OCR oznacza `greaterAffix=true` także wtedy, gdy rozpoznany edytowalny affix z sekcji affixów po bezpiecznej normalizacji nie ma żadnego bracketowego zakresu rolla; fragment zaczynający się od `[`, także uszkodzony OCR typu `[7,0` albo `[107`, blokuje tę heurystykę i nie jest traktowany jako pewny Greater Affix,
+- parser nie może oznaczać affixu jako `Greater Affix` tylko dlatego, że własna normalizacja zgubiła zakres rolla obecny w raw OCR albo w sąsiednim wariancie OCR,
 - heurystyka braku zakresu dotyczy wyłącznie rozpoznanych affixów i nie dotyczy base statów, implicitów, aspektów ani socketów / gniazd,
 - `ItemImportEditableForm` reprezentuje ręcznie edytowalny formularz potwierdzenia, którego głównym modelem korekty jest lista affixów, a nie sztywna tabela kilku pól foundation,
 - `ValidatedImportedItem` reprezentuje item zatwierdzony po walidacji razem z pełnym rekordem affixów po edycji użytkownika i finalnym `selectedAspectId`,
@@ -336,6 +338,8 @@ Semantyczny podział linii itemu:
 - implicit / linie bazowe to właściwości bazowe typu itemu, np. redukcja blokowanych obrażeń, szansa bloku albo obrażenia od broni w głównej ręce na tarczy; są prezentowane osobno od affixów,
 - affix to edytowalna właściwość z katalogu `ImportedItemAffixType`, np. siła, ciernie, szansa na szczęśliwy traf albo redukcja czasu odnowienia; tylko ta lista zasila ręczną korektę affixów,
 - aspekt / efekt legendarny jest mapowany do `selectedAspectId` z `AspectRegistry`, a surowe linie OCR aspektu mogą pozostać tylko kontekstem diagnostyczno-prezentacyjnym,
+- `selectedAspectId` jest finalnym źródłem prawdy aspektu zapisanego itemu; raw OCR efektu aspektu nigdy nie zastępuje finalnego wyboru z `AspectRegistry`,
+- raw OCR efektu aspektu jest prezentowany tylko pomocniczo: pełny bezpieczny odczyt jest pokazywany jako `Efekt OCR`, a samotny ogon efektu bez pierwszej części jest zastępowany komunikatem `Odczyt efektu OCR niepełny / wymaga ręcznej weryfikacji.`,
 - socket / gniazdo jest osobną sekcją prezentacyjną i nie może przejmować tekstu aspektu ani affixów.
 
 Kontrakt prezentacji pełnego odczytu itemu:
@@ -443,6 +447,9 @@ Kontrakt biblioteki itemów:
 - podgląd biblioteki pokazuje osobne sekcje `Dane podstawowe`, `Base stats`, `Implicit / linie bazowe`, `Affixy`, `Aspekt / efekt legendarny`, `Socket / gniazdo` oraz opcjonalną diagnostykę OCR,
 - biblioteka renderuje właściwe affixy z zatwierdzonej listy `SavedImportedItem.getAffixes()`, dzięki czemu ręczne usunięcie albo korekta affixu nie jest cofana przez surowy `FullItemRead`,
 - base staty i implicity nie mogą być renderowane jako `Affix`; `Greater Affix` jest pokazywany wyłącznie prezentacyjną gwiazdką przy affixach z `greaterAffix=true`,
+- biblioteka normalizuje base staty defensywnie: moc przedmiotu pozostaje w `Dane podstawowe`, pancerz pozostaje w `Base stats`, a sklejki OCR typu `800 1 131 pkt. pancerza` nie są renderowane jako osobna wartość,
+- sekcja aspektu pokazuje finalny `selectedAspectId` przez nazwę z `AspectRegistry`, a oczywiście sklejone albo zdublowane surowe warianty OCR efektu są odfiltrowywane z prezentacji,
+- UI importu i biblioteki nie pokazują oderwanego ogona efektu typu `Ta premia jest trzy razy większa...` jako samodzielnego efektu; jeśli brakuje pierwszej części, widoczny jest neutralny komunikat o niepełnym odczycie OCR,
 - `HeroItemSelection` przechowuje najwyżej jeden aktywny `savedItemId` per `HeroEquipmentSlot` dla konkretnego bohatera,
 - biblioteka jest wspólna dla wszystkich bohaterów, ale aktywna selekcja slotów jest niezależna per bohater,
 - założenie itemu z biblioteki jest walidowane względem hero slotu; nie można przypisać itemu z niepasującego typu slotu,
@@ -463,7 +470,7 @@ Kontrakt integracji biblioteki z current build:
 - effective current build nadal kończy się zwykłym `CurrentBuildRequest`,
 - walidacja requestu dotyczy dopiero finalnych effective stats po zsumowaniu ręcznej bazy i aktywnych itemów,
 - `CurrentBuildSnapshotFactory` i runtime nadal pracują na tych samych płaskich polach co wcześniej,
-- P1.2 zmienia wyłącznie strukturę importu / biblioteki i SSR prezentację zapisanych itemów; `Damage Engine`, manual simulation, search runtime i projekcja DPS nie zostały zmienione,
+- P1.2/P1.2.2/P1.2.3 zmienia wyłącznie strukturę importu / biblioteki i SSR prezentację zapisanych itemów; `Damage Engine`, manual simulation, search runtime i projekcja DPS nie zostały zmienione,
 - biblioteka itemów nie buduje alternatywnego snapshot flow i nie omija istniejącego runtime.
 
 Kontrakt integracji biblioteki z backendowym searchem:
@@ -1317,7 +1324,10 @@ Minimalny zakres testów obejmuje:
 - zachowanie pełnych linii itemu w formularzu potwierdzenia i w zapisie biblioteki,
 - odczyt `src/test/resources/items/tarcza.png` jako pełniejszego modelu itemu z nazwą `NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU`, typem, rzadkością, mocą, bazowym pancerzem `1 131 pkt. pancerza`, stabilnymi implicitami, stabilnymi affixami, efektem legendarnym z `11,0%[x]` i gniazdem; sezonowe linie, takie jak `Rozjuszenie`, mogą zostać zachowane jako dodatkowy OCR, ale nie są wymaganym kontraktem regresyjnym itemu,
 - strukturalny podział `tarcza.png`: `1 131 pkt. pancerza` jako base stat, `45% redukcji blokowanych obrażeń`, `20,0% szansy na blok` i `+100% obrażeń od broni w głównej ręce` jako implicit / linie bazowe, a `+494 cierni`, `+7,0% szansy na szczęśliwy traf`, `13,2% redukcji czasu odnowienia` i `+114 siły` jako właściwe affixy,
+- zachowanie zakresu `+114 siły [107 - 121]`, brak sklejania `+7,0% szansy na szczęśliwy traf [7,0` z `13,2% redukcji czasu odnowienia` oraz ostrożne oznaczanie `Greater Affix`: cooldown bez zakresu jest `greaterAffix=true`, a siła, ciernie i lucky hit z zakresem albo fragmentem zakresu pozostają `greaterAffix=false`,
 - render biblioteki dla tarczy bez płaskich wpisów typu `Affix: 45% redukcji blokowanych obrażeń`, bez dublowania mocy przedmiotu i bazowej wartości jako dodatkowych bulletów oraz z osobnymi sekcjami semantycznymi,
+- render biblioteki bez sklejki base stat `800 1 131 pkt. pancerza`, z prezentacyjną gwiazdką wyłącznie dla affixów `greaterAffix=true` oraz bez oczywiście zdublowanych/sklejonych wariantów raw OCR aspektu,
+- prezentację aspektu w imporcie i bibliotece: `selectedAspectId` renderuje się jako nazwa z `AspectRegistry`, pełny efekt OCR jest pokazywany raz jako `Efekt OCR`, a sam ogon efektu bez kontekstu jest zastępowany komunikatem o niepełnej ręcznej weryfikacji,
 - snapshot realnego outputu Windows OCR dla `src/test/resources/items/tarcza.png`, który zabezpiecza ścieżkę regresji `800 / 1 131`, nazwę, bazową wartość i efekt legendarny bez fake OCR readera jako głównej weryfikacji,
 - mapowanie tekstu aspektu z `tarcza.png` do sugestii `ocrSuggestedAspectId`, bez zapisu dowolnego tekstu OCR jako finalnego aspektu itemu,
 - walidację, że aspekt zgodny ze slotem itemu przechodzi, a aspekt spoza `allowedItemSlots` jest odrzucany,

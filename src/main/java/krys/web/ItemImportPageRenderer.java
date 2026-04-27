@@ -221,7 +221,7 @@ public final class ItemImportPageRenderer {
                     """)
                 .append(renderLineGroup("Linie bazowe / implicit", groupedLines(fullItemRead, ItemReadLineGroup.IMPLICIT)))
                 .append(renderLineGroup("Affixy", groupedLines(fullItemRead, ItemReadLineGroup.AFFIX), true))
-                .append(renderLineGroup("Aspekt / efekt legendarny", groupedLines(fullItemRead, ItemReadLineGroup.SPECIAL)))
+                .append(renderTextLineGroup("Aspekt / efekt legendarny", ItemAspectEffectPresentation.effectLines(fullItemRead)))
                 .append(renderLineGroup("Dodatkowe / sezonowe linie", groupedLines(fullItemRead, ItemReadLineGroup.OTHER)))
                 .append(renderLineGroup("Socket / gniazdo", groupedLines(fullItemRead, ItemReadLineGroup.SOCKET)))
                 .append("</div>")
@@ -253,6 +253,22 @@ public final class ItemImportPageRenderer {
                 """.formatted(primary ? " item-line-group-primary" : "", escapeHtml(heading)));
         for (FullItemReadLine line : lines) {
             html.append("<li>").append(escapeHtml(line.getText())).append("</li>");
+        }
+        html.append("</ul></section>");
+        return html.toString();
+    }
+
+    private static String renderTextLineGroup(String heading, List<String> lines) {
+        if (lines.isEmpty()) {
+            return "";
+        }
+        StringBuilder html = new StringBuilder("""
+                <section class="item-line-group">
+                    <h5>%s</h5>
+                    <ul class="item-line-list">
+                """.formatted(escapeHtml(heading)));
+        for (String line : lines) {
+            html.append("<li>").append(escapeHtml(line)).append("</li>");
         }
         html.append("</ul></section>");
         return html.toString();

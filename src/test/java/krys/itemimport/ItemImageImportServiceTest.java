@@ -113,9 +113,10 @@ class ItemImageImportServiceTest {
         assertFullReadContains(result, "45% redukcji blokowanych obrażeń");
         assertFullReadContains(result, "20,0% szansy na blok");
         assertFullReadContains(result, "+100% obrażeń od broni w głównej ręce");
-        assertFullReadContains(result, "+114 siły");
+        assertFullReadContains(result, "+114 siły [107 - 121]");
         assertFullReadContains(result, "+494 cierni");
-        assertFullReadContains(result, "+7,0% szansy na szczęśliwy traf");
+        assertFullReadContains(result, "+7,0% szansy na szczęśliwy traf [7,0");
+        assertFullReadDoesNotContain(result, "+7,0% szansy na szczęśliwy traf [7,0 13,2");
         assertFullReadContains(result, "13,2% redukcji czasu odnowienia");
         assertFullReadContains(result, "11,0%[x]");
         assertFullAspectIntegrity(result);
@@ -147,6 +148,10 @@ class ItemImageImportServiceTest {
         assertAffixTypeOccursOnce(form, ImportedItemAffixType.THORNS);
         assertAffixTypeOccursOnce(form, ImportedItemAffixType.LUCKY_HIT_CHANCE);
         assertAffixTypeOccursOnce(form, ImportedItemAffixType.COOLDOWN_REDUCTION);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.COOLDOWN_REDUCTION, true);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.THORNS, false);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.STRENGTH, false);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.LUCKY_HIT_CHANCE, false);
     }
 
     @Test
@@ -196,9 +201,10 @@ class ItemImageImportServiceTest {
         assertLineTypeContains(result, FullItemReadLineType.IMPLICIT, "20,0% szansy na blok");
         assertLineTypeContains(result, FullItemReadLineType.IMPLICIT, "+100% obrażeń od broni w głównej ręce");
         assertLineTypeContains(result, FullItemReadLineType.AFFIX, "+494 cierni");
-        assertLineTypeContains(result, FullItemReadLineType.AFFIX, "+7,0% szansy na szczęśliwy traf");
+        assertLineTypeContains(result, FullItemReadLineType.AFFIX, "+7,0% szansy na szczęśliwy traf [7,0");
         assertLineTypeContains(result, FullItemReadLineType.AFFIX, "13,2% redukcji czasu odnowienia");
-        assertLineTypeContains(result, FullItemReadLineType.AFFIX, "+114 siły");
+        assertLineTypeContains(result, FullItemReadLineType.AFFIX, "+114 siły [107 - 121]");
+        assertFullReadDoesNotContain(result, "+7,0% szansy na szczęśliwy traf [7,0 13,2");
 
         ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
         assertAffixGreaterFlag(form, ImportedItemAffixType.COOLDOWN_REDUCTION, true);
@@ -278,6 +284,13 @@ class ItemImageImportServiceTest {
                         .map(FullItemReadLine::getText)
                         .anyMatch(line -> line.contains(expectedText)),
                 "Pełny odczyt itemu nie zawiera stabilnego tekstu: " + expectedText);
+    }
+
+    private static void assertFullReadDoesNotContain(ItemImageImportCandidateParseResult result, String forbiddenText) {
+        assertFalse(result.getFullItemRead().getLines().stream()
+                        .map(FullItemReadLine::getText)
+                        .anyMatch(line -> line.contains(forbiddenText)),
+                "Pełny odczyt itemu zawiera zakazany sklejony tekst: " + forbiddenText);
     }
 
     private static void assertExactlyOnePerLine(ItemImageImportCandidateParseResult result, List<String> expectedTexts) {

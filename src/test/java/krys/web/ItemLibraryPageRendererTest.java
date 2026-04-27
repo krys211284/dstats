@@ -42,6 +42,7 @@ class ItemLibraryPageRendererTest {
                                 new FullItemReadLine(FullItemReadLineType.TYPE_OR_SLOT, "Starożytna legendarna tarcza"),
                                 new FullItemReadLine(FullItemReadLineType.ITEM_POWER, "Moc przedmiotu: 800"),
                                 new FullItemReadLine(FullItemReadLineType.BASE_STAT, "1 131 pkt. pancerza"),
+                                new FullItemReadLine(FullItemReadLineType.BASE_STAT, "800 1 131 pkt. pancerza"),
                                 new FullItemReadLine(FullItemReadLineType.IMPLICIT, "45% redukcji blokowanych obrażeń [45]%"),
                                 new FullItemReadLine(FullItemReadLineType.IMPLICIT, "20,0% szansy na blok [20,0]%"),
                                 new FullItemReadLine(FullItemReadLineType.IMPLICIT, "+100% obrażeń od broni w głównej ręce [100]%"),
@@ -50,6 +51,8 @@ class ItemLibraryPageRendererTest {
                                 new FullItemReadLine(FullItemReadLineType.AFFIX, "13,2% redukcji czasu odnowienia"),
                                 new FullItemReadLine(FullItemReadLineType.AFFIX, "+114 siły [107 - 121]"),
                                 new FullItemReadLine(FullItemReadLineType.ASPECT, "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"),
+                                new FullItemReadLine(FullItemReadLineType.ASPECT, "Zadajesz obrażenia zwiększone o [5,0 - Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."),
+                                new FullItemReadLine(FullItemReadLineType.ASPECT, "Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."),
                                 new FullItemReadLine(FullItemReadLineType.SOCKET, "Puste gniazdo")
                         )
                 ),
@@ -79,14 +82,52 @@ class ItemLibraryPageRendererTest {
         assertTrue(html.contains("* 13,2% redukcji czasu odnowienia"));
         assertTrue(html.contains("+114 siły [107 - 121]"));
         assertTrue(html.contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
+        assertTrue(html.contains("Efekt OCR: Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]% Ta premia jest trzy razy większa"));
+        assertTrue(html.contains("Ta premia jest trzy razy większa"));
         assertFalse(html.contains("Affix: 45% redukcji blokowanych obrażeń"));
         assertFalse(html.contains("Affix: 20,0% szansy na blok"));
         assertFalse(html.contains("Affix: +100% obrażeń od broni w głównej ręce"));
-        assertFalse(html.contains("Bazowa wartość: 800 1 131 pkt. pancerza"));
+        assertFalse(html.contains("800 1 131 pkt. pancerza"));
+        assertFalse(html.contains("* +114 siły"));
+        assertFalse(html.contains("Zadajesz obrażenia zwiększone o [5,0 - Ta premia"));
+        assertEquals(1, countOccurrences(html, "Ta premia jest trzy razy większa"));
         assertFalse(html.contains("Projekcja do aktualnego runtime"));
         assertFalse(html.contains("Łączne obrażenia"));
         assertFalse(html.contains("<h2>DPS</h2>"));
         assertEquals(1, countOccurrences(html, ">Moc przedmiotu<"));
+    }
+
+    @Test
+    void shouldRenderIncompleteAspectMessageWhenOnlyEffectTailIsAvailable() {
+        SavedImportedItem shield = new SavedImportedItem(
+                1L,
+                "Ręka dodatkowa / tarcza.png",
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                new FullItemRead(
+                        "Tarcza testowa",
+                        "Tarcza",
+                        "Legendarny",
+                        "Moc przedmiotu: 800",
+                        "1 131 pkt. pancerza",
+                        List.of(new FullItemReadLine(FullItemReadLineType.ASPECT,
+                                "Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."))
+                ),
+                List.of(),
+                "inner-calm"
+        );
+
+        String html = render(List.of(shield));
+
+        assertTrue(html.contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
+        assertTrue(html.contains("Odczyt efektu OCR niepełny / wymaga ręcznej weryfikacji."));
+        assertFalse(html.contains("<li>Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek.</li>"));
     }
 
     @Test
