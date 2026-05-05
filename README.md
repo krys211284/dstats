@@ -262,6 +262,10 @@ Aktualny foundation klasowy repo obejmuje następujące skille obecnie zaimpleme
 - `Clash`
 - `Advance`
 
+Katalog `docs/paladin/source-pdfs/` zawiera źródłowe PDF-y dla przyszłego pełnego rejestru umiejętności Paladyna. Te dokumenty są referencją dla wartości liczbowych i mechanik przy modelowaniu pełnego drzewa umiejętności, ale nie zastępują jeszcze obecnego foundation `PaladinSkillDefs`.
+
+Warstwa `krys.verification` dodaje `Verification Matrix` dla mechanik z pełnego drzewa Paladyna, które wymagają osobnej weryfikacji przed użyciem w kalkulacjach. Wpisy `requiresVerification` są metadanymi procesu i nie mogą wpływać na DPS; próba ich użycia ma zostać pominięta albo zablokowana zgodnie z `default engine behavior`. Ta warstwa nie implementuje jeszcze pełnego runtime Paladyna i nie rozszerza obecnego `PaladinSkillDefs`.
+
 Kontraktowe zasady dla tej grupy:
 - `Brandish`, `Holy Bolt`, `Clash` i `Advance` są kategorią `Basic`,
 - `Brandish`, `Holy Bolt`, `Clash` i `Advance` mają `resourceCost = 0`,

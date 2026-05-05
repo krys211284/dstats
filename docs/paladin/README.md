@@ -12,4 +12,24 @@ Katalog `source-pdfs/` zawiera dokumenty źródłowe dla rejestru umiejętności
 
 ## Zakres
 
-Ten katalog przechowuje wyłącznie dokumenty źródłowe i zasady ich użycia. Model danych umiejętności Paladyna nie jest jeszcze implementowany w repozytorium.
+Ten katalog przechowuje wyłącznie dokumenty źródłowe i zasady ich użycia. Model danych pełnego drzewa umiejętności Paladyna na podstawie tych PDF-ów nie jest jeszcze zaimplementowany w repozytorium.
+
+## Verification Matrix
+
+Warstwa `krys.verification` przechowuje macierz mechanik Paladyna wymagających osobnej weryfikacji przed użyciem w kalkulacjach. Dotyczy to przede wszystkim tooltipów oznaczonych jako `DO WERYFIKACJI` albo `DO_WERYFIKACJI` oraz mechanik, których zachowanie single target nie wynika jednoznacznie z PDF-ów.
+
+Proces dopuszczenia mechaniki do runtime:
+
+1. Tooltip z PDF trafia do `Verification Matrix` jako wpis `requiresVerification`.
+2. Wpis opisuje pytanie weryfikacyjne, źródłowy PDF, kategorię, impact oraz domyślne zachowanie silnika przed weryfikacją.
+3. Mechanika przechodzi osobny test empiryczny poza tooltipem.
+4. Dopiero po teście status może zostać zmieniony na `verified`.
+5. Dopiero wpis `verified` może zostać wykorzystany w DPS runtime.
+
+Zasady dla `Verification Matrix`:
+
+- Brakujące wartości liczbowe i zachowania mechanik nie mogą być zgadywane.
+- Mechanika ze statusem `requiresVerification` nie może wpływać na wynik DPS.
+- Próba użycia niezweryfikowanej mechaniki w kalkulacji musi zostać jawnie zablokowana albo pominięta zgodnie z jej `default engine behavior`.
+- Zmiana statusu z `requiresVerification` na `verified` wymaga testu jednostkowego albo regresyjnego, aktualizacji README oraz wskazania źródła weryfikacji.
+- PDF-y pozostają źródłem tooltipów, ale sam tooltip z adnotacją `DO WERYFIKACJI` nie wystarcza do implementacji wpływu na DPS.
