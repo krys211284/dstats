@@ -266,6 +266,18 @@ Katalog `docs/paladin/source-pdfs/` zawiera źródłowe PDF-y dla przyszłego pe
 
 Warstwa `krys.verification` dodaje `Verification Matrix` dla mechanik z pełnego drzewa Paladyna, które wymagają osobnej weryfikacji przed użyciem w kalkulacjach. Wpisy `requiresVerification` są metadanymi procesu i nie mogą wpływać na DPS; próba ich użycia ma zostać pominięta albo zablokowana zgodnie z `default engine behavior`. Ta warstwa nie implementuje jeszcze pełnego runtime Paladyna i nie rozszerza obecnego `PaladinSkillDefs`.
 
+Warstwa `krys.ranking` dodaje aplikacyjny ranking obrażeń umiejętności Paladyna nad obecnym foundation `PaladinSkillDefs`. Ranking używa istniejącego `DamageEngine`, domyślnie działa w trybie `SINGLE_TARGET`, zwraca `damagePerUse`, `effectiveCycleSeconds`, `theoreticalDps`, metadane źródłowe PDF oraz status weryfikacji danych. Obsługiwane metryki sortowania to:
+- `DAMAGE_PER_USE`,
+- `THEORETICAL_DPS`,
+- `SINGLE_TARGET_DPS`.
+
+Ograniczenia rankingu:
+- ranking liczy tylko umiejętności skonfigurowane w przekazanym snapshotcie buildu i już wspierane przez obecny foundation,
+- node'y czysto użytkowe, np. obecny `Clash`, są oznaczane jako `NON_DAMAGE` i nie trafiają do domyślnego rankingu obrażeń,
+- pełne drzewo Paladyna z PDF-ów nie jest jeszcze automatycznie zaimplementowane jako runtime DPS,
+- mechaniki z `Verification Matrix` pozostają `NEEDS_VERIFICATION` i nie są oznaczane jako `VERIFIED`,
+- efekty wielocelowe oznaczone w obecnym `DamageEngine` jako nietrafiające głównego celu nie zwiększają wyniku single target.
+
 Kontraktowe zasady dla tej grupy:
 - `Brandish`, `Holy Bolt`, `Clash` i `Advance` są kategorią `Basic`,
 - `Brandish`, `Holy Bolt`, `Clash` i `Advance` mają `resourceCost = 0`,
