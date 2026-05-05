@@ -256,9 +256,9 @@ Reguły legalności stanu skilla:
 - skill może mieć maksymalnie jeden dodatkowy modyfikator.
 
 ### 4.3. Rejestr drzewa Paladyna
-Główny model Paladyna w nowych funkcjach jest oparty o PDF-y w `docs/paladin/source-pdfs/`. Rejestr `krys.paladin.PaladinSkillTreeRegistry` rozróżnia główne umiejętności, grupy ulepszeń, pojedyncze ulepszenia, `sourcePdf`, `skillGroup`, typ skilla oraz status obsługi.
+Model drzewa Paladyna w nowych funkcjach jest oparty o PDF-y w `docs/paladin/source-pdfs/`. Rejestr `krys.paladin.PaladinSkillTreeRegistry` rozróżnia wpisy umiejętności w drzewie, grupy ulepszeń, pojedyncze ulepszenia, `sourcePdf`, `skillGroup`, typ skilla oraz status obsługi.
 
-Aktualny rejestr drzewa Paladyna jest pełnym rejestrem opisowym głównych umiejętności ze wszystkich lokalnych PDF-ów źródłowych:
+Aktualny rejestr drzewa Paladyna jest pełnym rejestrem opisowym wpisów umiejętności w drzewie ze wszystkich lokalnych PDF-ów źródłowych:
 - `paladin_basic_skill_registry_final.pdf`,
 - `paladin_core_skill_registry_final.pdf`,
 - `paladin_aura_skill_registry_final.pdf`,
@@ -266,15 +266,15 @@ Aktualny rejestr drzewa Paladyna jest pełnym rejestrem opisowym głównych umie
 - `diablo4_paladyn_sprawiedliwosc_umiejetnosci.pdf`,
 - `moce_specjalne_diablo4.pdf`.
 
-Rejestr zawiera 24 główne umiejętności. Dla każdej z nich modelowana jest relacja:
-- `main skill`,
+Rejestr zawiera 24 wpisy umiejętności w drzewie. Dla każdego z nich modelowana jest relacja:
+- umiejętność bazowa w grupie,
 - `grupa_1`, `grupa_2`, `grupa_3`,
 - pojedyncze ulepszenia w grupie,
 - status ulepszenia i `sourceNote`.
 
 To nie jest jeszcze pełny DPS runtime. Rejestr może opisywać umiejętność i jej modyfikatory, ale dopóki mechanika single target nie jest zweryfikowana i zaimplementowana w `DamageEngine`, nie wolno liczyć dla niej `damagePerUse`, `effectiveCycleSeconds` ani `theoreticalDps`.
 
-Poprawka Mocy Specjalnych: `Forteca` jest główną umiejętnością z PDF `moce_specjalne_diablo4.pdf`, a `Cierniowa Reduta` jest ulepszeniem `Fortecy` w `grupa_3`. `Cierniowa Reduta` nie jest osobnym main skillem.
+Poprawka Mocy Specjalnych: `Forteca` jest wpisem umiejętności w drzewie z PDF `moce_specjalne_diablo4.pdf`, ma `skillGroup=moce_specjalne` i opisowe tagi z PDF `Specjalne`, `Defensywa`, `Moloch`. Nie jest oznaczana jako kategoria `Główne` / `Core`. `Cierniowa Reduta` jest ulepszeniem `Fortecy` w `grupa_3`, a nie osobną umiejętnością bazową w grupie.
 
 `Skazanie` ma opis obrażeń w PDF `diablo4_paladyn_sprawiedliwosc_umiejetnosci.pdf`, więc w rejestrze ma typ `DAMAGE` i status `NEEDS_VERIFICATION`. DPS Skazania nie jest liczony.
 
@@ -290,7 +290,7 @@ Statusy rejestru:
 
 Obecnie żaden nowy skill z pełnego rejestru PDF nie jest jeszcze `SUPPORTED`, ponieważ nie został zaimplementowany bezpieczny model DPS na podstawie zweryfikowanych mechanik. Nie wolno uzupełniać `damagePerUse`, cooldownów ani DPS na podstawie intuicji albo niepełnego tooltipa.
 
-Stary `PaladinSkillDefs` z `Brandish`, `Holy Bolt`, `Clash` i `Advance` został zdegradowany do `legacy/test-only`. Pozostaje w repo, ponieważ istniejące testy `DamageEngine`, manual simulation i search nadal regresyjnie chronią stary foundation, ale te skille nie są już domyślnym źródłem danych rankingu Paladyna i nie należą do głównego rejestru drzewa Paladyna.
+Stary `PaladinSkillDefs` z `Brandish`, `Holy Bolt`, `Clash` i `Advance` został zdegradowany do `legacy/test-only`. Pozostaje w repo, ponieważ istniejące testy `DamageEngine`, manual simulation i search nadal regresyjnie chronią stary foundation, ale te skille nie są już domyślnym źródłem danych rankingu Paladyna i nie należą do rejestru wpisów umiejętności w drzewie Paladyna.
 
 Warstwa `krys.verification` dodaje `Verification Matrix` dla mechanik z pełnego drzewa Paladyna, które wymagają osobnej weryfikacji przed użyciem w kalkulacjach. Wpisy `requiresVerification` są metadanymi procesu i nie mogą wpływać na DPS; próba ich użycia ma zostać pominięta albo zablokowana zgodnie z `default engine behavior`.
 

@@ -181,7 +181,7 @@ public final class PaladinSkillTreeRegistry {
                         group1(upgrade("nieustepliwosc", "Nieustępliwość"), upgrade("uzycie_bez_zuzywania_zasobow", "Użycie bez Zużywania Zasobów")),
                         group2(upgrade("premia_do_obrazen_animuszu", "Premia do Obrażeń Animuszu"), upgrade("czas_dzialania", "Czas Działania")),
                         group3(upgrade("barykada", "Barykada"), upgrade("cierniowa_reduta", "Cierniowa Reduta"), upgrade("okopanie", "Okopanie"))),
-                "Forteca jest główną mocą specjalną; Cierniowa Reduta jest jej ulepszeniem z grupy 3."));
+                "Forteca jest wpisem umiejętności w drzewie Mocy Specjalnych; tagi opisowe z PDF: Specjalne, Defensywa, Moloch. Cierniowa Reduta jest jej ulepszeniem z grupy 3."));
         put(skills, skill("zenit", "Zenit", SPECIAL_POWERS_PDF, "moce_specjalne", SPECIAL, NEEDS_VERIFICATION,
                 groups(SPECIAL_POWERS_PDF, "Zenit",
                         group1(upgrade("szansa_na_trafienie_krytyczne", "Szansa na Trafienie Krytyczne"), upgrade("oslabienie", "Osłabienie")),

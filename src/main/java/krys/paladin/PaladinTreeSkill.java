@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Główna umiejętność z pełnego rejestru drzewa Paladyna. */
+/** Bazowy wpis umiejętności w rejestrze drzewa Paladyna. */
 public final class PaladinTreeSkill {
     private final String skillId;
     private final String skillName;

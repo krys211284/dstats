@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PaladinSkillTreeRegistryTest {
-    private static final Set<String> EXPECTED_MAIN_SKILLS = Set.of(
+    private static final Set<String> EXPECTED_TOP_LEVEL_SKILL_ENTRIES = Set.of(
             "wymach",
             "swiety_pocisk",
             "starcie",
@@ -40,10 +40,10 @@ class PaladinSkillTreeRegistryTest {
     );
 
     @Test
-    void powinien_zawierac_wszystkie_glowne_umiejetnosci_paladyna_z_pdf() {
-        Set<String> skillIds = mainSkillIds();
+    void powinien_zawierac_wszystkie_wpisy_umiejetnosci_w_drzewie_paladyna_z_pdf() {
+        Set<String> skillIds = topLevelSkillEntryIds();
 
-        assertEquals(EXPECTED_MAIN_SKILLS, skillIds);
+        assertEquals(EXPECTED_TOP_LEVEL_SKILL_ENTRIES, skillIds);
         assertEquals(24, PaladinSkillTreeRegistry.allSkills().size());
     }
 
@@ -104,17 +104,23 @@ class PaladinSkillTreeRegistryTest {
     }
 
     @Test
-    void forteca_powinna_byc_main_skillem_a_cierniowa_reduta_jej_ulepszeniem() {
+    void forteca_powinna_byc_wpisem_umiejetnosci_w_drzewie_a_cierniowa_reduta_jej_ulepszeniem() {
         PaladinTreeSkill fortress = PaladinSkillTreeRegistry.requireSkill("forteca");
-        Set<String> mainSkillIds = mainSkillIds();
+        Set<String> topLevelSkillEntryIds = topLevelSkillEntryIds();
         Set<String> fortressUpgradeNames = fortress.getUpgradeGroups().stream()
                 .flatMap(group -> group.getUpgrades().stream())
                 .map(PaladinSkillUpgrade::getName)
                 .collect(Collectors.toSet());
 
         assertEquals("Forteca", fortress.getSkillName());
-        assertFalse(mainSkillIds.contains("cierniowa_reduta"));
-        assertFalse(mainSkillIds.contains("cierniowa_reduta_fortecy"));
+        assertEquals(PaladinSkillTreeRegistry.SPECIAL_POWERS_PDF, fortress.getSourcePdf());
+        assertEquals("moce_specjalne", fortress.getSkillGroup());
+        assertEquals(PaladinSkillTreeType.DEFENSIVE, fortress.getType());
+        assertTrue(fortress.getNotes().contains("Specjalne, Defensywa, Moloch"));
+        assertFalse(fortress.getSourcePdf().equals(PaladinSkillTreeRegistry.CORE_PDF));
+        assertFalse(fortress.getSkillGroup().equals("core"));
+        assertFalse(topLevelSkillEntryIds.contains("cierniowa_reduta"));
+        assertFalse(topLevelSkillEntryIds.contains("cierniowa_reduta_fortecy"));
         assertTrue(fortressUpgradeNames.contains("Cierniowa Reduta"));
     }
 
@@ -127,8 +133,8 @@ class PaladinSkillTreeRegistryTest {
     }
 
     @Test
-    void stare_foundation_skille_nie_powinny_byc_w_glownym_rejestrze_paladyna() {
-        Set<String> skillIds = mainSkillIds();
+    void stare_foundation_skille_nie_powinny_byc_w_rejestrze_wpisow_umiejetnosci_paladyna() {
+        Set<String> skillIds = topLevelSkillEntryIds();
 
         assertFalse(skillIds.contains("BRANDISH"));
         assertFalse(skillIds.contains("HOLY_BOLT"));
@@ -136,7 +142,7 @@ class PaladinSkillTreeRegistryTest {
         assertFalse(skillIds.contains("ADVANCE"));
     }
 
-    private static Set<String> mainSkillIds() {
+    private static Set<String> topLevelSkillEntryIds() {
         return PaladinSkillTreeRegistry.allSkills().stream()
                 .map(PaladinTreeSkill::getSkillId)
                 .collect(Collectors.toSet());
