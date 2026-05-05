@@ -40,13 +40,14 @@ class PaladinSkillDamageRankingServiceTest {
     }
 
     @Test
-    void ranking_powinien_pokazywac_niepoliczalne_umiejetnosci_jako_unsupported_albo_needs_verification() {
+    void ranking_powinien_pokazywac_niepoliczalne_umiejetnosci_bez_wynikow_dps() {
         List<PaladinSkillDamageRankingEntry> ranking = service.rankDamageSkills(PaladinDamageRankingMetric.SINGLE_TARGET_DPS);
 
         assertFalse(ranking.isEmpty());
-        assertTrue(ranking.stream().anyMatch(entry -> entry.getVerificationStatus() == PaladinSkillDamageVerificationStatus.UNSUPPORTED));
         assertTrue(ranking.stream().anyMatch(entry -> entry.getVerificationStatus() == PaladinSkillDamageVerificationStatus.NEEDS_VERIFICATION));
         assertTrue(ranking.stream().allMatch(entry -> entry.getDamagePerUse() == null));
+        assertTrue(ranking.stream().allMatch(entry -> entry.getEffectiveCycleSeconds() == null));
+        assertTrue(ranking.stream().allMatch(entry -> entry.getTheoreticalDps() == null));
     }
 
     @Test

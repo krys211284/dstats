@@ -258,20 +258,25 @@ Reguły legalności stanu skilla:
 ### 4.3. Rejestr drzewa Paladyna
 Główny model Paladyna w nowych funkcjach jest oparty o PDF-y w `docs/paladin/source-pdfs/`. Rejestr `krys.paladin.PaladinSkillTreeRegistry` rozróżnia główne umiejętności, grupy ulepszeń, pojedyncze ulepszenia, `sourcePdf`, `skillGroup`, typ skilla oraz status obsługi.
 
-Aktualny rejestr drzewa Paladyna obejmuje:
-- `Skazanie`,
-- `Włócznia Niebios`,
-- `Konsekracja`,
-- `Oczyszczenie`,
-- `Furia Niebios`,
-- `Cierniowa Reduta Fortecy`,
-- `Zenit`,
-- `Arbiter Sprawiedliwości`.
+Aktualny rejestr drzewa Paladyna jest pełnym rejestrem opisowym głównych umiejętności ze wszystkich lokalnych PDF-ów źródłowych:
+- `paladin_basic_skill_registry_final.pdf`,
+- `paladin_core_skill_registry_final.pdf`,
+- `paladin_aura_skill_registry_final.pdf`,
+- `diablo4_paladyn_odwaga_umiejetnosci.pdf`,
+- `diablo4_paladyn_sprawiedliwosc_umiejetnosci.pdf`,
+- `moce_specjalne_diablo4.pdf`.
 
-`Zenit` ma jawnie odwzorowany poprawiony układ grup ulepszeń z PDF Mocy Specjalnych:
-- `Grupa 1`: `Szansa na Trafienie Krytyczne`, `Osłabienie`,
-- `Grupa 2`: `Nieustępliwość`, `Osłabienie: zabijanie osłabionych wrogów podczas działania Zenitu skraca jego czas odnowienia o 2 sek.`,
-- `Grupa 3`: `Empirejska Klinga`, `Rozdarcie`, `Homilia Stali`.
+Rejestr zawiera 24 główne umiejętności. Dla każdej z nich modelowana jest relacja:
+- `main skill`,
+- `grupa_1`, `grupa_2`, `grupa_3`,
+- pojedyncze ulepszenia w grupie,
+- status ulepszenia i `sourceNote`.
+
+To nie jest jeszcze pełny DPS runtime. Rejestr może opisywać umiejętność i jej modyfikatory, ale dopóki mechanika single target nie jest zweryfikowana i zaimplementowana w `DamageEngine`, nie wolno liczyć dla niej `damagePerUse`, `effectiveCycleSeconds` ani `theoreticalDps`.
+
+Poprawka Mocy Specjalnych: `Forteca` jest główną umiejętnością z PDF `moce_specjalne_diablo4.pdf`, a `Cierniowa Reduta` jest ulepszeniem `Fortecy` w `grupa_3`. `Cierniowa Reduta` nie jest osobnym main skillem.
+
+`Skazanie` ma opis obrażeń w PDF `diablo4_paladyn_sprawiedliwosc_umiejetnosci.pdf`, więc w rejestrze ma typ `DAMAGE` i status `NEEDS_VERIFICATION`. DPS Skazania nie jest liczony.
 
 Różnica kontraktowa:
 - `skill exists in tree` oznacza, że umiejętność istnieje w rejestrze PDF i może być pokazywana w analizie,
@@ -296,7 +301,7 @@ Warstwa `krys.ranking` dodaje aplikacyjny ranking obrażeń umiejętności Palad
 
 Ograniczenia rankingu:
 - ranking używa nowego rejestru PDF, a nie legacy `PaladinSkillDefs`,
-- umiejętności niepoliczalne są widoczne jako `UNSUPPORTED` albo `NEEDS_VERIFICATION`,
+- umiejętności niepoliczalne są widoczne jako `NEEDS_VERIFICATION`, `UNSUPPORTED` albo `NON_DAMAGE`,
 - node'y czysto użytkowe oznaczone jako `NON_DAMAGE` nie trafiają do domyślnego rankingu obrażeń,
 - mechaniki z `Verification Matrix` pozostają `NEEDS_VERIFICATION` i nie są oznaczane jako `SUPPORTED`,
 - efekty wielocelowe nie mogą zwiększać wyniku single target bez jawnego, zweryfikowanego modelu.

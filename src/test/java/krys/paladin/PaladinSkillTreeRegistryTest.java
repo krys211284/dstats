@@ -12,65 +12,123 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PaladinSkillTreeRegistryTest {
-    @Test
-    void powinien_zawierac_nowe_umiejetnosci_paladyna_z_pdf() {
-        Set<String> skillIds = PaladinSkillTreeRegistry.allSkills().stream()
-                .map(PaladinTreeSkill::getSkillId)
-                .collect(Collectors.toSet());
+    private static final Set<String> EXPECTED_MAIN_SKILLS = Set.of(
+            "wymach",
+            "swiety_pocisk",
+            "starcie",
+            "natarcie",
+            "blogoslawiona_tarcza",
+            "blogoslawiony_mlot",
+            "boska_lanca",
+            "uderzenie_tarcza",
+            "zapal",
+            "aura_fanatyzmu",
+            "aura_smialosci",
+            "aura_swietej_swiatlosci",
+            "szarza_z_tarcza",
+            "egida",
+            "spadajaca_gwiazda",
+            "mobilizacja",
+            "skazanie",
+            "wlocznia_niebios",
+            "konsekracja",
+            "oczyszczenie",
+            "furia_niebios",
+            "forteca",
+            "zenit",
+            "arbiter_sprawiedliwosci"
+    );
 
-        assertEquals(Set.of(
-                "skazanie",
-                "wlocznia_niebios",
-                "konsekracja",
-                "oczyszczenie",
-                "furia_niebios",
-                "cierniowa_reduta_fortecy",
-                "zenit",
-                "arbiter_sprawiedliwosci"
-        ), skillIds);
+    @Test
+    void powinien_zawierac_wszystkie_glowne_umiejetnosci_paladyna_z_pdf() {
+        Set<String> skillIds = mainSkillIds();
+
+        assertEquals(EXPECTED_MAIN_SKILLS, skillIds);
+        assertEquals(24, PaladinSkillTreeRegistry.allSkills().size());
     }
 
     @Test
-    void kazda_nowa_umiejetnosc_powinna_miec_poprawne_zrodlo_grupe_i_status() {
-        Map<String, ExpectedSkillMetadata> expected = Map.of(
-                "skazanie", new ExpectedSkillMetadata(PaladinSkillTreeRegistry.JUSTICE_PDF, "sprawiedliwosc", PaladinSkillTreeStatus.UNSUPPORTED),
-                "wlocznia_niebios", new ExpectedSkillMetadata(PaladinSkillTreeRegistry.JUSTICE_PDF, "sprawiedliwosc", PaladinSkillTreeStatus.NEEDS_VERIFICATION),
-                "konsekracja", new ExpectedSkillMetadata(PaladinSkillTreeRegistry.JUSTICE_PDF, "sprawiedliwosc", PaladinSkillTreeStatus.NEEDS_VERIFICATION),
-                "oczyszczenie", new ExpectedSkillMetadata(PaladinSkillTreeRegistry.JUSTICE_PDF, "sprawiedliwosc", PaladinSkillTreeStatus.NEEDS_VERIFICATION),
-                "furia_niebios", new ExpectedSkillMetadata(PaladinSkillTreeRegistry.SPECIAL_POWERS_PDF, "moce_specjalne", PaladinSkillTreeStatus.NEEDS_VERIFICATION),
-                "cierniowa_reduta_fortecy", new ExpectedSkillMetadata(PaladinSkillTreeRegistry.SPECIAL_POWERS_PDF, "moce_specjalne", PaladinSkillTreeStatus.NEEDS_VERIFICATION),
-                "zenit", new ExpectedSkillMetadata(PaladinSkillTreeRegistry.SPECIAL_POWERS_PDF, "moce_specjalne", PaladinSkillTreeStatus.NEEDS_VERIFICATION),
-                "arbiter_sprawiedliwosci", new ExpectedSkillMetadata(PaladinSkillTreeRegistry.SPECIAL_POWERS_PDF, "moce_specjalne", PaladinSkillTreeStatus.NEEDS_VERIFICATION)
+    void powinien_obejmowac_wszystkie_pdfy_zrodlowe() {
+        Set<String> sourcePdfs = PaladinSkillTreeRegistry.allSkills().stream()
+                .map(PaladinTreeSkill::getSourcePdf)
+                .collect(Collectors.toSet());
+
+        assertEquals(Set.of(
+                PaladinSkillTreeRegistry.BASIC_PDF,
+                PaladinSkillTreeRegistry.CORE_PDF,
+                PaladinSkillTreeRegistry.AURA_PDF,
+                PaladinSkillTreeRegistry.COURAGE_PDF,
+                PaladinSkillTreeRegistry.JUSTICE_PDF,
+                PaladinSkillTreeRegistry.SPECIAL_POWERS_PDF
+        ), sourcePdfs);
+    }
+
+    @Test
+    void kazda_umiejetnosc_z_opisanymi_ulepszeniami_powinna_miec_trzy_grupy() {
+        Map<String, List<Integer>> expectedGroupSizes = Map.ofEntries(
+                Map.entry("wymach", List.of(2, 2, 3)),
+                Map.entry("swiety_pocisk", List.of(2, 2, 3)),
+                Map.entry("starcie", List.of(2, 2, 3)),
+                Map.entry("natarcie", List.of(2, 2, 3)),
+                Map.entry("blogoslawiona_tarcza", List.of(2, 2, 3)),
+                Map.entry("blogoslawiony_mlot", List.of(2, 2, 3)),
+                Map.entry("boska_lanca", List.of(2, 2, 3)),
+                Map.entry("uderzenie_tarcza", List.of(2, 2, 3)),
+                Map.entry("zapal", List.of(2, 2, 3)),
+                Map.entry("aura_fanatyzmu", List.of(2, 2, 3)),
+                Map.entry("aura_smialosci", List.of(2, 2, 3)),
+                Map.entry("aura_swietej_swiatlosci", List.of(2, 2, 3)),
+                Map.entry("szarza_z_tarcza", List.of(2, 2, 3)),
+                Map.entry("egida", List.of(2, 2, 3)),
+                Map.entry("spadajaca_gwiazda", List.of(2, 2, 3)),
+                Map.entry("mobilizacja", List.of(2, 2, 3)),
+                Map.entry("skazanie", List.of(2, 2, 3)),
+                Map.entry("wlocznia_niebios", List.of(2, 2, 3)),
+                Map.entry("konsekracja", List.of(2, 2, 3)),
+                Map.entry("oczyszczenie", List.of(2, 2, 3)),
+                Map.entry("furia_niebios", List.of(3, 2, 2)),
+                Map.entry("forteca", List.of(2, 2, 3)),
+                Map.entry("zenit", List.of(2, 2, 3)),
+                Map.entry("arbiter_sprawiedliwosci", List.of(2, 2, 3))
         );
 
-        for (Map.Entry<String, ExpectedSkillMetadata> expectation : expected.entrySet()) {
+        for (Map.Entry<String, List<Integer>> expectation : expectedGroupSizes.entrySet()) {
             PaladinTreeSkill skill = PaladinSkillTreeRegistry.requireSkill(expectation.getKey());
 
-            assertEquals(expectation.getValue().sourcePdf(), skill.getSourcePdf());
-            assertEquals(expectation.getValue().skillGroup(), skill.getSkillGroup());
-            assertEquals(expectation.getValue().status(), skill.getStatus());
+            assertEquals(List.of("grupa_1", "grupa_2", "grupa_3"), groupIds(skill));
+            assertEquals(expectation.getValue(), groupSizes(skill));
+            assertTrue(skill.getUpgradeGroups().stream()
+                    .flatMap(group -> group.getUpgrades().stream())
+                    .allMatch(upgrade -> !upgrade.getSourceNote().isBlank()));
         }
     }
 
     @Test
-    void zenit_powinien_miec_poprawiony_uklad_grup_ulepszen() {
-        PaladinTreeSkill zenith = PaladinSkillTreeRegistry.requireSkill("zenit");
-        List<PaladinSkillUpgradeGroup> groups = zenith.getUpgradeGroups();
+    void forteca_powinna_byc_main_skillem_a_cierniowa_reduta_jej_ulepszeniem() {
+        PaladinTreeSkill fortress = PaladinSkillTreeRegistry.requireSkill("forteca");
+        Set<String> mainSkillIds = mainSkillIds();
+        Set<String> fortressUpgradeNames = fortress.getUpgradeGroups().stream()
+                .flatMap(group -> group.getUpgrades().stream())
+                .map(PaladinSkillUpgrade::getName)
+                .collect(Collectors.toSet());
 
-        assertEquals(3, groups.size());
-        assertEquals(List.of("Szansa na Trafienie Krytyczne", "Osłabienie"), upgradeNames(groups.get(0)));
-        assertEquals(List.of(
-                "Nieustępliwość",
-                "Osłabienie: zabijanie osłabionych wrogów podczas działania Zenitu skraca jego czas odnowienia o 2 sek."
-        ), upgradeNames(groups.get(1)));
-        assertEquals(List.of("Empirejska Klinga", "Rozdarcie", "Homilia Stali"), upgradeNames(groups.get(2)));
+        assertEquals("Forteca", fortress.getSkillName());
+        assertFalse(mainSkillIds.contains("cierniowa_reduta"));
+        assertFalse(mainSkillIds.contains("cierniowa_reduta_fortecy"));
+        assertTrue(fortressUpgradeNames.contains("Cierniowa Reduta"));
+    }
+
+    @Test
+    void skazanie_powinno_byc_umiejetnoscia_obrazeniowa_wymagajaca_weryfikacji() {
+        PaladinTreeSkill condemnation = PaladinSkillTreeRegistry.requireSkill("skazanie");
+
+        assertEquals(PaladinSkillTreeType.DAMAGE, condemnation.getType());
+        assertEquals(PaladinSkillTreeStatus.NEEDS_VERIFICATION, condemnation.getStatus());
     }
 
     @Test
     void stare_foundation_skille_nie_powinny_byc_w_glownym_rejestrze_paladyna() {
-        Set<String> skillIds = PaladinSkillTreeRegistry.allSkills().stream()
-                .map(PaladinTreeSkill::getSkillId)
-                .collect(Collectors.toSet());
+        Set<String> skillIds = mainSkillIds();
 
         assertFalse(skillIds.contains("BRANDISH"));
         assertFalse(skillIds.contains("HOLY_BOLT"));
@@ -78,12 +136,21 @@ class PaladinSkillTreeRegistryTest {
         assertFalse(skillIds.contains("ADVANCE"));
     }
 
-    private static List<String> upgradeNames(PaladinSkillUpgradeGroup group) {
-        return group.getUpgrades().stream()
-                .map(PaladinSkillUpgrade::getName)
+    private static Set<String> mainSkillIds() {
+        return PaladinSkillTreeRegistry.allSkills().stream()
+                .map(PaladinTreeSkill::getSkillId)
+                .collect(Collectors.toSet());
+    }
+
+    private static List<String> groupIds(PaladinTreeSkill skill) {
+        return skill.getUpgradeGroups().stream()
+                .map(PaladinSkillUpgradeGroup::getId)
                 .toList();
     }
 
-    private record ExpectedSkillMetadata(String sourcePdf, String skillGroup, PaladinSkillTreeStatus status) {
+    private static List<Integer> groupSizes(PaladinTreeSkill skill) {
+        return skill.getUpgradeGroups().stream()
+                .map(group -> group.getUpgrades().size())
+                .toList();
     }
 }
