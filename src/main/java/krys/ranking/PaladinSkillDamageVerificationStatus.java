@@ -2,7 +2,7 @@ package krys.ranking;
 
 /** Status pewności danych używanych przez ranking obrażeń. */
 public enum PaladinSkillDamageVerificationStatus {
-    VERIFIED,
+    SUPPORTED,
     PARTIAL,
     NEEDS_VERIFICATION,
     NON_DAMAGE,

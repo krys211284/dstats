@@ -2,6 +2,9 @@ package krys.ranking;
 
 import krys.combat.DamageBreakdown;
 import krys.combat.DamageEngine;
+import krys.paladin.PaladinSkillTreeRegistry;
+import krys.paladin.PaladinSkillTreeStatus;
+import krys.paladin.PaladinTreeSkill;
 import krys.simulation.HeroBuildSnapshot;
 import krys.skill.EffectType;
 import krys.skill.PaladinSkillDefs;
@@ -18,7 +21,7 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 
-/** Ranking obrażeń Paladyna oparty wyłącznie o już zaimplementowany foundation runtime. */
+/** Ranking obrażeń Paladyna oparty o rejestr PDF; stary foundation pozostaje tylko jako legacy/test-only. */
 public final class PaladinSkillDamageRankingService {
     private final DamageEngine damageEngine;
 
@@ -26,26 +29,19 @@ public final class PaladinSkillDamageRankingService {
         this.damageEngine = damageEngine;
     }
 
-    public List<PaladinSkillDamageRankingEntry> rankDamageSkills(HeroBuildSnapshot snapshot,
-                                                                 PaladinDamageRankingMetric metric) {
-        return rankDamageSkills(snapshot, metric, PaladinDamageTargetMode.SINGLE_TARGET);
+    public List<PaladinSkillDamageRankingEntry> rankDamageSkills(PaladinDamageRankingMetric metric) {
+        return rankDamageSkills(metric, PaladinDamageTargetMode.SINGLE_TARGET);
     }
 
-    public List<PaladinSkillDamageRankingEntry> rankDamageSkills(HeroBuildSnapshot snapshot,
-                                                                 PaladinDamageRankingMetric metric,
+    public List<PaladinSkillDamageRankingEntry> rankDamageSkills(PaladinDamageRankingMetric metric,
                                                                  PaladinDamageTargetMode targetMode) {
         if (targetMode != PaladinDamageTargetMode.SINGLE_TARGET) {
             throw new IllegalArgumentException("Obsługiwany jest tylko tryb SINGLE_TARGET.");
         }
 
         List<PaladinSkillDamageRankingEntry> entries = new ArrayList<>();
-        for (SkillId skillId : SkillId.values()) {
-            SkillState state = snapshot.getSkillState(skillId);
-            if (state == null || state.getRank() <= 0) {
-                continue;
-            }
-
-            PaladinSkillDamageRankingEntry entry = createFoundationEntry(snapshot, skillId, state, targetMode);
+        for (PaladinTreeSkill skill : PaladinSkillTreeRegistry.allSkills()) {
+            PaladinSkillDamageRankingEntry entry = createTreeEntry(skill, targetMode);
             if (entry.getVerificationStatus() == PaladinSkillDamageVerificationStatus.NON_DAMAGE) {
                 continue;
             }
@@ -56,14 +52,53 @@ public final class PaladinSkillDamageRankingService {
         return List.copyOf(entries);
     }
 
-    public List<PaladinSkillDamageRankingEntry> describeConfiguredFoundationSkills(HeroBuildSnapshot snapshot) {
+    public List<PaladinSkillDamageRankingEntry> rankDamageSkills(HeroBuildSnapshot snapshot,
+                                                                 PaladinDamageRankingMetric metric) {
+        return rankDamageSkills(metric, PaladinDamageTargetMode.SINGLE_TARGET);
+    }
+
+    public List<PaladinSkillDamageRankingEntry> rankDamageSkills(HeroBuildSnapshot snapshot,
+                                                                 PaladinDamageRankingMetric metric,
+                                                                 PaladinDamageTargetMode targetMode) {
+        return rankDamageSkills(metric, targetMode);
+    }
+
+    public List<PaladinSkillDamageRankingEntry> describePaladinTreeSkills() {
+        List<PaladinSkillDamageRankingEntry> entries = new ArrayList<>();
+        for (PaladinTreeSkill skill : PaladinSkillTreeRegistry.allSkills()) {
+            entries.add(createTreeEntry(skill, PaladinDamageTargetMode.SINGLE_TARGET));
+        }
+        return List.copyOf(entries);
+    }
+
+    public List<PaladinSkillDamageRankingEntry> rankLegacyFoundationDamageSkills(HeroBuildSnapshot snapshot,
+                                                                                PaladinDamageRankingMetric metric) {
         List<PaladinSkillDamageRankingEntry> entries = new ArrayList<>();
         for (SkillId skillId : SkillId.values()) {
             SkillState state = snapshot.getSkillState(skillId);
             if (state == null || state.getRank() <= 0) {
                 continue;
             }
-            entries.add(createFoundationEntry(snapshot, skillId, state, PaladinDamageTargetMode.SINGLE_TARGET));
+
+            PaladinSkillDamageRankingEntry entry = createLegacyFoundationEntry(snapshot, skillId, state, PaladinDamageTargetMode.SINGLE_TARGET);
+            if (entry.getVerificationStatus() == PaladinSkillDamageVerificationStatus.NON_DAMAGE) {
+                continue;
+            }
+            entries.add(entry);
+        }
+
+        entries.sort(comparatorFor(metric).reversed().thenComparing(PaladinSkillDamageRankingEntry::getSkillName));
+        return List.copyOf(entries);
+    }
+
+    public List<PaladinSkillDamageRankingEntry> describeLegacyConfiguredFoundationSkills(HeroBuildSnapshot snapshot) {
+        List<PaladinSkillDamageRankingEntry> entries = new ArrayList<>();
+        for (SkillId skillId : SkillId.values()) {
+            SkillState state = snapshot.getSkillState(skillId);
+            if (state == null || state.getRank() <= 0) {
+                continue;
+            }
+            entries.add(createLegacyFoundationEntry(snapshot, skillId, state, PaladinDamageTargetMode.SINGLE_TARGET));
         }
         return List.copyOf(entries);
     }
@@ -89,10 +124,27 @@ public final class PaladinSkillDamageRankingService {
         return List.copyOf(entries);
     }
 
-    private PaladinSkillDamageRankingEntry createFoundationEntry(HeroBuildSnapshot snapshot,
-                                                                SkillId skillId,
-                                                                SkillState state,
-                                                                PaladinDamageTargetMode targetMode) {
+    private PaladinSkillDamageRankingEntry createTreeEntry(PaladinTreeSkill skill, PaladinDamageTargetMode targetMode) {
+        return new PaladinSkillDamageRankingEntry(
+                skill.getSkillId(),
+                skill.getSkillName(),
+                skill.getSourcePdf(),
+                skill.getSkillGroup(),
+                mapTreeDamageModelType(skill.getStatus()),
+                null,
+                null,
+                null,
+                null,
+                targetMode,
+                mapTreeStatus(skill.getStatus()),
+                skill.getNotes()
+        );
+    }
+
+    private PaladinSkillDamageRankingEntry createLegacyFoundationEntry(HeroBuildSnapshot snapshot,
+                                                                      SkillId skillId,
+                                                                      SkillState state,
+                                                                      PaladinDamageTargetMode targetMode) {
         SkillDef skillDef = PaladinSkillDefs.get(skillId);
         PaladinFoundationSkillSource.SourceMetadata sourceMetadata = PaladinFoundationSkillSource.get(skillId);
         DamageBreakdown directBreakdown = damageEngine.calculate(snapshot, skillId, EnumSet.noneOf(StatusId.class));
@@ -116,7 +168,7 @@ public final class PaladinSkillDamageRankingService {
                     null,
                     targetMode,
                     PaladinSkillDamageVerificationStatus.NON_DAMAGE,
-                    "Skill nie wnosi zaimplementowanego direct ani delayed damage w obecnym foundation."
+                    "Legacy/test-only: skill nie wnosi direct ani delayed damage w starym foundation."
             );
         }
 
@@ -135,8 +187,8 @@ public final class PaladinSkillDamageRankingService {
                 effectiveCycleSeconds,
                 theoreticalDps,
                 targetMode,
-                PaladinSkillDamageVerificationStatus.VERIFIED,
-                "Obliczone przez istniejący DamageEngine dla trybu SINGLE_TARGET; komponenty oznaczone jako nietrafiające głównego celu nie zwiększają damagePerUse."
+                PaladinSkillDamageVerificationStatus.SUPPORTED,
+                "Legacy/test-only: obliczone przez stary DamageEngine dla trybu SINGLE_TARGET."
         );
     }
 
@@ -176,6 +228,24 @@ public final class PaladinSkillDamageRankingService {
             }
         }
         return cooldownSeconds;
+    }
+
+    private static PaladinSkillDamageModelType mapTreeDamageModelType(PaladinSkillTreeStatus status) {
+        return switch (status) {
+            case SUPPORTED -> PaladinSkillDamageModelType.DIRECT_HIT;
+            case NEEDS_VERIFICATION -> PaladinSkillDamageModelType.VERIFICATION_GATED;
+            case NON_DAMAGE -> PaladinSkillDamageModelType.NON_DAMAGE;
+            case UNSUPPORTED -> PaladinSkillDamageModelType.UNSUPPORTED;
+        };
+    }
+
+    private static PaladinSkillDamageVerificationStatus mapTreeStatus(PaladinSkillTreeStatus status) {
+        return switch (status) {
+            case SUPPORTED -> PaladinSkillDamageVerificationStatus.SUPPORTED;
+            case NEEDS_VERIFICATION -> PaladinSkillDamageVerificationStatus.NEEDS_VERIFICATION;
+            case NON_DAMAGE -> PaladinSkillDamageVerificationStatus.NON_DAMAGE;
+            case UNSUPPORTED -> PaladinSkillDamageVerificationStatus.UNSUPPORTED;
+        };
     }
 
     private static Comparator<PaladinSkillDamageRankingEntry> comparatorFor(PaladinDamageRankingMetric metric) {

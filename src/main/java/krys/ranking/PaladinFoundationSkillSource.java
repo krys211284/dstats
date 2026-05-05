@@ -5,7 +5,7 @@ import krys.skill.SkillId;
 import java.util.EnumMap;
 import java.util.Map;
 
-/** Metadane źródłowe dla obecnego foundation `PaladinSkillDefs`. */
+/** Metadane źródłowe dla legacy/test-only foundation `PaladinSkillDefs`. */
 final class PaladinFoundationSkillSource {
     private static final String BASIC_PDF = "docs/paladin/source-pdfs/paladin_basic_skill_registry_final.pdf";
     private static final Map<SkillId, SourceMetadata> METADATA_BY_SKILL = createMetadata();

@@ -12,7 +12,7 @@ Katalog `source-pdfs/` zawiera dokumenty źródłowe dla rejestru umiejętności
 
 ## Zakres
 
-Ten katalog przechowuje wyłącznie dokumenty źródłowe i zasady ich użycia. Model danych pełnego drzewa umiejętności Paladyna na podstawie tych PDF-ów nie jest jeszcze zaimplementowany w repozytorium.
+Ten katalog przechowuje dokumenty źródłowe i zasady ich użycia. Aplikacyjny rejestr drzewa Paladyna jest zaimplementowany w `krys.paladin.PaladinSkillTreeRegistry`, ale pełny runtime DPS dla tych umiejętności nie jest jeszcze zaimplementowany.
 
 ## Verification Matrix
 

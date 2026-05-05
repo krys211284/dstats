@@ -1,6 +1,6 @@
 package krys.skill;
 
-/** Minimalny zbiór skilli potrzebny do pierwszego foundation. */
+/** Legacy/test-only zbiór skilli starego foundation runtime. */
 public enum SkillId {
     BRANDISH,
     HOLY_BOLT,

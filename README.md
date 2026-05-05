@@ -255,53 +255,51 @@ Reguły legalności stanu skilla:
 - skill z upgradem przy `rank 0` jest nielegalny,
 - skill może mieć maksymalnie jeden dodatkowy modyfikator.
 
-### 4.3. Zakres startowy domeny
-Aktualny foundation klasowy repo obejmuje następujące skille obecnie zaimplementowanego zakresu paladinocentrycznego:
-- `Brandish`
-- `Holy Bolt`
-- `Clash`
-- `Advance`
+### 4.3. Rejestr drzewa Paladyna
+Główny model Paladyna w nowych funkcjach jest oparty o PDF-y w `docs/paladin/source-pdfs/`. Rejestr `krys.paladin.PaladinSkillTreeRegistry` rozróżnia główne umiejętności, grupy ulepszeń, pojedyncze ulepszenia, `sourcePdf`, `skillGroup`, typ skilla oraz status obsługi.
 
-Katalog `docs/paladin/source-pdfs/` zawiera źródłowe PDF-y dla przyszłego pełnego rejestru umiejętności Paladyna. Te dokumenty są referencją dla wartości liczbowych i mechanik przy modelowaniu pełnego drzewa umiejętności, ale nie zastępują jeszcze obecnego foundation `PaladinSkillDefs`.
+Aktualny rejestr drzewa Paladyna obejmuje:
+- `Skazanie`,
+- `Włócznia Niebios`,
+- `Konsekracja`,
+- `Oczyszczenie`,
+- `Furia Niebios`,
+- `Cierniowa Reduta Fortecy`,
+- `Zenit`,
+- `Arbiter Sprawiedliwości`.
 
-Warstwa `krys.verification` dodaje `Verification Matrix` dla mechanik z pełnego drzewa Paladyna, które wymagają osobnej weryfikacji przed użyciem w kalkulacjach. Wpisy `requiresVerification` są metadanymi procesu i nie mogą wpływać na DPS; próba ich użycia ma zostać pominięta albo zablokowana zgodnie z `default engine behavior`. Ta warstwa nie implementuje jeszcze pełnego runtime Paladyna i nie rozszerza obecnego `PaladinSkillDefs`.
+`Zenit` ma jawnie odwzorowany poprawiony układ grup ulepszeń z PDF Mocy Specjalnych:
+- `Grupa 1`: `Szansa na Trafienie Krytyczne`, `Osłabienie`,
+- `Grupa 2`: `Nieustępliwość`, `Osłabienie: zabijanie osłabionych wrogów podczas działania Zenitu skraca jego czas odnowienia o 2 sek.`,
+- `Grupa 3`: `Empirejska Klinga`, `Rozdarcie`, `Homilia Stali`.
 
-Warstwa `krys.ranking` dodaje aplikacyjny ranking obrażeń umiejętności Paladyna nad obecnym foundation `PaladinSkillDefs`. Ranking używa istniejącego `DamageEngine`, domyślnie działa w trybie `SINGLE_TARGET`, zwraca `damagePerUse`, `effectiveCycleSeconds`, `theoreticalDps`, metadane źródłowe PDF oraz status weryfikacji danych. Obsługiwane metryki sortowania to:
+Różnica kontraktowa:
+- `skill exists in tree` oznacza, że umiejętność istnieje w rejestrze PDF i może być pokazywana w analizie,
+- `skill can be calculated by DPS engine` oznacza, że istnieje bezpieczny, zaimplementowany model obrażeń w `DamageEngine`.
+
+Statusy rejestru:
+- `SUPPORTED` - skill ma bezpieczny model runtime i może wpływać na DPS,
+- `NEEDS_VERIFICATION` - skill albo mechanika istnieje w PDF, ale wymaga empirycznej weryfikacji przed wpływem na DPS,
+- `UNSUPPORTED` - skill istnieje w PDF, ale nie ma jeszcze modelu runtime ani wystarczająco pewnego odwzorowania do kalkulacji,
+- `NON_DAMAGE` - skill jest znany jako niezadający obrażeń i nie trafia do rankingu obrażeń jako osobne źródło DPS.
+
+Obecnie żaden nowy skill z pełnego rejestru PDF nie jest jeszcze `SUPPORTED`, ponieważ nie został zaimplementowany bezpieczny model DPS na podstawie zweryfikowanych mechanik. Nie wolno uzupełniać `damagePerUse`, cooldownów ani DPS na podstawie intuicji albo niepełnego tooltipa.
+
+Stary `PaladinSkillDefs` z `Brandish`, `Holy Bolt`, `Clash` i `Advance` został zdegradowany do `legacy/test-only`. Pozostaje w repo, ponieważ istniejące testy `DamageEngine`, manual simulation i search nadal regresyjnie chronią stary foundation, ale te skille nie są już domyślnym źródłem danych rankingu Paladyna i nie należą do głównego rejestru drzewa Paladyna.
+
+Warstwa `krys.verification` dodaje `Verification Matrix` dla mechanik z pełnego drzewa Paladyna, które wymagają osobnej weryfikacji przed użyciem w kalkulacjach. Wpisy `requiresVerification` są metadanymi procesu i nie mogą wpływać na DPS; próba ich użycia ma zostać pominięta albo zablokowana zgodnie z `default engine behavior`.
+
+Warstwa `krys.ranking` dodaje aplikacyjny ranking obrażeń umiejętności Paladyna nad nowym rejestrem PDF. Ranking domyślnie działa w trybie `SINGLE_TARGET`, zwraca metadane źródłowe PDF oraz status weryfikacji danych. Pola `damagePerUse`, `effectiveCycleSeconds` i `theoreticalDps` pozostają puste dla skilli `NEEDS_VERIFICATION` albo `UNSUPPORTED`. Obsługiwane metryki sortowania to:
 - `DAMAGE_PER_USE`,
 - `THEORETICAL_DPS`,
 - `SINGLE_TARGET_DPS`.
 
 Ograniczenia rankingu:
-- ranking liczy tylko umiejętności skonfigurowane w przekazanym snapshotcie buildu i już wspierane przez obecny foundation,
-- node'y czysto użytkowe, np. obecny `Clash`, są oznaczane jako `NON_DAMAGE` i nie trafiają do domyślnego rankingu obrażeń,
-- pełne drzewo Paladyna z PDF-ów nie jest jeszcze automatycznie zaimplementowane jako runtime DPS,
-- mechaniki z `Verification Matrix` pozostają `NEEDS_VERIFICATION` i nie są oznaczane jako `VERIFIED`,
-- efekty wielocelowe oznaczone w obecnym `DamageEngine` jako nietrafiające głównego celu nie zwiększają wyniku single target.
-
-Kontraktowe zasady dla tej grupy:
-- `Brandish`, `Holy Bolt`, `Clash` i `Advance` są kategorią `Basic`,
-- `Brandish`, `Holy Bolt`, `Clash` i `Advance` mają `resourceCost = 0`,
-- brak kosztu zasobu nie zmienia reguły rotacji LRU.
-
-Aktualny kontrakt foundation dla `Advance` jest celowo minimalny i skupia się na pierwszym pełnym use case direct-hit runtime z cooldownem:
-- bazowy `Advance` używa bezpośredniego hita `147%`,
-- na obecnym etapie foundation `Advance` używa tego samego kontraktowego `147%` dla rang `1..5`,
-- bazowe rozszerzenie `Advance` odblokowuje dodatkowe modyfikatory `Wave Dash` oraz `Flash of the Blade`,
-- `Advance + Wave Dash` trafia ten sam cel dwa razy: `147%` oraz dodatkowa fala `191%`,
-- `Advance + Flash of the Blade` podmienia bazowy hit na pojedynczy hit `322%`,
-- `Advance + Flash of the Blade` nakłada `Vulnerable` po trafieniu,
-- `Advance + Flash of the Blade` ustawia efektywny cooldown na `8 s`,
-- bazowy `Advance` i `Advance + Wave Dash` nie ustawiają cooldownu.
-
-Aktualny kontrakt foundation dla `Clash` jest celowo minimalny i ograniczony do pierwszego pełnego use case reactive foundation:
-- bazowy `Clash` nie zadaje bezpośrednich obrażeń,
-- bazowe rozszerzenie `Clash` oznacza `Crusader's March`,
-- `Crusader's March` daje `Resolve` na `3 s` i `+25% block chance` na `3 s`,
-- dodatkowy modyfikator `LEFT` oznacza `Punishment`,
-- `Punishment` daje `+50 Thorns` na `3 s`,
-- `Resolve` w aktualnym foundation jest czasowym stanem logicznym potrzebnym do debugowania i dalszego rozszerzania reactive, a nie pełnym ogólnym systemem stacków.
-
-Pozostałe skille wymieniane w szerszym planie projektu nie należą jeszcze do aktualnego zakresu implementacji repo.
+- ranking używa nowego rejestru PDF, a nie legacy `PaladinSkillDefs`,
+- umiejętności niepoliczalne są widoczne jako `UNSUPPORTED` albo `NEEDS_VERIFICATION`,
+- node'y czysto użytkowe oznaczone jako `NON_DAMAGE` nie trafiają do domyślnego rankingu obrażeń,
+- mechaniki z `Verification Matrix` pozostają `NEEDS_VERIFICATION` i nie są oznaczane jako `SUPPORTED`,
+- efekty wielocelowe nie mogą zwiększać wyniku single target bez jawnego, zweryfikowanego modelu.
 
 ### 4.4. Model efektów runtime
 Aktualny foundation wspiera następujące typy efektów runtime:

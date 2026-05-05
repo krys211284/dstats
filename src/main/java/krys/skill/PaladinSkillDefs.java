@@ -7,7 +7,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Minimalny rejestr definicji skilli Paladina potrzebnych do pierwszego foundation. */
+/**
+ * Legacy/test-only rejestr starego foundation Paladyna.
+ * Główny model drzewa Paladyna dla nowych funkcji znajduje się w `krys.paladin`.
+ */
 public final class PaladinSkillDefs {
     private static final SkillDef BRANDISH = new SkillDef(
             SkillId.BRANDISH,
