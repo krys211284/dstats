@@ -276,6 +276,8 @@ To nie jest jeszcze pełny DPS runtime. Rejestr może opisywać umiejętność i
 
 Poprawka Mocy Specjalnych: `Forteca` jest wpisem umiejętności w drzewie z PDF `moce_specjalne_diablo4.pdf`, ma `skillGroup=moce_specjalne` i opisowe tagi z PDF `Specjalne`, `Defensywa`, `Moloch`. Nie jest oznaczana jako kategoria `Główne` / `Core`. `Cierniowa Reduta` jest ulepszeniem `Fortecy` w `grupa_3`, a nie osobną umiejętnością bazową w grupie.
 
+`Furia Niebios` w Mocy Specjalnych ma układ grup `2 / 2 / 3`: `grupa_1` zawiera `Czas Działania` i `Spowolnienie`, `grupa_2` zawiera `Osąd` i `Premia do Obrażeń`, a `grupa_3` zawiera `Ostateczna Sprawiedliwość`, `Krok w Światłości` i `Potrojenie`.
+
 `Skazanie` ma opis obrażeń w PDF `diablo4_paladyn_sprawiedliwosc_umiejetnosci.pdf`, więc w rejestrze ma typ `DAMAGE` i status `NEEDS_VERIFICATION`. DPS Skazania nie jest liczony.
 
 Różnica kontraktowa:

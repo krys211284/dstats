@@ -86,7 +86,7 @@ class PaladinSkillTreeRegistryTest {
                 Map.entry("wlocznia_niebios", List.of(2, 2, 3)),
                 Map.entry("konsekracja", List.of(2, 2, 3)),
                 Map.entry("oczyszczenie", List.of(2, 2, 3)),
-                Map.entry("furia_niebios", List.of(3, 2, 2)),
+                Map.entry("furia_niebios", List.of(2, 2, 3)),
                 Map.entry("forteca", List.of(2, 2, 3)),
                 Map.entry("zenit", List.of(2, 2, 3)),
                 Map.entry("arbiter_sprawiedliwosci", List.of(2, 2, 3))
@@ -101,6 +101,15 @@ class PaladinSkillTreeRegistryTest {
                     .flatMap(group -> group.getUpgrades().stream())
                     .allMatch(upgrade -> !upgrade.getSourceNote().isBlank()));
         }
+    }
+
+    @Test
+    void furia_niebios_powinna_miec_poprawiony_uklad_grup_ulepszen() {
+        PaladinTreeSkill heavenFury = PaladinSkillTreeRegistry.requireSkill("furia_niebios");
+
+        assertEquals(List.of("Czas Działania", "Spowolnienie"), upgradeNames(heavenFury.getUpgradeGroups().get(0)));
+        assertEquals(List.of("Osąd", "Premia do Obrażeń"), upgradeNames(heavenFury.getUpgradeGroups().get(1)));
+        assertEquals(List.of("Ostateczna Sprawiedliwość", "Krok w Światłości", "Potrojenie"), upgradeNames(heavenFury.getUpgradeGroups().get(2)));
     }
 
     @Test
@@ -157,6 +166,12 @@ class PaladinSkillTreeRegistryTest {
     private static List<Integer> groupSizes(PaladinTreeSkill skill) {
         return skill.getUpgradeGroups().stream()
                 .map(group -> group.getUpgrades().size())
+                .toList();
+    }
+
+    private static List<String> upgradeNames(PaladinSkillUpgradeGroup group) {
+        return group.getUpgrades().stream()
+                .map(PaladinSkillUpgrade::getName)
                 .toList();
     }
 }

@@ -172,9 +172,9 @@ public final class PaladinSkillTreeRegistry {
 
         put(skills, skill("furia_niebios", "Furia Niebios", SPECIAL_POWERS_PDF, "moce_specjalne", DAMAGE, NEEDS_VERIFICATION,
                 groups(SPECIAL_POWERS_PDF, "Furia Niebios",
-                        group1(upgrade("czas_dzialania", "Czas Działania"), upgrade("spowolnienie", "Spowolnienie"), upgrade("osad", "Osąd")),
-                        group2(upgrade("premia_do_obrazen", "Premia do Obrażeń"), upgrade("ostateczna_sprawiedliwosc", "Ostateczna Sprawiedliwość")),
-                        group3(upgrade("krok_w_swiatlosci", "Krok w Światłości"), upgrade("potrojenie", "Potrojenie"))),
+                        group1(upgrade("czas_dzialania", "Czas Działania"), upgrade("spowolnienie", "Spowolnienie")),
+                        group2(upgrade("osad", "Osąd"), upgrade("premia_do_obrazen", "Premia do Obrażeń")),
+                        group3(upgrade("ostateczna_sprawiedliwosc", "Ostateczna Sprawiedliwość"), upgrade("krok_w_swiatlosci", "Krok w Światłości"), upgrade("potrojenie", "Potrojenie"))),
                 NO_RUNTIME));
         put(skills, skill("forteca", "Forteca", SPECIAL_POWERS_PDF, "moce_specjalne", DEFENSIVE, NEEDS_VERIFICATION,
                 groups(SPECIAL_POWERS_PDF, "Forteca",
