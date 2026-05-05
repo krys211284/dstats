@@ -14,6 +14,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VerificationMatrixTest {
+    private static final String AURA_PDF = "docs/paladin/source-pdfs/paladin_aura_skill_registry_final.pdf";
+    private static final String JUSTICE_PDF = "docs/paladin/source-pdfs/diablo4_paladyn_sprawiedliwosc_umiejetnosci.pdf";
+    private static final String SPECIAL_POWERS_PDF = "docs/paladin/source-pdfs/moce_specjalne_diablo4.pdf";
+
     @Test
     void powinna_zawierac_wszystkie_kategorie_weryfikacji_z_kontraktu() {
         Set<String> categoryIds = Arrays.stream(VerificationCategory.values())
@@ -75,5 +79,48 @@ class VerificationMatrixTest {
         assertTrue(stableIds.contains("thorn-fortress-redoubt-dps-behavior"));
         assertTrue(stableIds.contains("zenith-first-second-use-behavior"));
         assertTrue(stableIds.contains("arbiter-of-justice-wing-strikes"));
+    }
+
+    @Test
+    void powinna_miec_poprawne_zrodla_i_grupy_dla_poprawianych_wpisow() {
+        assertSourceAndGroup("consecration-tick-rate", JUSTICE_PDF, "sprawiedliwosc");
+        assertSourceAndGroup("consecration-buff-duration-refresh", JUSTICE_PDF, "sprawiedliwosc");
+        assertSourceAndGroup("purification-echo-hit-behavior", JUSTICE_PDF, "sprawiedliwosc");
+        assertEquals("oczyszczenie", VerificationMatrix.requireByStableId("purification-echo-hit-behavior").getSkillId());
+        assertSourceAndGroup("heavens-fury-ray-hit-frequency", SPECIAL_POWERS_PDF, "moce_specjalne");
+        assertSourceAndGroup("arbiter-of-justice-wing-strikes", SPECIAL_POWERS_PDF, "moce_specjalne");
+    }
+
+    @Test
+    void konsekracja_i_oczyszczenie_nie_powinny_wskazywac_na_pdf_aur() {
+        assertNotSourcePdf("consecration-tick-rate", AURA_PDF);
+        assertNotSourcePdf("consecration-buff-duration-refresh", AURA_PDF);
+        assertNotSourcePdf("purification-echo-hit-behavior", AURA_PDF);
+    }
+
+    @Test
+    void moce_specjalne_powinny_wskazywac_na_pdf_mocy_specjalnych_jesli_sa_w_matrix() {
+        assertSpecialPowersSourceIfPresent("heavens-fury-ray-hit-frequency");
+        assertSpecialPowersSourceIfPresent("thorn-fortress-redoubt-dps-behavior");
+        assertSpecialPowersSourceIfPresent("zenith-first-second-use-behavior");
+        assertSpecialPowersSourceIfPresent("arbiter-of-justice-wing-strikes");
+    }
+
+    private static void assertSourceAndGroup(String stableId, String sourcePdf, String skillGroup) {
+        VerificationMatrixEntry entry = VerificationMatrix.requireByStableId(stableId);
+
+        assertEquals(sourcePdf, entry.getSourcePdf());
+        assertEquals(skillGroup, entry.getSkillGroup());
+    }
+
+    private static void assertNotSourcePdf(String stableId, String forbiddenSourcePdf) {
+        VerificationMatrixEntry entry = VerificationMatrix.requireByStableId(stableId);
+
+        assertFalse(entry.getSourcePdf().equals(forbiddenSourcePdf));
+    }
+
+    private static void assertSpecialPowersSourceIfPresent(String stableId) {
+        VerificationMatrix.findByStableId(stableId)
+                .ifPresent(entry -> assertEquals(SPECIAL_POWERS_PDF, entry.getSourcePdf()));
     }
 }
