@@ -81,6 +81,7 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - empty state sekcji `Wstępnie rozpoznane pola` w imporcie pojedynczego itemu,
 - pierwsze minimalne webowe GUI SSR dla trybu `Znajdź najlepszy build`,
 - pierwszy drill-down SSR z wyniku searcha do pełnej analizy reprezentanta znormalizowanego wyniku na tym samym runtime co manual simulation,
+- opisowy ekran SSR `/ranking-obrazen-paladyna` pokazujący wszystkie 24 wpisy z `PaladinSkillTreeRegistry`, ich status policzalności, źródłowy PDF i blokadę DPS dla niezweryfikowanych mechanik,
 - foundation audytu/preflightu searcha z liczbą legalnych kandydatów i rozmiarem search space,
 - minimalny progress CLI searcha dla etapu oceny kandydatów,
 - CLI dla manual simulation oraz osobne CLI backendowego searcha jako równoległe smoke testy tego samego runtime.
@@ -122,6 +123,7 @@ Kontrakt app shell:
 - globalna nawigacja SSR jest renderowana z tego samego rejestru modułów, a nie z rozproszonych ręcznych linków w wielu ekranach,
 - główne ekrany SSR korzystają z tego samego renderera app shell i tego samego zestawu tokenów wizualnych dla tła, paneli, przycisków, statusów i aktywnej zakładki,
 - główne ekrany SSR korzystają też z szerszego wspólnego kontenera layoutu, żeby current build, search i biblioteka lepiej wykorzystywały szerokie monitory bez łamania mobilnego SSR,
+- aktywny moduł `Ranking obrażeń Paladyna` jest opisowym ekranem nad `PaladinSkillDamageRankingService` i nowym `PaladinSkillTreeRegistry`; nie implementuje nowych formuł DPS,
 - istniejące flow `Policz aktualny build`, `Importuj item ze screena`, `Biblioteka itemów`, `Znajdź najlepszy build` i drill-down searcha pozostają cienkimi warstwami nad tym samym runtime,
 - placeholder pages są świadomą warstwą produktową przygotowującą architekturę aplikacji pod przyszłe sekcje, a nie atrapą zastępującą istniejącą logikę runtime.
 
@@ -301,12 +303,29 @@ Warstwa `krys.ranking` dodaje aplikacyjny ranking obrażeń umiejętności Palad
 - `THEORETICAL_DPS`,
 - `SINGLE_TARGET_DPS`.
 
+Ekran SSR `/ranking-obrazen-paladyna` jest widocznym dla użytkownika podglądem tego modelu. Pokazuje wszystkie 24 wpisy z `PaladinSkillTreeRegistry`, a nie tylko wpisy policzalne. Tabela zawiera kolumny `skillName`, `skillId`, `skillGroup`, `type`, `verificationStatus`, `damagePerUse`, `theoreticalDps`, `singleTargetDps`, `reason / notes` i `sourcePdf`.
+
+Filtry ekranu:
+- grupa umiejętności (`skillGroup`),
+- status weryfikacji (`verificationStatus`),
+- typ umiejętności (`type`),
+- metryka rankingu (`metric`: `DAMAGE_PER_USE`, `THEORETICAL_DPS`, `SINGLE_TARGET_DPS`).
+
+Domyślne sortowanie ekranu:
+- najpierw wpisy z policzalnym DPS,
+- potem wpisy `NEEDS_VERIFICATION`,
+- potem `UNSUPPORTED`,
+- potem `NON_DAMAGE`,
+- w ramach grup sortowania używana jest wybrana metryka, a przy braku wartości DPS nazwa umiejętności.
+
 Ograniczenia rankingu:
 - ranking używa nowego rejestru PDF, a nie legacy `PaladinSkillDefs`,
 - umiejętności niepoliczalne są widoczne jako `NEEDS_VERIFICATION`, `UNSUPPORTED` albo `NON_DAMAGE`,
-- node'y czysto użytkowe oznaczone jako `NON_DAMAGE` nie trafiają do domyślnego rankingu obrażeń,
+- node'y czysto użytkowe oznaczone jako `NON_DAMAGE` nie są traktowane jako damage skill; opisowy ekran nadal pokazuje je jawnie z pustymi wartościami DPS,
 - mechaniki z `Verification Matrix` pozostają `NEEDS_VERIFICATION` i nie są oznaczane jako `SUPPORTED`,
 - efekty wielocelowe nie mogą zwiększać wyniku single target bez jawnego, zweryfikowanego modelu.
+
+Obecnie ekran jest rankingiem opisowym z blokadą niezweryfikowanych mechanik. Kolejne etapy mogą odblokowywać konkretne umiejętności dopiero po osobnej weryfikacji single target i dopiero wtedy wolno wypełniać `damagePerUse`, `theoreticalDps` oraz `singleTargetDps` dla tych wpisów.
 
 ### 4.4. Model efektów runtime
 Aktualny foundation wspiera następujące typy efektów runtime:
@@ -1002,6 +1021,7 @@ Aktualne moduły `Dostępne`:
 - `Bohaterowie`
 - `Policz aktualny build`
 - `Znajdź najlepszy build`
+- `Ranking obrażeń Paladyna`
 - `Importuj item ze screena`
 - `Biblioteka itemów`
 
@@ -1213,6 +1233,20 @@ Kontrakt prezentacji dla smoke testu GUI searcha:
 - drill-down przechodzi przez kontrakt `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> CurrentBuildCalculationService -> runtime`,
 - drill-down pokazuje `Wejście buildu`, `Skille na pasku`, `Pasek akcji`, `Tryb biblioteki itemów`, `Wybrane itemy z biblioteki`, `Łączny wkład itemów`, `Łączne obrażenia`, `DPS`, `Debug bezpośrednich trafień`, `Debug opóźnionych trafień`, `Debug obrażeń reaktywnych`, `Ślad kroków symulacji`, `Judgement aktywny na końcu`, `Resolve aktywny na końcu`, `Końcowa szansa bloku` oraz `Końcowy bonus do kolców`,
 - GUI searcha nie implementuje live progressu, CSV, wielowątkowości ani rozbudowanego UX ponad minimalny SSR.
+
+Smoke test GUI rankingu obrażeń Paladyna:
+
+```text
+http://127.0.0.1:8080/ranking-obrazen-paladyna
+```
+
+Kontrakt prezentacji dla smoke testu rankingu Paladyna:
+- endpoint `/ranking-obrazen-paladyna` renderuje 24 wiersze z `PaladinSkillTreeRegistry`,
+- ekran pokazuje globalną nawigację SSR wspólną z pozostałymi modułami,
+- ekran nie pokazuje legacy skilli `Brandish`, `Holy Bolt`, `Clash` ani `Advance` jako domyślnego drzewa Paladyna,
+- ekran pokazuje `NEEDS_VERIFICATION`, `UNSUPPORTED` i `NON_DAMAGE` bez wartości DPS, jeżeli wpis nie jest zweryfikowany albo nie jest skillem obrażeniowym,
+- ekran ma filtry `skillGroup`, `verificationStatus`, `type` i `metric`,
+- ekran nie implementuje nowego runtime DPS i nie odblokowuje żadnej mechaniki bez weryfikacji single target.
 
 Smoke test CLI searcha:
 

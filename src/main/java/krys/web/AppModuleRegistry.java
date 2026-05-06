@@ -51,6 +51,16 @@ public final class AppModuleRegistry {
                     false
             ),
             new AppModule(
+                    "paladin-damage-ranking",
+                    "Ranking obrażeń Paladyna",
+                    "Opisowy podgląd nowego drzewa Paladyna z blokadą DPS dla niezweryfikowanych mechanik.",
+                    AppModuleGroup.BUILD_TOOLS,
+                    AppModuleStatus.AVAILABLE,
+                    "/ranking-obrazen-paladyna",
+                    true,
+                    false
+            ),
+            new AppModule(
                     "item-import",
                     "Importuj item ze screena",
                     "Wspomagany SSR import pojedynczego itemu z ręcznym potwierdzeniem pól.",

@@ -11,6 +11,7 @@ import krys.itemlibrary.ItemLibraryService;
 import krys.itemimport.ItemImageImportService;
 import krys.itemknowledge.FileItemKnowledgeRepository;
 import krys.itemknowledge.ItemKnowledgeService;
+import krys.ranking.PaladinSkillDamageRankingService;
 import krys.search.BuildSearchCalculationService;
 import krys.search.BuildSearchEvaluationService;
 import krys.simulation.ManualSimulationService;
@@ -69,6 +70,10 @@ public final class CurrentBuildWebServer implements AutoCloseable {
                 itemLibraryService,
                 heroService
         );
+        PaladinSkillDamageRankingController paladinSkillDamageRankingController = new PaladinSkillDamageRankingController(
+                new PaladinSkillDamageRankingService(new DamageEngine()),
+                new PaladinSkillDamageRankingPageRenderer()
+        );
         ItemImportController itemImportController = new ItemImportController(
                 new ItemImageImportService(),
                 new ItemImportPageRenderer(),
@@ -92,6 +97,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
         server.createContext("/policz-aktualny-build", controller);
         server.createContext("/znajdz-najlepszy-build", searchController);
         server.createContext("/znajdz-najlepszy-build/szczegoly", searchBuildDetailsController);
+        server.createContext("/ranking-obrazen-paladyna", paladinSkillDamageRankingController);
         server.createContext("/importuj-item-ze-screena", itemImportController);
         server.createContext("/biblioteka-itemow/edytuj", itemEditController);
         server.createContext("/biblioteka-itemow", itemLibraryController);
@@ -121,6 +127,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
         webServer.start();
         System.out.println("GUI manual simulation dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/policz-aktualny-build");
         System.out.println("GUI search dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/znajdz-najlepszy-build");
+        System.out.println("GUI rankingu obrażeń Paladyna dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/ranking-obrazen-paladyna");
         System.out.println("GUI importu itemu dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/importuj-item-ze-screena");
         System.out.println("GUI biblioteki itemów dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/biblioteka-itemow");
         System.out.println("GUI bazy wiedzy itemów dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/baza-wiedzy-itemow");

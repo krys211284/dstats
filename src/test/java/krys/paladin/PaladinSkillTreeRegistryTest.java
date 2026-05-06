@@ -107,6 +107,7 @@ class PaladinSkillTreeRegistryTest {
     void furia_niebios_powinna_miec_poprawiony_uklad_grup_ulepszen() {
         PaladinTreeSkill heavenFury = PaladinSkillTreeRegistry.requireSkill("furia_niebios");
 
+        assertEquals(List.of(2, 2, 3), groupSizes(heavenFury));
         assertEquals(List.of("Czas Działania", "Spowolnienie"), upgradeNames(heavenFury.getUpgradeGroups().get(0)));
         assertEquals(List.of("Osąd", "Premia do Obrażeń"), upgradeNames(heavenFury.getUpgradeGroups().get(1)));
         assertEquals(List.of("Ostateczna Sprawiedliwość", "Krok w Światłości", "Potrojenie"), upgradeNames(heavenFury.getUpgradeGroups().get(2)));

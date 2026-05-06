@@ -1,0 +1,152 @@
+package krys.web;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class PaladinSkillDamageRankingWebServerTest {
+    private CurrentBuildWebServer webServer;
+    private HttpClient httpClient;
+    private String baseUrl;
+
+    @BeforeEach
+    void setUp() throws IOException {
+        Path tempDirectory = Files.createTempDirectory("paladin-ranking-web");
+        webServer = new CurrentBuildWebServer(0, tempDirectory);
+        webServer.start();
+        httpClient = HttpClient.newHttpClient();
+        baseUrl = "http://127.0.0.1:" + webServer.getPort();
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (webServer != null) {
+            webServer.close();
+        }
+    }
+
+    @Test
+    void shouldRenderAllTwentyFourPaladinTreeSkillsByDefault() throws Exception {
+        HttpResponse<String> response = sendGet("/ranking-obrazen-paladyna");
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Ranking obrażeń Paladyna"));
+        assertTrue(response.body().contains("Wpisy w rejestrze"));
+        assertTrue(response.body().contains(">24<"));
+        assertEquals(24, countSkillRows(response.body()));
+        assertTrue(response.body().contains("data-skill-id=\"furia_niebios\""));
+        assertTrue(response.body().contains("data-skill-id=\"forteca\""));
+        assertTrue(response.body().contains("data-skill-id=\"arbiter_sprawiedliwosci\""));
+    }
+
+    @Test
+    void shouldNotExposeLegacyFoundationSkillsAsDefaultPaladinTree() throws Exception {
+        HttpResponse<String> response = sendGet("/ranking-obrazen-paladyna");
+
+        assertEquals(200, response.statusCode());
+        assertFalse(response.body().contains("data-skill-id=\"BRANDISH\""));
+        assertFalse(response.body().contains("data-skill-id=\"HOLY_BOLT\""));
+        assertFalse(response.body().contains("data-skill-id=\"CLASH\""));
+        assertFalse(response.body().contains("data-skill-id=\"ADVANCE\""));
+        assertFalse(response.body().contains(">Brandish<"));
+        assertFalse(response.body().contains(">Holy Bolt<"));
+        assertFalse(response.body().contains(">Clash<"));
+        assertFalse(response.body().contains(">Advance<"));
+    }
+
+    @Test
+    void needsVerificationSkillsShouldNotHaveCalculatedDpsValues() throws Exception {
+        HttpResponse<String> response = sendGet("/ranking-obrazen-paladyna?verificationStatus=NEEDS_VERIFICATION");
+
+        assertEquals(200, response.statusCode());
+        assertTrue(countSkillRows(response.body()) > 0);
+        assertTrue(response.body().contains("data-skill-id=\"furia_niebios\""));
+        assertFalse(response.body().contains("data-verification-status=\"NON_DAMAGE\""));
+        assertFalse(response.body().contains("data-verification-status=\"SUPPORTED\""));
+        assertTrue(allRowsWithStatusContainBlockedDps(response.body(), "NEEDS_VERIFICATION"));
+    }
+
+    @Test
+    void nonDamageSkillsShouldNotBeTreatedAsDamageSkills() throws Exception {
+        HttpResponse<String> nonDamageResponse = sendGet("/ranking-obrazen-paladyna?verificationStatus=NON_DAMAGE");
+
+        assertEquals(200, nonDamageResponse.statusCode());
+        assertEquals(2, countSkillRows(nonDamageResponse.body()));
+        assertTrue(nonDamageResponse.body().contains("data-skill-id=\"aura_fanatyzmu\""));
+        assertTrue(nonDamageResponse.body().contains("data-skill-id=\"mobilizacja\""));
+        assertFalse(nonDamageResponse.body().contains("data-skill-type=\"DAMAGE\""));
+
+        HttpResponse<String> damageTypeResponse = sendGet("/ranking-obrazen-paladyna?type=DAMAGE");
+        assertEquals(200, damageTypeResponse.statusCode());
+        assertFalse(damageTypeResponse.body().contains("data-skill-id=\"aura_fanatyzmu\""));
+        assertFalse(damageTypeResponse.body().contains("data-skill-id=\"mobilizacja\""));
+    }
+
+    @Test
+    void shouldFilterBySkillGroupStatusTypeAndMetric() throws Exception {
+        HttpResponse<String> response = sendGet("/ranking-obrazen-paladyna?skillGroup=moce_specjalne&verificationStatus=NEEDS_VERIFICATION&type=DAMAGE&metric=DAMAGE_PER_USE");
+
+        assertEquals(200, response.statusCode());
+        assertEquals(2, countSkillRows(response.body()));
+        assertTrue(response.body().contains("data-skill-id=\"furia_niebios\""));
+        assertTrue(response.body().contains("data-skill-id=\"arbiter_sprawiedliwosci\""));
+        assertFalse(response.body().contains("data-skill-id=\"forteca\""));
+        assertTrue(response.body().contains("<option value=\"DAMAGE_PER_USE\" selected>"));
+    }
+
+    private HttpResponse<String> sendGet(String path) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + path))
+                .GET()
+                .build();
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+    }
+
+    private static int countSkillRows(String html) {
+        Matcher matcher = Pattern.compile("data-skill-row=\"true\"").matcher(html);
+        int count = 0;
+        while (matcher.find()) {
+            count++;
+        }
+        return count;
+    }
+
+    private static boolean allRowsWithStatusContainBlockedDps(String html, String status) {
+        Matcher matcher = Pattern.compile("(?s)<tr class=\"paladin-ranking-row\"[^>]*data-verification-status=\"" + status + "\"[^>]*>(.*?)</tr>")
+                .matcher(html);
+        boolean found = false;
+        while (matcher.find()) {
+            found = true;
+            String row = matcher.group(1);
+            if (countOccurrences(row, "zablokowane") < 3) {
+                return false;
+            }
+        }
+        return found;
+    }
+
+    private static int countOccurrences(String value, String fragment) {
+        int count = 0;
+        int index = 0;
+        while ((index = value.indexOf(fragment, index)) >= 0) {
+            count++;
+            index += fragment.length();
+        }
+        return count;
+    }
+}
