@@ -302,12 +302,24 @@ Warstwa `krys.verification` dodaje `Verification Matrix` dla mechanik z pełnego
 
 Warstwa `krys.ranking` dodaje aplikacyjny ranking obrażeń nad rejestrem drzewa wybranej klasy. `PlayableClass`, `CharacterSkillTreeRegistry` i `SkillTreeRegistryProvider` są cienką warstwą wyboru klasy; obecnie jedyną obsługiwaną klasą jest `paladin`, a jej provider używa `PaladinSkillTreeRegistry`. Nowe klasy mają być dodawane przez kolejny provider / rejestr klasy, nie przez nowe endpointy ani osobne zakładki per klasa.
 
-Ranking domyślnie działa w trybie `SINGLE_TARGET`, zwraca metadane źródłowe PDF oraz status weryfikacji danych. Pola `damagePerUse`, `effectiveCycleSeconds` i `theoreticalDps` pozostają puste dla skilli `NEEDS_VERIFICATION` albo `UNSUPPORTED`. Obsługiwane metryki sortowania to:
+Ranking domyślnie działa w trybie `SINGLE_TARGET`, zwraca metadane źródłowe PDF oraz status weryfikacji danych. Ranking może też pokazywać bazowe procenty obrażeń z opisu / PDF, ale te wartości są wyłącznie źródłowym opisem siły umiejętności i nie są runtime DPS.
+
+Pola bazowych procentów obrażeń:
+- `baseDamagePercentAtRank1` - procent obrażeń jawnie podany w opisie / PDF dla rangi 1; R1 oznacza minimalny wyklikany poziom / rangę umiejętności w drzewie,
+- `baseDamagePercentAtTreeMaxRank` - procent obrażeń jawnie podany w opisie / PDF dla maksymalnej rangi możliwej do wyklikania w drzewie bez bonusów z przedmiotów.
+
+`treeMaxRank` nie jest absolutnym maksimum umiejętności w całym buildzie. Bonusy z itemów, affixów, aspektów albo innych mechanik mogą w przyszłości zwiększać rzeczywistą rangę używaną przez build ponad `treeMaxRank`. Pojęcie `effectiveRank` jest zostawione na przyszłość i nie jest teraz implementowane.
+
+Wartości `baseDamagePercentAtRank1` i `baseDamagePercentAtTreeMaxRank` nie są normalizowane względem najlepszej umiejętności, nie są DPS, nie odblokowują runtime i nie mogą być zgadywane. Jeżeli źródło nie podaje jawnie wartości dla R1 albo maksymalnej rangi drzewa, odpowiednie pole pozostaje `null`, a SSR renderuje `brak danych`. Poziomy pośrednie nie są teraz zapisywane ani wyliczane jako dane źródłowe; interpolacja pozostaje poza bieżącym zakresem.
+
+Pola `damagePerUse`, `effectiveCycleSeconds` i `theoreticalDps` pozostają puste dla skilli `NEEDS_VERIFICATION` albo `UNSUPPORTED`. Obsługiwane metryki sortowania to:
+- `BASE_DAMAGE_PERCENT_RANK_1`,
+- `BASE_DAMAGE_PERCENT_TREE_MAX`,
 - `DAMAGE_PER_USE`,
 - `THEORETICAL_DPS`,
 - `SINGLE_TARGET_DPS`.
 
-Ekran SSR `/ranking-obrazen` jest widocznym dla użytkownika podglądem tego modelu. Parametr `character=paladin` wybiera rejestr Paladyna; gdy parametr `character` nie jest podany, a Paladyn jest jedyną obsługiwaną klasą, ekran domyślnie wybiera `paladin`. Dla `character=paladin` ekran pokazuje wszystkie 24 wpisy z `PaladinSkillTreeRegistry`, a nie tylko wpisy policzalne. Tabela zawiera kolumny `skillName`, `skillId`, `skillGroup`, `type`, `verificationStatus`, `damagePerUse`, `theoreticalDps`, `singleTargetDps`, `reason / notes` i `sourcePdf`.
+Ekran SSR `/ranking-obrazen` jest widocznym dla użytkownika podglądem tego modelu. Parametr `character=paladin` wybiera rejestr Paladyna; gdy parametr `character` nie jest podany, a Paladyn jest jedyną obsługiwaną klasą, ekran domyślnie wybiera `paladin`. Dla `character=paladin` ekran pokazuje wszystkie 24 wpisy z `PaladinSkillTreeRegistry`, a nie tylko wpisy policzalne. Tabela zawiera kolumny `skillName`, `skillId`, `skillGroup`, `type`, `verificationStatus`, `Obrażenia % R1`, `Obrażenia % max drzewo`, `damagePerUse`, `theoreticalDps`, `singleTargetDps`, `reason / notes` i `sourcePdf`.
 
 Endpoint `/ranking-obrazen-paladyna` pozostaje wyłącznie aliasem kompatybilności wstecznej do tego samego widoku Paladyna. Nie jest docelowym wzorcem dla kolejnych klas i nie jest osobnym widocznym modułem w głównej nawigacji.
 
@@ -316,7 +328,7 @@ Filtry ekranu:
 - grupa umiejętności (`skillGroup`),
 - status weryfikacji (`verificationStatus`),
 - typ umiejętności (`type`),
-- metryka rankingu (`metric`: `DAMAGE_PER_USE`, `THEORETICAL_DPS`, `SINGLE_TARGET_DPS`).
+- metryka rankingu (`metric`: `BASE_DAMAGE_PERCENT_RANK_1`, `BASE_DAMAGE_PERCENT_TREE_MAX`, `DAMAGE_PER_USE`, `THEORETICAL_DPS`, `SINGLE_TARGET_DPS`).
 
 Domyślne sortowanie ekranu:
 - najpierw wpisy z policzalnym DPS,
@@ -327,6 +339,7 @@ Domyślne sortowanie ekranu:
 
 Ograniczenia rankingu:
 - ranking używa nowego rejestru PDF, a nie legacy `PaladinSkillDefs`,
+- bazowe procenty obrażeń pochodzą wyłącznie z jawnych danych źródłowych opisu / PDF; brak jawnej wartości oznacza `null` i `brak danych` w SSR,
 - umiejętności niepoliczalne są widoczne jako `NEEDS_VERIFICATION`, `UNSUPPORTED` albo `NON_DAMAGE`,
 - node'y czysto użytkowe oznaczone jako `NON_DAMAGE` nie są traktowane jako damage skill; opisowy ekran nadal pokazuje je jawnie z pustymi wartościami DPS,
 - mechaniki z `Verification Matrix` pozostają `NEEDS_VERIFICATION` i nie są oznaczane jako `SUPPORTED`,
@@ -1252,8 +1265,9 @@ Kontrakt prezentacji dla smoke testu rankingu Paladyna:
 - endpoint `/ranking-obrazen-paladyna` działa tylko jako alias kompatybilności wstecznej dla tego samego widoku Paladyna,
 - ekran pokazuje globalną nawigację SSR wspólną z pozostałymi modułami,
 - ekran nie pokazuje legacy skilli `Brandish`, `Holy Bolt`, `Clash` ani `Advance` jako domyślnego drzewa Paladyna,
+- ekran pokazuje kolumny `Obrażenia % R1` i `Obrażenia % max drzewo`; brak jawnej wartości źródłowej jest renderowany jako `brak danych`, a nie jako `0%` ani `zablokowane`,
 - ekran pokazuje `NEEDS_VERIFICATION`, `UNSUPPORTED` i `NON_DAMAGE` bez wartości DPS, jeżeli wpis nie jest zweryfikowany albo nie jest skillem obrażeniowym,
-- ekran ma filtry `character`, `skillGroup`, `verificationStatus`, `type` i `metric`,
+- ekran ma filtry `character`, `skillGroup`, `verificationStatus`, `type` i `metric`, w tym metryki `BASE_DAMAGE_PERCENT_RANK_1` i `BASE_DAMAGE_PERCENT_TREE_MAX`,
 - ekran nie implementuje nowego runtime DPS i nie odblokowuje żadnej mechaniki bez weryfikacji single target.
 
 Smoke test CLI searcha:

@@ -153,6 +153,8 @@ public final class DamageRankingPageRenderer {
                                 <th>skillGroup</th>
                                 <th>type</th>
                                 <th>verificationStatus</th>
+                                <th>Obrażenia % R1</th>
+                                <th>Obrażenia % max drzewo</th>
                                 <th>damagePerUse</th>
                                 <th>theoreticalDps</th>
                                 <th>singleTargetDps</th>
@@ -192,6 +194,10 @@ public final class DamageRankingPageRenderer {
                 .append("</td><td>")
                 .append(renderStatus(entry.getVerificationStatus()))
                 .append("</td><td>")
+                .append(formatPercentSource(row.getBaseDamagePercentAtRank1()))
+                .append("</td><td>")
+                .append(formatPercentSource(row.getBaseDamagePercentAtTreeMaxRank()))
+                .append("</td><td>")
                 .append(formatLong(entry.getDamagePerUse()))
                 .append("</td><td>")
                 .append(formatDouble(entry.getTheoreticalDps()))
@@ -222,6 +228,12 @@ public final class DamageRankingPageRenderer {
 
     private static String formatLong(Long value) {
         return value == null ? "<span class=\"blocked-value\">zablokowane</span>" : Long.toString(value);
+    }
+
+    private static String formatPercentSource(Integer value) {
+        return value == null
+                ? "<span class=\"missing-source-value\">brak danych</span>"
+                : value + "%";
     }
 
     private static String formatDouble(Double value) {

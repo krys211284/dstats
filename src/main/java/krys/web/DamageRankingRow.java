@@ -21,6 +21,14 @@ public final class DamageRankingRow {
         return type;
     }
 
+    public Integer getBaseDamagePercentAtRank1() {
+        return entry.getBaseDamagePercentAtRank1();
+    }
+
+    public Integer getBaseDamagePercentAtTreeMaxRank() {
+        return entry.getBaseDamagePercentAtTreeMaxRank();
+    }
+
     public boolean isDpsCalculable() {
         return entry.getDamagePerUse() != null
                 || entry.getTheoreticalDps() != null;

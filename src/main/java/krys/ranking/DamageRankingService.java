@@ -151,6 +151,8 @@ public final class DamageRankingService {
                 skill.getSkillName(),
                 skill.getSourcePdf(),
                 skill.getSkillGroup(),
+                skill.getBaseDamagePercentAtRank1(),
+                skill.getBaseDamagePercentAtTreeMaxRank(),
                 mapTreeDamageModelType(skill.getStatus()),
                 null,
                 null,
@@ -271,6 +273,12 @@ public final class DamageRankingService {
 
     private static Comparator<PaladinSkillDamageRankingEntry> comparatorFor(PaladinDamageRankingMetric metric) {
         return switch (metric) {
+            case BASE_DAMAGE_PERCENT_RANK_1 -> Comparator.comparingInt(entry -> entry.getBaseDamagePercentAtRank1() == null
+                    ? Integer.MIN_VALUE
+                    : entry.getBaseDamagePercentAtRank1());
+            case BASE_DAMAGE_PERCENT_TREE_MAX -> Comparator.comparingInt(entry -> entry.getBaseDamagePercentAtTreeMaxRank() == null
+                    ? Integer.MIN_VALUE
+                    : entry.getBaseDamagePercentAtTreeMaxRank());
             case DAMAGE_PER_USE -> Comparator.comparingLong(entry -> entry.getDamagePerUse() == null ? Long.MIN_VALUE : entry.getDamagePerUse());
             case THEORETICAL_DPS, SINGLE_TARGET_DPS -> Comparator.comparingDouble(entry -> entry.getTheoreticalDps() == null ? Double.NEGATIVE_INFINITY : entry.getTheoreticalDps());
         };

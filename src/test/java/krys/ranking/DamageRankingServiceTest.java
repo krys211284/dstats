@@ -5,6 +5,9 @@ import krys.combat.DamageBreakdown;
 import krys.combat.DamageComponentBreakdown;
 import krys.combat.DamageEngine;
 import krys.paladin.PaladinSkillTreeRegistry;
+import krys.paladin.PaladinSkillTreeStatus;
+import krys.paladin.PaladinSkillTreeType;
+import krys.paladin.PaladinTreeSkill;
 import krys.simulation.HeroBuildSnapshot;
 import krys.skill.SkillId;
 import krys.skill.SkillState;
@@ -67,6 +70,38 @@ class DamageRankingServiceTest {
         assertTrue(ranking.stream().allMatch(entry -> entry.getDamagePerUse() == null));
         assertTrue(ranking.stream().allMatch(entry -> entry.getEffectiveCycleSeconds() == null));
         assertTrue(ranking.stream().allMatch(entry -> entry.getTheoreticalDps() == null));
+    }
+
+    @Test
+    void ranking_paladyna_powinien_pozostawiac_bazowe_procenty_obrazen_puste_bez_jawnych_danych_zrodlowych() {
+        List<PaladinSkillDamageRankingEntry> entries = service.describeTreeSkills(PlayableClass.PALADIN);
+
+        assertEquals(24, entries.size());
+        assertTrue(entries.stream().allMatch(entry -> entry.getBaseDamagePercentAtRank1() == null));
+        assertTrue(entries.stream().allMatch(entry -> entry.getBaseDamagePercentAtTreeMaxRank() == null));
+    }
+
+    @Test
+    void sortowanie_po_bazowych_procentach_obrazen_powinno_sortowac_wartosci_jawne_przed_brakiem_danych() {
+        DamageRankingService fixtureService = new DamageRankingService(new DamageEngine(), new SkillTreeRegistryProvider(List.of(
+                new CharacterSkillTreeRegistry(PlayableClass.PALADIN, "TestSkillTreeRegistry", List.of(
+                        fixtureSkill("skill_a", "Skill A", 100, 300),
+                        fixtureSkill("skill_b", "Skill B", 150, 250),
+                        fixtureSkill("skill_c", "Skill C", null, null)
+                ))
+        )));
+
+        List<String> rankOneOrder = fixtureService.rankDamageSkills(PlayableClass.PALADIN, PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1)
+                .stream()
+                .map(PaladinSkillDamageRankingEntry::getSkillId)
+                .toList();
+        List<String> treeMaxOrder = fixtureService.rankDamageSkills(PlayableClass.PALADIN, PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX)
+                .stream()
+                .map(PaladinSkillDamageRankingEntry::getSkillId)
+                .toList();
+
+        assertEquals(List.of("skill_b", "skill_a", "skill_c"), rankOneOrder);
+        assertEquals(List.of("skill_a", "skill_b", "skill_c"), treeMaxOrder);
     }
 
     @Test
@@ -150,5 +185,23 @@ class DamageRankingServiceTest {
         assertEquals(sumIncludedActiveComponents, entry.getDamagePerUse());
         assertTrue(breakdown.getComponents().stream().anyMatch(component -> !component.isIncludedInSingleTarget()));
         assertEquals(PaladinDamageTargetMode.SINGLE_TARGET, entry.getTargetMode());
+    }
+
+    private static PaladinTreeSkill fixtureSkill(String skillId,
+                                                 String skillName,
+                                                 Integer baseDamagePercentAtRank1,
+                                                 Integer baseDamagePercentAtTreeMaxRank) {
+        return new PaladinTreeSkill(
+                skillId,
+                skillName,
+                "test.pdf",
+                "test",
+                baseDamagePercentAtRank1,
+                baseDamagePercentAtTreeMaxRank,
+                PaladinSkillTreeType.DAMAGE,
+                PaladinSkillTreeStatus.NEEDS_VERIFICATION,
+                List.of(),
+                "Fixture sortowania bazowych procentów obrażeń."
+        );
     }
 }

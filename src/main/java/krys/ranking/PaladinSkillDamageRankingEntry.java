@@ -8,6 +8,8 @@ public final class PaladinSkillDamageRankingEntry {
     private final String skillName;
     private final String sourcePdf;
     private final String skillGroup;
+    private final Integer baseDamagePercentAtRank1;
+    private final Integer baseDamagePercentAtTreeMaxRank;
     private final PaladinSkillDamageModelType damageModelType;
     private final Long damagePerUse;
     private final Integer cooldownSeconds;
@@ -29,10 +31,30 @@ public final class PaladinSkillDamageRankingEntry {
                                           PaladinDamageTargetMode targetMode,
                                           PaladinSkillDamageVerificationStatus verificationStatus,
                                           String notes) {
+        this(skillId, skillName, sourcePdf, skillGroup, null, null, damageModelType, damagePerUse,
+                cooldownSeconds, effectiveCycleSeconds, theoreticalDps, targetMode, verificationStatus, notes);
+    }
+
+    public PaladinSkillDamageRankingEntry(String skillId,
+                                          String skillName,
+                                          String sourcePdf,
+                                          String skillGroup,
+                                          Integer baseDamagePercentAtRank1,
+                                          Integer baseDamagePercentAtTreeMaxRank,
+                                          PaladinSkillDamageModelType damageModelType,
+                                          Long damagePerUse,
+                                          Integer cooldownSeconds,
+                                          Integer effectiveCycleSeconds,
+                                          Double theoreticalDps,
+                                          PaladinDamageTargetMode targetMode,
+                                          PaladinSkillDamageVerificationStatus verificationStatus,
+                                          String notes) {
         this.skillId = requireText(skillId, "skillId");
         this.skillName = requireText(skillName, "skillName");
         this.sourcePdf = requireText(sourcePdf, "sourcePdf");
         this.skillGroup = requireText(skillGroup, "skillGroup");
+        this.baseDamagePercentAtRank1 = baseDamagePercentAtRank1;
+        this.baseDamagePercentAtTreeMaxRank = baseDamagePercentAtTreeMaxRank;
         this.damageModelType = Objects.requireNonNull(damageModelType, "damageModelType");
         this.damagePerUse = damagePerUse;
         this.cooldownSeconds = cooldownSeconds;
@@ -57,6 +79,14 @@ public final class PaladinSkillDamageRankingEntry {
 
     public String getSkillGroup() {
         return skillGroup;
+    }
+
+    public Integer getBaseDamagePercentAtRank1() {
+        return baseDamagePercentAtRank1;
+    }
+
+    public Integer getBaseDamagePercentAtTreeMaxRank() {
+        return baseDamagePercentAtTreeMaxRank;
     }
 
     public PaladinSkillDamageModelType getDamageModelType() {

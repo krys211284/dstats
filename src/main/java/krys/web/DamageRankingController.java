@@ -88,7 +88,9 @@ public final class DamageRankingController implements HttpHandler {
                         PaladinSkillTreeType.SUPPORT,
                         PaladinSkillTreeType.SPECIAL,
                         PaladinSkillTreeType.UNCLASSIFIED),
-                List.of(PaladinDamageRankingMetric.DAMAGE_PER_USE,
+                List.of(PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1,
+                        PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX,
+                        PaladinDamageRankingMetric.DAMAGE_PER_USE,
                         PaladinDamageRankingMetric.THEORETICAL_DPS,
                         PaladinDamageRankingMetric.SINGLE_TARGET_DPS)
         );
@@ -117,10 +119,20 @@ public final class DamageRankingController implements HttpHandler {
     }
 
     private static Comparator<DamageRankingRow> defaultComparator(PaladinDamageRankingMetric metric) {
+        if (isBaseDamagePercentMetric(metric)) {
+            return metricComparator(metric).reversed()
+                    .thenComparingInt(DamageRankingController::statusSortRank)
+                    .thenComparing(row -> row.getEntry().getSkillName());
+        }
         return Comparator
                 .comparingInt(DamageRankingController::statusSortRank)
                 .thenComparing(metricComparator(metric).reversed())
                 .thenComparing(row -> row.getEntry().getSkillName());
+    }
+
+    private static boolean isBaseDamagePercentMetric(PaladinDamageRankingMetric metric) {
+        return metric == PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1
+                || metric == PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX;
     }
 
     private static int statusSortRank(DamageRankingRow row) {
@@ -137,6 +149,12 @@ public final class DamageRankingController implements HttpHandler {
 
     private static Comparator<DamageRankingRow> metricComparator(PaladinDamageRankingMetric metric) {
         return switch (metric) {
+            case BASE_DAMAGE_PERCENT_RANK_1 -> Comparator.comparingInt(row -> row.getBaseDamagePercentAtRank1() == null
+                    ? Integer.MIN_VALUE
+                    : row.getBaseDamagePercentAtRank1());
+            case BASE_DAMAGE_PERCENT_TREE_MAX -> Comparator.comparingInt(row -> row.getBaseDamagePercentAtTreeMaxRank() == null
+                    ? Integer.MIN_VALUE
+                    : row.getBaseDamagePercentAtTreeMaxRank());
             case DAMAGE_PER_USE -> Comparator.comparingLong(row -> row.getEntry().getDamagePerUse() == null
                     ? Long.MIN_VALUE
                     : row.getEntry().getDamagePerUse());

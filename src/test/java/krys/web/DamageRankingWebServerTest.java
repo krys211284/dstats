@@ -61,10 +61,23 @@ class DamageRankingWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("PaladinSkillTreeRegistry"));
+        assertTrue(response.body().contains("<th>Obrażenia % R1</th>"));
+        assertTrue(response.body().contains("<th>Obrażenia % max drzewo</th>"));
         assertEquals(24, countSkillRows(response.body()));
         assertTrue(response.body().contains("data-skill-id=\"furia_niebios\""));
         assertTrue(response.body().contains("data-skill-id=\"zenit\""));
         assertTrue(response.body().contains("data-skill-id=\"forteca\""));
+    }
+
+    @Test
+    void missingBaseDamagePercentValuesShouldRenderAsNoDataNotBlockedOrZero() throws Exception {
+        HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin");
+
+        assertEquals(200, response.statusCode());
+        assertEquals(24, countSkillRows(response.body()));
+        assertEquals(48, countOccurrences(response.body(), "brak danych"));
+        assertTrue(allRowsContainMissingBaseDamageCells(response.body()));
+        assertFalse(response.body().contains(">0%</td>"));
     }
 
     @Test
@@ -133,6 +146,28 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains("<option value=\"DAMAGE_PER_USE\" selected>"));
     }
 
+    @Test
+    void baseDamagePercentMetricsShouldKeepPaladinTreeAsDefaultSource() throws Exception {
+        HttpResponse<String> rankOneMetricResponse = sendGet("/ranking-obrazen?character=paladin&metric=BASE_DAMAGE_PERCENT_RANK_1");
+        HttpResponse<String> treeMaxMetricResponse = sendGet("/ranking-obrazen?character=paladin&metric=BASE_DAMAGE_PERCENT_TREE_MAX");
+
+        assertEquals(200, rankOneMetricResponse.statusCode());
+        assertEquals(24, countSkillRows(rankOneMetricResponse.body()));
+        assertTrue(rankOneMetricResponse.body().contains("<option value=\"BASE_DAMAGE_PERCENT_RANK_1\" selected>"));
+        assertFalse(rankOneMetricResponse.body().contains("data-skill-id=\"BRANDISH\""));
+        assertFalse(rankOneMetricResponse.body().contains("data-skill-id=\"HOLY_BOLT\""));
+        assertFalse(rankOneMetricResponse.body().contains("data-skill-id=\"CLASH\""));
+        assertFalse(rankOneMetricResponse.body().contains("data-skill-id=\"ADVANCE\""));
+
+        assertEquals(200, treeMaxMetricResponse.statusCode());
+        assertEquals(24, countSkillRows(treeMaxMetricResponse.body()));
+        assertTrue(treeMaxMetricResponse.body().contains("<option value=\"BASE_DAMAGE_PERCENT_TREE_MAX\" selected>"));
+        assertFalse(treeMaxMetricResponse.body().contains("data-skill-id=\"BRANDISH\""));
+        assertFalse(treeMaxMetricResponse.body().contains("data-skill-id=\"HOLY_BOLT\""));
+        assertFalse(treeMaxMetricResponse.body().contains("data-skill-id=\"CLASH\""));
+        assertFalse(treeMaxMetricResponse.body().contains("data-skill-id=\"ADVANCE\""));
+    }
+
     private HttpResponse<String> sendGet(String path) throws Exception {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + path))
@@ -158,6 +193,24 @@ class DamageRankingWebServerTest {
             found = true;
             String row = matcher.group(1);
             if (countOccurrences(row, "zablokowane") < 3) {
+                return false;
+            }
+        }
+        return found;
+    }
+
+    private static boolean allRowsContainMissingBaseDamageCells(String html) {
+        Matcher matcher = Pattern.compile("(?s)<tr class=\"damage-ranking-row\"[^>]*>.*?</td><td><code>.*?</code></td><td>.*?</td><td>.*?</td><td>.*?</td><td>(.*?)</td><td>(.*?)</td><td>.*?</td>")
+                .matcher(html);
+        boolean found = false;
+        while (matcher.find()) {
+            found = true;
+            String rankOneCell = matcher.group(1);
+            String treeMaxCell = matcher.group(2);
+            if (!rankOneCell.contains("brak danych") || !treeMaxCell.contains("brak danych")) {
+                return false;
+            }
+            if (rankOneCell.contains("zablokowane") || treeMaxCell.contains("zablokowane")) {
                 return false;
             }
         }
