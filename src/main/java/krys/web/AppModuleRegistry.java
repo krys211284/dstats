@@ -51,12 +51,12 @@ public final class AppModuleRegistry {
                     false
             ),
             new AppModule(
-                    "paladin-damage-ranking",
-                    "Ranking obrażeń Paladyna",
-                    "Opisowy podgląd nowego drzewa Paladyna z blokadą DPS dla niezweryfikowanych mechanik.",
+                    "damage-ranking",
+                    "Ranking obrażeń",
+                    "Ogólny ranking obrażeń wybierający rejestr drzewa po klasie postaci.",
                     AppModuleGroup.BUILD_TOOLS,
                     AppModuleStatus.AVAILABLE,
-                    "/ranking-obrazen-paladyna",
+                    "/ranking-obrazen",
                     true,
                     false
             ),

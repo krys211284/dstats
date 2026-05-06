@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Pokrywa app shell, ekran główny, placeholdery i globalną nawigację SSR. */
@@ -51,6 +52,10 @@ class AppShellWebServerTest {
         assertTrue(response.body().contains("Bohaterowie"));
         assertTrue(response.body().contains("Policz aktualny build"));
         assertTrue(response.body().contains("Znajdź najlepszy build"));
+        assertTrue(response.body().contains("Ranking obrażeń"));
+        assertTrue(response.body().contains("href=\"/ranking-obrazen\""));
+        assertFalse(response.body().contains("Ranking obrażeń Paladyna"));
+        assertFalse(response.body().contains("href=\"/ranking-obrazen-paladyna\""));
         assertTrue(response.body().contains("Importuj item ze screena"));
         assertTrue(response.body().contains("Biblioteka itemów"));
         assertTrue(response.body().contains("Baza wiedzy itemów"));
@@ -79,6 +84,7 @@ class AppShellWebServerTest {
         assertNavigation(sendGet("/biblioteka-itemow"), "/biblioteka-itemow");
         assertNavigation(sendGet("/baza-wiedzy-itemow"), "/baza-wiedzy-itemow");
         assertNavigation(sendGet("/znajdz-najlepszy-build"), "/znajdz-najlepszy-build");
+        assertNavigation(sendGet("/ranking-obrazen"), "/ranking-obrazen");
     }
 
     @Test
@@ -144,6 +150,8 @@ class AppShellWebServerTest {
         assertEquals(200, sendGet("/biblioteka-itemow").statusCode());
         assertEquals(200, sendGet("/baza-wiedzy-itemow").statusCode());
         assertEquals(200, sendGet("/znajdz-najlepszy-build").statusCode());
+        assertEquals(200, sendGet("/ranking-obrazen").statusCode());
+        assertEquals(200, sendGet("/ranking-obrazen-paladyna").statusCode());
         assertEquals(404, sendGet("/nieznana-sekcja").statusCode());
     }
 
@@ -156,6 +164,8 @@ class AppShellWebServerTest {
         assertTrue(response.body().contains(">Bohaterowie</a>"));
         assertTrue(response.body().contains(">Policz aktualny build</a>"));
         assertTrue(response.body().contains(">Znajdź najlepszy build</a>"));
+        assertTrue(response.body().contains(">Ranking obrażeń</a>"));
+        assertFalse(response.body().contains(">Ranking obrażeń Paladyna</a>"));
         assertTrue(response.body().contains(">Importuj item ze screena</a>"));
         assertTrue(response.body().contains(">Biblioteka itemów</a>"));
         assertTrue(response.body().contains(">Baza wiedzy itemów</a>"));

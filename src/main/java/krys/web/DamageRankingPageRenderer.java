@@ -4,35 +4,39 @@ import krys.paladin.PaladinSkillTreeType;
 import krys.ranking.PaladinDamageRankingMetric;
 import krys.ranking.PaladinSkillDamageRankingEntry;
 import krys.ranking.PaladinSkillDamageVerificationStatus;
+import krys.ranking.PlayableClass;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
-/** Renderuje opisowy ranking umiejętności Paladyna z blokadą niezweryfikowanych mechanik DPS. */
-public final class PaladinSkillDamageRankingPageRenderer {
-    private static final String PAGE_PATH = "/ranking-obrazen-paladyna";
+/** Renderuje ogólny ranking obrażeń z blokadą niezweryfikowanych mechanik DPS. */
+public final class DamageRankingPageRenderer {
+    private static final String PAGE_PATH = "/ranking-obrazen";
     private final String template;
 
-    public PaladinSkillDamageRankingPageRenderer() {
+    public DamageRankingPageRenderer() {
         this.template = loadTemplate();
     }
 
-    public String render(PaladinSkillDamageRankingPageModel model) {
+    public String render(DamageRankingPageModel model) {
         return template
                 .replace("{{APP_SHELL_STYLES}}", AppShellRendererSupport.renderSharedStyles())
                 .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation(PAGE_PATH))
+                .replace("{{REGISTRY_NAME}}", escapeHtml(model.getRegistry().getRegistryName()))
+                .replace("{{CHARACTER_NAME}}", escapeHtml(model.getFilter().getCharacter().getDisplayName()))
                 .replace("{{SUMMARY}}", renderSummary(model))
                 .replace("{{FILTERS}}", renderFilters(model))
                 .replace("{{TABLE}}", renderTable(model));
     }
 
-    private static String renderSummary(PaladinSkillDamageRankingPageModel model) {
+    private static String renderSummary(DamageRankingPageModel model) {
         long needsVerification = countStatus(model, PaladinSkillDamageVerificationStatus.NEEDS_VERIFICATION);
         long unsupported = countStatus(model, PaladinSkillDamageVerificationStatus.UNSUPPORTED);
         long nonDamage = countStatus(model, PaladinSkillDamageVerificationStatus.NON_DAMAGE);
         return new StringBuilder("<div class=\"summary-grid\">")
+                .append(renderSummaryCard("Postać", model.getFilter().getCharacter().getDisplayName()))
                 .append(renderSummaryCard("Wpisy w rejestrze", Integer.toString(model.getTotalSkillCount())))
                 .append(renderSummaryCard("Widoczne po filtrach", Integer.toString(model.getRows().size())))
                 .append(renderSummaryCard("Policzalne teraz", Long.toString(model.getCalculableCount())))
@@ -43,7 +47,7 @@ public final class PaladinSkillDamageRankingPageRenderer {
                 .toString();
     }
 
-    private static long countStatus(PaladinSkillDamageRankingPageModel model,
+    private static long countStatus(DamageRankingPageModel model,
                                     PaladinSkillDamageVerificationStatus status) {
         return model.getRows().stream()
                 .filter(row -> row.getEntry().getVerificationStatus() == status)
@@ -59,10 +63,23 @@ public final class PaladinSkillDamageRankingPageRenderer {
                 """.formatted(escapeHtml(label), escapeHtml(value));
     }
 
-    private static String renderFilters(PaladinSkillDamageRankingPageModel model) {
-        PaladinSkillDamageRankingFilter filter = model.getFilter();
+    private static String renderFilters(DamageRankingPageModel model) {
+        DamageRankingFilter filter = model.getFilter();
         StringBuilder html = new StringBuilder("""
-                <form class="ranking-filters" method="get" action="/ranking-obrazen-paladyna">
+                <form class="ranking-filters" method="get" action="/ranking-obrazen">
+                    <label>Postać
+                        <select name="character">
+                """);
+        for (PlayableClass playableClass : model.getSupportedClasses()) {
+            html.append(renderOption(
+                    playableClass.getQueryValue(),
+                    playableClass.getDisplayName(),
+                    playableClass == filter.getCharacter()
+            ));
+        }
+        html.append("""
+                        </select>
+                    </label>
                     <label>Grupa umiejętności
                         <select name="skillGroup">
                 """);
@@ -104,7 +121,7 @@ public final class PaladinSkillDamageRankingPageRenderer {
                     </label>
                     <div class="filter-actions">
                         <button type="submit">Filtruj</button>
-                        <a class="secondary-link" href="/ranking-obrazen-paladyna">Wyczyść</a>
+                        <a class="secondary-link" href="/ranking-obrazen">Wyczyść</a>
                     </div>
                 </form>
                 """);
@@ -117,12 +134,12 @@ public final class PaladinSkillDamageRankingPageRenderer {
                 + "</option>";
     }
 
-    private static String renderTable(PaladinSkillDamageRankingPageModel model) {
+    private static String renderTable(DamageRankingPageModel model) {
         if (model.getRows().isEmpty()) {
             return """
                     <div class="empty-state">
                         <h2>Brak wpisów dla wybranych filtrów</h2>
-                        <p>Zmień filtry, aby wrócić do opisowego rankingu drzewa Paladyna.</p>
+                        <p>Zmień filtry, aby wrócić do opisowego rankingu wybranej postaci.</p>
                     </div>
                     """;
         }
@@ -145,7 +162,7 @@ public final class PaladinSkillDamageRankingPageRenderer {
                         </thead>
                         <tbody>
                 """);
-        for (PaladinSkillDamageRankingRow row : model.getRows()) {
+        for (DamageRankingRow row : model.getRows()) {
             html.append(renderRow(row));
         }
         html.append("""
@@ -156,9 +173,9 @@ public final class PaladinSkillDamageRankingPageRenderer {
         return html.toString();
     }
 
-    private static String renderRow(PaladinSkillDamageRankingRow row) {
+    private static String renderRow(DamageRankingRow row) {
         PaladinSkillDamageRankingEntry entry = row.getEntry();
-        return new StringBuilder("<tr class=\"paladin-ranking-row\" data-skill-row=\"true\" data-skill-id=\"")
+        return new StringBuilder("<tr class=\"damage-ranking-row\" data-skill-row=\"true\" data-skill-id=\"")
                 .append(escapeHtml(entry.getSkillId()))
                 .append("\" data-verification-status=\"")
                 .append(escapeHtml(entry.getVerificationStatus().name()))
@@ -218,13 +235,13 @@ public final class PaladinSkillDamageRankingPageRenderer {
     }
 
     private static String loadTemplate() {
-        try (InputStream inputStream = PaladinSkillDamageRankingPageRenderer.class.getResourceAsStream("/templates/paladin-skill-ranking.html")) {
+        try (InputStream inputStream = DamageRankingPageRenderer.class.getResourceAsStream("/templates/damage-ranking.html")) {
             if (inputStream == null) {
-                throw new IllegalStateException("Brak szablonu /templates/paladin-skill-ranking.html");
+                throw new IllegalStateException("Brak szablonu /templates/damage-ranking.html");
             }
             return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException exception) {
-            throw new IllegalStateException("Nie udało się wczytać szablonu rankingu Paladyna.", exception);
+            throw new IllegalStateException("Nie udało się wczytać szablonu rankingu obrażeń.", exception);
         }
     }
 }

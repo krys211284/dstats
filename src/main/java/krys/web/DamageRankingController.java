@@ -2,13 +2,14 @@ package krys.web;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import krys.paladin.PaladinSkillTreeRegistry;
 import krys.paladin.PaladinSkillTreeType;
 import krys.paladin.PaladinTreeSkill;
+import krys.ranking.CharacterSkillTreeRegistry;
 import krys.ranking.PaladinDamageRankingMetric;
 import krys.ranking.PaladinSkillDamageRankingEntry;
-import krys.ranking.PaladinSkillDamageRankingService;
+import krys.ranking.DamageRankingService;
 import krys.ranking.PaladinSkillDamageVerificationStatus;
+import krys.ranking.SkillTreeRegistryProvider;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -19,17 +20,20 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/** Kontroler widoku opisowego rankingu obrażeń umiejętności Paladyna z nowego rejestru PDF. */
-public final class PaladinSkillDamageRankingController implements HttpHandler {
+/** Kontroler ogólnego widoku rankingu obrażeń wybierający rejestr po klasie postaci. */
+public final class DamageRankingController implements HttpHandler {
     private static final String HTML_CONTENT_TYPE = "text/html; charset=UTF-8";
 
-    private final PaladinSkillDamageRankingService rankingService;
-    private final PaladinSkillDamageRankingPageRenderer renderer;
+    private final DamageRankingService rankingService;
+    private final DamageRankingPageRenderer renderer;
+    private final SkillTreeRegistryProvider skillTreeRegistryProvider;
 
-    public PaladinSkillDamageRankingController(PaladinSkillDamageRankingService rankingService,
-                                               PaladinSkillDamageRankingPageRenderer renderer) {
+    public DamageRankingController(DamageRankingService rankingService,
+                                   DamageRankingPageRenderer renderer,
+                                   SkillTreeRegistryProvider skillTreeRegistryProvider) {
         this.rankingService = rankingService;
         this.renderer = renderer;
+        this.skillTreeRegistryProvider = skillTreeRegistryProvider;
     }
 
     @Override
@@ -41,7 +45,7 @@ public final class PaladinSkillDamageRankingController implements HttpHandler {
                 exchange.sendResponseHeaders(405, -1);
                 return;
             }
-            PaladinSkillDamageRankingFilter filter = PaladinSkillDamageRankingFilter.fromQuery(
+            DamageRankingFilter filter = DamageRankingFilter.fromQuery(
                     UrlEncodedFormSupport.parseQuery(exchange.getRequestURI().getRawQuery())
             );
             renderPage(exchange, buildPageModel(filter));
@@ -50,25 +54,28 @@ public final class PaladinSkillDamageRankingController implements HttpHandler {
         }
     }
 
-    private PaladinSkillDamageRankingPageModel buildPageModel(PaladinSkillDamageRankingFilter filter) {
-        Map<String, PaladinTreeSkill> skillsById = PaladinSkillTreeRegistry.allSkills().stream()
+    private DamageRankingPageModel buildPageModel(DamageRankingFilter filter) {
+        CharacterSkillTreeRegistry registry = skillTreeRegistryProvider.registryFor(filter.getCharacter());
+        Map<String, PaladinTreeSkill> skillsById = registry.allSkills().stream()
                 .collect(Collectors.toMap(PaladinTreeSkill::getSkillId, Function.identity()));
-        List<PaladinSkillDamageRankingRow> rows = rankingService.describePaladinTreeSkills().stream()
-                .map(entry -> toRow(entry, skillsById))
+        List<DamageRankingRow> rows = rankingService.describeTreeSkills(registry.getPlayableClass()).stream()
+                .map(entry -> toRow(entry, registry, skillsById))
                 .filter(row -> matchesFilter(row, filter))
                 .sorted(defaultComparator(filter.getMetric()))
                 .toList();
 
-        List<String> skillGroups = PaladinSkillTreeRegistry.allSkills().stream()
+        List<String> skillGroups = registry.allSkills().stream()
                 .map(PaladinTreeSkill::getSkillGroup)
                 .distinct()
                 .sorted()
                 .toList();
 
-        return new PaladinSkillDamageRankingPageModel(
+        return new DamageRankingPageModel(
                 filter,
+                registry,
+                skillTreeRegistryProvider.supportedClasses(),
                 rows,
-                PaladinSkillTreeRegistry.allSkills().size(),
+                registry.allSkills().size(),
                 skillGroups,
                 List.of(PaladinSkillDamageVerificationStatus.SUPPORTED,
                         PaladinSkillDamageVerificationStatus.NEEDS_VERIFICATION,
@@ -87,17 +94,18 @@ public final class PaladinSkillDamageRankingController implements HttpHandler {
         );
     }
 
-    private static PaladinSkillDamageRankingRow toRow(PaladinSkillDamageRankingEntry entry,
-                                                      Map<String, PaladinTreeSkill> skillsById) {
+    private static DamageRankingRow toRow(PaladinSkillDamageRankingEntry entry,
+                                          CharacterSkillTreeRegistry registry,
+                                          Map<String, PaladinTreeSkill> skillsById) {
         PaladinTreeSkill treeSkill = skillsById.get(entry.getSkillId());
         if (treeSkill == null) {
-            throw new IllegalStateException("Ranking zwrócił skill spoza PaladinSkillTreeRegistry: " + entry.getSkillId());
+            throw new IllegalStateException("Ranking zwrócił skill spoza " + registry.getRegistryName() + ": " + entry.getSkillId());
         }
-        return new PaladinSkillDamageRankingRow(entry, treeSkill.getType());
+        return new DamageRankingRow(entry, treeSkill.getType());
     }
 
-    private static boolean matchesFilter(PaladinSkillDamageRankingRow row,
-                                         PaladinSkillDamageRankingFilter filter) {
+    private static boolean matchesFilter(DamageRankingRow row,
+                                         DamageRankingFilter filter) {
         if (filter.hasSkillGroup() && !row.getEntry().getSkillGroup().equals(filter.getSkillGroup())) {
             return false;
         }
@@ -108,14 +116,14 @@ public final class PaladinSkillDamageRankingController implements HttpHandler {
         return !filter.hasType() || row.getType() == filter.getType();
     }
 
-    private static Comparator<PaladinSkillDamageRankingRow> defaultComparator(PaladinDamageRankingMetric metric) {
+    private static Comparator<DamageRankingRow> defaultComparator(PaladinDamageRankingMetric metric) {
         return Comparator
-                .comparingInt(PaladinSkillDamageRankingController::statusSortRank)
+                .comparingInt(DamageRankingController::statusSortRank)
                 .thenComparing(metricComparator(metric).reversed())
                 .thenComparing(row -> row.getEntry().getSkillName());
     }
 
-    private static int statusSortRank(PaladinSkillDamageRankingRow row) {
+    private static int statusSortRank(DamageRankingRow row) {
         if (row.isDpsCalculable()) {
             return 0;
         }
@@ -127,7 +135,7 @@ public final class PaladinSkillDamageRankingController implements HttpHandler {
         };
     }
 
-    private static Comparator<PaladinSkillDamageRankingRow> metricComparator(PaladinDamageRankingMetric metric) {
+    private static Comparator<DamageRankingRow> metricComparator(PaladinDamageRankingMetric metric) {
         return switch (metric) {
             case DAMAGE_PER_USE -> Comparator.comparingLong(row -> row.getEntry().getDamagePerUse() == null
                     ? Long.MIN_VALUE
@@ -141,7 +149,7 @@ public final class PaladinSkillDamageRankingController implements HttpHandler {
         };
     }
 
-    private void renderPage(HttpExchange exchange, PaladinSkillDamageRankingPageModel pageModel) throws IOException {
+    private void renderPage(HttpExchange exchange, DamageRankingPageModel pageModel) throws IOException {
         byte[] responseBytes = renderer.render(pageModel).getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", HTML_CONTENT_TYPE);
         exchange.sendResponseHeaders(200, responseBytes.length);

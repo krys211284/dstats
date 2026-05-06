@@ -81,7 +81,7 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - empty state sekcji `Wstępnie rozpoznane pola` w imporcie pojedynczego itemu,
 - pierwsze minimalne webowe GUI SSR dla trybu `Znajdź najlepszy build`,
 - pierwszy drill-down SSR z wyniku searcha do pełnej analizy reprezentanta znormalizowanego wyniku na tym samym runtime co manual simulation,
-- opisowy ekran SSR `/ranking-obrazen-paladyna` pokazujący wszystkie 24 wpisy z `PaladinSkillTreeRegistry`, ich status policzalności, źródłowy PDF i blokadę DPS dla niezweryfikowanych mechanik,
+- ogólny opisowy ekran SSR `/ranking-obrazen` z parametrem `character=paladin`, pokazujący wszystkie 24 wpisy z `PaladinSkillTreeRegistry`, ich status policzalności, źródłowy PDF i blokadę DPS dla niezweryfikowanych mechanik,
 - foundation audytu/preflightu searcha z liczbą legalnych kandydatów i rozmiarem search space,
 - minimalny progress CLI searcha dla etapu oceny kandydatów,
 - CLI dla manual simulation oraz osobne CLI backendowego searcha jako równoległe smoke testy tego samego runtime.
@@ -123,7 +123,7 @@ Kontrakt app shell:
 - globalna nawigacja SSR jest renderowana z tego samego rejestru modułów, a nie z rozproszonych ręcznych linków w wielu ekranach,
 - główne ekrany SSR korzystają z tego samego renderera app shell i tego samego zestawu tokenów wizualnych dla tła, paneli, przycisków, statusów i aktywnej zakładki,
 - główne ekrany SSR korzystają też z szerszego wspólnego kontenera layoutu, żeby current build, search i biblioteka lepiej wykorzystywały szerokie monitory bez łamania mobilnego SSR,
-- aktywny moduł `Ranking obrażeń Paladyna` jest opisowym ekranem nad `PaladinSkillDamageRankingService` i nowym `PaladinSkillTreeRegistry`; nie implementuje nowych formuł DPS,
+- aktywny moduł `Ranking obrażeń` jest ogólnym ekranem nad `DamageRankingService` i providerem rejestrów klas; dla `character=paladin` używa `PaladinSkillTreeRegistry` i nie implementuje nowych formuł DPS,
 - istniejące flow `Policz aktualny build`, `Importuj item ze screena`, `Biblioteka itemów`, `Znajdź najlepszy build` i drill-down searcha pozostają cienkimi warstwami nad tym samym runtime,
 - placeholder pages są świadomą warstwą produktową przygotowującą architekturę aplikacji pod przyszłe sekcje, a nie atrapą zastępującą istniejącą logikę runtime.
 
@@ -300,14 +300,19 @@ Stary `PaladinSkillDefs` z `Brandish`, `Holy Bolt`, `Clash` i `Advance` został 
 
 Warstwa `krys.verification` dodaje `Verification Matrix` dla mechanik z pełnego drzewa Paladyna, które wymagają osobnej weryfikacji przed użyciem w kalkulacjach. Wpisy `requiresVerification` są metadanymi procesu i nie mogą wpływać na DPS; próba ich użycia ma zostać pominięta albo zablokowana zgodnie z `default engine behavior`.
 
-Warstwa `krys.ranking` dodaje aplikacyjny ranking obrażeń umiejętności Paladyna nad nowym rejestrem PDF. Ranking domyślnie działa w trybie `SINGLE_TARGET`, zwraca metadane źródłowe PDF oraz status weryfikacji danych. Pola `damagePerUse`, `effectiveCycleSeconds` i `theoreticalDps` pozostają puste dla skilli `NEEDS_VERIFICATION` albo `UNSUPPORTED`. Obsługiwane metryki sortowania to:
+Warstwa `krys.ranking` dodaje aplikacyjny ranking obrażeń nad rejestrem drzewa wybranej klasy. `PlayableClass`, `CharacterSkillTreeRegistry` i `SkillTreeRegistryProvider` są cienką warstwą wyboru klasy; obecnie jedyną obsługiwaną klasą jest `paladin`, a jej provider używa `PaladinSkillTreeRegistry`. Nowe klasy mają być dodawane przez kolejny provider / rejestr klasy, nie przez nowe endpointy ani osobne zakładki per klasa.
+
+Ranking domyślnie działa w trybie `SINGLE_TARGET`, zwraca metadane źródłowe PDF oraz status weryfikacji danych. Pola `damagePerUse`, `effectiveCycleSeconds` i `theoreticalDps` pozostają puste dla skilli `NEEDS_VERIFICATION` albo `UNSUPPORTED`. Obsługiwane metryki sortowania to:
 - `DAMAGE_PER_USE`,
 - `THEORETICAL_DPS`,
 - `SINGLE_TARGET_DPS`.
 
-Ekran SSR `/ranking-obrazen-paladyna` jest widocznym dla użytkownika podglądem tego modelu. Pokazuje wszystkie 24 wpisy z `PaladinSkillTreeRegistry`, a nie tylko wpisy policzalne. Tabela zawiera kolumny `skillName`, `skillId`, `skillGroup`, `type`, `verificationStatus`, `damagePerUse`, `theoreticalDps`, `singleTargetDps`, `reason / notes` i `sourcePdf`.
+Ekran SSR `/ranking-obrazen` jest widocznym dla użytkownika podglądem tego modelu. Parametr `character=paladin` wybiera rejestr Paladyna; gdy parametr `character` nie jest podany, a Paladyn jest jedyną obsługiwaną klasą, ekran domyślnie wybiera `paladin`. Dla `character=paladin` ekran pokazuje wszystkie 24 wpisy z `PaladinSkillTreeRegistry`, a nie tylko wpisy policzalne. Tabela zawiera kolumny `skillName`, `skillId`, `skillGroup`, `type`, `verificationStatus`, `damagePerUse`, `theoreticalDps`, `singleTargetDps`, `reason / notes` i `sourcePdf`.
+
+Endpoint `/ranking-obrazen-paladyna` pozostaje wyłącznie aliasem kompatybilności wstecznej do tego samego widoku Paladyna. Nie jest docelowym wzorcem dla kolejnych klas i nie jest osobnym widocznym modułem w głównej nawigacji.
 
 Filtry ekranu:
+- postać (`character`, obecnie `paladin`),
 - grupa umiejętności (`skillGroup`),
 - status weryfikacji (`verificationStatus`),
 - typ umiejętności (`type`),
@@ -1005,7 +1010,7 @@ Kontrakt ekranu głównego `/`:
 - ekran główny nie obiecuje mechanik dodatku, które nie zostały jeszcze ustabilizowane.
 
 Kontrakt globalnej nawigacji:
-- globalna nawigacja SSR jest widoczna co najmniej na ekranach `Strona główna`, `Bohaterowie`, `Policz aktualny build`, `Importuj item ze screena`, `Biblioteka itemów` oraz `Znajdź najlepszy build`,
+- globalna nawigacja SSR jest widoczna co najmniej na ekranach `Strona główna`, `Bohaterowie`, `Policz aktualny build`, `Importuj item ze screena`, `Biblioteka itemów`, `Znajdź najlepszy build` oraz `Ranking obrażeń`,
 - nawigacja jest renderowana z centralnego modelu modułów i prowadzi do aktywnych sekcji aplikacji,
 - ekran `Bohaterowie` używa dokładnie tego samego app shell i tego samego wyróżnienia aktywnej zakładki co pozostałe główne ekrany,
 - wspólny system wizualny SSR opiera się na jednych tokenach kolorystycznych dla tła, powierzchni, tekstu, obramowań, akcentu, przycisków i statusów,
@@ -1023,7 +1028,7 @@ Aktualne moduły `Dostępne`:
 - `Bohaterowie`
 - `Policz aktualny build`
 - `Znajdź najlepszy build`
-- `Ranking obrażeń Paladyna`
+- `Ranking obrażeń`
 - `Importuj item ze screena`
 - `Biblioteka itemów`
 
@@ -1236,18 +1241,19 @@ Kontrakt prezentacji dla smoke testu GUI searcha:
 - drill-down pokazuje `Wejście buildu`, `Skille na pasku`, `Pasek akcji`, `Tryb biblioteki itemów`, `Wybrane itemy z biblioteki`, `Łączny wkład itemów`, `Łączne obrażenia`, `DPS`, `Debug bezpośrednich trafień`, `Debug opóźnionych trafień`, `Debug obrażeń reaktywnych`, `Ślad kroków symulacji`, `Judgement aktywny na końcu`, `Resolve aktywny na końcu`, `Końcowa szansa bloku` oraz `Końcowy bonus do kolców`,
 - GUI searcha nie implementuje live progressu, CSV, wielowątkowości ani rozbudowanego UX ponad minimalny SSR.
 
-Smoke test GUI rankingu obrażeń Paladyna:
+Smoke test GUI rankingu obrażeń:
 
 ```text
-http://127.0.0.1:8080/ranking-obrazen-paladyna
+http://127.0.0.1:8080/ranking-obrazen?character=paladin
 ```
 
 Kontrakt prezentacji dla smoke testu rankingu Paladyna:
-- endpoint `/ranking-obrazen-paladyna` renderuje 24 wiersze z `PaladinSkillTreeRegistry`,
+- endpoint `/ranking-obrazen?character=paladin` renderuje 24 wiersze z `PaladinSkillTreeRegistry`,
+- endpoint `/ranking-obrazen-paladyna` działa tylko jako alias kompatybilności wstecznej dla tego samego widoku Paladyna,
 - ekran pokazuje globalną nawigację SSR wspólną z pozostałymi modułami,
 - ekran nie pokazuje legacy skilli `Brandish`, `Holy Bolt`, `Clash` ani `Advance` jako domyślnego drzewa Paladyna,
 - ekran pokazuje `NEEDS_VERIFICATION`, `UNSUPPORTED` i `NON_DAMAGE` bez wartości DPS, jeżeli wpis nie jest zweryfikowany albo nie jest skillem obrażeniowym,
-- ekran ma filtry `skillGroup`, `verificationStatus`, `type` i `metric`,
+- ekran ma filtry `character`, `skillGroup`, `verificationStatus`, `type` i `metric`,
 - ekran nie implementuje nowego runtime DPS i nie odblokowuje żadnej mechaniki bez weryfikacji single target.
 
 Smoke test CLI searcha:

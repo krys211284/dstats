@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Build WebApp - Ranking obrażeń Paladyna</title>
+    <title>Build WebApp - Ranking obrażeń</title>
     <style>
         {{APP_SHELL_STYLES}}
         .ranking-filters {
@@ -42,9 +42,9 @@
     {{GLOBAL_NAV}}
 
     <section class="hero">
-        <div class="eyebrow">PaladinSkillTreeRegistry</div>
-        <h1>Ranking obrażeń Paladyna</h1>
-        <p class="helper">Opisowy podgląd nowego drzewa Paladyna. Ekran pokazuje, które wpisy są gotowe do policzenia, a które są blokowane przez weryfikację, brak wsparcia albo brak komponentu obrażeń.</p>
+        <div class="eyebrow">{{REGISTRY_NAME}}</div>
+        <h1>Ranking obrażeń</h1>
+        <p class="helper">Opisowy podgląd drzewa umiejętności dla postaci: {{CHARACTER_NAME}}. Ekran pokazuje, które wpisy są gotowe do policzenia, a które są blokowane przez weryfikację, brak wsparcia albo brak komponentu obrażeń.</p>
         {{SUMMARY}}
     </section>
 
@@ -54,7 +54,7 @@
     </section>
 
     <section class="panel">
-        <h2>Wpisy drzewa Paladyna</h2>
+        <h2>Wpisy drzewa postaci</h2>
         <p class="helper">Niezweryfikowane mechaniki pozostają bez wartości DPS. Widok nie używa legacy foundation jako domyślnego drzewa Paladyna.</p>
         {{TABLE}}
     </section>

@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class PaladinSkillDamageRankingWebServerTest {
+class DamageRankingWebServerTest {
     private CurrentBuildWebServer webServer;
     private HttpClient httpClient;
     private String baseUrl;
@@ -42,10 +42,11 @@ class PaladinSkillDamageRankingWebServerTest {
 
     @Test
     void shouldRenderAllTwentyFourPaladinTreeSkillsByDefault() throws Exception {
-        HttpResponse<String> response = sendGet("/ranking-obrazen-paladyna");
+        HttpResponse<String> response = sendGet("/ranking-obrazen");
 
         assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("Ranking obrażeń Paladyna"));
+        assertTrue(response.body().contains("Ranking obrażeń"));
+        assertTrue(response.body().contains("<option value=\"paladin\" selected>Paladyn</option>"));
         assertTrue(response.body().contains("Wpisy w rejestrze"));
         assertTrue(response.body().contains(">24<"));
         assertEquals(24, countSkillRows(response.body()));
@@ -55,8 +56,31 @@ class PaladinSkillDamageRankingWebServerTest {
     }
 
     @Test
-    void shouldNotExposeLegacyFoundationSkillsAsDefaultPaladinTree() throws Exception {
+    void shouldRenderPaladinRankingForExplicitCharacterParameter() throws Exception {
+        HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin");
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("PaladinSkillTreeRegistry"));
+        assertEquals(24, countSkillRows(response.body()));
+        assertTrue(response.body().contains("data-skill-id=\"furia_niebios\""));
+        assertTrue(response.body().contains("data-skill-id=\"zenit\""));
+        assertTrue(response.body().contains("data-skill-id=\"forteca\""));
+    }
+
+    @Test
+    void legacyPaladinRankingEndpointShouldRenderTheGenericPaladinRankingAlias() throws Exception {
         HttpResponse<String> response = sendGet("/ranking-obrazen-paladyna");
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Ranking obrażeń"));
+        assertTrue(response.body().contains("<form class=\"ranking-filters\" method=\"get\" action=\"/ranking-obrazen\">"));
+        assertEquals(24, countSkillRows(response.body()));
+        assertTrue(response.body().contains("data-skill-id=\"furia_niebios\""));
+    }
+
+    @Test
+    void shouldNotExposeLegacyFoundationSkillsAsDefaultPaladinTree() throws Exception {
+        HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin");
 
         assertEquals(200, response.statusCode());
         assertFalse(response.body().contains("data-skill-id=\"BRANDISH\""));
@@ -71,7 +95,7 @@ class PaladinSkillDamageRankingWebServerTest {
 
     @Test
     void needsVerificationSkillsShouldNotHaveCalculatedDpsValues() throws Exception {
-        HttpResponse<String> response = sendGet("/ranking-obrazen-paladyna?verificationStatus=NEEDS_VERIFICATION");
+        HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin&verificationStatus=NEEDS_VERIFICATION");
 
         assertEquals(200, response.statusCode());
         assertTrue(countSkillRows(response.body()) > 0);
@@ -83,7 +107,7 @@ class PaladinSkillDamageRankingWebServerTest {
 
     @Test
     void nonDamageSkillsShouldNotBeTreatedAsDamageSkills() throws Exception {
-        HttpResponse<String> nonDamageResponse = sendGet("/ranking-obrazen-paladyna?verificationStatus=NON_DAMAGE");
+        HttpResponse<String> nonDamageResponse = sendGet("/ranking-obrazen?character=paladin&verificationStatus=NON_DAMAGE");
 
         assertEquals(200, nonDamageResponse.statusCode());
         assertEquals(2, countSkillRows(nonDamageResponse.body()));
@@ -91,7 +115,7 @@ class PaladinSkillDamageRankingWebServerTest {
         assertTrue(nonDamageResponse.body().contains("data-skill-id=\"mobilizacja\""));
         assertFalse(nonDamageResponse.body().contains("data-skill-type=\"DAMAGE\""));
 
-        HttpResponse<String> damageTypeResponse = sendGet("/ranking-obrazen-paladyna?type=DAMAGE");
+        HttpResponse<String> damageTypeResponse = sendGet("/ranking-obrazen?character=paladin&type=DAMAGE");
         assertEquals(200, damageTypeResponse.statusCode());
         assertFalse(damageTypeResponse.body().contains("data-skill-id=\"aura_fanatyzmu\""));
         assertFalse(damageTypeResponse.body().contains("data-skill-id=\"mobilizacja\""));
@@ -99,7 +123,7 @@ class PaladinSkillDamageRankingWebServerTest {
 
     @Test
     void shouldFilterBySkillGroupStatusTypeAndMetric() throws Exception {
-        HttpResponse<String> response = sendGet("/ranking-obrazen-paladyna?skillGroup=moce_specjalne&verificationStatus=NEEDS_VERIFICATION&type=DAMAGE&metric=DAMAGE_PER_USE");
+        HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin&skillGroup=moce_specjalne&verificationStatus=NEEDS_VERIFICATION&type=DAMAGE&metric=DAMAGE_PER_USE");
 
         assertEquals(200, response.statusCode());
         assertEquals(2, countSkillRows(response.body()));
@@ -127,7 +151,7 @@ class PaladinSkillDamageRankingWebServerTest {
     }
 
     private static boolean allRowsWithStatusContainBlockedDps(String html, String status) {
-        Matcher matcher = Pattern.compile("(?s)<tr class=\"paladin-ranking-row\"[^>]*data-verification-status=\"" + status + "\"[^>]*>(.*?)</tr>")
+        Matcher matcher = Pattern.compile("(?s)<tr class=\"damage-ranking-row\"[^>]*data-verification-status=\"" + status + "\"[^>]*>(.*?)</tr>")
                 .matcher(html);
         boolean found = false;
         while (matcher.find()) {

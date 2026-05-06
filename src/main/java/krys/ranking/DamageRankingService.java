@@ -2,7 +2,6 @@ package krys.ranking;
 
 import krys.combat.DamageBreakdown;
 import krys.combat.DamageEngine;
-import krys.paladin.PaladinSkillTreeRegistry;
 import krys.paladin.PaladinSkillTreeStatus;
 import krys.paladin.PaladinTreeSkill;
 import krys.simulation.HeroBuildSnapshot;
@@ -21,26 +20,44 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 
-/** Ranking obrażeń Paladyna oparty o rejestr PDF; stary foundation pozostaje tylko jako legacy/test-only. */
-public final class PaladinSkillDamageRankingService {
+/** Ranking obrażeń oparty o rejestr klasy; stary foundation Paladyna pozostaje tylko jako legacy/test-only. */
+public final class DamageRankingService {
     private final DamageEngine damageEngine;
+    private final SkillTreeRegistryProvider skillTreeRegistryProvider;
 
-    public PaladinSkillDamageRankingService(DamageEngine damageEngine) {
+    public DamageRankingService(DamageEngine damageEngine) {
+        this(damageEngine, SkillTreeRegistryProvider.paladinOnly());
+    }
+
+    public DamageRankingService(DamageEngine damageEngine,
+                                SkillTreeRegistryProvider skillTreeRegistryProvider) {
         this.damageEngine = damageEngine;
+        this.skillTreeRegistryProvider = skillTreeRegistryProvider;
     }
 
     public List<PaladinSkillDamageRankingEntry> rankDamageSkills(PaladinDamageRankingMetric metric) {
-        return rankDamageSkills(metric, PaladinDamageTargetMode.SINGLE_TARGET);
+        return rankDamageSkills(PlayableClass.PALADIN, metric, PaladinDamageTargetMode.SINGLE_TARGET);
     }
 
     public List<PaladinSkillDamageRankingEntry> rankDamageSkills(PaladinDamageRankingMetric metric,
+                                                                 PaladinDamageTargetMode targetMode) {
+        return rankDamageSkills(PlayableClass.PALADIN, metric, targetMode);
+    }
+
+    public List<PaladinSkillDamageRankingEntry> rankDamageSkills(PlayableClass playableClass,
+                                                                 PaladinDamageRankingMetric metric) {
+        return rankDamageSkills(playableClass, metric, PaladinDamageTargetMode.SINGLE_TARGET);
+    }
+
+    public List<PaladinSkillDamageRankingEntry> rankDamageSkills(PlayableClass playableClass,
+                                                                 PaladinDamageRankingMetric metric,
                                                                  PaladinDamageTargetMode targetMode) {
         if (targetMode != PaladinDamageTargetMode.SINGLE_TARGET) {
             throw new IllegalArgumentException("Obsługiwany jest tylko tryb SINGLE_TARGET.");
         }
 
         List<PaladinSkillDamageRankingEntry> entries = new ArrayList<>();
-        for (PaladinTreeSkill skill : PaladinSkillTreeRegistry.allSkills()) {
+        for (PaladinTreeSkill skill : skillTreeRegistryProvider.registryFor(playableClass).allSkills()) {
             PaladinSkillDamageRankingEntry entry = createTreeEntry(skill, targetMode);
             if (entry.getVerificationStatus() == PaladinSkillDamageVerificationStatus.NON_DAMAGE) {
                 continue;
@@ -64,8 +81,12 @@ public final class PaladinSkillDamageRankingService {
     }
 
     public List<PaladinSkillDamageRankingEntry> describePaladinTreeSkills() {
+        return describeTreeSkills(PlayableClass.PALADIN);
+    }
+
+    public List<PaladinSkillDamageRankingEntry> describeTreeSkills(PlayableClass playableClass) {
         List<PaladinSkillDamageRankingEntry> entries = new ArrayList<>();
-        for (PaladinTreeSkill skill : PaladinSkillTreeRegistry.allSkills()) {
+        for (PaladinTreeSkill skill : skillTreeRegistryProvider.registryFor(playableClass).allSkills()) {
             entries.add(createTreeEntry(skill, PaladinDamageTargetMode.SINGLE_TARGET));
         }
         return List.copyOf(entries);

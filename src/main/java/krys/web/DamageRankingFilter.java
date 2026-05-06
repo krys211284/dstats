@@ -3,27 +3,32 @@ package krys.web;
 import krys.paladin.PaladinSkillTreeType;
 import krys.ranking.PaladinDamageRankingMetric;
 import krys.ranking.PaladinSkillDamageVerificationStatus;
+import krys.ranking.PlayableClass;
 
 import java.util.Map;
 
-/** Filtry widoku opisowego rankingu obrażeń drzewa Paladyna. */
-public final class PaladinSkillDamageRankingFilter {
+/** Filtry ogólnego widoku rankingu obrażeń. */
+public final class DamageRankingFilter {
+    private final PlayableClass character;
     private final String skillGroup;
     private final PaladinSkillDamageVerificationStatus verificationStatus;
     private final PaladinSkillTreeType type;
     private final PaladinDamageRankingMetric metric;
 
-    public PaladinSkillDamageRankingFilter(String skillGroup,
-                                           PaladinSkillDamageVerificationStatus verificationStatus,
-                                           PaladinSkillTreeType type,
-                                           PaladinDamageRankingMetric metric) {
+    public DamageRankingFilter(PlayableClass character,
+                               String skillGroup,
+                               PaladinSkillDamageVerificationStatus verificationStatus,
+                               PaladinSkillTreeType type,
+                               PaladinDamageRankingMetric metric) {
+        this.character = character == null ? PlayableClass.defaultClass() : character;
         this.skillGroup = normalizeOptionalValue(skillGroup);
         this.verificationStatus = verificationStatus;
         this.type = type;
         this.metric = metric == null ? PaladinDamageRankingMetric.SINGLE_TARGET_DPS : metric;
     }
 
-    public static PaladinSkillDamageRankingFilter fromQuery(Map<String, String> queryFields) {
+    public static DamageRankingFilter fromQuery(Map<String, String> queryFields) {
+        PlayableClass character = PlayableClass.fromQueryValueOrDefault(queryFields.get("character"));
         String group = queryFields.get("skillGroup");
         PaladinSkillDamageVerificationStatus status = parseEnum(
                 PaladinSkillDamageVerificationStatus.class,
@@ -37,7 +42,11 @@ public final class PaladinSkillDamageRankingFilter {
                 PaladinDamageRankingMetric.class,
                 queryFields.get("metric")
         );
-        return new PaladinSkillDamageRankingFilter(group, status, type, metric);
+        return new DamageRankingFilter(character, group, status, type, metric);
+    }
+
+    public PlayableClass getCharacter() {
+        return character;
     }
 
     public String getSkillGroup() {

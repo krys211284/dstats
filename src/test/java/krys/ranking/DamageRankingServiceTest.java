@@ -4,6 +4,7 @@ import krys.app.SampleBuildFactory;
 import krys.combat.DamageBreakdown;
 import krys.combat.DamageComponentBreakdown;
 import krys.combat.DamageEngine;
+import krys.paladin.PaladinSkillTreeRegistry;
 import krys.simulation.HeroBuildSnapshot;
 import krys.skill.SkillId;
 import krys.skill.SkillState;
@@ -20,9 +21,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class PaladinSkillDamageRankingServiceTest {
+class DamageRankingServiceTest {
     private final DamageEngine damageEngine = new DamageEngine();
-    private final PaladinSkillDamageRankingService service = new PaladinSkillDamageRankingService(damageEngine);
+    private final DamageRankingService service = new DamageRankingService(damageEngine);
 
     @Test
     void ranking_domyslny_powinien_korzystac_z_nowego_rejestru_pdf_zamiast_starego_foundation() {
@@ -37,6 +38,24 @@ class PaladinSkillDamageRankingServiceTest {
         assertFalse(skillIds.contains(SkillId.HOLY_BOLT.name()));
         assertFalse(skillIds.contains(SkillId.CLASH.name()));
         assertFalse(skillIds.contains(SkillId.ADVANCE.name()));
+    }
+
+    @Test
+    void paladyn_przez_provider_powinien_uzywac_paladin_skill_tree_registry() {
+        SkillTreeRegistryProvider provider = SkillTreeRegistryProvider.paladinOnly();
+        CharacterSkillTreeRegistry registry = provider.registryFor(PlayableClass.PALADIN);
+        Set<String> providerSkillIds = registry.allSkills().stream()
+                .map(skill -> skill.getSkillId())
+                .collect(Collectors.toSet());
+        Set<String> paladinRegistrySkillIds = PaladinSkillTreeRegistry.allSkills().stream()
+                .map(skill -> skill.getSkillId())
+                .collect(Collectors.toSet());
+
+        assertEquals(PlayableClass.PALADIN, registry.getPlayableClass());
+        assertEquals("PaladinSkillTreeRegistry", registry.getRegistryName());
+        assertEquals(paladinRegistrySkillIds, providerSkillIds);
+        assertEquals(24, registry.allSkills().size());
+        assertEquals("Zenit", registry.requireSkill("zenit").getSkillName());
     }
 
     @Test
