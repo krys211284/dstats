@@ -70,13 +70,15 @@ class DamageRankingWebServerTest {
     }
 
     @Test
-    void missingBaseDamagePercentValuesShouldRenderAsNoDataNotBlockedOrZero() throws Exception {
+    void baseDamagePercentValuesShouldRenderOnlyWhenRegistryContainsConfirmedSourceValue() throws Exception {
         HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin");
 
         assertEquals(200, response.statusCode());
         assertEquals(24, countSkillRows(response.body()));
-        assertEquals(48, countOccurrences(response.body(), "brak danych"));
-        assertTrue(allRowsContainMissingBaseDamageCells(response.body()));
+        assertEquals(47, countOccurrences(response.body(), "brak danych"));
+        assertTrue(response.body().contains("data-skill-id=\"blogoslawiony_mlot\""));
+        assertTrue(response.body().contains(">293%</td>"));
+        assertTrue(allRowsContainExpectedBaseDamageCells(response.body()));
         assertFalse(response.body().contains(">0%</td>"));
     }
 
@@ -162,6 +164,7 @@ class DamageRankingWebServerTest {
         assertEquals(200, treeMaxMetricResponse.statusCode());
         assertEquals(24, countSkillRows(treeMaxMetricResponse.body()));
         assertTrue(treeMaxMetricResponse.body().contains("<option value=\"BASE_DAMAGE_PERCENT_TREE_MAX\" selected>"));
+        assertEquals("blogoslawiony_mlot", firstSkillId(treeMaxMetricResponse.body()));
         assertFalse(treeMaxMetricResponse.body().contains("data-skill-id=\"BRANDISH\""));
         assertFalse(treeMaxMetricResponse.body().contains("data-skill-id=\"HOLY_BOLT\""));
         assertFalse(treeMaxMetricResponse.body().contains("data-skill-id=\"CLASH\""));
@@ -199,15 +202,23 @@ class DamageRankingWebServerTest {
         return found;
     }
 
-    private static boolean allRowsContainMissingBaseDamageCells(String html) {
-        Matcher matcher = Pattern.compile("(?s)<tr class=\"damage-ranking-row\"[^>]*>.*?</td><td><code>.*?</code></td><td>.*?</td><td>.*?</td><td>.*?</td><td>(.*?)</td><td>(.*?)</td><td>.*?</td>")
+    private static boolean allRowsContainExpectedBaseDamageCells(String html) {
+        Matcher matcher = Pattern.compile("(?s)<tr class=\"damage-ranking-row\"[^>]*data-skill-id=\"([^\"]+)\"[^>]*>.*?</td><td><code>.*?</code></td><td>.*?</td><td>.*?</td><td>.*?</td><td>(.*?)</td><td>(.*?)</td><td>.*?</td>")
                 .matcher(html);
         boolean found = false;
         while (matcher.find()) {
             found = true;
-            String rankOneCell = matcher.group(1);
-            String treeMaxCell = matcher.group(2);
-            if (!rankOneCell.contains("brak danych") || !treeMaxCell.contains("brak danych")) {
+            String skillId = matcher.group(1);
+            String rankOneCell = matcher.group(2);
+            String treeMaxCell = matcher.group(3);
+            if (!rankOneCell.contains("brak danych")) {
+                return false;
+            }
+            if ("blogoslawiony_mlot".equals(skillId)) {
+                if (!treeMaxCell.contains("293%")) {
+                    return false;
+                }
+            } else if (!treeMaxCell.contains("brak danych")) {
                 return false;
             }
             if (rankOneCell.contains("zablokowane") || treeMaxCell.contains("zablokowane")) {
@@ -215,6 +226,14 @@ class DamageRankingWebServerTest {
             }
         }
         return found;
+    }
+
+    private static String firstSkillId(String html) {
+        Matcher matcher = Pattern.compile("data-skill-row=\"true\" data-skill-id=\"([^\"]+)\"").matcher(html);
+        if (!matcher.find()) {
+            throw new AssertionError("Brak wierszy rankingu.");
+        }
+        return matcher.group(1);
     }
 
     private static int countOccurrences(String value, String fragment) {

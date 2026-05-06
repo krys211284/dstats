@@ -73,12 +73,20 @@ class DamageRankingServiceTest {
     }
 
     @Test
-    void ranking_paladyna_powinien_pozostawiac_bazowe_procenty_obrazen_puste_bez_jawnych_danych_zrodlowych() {
+    void ranking_paladyna_powinien_pokazywac_tylko_jawnie_zweryfikowane_bazowe_procenty_obrazen() {
         List<PaladinSkillDamageRankingEntry> entries = service.describeTreeSkills(PlayableClass.PALADIN);
 
         assertEquals(24, entries.size());
         assertTrue(entries.stream().allMatch(entry -> entry.getBaseDamagePercentAtRank1() == null));
-        assertTrue(entries.stream().allMatch(entry -> entry.getBaseDamagePercentAtTreeMaxRank() == null));
+        assertEquals(Set.of("blogoslawiony_mlot"), entries.stream()
+                .filter(entry -> entry.getBaseDamagePercentAtTreeMaxRank() != null)
+                .map(PaladinSkillDamageRankingEntry::getSkillId)
+                .collect(Collectors.toSet()));
+        assertEquals(293, entries.stream()
+                .filter(entry -> entry.getSkillId().equals("blogoslawiony_mlot"))
+                .findFirst()
+                .orElseThrow()
+                .getBaseDamagePercentAtTreeMaxRank());
     }
 
     @Test

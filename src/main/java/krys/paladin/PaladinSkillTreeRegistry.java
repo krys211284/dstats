@@ -24,6 +24,8 @@ public final class PaladinSkillTreeRegistry {
     public static final String SPECIAL_POWERS_PDF = "docs/paladin/source-pdfs/moce_specjalne_diablo4.pdf";
 
     private static final String NO_RUNTIME = "Skill jest odwzorowany opisowo z PDF, ale nie ma jeszcze zweryfikowanego modelu DPS runtime.";
+    private static final String NO_EXPLICIT_R1_TREE_MAX = NO_RUNTIME + " Bazowy procent obrażeń pozostaje null: PDF nie podaje jednoznacznie R1/treeMax.";
+    private static final String MULTI_COMPONENT_PERCENT_NEEDS_VERIFICATION = NO_RUNTIME + " Bazowy procent obrażeń pozostaje null: komponent wielohitowy/tickowy/warunkowy wymaga weryfikacji interpretacji procentu obrażeń.";
     private static final Map<String, PaladinTreeSkill> SKILLS_BY_ID = createSkills();
 
     private PaladinSkillTreeRegistry() {
@@ -50,56 +52,56 @@ public final class PaladinSkillTreeRegistry {
                         group1(upgrade("generowanie_wiary", "Generowanie Wiary"), upgrade("zwiekszenie_obrazen", "Zwiększenie Obrażeń")),
                         group2(upgrade("szybkosc_uzycia", "Szybkość Użycia"), upgrade("odsloniecie", "Odsłonięcie")),
                         group3(upgrade("powracajaca_swiatlosc", "Powracająca Światłość"), upgrade("miecz_mistrzostwa", "Miecz Mistrzostwa"), upgrade("krzyzowe_uderzenie", "Krzyżowe Uderzenie"))),
-                NO_RUNTIME));
+                NO_EXPLICIT_R1_TREE_MAX));
         put(skills, skill("swiety_pocisk", "Święty Pocisk", BASIC_PDF, "basic", DAMAGE, NEEDS_VERIFICATION,
                 groups(BASIC_PDF, "Święty Pocisk",
                         group1(upgrade("generowanie_wiary", "Generowanie Wiary"), upgrade("osad", "Osąd")),
                         group2(upgrade("spowolnienie", "Spowolnienie"), upgrade("szybkosc_uzycia", "Szybkość Użycia")),
                         group3(upgrade("burzowy_pocisk", "Burzowy Pocisk"), upgrade("boski_pocisk", "Boski Pocisk"), upgrade("rykoszetujacy_pocisk", "Rykoszetujący Pocisk"))),
-                NO_RUNTIME));
+                NO_EXPLICIT_R1_TREE_MAX));
         put(skills, skill("starcie", "Starcie", BASIC_PDF, "basic", DAMAGE, NEEDS_VERIFICATION,
                 groups(BASIC_PDF, "Starcie",
                         group1(upgrade("generowanie_wiary", "Generowanie Wiary"), upgrade("animusz", "Animusz")),
                         group2(upgrade("skutecznosc_marszu_krzyzowca", "Skuteczność Marszu Krzyżowca"), upgrade("zwiekszenie_obrazen", "Zwiększenie Obrażeń")),
                         group3(upgrade("brac_ich", "Brać Ich"), upgrade("potyczka", "Potyczka"), upgrade("kara", "Kara"))),
-                NO_RUNTIME));
+                NO_EXPLICIT_R1_TREE_MAX));
         put(skills, skill("natarcie", "Natarcie", BASIC_PDF, "basic", MOBILITY, NEEDS_VERIFICATION,
                 groups(BASIC_PDF, "Natarcie",
                         group1(upgrade("umocnienie", "Umocnienie"), upgrade("nieograniczenie", "Nieograniczenie")),
                         group2(upgrade("blysk_ostrza", "Błysk Ostrza"), upgrade("pedzaca_fala", "Pędząca Fala")),
                         group3(upgrade("zryw_forpoczty", "Zryw Forpoczty"), upgrade("oslabienie", "Osłabienie"), upgrade("szansa_na_trafienie_krytyczne", "Szansa na Trafienie Krytyczne"))),
-                NO_RUNTIME));
+                NO_EXPLICIT_R1_TREE_MAX));
 
         put(skills, skill("blogoslawiona_tarcza", "Błogosławiona Tarcza", CORE_PDF, "core", DAMAGE, NEEDS_VERIFICATION,
                 groups(CORE_PDF, "Błogosławiona Tarcza",
                         group1(upgrade("generowanie_wiary", "Generowanie Wiary"), upgrade("szybkosc_uzycia", "Szybkość Użycia")),
                         group2(upgrade("premia_do_obrazen", "Premia do Obrażeń"), upgrade("dodatkowy_pancerz_i_szansa_na_blok", "Dodatkowy Pancerz i Szansa na Blok")),
                         group3(upgrade("tarcza_sprawiedliwosci", "Tarcza Sprawiedliwości"), upgrade("tarcza_ozywienca", "Tarcza Ożywieńca"), upgrade("tarcza_pomsty", "Tarcza Pomsty"))),
-                NO_RUNTIME));
-        put(skills, skill("blogoslawiony_mlot", "Błogosławiony Młot", CORE_PDF, "core", DAMAGE, NEEDS_VERIFICATION,
+                NO_EXPLICIT_R1_TREE_MAX));
+        put(skills, skill("blogoslawiony_mlot", "Błogosławiony Młot", CORE_PDF, "core", null, 293, DAMAGE, NEEDS_VERIFICATION,
                 groups(CORE_PDF, "Błogosławiony Młot",
                         group1(upgrade("redukcja_kosztu", "Redukcja Kosztu"), upgrade("premia_do_obrazen", "Premia do Obrażeń")),
                         group2(upgrade("zwiekszenie_szybkosci_uzycia", "Zwiększenie Szybkości Użycia"), upgrade("spowolnienie", "Spowolnienie")),
                         group3(upgrade("budujaca_walka", "Budująca Walka"), upgrade("apostolska_aureola", "Apostolska Aureola"), upgrade("druzgocacy_cios", "Druzgocący Cios"))),
-                NO_RUNTIME));
+                NO_RUNTIME + " PDF podaje bazowy procent obrażeń dla 15/15: 0 [293%] pkt. obrażeń; R1 nie jest jednoznacznie podane."));
         put(skills, skill("boska_lanca", "Boska Lanca", CORE_PDF, "core", DAMAGE, NEEDS_VERIFICATION,
                 groups(CORE_PDF, "Boska Lanca",
                         group1(upgrade("premia_do_obrazen", "Premia do Obrażeń"), upgrade("redukcja_kosztu", "Redukcja Kosztu")),
                         group2(upgrade("szybkosc_uzycia", "Szybkość Użycia"), upgrade("skumulowane_obrazenia", "Skumulowane Obrażenia")),
                         group3(upgrade("zarliwy_rzut", "Żarliwy Rzut"), upgrade("boski_oszczep", "Boski Oszczep"), unsupportedUpgrade("trzeci_wariant_grupy_3", "Trzeci wariant grupy 3"))),
-                "PDF wskazuje trzeci wariant grupy 3 bez nazwy i pełnego opisu; runtime DPS nadal nie jest zaimplementowany."));
+                "PDF wskazuje trzeci wariant grupy 3 bez nazwy i pełnego opisu; runtime DPS nadal nie jest zaimplementowany. Bazowy procent obrażeń pozostaje null: wielohitowy opis wymaga weryfikacji interpretacji procentu obrażeń."));
         put(skills, skill("uderzenie_tarcza", "Uderzenie Tarczą", CORE_PDF, "core", DAMAGE, NEEDS_VERIFICATION,
                 groups(CORE_PDF, "Uderzenie Tarczą",
                         group1(upgrade("uderzenia_sa_blokowaniem", "Uderzenia są Blokowaniem"), upgrade("premia_do_rozmiaru", "Premia do Rozmiaru")),
                         group2(upgrade("oblezenie", "Oblężenie"), upgrade("porazenie", "Porażenie")),
                         group3(upgrade("wylom", "Wyłom"), upgrade("odleglosc", "Odległość"), upgrade("premia_do_obrazen", "Premia do Obrażeń"))),
-                NO_RUNTIME));
+                NO_EXPLICIT_R1_TREE_MAX));
         put(skills, skill("zapal", "Zapał", CORE_PDF, "core", DAMAGE, NEEDS_VERIFICATION,
                 groups(CORE_PDF, "Zapał",
                         group1(upgrade("oslabienie", "Osłabienie"), upgrade("szansa_na_trafienie_krytyczne", "Szansa na Trafienie Krytyczne")),
                         group2(upgrade("umocnienie", "Umocnienie"), upgrade("dodatkowe_ciosy", "Dodatkowe Ciosy")),
                         group3(upgrade("dziedzictwo_zeloty", "Dziedzictwo Zeloty"), upgrade("smierc_albo_chwala", "Śmierć albo Chwała"), unsupportedUpgrade("ostatni_wariant_grupy_3", "Ostatni wariant grupy 3"))),
-                "PDF wskazuje ostatni wariant grupy 3 bez nazwy; runtime DPS nadal nie jest zaimplementowany."));
+                "PDF wskazuje ostatni wariant grupy 3 bez nazwy; runtime DPS nadal nie jest zaimplementowany. Bazowy procent obrażeń pozostaje null: wielohitowy opis wymaga weryfikacji interpretacji procentu obrażeń."));
 
         put(skills, skill("aura_fanatyzmu", "Aura Fanatyzmu", AURA_PDF, "aura", SUPPORT, NON_DAMAGE,
                 groups(AURA_PDF, "Aura Fanatyzmu",
@@ -118,14 +120,14 @@ public final class PaladinSkillTreeRegistry {
                         group1(upgrade("dodatkowe_odbicie", "Dodatkowe Odbicie"), upgrade("dodatkowe_cele", "Dodatkowe Cele")),
                         group2(upgrade("premia_do_obrazen_osadu", "Premia do Obrażeń Osądu"), upgrade("krzepkosc", "Krzepkość")),
                         group3(upgrade("obrzed_osadu", "Obrzęd Osądu"), upgrade("obrzed_laski", "Obrzęd Łaski"), upgrade("obrzed_podporzadkowania", "Obrzęd Podporządkowania"))),
-                NO_RUNTIME));
+                MULTI_COMPONENT_PERCENT_NEEDS_VERIFICATION));
 
         put(skills, skill("szarza_z_tarcza", "Szarża z Tarczą", COURAGE_PDF, "odwaga", MOBILITY, NEEDS_VERIFICATION,
                 groups(COURAGE_PDF, "Szarża z Tarczą",
                         group1(upgrade("premia_do_obrazen", "Premia do Obrażeń"), upgrade("animusz", "Animusz")),
                         group2(upgrade("odwet", "Odwet"), upgrade("trafienie_jako_blok", "Trafienie Jako Blok")),
                         group3(upgrade("nieustepliwa_szarza", "Nieustępliwa Szarża"), upgrade("szarza_prawosci", "Szarża Prawości"), upgrade("szarza_falangi", "Szarża Falangi"))),
-                NO_RUNTIME));
+                MULTI_COMPONENT_PERCENT_NEEDS_VERIFICATION));
         put(skills, skill("egida", "Egida", COURAGE_PDF, "odwaga", DEFENSIVE, NEEDS_VERIFICATION,
                 groups(COURAGE_PDF, "Egida",
                         group1(upgrade("nieustepliwosc", "Nieustępliwość"), upgrade("redukcja_czasu_odnowienia", "Redukcja Czasu Odnowienia")),
@@ -137,7 +139,7 @@ public final class PaladinSkillTreeRegistry {
                         group1(upgrade("dodatkowy_ladunek", "Dodatkowy Ładunek"), upgrade("odsloniecie", "Odsłonięcie")),
                         group2(upgrade("obrazenia", "Obrażenia"), upgrade("redukcja_czasu_odnowienia", "Redukcja Czasu Odnowienia")),
                         group3(upgrade("predkosc_swiatlosci", "Prędkość Światłości"), upgrade("upadek_gwiazdy", "Upadek Gwiazdy"), upgrade("fanatyczne_zstapienie", "Fanatyczne Zstąpienie"))),
-                NO_RUNTIME));
+                MULTI_COMPONENT_PERCENT_NEEDS_VERIFICATION));
         put(skills, skill("mobilizacja", "Mobilizacja", COURAGE_PDF, "odwaga", SUPPORT, NON_DAMAGE,
                 groups(COURAGE_PDF, "Mobilizacja",
                         group1(upgrade("szansa_na_trafienie_krytyczne", "Szansa na Trafienie Krytyczne"), upgrade("premia_do_czasu_dzialania", "Premia do Czasu Działania")),
@@ -150,19 +152,19 @@ public final class PaladinSkillTreeRegistry {
                         group1(upgrade("oslabienie", "Osłabienie"), upgrade("redukcja_czasu_odnowienia", "Redukcja Czasu Odnowienia")),
                         group2(upgrade("szybkosc_ruchu", "Szybkość Ruchu"), upgrade("zwiekszenie_rozmiaru", "Zwiększenie Rozmiaru")),
                         group3(upgrade("zebranie_trzodki", "Zebranie Trzódki"), upgrade("zadoscuczynienie", "Zadośćuczynienie"), upgrade("wezwanie_winnych", "Wezwanie Winnych"))),
-                "PDF opisuje obrażenia Skazania, ale typ obrażeń i runtime single target wymagają weryfikacji."));
+                "PDF opisuje obrażenia Skazania, ale typ obrażeń i runtime single target wymagają weryfikacji. Bazowy procent obrażeń pozostaje null: PDF nie podaje jednoznacznie R1/treeMax."));
         put(skills, skill("wlocznia_niebios", "Włócznia Niebios", JUSTICE_PDF, "sprawiedliwosc", DAMAGE, NEEDS_VERIFICATION,
                 groups(JUSTICE_PDF, "Włócznia Niebios",
                         group1(upgrade("premia_do_obrazen_osadu", "Premia do Obrażeń Osądu"), upgrade("redukcja_czasu_odnowienia", "Redukcja Czasu Odnowienia")),
                         group2(upgrade("pociski", "Pociski"), upgrade("odsloniecie", "Odsłonięcie")),
                         group3(upgrade("werdykt_niebios", "Werdykt Niebios"), upgrade("rozdarcie_niebios", "Rozdarcie Niebios"), upgrade("piesc_niebios", "Pięść Niebios"))),
-                NO_RUNTIME));
+                MULTI_COMPONENT_PERCENT_NEEDS_VERIFICATION));
         put(skills, skill("konsekracja", "Konsekracja", JUSTICE_PDF, "sprawiedliwosc", DAMAGE, NEEDS_VERIFICATION,
                 groups(JUSTICE_PDF, "Konsekracja",
                         group1(upgrade("czas_dzialania", "Czas Działania"), upgrade("oslabienie", "Osłabienie")),
                         group2(upgrade("umocnienie", "Umocnienie"), upgrade("generowanie_zasobow", "Generowanie Zasobów")),
                         group3(upgrade("uswiecenie", "Uświęcenie"), upgrade("bastion", "Bastion"), upgrade("uswiecona_ziemia", "Uświęcona Ziemia"))),
-                NO_RUNTIME));
+                MULTI_COMPONENT_PERCENT_NEEDS_VERIFICATION));
         put(skills, skill("oczyszczenie", "Oczyszczenie", JUSTICE_PDF, "sprawiedliwosc", SUPPORT, NEEDS_VERIFICATION,
                 groups(JUSTICE_PDF, "Oczyszczenie",
                         group1(upgrade("generowanie_wiary", "Generowanie Wiary"), upgrade("redukcja_czasu_odnowienia", "Redukcja Czasu Odnowienia")),
@@ -175,7 +177,7 @@ public final class PaladinSkillTreeRegistry {
                         group1(upgrade("czas_dzialania", "Czas Działania"), upgrade("spowolnienie", "Spowolnienie")),
                         group2(upgrade("osad", "Osąd"), upgrade("premia_do_obrazen", "Premia do Obrażeń")),
                         group3(upgrade("ostateczna_sprawiedliwosc", "Ostateczna Sprawiedliwość"), upgrade("krok_w_swiatlosci", "Krok w Światłości"), upgrade("potrojenie", "Potrojenie"))),
-                NO_RUNTIME));
+                MULTI_COMPONENT_PERCENT_NEEDS_VERIFICATION));
         put(skills, skill("forteca", "Forteca", SPECIAL_POWERS_PDF, "moce_specjalne", DEFENSIVE, NEEDS_VERIFICATION,
                 groups(SPECIAL_POWERS_PDF, "Forteca",
                         group1(upgrade("nieustepliwosc", "Nieustępliwość"), upgrade("uzycie_bez_zuzywania_zasobow", "Użycie bez Zużywania Zasobów")),
@@ -187,13 +189,13 @@ public final class PaladinSkillTreeRegistry {
                         group1(upgrade("szansa_na_trafienie_krytyczne", "Szansa na Trafienie Krytyczne"), upgrade("oslabienie", "Osłabienie")),
                         group2(upgrade("nieustepliwosc", "Nieustępliwość"), upgrade("oslabienie_cooldown", "Osłabienie")),
                         group3(upgrade("empirejska_klinga", "Empirejska Klinga"), upgrade("rozdarcie", "Rozdarcie"), upgrade("homilia_stali", "Homilia Stali"))),
-                NO_RUNTIME));
+                "Skill jest odwzorowany opisowo z PDF, ale nie ma jeszcze zweryfikowanego modelu DPS runtime. Bazowy procent obrażeń pozostaje null: PDF podaje opis bazowy bez jednoznacznego R1/treeMax."));
         put(skills, skill("arbiter_sprawiedliwosci", "Arbiter Sprawiedliwości", SPECIAL_POWERS_PDF, "moce_specjalne", DAMAGE, NEEDS_VERIFICATION,
                 groups(SPECIAL_POWERS_PDF, "Arbiter Sprawiedliwości",
                         group1(upgrade("szybkosc_ruchu", "Szybkość Ruchu"), upgrade("czas_dzialania", "Czas Działania")),
                         group2(upgrade("ponowne_uzycie_uderzenia_skrzydel", "Ponowne Użycie Uderzenia Skrzydeł"), upgrade("redukcja_czasu_odnowienia", "Redukcja Czasu Odnowienia")),
                         group3(upgrade("skrzydla_serafina", "Skrzydła Serafina"), upgrade("skrzydla_sprawiedliwosci", "Skrzydła Sprawiedliwości"), upgrade("boska_interwencja", "Boska Interwencja"))),
-                NO_RUNTIME));
+                MULTI_COMPONENT_PERCENT_NEEDS_VERIFICATION));
 
         return Map.copyOf(skills);
     }
@@ -207,6 +209,19 @@ public final class PaladinSkillTreeRegistry {
                                           List<PaladinSkillUpgradeGroup> upgradeGroups,
                                           String notes) {
         return new PaladinTreeSkill(skillId, skillName, sourcePdf, skillGroup, type, status, upgradeGroups, notes);
+    }
+
+    private static PaladinTreeSkill skill(String skillId,
+                                          String skillName,
+                                          String sourcePdf,
+                                          String skillGroup,
+                                          Integer baseDamagePercentAtRank1,
+                                          Integer baseDamagePercentAtTreeMaxRank,
+                                          PaladinSkillTreeType type,
+                                          PaladinSkillTreeStatus status,
+                                          List<PaladinSkillUpgradeGroup> upgradeGroups,
+                                          String notes) {
+        return new PaladinTreeSkill(skillId, skillName, sourcePdf, skillGroup, baseDamagePercentAtRank1, baseDamagePercentAtTreeMaxRank, type, status, upgradeGroups, notes);
     }
 
     private static List<PaladinSkillUpgradeGroup> groups(String sourcePdf,

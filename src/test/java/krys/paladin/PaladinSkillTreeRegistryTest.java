@@ -2,6 +2,10 @@ package krys.paladin;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -61,6 +65,15 @@ class PaladinSkillTreeRegistryTest {
                 PaladinSkillTreeRegistry.JUSTICE_PDF,
                 PaladinSkillTreeRegistry.SPECIAL_POWERS_PDF
         ), sourcePdfs);
+    }
+
+    @Test
+    void pdf_mocy_specjalnych_powinien_pozostac_bez_zmian() throws Exception {
+        byte[] bytes = Files.readAllBytes(Path.of(PaladinSkillTreeRegistry.SPECIAL_POWERS_PDF));
+        byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
+
+        assertEquals("a559c9ddd65c0a64d31a5efbec2baae4a6db6aaa466060665736f580b0adefc0",
+                HexFormat.of().formatHex(digest));
     }
 
     @Test
@@ -142,6 +155,50 @@ class PaladinSkillTreeRegistryTest {
         assertFalse(topLevelSkillEntryIds.contains("cierniowa_reduta"));
         assertFalse(topLevelSkillEntryIds.contains("cierniowa_reduta_fortecy"));
         assertTrue(fortressUpgradeNames.contains("Cierniowa Reduta"));
+    }
+
+    @Test
+    void blogoslawiony_mlot_powinien_miec_bazowy_procent_obrazen_dla_maksymalnej_rangi_drzewa_z_pdf() {
+        PaladinTreeSkill blessedHammer = PaladinSkillTreeRegistry.requireSkill("blogoslawiony_mlot");
+
+        assertEquals(PaladinSkillTreeRegistry.CORE_PDF, blessedHammer.getSourcePdf());
+        assertEquals("Błogosławiony Młot", blessedHammer.getSkillName());
+        assertEquals(null, blessedHammer.getBaseDamagePercentAtRank1());
+        assertEquals(293, blessedHammer.getBaseDamagePercentAtTreeMaxRank());
+        assertTrue(blessedHammer.getNotes().contains("15/15"));
+        assertTrue(blessedHammer.getNotes().contains("0 [293%] pkt. obrażeń"));
+    }
+
+    @Test
+    void pozostale_skille_paladyna_nie_powinny_miec_bazowych_procentow_bez_jawnego_r1_lub_tree_max() {
+        Set<String> skillsWithTreeMaxPercent = Set.of("blogoslawiony_mlot");
+
+        for (PaladinTreeSkill skill : PaladinSkillTreeRegistry.allSkills()) {
+            assertEquals(null, skill.getBaseDamagePercentAtRank1(), skill.getSkillId());
+            if (!skillsWithTreeMaxPercent.contains(skill.getSkillId())) {
+                assertEquals(null, skill.getBaseDamagePercentAtTreeMaxRank(), skill.getSkillId());
+            }
+        }
+    }
+
+    @Test
+    void reprezentatywne_null_procenty_powinny_miec_powod_w_notatkach() {
+        PaladinTreeSkill nonDamage = PaladinSkillTreeRegistry.requireSkill("aura_fanatyzmu");
+        PaladinTreeSkill noExplicitRank = PaladinSkillTreeRegistry.requireSkill("wymach");
+        PaladinTreeSkill multiComponent = PaladinSkillTreeRegistry.requireSkill("furia_niebios");
+
+        assertEquals(PaladinSkillTreeStatus.NON_DAMAGE, nonDamage.getStatus());
+        assertEquals(null, nonDamage.getBaseDamagePercentAtRank1());
+        assertEquals(null, nonDamage.getBaseDamagePercentAtTreeMaxRank());
+        assertTrue(nonDamage.getNotes().contains("brak bezpośredniego modelu obrażeń"));
+
+        assertEquals(null, noExplicitRank.getBaseDamagePercentAtRank1());
+        assertEquals(null, noExplicitRank.getBaseDamagePercentAtTreeMaxRank());
+        assertTrue(noExplicitRank.getNotes().contains("PDF nie podaje jednoznacznie R1/treeMax"));
+
+        assertEquals(null, multiComponent.getBaseDamagePercentAtRank1());
+        assertEquals(null, multiComponent.getBaseDamagePercentAtTreeMaxRank());
+        assertTrue(multiComponent.getNotes().contains("wielohitowy/tickowy/warunkowy"));
     }
 
     @Test

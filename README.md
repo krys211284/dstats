@@ -312,6 +312,8 @@ Pola bazowych procentów obrażeń:
 
 Wartości `baseDamagePercentAtRank1` i `baseDamagePercentAtTreeMaxRank` nie są normalizowane względem najlepszej umiejętności, nie są DPS, nie odblokowują runtime i nie mogą być zgadywane. Jeżeli źródło nie podaje jawnie wartości dla R1 albo maksymalnej rangi drzewa, odpowiednie pole pozostaje `null`, a SSR renderuje `brak danych`. Poziomy pośrednie nie są teraz zapisywane ani wyliczane jako dane źródłowe; interpolacja pozostaje poza bieżącym zakresem.
 
+Aktualnie rejestr uzupełnia te pola tylko dla wartości jednoznacznie potwierdzonych w PDF-ach. `Błogosławiony Młot` ma `baseDamagePercentAtTreeMaxRank = 293`, ponieważ `paladin_core_skill_registry_final.pdf` podaje dla `15/15`: `0 [293%] pkt. obrażeń`. `baseDamagePercentAtRank1` pozostaje obecnie `null` dla wszystkich 24 wpisów, bo lokalne PDF-y nie podają jawnie wartości R1. Brak wartości w UI oznacza, że wartość nie została jednoznacznie potwierdzona i wpisana do rejestru; nie musi oznaczać, że PDF nie zawiera żadnej wzmianki o obrażeniach. Wartości wielohitowe, tickowe i warunkowe nie są sumowane ani przepisywane jako bazowa siła umiejętności bez osobnej weryfikacji interpretacji.
+
 Pola `damagePerUse`, `effectiveCycleSeconds` i `theoreticalDps` pozostają puste dla skilli `NEEDS_VERIFICATION` albo `UNSUPPORTED`. Obsługiwane metryki sortowania to:
 - `BASE_DAMAGE_PERCENT_RANK_1`,
 - `BASE_DAMAGE_PERCENT_TREE_MAX`,
