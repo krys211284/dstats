@@ -280,6 +280,8 @@ Poprawka Mocy Specjalnych: `Forteca` jest wpisem umiejętności w drzewie z PDF 
 
 `Furia Niebios` w Mocy Specjalnych ma układ grup `2 / 2 / 3`: `grupa_1` zawiera `Czas Działania` i `Spowolnienie`, `grupa_2` zawiera `Osąd` i `Premia do Obrażeń`, a `grupa_3` zawiera `Ostateczna Sprawiedliwość`, `Krok w Światłości` i `Potrojenie`.
 
+Testy regresyjne Mocy Specjalnych zabezpieczają dokładny układ `Zenitu`: `grupa_1` zawiera `Szansa na Trafienie Krytyczne` i `Osłabienie`, `grupa_2` zawiera `Nieustępliwość` i `Osłabienie`, a `grupa_3` zawiera `Empirejska Klinga`, `Rozdarcie` i `Homilia Stali`.
+
 `Skazanie` ma opis obrażeń w PDF `diablo4_paladyn_sprawiedliwosc_umiejetnosci.pdf`, więc w rejestrze ma typ `DAMAGE` i status `NEEDS_VERIFICATION`. DPS Skazania nie jest liczony.
 
 Różnica kontraktowa:

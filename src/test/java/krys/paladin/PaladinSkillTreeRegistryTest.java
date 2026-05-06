@@ -114,6 +114,16 @@ class PaladinSkillTreeRegistryTest {
     }
 
     @Test
+    void zenit_powinien_miec_poprawiony_uklad_grup_ulepszen() {
+        PaladinTreeSkill zenit = PaladinSkillTreeRegistry.requireSkill("zenit");
+
+        assertEquals(List.of(2, 2, 3), groupSizes(zenit));
+        assertEquals(List.of("Szansa na Trafienie Krytyczne", "Osłabienie"), upgradeNames(zenit.getUpgradeGroups().get(0)));
+        assertEquals(List.of("Nieustępliwość", "Osłabienie"), upgradeNames(zenit.getUpgradeGroups().get(1)));
+        assertEquals(List.of("Empirejska Klinga", "Rozdarcie", "Homilia Stali"), upgradeNames(zenit.getUpgradeGroups().get(2)));
+    }
+
+    @Test
     void forteca_powinna_byc_wpisem_umiejetnosci_w_drzewie_a_cierniowa_reduta_jej_ulepszeniem() {
         PaladinTreeSkill fortress = PaladinSkillTreeRegistry.requireSkill("forteca");
         Set<String> topLevelSkillEntryIds = topLevelSkillEntryIds();
