@@ -33,9 +33,46 @@
             min-width: 1180px;
             table-layout: fixed;
         }
+        .verification-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 0 0 10px;
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+        }
+        .legend-item {
+            border-left: 4px solid var(--border);
+            border-radius: 4px;
+            padding: 4px 8px;
+            background: rgba(255, 255, 255, 0.58);
+        }
+        .verification-row {
+            border-left: 4px solid transparent;
+        }
+        .verification-supported {
+            border-left-color: #5d9f6f;
+            background: rgba(93, 159, 111, 0.10);
+        }
+        .verification-partial {
+            border-left-color: #7b8fd1;
+            background: rgba(123, 143, 209, 0.10);
+        }
+        .verification-needs-verification {
+            border-left-color: #d0a542;
+            background: rgba(208, 165, 66, 0.12);
+        }
+        .verification-non-damage {
+            border-left-color: #8392a7;
+            background: rgba(131, 146, 167, 0.10);
+        }
+        .verification-unsupported {
+            border-left-color: #c96e72;
+            background: rgba(201, 110, 114, 0.10);
+        }
+        .ranking-table td:nth-child(6),
         .ranking-table td:nth-child(7),
-        .ranking-table td:nth-child(8),
-        .ranking-table td:nth-child(9) {
+        .ranking-table td:nth-child(8) {
             width: 18%;
             overflow-wrap: anywhere;
             word-break: normal;
@@ -44,12 +81,11 @@
         .ranking-table th:nth-child(1) { width: 13%; }
         .ranking-table th:nth-child(2) { width: 9%; }
         .ranking-table th:nth-child(3) { width: 8%; }
-        .ranking-table th:nth-child(4) { width: 10%; }
-        .ranking-table th:nth-child(5) { width: 8%; }
-        .ranking-table th:nth-child(6) { width: 9%; }
+        .ranking-table th:nth-child(4) { width: 8%; }
+        .ranking-table th:nth-child(5) { width: 9%; }
+        .ranking-table th:nth-child(6),
         .ranking-table th:nth-child(7),
-        .ranking-table th:nth-child(8),
-        .ranking-table th:nth-child(9) { width: 14%; }
+        .ranking-table th:nth-child(8) { width: 16%; }
         .compact-list {
             margin: 0;
             padding-left: 18px;

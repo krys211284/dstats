@@ -144,6 +144,12 @@ public final class DamageRankingPageRenderer {
                     """;
         }
         StringBuilder html = new StringBuilder("""
+                <div class="verification-legend" aria-label="Legenda statusów weryfikacji">
+                    <span class="legend-item verification-supported">SUPPORTED - zweryfikowane</span>
+                    <span class="legend-item verification-needs-verification">NEEDS_VERIFICATION - wymaga weryfikacji</span>
+                    <span class="legend-item verification-non-damage">NON_DAMAGE - bez bezpośrednich obrażeń</span>
+                    <span class="legend-item verification-unsupported">UNSUPPORTED - nieobsługiwane</span>
+                </div>
                 <div class="ranking-table-wrap">
                     <table class="data-table ranking-table">
                         <thead>
@@ -151,7 +157,6 @@ public final class DamageRankingPageRenderer {
                                 <th>skillName</th>
                                 <th>skillGroup</th>
                                 <th>type</th>
-                                <th>verificationStatus</th>
                                 <th>Obrażenia % R1</th>
                                 <th>Obrażenia % max drzewo</th>
                                 <th>grupa_1: wpływ na obrażenia</th>
@@ -174,20 +179,27 @@ public final class DamageRankingPageRenderer {
 
     private static String renderRow(DamageRankingRow row) {
         PaladinSkillDamageRankingEntry entry = row.getEntry();
-        return new StringBuilder("<tr class=\"damage-ranking-row\" data-skill-row=\"true\" data-skill-id=\"")
+        PaladinSkillDamageVerificationStatus status = entry.getVerificationStatus();
+        return new StringBuilder("<tr class=\"damage-ranking-row verification-row ")
+                .append(verificationRowCssClass(status))
+                .append("\" data-skill-row=\"true\" data-skill-id=\"")
                 .append(escapeHtml(entry.getSkillId()))
                 .append("\" data-verification-status=\"")
-                .append(escapeHtml(entry.getVerificationStatus().name()))
+                .append(escapeHtml(status.name()))
                 .append("\" data-skill-type=\"")
                 .append(escapeHtml(row.getType().name()))
+                .append("\" title=\"Status weryfikacji: ")
+                .append(escapeHtml(status.name()))
+                .append("\" aria-label=\"")
+                .append(escapeHtml(entry.getSkillName()))
+                .append(", status weryfikacji: ")
+                .append(escapeHtml(status.name()))
                 .append("\"><td>")
                 .append(escapeHtml(entry.getSkillName()))
                 .append("</td><td>")
                 .append(escapeHtml(entry.getSkillGroup()))
                 .append("</td><td>")
                 .append(escapeHtml(row.getType().name()))
-                .append("</td><td>")
-                .append(renderStatus(entry.getVerificationStatus()))
                 .append("</td><td>")
                 .append(formatPercentSource(row.getBaseDamagePercentAtRank1()))
                 .append("</td><td>")
@@ -250,6 +262,16 @@ public final class DamageRankingPageRenderer {
             case NEEDS_VERIFICATION -> "status-warning";
             case UNSUPPORTED -> "status-error";
             case NON_DAMAGE -> "status-inactive";
+        };
+    }
+
+    private static String verificationRowCssClass(PaladinSkillDamageVerificationStatus status) {
+        return switch (status) {
+            case SUPPORTED -> "verification-supported";
+            case PARTIAL -> "verification-partial";
+            case NEEDS_VERIFICATION -> "verification-needs-verification";
+            case UNSUPPORTED -> "verification-unsupported";
+            case NON_DAMAGE -> "verification-non-damage";
         };
     }
 

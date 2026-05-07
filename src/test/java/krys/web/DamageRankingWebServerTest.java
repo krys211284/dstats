@@ -101,13 +101,13 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains("<th>skillName</th>"));
         assertTrue(response.body().contains("<th>skillGroup</th>"));
         assertTrue(response.body().contains("<th>type</th>"));
-        assertTrue(response.body().contains("<th>verificationStatus</th>"));
         assertTrue(response.body().contains("<th>Obrażenia % R1</th>"));
         assertTrue(response.body().contains("<th>Obrażenia % max drzewo</th>"));
         assertTrue(response.body().contains("<th>grupa_1: wpływ na obrażenia</th>"));
         assertTrue(response.body().contains("<th>grupa_2: wpływ na obrażenia</th>"));
         assertTrue(response.body().contains("<th>grupa_3: wpływ na obrażenia</th>"));
         assertFalse(response.body().contains("<th>skillId</th>"));
+        assertFalse(response.body().contains("<th>verificationStatus</th>"));
         assertFalse(response.body().contains("<th>Komponenty obrażeń</th>"));
         assertFalse(response.body().contains("<th>Ulepszenia wpływające na obrażenia</th>"));
         assertFalse(response.body().contains("<th>Ulepszenia bez wpływu na obrażenia</th>"));
@@ -123,6 +123,12 @@ class DamageRankingWebServerTest {
         assertFalse(response.body().contains("SINGLE_TARGET_DPS"));
         assertEquals(24, countSkillRows(response.body()));
         assertTrue(response.body().contains("data-skill-id=\"furia_niebios\""));
+        assertTrue(response.body().contains("data-verification-status=\"NEEDS_VERIFICATION\""));
+        assertTrue(response.body().contains("title=\"Status weryfikacji: NEEDS_VERIFICATION\""));
+        assertTrue(response.body().contains("verification-row verification-needs-verification"));
+        assertTrue(response.body().contains("verification-supported"));
+        assertTrue(response.body().contains("verification-non-damage"));
+        assertTrue(response.body().contains("verification-unsupported"));
         assertTrue(response.body().contains("data-skill-id=\"zenit\""));
         assertTrue(response.body().contains("data-skill-id=\"forteca\""));
     }
@@ -146,7 +152,7 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains("data-skill-id=\"blogoslawiona_tarcza\""));
         assertTrue(response.body().contains(">205%</td>"));
         assertTrue(response.body().contains(">523%</td>"));
-        assertTrue(allRowsContainExpectedBaseDamageCells(response.body()));
+        assertBaseDamageCells(response.body());
         assertFalse(response.body().contains(">0%</td>"));
     }
 
@@ -272,32 +278,45 @@ class DamageRankingWebServerTest {
         return count;
     }
 
-    private static boolean allRowsContainExpectedBaseDamageCells(String html) {
-        Matcher matcher = Pattern.compile("(?s)<tr class=\"damage-ranking-row\"[^>]*data-skill-id=\"([^\"]+)\"[^>]*>.*?</td><td>.*?</td><td>.*?</td><td>.*?</td><td>(.*?)</td><td>(.*?)</td><td>.*?</td>")
+    private static void assertBaseDamageCells(String html) {
+        Matcher matcher = Pattern.compile("(?s)<tr [^>]*data-skill-row=\"true\"[^>]*data-skill-id=\"([^\"]+)\"[^>]*>(.*?)</tr>")
                 .matcher(html);
-        boolean found = false;
+        int found = 0;
         while (matcher.find()) {
-            found = true;
+            found++;
             String skillId = matcher.group(1);
-            String rankOneCell = matcher.group(2);
-            String treeMaxCell = matcher.group(3);
+            List<String> cells = tableCells(matcher.group(2));
+            if (cells.size() != 8) {
+                throw new AssertionError("Niepoprawna liczba komórek dla " + skillId + ": " + cells.size());
+            }
+            String rankOneCell = cells.get(3);
+            String treeMaxCell = cells.get(4);
             if (SIMPLE_SINGLE_COMPONENT_R1_TREE_MAX.containsKey(skillId)) {
                 List<Integer> expected = SIMPLE_SINGLE_COMPONENT_R1_TREE_MAX.get(skillId);
                 if (!rankOneCell.contains(expected.get(0) + "%") || !treeMaxCell.contains(expected.get(1) + "%")) {
-                    return false;
+                    throw new AssertionError("Niepoprawne procenty dla " + skillId + ": " + rankOneCell + " / " + treeMaxCell);
                 }
             } else if (SKILLS_WITHOUT_SIMPLE_DAMAGE_TABLE.contains(skillId)) {
                 if (!rankOneCell.contains("brak danych") || !treeMaxCell.contains("brak danych")) {
-                    return false;
+                    throw new AssertionError("Skill bez prostej tabeli ma procenty w widoku: " + skillId);
                 }
             } else {
-                return false;
+                throw new AssertionError("Nieoczekiwany skill w rankingu: " + skillId);
             }
             if (rankOneCell.contains("zablokowane") || treeMaxCell.contains("zablokowane")) {
-                return false;
+                throw new AssertionError("Bazowe procenty nie powinny renderować blokady runtime: " + skillId);
             }
         }
-        return found;
+        assertEquals(24, found);
+    }
+
+    private static List<String> tableCells(String rowHtml) {
+        Matcher cellMatcher = Pattern.compile("(?s)<td>(.*?)</td>").matcher(rowHtml);
+        java.util.ArrayList<String> cells = new java.util.ArrayList<>();
+        while (cellMatcher.find()) {
+            cells.add(cellMatcher.group(1));
+        }
+        return cells;
     }
 
     private static String firstSkillId(String html) {
