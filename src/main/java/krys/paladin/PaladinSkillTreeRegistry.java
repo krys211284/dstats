@@ -5,6 +5,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static krys.paladin.DamagePercentComponent.ACTIVE_DAMAGE;
+import static krys.paladin.DamagePercentComponent.ADDITIONAL_STRIKE_DAMAGE;
+import static krys.paladin.DamagePercentComponent.BURST_DAMAGE;
+import static krys.paladin.DamagePercentComponent.FIRST_STRIKE_DAMAGE;
+import static krys.paladin.DamagePercentComponent.LANDING_DAMAGE;
+import static krys.paladin.DamagePercentComponent.PASSIVE_DAMAGE;
+import static krys.paladin.DamagePercentComponent.PRIMARY_DAMAGE;
+import static krys.paladin.DamagePercentComponent.SECOND_STRIKE_DAMAGE;
 import static krys.paladin.PaladinSkillTreeStatus.NEEDS_VERIFICATION;
 import static krys.paladin.PaladinSkillTreeStatus.NON_DAMAGE;
 import static krys.paladin.PaladinSkillTreeStatus.UNSUPPORTED;
@@ -27,6 +35,7 @@ public final class PaladinSkillTreeRegistry {
     private static final String NO_EXPLICIT_R1_TREE_MAX = NO_RUNTIME + " Bazowy procent obrażeń pozostaje null: PDF nie podaje jednoznacznie R1/treeMax.";
     private static final String MULTI_COMPONENT_PERCENT_NEEDS_VERIFICATION = NO_RUNTIME + " Bazowy procent obrażeń pozostaje null: komponent wielohitowy/tickowy/warunkowy wymaga weryfikacji interpretacji procentu obrażeń.";
     private static final String LOCAL_JSON_DAMAGE_RANK_TABLE = NO_RUNTIME + " Lokalny JSON Fextralife podaje pełną pojedynczą tabelę bazowych procentów obrażeń 1..15; tabela pozostaje źródłem opisowym i nie odblokowuje DPS runtime.";
+    private static final String LOCAL_JSON_COMPONENT_DAMAGE_RANK_TABLE = NO_RUNTIME + " Lokalny JSON Fextralife podaje komponentowe tabele bazowych procentów obrażeń 1..15; komponenty pozostają danymi źródłowymi, nie są sumowane i nie odblokowują DPS runtime.";
     private static final Map<String, PaladinTreeSkill> SKILLS_BY_ID = createSkills();
 
     private PaladinSkillTreeRegistry() {
@@ -111,12 +120,15 @@ public final class PaladinSkillTreeRegistry {
                         group2(upgrade("oblezenie", "Oblężenie"), upgrade("porazenie", "Porażenie")),
                         group3(upgrade("wylom", "Wyłom"), upgrade("odleglosc", "Odległość"), upgrade("premia_do_obrazen", "Premia do Obrażeń"))),
                 LOCAL_JSON_DAMAGE_RANK_TABLE));
-        put(skills, skill("zapal", "Zapał", CORE_PDF, "core", DAMAGE, NEEDS_VERIFICATION,
+        put(skills, skill("zapal", "Zapał", CORE_PDF, "core", componentDamagePercentRanks(Map.ofEntries(
+                        Map.entry(PRIMARY_DAMAGE, damagePercentRanks(80, 88, 96, 104, 116, 124, 132, 140, 148, 160, 168, 176, 184, 192, 204)),
+                        Map.entry(ADDITIONAL_STRIKE_DAMAGE, damagePercentRanks(20, 22, 24, 26, 29, 31, 33, 35, 37, 40, 42, 44, 46, 48, 51))
+                )), DAMAGE, NEEDS_VERIFICATION,
                 groups(CORE_PDF, "Zapał",
                         group1(upgrade("oslabienie", "Osłabienie"), upgrade("szansa_na_trafienie_krytyczne", "Szansa na Trafienie Krytyczne")),
                         group2(upgrade("umocnienie", "Umocnienie"), upgrade("dodatkowe_ciosy", "Dodatkowe Ciosy")),
                         group3(upgrade("dziedzictwo_zeloty", "Dziedzictwo Zeloty"), upgrade("smierc_albo_chwala", "Śmierć albo Chwała"), unsupportedUpgrade("ostatni_wariant_grupy_3", "Ostatni wariant grupy 3"))),
-                "PDF wskazuje ostatni wariant grupy 3 bez nazwy; runtime DPS nadal nie jest zaimplementowany. Bazowy procent obrażeń pozostaje null: wielohitowy opis wymaga weryfikacji interpretacji procentu obrażeń."));
+                LOCAL_JSON_COMPONENT_DAMAGE_RANK_TABLE + " PDF wskazuje ostatni wariant grupy 3 bez nazwy."));
 
         put(skills, skill("aura_fanatyzmu", "Aura Fanatyzmu", AURA_PDF, "aura", SUPPORT, NON_DAMAGE,
                 groups(AURA_PDF, "Aura Fanatyzmu",
@@ -130,12 +142,15 @@ public final class PaladinSkillTreeRegistry {
                         group2(upgrade("krzepkosc", "Krzepkość"), upgrade("dodatkowe_leczenie", "Dodatkowe Leczenie")),
                         group3(upgrade("obrzed_cierni", "Obrzęd Cierni"), upgrade("obrzed_modlitwy", "Obrzęd Modlitwy"), upgrade("obrzed_mocy", "Obrzęd Mocy"))),
                 "Aura ma efekty defensywne, ciernie i premię obrażeń; wpływ na DPS wymaga weryfikacji."));
-        put(skills, skill("aura_swietej_swiatlosci", "Aura Świętej Światłości", AURA_PDF, "aura", DAMAGE, NEEDS_VERIFICATION,
+        put(skills, skill("aura_swietej_swiatlosci", "Aura Świętej Światłości", AURA_PDF, "aura", componentDamagePercentRanks(Map.ofEntries(
+                        Map.entry(PASSIVE_DAMAGE, damagePercentRanks(45, 50, 54, 58, 65, 70, 74, 79, 83, 90, 94, 99, 103, 108, 115)),
+                        Map.entry(ACTIVE_DAMAGE, damagePercentRanks(320, 352, 384, 416, 464, 496, 528, 560, 592, 640, 672, 704, 736, 768, 816))
+                )), DAMAGE, NEEDS_VERIFICATION,
                 groups(AURA_PDF, "Aura Świętej Światłości",
                         group1(upgrade("dodatkowe_odbicie", "Dodatkowe Odbicie"), upgrade("dodatkowe_cele", "Dodatkowe Cele")),
                         group2(upgrade("premia_do_obrazen_osadu", "Premia do Obrażeń Osądu"), upgrade("krzepkosc", "Krzepkość")),
                         group3(upgrade("obrzed_osadu", "Obrzęd Osądu"), upgrade("obrzed_laski", "Obrzęd Łaski"), upgrade("obrzed_podporzadkowania", "Obrzęd Podporządkowania"))),
-                MULTI_COMPONENT_PERCENT_NEEDS_VERIFICATION));
+                LOCAL_JSON_COMPONENT_DAMAGE_RANK_TABLE));
 
         put(skills, skill("szarza_z_tarcza", "Szarża z Tarczą", COURAGE_PDF, "odwaga", damagePercentRanks(
                         90, 99, 108, 117, 131, 139, 148, 157, 166, 180, 189, 198, 207, 216, 229
@@ -151,12 +166,14 @@ public final class PaladinSkillTreeRegistry {
                         group2(upgrade("redukcja_blokowanych_obrazen", "Redukcja Blokowanych Obrażeń"), upgrade("czas_dzialania", "Czas Działania")),
                         group3(upgrade("zdecydowana_stanowczosc", "Zdecydowana Stanowczość"), upgrade("tarcza_wiary", "Tarcza Wiary"), upgrade("bezkarnosc", "Bezkarność"))),
                 "Bazowo defensywna; modyfikatory Osądu, Odwetu i cierni wymagają weryfikacji DPS."));
-        put(skills, skill("spadajaca_gwiazda", "Spadająca Gwiazda", COURAGE_PDF, "odwaga", DAMAGE, NEEDS_VERIFICATION,
+        put(skills, skill("spadajaca_gwiazda", "Spadająca Gwiazda", COURAGE_PDF, "odwaga", componentDamagePercentRanks(Map.ofEntries(
+                        Map.entry(LANDING_DAMAGE, damagePercentRanks(80, 264, 288, 312, 348, 372, 396, 420, 444, 480, 504, 528, 552, 576, 612))
+                )), DAMAGE, NEEDS_VERIFICATION,
                 groups(COURAGE_PDF, "Spadająca Gwiazda",
                         group1(upgrade("dodatkowy_ladunek", "Dodatkowy Ładunek"), upgrade("odsloniecie", "Odsłonięcie")),
                         group2(upgrade("obrazenia", "Obrażenia"), upgrade("redukcja_czasu_odnowienia", "Redukcja Czasu Odnowienia")),
                         group3(upgrade("predkosc_swiatlosci", "Prędkość Światłości"), upgrade("upadek_gwiazdy", "Upadek Gwiazdy"), upgrade("fanatyczne_zstapienie", "Fanatyczne Zstąpienie"))),
-                MULTI_COMPONENT_PERCENT_NEEDS_VERIFICATION));
+                LOCAL_JSON_COMPONENT_DAMAGE_RANK_TABLE + " Komponent JUMP_DAMAGE nie został zaimportowany, bo lokalny JSON nie podaje go jednoznacznie dla rang 2, 4, 8 i 13."));
         put(skills, skill("mobilizacja", "Mobilizacja", COURAGE_PDF, "odwaga", SUPPORT, NON_DAMAGE,
                 groups(COURAGE_PDF, "Mobilizacja",
                         group1(upgrade("szansa_na_trafienie_krytyczne", "Szansa na Trafienie Krytyczne"), upgrade("premia_do_czasu_dzialania", "Premia do Czasu Działania")),
@@ -172,12 +189,15 @@ public final class PaladinSkillTreeRegistry {
                         group2(upgrade("szybkosc_ruchu", "Szybkość Ruchu"), upgrade("zwiekszenie_rozmiaru", "Zwiększenie Rozmiaru")),
                         group3(upgrade("zebranie_trzodki", "Zebranie Trzódki"), upgrade("zadoscuczynienie", "Zadośćuczynienie"), upgrade("wezwanie_winnych", "Wezwanie Winnych"))),
                 LOCAL_JSON_DAMAGE_RANK_TABLE + " Typ obrażeń i runtime single target nadal wymagają osobnej weryfikacji."));
-        put(skills, skill("wlocznia_niebios", "Włócznia Niebios", JUSTICE_PDF, "sprawiedliwosc", DAMAGE, NEEDS_VERIFICATION,
+        put(skills, skill("wlocznia_niebios", "Włócznia Niebios", JUSTICE_PDF, "sprawiedliwosc", componentDamagePercentRanks(Map.ofEntries(
+                        Map.entry(PRIMARY_DAMAGE, damagePercentRanks(160, 176, 192, 208, 232, 248, 264, 280, 296, 320, 336, 352, 368, 384, 408)),
+                        Map.entry(BURST_DAMAGE, damagePercentRanks(120, 132, 144, 156, 174, 186, 198, 210, 222, 240, 252, 264, 276, 288, 306))
+                )), DAMAGE, NEEDS_VERIFICATION,
                 groups(JUSTICE_PDF, "Włócznia Niebios",
                         group1(upgrade("premia_do_obrazen_osadu", "Premia do Obrażeń Osądu"), upgrade("redukcja_czasu_odnowienia", "Redukcja Czasu Odnowienia")),
                         group2(upgrade("pociski", "Pociski"), upgrade("odsloniecie", "Odsłonięcie")),
                         group3(upgrade("werdykt_niebios", "Werdykt Niebios"), upgrade("rozdarcie_niebios", "Rozdarcie Niebios"), upgrade("piesc_niebios", "Pięść Niebios"))),
-                MULTI_COMPONENT_PERCENT_NEEDS_VERIFICATION));
+                LOCAL_JSON_COMPONENT_DAMAGE_RANK_TABLE));
         put(skills, skill("konsekracja", "Konsekracja", JUSTICE_PDF, "sprawiedliwosc", damagePercentRanks(
                         75, 83, 90, 97, 109, 116, 124, 131, 139, 150, 157, 165, 172, 180, 191
                 ), DAMAGE, NEEDS_VERIFICATION,
@@ -205,12 +225,15 @@ public final class PaladinSkillTreeRegistry {
                         group2(upgrade("premia_do_obrazen_animuszu", "Premia do Obrażeń Animuszu"), upgrade("czas_dzialania", "Czas Działania")),
                         group3(upgrade("barykada", "Barykada"), upgrade("cierniowa_reduta", "Cierniowa Reduta"), upgrade("okopanie", "Okopanie"))),
                 "Forteca jest wpisem umiejętności w drzewie Mocy Specjalnych; tagi opisowe z PDF: Specjalne, Defensywa, Moloch. Cierniowa Reduta jest jej ulepszeniem z grupy 3."));
-        put(skills, skill("zenit", "Zenit", SPECIAL_POWERS_PDF, "moce_specjalne", SPECIAL, NEEDS_VERIFICATION,
+        put(skills, skill("zenit", "Zenit", SPECIAL_POWERS_PDF, "moce_specjalne", componentDamagePercentRanks(Map.ofEntries(
+                        Map.entry(FIRST_STRIKE_DAMAGE, damagePercentRanks(450, 495, 540, 585, 653, 697, 742, 788, 832, 900, 945, 990, 1035, 1080, 1147)),
+                        Map.entry(SECOND_STRIKE_DAMAGE, damagePercentRanks(400, 440, 480, 520, 580, 620, 660, 700, 740, 800, 840, 880, 920, 960, 1020))
+                )), SPECIAL, NEEDS_VERIFICATION,
                 groups(SPECIAL_POWERS_PDF, "Zenit",
                         group1(upgrade("szansa_na_trafienie_krytyczne", "Szansa na Trafienie Krytyczne"), upgrade("oslabienie", "Osłabienie")),
                         group2(upgrade("nieustepliwosc", "Nieustępliwość"), upgrade("oslabienie_cooldown", "Osłabienie")),
                         group3(upgrade("empirejska_klinga", "Empirejska Klinga"), upgrade("rozdarcie", "Rozdarcie"), upgrade("homilia_stali", "Homilia Stali"))),
-                "Skill jest odwzorowany opisowo z PDF, ale nie ma jeszcze zweryfikowanego modelu DPS runtime. Bazowy procent obrażeń pozostaje null: PDF podaje opis bazowy bez jednoznacznego R1/treeMax."));
+                LOCAL_JSON_COMPONENT_DAMAGE_RANK_TABLE));
         put(skills, skill("arbiter_sprawiedliwosci", "Arbiter Sprawiedliwości", SPECIAL_POWERS_PDF, "moce_specjalne", DAMAGE, NEEDS_VERIFICATION,
                 groups(SPECIAL_POWERS_PDF, "Arbiter Sprawiedliwości",
                         group1(upgrade("szybkosc_ruchu", "Szybkość Ruchu"), upgrade("czas_dzialania", "Czas Działania")),
@@ -248,6 +271,18 @@ public final class PaladinSkillTreeRegistry {
                                           String skillName,
                                           String sourcePdf,
                                           String skillGroup,
+                                          DamagePercentComponentRankTable componentDamagePercentRanks,
+                                          PaladinSkillTreeType type,
+                                          PaladinSkillTreeStatus status,
+                                          List<PaladinSkillUpgradeGroup> upgradeGroups,
+                                          String notes) {
+        return new PaladinTreeSkill(skillId, skillName, sourcePdf, skillGroup, componentDamagePercentRanks, type, status, upgradeGroups, notes);
+    }
+
+    private static PaladinTreeSkill skill(String skillId,
+                                          String skillName,
+                                          String sourcePdf,
+                                          String skillGroup,
                                           Integer baseDamagePercentAtRank1,
                                           Integer baseDamagePercentAtTreeMaxRank,
                                           PaladinSkillTreeType type,
@@ -259,6 +294,10 @@ public final class PaladinSkillTreeRegistry {
 
     private static DamagePercentRankTable blessedHammerDamagePercentRanks() {
         return damagePercentRanks(115, 126, 138, 149, 167, 178, 190, 201, 213, 230, 241, 253, 264, 276, 293);
+    }
+
+    private static DamagePercentComponentRankTable componentDamagePercentRanks(Map<DamagePercentComponent, DamagePercentRankTable> tablesByComponent) {
+        return DamagePercentComponentRankTable.of(tablesByComponent);
     }
 
     private static DamagePercentRankTable damagePercentRanks(int rank1,

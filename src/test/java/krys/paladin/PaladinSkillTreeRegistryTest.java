@@ -15,6 +15,15 @@ import java.util.stream.IntStream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static krys.paladin.DamagePercentComponent.ACTIVE_DAMAGE;
+import static krys.paladin.DamagePercentComponent.ADDITIONAL_STRIKE_DAMAGE;
+import static krys.paladin.DamagePercentComponent.BURST_DAMAGE;
+import static krys.paladin.DamagePercentComponent.FIRST_STRIKE_DAMAGE;
+import static krys.paladin.DamagePercentComponent.JUMP_DAMAGE;
+import static krys.paladin.DamagePercentComponent.LANDING_DAMAGE;
+import static krys.paladin.DamagePercentComponent.PASSIVE_DAMAGE;
+import static krys.paladin.DamagePercentComponent.PRIMARY_DAMAGE;
+import static krys.paladin.DamagePercentComponent.SECOND_STRIKE_DAMAGE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -88,6 +97,27 @@ class PaladinSkillTreeRegistryTest {
             "mobilizacja",
             "oczyszczenie",
             "forteca"
+    );
+    private static final Map<String, Map<DamagePercentComponent, Map<Integer, Integer>>> EXPECTED_COMPONENT_DAMAGE_RANK_TABLES = Map.ofEntries(
+            Map.entry("zapal", Map.ofEntries(
+                    Map.entry(PRIMARY_DAMAGE, rankTable(80, 88, 96, 104, 116, 124, 132, 140, 148, 160, 168, 176, 184, 192, 204)),
+                    Map.entry(ADDITIONAL_STRIKE_DAMAGE, rankTable(20, 22, 24, 26, 29, 31, 33, 35, 37, 40, 42, 44, 46, 48, 51))
+            )),
+            Map.entry("aura_swietej_swiatlosci", Map.ofEntries(
+                    Map.entry(PASSIVE_DAMAGE, rankTable(45, 50, 54, 58, 65, 70, 74, 79, 83, 90, 94, 99, 103, 108, 115)),
+                    Map.entry(ACTIVE_DAMAGE, rankTable(320, 352, 384, 416, 464, 496, 528, 560, 592, 640, 672, 704, 736, 768, 816))
+            )),
+            Map.entry("spadajaca_gwiazda", Map.ofEntries(
+                    Map.entry(LANDING_DAMAGE, rankTable(80, 264, 288, 312, 348, 372, 396, 420, 444, 480, 504, 528, 552, 576, 612))
+            )),
+            Map.entry("wlocznia_niebios", Map.ofEntries(
+                    Map.entry(PRIMARY_DAMAGE, rankTable(160, 176, 192, 208, 232, 248, 264, 280, 296, 320, 336, 352, 368, 384, 408)),
+                    Map.entry(BURST_DAMAGE, rankTable(120, 132, 144, 156, 174, 186, 198, 210, 222, 240, 252, 264, 276, 288, 306))
+            )),
+            Map.entry("zenit", Map.ofEntries(
+                    Map.entry(FIRST_STRIKE_DAMAGE, rankTable(450, 495, 540, 585, 653, 697, 742, 788, 832, 900, 945, 990, 1035, 1080, 1147)),
+                    Map.entry(SECOND_STRIKE_DAMAGE, rankTable(400, 440, 480, 520, 580, 620, 660, 700, 740, 800, 840, 880, 920, 960, 1020))
+            ))
     );
 
     @Test
@@ -292,6 +322,60 @@ class PaladinSkillTreeRegistryTest {
     }
 
     @Test
+    void multi_component_powinny_miec_komponentowe_tabele_rang_bez_prostej_tabeli_bazowej() {
+        for (Map.Entry<String, Map<DamagePercentComponent, Map<Integer, Integer>>> expectation : EXPECTED_COMPONENT_DAMAGE_RANK_TABLES.entrySet()) {
+            PaladinTreeSkill skill = PaladinSkillTreeRegistry.requireSkill(expectation.getKey());
+            DamagePercentComponentRankTable componentTable = skill.getComponentDamagePercentRanks();
+
+            assertTrue(skill.getBaseDamagePercentRanks().isEmpty(), expectation.getKey());
+            assertEquals(null, skill.getBaseDamagePercentAtRank1(), expectation.getKey());
+            assertEquals(null, skill.getBaseDamagePercentAtTreeMaxRank(), expectation.getKey());
+            assertFalse(componentTable.isEmpty(), expectation.getKey());
+            assertEquals(expectation.getValue().keySet(), componentTable.asMap().keySet(), expectation.getKey());
+            for (Map.Entry<DamagePercentComponent, Map<Integer, Integer>> componentExpectation : expectation.getValue().entrySet()) {
+                DamagePercentComponent component = componentExpectation.getKey();
+
+                assertTrue(componentTable.hasComponent(component), expectation.getKey() + " " + component);
+                assertEquals(componentExpectation.getValue(), componentTable.tableFor(component).asMap(), expectation.getKey() + " " + component);
+                assertEquals(componentExpectation.getValue().get(1), componentTable.damagePercentAt(component, 1), expectation.getKey() + " " + component);
+                assertEquals(componentExpectation.getValue().get(15), componentTable.damagePercentAt(component, 15), expectation.getKey() + " " + component);
+            }
+        }
+
+        PaladinTreeSkill fallingStar = PaladinSkillTreeRegistry.requireSkill("spadajaca_gwiazda");
+        assertFalse(fallingStar.getComponentDamagePercentRanks().hasComponent(JUMP_DAMAGE));
+        assertTrue(fallingStar.getNotes().contains("JUMP_DAMAGE nie został zaimportowany"));
+    }
+
+    @Test
+    void zaimportowane_tabele_component_multi_component_powinny_byc_zgodne_z_lokalnym_jsonem() throws Exception {
+        String json = Files.readString(Path.of("docs/paladin/source-md/paladin_fextralife_rank_tables.json"));
+
+        assertEquals(EXPECTED_COMPONENT_DAMAGE_RANK_TABLES.get("zapal").get(PRIMARY_DAMAGE), bracketPercentTableFromJson(json, "zapal", 0));
+        assertEquals(EXPECTED_COMPONENT_DAMAGE_RANK_TABLES.get("zapal").get(ADDITIONAL_STRIKE_DAMAGE), bracketPercentTableFromJson(json, "zapal", 1));
+        assertEquals(EXPECTED_COMPONENT_DAMAGE_RANK_TABLES.get("aura_swietej_swiatlosci").get(PASSIVE_DAMAGE), bracketPercentTableFromJson(json, "aura_swietej_swiatlosci", 0));
+        assertEquals(EXPECTED_COMPONENT_DAMAGE_RANK_TABLES.get("aura_swietej_swiatlosci").get(ACTIVE_DAMAGE), bracketPercentTableFromJson(json, "aura_swietej_swiatlosci", 1));
+        assertEquals(EXPECTED_COMPONENT_DAMAGE_RANK_TABLES.get("spadajaca_gwiazda").get(LANDING_DAMAGE), componentLabelTableFromJson(json, "spadajaca_gwiazda", "Landing Damage"));
+        assertEquals(EXPECTED_COMPONENT_DAMAGE_RANK_TABLES.get("wlocznia_niebios").get(PRIMARY_DAMAGE), bracketPercentTableFromJson(json, "wlocznia_niebios", 0));
+        assertEquals(EXPECTED_COMPONENT_DAMAGE_RANK_TABLES.get("wlocznia_niebios").get(BURST_DAMAGE), bracketPercentTableFromJson(json, "wlocznia_niebios", 1));
+        assertEquals(EXPECTED_COMPONENT_DAMAGE_RANK_TABLES.get("zenit").get(FIRST_STRIKE_DAMAGE), bracketPercentTableFromJson(json, "zenit", 0));
+        assertEquals(EXPECTED_COMPONENT_DAMAGE_RANK_TABLES.get("zenit").get(SECOND_STRIKE_DAMAGE), bracketPercentTableFromJson(json, "zenit", 1));
+
+        assertEquals(Set.of(1, 3, 5, 6, 7, 9, 10, 11, 12, 14, 15),
+                componentLabelTableFromJson(json, "spadajaca_gwiazda", "Jump Damage").keySet());
+    }
+
+    @Test
+    void manual_review_i_non_damage_nie_powinny_miec_komponentowych_tabel_rang() {
+        for (String skillId : Set.of("furia_niebios", "arbiter_sprawiedliwosci")) {
+            assertTrue(PaladinSkillTreeRegistry.requireSkill(skillId).getComponentDamagePercentRanks().isEmpty(), skillId);
+        }
+        for (String skillId : NON_DAMAGE_SKILLS_WITHOUT_SIMPLE_TABLE) {
+            assertTrue(PaladinSkillTreeRegistry.requireSkill(skillId).getComponentDamagePercentRanks().isEmpty(), skillId);
+        }
+    }
+
+    @Test
     void reprezentatywne_null_procenty_powinny_miec_powod_w_notatkach() {
         PaladinTreeSkill nonDamage = PaladinSkillTreeRegistry.requireSkill("aura_fanatyzmu");
         PaladinTreeSkill noSimpleTable = PaladinSkillTreeRegistry.requireSkill("zapal");
@@ -304,7 +388,7 @@ class PaladinSkillTreeRegistryTest {
 
         assertEquals(null, noSimpleTable.getBaseDamagePercentAtRank1());
         assertEquals(null, noSimpleTable.getBaseDamagePercentAtTreeMaxRank());
-        assertTrue(noSimpleTable.getNotes().contains("wielohitowy"));
+        assertTrue(noSimpleTable.getNotes().contains("komponentowe tabele"));
 
         assertEquals(null, multiComponent.getBaseDamagePercentAtRank1());
         assertEquals(null, multiComponent.getBaseDamagePercentAtTreeMaxRank());
@@ -388,6 +472,48 @@ class PaladinSkillTreeRegistryTest {
     }
 
     private static Map<Integer, Integer> firstBracketPercentTableFromJson(String json, String skillId) {
+        return bracketPercentTableFromJson(json, skillId, 0);
+    }
+
+    private static Map<Integer, Integer> bracketPercentTableFromJson(String json, String skillId, int bracketPercentIndex) {
+        String rankTableJson = rankTableJson(json, skillId);
+        Pattern rankPattern = Pattern.compile("(?s)\\{\\s*\"rank\"\\s*:\\s*(\\d+).*?\"bracketPercents\"\\s*:\\s*\\[(.*?)\\].*?\\}");
+        Matcher rankMatcher = rankPattern.matcher(rankTableJson);
+        Map<Integer, Integer> table = new LinkedHashMap<>();
+        while (rankMatcher.find()) {
+            int rank = Integer.parseInt(rankMatcher.group(1));
+            Matcher percentMatcher = Pattern.compile("\\d+").matcher(rankMatcher.group(2));
+            int index = 0;
+            while (percentMatcher.find()) {
+                if (index == bracketPercentIndex) {
+                    table.put(rank, Integer.parseInt(percentMatcher.group()));
+                    break;
+                }
+                index++;
+            }
+        }
+        if (table.size() != 15) {
+            throw new AssertionError("Tabela JSON nie ma kompletu 1..15 dla: " + skillId);
+        }
+        return table;
+    }
+
+    private static Map<Integer, Integer> componentLabelTableFromJson(String json, String skillId, String label) {
+        String rankTableJson = rankTableJson(json, skillId);
+        Pattern rankPattern = Pattern.compile("(?s)\\{\\s*\"rank\"\\s*:\\s*(\\d+).*?\"upgrade\"\\s*:\\s*\"(.*?)\".*?\\}");
+        Matcher rankMatcher = rankPattern.matcher(rankTableJson);
+        Pattern labelPattern = Pattern.compile(Pattern.quote(label) + ": \\[([0-9,]+)%\\]");
+        Map<Integer, Integer> table = new LinkedHashMap<>();
+        while (rankMatcher.find()) {
+            Matcher labelMatcher = labelPattern.matcher(rankMatcher.group(2));
+            if (labelMatcher.find()) {
+                table.put(Integer.parseInt(rankMatcher.group(1)), Integer.parseInt(labelMatcher.group(1).replace(",", "")));
+            }
+        }
+        return table;
+    }
+
+    private static String rankTableJson(String json, String skillId) {
         String skillMarker = "\"skillId\": \"" + skillId + "\"";
         int skillIndex = json.indexOf(skillMarker);
         if (skillIndex < 0) {
@@ -396,18 +522,7 @@ class PaladinSkillTreeRegistryTest {
         int rankTableIndex = json.indexOf("\"rankTable\"", skillIndex);
         int arrayStart = json.indexOf('[', rankTableIndex);
         int arrayEnd = findMatchingBracket(json, arrayStart);
-        String rankTableJson = json.substring(arrayStart + 1, arrayEnd);
-
-        Pattern rankPattern = Pattern.compile("(?s)\"rank\"\\s*:\\s*(\\d+).*?\"bracketPercents\"\\s*:\\s*\\[\\s*(\\d+)");
-        Matcher rankMatcher = rankPattern.matcher(rankTableJson);
-        Map<Integer, Integer> table = new LinkedHashMap<>();
-        while (rankMatcher.find()) {
-            table.put(Integer.parseInt(rankMatcher.group(1)), Integer.parseInt(rankMatcher.group(2)));
-        }
-        if (table.size() != 15) {
-            throw new AssertionError("Tabela JSON nie ma kompletu 1..15 dla: " + skillId);
-        }
-        return table;
+        return json.substring(arrayStart + 1, arrayEnd);
     }
 
     private static int findMatchingBracket(String value, int arrayStart) {

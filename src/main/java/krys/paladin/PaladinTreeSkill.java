@@ -14,6 +14,7 @@ public final class PaladinTreeSkill {
     private final Integer baseDamagePercentAtRank1;
     private final Integer baseDamagePercentAtTreeMaxRank;
     private final DamagePercentRankTable baseDamagePercentRanks;
+    private final DamagePercentComponentRankTable componentDamagePercentRanks;
     private final PaladinSkillTreeType type;
     private final PaladinSkillTreeStatus status;
     private final List<PaladinSkillUpgradeGroup> upgradeGroups;
@@ -41,7 +42,7 @@ public final class PaladinTreeSkill {
                             List<PaladinSkillUpgradeGroup> upgradeGroups,
                             String notes) {
         this(skillId, skillName, sourcePdf, skillGroup, baseDamagePercentAtRank1, baseDamagePercentAtTreeMaxRank,
-                DamagePercentRankTable.empty(), type, status, upgradeGroups, notes);
+                DamagePercentRankTable.empty(), DamagePercentComponentRankTable.empty(), type, status, upgradeGroups, notes);
     }
 
     public PaladinTreeSkill(String skillId,
@@ -60,9 +61,38 @@ public final class PaladinTreeSkill {
                             String skillName,
                             String sourcePdf,
                             String skillGroup,
+                            DamagePercentComponentRankTable componentDamagePercentRanks,
+                            PaladinSkillTreeType type,
+                            PaladinSkillTreeStatus status,
+                            List<PaladinSkillUpgradeGroup> upgradeGroups,
+                            String notes) {
+        this(skillId, skillName, sourcePdf, skillGroup, null, null, DamagePercentRankTable.empty(),
+                componentDamagePercentRanks, type, status, upgradeGroups, notes);
+    }
+
+    public PaladinTreeSkill(String skillId,
+                            String skillName,
+                            String sourcePdf,
+                            String skillGroup,
                             Integer baseDamagePercentAtRank1,
                             Integer baseDamagePercentAtTreeMaxRank,
                             DamagePercentRankTable baseDamagePercentRanks,
+                            PaladinSkillTreeType type,
+                            PaladinSkillTreeStatus status,
+                            List<PaladinSkillUpgradeGroup> upgradeGroups,
+                            String notes) {
+        this(skillId, skillName, sourcePdf, skillGroup, baseDamagePercentAtRank1, baseDamagePercentAtTreeMaxRank,
+                baseDamagePercentRanks, DamagePercentComponentRankTable.empty(), type, status, upgradeGroups, notes);
+    }
+
+    public PaladinTreeSkill(String skillId,
+                            String skillName,
+                            String sourcePdf,
+                            String skillGroup,
+                            Integer baseDamagePercentAtRank1,
+                            Integer baseDamagePercentAtTreeMaxRank,
+                            DamagePercentRankTable baseDamagePercentRanks,
+                            DamagePercentComponentRankTable componentDamagePercentRanks,
                             PaladinSkillTreeType type,
                             PaladinSkillTreeStatus status,
                             List<PaladinSkillUpgradeGroup> upgradeGroups,
@@ -74,6 +104,7 @@ public final class PaladinTreeSkill {
         this.baseDamagePercentAtRank1 = baseDamagePercentAtRank1;
         this.baseDamagePercentAtTreeMaxRank = baseDamagePercentAtTreeMaxRank;
         this.baseDamagePercentRanks = Objects.requireNonNull(baseDamagePercentRanks, "baseDamagePercentRanks");
+        this.componentDamagePercentRanks = Objects.requireNonNull(componentDamagePercentRanks, "componentDamagePercentRanks");
         this.type = Objects.requireNonNull(type, "type");
         this.status = Objects.requireNonNull(status, "status");
         this.upgradeGroups = Collections.unmodifiableList(new ArrayList<>(upgradeGroups));
@@ -112,6 +143,10 @@ public final class PaladinTreeSkill {
 
     public DamagePercentRankTable getBaseDamagePercentRanks() {
         return baseDamagePercentRanks;
+    }
+
+    public DamagePercentComponentRankTable getComponentDamagePercentRanks() {
+        return componentDamagePercentRanks;
     }
 
     public Integer damagePercentAtRank(int rank) {
