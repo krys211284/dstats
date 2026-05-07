@@ -355,16 +355,17 @@ Aktualnie rejestr uzupełnia proste tabele rang tylko dla wartości jednoznaczni
 
 Lokalny JSON jest pomocniczym źródłem tabel rang, ale implementacja realnego runtime wymaga osobnych testów mechaniki single target. Prosta ani komponentowa tabela rang nie zmienia statusu `NEEDS_VERIFICATION`, nie wypełnia `damagePerUse`, `theoreticalDps` ani `singleTargetDps`, nie odblokowuje runtime DPS i nie jest jeszcze konsumowana przez `DamageEngine`.
 
-Pola `damagePerUse`, `effectiveCycleSeconds` i `theoreticalDps` pozostają puste dla skilli `NEEDS_VERIFICATION` albo `UNSUPPORTED`. Obsługiwane metryki sortowania to:
-- `BASE_DAMAGE_PERCENT_RANK_1`,
-- `BASE_DAMAGE_PERCENT_TREE_MAX`,
-- `DAMAGE_PER_USE`,
-- `THEORETICAL_DPS`,
-- `SINGLE_TARGET_DPS`.
+Pola `damagePerUse`, `effectiveCycleSeconds` i `theoreticalDps` pozostają puste dla skilli `NEEDS_VERIFICATION` albo `UNSUPPORTED`. Runtime metryki `DAMAGE_PER_USE`, `THEORETICAL_DPS` i `SINGLE_TARGET_DPS` pozostają w domenie na potrzeby przyszłego debug/runtime widoku, ale nie są pokazywane w głównej tabeli `/ranking-obrazen` i nie są dostępne jako filtr użytkownika.
 
 Ekran SSR `/ranking-obrazen` jest na obecnym etapie widocznym dla użytkownika porównaniem bazowej siły umiejętności i opisowego wpływu ulepszeń, a nie ekranem realnego DPS. Parametr `character=paladin` wybiera rejestr Paladyna; gdy parametr `character` nie jest podany, a Paladyn jest jedyną obsługiwaną klasą, ekran domyślnie wybiera `paladin`. Dla `character=paladin` ekran pokazuje wszystkie 24 wpisy z `PaladinSkillTreeRegistry`, a nie tylko wpisy policzalne.
 
-Główna tabela używa szerokiego wariantu layoutu i zawiera tylko kolumny decyzyjne: `skillName`, `skillGroup`, `type`, `Obrażenia % R1`, `Obrażenia % max drzewo`, `grupa_1: wpływ na obrażenia`, `grupa_2: wpływ na obrażenia` i `grupa_3: wpływ na obrażenia`. Kolumny R1/treeMax renderują jedną wartość dla `SIMPLE_SINGLE_COMPONENT`, krótką listę komponentów dla `MULTI_COMPONENT`, `nie dotyczy` dla wpisów nieobrażeniowych oraz `wymaga weryfikacji` dla wpisów bez bezpiecznej kompletnej tabeli. Kolumny grup ulepszeń renderują opisowe `UpgradeDamageModifier`, jeżeli `safeForRankingDisplay = YES`; wartości niejednoznaczne pozostają `wymaga weryfikacji`. Listy komponentów i modyfikatorów są prezentacyjne: nie są sumowane, nie tworzą wartości `razem`/`total` i nie wpływają na sortowanie bazowe. Sortowanie `BASE_DAMAGE_PERCENT_RANK_1` i `BASE_DAMAGE_PERCENT_TREE_MAX` nadal opiera się tylko na prostych tabelach `baseDamagePercentRanks`.
+Główna tabela używa szerokiego wariantu layoutu i zawiera tylko kolumny decyzyjne: `skillName`, `tags`, `skillGroup`, `type`, `Obrażenia % R1`, `Obrażenia % max drzewo`, `Direct dmg upgrade`, `New dmg component`, `Status / debuff`, `Resource`, `Speed / cooldown`, `Defense / utility` i `Manual review`. Kolumny R1/treeMax renderują jedną wartość dla `SIMPLE_SINGLE_COMPONENT`, krótką listę komponentów dla `MULTI_COMPONENT`, `nie dotyczy` dla wpisów nieobrażeniowych oraz `wymaga weryfikacji` dla wpisów bez bezpiecznej kompletnej tabeli. Kolumny `grupa_1`, `grupa_2` i `grupa_3` pozostają w danych źródłowych ulepszeń, ale nie są już trzema szerokimi kolumnami głównej tabeli.
+
+Tabela jest sortowalna kliknięciem w nagłówki kolumn. Widok używa parametrów `sort=<columnKey>` i `direction=asc|desc`; aktualnie sortowany nagłówek ma `aria-sort`. Obsługiwane klucze sortowania to `skillName`, `skillGroup`, `type`, `baseDamageRank1`, `baseDamageTreeMax`, `damageProfile`, `hasDirectUpgradeDamage`, `hasNewDamageComponent`, `hasStatusDamageEnabler`, `hasResourceGeneration`, `hasCooldownOrCastSpeed`, `hasDefenseOrUtility`, `hasManualReviewUpgrade` i `tags`. Domyślne sortowanie to `baseDamageTreeMax desc`; wpisy bez prostej wartości liczbowej trafiają za wpisami liczbowymi, a remisy są rozstrzygane przez `skillName asc`. Dotychczasowy filtr `Metryka rankingu` został zastąpiony sortowaniem po nagłówkach.
+
+Tagi umiejętności są opisowymi etykietami z enumu `SkillTag`, wyprowadzanymi z lokalnych danych skilla, typu, grupy i modyfikatorów ulepszeń. Każdy skill Paladyna ma niepusty zestaw tagów, np. `DAMAGE`, `BASIC`, `HOLY_DAMAGE`, `FAITH_GENERATION`, `CAST_SPEED`, `EXPOSED`, `VULNERABLE`, `SHIELD` albo `AURA`, jeżeli lokalne dane to potwierdzają. Widok udostępnia filtr `tag` oraz filtry faceted `hasDirectUpgradeDamage`, `hasNewDamageComponent`, `hasStatusDamageEnabler`, `hasResourceGeneration`, `hasCooldownOrCastSpeed`, `hasDefenseOrUtility` i `hasManualReviewUpgrade` z wartościami `ALL`, `YES`, `NO`.
+
+Kolumny faceted renderują skrócone, opisowe dane z `UpgradeDamageModifier`, jeżeli `safeForRankingDisplay = YES`. Bezpośredni bonus obrażeń, nowy komponent obrażeń, status/debuff, zasób, speed/cooldown, defensywa/utility i ręczna weryfikacja są rozdzielone do osobnych kolumn, żeby nie mieszać różnych typów wpływu w jednym długim opisie. Listy komponentów i modyfikatorów są prezentacyjne: nie są sumowane, nie tworzą wartości `razem`/`total`, nie zmieniają prostych tabel `baseDamagePercentRanks`, nie wpływają na runtime DPS i nie odblokowują `DamageEngine`.
 
 Techniczny `skillId` nie jest osobną kolumną domyślnej tabeli, ale pozostaje w danych i w atrybucie `data-skill-id` wiersza. `verificationStatus` również nie jest osobną kolumną głównej tabeli; status pozostaje w modelach, filtrze `Status weryfikacji`, atrybucie `data-verification-status`, `title`/`aria-label` oraz klasach wiersza typu `verification-needs-verification`, `verification-non-damage`, `verification-unsupported` i `verification-supported`. Kolor nie jest jedynym nośnikiem informacji o statusie, bo status jest dostępny tekstowo w atrybutach HTML i krótkiej legendzie nad tabelą. Kolumny runtime `damagePerUse`, `theoreticalDps` i `singleTargetDps` nie są renderowane w domyślnej tabeli, dopóki runtime DPS nowych umiejętności pozostaje zablokowany. Pola diagnostyczne `reason / notes` i `sourcePdf` również pozostają poza domyślną tabelą.
 
@@ -377,14 +378,8 @@ Filtry ekranu:
 - grupa umiejętności (`skillGroup`),
 - status weryfikacji (`verificationStatus`),
 - typ umiejętności (`type`),
-- metryka rankingu (`metric`: w głównym widoku tylko `BASE_DAMAGE_PERCENT_RANK_1` i `BASE_DAMAGE_PERCENT_TREE_MAX`).
-
-Runtime metryki `DAMAGE_PER_USE`, `THEORETICAL_DPS` i `SINGLE_TARGET_DPS` pozostają w domenie na potrzeby przyszłego debug/runtime widoku, ale nie są pokazywane w filtrze `/ranking-obrazen`. Domyślna metryka tego ekranu to `BASE_DAMAGE_PERCENT_TREE_MAX`.
-
-Domyślne sortowanie ekranu:
-- dla metryk bazowych najpierw wpisy z jawną wartością wybranej metryki,
-- potem wpisy bez danych źródłowych dla tej metryki,
-- przy remisie używany jest status i nazwa umiejętności.
+- tag (`tag`),
+- filtry faceted opisujące wpływ ulepszeń (`hasDirectUpgradeDamage`, `hasNewDamageComponent`, `hasStatusDamageEnabler`, `hasResourceGeneration`, `hasCooldownOrCastSpeed`, `hasDefenseOrUtility`, `hasManualReviewUpgrade`).
 
 Ograniczenia rankingu:
 - ranking używa opisowego rejestru drzewa Paladyna, a nie legacy `PaladinSkillDefs`,
@@ -1379,7 +1374,9 @@ Kontrakt prezentacji dla smoke testu rankingu Paladyna:
 - ekran nie pokazuje legacy skilli `Brandish`, `Holy Bolt`, `Clash` ani `Advance` jako domyślnego drzewa Paladyna,
 - ekran pokazuje kolumny `Obrażenia % R1` i `Obrażenia % max drzewo`; brak jawnej wartości źródłowej jest renderowany jako `brak danych`, a nie jako `0%` ani `zablokowane`,
 - ekran pokazuje `NEEDS_VERIFICATION`, `UNSUPPORTED` i `NON_DAMAGE` bez wartości DPS, jeżeli wpis nie jest zweryfikowany albo nie jest skillem obrażeniowym,
-- ekran ma filtry `character`, `skillGroup`, `verificationStatus`, `type` i `metric`, w tym metryki `BASE_DAMAGE_PERCENT_RANK_1` i `BASE_DAMAGE_PERCENT_TREE_MAX`,
+- ekran ma filtry `character`, `skillGroup`, `verificationStatus`, `type`, `tag` oraz filtry faceted dla wpływu ulepszeń,
+- ekran nie renderuje filtra `Metryka rankingu`; porządek tabeli zmienia się przez sortowalne nagłówki z parametrami `sort` i `direction`,
+- ekran renderuje kolumny `tags`, `Direct dmg upgrade`, `New dmg component`, `Status / debuff`, `Resource`, `Speed / cooldown`, `Defense / utility` i `Manual review` zamiast szerokich kolumn `grupa_1`, `grupa_2`, `grupa_3`,
 - ekran nie implementuje nowego runtime DPS i nie odblokowuje żadnej mechaniki bez weryfikacji single target.
 
 Smoke test CLI searcha:

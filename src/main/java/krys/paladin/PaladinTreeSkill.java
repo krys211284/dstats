@@ -2,8 +2,10 @@ package krys.paladin;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /** Bazowy wpis umiejętności w rejestrze drzewa Paladyna. */
 public final class PaladinTreeSkill {
@@ -193,6 +195,21 @@ public final class PaladinTreeSkill {
                 .toList();
     }
 
+    public Set<SkillTag> getTags() {
+        EnumSet<SkillTag> tags = EnumSet.noneOf(SkillTag.class);
+        addGroupTags(tags);
+        addTypeTags(tags);
+        addNameAndIdTags(tags);
+        addUpgradeTags(tags);
+        if (status == PaladinSkillTreeStatus.NEEDS_VERIFICATION || status == PaladinSkillTreeStatus.UNSUPPORTED) {
+            tags.add(SkillTag.NEEDS_MANUAL_REVIEW);
+        }
+        if (tags.isEmpty()) {
+            tags.add(SkillTag.UTILITY);
+        }
+        return Set.copyOf(tags);
+    }
+
     public String getNotes() {
         return notes;
     }
@@ -202,5 +219,113 @@ public final class PaladinTreeSkill {
             throw new IllegalArgumentException("Pole " + fieldName + " nie może być puste.");
         }
         return value;
+    }
+
+    private void addGroupTags(EnumSet<SkillTag> tags) {
+        switch (skillGroup) {
+            case "basic" -> tags.add(SkillTag.BASIC);
+            case "core" -> tags.add(SkillTag.CORE);
+            case "aura" -> tags.add(SkillTag.AURA);
+            case "odwaga" -> tags.add(SkillTag.DEFENSIVE);
+            case "moce_specjalne" -> tags.add(SkillTag.SPECIAL);
+            default -> {
+            }
+        }
+    }
+
+    private void addTypeTags(EnumSet<SkillTag> tags) {
+        switch (type) {
+            case DAMAGE -> tags.add(SkillTag.DAMAGE);
+            case SUPPORT -> tags.add(SkillTag.SUPPORT);
+            case DEFENSIVE -> tags.add(SkillTag.DEFENSIVE);
+            case MOBILITY -> tags.add(SkillTag.MOBILITY);
+            case SPECIAL -> tags.add(SkillTag.SPECIAL);
+            case NON_DAMAGE, UNCLASSIFIED -> tags.add(SkillTag.UTILITY);
+        }
+    }
+
+    private void addNameAndIdTags(EnumSet<SkillTag> tags) {
+        if (containsAny(skillId, skillName, "swiet", "święt", "blogoslaw", "błogosław", "bosk", "niebios", "konsekr", "wymach")) {
+            tags.add(SkillTag.HOLY_DAMAGE);
+        }
+        if (containsAny(skillId, skillName, "tarcza", "egida", "shield", "aegis")) {
+            tags.add(SkillTag.SHIELD);
+        }
+        if (containsAny(skillId, skillName, "pocisk", "lanca", "oszczep", "wlocznia", "włócznia", "bolt", "lance", "spear", "projectile")) {
+            tags.add(SkillTag.PROJECTILE);
+            tags.add(SkillTag.RANGED);
+        }
+        if (containsAny(skillId, skillName, "aura", "konsekracja", "oczyszczenie", "forteca", "furia", "spadajaca", "spadająca")) {
+            tags.add(SkillTag.AREA);
+        }
+        if (containsAny(skillId, skillName, "wymach", "starcie", "zapal", "uderzenie", "bash", "clash", "zeal")) {
+            tags.add(SkillTag.MELEE);
+        }
+        if (containsAny(skillId, skillName, "leczenie", "laska", "łaska", "healing", "konsekracja")) {
+            tags.add(SkillTag.HEALING);
+        }
+        if (!componentDamagePercentRanks.isEmpty()) {
+            tags.add(SkillTag.MULTI_HIT);
+        }
+    }
+
+    private void addUpgradeTags(EnumSet<SkillTag> tags) {
+        for (UpgradeDamageModifier modifier : getUpgradeDamageModifiers()) {
+            if (modifier.createsNewDamageComponent()) {
+                tags.add(SkillTag.MULTI_HIT);
+            }
+            switch (modifier.getType()) {
+                case STATUS_DAMAGE_ENABLER -> {
+                    tags.add(SkillTag.EXPOSED);
+                    tags.add(SkillTag.VULNERABLE);
+                }
+                case CAST_SPEED_OR_COOLDOWN -> {
+                    String name = modifier.getUpgradeName().toLowerCase();
+                    if (containsAny("", name, "szybko", "speed")) {
+                        tags.add(SkillTag.CAST_SPEED);
+                    }
+                    if (containsAny("", name, "odnowienia", "cooldown", "czas działania", "czas_dzialania")) {
+                        tags.add(SkillTag.COOLDOWN);
+                    }
+                }
+                case RESOURCE_OR_COST -> {
+                    String name = modifier.getUpgradeName().toLowerCase();
+                    if (containsAny("", name, "generowanie", "faith", "wiary", "zasob", "zasób")) {
+                        tags.add(SkillTag.FAITH_GENERATION);
+                    }
+                    if (containsAny("", name, "koszt")) {
+                        tags.add(SkillTag.FAITH_COST);
+                    }
+                }
+                case DEFENSE_OR_UTILITY -> tags.add(SkillTag.UTILITY);
+                case THORNS_DAMAGE_MODIFIER, NEEDS_MANUAL_REVIEW -> tags.add(SkillTag.NEEDS_MANUAL_REVIEW);
+                default -> {
+                }
+            }
+            String upgradeName = modifier.getUpgradeName().toLowerCase();
+            if (containsAny("", upgradeName, "spowolnienie", "osłabienie", "oslabienie")) {
+                tags.add(SkillTag.CROWD_CONTROL);
+            }
+            if (containsAny("", upgradeName, "leczenie", "laska", "łaska")) {
+                tags.add(SkillTag.HEALING);
+            }
+            if (containsAny("", upgradeName, "bariera", "bastion", "tarcza wiary")) {
+                tags.add(SkillTag.BARRIER);
+            }
+            if (containsAny("", upgradeName, "redukcja", "pancerz", "blok", "krzepkość", "krzepkosc")) {
+                tags.add(SkillTag.DAMAGE_REDUCTION);
+            }
+        }
+    }
+
+    private static boolean containsAny(String id, String name, String... fragments) {
+        String normalizedId = id.toLowerCase();
+        String normalizedName = name.toLowerCase();
+        for (String fragment : fragments) {
+            if (normalizedId.contains(fragment) || normalizedName.contains(fragment)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

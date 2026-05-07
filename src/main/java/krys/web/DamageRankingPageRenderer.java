@@ -3,6 +3,7 @@ package krys.web;
 import krys.paladin.DamagePercentComponent;
 import krys.paladin.DamagePercentComponentRankTable;
 import krys.paladin.PaladinSkillTreeType;
+import krys.paladin.SkillTag;
 import krys.paladin.UpgradeDamageModifier;
 import krys.paladin.UpgradeDamageModifierType;
 import krys.paladin.UpgradeDamageSafety;
@@ -13,7 +14,9 @@ import krys.ranking.PlayableClass;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /** Renderuje ogólny ranking obrażeń z blokadą niezweryfikowanych mechanik DPS. */
 public final class DamageRankingPageRenderer {
@@ -114,21 +117,55 @@ public final class DamageRankingPageRenderer {
         html.append("""
                         </select>
                     </label>
-                    <label>Metryka rankingu
-                        <select name="metric">
                 """);
-        for (PaladinDamageRankingMetric metric : model.getMetrics()) {
-            html.append(renderOption(metric.name(), metric.name(), metric == filter.getMetric()));
-        }
+        html.append(renderTagFilter(model));
+        html.append(renderFacetFilter("hasDirectUpgradeDamage", "Direct dmg", filter.getHasDirectUpgradeDamage()));
+        html.append(renderFacetFilter("hasNewDamageComponent", "New component", filter.getHasNewDamageComponent()));
+        html.append(renderFacetFilter("hasStatusDamageEnabler", "Status / debuff", filter.getHasStatusDamageEnabler()));
+        html.append(renderFacetFilter("hasResourceGeneration", "Resource", filter.getHasResourceGeneration()));
+        html.append(renderFacetFilter("hasCooldownOrCastSpeed", "Speed / cooldown", filter.getHasCooldownOrCastSpeed()));
+        html.append(renderFacetFilter("hasDefenseOrUtility", "Defense / utility", filter.getHasDefenseOrUtility()));
+        html.append(renderFacetFilter("hasManualReviewUpgrade", "Manual review", filter.getHasManualReviewUpgrade()));
         html.append("""
-                        </select>
-                    </label>
+                    <input type="hidden" name="sort" value="%s">
+                    <input type="hidden" name="direction" value="%s">
                     <div class="filter-actions">
                         <button type="submit">Filtruj</button>
                         <a class="secondary-link" href="/ranking-obrazen">Wyczyść</a>
                     </div>
                 </form>
+                """.formatted(escapeHtml(filter.getSort()), escapeHtml(filter.getDirection().name().toLowerCase())));
+        return html.toString();
+    }
+
+    private static String renderTagFilter(DamageRankingPageModel model) {
+        StringBuilder html = new StringBuilder("""
+                    <label>tag
+                        <select name="tag">
                 """);
+        html.append(renderOption("ALL", "Wszystkie tagi", !model.getFilter().hasTag()));
+        for (SkillTag tag : model.getTags()) {
+            html.append(renderOption(tag.name(), tag.name(), tag == model.getFilter().getTag()));
+        }
+        html.append("""
+                        </select>
+                    </label>
+                """);
+        return html.toString();
+    }
+
+    private static String renderFacetFilter(String name,
+                                            String label,
+                                            DamageRankingFilter.FacetFilter selectedValue) {
+        StringBuilder html = new StringBuilder("<label>")
+                .append(escapeHtml(label))
+                .append("<select name=\"")
+                .append(escapeHtml(name))
+                .append("\">");
+        for (DamageRankingFilter.FacetFilter value : DamageRankingFilter.FacetFilter.values()) {
+            html.append(renderOption(value.name(), value.name(), value == selectedValue));
+        }
+        html.append("</select></label>");
         return html.toString();
     }
 
@@ -136,6 +173,76 @@ public final class DamageRankingPageRenderer {
         return "<option value=\"" + escapeHtml(value) + "\"" + (selected ? " selected" : "") + ">"
                 + escapeHtml(label)
                 + "</option>";
+    }
+
+    private static String renderSortableHeader(DamageRankingPageModel model, String sortKey, String label) {
+        DamageRankingFilter filter = model.getFilter();
+        boolean active = filter.getSort().equals(sortKey);
+        DamageRankingFilter.SortDirection nextDirection = active && filter.getDirection() == DamageRankingFilter.SortDirection.ASC
+                ? DamageRankingFilter.SortDirection.DESC
+                : DamageRankingFilter.SortDirection.ASC;
+        String ariaSort = active
+                ? " aria-sort=\"" + (filter.getDirection() == DamageRankingFilter.SortDirection.ASC ? "ascending" : "descending") + "\""
+                : "";
+        String indicator = active
+                ? (filter.getDirection() == DamageRankingFilter.SortDirection.ASC ? " ▲" : " ▼")
+                : "";
+        return "<th" + ariaSort + "><a class=\"sort-link\" href=\""
+                + escapeHtml(sortUrl(filter, sortKey, nextDirection))
+                + "\">"
+                + escapeHtml(label)
+                + "<span class=\"sort-indicator\">"
+                + escapeHtml(indicator)
+                + "</span></a></th>";
+    }
+
+    private static String sortUrl(DamageRankingFilter filter,
+                                  String sortKey,
+                                  DamageRankingFilter.SortDirection direction) {
+        StringBuilder query = new StringBuilder("/ranking-obrazen?character=")
+                .append(urlEncode(filter.getCharacter().getQueryValue()));
+        appendQuery(query, "skillGroup", filter.getSkillGroup());
+        if (filter.getVerificationStatus() != null) {
+            appendQuery(query, "verificationStatus", filter.getVerificationStatus().name());
+        }
+        if (filter.getType() != null) {
+            appendQuery(query, "type", filter.getType().name());
+        }
+        if (filter.getTag() != null) {
+            appendQuery(query, "tag", filter.getTag().name());
+        }
+        appendFacetQuery(query, "hasDirectUpgradeDamage", filter.getHasDirectUpgradeDamage());
+        appendFacetQuery(query, "hasNewDamageComponent", filter.getHasNewDamageComponent());
+        appendFacetQuery(query, "hasStatusDamageEnabler", filter.getHasStatusDamageEnabler());
+        appendFacetQuery(query, "hasResourceGeneration", filter.getHasResourceGeneration());
+        appendFacetQuery(query, "hasCooldownOrCastSpeed", filter.getHasCooldownOrCastSpeed());
+        appendFacetQuery(query, "hasDefenseOrUtility", filter.getHasDefenseOrUtility());
+        appendFacetQuery(query, "hasManualReviewUpgrade", filter.getHasManualReviewUpgrade());
+        appendQuery(query, "sort", sortKey);
+        appendQuery(query, "direction", direction.name().toLowerCase());
+        return query.toString();
+    }
+
+    private static void appendFacetQuery(StringBuilder query,
+                                         String name,
+                                         DamageRankingFilter.FacetFilter value) {
+        if (value != DamageRankingFilter.FacetFilter.ALL) {
+            appendQuery(query, name, value.name());
+        }
+    }
+
+    private static void appendQuery(StringBuilder query, String name, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        query.append("&")
+                .append(urlEncode(name))
+                .append("=")
+                .append(urlEncode(value));
+    }
+
+    private static String urlEncode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private static String renderTable(DamageRankingPageModel model) {
@@ -156,20 +263,54 @@ public final class DamageRankingPageRenderer {
                 </div>
                 <div class="ranking-table-wrap">
                     <table class="data-table ranking-table">
+                        <colgroup>
+                            <col class="col-skill-name">
+                            <col class="col-tags">
+                            <col class="col-group">
+                            <col class="col-type">
+                            <col class="col-damage">
+                            <col class="col-damage">
+                            <col class="col-facet">
+                            <col class="col-facet">
+                            <col class="col-facet">
+                            <col class="col-facet">
+                            <col class="col-facet">
+                            <col class="col-facet">
+                            <col class="col-facet">
+                        </colgroup>
                         <thead>
                             <tr>
-                                <th>skillName</th>
-                                <th>skillGroup</th>
-                                <th>type</th>
-                                <th>Obrażenia % R1</th>
-                                <th>Obrażenia % max drzewo</th>
-                                <th>grupa_1: wpływ na obrażenia</th>
-                                <th>grupa_2: wpływ na obrażenia</th>
-                                <th>grupa_3: wpływ na obrażenia</th>
+                                %s
+                                %s
+                                %s
+                                %s
+                                %s
+                                %s
+                                %s
+                                %s
+                                %s
+                                %s
+                                %s
+                                %s
+                                %s
                             </tr>
                         </thead>
                         <tbody>
-                """);
+                """.formatted(
+                renderSortableHeader(model, "skillName", "skillName"),
+                renderSortableHeader(model, "tags", "tags"),
+                renderSortableHeader(model, "skillGroup", "skillGroup"),
+                renderSortableHeader(model, "type", "type"),
+                renderSortableHeader(model, "baseDamageRank1", "Obrażenia % R1"),
+                renderSortableHeader(model, "baseDamageTreeMax", "Obrażenia % max drzewo"),
+                renderSortableHeader(model, "hasDirectUpgradeDamage", "Direct dmg upgrade"),
+                renderSortableHeader(model, "hasNewDamageComponent", "New dmg component"),
+                renderSortableHeader(model, "hasStatusDamageEnabler", "Status / debuff"),
+                renderSortableHeader(model, "hasResourceGeneration", "Resource"),
+                renderSortableHeader(model, "hasCooldownOrCastSpeed", "Speed / cooldown"),
+                renderSortableHeader(model, "hasDefenseOrUtility", "Defense / utility"),
+                renderSortableHeader(model, "hasManualReviewUpgrade", "Manual review")
+        ));
         for (DamageRankingRow row : model.getRows()) {
             html.append(renderRow(row));
         }
@@ -201,6 +342,8 @@ public final class DamageRankingPageRenderer {
                 .append("\"><td>")
                 .append(escapeHtml(entry.getSkillName()))
                 .append("</td><td>")
+                .append(renderTags(row))
+                .append("</td><td>")
                 .append(escapeHtml(entry.getSkillGroup()))
                 .append("</td><td>")
                 .append(escapeHtml(row.getType().name()))
@@ -209,13 +352,33 @@ public final class DamageRankingPageRenderer {
                 .append("</td><td>")
                 .append(renderDamagePercentCell(row, 15))
                 .append("</td><td>")
-                .append(renderUpgradeGroup(row, "grupa_1"))
+                .append(renderModifierSummary(row.directUpgradeDamageModifiers()))
                 .append("</td><td>")
-                .append(renderUpgradeGroup(row, "grupa_2"))
+                .append(renderModifierSummary(row.newDamageComponentModifiers()))
                 .append("</td><td>")
-                .append(renderUpgradeGroup(row, "grupa_3"))
+                .append(renderModifierSummary(row.statusDamageModifiers()))
+                .append("</td><td>")
+                .append(renderModifierSummary(row.resourceModifiers()))
+                .append("</td><td>")
+                .append(renderModifierSummary(row.cooldownOrCastSpeedModifiers()))
+                .append("</td><td>")
+                .append(renderModifierSummary(row.defenseOrUtilityModifiers()))
+                .append("</td><td>")
+                .append(renderModifierSummary(row.manualReviewModifiers()))
                 .append("</td></tr>")
                 .toString();
+    }
+
+    private static String renderTags(DamageRankingRow row) {
+        StringBuilder html = new StringBuilder("<div class=\"tag-list\">");
+        row.getTags().stream()
+                .map(Enum::name)
+                .sorted()
+                .forEach(tag -> html.append("<span class=\"tag-chip\">")
+                        .append(escapeHtml(tag))
+                        .append("</span>"));
+        html.append("</div>");
+        return html.toString();
     }
 
     private static String renderDamagePercentCell(DamageRankingRow row, int rank) {
@@ -270,6 +433,31 @@ public final class DamageRankingPageRenderer {
                     .append("</code> &mdash; ")
                     .append(escapeHtml(shortModifierDescription(modifier)))
                     .append("</li>");
+        }
+        html.append("</ul>");
+        return html.toString();
+    }
+
+    private static String renderModifierSummary(List<UpgradeDamageModifier> modifiers) {
+        if (modifiers.isEmpty()) {
+            return "<span class=\"missing-source-value\">-</span>";
+        }
+        StringBuilder html = new StringBuilder("<ul class=\"compact-list facet-list\">");
+        for (UpgradeDamageModifier modifier : modifiers) {
+            html.append("<li title=\"")
+                    .append(escapeHtml(modifier.getUpgradeGroup()))
+                    .append(": ")
+                    .append(escapeHtml(modifier.getNotes()))
+                    .append("\"><span class=\"facet-name\">")
+                    .append(escapeHtml(modifier.getUpgradeName()))
+                    .append("</span>");
+            String description = shortModifierDescription(modifier);
+            if (!description.isBlank()) {
+                html.append(" <span class=\"facet-value\">")
+                        .append(escapeHtml(description))
+                        .append("</span>");
+            }
+            html.append("</li>");
         }
         html.append("</ul>");
         return html.toString();

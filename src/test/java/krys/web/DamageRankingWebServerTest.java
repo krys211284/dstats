@@ -95,14 +95,22 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains("width: calc(100vw - 32px)"));
         assertTrue(response.body().contains("max-width: none"));
         assertTrue(response.body().contains("overflow-x: auto"));
-        assertTrue(response.body().contains("<th>skillName</th>"));
-        assertTrue(response.body().contains("<th>skillGroup</th>"));
-        assertTrue(response.body().contains("<th>type</th>"));
-        assertTrue(response.body().contains("<th>Obrażenia % R1</th>"));
-        assertTrue(response.body().contains("<th>Obrażenia % max drzewo</th>"));
-        assertTrue(response.body().contains("<th>grupa_1: wpływ na obrażenia</th>"));
-        assertTrue(response.body().contains("<th>grupa_2: wpływ na obrażenia</th>"));
-        assertTrue(response.body().contains("<th>grupa_3: wpływ na obrażenia</th>"));
+        assertTrue(response.body().contains(">skillName<"));
+        assertTrue(response.body().contains(">tags<"));
+        assertTrue(response.body().contains(">skillGroup<"));
+        assertTrue(response.body().contains(">type<"));
+        assertTrue(response.body().contains(">Obrażenia % R1<"));
+        assertTrue(response.body().contains(">Obrażenia % max drzewo<"));
+        assertTrue(response.body().contains(">Direct dmg upgrade<"));
+        assertTrue(response.body().contains(">New dmg component<"));
+        assertTrue(response.body().contains(">Status / debuff<"));
+        assertTrue(response.body().contains(">Resource<"));
+        assertTrue(response.body().contains(">Speed / cooldown<"));
+        assertTrue(response.body().contains(">Defense / utility<"));
+        assertTrue(response.body().contains(">Manual review<"));
+        assertFalse(response.body().contains("<th>grupa_1: wpływ na obrażenia</th>"));
+        assertFalse(response.body().contains("<th>grupa_2: wpływ na obrażenia</th>"));
+        assertFalse(response.body().contains("<th>grupa_3: wpływ na obrażenia</th>"));
         assertFalse(response.body().contains("<th>skillId</th>"));
         assertFalse(response.body().contains("<th>verificationStatus</th>"));
         assertFalse(response.body().contains("<th>Komponenty obrażeń</th>"));
@@ -113,11 +121,21 @@ class DamageRankingWebServerTest {
         assertFalse(response.body().contains("<th>singleTargetDps</th>"));
         assertFalse(response.body().contains("<th>reason / notes</th>"));
         assertFalse(response.body().contains("<th>sourcePdf</th>"));
-        assertTrue(response.body().contains("<option value=\"BASE_DAMAGE_PERCENT_RANK_1\""));
-        assertTrue(response.body().contains("<option value=\"BASE_DAMAGE_PERCENT_TREE_MAX\" selected>"));
+        assertFalse(response.body().contains("Metryka rankingu"));
         assertFalse(response.body().contains("DAMAGE_PER_USE"));
         assertFalse(response.body().contains("THEORETICAL_DPS"));
         assertFalse(response.body().contains("SINGLE_TARGET_DPS"));
+        assertTrue(response.body().contains("name=\"tag\""));
+        assertTrue(response.body().contains("name=\"hasDirectUpgradeDamage\""));
+        assertTrue(response.body().contains("name=\"hasNewDamageComponent\""));
+        assertTrue(response.body().contains("name=\"hasStatusDamageEnabler\""));
+        assertTrue(response.body().contains("name=\"hasResourceGeneration\""));
+        assertTrue(response.body().contains("name=\"hasCooldownOrCastSpeed\""));
+        assertTrue(response.body().contains("name=\"hasDefenseOrUtility\""));
+        assertTrue(response.body().contains("name=\"hasManualReviewUpgrade\""));
+        assertTrue(response.body().contains("aria-sort=\"descending\""));
+        assertTrue(response.body().contains("sort=skillName"));
+        assertTrue(response.body().contains("sort=baseDamageTreeMax"));
         assertEquals(24, countSkillRows(response.body()));
         assertTrue(response.body().contains("data-skill-id=\"furia_niebios\""));
         assertTrue(response.body().contains("data-verification-status=\"NEEDS_VERIFICATION\""));
@@ -270,50 +288,64 @@ class DamageRankingWebServerTest {
     }
 
     @Test
-    void shouldFilterBySkillGroupStatusTypeAndMetric() throws Exception {
-        HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin&skillGroup=moce_specjalne&verificationStatus=NEEDS_VERIFICATION&type=DAMAGE&metric=BASE_DAMAGE_PERCENT_TREE_MAX");
+    void shouldFilterBySkillGroupStatusAndType() throws Exception {
+        HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin&skillGroup=moce_specjalne&verificationStatus=NEEDS_VERIFICATION&type=DAMAGE");
 
         assertEquals(200, response.statusCode());
         assertEquals(2, countSkillRows(response.body()));
         assertTrue(response.body().contains("data-skill-id=\"furia_niebios\""));
         assertTrue(response.body().contains("data-skill-id=\"arbiter_sprawiedliwosci\""));
         assertFalse(response.body().contains("data-skill-id=\"forteca\""));
-        assertTrue(response.body().contains("<option value=\"BASE_DAMAGE_PERCENT_TREE_MAX\" selected>"));
+        assertFalse(response.body().contains("Metryka rankingu"));
     }
 
     @Test
-    void baseDamagePercentMetricsShouldKeepPaladinTreeAsDefaultSource() throws Exception {
-        HttpResponse<String> rankOneMetricResponse = sendGet("/ranking-obrazen?character=paladin&metric=BASE_DAMAGE_PERCENT_RANK_1");
-        HttpResponse<String> treeMaxMetricResponse = sendGet("/ranking-obrazen?character=paladin&metric=BASE_DAMAGE_PERCENT_TREE_MAX");
+    void sortableHeadersShouldSortPaladinTreeWithoutMetricFilter() throws Exception {
+        HttpResponse<String> defaultResponse = sendGet("/ranking-obrazen?character=paladin");
+        HttpResponse<String> skillNameAscResponse = sendGet("/ranking-obrazen?character=paladin&sort=skillName&direction=asc");
+        HttpResponse<String> skillGroupAscResponse = sendGet("/ranking-obrazen?character=paladin&sort=skillGroup&direction=asc");
 
-        assertEquals(200, rankOneMetricResponse.statusCode());
-        assertEquals(24, countSkillRows(rankOneMetricResponse.body()));
-        assertTrue(rankOneMetricResponse.body().contains("<option value=\"BASE_DAMAGE_PERCENT_RANK_1\" selected>"));
-        assertEquals("skazanie", firstSkillId(rankOneMetricResponse.body()));
-        assertFalse(rankOneMetricResponse.body().contains("data-skill-id=\"BRANDISH\""));
-        assertFalse(rankOneMetricResponse.body().contains("data-skill-id=\"HOLY_BOLT\""));
-        assertFalse(rankOneMetricResponse.body().contains("data-skill-id=\"CLASH\""));
-        assertFalse(rankOneMetricResponse.body().contains("data-skill-id=\"ADVANCE\""));
+        assertEquals(200, defaultResponse.statusCode());
+        assertEquals(24, countSkillRows(defaultResponse.body()));
+        assertEquals("skazanie", firstSkillId(defaultResponse.body()));
+        assertTrue(defaultResponse.body().contains("aria-sort=\"descending\""));
+        assertRowOrder(defaultResponse.body(), "skazanie", "blogoslawiony_mlot");
 
-        assertEquals(200, treeMaxMetricResponse.statusCode());
-        assertEquals(24, countSkillRows(treeMaxMetricResponse.body()));
-        assertTrue(treeMaxMetricResponse.body().contains("<option value=\"BASE_DAMAGE_PERCENT_TREE_MAX\" selected>"));
-        assertEquals("skazanie", firstSkillId(treeMaxMetricResponse.body()));
-        assertFalse(treeMaxMetricResponse.body().contains("data-skill-id=\"BRANDISH\""));
-        assertFalse(treeMaxMetricResponse.body().contains("data-skill-id=\"HOLY_BOLT\""));
-        assertFalse(treeMaxMetricResponse.body().contains("data-skill-id=\"CLASH\""));
-        assertFalse(treeMaxMetricResponse.body().contains("data-skill-id=\"ADVANCE\""));
+        assertEquals(200, skillNameAscResponse.statusCode());
+        assertEquals("arbiter_sprawiedliwosci", firstSkillId(skillNameAscResponse.body()));
+        assertTrue(skillNameAscResponse.body().contains("sort=skillName"));
+        assertTrue(skillNameAscResponse.body().contains("aria-sort=\"ascending\""));
+
+        assertEquals(200, skillGroupAscResponse.statusCode());
+        assertEquals("aura", firstSkillGroup(skillGroupAscResponse.body()));
+        assertTrue(skillGroupAscResponse.body().contains("sort=skillGroup"));
+        assertFalse(skillGroupAscResponse.body().contains("Metryka rankingu"));
     }
 
     @Test
-    void runtimeMetricQueryShouldFallBackToBaseMetricInMainRankingUi() throws Exception {
-        HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin&metric=SINGLE_TARGET_DPS");
+    void facetedFiltersShouldFilterUpgradeAndTagColumns() throws Exception {
+        HttpResponse<String> resourceResponse = sendGet("/ranking-obrazen?character=paladin&hasResourceGeneration=YES");
+        HttpResponse<String> speedResponse = sendGet("/ranking-obrazen?character=paladin&hasCooldownOrCastSpeed=YES");
+        HttpResponse<String> newComponentResponse = sendGet("/ranking-obrazen?character=paladin&hasNewDamageComponent=YES");
+        HttpResponse<String> manualResponse = sendGet("/ranking-obrazen?character=paladin&hasManualReviewUpgrade=YES");
+        HttpResponse<String> tagResponse = sendGet("/ranking-obrazen?character=paladin&tag=FAITH_GENERATION");
 
-        assertEquals(200, response.statusCode());
-        assertEquals(24, countSkillRows(response.body()));
-        assertTrue(response.body().contains("<option value=\"BASE_DAMAGE_PERCENT_TREE_MAX\" selected>"));
-        assertFalse(response.body().contains("<option value=\"SINGLE_TARGET_DPS\""));
-        assertEquals("skazanie", firstSkillId(response.body()));
+        assertEquals(200, resourceResponse.statusCode());
+        assertTrue(resourceResponse.body().contains("data-skill-id=\"wymach\""));
+        assertTrue(resourceResponse.body().contains("name=\"hasResourceGeneration\""));
+
+        assertEquals(200, speedResponse.statusCode());
+        assertTrue(speedResponse.body().contains("data-skill-id=\"wymach\""));
+
+        assertEquals(200, newComponentResponse.statusCode());
+        assertTrue(newComponentResponse.body().contains("data-skill-id=\"wymach\""));
+
+        assertEquals(200, manualResponse.statusCode());
+        assertTrue(manualResponse.body().contains("wymaga weryfikacji"));
+
+        assertEquals(200, tagResponse.statusCode());
+        assertTrue(tagResponse.body().contains("data-skill-id=\"wymach\""));
+        assertTrue(tagResponse.body().contains("FAITH_GENERATION"));
     }
 
     private HttpResponse<String> sendGet(String path) throws Exception {
@@ -341,11 +373,11 @@ class DamageRankingWebServerTest {
             found++;
             String skillId = matcher.group(1);
             List<String> cells = tableCells(matcher.group(2));
-            if (cells.size() != 8) {
+            if (cells.size() != 13) {
                 throw new AssertionError("Niepoprawna liczba komórek dla " + skillId + ": " + cells.size());
             }
-            String rankOneCell = cells.get(3);
-            String treeMaxCell = cells.get(4);
+            String rankOneCell = cells.get(4);
+            String treeMaxCell = cells.get(5);
             if (SIMPLE_SINGLE_COMPONENT_R1_TREE_MAX.containsKey(skillId)) {
                 List<Integer> expected = SIMPLE_SINGLE_COMPONENT_R1_TREE_MAX.get(skillId);
                 if (!rankOneCell.contains(expected.get(0) + "%") || !treeMaxCell.contains(expected.get(1) + "%")) {
@@ -411,5 +443,19 @@ class DamageRankingWebServerTest {
             throw new AssertionError("Brak wierszy rankingu.");
         }
         return matcher.group(1);
+    }
+
+    private static String firstSkillGroup(String html) {
+        String row = rowHtml(html, firstSkillId(html));
+        List<String> cells = tableCells(row);
+        return cells.get(2);
+    }
+
+    private static void assertRowOrder(String html, String firstSkillId, String secondSkillId) {
+        int firstIndex = html.indexOf("data-skill-id=\"" + firstSkillId + "\"");
+        int secondIndex = html.indexOf("data-skill-id=\"" + secondSkillId + "\"");
+        if (firstIndex < 0 || secondIndex < 0 || firstIndex >= secondIndex) {
+            throw new AssertionError(firstSkillId + " powinien być przed " + secondSkillId);
+        }
     }
 }

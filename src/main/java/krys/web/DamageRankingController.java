@@ -4,6 +4,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import krys.paladin.PaladinSkillTreeType;
 import krys.paladin.PaladinTreeSkill;
+import krys.paladin.SkillTag;
 import krys.ranking.CharacterSkillTreeRegistry;
 import krys.ranking.PaladinDamageRankingMetric;
 import krys.ranking.PaladinSkillDamageRankingEntry;
@@ -17,6 +18,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -61,13 +63,18 @@ public final class DamageRankingController implements HttpHandler {
         List<DamageRankingRow> rows = rankingService.describeTreeSkills(registry.getPlayableClass()).stream()
                 .map(entry -> toRow(entry, registry, skillsById))
                 .filter(row -> matchesFilter(row, filter))
-                .sorted(defaultComparator(filter.getMetric()))
+                .sorted(sortComparator(filter))
                 .toList();
 
         List<String> skillGroups = registry.allSkills().stream()
                 .map(PaladinTreeSkill::getSkillGroup)
                 .distinct()
                 .sorted()
+                .toList();
+        List<SkillTag> tags = registry.allSkills().stream()
+                .flatMap(skill -> skill.getTags().stream())
+                .distinct()
+                .sorted(Comparator.comparing(Enum::name))
                 .toList();
 
         return new DamageRankingPageModel(
@@ -88,6 +95,7 @@ public final class DamageRankingController implements HttpHandler {
                         PaladinSkillTreeType.SUPPORT,
                         PaladinSkillTreeType.SPECIAL,
                         PaladinSkillTreeType.UNCLASSIFIED),
+                tags,
                 List.of(PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1,
                         PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX)
         );
@@ -112,56 +120,88 @@ public final class DamageRankingController implements HttpHandler {
                 && row.getEntry().getVerificationStatus() != filter.getVerificationStatus()) {
             return false;
         }
-        return !filter.hasType() || row.getType() == filter.getType();
-    }
-
-    private static Comparator<DamageRankingRow> defaultComparator(PaladinDamageRankingMetric metric) {
-        if (isBaseDamagePercentMetric(metric)) {
-            return metricComparator(metric).reversed()
-                    .thenComparingInt(DamageRankingController::statusSortRank)
-                    .thenComparing(row -> row.getEntry().getSkillName());
+        if (filter.hasType() && row.getType() != filter.getType()) {
+            return false;
         }
-        return Comparator
-                .comparingInt(DamageRankingController::statusSortRank)
-                .thenComparing(metricComparator(metric).reversed())
-                .thenComparing(row -> row.getEntry().getSkillName());
-    }
-
-    private static boolean isBaseDamagePercentMetric(PaladinDamageRankingMetric metric) {
-        return metric == PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1
-                || metric == PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX;
-    }
-
-    private static int statusSortRank(DamageRankingRow row) {
-        if (row.isDpsCalculable()) {
-            return 0;
+        if (filter.hasTag() && !row.hasTag(filter.getTag())) {
+            return false;
         }
-        return switch (row.getEntry().getVerificationStatus()) {
-            case SUPPORTED, PARTIAL -> 1;
-            case NEEDS_VERIFICATION -> 2;
-            case UNSUPPORTED -> 3;
-            case NON_DAMAGE -> 4;
+        return matchesFacet(filter.getHasDirectUpgradeDamage(), row.hasDirectUpgradeDamage())
+                && matchesFacet(filter.getHasNewDamageComponent(), row.hasNewDamageComponent())
+                && matchesFacet(filter.getHasStatusDamageEnabler(), row.hasStatusDamageEnabler())
+                && matchesFacet(filter.getHasResourceGeneration(), row.hasResourceGeneration())
+                && matchesFacet(filter.getHasCooldownOrCastSpeed(), row.hasCooldownOrCastSpeed())
+                && matchesFacet(filter.getHasDefenseOrUtility(), row.hasDefenseOrUtility())
+                && matchesFacet(filter.getHasManualReviewUpgrade(), row.hasManualReviewUpgrade());
+    }
+
+    private static boolean matchesFacet(DamageRankingFilter.FacetFilter filter, boolean value) {
+        return switch (filter) {
+            case ALL -> true;
+            case YES -> value;
+            case NO -> !value;
         };
     }
 
-    private static Comparator<DamageRankingRow> metricComparator(PaladinDamageRankingMetric metric) {
-        return switch (metric) {
-            case BASE_DAMAGE_PERCENT_RANK_1 -> Comparator.comparingInt(row -> row.getBaseDamagePercentAtRank1() == null
-                    ? Integer.MIN_VALUE
-                    : row.getBaseDamagePercentAtRank1());
-            case BASE_DAMAGE_PERCENT_TREE_MAX -> Comparator.comparingInt(row -> row.getBaseDamagePercentAtTreeMaxRank() == null
-                    ? Integer.MIN_VALUE
-                    : row.getBaseDamagePercentAtTreeMaxRank());
-            case DAMAGE_PER_USE -> Comparator.comparingLong(row -> row.getEntry().getDamagePerUse() == null
-                    ? Long.MIN_VALUE
-                    : row.getEntry().getDamagePerUse());
-            case THEORETICAL_DPS -> Comparator.comparingDouble(row -> row.getEntry().getTheoreticalDps() == null
-                    ? Double.NEGATIVE_INFINITY
-                    : row.getEntry().getTheoreticalDps());
-            case SINGLE_TARGET_DPS -> Comparator.comparingDouble(row -> row.getSingleTargetDps() == null
-                    ? Double.NEGATIVE_INFINITY
-                    : row.getSingleTargetDps());
+    private static Comparator<DamageRankingRow> sortComparator(DamageRankingFilter filter) {
+        if (filter.getSort().equals("baseDamageRank1")) {
+            return numericComparator(DamageRankingRow::getBaseDamagePercentAtRank1, filter.getDirection())
+                    .thenComparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
+        }
+        if (filter.getSort().equals("baseDamageTreeMax")) {
+            return numericComparator(DamageRankingRow::getBaseDamagePercentAtTreeMaxRank, filter.getDirection())
+                    .thenComparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
+        }
+        Comparator<DamageRankingRow> primary = switch (filter.getSort()) {
+            case "skillName" -> Comparator.comparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
+            case "skillGroup" -> Comparator.comparing(row -> row.getEntry().getSkillGroup(), String.CASE_INSENSITIVE_ORDER);
+            case "type" -> Comparator.comparing(row -> row.getType().name());
+            case "damageProfile" -> Comparator.comparing(DamageRankingRow::getDamageProfile);
+            case "hasDirectUpgradeDamage" -> booleanComparator(DamageRankingRow::hasDirectUpgradeDamage);
+            case "hasNewDamageComponent" -> booleanComparator(DamageRankingRow::hasNewDamageComponent);
+            case "hasStatusDamageEnabler" -> booleanComparator(DamageRankingRow::hasStatusDamageEnabler);
+            case "hasResourceGeneration" -> booleanComparator(DamageRankingRow::hasResourceGeneration);
+            case "hasCooldownOrCastSpeed" -> booleanComparator(DamageRankingRow::hasCooldownOrCastSpeed);
+            case "hasDefenseOrUtility" -> booleanComparator(DamageRankingRow::hasDefenseOrUtility);
+            case "hasManualReviewUpgrade" -> booleanComparator(DamageRankingRow::hasManualReviewUpgrade);
+            case "tags" -> Comparator.comparing(DamageRankingController::tagSortValue);
+            default -> Comparator.comparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
         };
+        if (filter.getDirection() == DamageRankingFilter.SortDirection.DESC) {
+            primary = primary.reversed();
+        }
+        return primary.thenComparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
+    }
+
+    private static Comparator<DamageRankingRow> numericComparator(Function<DamageRankingRow, Integer> valueExtractor,
+                                                                  DamageRankingFilter.SortDirection direction) {
+        return (left, right) -> {
+            Integer leftValue = valueExtractor.apply(left);
+            Integer rightValue = valueExtractor.apply(right);
+            if (leftValue == null && rightValue == null) {
+                return 0;
+            }
+            if (leftValue == null) {
+                return 1;
+            }
+            if (rightValue == null) {
+                return -1;
+            }
+            int result = Integer.compare(leftValue, rightValue);
+            return direction == DamageRankingFilter.SortDirection.ASC ? result : -result;
+        };
+    }
+
+    private static Comparator<DamageRankingRow> booleanComparator(Function<DamageRankingRow, Boolean> valueExtractor) {
+        return Comparator.comparing(row -> valueExtractor.apply(row) ? 1 : 0);
+    }
+
+    private static String tagSortValue(DamageRankingRow row) {
+        Set<SkillTag> tags = row.getTags();
+        return tags.stream()
+                .map(Enum::name)
+                .sorted()
+                .collect(Collectors.joining(","));
     }
 
     private void renderPage(HttpExchange exchange, DamageRankingPageModel pageModel) throws IOException {
