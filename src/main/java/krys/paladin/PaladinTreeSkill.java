@@ -186,6 +186,13 @@ public final class PaladinTreeSkill {
                 .toList();
     }
 
+    public List<UpgradeDamageModifier> getUpgradeDamageModifiers() {
+        return upgradeGroups.stream()
+                .flatMap(group -> group.getUpgrades().stream()
+                        .map(upgrade -> UpgradeDamageModifier.fromUpgrade(skillId, group.getId(), upgrade)))
+                .toList();
+    }
+
     public String getNotes() {
         return notes;
     }

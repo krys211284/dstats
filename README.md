@@ -303,6 +303,8 @@ Skille `MULTI_COMPONENT` nie są importowane do prostych tabel rang, nawet jeśl
 
 Po imporcie prostych i komponentowych tabel rang obowiązuje osobny audyt obecności obrażeń w `docs/paladin/source-md/paladin_damage_presence_audit.md`. Audyt sprawdza, czy każdy z 24 skilli ma obrażenia w bazowej umiejętności, prostej tabeli rang, komponentowej tabeli rang albo wyłącznie przez ulepszenia z `grupa_1`, `grupa_2` lub `grupa_3`. Wynik audytu używa klasyfikacji: `HAS_BASE_DAMAGE` dla skilli z prostą bazową tabelą obrażeń, `HAS_COMPONENT_DAMAGE` dla skilli z rozdzielonymi komponentami obrażeń, `HAS_UPGRADE_DAMAGE_ONLY` dla skilli bez obrażeń bazowych, ale z ulepszeniem sugerującym obrażenia albo zmianę obrażeń, `NON_DAMAGE` dla skilli bez wykrytego źródła obrażeń oraz `NEEDS_MANUAL_REVIEW` dla wpisów niejednoznacznych. Audyt obecności obrażeń nie importuje nowych wartości liczbowych, nie zmienia `PaladinSkillTreeRegistry`, nie zmienia UI i nie odblokowuje runtime DPS.
 
+Osobny audyt modyfikatorów obrażeń z ulepszeń znajduje się w `docs/paladin/source-md/paladin_upgrade_damage_modifier_audit.md`. Model `UpgradeDamageModifier` opisuje pojedyncze ulepszenie przez grupę, nazwę, typ modyfikatora, wartość źródłową, rodzaj wartości, warunek, informację o nowym komponencie, komponent docelowy, skalowanie rangą oraz decyzje `safeForRankingDisplay` i `safeForRuntimeDps`. Typy `UpgradeDamageModifierType` i `UpgradeDamageValueKind` rozdzielają bazowy damage skilla, komponentowy damage skilla, modyfikator damage z ulepszenia oraz pośrednie efekty typu status, szybkość użycia, cooldown, koszt, zasób, utility i defensywa. Modyfikatory ulepszeń są danymi źródłowymi do prezentacji i audytu: nie są sumowane, nie zmieniają bazowych tabel, nie zmieniają sortowania, nie odblokowują runtime DPS i `DamageEngine` nadal ich nie używa.
+
 Nie są wymagane pliki `docs/paladin/source-md/README.md` ani `docs/paladin/source-md/SHASUMS.txt`. Nawigacja źródeł Paladyna może być prowadzona przez `docs/paladin/README.md` oraz ten główny README.
 
 Rejestr zawiera 24 wpisy umiejętności w drzewie. Dla każdego z nich modelowana jest relacja:
@@ -362,7 +364,7 @@ Pola `damagePerUse`, `effectiveCycleSeconds` i `theoreticalDps` pozostają puste
 
 Ekran SSR `/ranking-obrazen` jest na obecnym etapie widocznym dla użytkownika porównaniem bazowej siły umiejętności i opisowego wpływu ulepszeń, a nie ekranem realnego DPS. Parametr `character=paladin` wybiera rejestr Paladyna; gdy parametr `character` nie jest podany, a Paladyn jest jedyną obsługiwaną klasą, ekran domyślnie wybiera `paladin`. Dla `character=paladin` ekran pokazuje wszystkie 24 wpisy z `PaladinSkillTreeRegistry`, a nie tylko wpisy policzalne.
 
-Główna tabela używa szerokiego wariantu layoutu i zawiera tylko kolumny decyzyjne: `skillName`, `skillGroup`, `type`, `Obrażenia % R1`, `Obrażenia % max drzewo`, `grupa_1: wpływ na obrażenia`, `grupa_2: wpływ na obrażenia` i `grupa_3: wpływ na obrażenia`. Kolumny R1/treeMax renderują jedną wartość dla `SIMPLE_SINGLE_COMPONENT`, krótką listę komponentów dla `MULTI_COMPONENT`, `nie dotyczy` dla wpisów nieobrażeniowych oraz `wymaga weryfikacji` dla wpisów bez bezpiecznej kompletnej tabeli. Listy komponentów są prezentacyjne: nie są sumowane, nie tworzą wartości `razem`/`total` i nie wpływają na sortowanie bazowe. Sortowanie `BASE_DAMAGE_PERCENT_RANK_1` i `BASE_DAMAGE_PERCENT_TREE_MAX` nadal opiera się tylko na prostych tabelach `baseDamagePercentRanks`.
+Główna tabela używa szerokiego wariantu layoutu i zawiera tylko kolumny decyzyjne: `skillName`, `skillGroup`, `type`, `Obrażenia % R1`, `Obrażenia % max drzewo`, `grupa_1: wpływ na obrażenia`, `grupa_2: wpływ na obrażenia` i `grupa_3: wpływ na obrażenia`. Kolumny R1/treeMax renderują jedną wartość dla `SIMPLE_SINGLE_COMPONENT`, krótką listę komponentów dla `MULTI_COMPONENT`, `nie dotyczy` dla wpisów nieobrażeniowych oraz `wymaga weryfikacji` dla wpisów bez bezpiecznej kompletnej tabeli. Kolumny grup ulepszeń renderują opisowe `UpgradeDamageModifier`, jeżeli `safeForRankingDisplay = YES`; wartości niejednoznaczne pozostają `wymaga weryfikacji`. Listy komponentów i modyfikatorów są prezentacyjne: nie są sumowane, nie tworzą wartości `razem`/`total` i nie wpływają na sortowanie bazowe. Sortowanie `BASE_DAMAGE_PERCENT_RANK_1` i `BASE_DAMAGE_PERCENT_TREE_MAX` nadal opiera się tylko na prostych tabelach `baseDamagePercentRanks`.
 
 Techniczny `skillId` nie jest osobną kolumną domyślnej tabeli, ale pozostaje w danych i w atrybucie `data-skill-id` wiersza. `verificationStatus` również nie jest osobną kolumną głównej tabeli; status pozostaje w modelach, filtrze `Status weryfikacji`, atrybucie `data-verification-status`, `title`/`aria-label` oraz klasach wiersza typu `verification-needs-verification`, `verification-non-damage`, `verification-unsupported` i `verification-supported`. Kolor nie jest jedynym nośnikiem informacji o statusie, bo status jest dostępny tekstowo w atrybutach HTML i krótkiej legendzie nad tabelą. Kolumny runtime `damagePerUse`, `theoreticalDps` i `singleTargetDps` nie są renderowane w domyślnej tabeli, dopóki runtime DPS nowych umiejętności pozostaje zablokowany. Pola diagnostyczne `reason / notes` i `sourcePdf` również pozostają poza domyślną tabelą.
 
@@ -1238,6 +1240,68 @@ chcp 65001
 & 'C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.3\plugins\maven\lib\maven3\bin\mvn.cmd' '-Dmaven.repo.local=.m2' compile
 java '-Dfile.encoding=UTF-8' -cp target/classes krys.web.CurrentBuildWebServer --port 8080
 ```
+
+Bez `--host` i `--address` serwer binduje się domyślnie do `127.0.0.1`, czyli pozostaje lokalny dla komputera uruchamiającego aplikację. Równoważny lokalny tryb:
+
+```powershell
+java "-Dfile.encoding=UTF-8" -cp target/classes krys.web.CurrentBuildWebServer --port 8080
+```
+
+Tryb LAN wymaga jawnego hosta:
+
+```powershell
+java "-Dfile.encoding=UTF-8" -cp target/classes krys.web.CurrentBuildWebServer --host 0.0.0.0 --port 8080
+```
+
+`--address` jest aliasem `--host`:
+
+```powershell
+java "-Dfile.encoding=UTF-8" -cp target/classes krys.web.CurrentBuildWebServer --address 0.0.0.0 --port 8080
+```
+
+Adres IP komputera w sieci lokalnej można sprawdzić przez:
+
+```powershell
+ipconfig
+```
+
+Przykładowy wpis:
+
+```text
+IPv4 Address: 192.168.1.51
+```
+
+Adres z drugiego urządzenia w tej samej sieci:
+
+```text
+http://192.168.1.51:8080/
+```
+
+Bind można sprawdzić przez:
+
+```powershell
+netstat -ano | findstr :8080
+```
+
+Oczekiwany bind lokalny:
+
+```text
+127.0.0.1:8080 LISTENING
+```
+
+Oczekiwany bind LAN:
+
+```text
+0.0.0.0:8080 LISTENING
+```
+
+Jeżeli Windows Firewall blokuje wejście z LAN, regułę można dodać ręcznie w terminalu uruchomionym jako Administrator:
+
+```powershell
+netsh advfirewall firewall add rule name="Diablo DPS Engine 8080" dir=in action=allow protocol=TCP localport=8080
+```
+
+Nie wystawiaj aplikacji do internetu, nie ustawiaj port forwarding na routerze i używaj `--host 0.0.0.0` tylko w zaufanej sieci lokalnej. Aplikacja nie otwiera firewalla automatycznie.
 
 Następnie otwórz w przeglądarce:
 

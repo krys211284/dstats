@@ -175,6 +175,30 @@ class DamageRankingWebServerTest {
     }
 
     @Test
+    void brandishUpgradeGroupsShouldRenderConfirmedModifierValuesWithoutSumming() throws Exception {
+        HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin");
+        String brandishRow = rowHtml(response.body(), "wymach");
+
+        assertEquals(200, response.statusCode());
+        assertTrue(brandishRow.contains("Zwiększenie Obrażeń"));
+        assertTrue(brandishRow.contains("20%[X]"));
+        assertTrue(brandishRow.contains("Szybkość Użycia"));
+        assertTrue(brandishRow.contains("20%[+]"));
+        assertTrue(brandishRow.contains("Odsłonięcie"));
+        assertTrue(brandishRow.contains("status / pośredni wpływ"));
+        assertTrue(brandishRow.contains("Generowanie Wiary"));
+        assertTrue(brandishRow.contains("zasób"));
+        assertTrue(brandishRow.contains("Powracająca Światłość"));
+        assertTrue(brandishRow.contains("52%"));
+        assertTrue(brandishRow.contains("Krzyżowe Uderzenie"));
+        assertTrue(brandishRow.contains("120%"));
+        assertFalse(brandishRow.contains("suma"));
+        assertFalse(brandishRow.contains("razem"));
+        assertFalse(brandishRow.contains("total"));
+        assertFalse(brandishRow.contains("DPS"));
+    }
+
+    @Test
     void nonDamageAndManualReviewSkillsShouldRenderExplicitStatesInBaseColumns() throws Exception {
         HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin");
 

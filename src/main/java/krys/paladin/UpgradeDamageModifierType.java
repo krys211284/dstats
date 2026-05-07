@@ -1,0 +1,18 @@
+package krys.paladin;
+
+/** Typ źródłowego modyfikatora obrażeń z ulepszenia, bez liczenia DPS. */
+public enum UpgradeDamageModifierType {
+    MULTIPLICATIVE_DAMAGE_PERCENT,
+    ADDITIVE_DAMAGE_PERCENT,
+    FLAT_COMPONENT_PERCENT,
+    RANK_SCALING_COMPONENT_PERCENT,
+    ADDITIONAL_HIT_OR_STRIKE,
+    DAMAGE_OVER_TIME,
+    THORNS_DAMAGE_MODIFIER,
+    STATUS_DAMAGE_ENABLER,
+    CAST_SPEED_OR_COOLDOWN,
+    RESOURCE_OR_COST,
+    DEFENSE_OR_UTILITY,
+    NO_DAMAGE_IMPACT,
+    NEEDS_MANUAL_REVIEW
+}

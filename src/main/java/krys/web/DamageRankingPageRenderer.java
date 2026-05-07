@@ -3,7 +3,9 @@ package krys.web;
 import krys.paladin.DamagePercentComponent;
 import krys.paladin.DamagePercentComponentRankTable;
 import krys.paladin.PaladinSkillTreeType;
-import krys.paladin.UpgradeDamageImpact;
+import krys.paladin.UpgradeDamageModifier;
+import krys.paladin.UpgradeDamageModifierType;
+import krys.paladin.UpgradeDamageSafety;
 import krys.ranking.PaladinDamageRankingMetric;
 import krys.ranking.PaladinSkillDamageRankingEntry;
 import krys.ranking.PaladinSkillDamageVerificationStatus;
@@ -255,39 +257,65 @@ public final class DamageRankingPageRenderer {
     }
 
     private static String renderUpgradeGroup(DamageRankingRow row, String groupId) {
-        var impacts = row.getUpgradeDamageImpactsForGroup(groupId);
-        if (impacts.isEmpty()) {
+        var modifiers = row.getUpgradeDamageModifiersForGroup(groupId);
+        if (modifiers.isEmpty()) {
             return "<span class=\"missing-source-value\">brak danych</span>";
         }
         StringBuilder html = new StringBuilder("<ul class=\"compact-list upgrade-impact-list\">");
-        for (UpgradeDamageImpact impact : impacts) {
+        for (UpgradeDamageModifier modifier : modifiers) {
             html.append("<li>")
-                    .append(escapeHtml(impact.getUpgradeName()))
+                    .append(escapeHtml(modifier.getUpgradeName()))
                     .append(" &mdash; <code>")
-                    .append(escapeHtml(impact.getType().name()))
+                    .append(escapeHtml(modifier.getType().name()))
                     .append("</code> &mdash; ")
-                    .append(escapeHtml(shortImpactDescription(impact)))
+                    .append(escapeHtml(shortModifierDescription(modifier)))
                     .append("</li>");
         }
         html.append("</ul>");
         return html.toString();
     }
 
-    private static String shortImpactDescription(UpgradeDamageImpact impact) {
-        if (impact.getDamagePercent() != null) {
-            return "+" + impact.getDamagePercent() + "%";
+    private static String shortModifierDescription(UpgradeDamageModifier modifier) {
+        if (modifier.getSafeForRankingDisplay() == UpgradeDamageSafety.NEEDS_MANUAL_REVIEW) {
+            return "wymaga weryfikacji";
         }
-        return switch (impact.getType()) {
-            case DIRECT_DAMAGE_PERCENT -> "bezpośredni procent obrażeń";
-            case ADDITIONAL_HIT -> "dodatkowe trafienie";
+        if (!modifier.getValue().equals("brak")
+                && !modifier.getValue().equals("tekst źródłowy")
+                && !modifier.getValue().equals("brak bezpośredniego damage")
+                && !modifier.getValue().equals("status")) {
+            return modifier.getValue() + valueSuffix(modifier);
+        }
+        return switch (modifier.getType()) {
+            case MULTIPLICATIVE_DAMAGE_PERCENT -> "mnożnik obrażeń";
+            case ADDITIVE_DAMAGE_PERCENT -> "addytywny procent obrażeń";
+            case FLAT_COMPONENT_PERCENT -> "komponent obrażeń";
+            case RANK_SCALING_COMPONENT_PERCENT -> "komponent skalowany rangą";
+            case ADDITIONAL_HIT_OR_STRIKE -> "dodatkowe trafienie/uderzenie";
             case DAMAGE_OVER_TIME -> "obrażenia w czasie";
-            case BURST_DAMAGE -> "obrażenia wybuchowe";
-            case CONDITIONAL_DAMAGE -> "obrażenia warunkowe";
-            case STATUS_OR_UTILITY -> "utility/status";
-            case COOLDOWN_OR_COST -> "koszt/odnowienie/zasób";
+            case THORNS_DAMAGE_MODIFIER -> "ciernie, wymaga weryfikacji";
+            case STATUS_DAMAGE_ENABLER -> "status / pośredni wpływ";
+            case CAST_SPEED_OR_COOLDOWN -> "tempo użycia / cooldown";
+            case RESOURCE_OR_COST -> "zasób / koszt";
+            case DEFENSE_OR_UTILITY -> "utility/defense";
             case NO_DAMAGE_IMPACT -> "brak wpływu na obrażenia";
-            case NEEDS_VERIFICATION -> "wymaga weryfikacji";
+            case NEEDS_MANUAL_REVIEW -> "wymaga weryfikacji";
         };
+    }
+
+    private static String valueSuffix(UpgradeDamageModifier modifier) {
+        if (modifier.getType() == UpgradeDamageModifierType.CAST_SPEED_OR_COOLDOWN) {
+            return ", tempo użycia";
+        }
+        if (modifier.getType() == UpgradeDamageModifierType.STATUS_DAMAGE_ENABLER) {
+            return ", status / pośredni wpływ";
+        }
+        if (modifier.getType() == UpgradeDamageModifierType.RESOURCE_OR_COST) {
+            return ", zasób";
+        }
+        if (modifier.createsNewDamageComponent()) {
+            return ", nowy komponent";
+        }
+        return "";
     }
 
     private static String renderStatus(PaladinSkillDamageVerificationStatus status) {

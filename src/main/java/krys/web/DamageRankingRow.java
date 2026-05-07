@@ -4,6 +4,7 @@ import krys.paladin.DamagePercentComponentRankTable;
 import krys.paladin.PaladinSkillTreeType;
 import krys.paladin.PaladinTreeSkill;
 import krys.paladin.UpgradeDamageImpact;
+import krys.paladin.UpgradeDamageModifier;
 import krys.ranking.PaladinSkillDamageRankingEntry;
 
 import java.util.List;
@@ -15,6 +16,7 @@ public final class DamageRankingRow {
     private final String damageComponentsDescription;
     private final DamagePercentComponentRankTable componentDamagePercentRanks;
     private final List<UpgradeDamageImpact> upgradeDamageImpacts;
+    private final List<UpgradeDamageModifier> upgradeDamageModifiers;
 
     public DamageRankingRow(PaladinSkillDamageRankingEntry entry, PaladinTreeSkill treeSkill) {
         this.entry = entry;
@@ -22,6 +24,7 @@ public final class DamageRankingRow {
         this.damageComponentsDescription = describeDamageComponents(treeSkill);
         this.componentDamagePercentRanks = treeSkill.getComponentDamagePercentRanks();
         this.upgradeDamageImpacts = List.copyOf(treeSkill.getUpgradeDamageImpacts());
+        this.upgradeDamageModifiers = List.copyOf(treeSkill.getUpgradeDamageModifiers());
     }
 
     public PaladinSkillDamageRankingEntry getEntry() {
@@ -43,6 +46,12 @@ public final class DamageRankingRow {
     public List<UpgradeDamageImpact> getUpgradeDamageImpactsForGroup(String groupId) {
         return upgradeDamageImpacts.stream()
                 .filter(impact -> impact.getGroupId().equals(groupId))
+                .toList();
+    }
+
+    public List<UpgradeDamageModifier> getUpgradeDamageModifiersForGroup(String groupId) {
+        return upgradeDamageModifiers.stream()
+                .filter(modifier -> modifier.getUpgradeGroup().equals(groupId))
                 .toList();
     }
 

@@ -24,14 +24,26 @@ import java.nio.file.Path;
 
 /** Najprostszy lokalny serwer HTTP dla M8 uruchamiający SSR nad istniejącym runtime manual simulation. */
 public final class CurrentBuildWebServer implements AutoCloseable {
+    private static final String DEFAULT_HOST = "127.0.0.1";
+    private static final int DEFAULT_PORT = 8080;
     private final HttpServer server;
+    private final String bindHost;
 
     public CurrentBuildWebServer(int port) throws IOException {
-        this(port, new ItemLibraryDataDirectoryResolver().resolveDataDirectory());
+        this(DEFAULT_HOST, port, new ItemLibraryDataDirectoryResolver().resolveDataDirectory());
     }
 
     public CurrentBuildWebServer(int port, Path itemLibraryDataDirectory) throws IOException {
-        this.server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
+        this(DEFAULT_HOST, port, itemLibraryDataDirectory);
+    }
+
+    public CurrentBuildWebServer(String host, int port) throws IOException {
+        this(host, port, new ItemLibraryDataDirectoryResolver().resolveDataDirectory());
+    }
+
+    public CurrentBuildWebServer(String host, int port, Path itemLibraryDataDirectory) throws IOException {
+        this.bindHost = requireHost(host);
+        this.server = HttpServer.create(new InetSocketAddress(this.bindHost, port), 0);
 
         ItemLibraryService itemLibraryService = new ItemLibraryService(
                 new FileItemLibraryRepository(itemLibraryDataDirectory)
@@ -120,22 +132,20 @@ public final class CurrentBuildWebServer implements AutoCloseable {
         return server.getAddress().getPort();
     }
 
+    public String getBindHost() {
+        return bindHost;
+    }
+
     @Override
     public void close() {
         server.stop(0);
     }
 
     public static void main(String[] args) throws Exception {
-        int port = parsePort(args);
-        CurrentBuildWebServer webServer = new CurrentBuildWebServer(port);
+        ServerArguments serverArguments = parseArguments(args);
+        CurrentBuildWebServer webServer = new CurrentBuildWebServer(serverArguments.host(), serverArguments.port());
         webServer.start();
-        System.out.println("GUI manual simulation dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/policz-aktualny-build");
-        System.out.println("GUI search dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/znajdz-najlepszy-build");
-        System.out.println("GUI rankingu obrażeń dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/ranking-obrazen");
-        System.out.println("Legacy alias rankingu Paladyna: http://127.0.0.1:" + webServer.getPort() + "/ranking-obrazen-paladyna");
-        System.out.println("GUI importu itemu dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/importuj-item-ze-screena");
-        System.out.println("GUI biblioteki itemów dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/biblioteka-itemow");
-        System.out.println("GUI bazy wiedzy itemów dostępne pod adresem: http://127.0.0.1:" + webServer.getPort() + "/baza-wiedzy-itemow");
+        printStartupMessages(webServer);
         System.out.println("Drill-down searcha jest dostępny z poziomu listy wyników GUI searcha.");
 
         synchronized (CurrentBuildWebServer.class) {
@@ -143,14 +153,70 @@ public final class CurrentBuildWebServer implements AutoCloseable {
         }
     }
 
-    private static int parsePort(String[] args) {
-        int port = 8080;
+    static ServerArguments parseArguments(String[] args) {
+        String host = DEFAULT_HOST;
+        int port = DEFAULT_PORT;
         for (int index = 0; index < args.length; index++) {
-            if ("--port".equals(args[index]) && index + 1 < args.length) {
-                port = Integer.parseInt(args[++index]);
+            String argument = args[index];
+            switch (argument) {
+                case "--port" -> {
+                    if (index + 1 >= args.length) {
+                        throw new IllegalArgumentException("Brak wartości po argumencie --port.");
+                    }
+                    port = parsePort(args[++index]);
+                }
+                case "--host", "--address" -> {
+                    if (index + 1 >= args.length) {
+                        throw new IllegalArgumentException("Brak wartości po argumencie " + argument + ".");
+                    }
+                    host = requireHost(args[++index]);
+                }
+                default -> throw new IllegalArgumentException("Nieznany argument: " + argument + ". Obsługiwane argumenty: --host, --address, --port.");
             }
         }
-        return port;
+        return new ServerArguments(host, port);
+    }
+
+    private static int parsePort(String value) {
+        try {
+            int port = Integer.parseInt(value);
+            if (port < 1 || port > 65535) {
+                throw new IllegalArgumentException("Port musi być z zakresu 1..65535: " + value);
+            }
+            return port;
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("Port musi być liczbą całkowitą z zakresu 1..65535: " + value, exception);
+        }
+    }
+
+    private static String requireHost(String host) {
+        if (host == null || host.isBlank()) {
+            throw new IllegalArgumentException("Host nie może być pusty.");
+        }
+        return host;
+    }
+
+    private static void printStartupMessages(CurrentBuildWebServer webServer) {
+        String host = webServer.getBindHost();
+        int port = webServer.getPort();
+        String baseUrl = "http://" + host + ":" + port;
+
+        System.out.println("Server started at " + baseUrl + "/");
+        System.out.println("Bind host: " + host);
+        System.out.println("Port: " + port);
+        if ("0.0.0.0".equals(host)) {
+            System.out.println("LAN access enabled. Open http://<computer-ip>:" + port + "/ from another device on the same network, if firewall allows inbound TCP " + port + ".");
+        }
+        System.out.println("GUI manual simulation dostępne pod adresem: " + baseUrl + "/policz-aktualny-build");
+        System.out.println("GUI search dostępne pod adresem: " + baseUrl + "/znajdz-najlepszy-build");
+        System.out.println("GUI rankingu obrażeń dostępne pod adresem: " + baseUrl + "/ranking-obrazen");
+        System.out.println("Legacy alias rankingu Paladyna: " + baseUrl + "/ranking-obrazen-paladyna");
+        System.out.println("GUI importu itemu dostępne pod adresem: " + baseUrl + "/importuj-item-ze-screena");
+        System.out.println("GUI biblioteki itemów dostępne pod adresem: " + baseUrl + "/biblioteka-itemow");
+        System.out.println("GUI bazy wiedzy itemów dostępne pod adresem: " + baseUrl + "/baza-wiedzy-itemow");
+    }
+
+    record ServerArguments(String host, int port) {
     }
 
     /** Obsługuje ekran wejściowy pod rootem i odrzuca pozostałe ścieżki. */
