@@ -149,13 +149,11 @@ public final class DamageRankingPageRenderer {
                         <thead>
                             <tr>
                                 <th>skillName</th>
-                                <th>skillId</th>
                                 <th>skillGroup</th>
                                 <th>type</th>
                                 <th>verificationStatus</th>
                                 <th>Obrażenia % R1</th>
                                 <th>Obrażenia % max drzewo</th>
-                                <th>Komponenty obrażeń</th>
                                 <th>grupa_1: wpływ na obrażenia</th>
                                 <th>grupa_2: wpływ na obrażenia</th>
                                 <th>grupa_3: wpływ na obrażenia</th>
@@ -184,9 +182,7 @@ public final class DamageRankingPageRenderer {
                 .append(escapeHtml(row.getType().name()))
                 .append("\"><td>")
                 .append(escapeHtml(entry.getSkillName()))
-                .append("</td><td><code>")
-                .append(escapeHtml(entry.getSkillId()))
-                .append("</code></td><td>")
+                .append("</td><td>")
                 .append(escapeHtml(entry.getSkillGroup()))
                 .append("</td><td>")
                 .append(escapeHtml(row.getType().name()))
@@ -196,8 +192,6 @@ public final class DamageRankingPageRenderer {
                 .append(formatPercentSource(row.getBaseDamagePercentAtRank1()))
                 .append("</td><td>")
                 .append(formatPercentSource(row.getBaseDamagePercentAtTreeMaxRank()))
-                .append("</td><td>")
-                .append(escapeHtml(row.getDamageComponentsDescription()))
                 .append("</td><td>")
                 .append(renderUpgradeGroup(row, "grupa_1"))
                 .append("</td><td>")

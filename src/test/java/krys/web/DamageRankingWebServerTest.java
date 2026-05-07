@@ -67,16 +67,16 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains("max-width: none"));
         assertTrue(response.body().contains("overflow-x: auto"));
         assertTrue(response.body().contains("<th>skillName</th>"));
-        assertTrue(response.body().contains("<th>skillId</th>"));
         assertTrue(response.body().contains("<th>skillGroup</th>"));
         assertTrue(response.body().contains("<th>type</th>"));
         assertTrue(response.body().contains("<th>verificationStatus</th>"));
         assertTrue(response.body().contains("<th>Obrażenia % R1</th>"));
         assertTrue(response.body().contains("<th>Obrażenia % max drzewo</th>"));
-        assertTrue(response.body().contains("<th>Komponenty obrażeń</th>"));
         assertTrue(response.body().contains("<th>grupa_1: wpływ na obrażenia</th>"));
         assertTrue(response.body().contains("<th>grupa_2: wpływ na obrażenia</th>"));
         assertTrue(response.body().contains("<th>grupa_3: wpływ na obrażenia</th>"));
+        assertFalse(response.body().contains("<th>skillId</th>"));
+        assertFalse(response.body().contains("<th>Komponenty obrażeń</th>"));
         assertFalse(response.body().contains("<th>Ulepszenia wpływające na obrażenia</th>"));
         assertFalse(response.body().contains("<th>Ulepszenia bez wpływu na obrażenia</th>"));
         assertFalse(response.body().contains("<th>damagePerUse</th>"));
@@ -232,7 +232,7 @@ class DamageRankingWebServerTest {
     }
 
     private static boolean allRowsContainExpectedBaseDamageCells(String html) {
-        Matcher matcher = Pattern.compile("(?s)<tr class=\"damage-ranking-row\"[^>]*data-skill-id=\"([^\"]+)\"[^>]*>.*?</td><td><code>.*?</code></td><td>.*?</td><td>.*?</td><td>.*?</td><td>(.*?)</td><td>(.*?)</td><td>.*?</td>")
+        Matcher matcher = Pattern.compile("(?s)<tr class=\"damage-ranking-row\"[^>]*data-skill-id=\"([^\"]+)\"[^>]*>.*?</td><td>.*?</td><td>.*?</td><td>.*?</td><td>(.*?)</td><td>(.*?)</td><td>.*?</td>")
                 .matcher(html);
         boolean found = false;
         while (matcher.find()) {
