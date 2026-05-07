@@ -6,6 +6,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /** Bazowy wpis umiejętności w rejestrze drzewa Paladyna. */
 public final class PaladinTreeSkill {
@@ -210,18 +211,19 @@ public final class PaladinTreeSkill {
         return Set.copyOf(tags);
     }
 
-    public SkillCategory getSkillCategory() {
-        if (skillId.equals("wymach")) {
-            return SkillCategory.ADEPT;
-        }
-        return switch (type) {
-            case MOBILITY -> SkillCategory.MOBILNOSC;
-            case DEFENSIVE -> SkillCategory.DEFENSYWNA;
-            case SUPPORT -> SkillCategory.WSPARCIE;
-            case SPECIAL -> SkillCategory.SPECJALNA;
-            case DAMAGE -> damageSkillCategory();
-            case NON_DAMAGE, UNCLASSIFIED -> skillGroupCategory();
-        };
+    public Set<SkillCategory> getSkillCategories() {
+        return Set.copyOf(sourceSkillCategories());
+    }
+
+    public String getSkillCategoriesDisplay() {
+        return getSkillCategories().stream()
+                .sorted()
+                .map(SkillCategory::getDisplayName)
+                .collect(Collectors.joining(", "));
+    }
+
+    public boolean hasSkillCategory(SkillCategory category) {
+        return getSkillCategories().contains(Objects.requireNonNull(category, "category"));
     }
 
     public String getNotes() {
@@ -247,25 +249,34 @@ public final class PaladinTreeSkill {
         }
     }
 
-    private SkillCategory damageSkillCategory() {
-        return switch (skillGroup) {
-            case "basic" -> SkillCategory.PODSTAWOWA;
-            case "core" -> SkillCategory.CORE;
-            case "aura" -> SkillCategory.AURA;
-            case "moce_specjalne" -> SkillCategory.SPECJALNA;
-            case "sprawiedliwosc", "odwaga" -> SkillCategory.ADEPT;
-            default -> SkillCategory.NEEDS_MANUAL_REVIEW;
-        };
-    }
-
-    private SkillCategory skillGroupCategory() {
-        return switch (skillGroup) {
-            case "basic" -> SkillCategory.PODSTAWOWA;
-            case "core" -> SkillCategory.CORE;
-            case "aura" -> SkillCategory.AURA;
-            case "moce_specjalne" -> SkillCategory.SPECJALNA;
-            default -> SkillCategory.NEEDS_MANUAL_REVIEW;
-        };
+    private Set<SkillCategory> sourceSkillCategories() {
+        EnumSet<SkillCategory> categories = EnumSet.noneOf(SkillCategory.class);
+        switch (skillId) {
+            case "wymach" -> {
+                categories.add(SkillCategory.PODSTAWOWE);
+                categories.add(SkillCategory.ADEPT);
+            }
+            case "swiety_pocisk" -> {
+                categories.add(SkillCategory.PODSTAWOWE);
+                categories.add(SkillCategory.SEDZIA);
+            }
+            case "starcie" -> {
+                categories.add(SkillCategory.PODSTAWOWE);
+                categories.add(SkillCategory.MOLOCH);
+            }
+            case "natarcie" -> {
+                categories.add(SkillCategory.PODSTAWOWE);
+                categories.add(SkillCategory.MOBILNOSC);
+                categories.add(SkillCategory.FANATYK);
+            }
+            case "forteca" -> {
+                categories.add(SkillCategory.SPECJALNA);
+                categories.add(SkillCategory.DEFENSYWNA);
+                categories.add(SkillCategory.MOLOCH);
+            }
+            default -> categories.add(SkillCategory.NEEDS_MANUAL_REVIEW);
+        }
+        return Set.copyOf(categories);
     }
 
     private void addTypeTags(EnumSet<SkillTag> tags) {

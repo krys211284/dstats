@@ -2,12 +2,16 @@ package krys.paladin;
 
 /** Prezentacyjna kategoria/tier umiejętności w rankingu, oparta o lokalne źródła. */
 public enum SkillCategory {
-    PODSTAWOWA("Podstawowa"),
+    PODSTAWOWE("Podstawowe"),
     ADEPT("Adept"),
+    SEDZIA("Sędzia"),
+    MOLOCH("Moloch"),
+    FANATYK("Fanatyk"),
     CORE("Core"),
     DEFENSYWNA("Defensywna"),
     MOBILNOSC("Mobilność"),
     AURA("Aura"),
+    ODWAGA("Odwaga"),
     SPECJALNA("Specjalna"),
     WSPARCIE("Wsparcie"),
     NEEDS_MANUAL_REVIEW("NEEDS_MANUAL_REVIEW");

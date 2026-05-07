@@ -1,6 +1,7 @@
 package krys.web;
 
 import krys.paladin.PaladinSkillTreeType;
+import krys.paladin.SkillCategory;
 import krys.paladin.SkillTag;
 import krys.ranking.CharacterSkillTreeRegistry;
 import krys.ranking.PaladinDamageRankingMetric;
@@ -19,6 +20,7 @@ public final class DamageRankingPageModel {
     private final List<String> skillGroups;
     private final List<PaladinSkillDamageVerificationStatus> verificationStatuses;
     private final List<PaladinSkillTreeType> types;
+    private final List<SkillCategory> sourceCategories;
     private final List<SkillTag> tags;
     private final List<PaladinDamageRankingMetric> metrics;
 
@@ -30,6 +32,7 @@ public final class DamageRankingPageModel {
                                   List<String> skillGroups,
                                   List<PaladinSkillDamageVerificationStatus> verificationStatuses,
                                   List<PaladinSkillTreeType> types,
+                                  List<SkillCategory> sourceCategories,
                                   List<SkillTag> tags,
                                   List<PaladinDamageRankingMetric> metrics) {
         this.filter = filter;
@@ -40,6 +43,7 @@ public final class DamageRankingPageModel {
         this.skillGroups = List.copyOf(skillGroups);
         this.verificationStatuses = List.copyOf(verificationStatuses);
         this.types = List.copyOf(types);
+        this.sourceCategories = List.copyOf(sourceCategories);
         this.tags = List.copyOf(tags);
         this.metrics = List.copyOf(metrics);
     }
@@ -78,6 +82,10 @@ public final class DamageRankingPageModel {
 
     public List<SkillTag> getTags() {
         return tags;
+    }
+
+    public List<SkillCategory> getSourceCategories() {
+        return sourceCategories;
     }
 
     public List<PaladinDamageRankingMetric> getMetrics() {

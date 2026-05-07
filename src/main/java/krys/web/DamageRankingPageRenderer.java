@@ -3,6 +3,7 @@ package krys.web;
 import krys.paladin.DamagePercentComponent;
 import krys.paladin.DamagePercentComponentRankTable;
 import krys.paladin.PaladinSkillTreeType;
+import krys.paladin.SkillCategory;
 import krys.paladin.SkillTag;
 import krys.paladin.UpgradeDamageModifier;
 import krys.paladin.UpgradeDamageModifierType;
@@ -90,12 +91,12 @@ public final class DamageRankingPageRenderer {
         html.append("""
                         </select>
                     </label>
-                    <label>Grupa umiejętności
+                    <label>Grupa drzewa
                         <select name="skillGroup">
                 """);
-        html.append(renderOption("ALL", "Wszystkie grupy", !filter.hasSkillGroup()));
+        html.append(renderOption("ALL", "Wszystkie grupy drzewa", !filter.hasSkillGroup()));
         for (String skillGroup : model.getSkillGroups()) {
-            html.append(renderOption(skillGroup, skillGroup, skillGroup.equals(filter.getSkillGroup())));
+            html.append(renderOption(skillGroup, treeGroupDisplayName(skillGroup), skillGroup.equals(filter.getSkillGroup())));
         }
         html.append("""
                         </select>
@@ -121,6 +122,7 @@ public final class DamageRankingPageRenderer {
                         </select>
                     </label>
                 """);
+        html.append(renderSourceCategoryFilter(model));
         html.append(renderTagFilter(model));
         html.append(renderFacetFilter("hasDirectUpgradeDamage", "Damage modifier", filter.getHasDirectUpgradeDamage()));
         html.append(renderFacetFilter("hasNewDamageComponent", "Extra component", filter.getHasNewDamageComponent()));
@@ -149,6 +151,22 @@ public final class DamageRankingPageRenderer {
         html.append(renderOption("ALL", "Wszystkie tagi", !model.getFilter().hasTag()));
         for (SkillTag tag : model.getTags()) {
             html.append(renderOption(tag.name(), tag.name(), tag == model.getFilter().getTag()));
+        }
+        html.append("""
+                        </select>
+                    </label>
+                """);
+        return html.toString();
+    }
+
+    private static String renderSourceCategoryFilter(DamageRankingPageModel model) {
+        StringBuilder html = new StringBuilder("""
+                    <label>Kategoria źródłowa
+                        <select name="sourceCategory">
+                """);
+        html.append(renderOption("ALL", "Wszystkie kategorie", !model.getFilter().hasSourceCategory()));
+        for (SkillCategory category : model.getSourceCategories()) {
+            html.append(renderOption(category.name(), category.getDisplayName(), category == model.getFilter().getSourceCategory()));
         }
         html.append("""
                         </select>
@@ -214,6 +232,9 @@ public final class DamageRankingPageRenderer {
         if (filter.getTag() != null) {
             appendQuery(query, "tag", filter.getTag().name());
         }
+        if (filter.getSourceCategory() != null) {
+            appendQuery(query, "sourceCategory", filter.getSourceCategory().name());
+        }
         appendFacetQuery(query, "hasDirectUpgradeDamage", filter.getHasDirectUpgradeDamage());
         appendFacetQuery(query, "hasNewDamageComponent", filter.getHasNewDamageComponent());
         appendFacetQuery(query, "hasStatusDamageEnabler", filter.getHasStatusDamageEnabler());
@@ -274,7 +295,8 @@ public final class DamageRankingPageRenderer {
                     <table class="data-table ranking-table">
                         <colgroup>
                             <col class="col-skill-name">
-                            <col class="col-category">
+                            <col class="col-group">
+                            <col class="col-source-categories">
                             <col class="col-tags">
                             <col class="col-type">
                             <col class="col-damage">
@@ -306,12 +328,14 @@ public final class DamageRankingPageRenderer {
                                 %s
                                 %s
                                 %s
+                                %s
                             </tr>
                         </thead>
                         <tbody>
                 """.formatted(
                 renderSortableHeader(model, "skillName", "skillName"),
-                renderSortableHeader(model, "skillCategory", "Kategoria"),
+                renderSortableHeader(model, "skillGroup", "Grupa drzewa"),
+                renderSortableHeader(model, "sourceCategories", "Kategorie / tagi"),
                 renderSortableHeader(model, "tags", "tags"),
                 renderSortableHeader(model, "type", "type"),
                 renderSortableHeader(model, "baseDamageRank1", "Obrażenia % R1"),
@@ -357,7 +381,9 @@ public final class DamageRankingPageRenderer {
                 .append("\"><td>")
                 .append(escapeHtml(entry.getSkillName()))
                 .append("</td><td>")
-                .append(escapeHtml(row.getSkillCategoryDisplayName()))
+                .append(escapeHtml(row.getTreeGroupDisplayName()))
+                .append("</td><td>")
+                .append(escapeHtml(row.getSkillCategoriesDisplay()))
                 .append("</td><td>")
                 .append(renderTags(row))
                 .append("</td><td>")
@@ -560,6 +586,18 @@ public final class DamageRankingPageRenderer {
             return ", nowy komponent";
         }
         return "";
+    }
+
+    private static String treeGroupDisplayName(String skillGroup) {
+        return switch (skillGroup) {
+            case "basic" -> "Podstawowe / Basic";
+            case "core" -> "Główne / Core";
+            case "aura" -> "Aura";
+            case "odwaga" -> "Odwaga";
+            case "sprawiedliwosc" -> "Sprawiedliwość";
+            case "moce_specjalne" -> "Moce Specjalne";
+            default -> skillGroup;
+        };
     }
 
     private static String renderStatus(PaladinSkillDamageVerificationStatus status) {

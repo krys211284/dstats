@@ -4,6 +4,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import krys.paladin.PaladinSkillTreeType;
 import krys.paladin.PaladinTreeSkill;
+import krys.paladin.SkillCategory;
 import krys.paladin.SkillTag;
 import krys.ranking.CharacterSkillTreeRegistry;
 import krys.ranking.PaladinDamageRankingMetric;
@@ -76,6 +77,11 @@ public final class DamageRankingController implements HttpHandler {
                 .distinct()
                 .sorted(Comparator.comparing(Enum::name))
                 .toList();
+        List<SkillCategory> sourceCategories = registry.allSkills().stream()
+                .flatMap(skill -> skill.getSkillCategories().stream())
+                .distinct()
+                .sorted(Comparator.comparing(Enum::name))
+                .toList();
 
         return new DamageRankingPageModel(
                 filter,
@@ -95,6 +101,7 @@ public final class DamageRankingController implements HttpHandler {
                         PaladinSkillTreeType.SUPPORT,
                         PaladinSkillTreeType.SPECIAL,
                         PaladinSkillTreeType.UNCLASSIFIED),
+                sourceCategories,
                 tags,
                 List.of(PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1,
                         PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX)
@@ -124,6 +131,9 @@ public final class DamageRankingController implements HttpHandler {
             return false;
         }
         if (filter.hasTag() && !row.hasTag(filter.getTag())) {
+            return false;
+        }
+        if (filter.hasSourceCategory() && !row.hasSkillCategory(filter.getSourceCategory())) {
             return false;
         }
         return matchesFacet(filter.getHasDirectUpgradeDamage(), row.hasDirectUpgradeDamage())
@@ -170,7 +180,7 @@ public final class DamageRankingController implements HttpHandler {
         }
         Comparator<DamageRankingRow> primary = switch (filter.getSort()) {
             case "skillName" -> Comparator.comparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
-            case "skillCategory" -> Comparator.comparing(DamageRankingRow::getSkillCategoryDisplayName, String.CASE_INSENSITIVE_ORDER);
+            case "sourceCategories" -> Comparator.comparing(DamageRankingRow::getSkillCategoriesDisplay, String.CASE_INSENSITIVE_ORDER);
             case "skillGroup" -> Comparator.comparing(row -> row.getEntry().getSkillGroup(), String.CASE_INSENSITIVE_ORDER);
             case "type" -> Comparator.comparing(row -> row.getType().name());
             case "damageProfile" -> Comparator.comparing(DamageRankingRow::getDamageProfile);

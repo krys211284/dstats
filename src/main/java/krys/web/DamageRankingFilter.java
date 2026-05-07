@@ -1,6 +1,7 @@
 package krys.web;
 
 import krys.paladin.PaladinSkillTreeType;
+import krys.paladin.SkillCategory;
 import krys.paladin.SkillTag;
 import krys.ranking.PaladinDamageRankingMetric;
 import krys.ranking.PaladinSkillDamageVerificationStatus;
@@ -16,6 +17,7 @@ public final class DamageRankingFilter {
     private final PaladinSkillDamageVerificationStatus verificationStatus;
     private final PaladinSkillTreeType type;
     private final PaladinDamageRankingMetric metric;
+    private final SkillCategory sourceCategory;
     private final SkillTag tag;
     private final FacetFilter hasDirectUpgradeDamage;
     private final FacetFilter hasNewDamageComponent;
@@ -32,7 +34,7 @@ public final class DamageRankingFilter {
                                PaladinSkillDamageVerificationStatus verificationStatus,
                                PaladinSkillTreeType type,
                                PaladinDamageRankingMetric metric) {
-        this(character, skillGroup, verificationStatus, type, metric, null,
+        this(character, skillGroup, verificationStatus, type, metric, null, null,
                 FacetFilter.ALL, FacetFilter.ALL, FacetFilter.ALL, FacetFilter.ALL,
                 FacetFilter.ALL, FacetFilter.ALL, FacetFilter.ALL,
                 "baseDamageTreeMax", SortDirection.DESC);
@@ -43,6 +45,7 @@ public final class DamageRankingFilter {
                                PaladinSkillDamageVerificationStatus verificationStatus,
                                PaladinSkillTreeType type,
                                PaladinDamageRankingMetric metric,
+                               SkillCategory sourceCategory,
                                SkillTag tag,
                                FacetFilter hasDirectUpgradeDamage,
                                FacetFilter hasNewDamageComponent,
@@ -60,6 +63,7 @@ public final class DamageRankingFilter {
         this.metric = isVisibleRankingMetric(metric)
                 ? metric
                 : PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX;
+        this.sourceCategory = sourceCategory;
         this.tag = tag;
         this.hasDirectUpgradeDamage = hasDirectUpgradeDamage == null ? FacetFilter.ALL : hasDirectUpgradeDamage;
         this.hasNewDamageComponent = hasNewDamageComponent == null ? FacetFilter.ALL : hasNewDamageComponent;
@@ -88,6 +92,7 @@ public final class DamageRankingFilter {
                 queryFields.get("metric")
         );
         SkillTag tag = parseEnum(SkillTag.class, queryFields.get("tag"));
+        SkillCategory sourceCategory = parseEnum(SkillCategory.class, queryFields.get("sourceCategory"));
         String sort = normalizeOptionalValue(queryFields.get("sort"));
         SortDirection direction = parseEnum(SortDirection.class, queryFields.get("direction"));
         return new DamageRankingFilter(
@@ -96,6 +101,7 @@ public final class DamageRankingFilter {
                 status,
                 type,
                 metric,
+                sourceCategory,
                 tag,
                 parseFacet(queryFields.get("hasDirectUpgradeDamage")),
                 parseFacet(queryFields.get("hasNewDamageComponent")),
@@ -131,6 +137,10 @@ public final class DamageRankingFilter {
 
     public SkillTag getTag() {
         return tag;
+    }
+
+    public SkillCategory getSourceCategory() {
+        return sourceCategory;
     }
 
     public FacetFilter getHasDirectUpgradeDamage() {
@@ -185,6 +195,10 @@ public final class DamageRankingFilter {
         return tag != null;
     }
 
+    public boolean hasSourceCategory() {
+        return sourceCategory != null;
+    }
+
     public boolean isFacetEnabled() {
         return hasDirectUpgradeDamage != FacetFilter.ALL
                 || hasNewDamageComponent != FacetFilter.ALL
@@ -226,7 +240,7 @@ public final class DamageRankingFilter {
         }
         return switch (normalized) {
             case "skillName",
-                    "skillCategory",
+                    "sourceCategories",
                     "skillGroup",
                     "type",
                     "baseDamageRank1",

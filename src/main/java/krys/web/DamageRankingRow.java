@@ -22,7 +22,7 @@ public final class DamageRankingRow {
 
     private final PaladinSkillDamageRankingEntry entry;
     private final PaladinSkillTreeType type;
-    private final SkillCategory skillCategory;
+    private final Set<SkillCategory> skillCategories;
     private final String damageComponentsDescription;
     private final DamagePercentComponentRankTable componentDamagePercentRanks;
     private final List<UpgradeDamageImpact> upgradeDamageImpacts;
@@ -32,7 +32,7 @@ public final class DamageRankingRow {
     public DamageRankingRow(PaladinSkillDamageRankingEntry entry, PaladinTreeSkill treeSkill) {
         this.entry = entry;
         this.type = treeSkill.getType();
-        this.skillCategory = treeSkill.getSkillCategory();
+        this.skillCategories = treeSkill.getSkillCategories();
         this.damageComponentsDescription = describeDamageComponents(treeSkill);
         this.componentDamagePercentRanks = treeSkill.getComponentDamagePercentRanks();
         this.upgradeDamageImpacts = List.copyOf(treeSkill.getUpgradeDamageImpacts());
@@ -48,12 +48,31 @@ public final class DamageRankingRow {
         return type;
     }
 
-    public SkillCategory getSkillCategory() {
-        return skillCategory;
+    public Set<SkillCategory> getSkillCategories() {
+        return skillCategories;
     }
 
-    public String getSkillCategoryDisplayName() {
-        return skillCategory.getDisplayName();
+    public String getSkillCategoriesDisplay() {
+        return skillCategories.stream()
+                .sorted()
+                .map(SkillCategory::getDisplayName)
+                .collect(java.util.stream.Collectors.joining(", "));
+    }
+
+    public boolean hasSkillCategory(SkillCategory category) {
+        return skillCategories.contains(category);
+    }
+
+    public String getTreeGroupDisplayName() {
+        return switch (entry.getSkillGroup()) {
+            case "basic" -> "Podstawowe / Basic";
+            case "core" -> "Główne / Core";
+            case "aura" -> "Aura";
+            case "odwaga" -> "Odwaga";
+            case "sprawiedliwosc" -> "Sprawiedliwość";
+            case "moce_specjalne" -> "Moce Specjalne";
+            default -> entry.getSkillGroup();
+        };
     }
 
     public String getDamageComponentsDescription() {
