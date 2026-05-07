@@ -1,0 +1,2657 @@
+{
+  "zip": "diablo4.wiki.fextralife.com.zip",
+  "sha256": "7025e253dee065ea107f6fbc459fa9e5eb233877743be3f61473716313c374db",
+  "skills": [
+    {
+      "skillId": "wymach",
+      "plName": "Wymach",
+      "enName": "Brandish",
+      "group": "Basic",
+      "htmlPath": "diablo4.wiki.fextralife.com/Brandish.html",
+      "title": "Brandish | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Damage: [75%]",
+          "bracketPercents": [
+            75
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "Damage: [83%]",
+          "bracketPercents": [
+            83
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "Damage: [90%]",
+          "bracketPercents": [
+            90
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "Damage: [97%]",
+          "bracketPercents": [
+            97
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "Damage: [109%]",
+          "bracketPercents": [
+            109
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "Damage: [116%]",
+          "bracketPercents": [
+            116
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "Damage: [124%]",
+          "bracketPercents": [
+            124
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "Damage: [131%]",
+          "bracketPercents": [
+            131
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "Damage: [139%]",
+          "bracketPercents": [
+            139
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "Damage: [150%]",
+          "bracketPercents": [
+            150
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "Damage: [157%]",
+          "bracketPercents": [
+            157
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "Damage: [165%]",
+          "bracketPercents": [
+            165
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "Damage: [172%]",
+          "bracketPercents": [
+            172
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "Damage: [180%]",
+          "bracketPercents": [
+            180
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "Damage: [191%]",
+          "bracketPercents": [
+            191
+          ]
+        }
+      ]
+    },
+    {
+      "skillId": "swiety_pocisk",
+      "plName": "Święty Pocisk",
+      "enName": "Holy Bolt",
+      "group": "Basic",
+      "htmlPath": "diablo4.wiki.fextralife.com/Holy Bolt.html",
+      "title": "Holy Bolt | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Damage: [90%]",
+          "bracketPercents": [
+            90
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "Damage: [99%]",
+          "bracketPercents": [
+            99
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "Damage: [108%]",
+          "bracketPercents": [
+            108
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "Damage: [117%]",
+          "bracketPercents": [
+            117
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "Damage: [131%]",
+          "bracketPercents": [
+            131
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "Damage: [139%]",
+          "bracketPercents": [
+            139
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "Damage: [148%]",
+          "bracketPercents": [
+            148
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "Damage: [157%]",
+          "bracketPercents": [
+            157
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "Damage: [166%]",
+          "bracketPercents": [
+            166
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "Damage: [180%]",
+          "bracketPercents": [
+            180
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "Damage: [189%]",
+          "bracketPercents": [
+            189
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "Damage: [198%]",
+          "bracketPercents": [
+            198
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "Damage: [207%]",
+          "bracketPercents": [
+            207
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "Damage: [216%]",
+          "bracketPercents": [
+            216
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "Damage: [229%]",
+          "bracketPercents": [
+            229
+          ]
+        }
+      ]
+    },
+    {
+      "skillId": "starcie",
+      "plName": "Starcie",
+      "enName": "Clash",
+      "group": "Basic",
+      "htmlPath": "diablo4.wiki.fextralife.com/Clash.html",
+      "title": "Clash | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Damage: [115%]",
+          "bracketPercents": [
+            115
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "Damage: [126%]",
+          "bracketPercents": [
+            126
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "Damage: [138%]",
+          "bracketPercents": [
+            138
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "Damage: [149%]",
+          "bracketPercents": [
+            149
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "Damage: [167%]",
+          "bracketPercents": [
+            167
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "Damage: [178%]",
+          "bracketPercents": [
+            178
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "Damage: [190%]",
+          "bracketPercents": [
+            190
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "Damage: [201%]",
+          "bracketPercents": [
+            201
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "Damage: [213%]",
+          "bracketPercents": [
+            213
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "Damage: [230%]",
+          "bracketPercents": [
+            230
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "Damage: [241%]",
+          "bracketPercents": [
+            241
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "Damage: [253%]",
+          "bracketPercents": [
+            253
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "Damage: [264%]",
+          "bracketPercents": [
+            264
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "Damage: [276%]",
+          "bracketPercents": [
+            276
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "Damage: [293%]",
+          "bracketPercents": [
+            293
+          ]
+        }
+      ]
+    },
+    {
+      "skillId": "natarcie",
+      "plName": "Natarcie",
+      "enName": "Advance",
+      "group": "Basic",
+      "htmlPath": "diablo4.wiki.fextralife.com/Advance.html",
+      "title": "Advance | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Damage: [105%]",
+          "bracketPercents": [
+            105
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "Damage: [115%]",
+          "bracketPercents": [
+            115
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "Damage: [126%]",
+          "bracketPercents": [
+            126
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "Damage: [136%]",
+          "bracketPercents": [
+            136
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "Damage: [152%]",
+          "bracketPercents": [
+            152
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "Damage: [163%]",
+          "bracketPercents": [
+            163
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "Damage: [173%]",
+          "bracketPercents": [
+            173
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "Damage: [184%]",
+          "bracketPercents": [
+            184
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "Damage: [194%]",
+          "bracketPercents": [
+            194
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "Damage: [210%]",
+          "bracketPercents": [
+            210
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "Damage: [220%]",
+          "bracketPercents": [
+            220
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "Damage: [231%]",
+          "bracketPercents": [
+            231
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "Damage: [241%]",
+          "bracketPercents": [
+            241
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "Damage: [252%]",
+          "bracketPercents": [
+            252
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "Damage: [268%]",
+          "bracketPercents": [
+            268
+          ]
+        }
+      ]
+    },
+    {
+      "skillId": "blogoslawiona_tarcza",
+      "plName": "Błogosławiona Tarcza",
+      "enName": "Blessed Shield",
+      "group": "Core",
+      "htmlPath": "diablo4.wiki.fextralife.com/Blessed Shield.html",
+      "title": "Blessed Shield | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Damage: [205%]",
+          "bracketPercents": [
+            205
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "Damage: [226%]",
+          "bracketPercents": [
+            226
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "Damage: [246%]",
+          "bracketPercents": [
+            246
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "Damage: [266%]",
+          "bracketPercents": [
+            266
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "Damage: [297%]",
+          "bracketPercents": [
+            297
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "Damage: [318%]",
+          "bracketPercents": [
+            318
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "Damage: [338%]",
+          "bracketPercents": [
+            338
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "Damage: [359%]",
+          "bracketPercents": [
+            359
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "Damage: [379%]",
+          "bracketPercents": [
+            379
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "Damage: [410%]",
+          "bracketPercents": [
+            410
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "Damage: [430%]",
+          "bracketPercents": [
+            430
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "Damage: [451%]",
+          "bracketPercents": [
+            451
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "Damage: [471%]",
+          "bracketPercents": [
+            471
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "Damage: [492%]",
+          "bracketPercents": [
+            492
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "Damage: [523%]",
+          "bracketPercents": [
+            523
+          ]
+        }
+      ]
+    },
+    {
+      "skillId": "blogoslawiony_mlot",
+      "plName": "Błogosławiony Młot",
+      "enName": "Blessed Hammer",
+      "group": "Core",
+      "htmlPath": "diablo4.wiki.fextralife.com/Blessed Hammer.html",
+      "title": "Blessed Hammer | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Damage: [115%]",
+          "bracketPercents": [
+            115
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "Damage: [126%]",
+          "bracketPercents": [
+            126
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "Damage: [138%]",
+          "bracketPercents": [
+            138
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "Damage: [149%]",
+          "bracketPercents": [
+            149
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "Damage: [167%]",
+          "bracketPercents": [
+            167
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "Damage: [178%]",
+          "bracketPercents": [
+            178
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "Damage: [190%]",
+          "bracketPercents": [
+            190
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "Damage: [201%]",
+          "bracketPercents": [
+            201
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "Damage: [213%]",
+          "bracketPercents": [
+            213
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "Damage: [230%]",
+          "bracketPercents": [
+            230
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "Damage: [241%]",
+          "bracketPercents": [
+            241
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "Damage: [253%]",
+          "bracketPercents": [
+            253
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "Damage: [264%]",
+          "bracketPercents": [
+            264
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "Damage: [276%]",
+          "bracketPercents": [
+            276
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "Damage: [293%]",
+          "bracketPercents": [
+            293
+          ]
+        }
+      ]
+    },
+    {
+      "skillId": "boska_lanca",
+      "plName": "Boska Lanca",
+      "enName": "Divine Lance",
+      "group": "Core",
+      "htmlPath": "diablo4.wiki.fextralife.com/Divine Lance.html",
+      "title": "Divine Lance | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Damage: [90%]",
+          "bracketPercents": [
+            90
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "Damage: [99%]",
+          "bracketPercents": [
+            99
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "Damage: [108%]",
+          "bracketPercents": [
+            108
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "Damage: [117%]",
+          "bracketPercents": [
+            117
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "Damage: [131%]",
+          "bracketPercents": [
+            131
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "Damage: [139%]",
+          "bracketPercents": [
+            139
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "Damage: [148%]",
+          "bracketPercents": [
+            148
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "Damage: [157%]",
+          "bracketPercents": [
+            157
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "Damage: [166%]",
+          "bracketPercents": [
+            166
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "Damage: [180%]",
+          "bracketPercents": [
+            180
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "Damage: [189%]",
+          "bracketPercents": [
+            189
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "Damage: [198%]",
+          "bracketPercents": [
+            198
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "Damage: [207%]",
+          "bracketPercents": [
+            207
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "Damage: [216%]",
+          "bracketPercents": [
+            216
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "Damage: [229%]",
+          "bracketPercents": [
+            229
+          ]
+        }
+      ]
+    },
+    {
+      "skillId": "uderzenie_tarcza",
+      "plName": "Uderzenie Tarczą",
+      "enName": "Shield Bash",
+      "group": "Core",
+      "htmlPath": "diablo4.wiki.fextralife.com/Shield Bash.html",
+      "title": "Shield Bash | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Damage: [205%]",
+          "bracketPercents": [
+            205
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "Damage: [226%]",
+          "bracketPercents": [
+            226
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "Damage: [246%]",
+          "bracketPercents": [
+            246
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "Damage: [266%]",
+          "bracketPercents": [
+            266
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "Damage: [297%]",
+          "bracketPercents": [
+            297
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "Damage: [318%]",
+          "bracketPercents": [
+            318
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "Damage: [338%]",
+          "bracketPercents": [
+            338
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "Damage: [359%]",
+          "bracketPercents": [
+            359
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "Damage: [379%]",
+          "bracketPercents": [
+            379
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "Damage: [410%]",
+          "bracketPercents": [
+            410
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "Damage: [430%]",
+          "bracketPercents": [
+            430
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "Damage: [451%]",
+          "bracketPercents": [
+            451
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "Damage: [471%]",
+          "bracketPercents": [
+            471
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "Damage: [492%]",
+          "bracketPercents": [
+            492
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "Damage: [523%]",
+          "bracketPercents": [
+            523
+          ]
+        }
+      ]
+    },
+    {
+      "skillId": "zapal",
+      "plName": "Zapał",
+      "enName": "Zeal",
+      "group": "Core",
+      "htmlPath": "diablo4.wiki.fextralife.com/Zeal.html",
+      "title": "Zeal | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Damage: [80%] Additional Strikes Damage: [20%]",
+          "bracketPercents": [
+            80,
+            20
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "Damage: [88%] Additional Strikes Damage: [22%]",
+          "bracketPercents": [
+            88,
+            22
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "Damage: [96%] Additional Strikes Damage: [24%]",
+          "bracketPercents": [
+            96,
+            24
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "Damage: [104%] Additional Strikes Damage: [26%]",
+          "bracketPercents": [
+            104,
+            26
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "Damage: [116%] Additional Strikes Damage: [29%]",
+          "bracketPercents": [
+            116,
+            29
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "Damage: [124%] Additional Strikes Damage: [31%]",
+          "bracketPercents": [
+            124,
+            31
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "Damage: [132%] Additional Strikes Damage: [33%]",
+          "bracketPercents": [
+            132,
+            33
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "Damage: [140%] Additional Strikes Damage: [35%]",
+          "bracketPercents": [
+            140,
+            35
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "Damage: [148%] Additional Strikes Damage: [37%]",
+          "bracketPercents": [
+            148,
+            37
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "Damage: [160%] Additional Strikes Damage: [40%]",
+          "bracketPercents": [
+            160,
+            40
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "Damage: [168%] Additional Strikes Damage: [42%]",
+          "bracketPercents": [
+            168,
+            42
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "Damage: [176%] Additional Strikes Damage: [44%]",
+          "bracketPercents": [
+            176,
+            44
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "Damage: [184%] Additional Strikes Damage: [46%]",
+          "bracketPercents": [
+            184,
+            46
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "Damage: [192%] Additional Strikes Damage: [48%]",
+          "bracketPercents": [
+            192,
+            48
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "Damage: [204%] Additional Strikes Damage: [51%]",
+          "bracketPercents": [
+            204,
+            51
+          ]
+        }
+      ]
+    },
+    {
+      "skillId": "aura_fanatyzmu",
+      "plName": "Aura Fanatyzmu",
+      "enName": "Fanaticism Aura",
+      "group": "Aury",
+      "htmlPath": "diablo4.wiki.fextralife.com/Fanaticism Aura.html",
+      "title": "Fanaticism Aura | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Attack Speed: 5.0% Critical Strike Chance: 2.0%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 2,
+          "upgrade": "Attack Speed: 5.2% Critical Strike Chance: 2.1%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 3,
+          "upgrade": "Attack Speed: 5.4% Critical Strike Chance: 2.2%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 4,
+          "upgrade": "Attack Speed: 5.6% Critical Strike Chance: 2.2%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 5,
+          "upgrade": "Attack Speed: 5.8% Critical Strike Chance: 2.3%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 6,
+          "upgrade": "Attack Speed: 6.0% Critical Strike Chance: 2.4%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 7,
+          "upgrade": "Attack Speed: 6.1% Critical Strike Chance: 2.4%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 8,
+          "upgrade": "Attack Speed: 6.3% Critical Strike Chance: 2.5%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 9,
+          "upgrade": "Attack Speed: 6.4% Critical Strike Chance: 2.6%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 10,
+          "upgrade": "Attack Speed: 6.5% Critical Strike Chance: 2.6%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 11,
+          "upgrade": "Attack Speed: 6.6% Critical Strike Chance: 2.6%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 12,
+          "upgrade": "Attack Speed: 6.7% Critical Strike Chance: 2.7%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 13,
+          "upgrade": "Attack Speed: 6.8% Critical Strike Chance: 2.7%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 14,
+          "upgrade": "Attack Speed: 6.9% Critical Strike Chance: 2.8%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 15,
+          "upgrade": "Attack Speed: 7.0% Critical Strike Chance: 2.8%",
+          "bracketPercents": []
+        }
+      ]
+    },
+    {
+      "skillId": "aura_smialosci",
+      "plName": "Aura Śmiałości",
+      "enName": "Defiance Aura",
+      "group": "Aury",
+      "htmlPath": "diablo4.wiki.fextralife.com/Defiance Aura.html",
+      "title": "Defiance Aura | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Armor: 30% All Resistances: 30%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 2,
+          "upgrade": "Armor: 31% All Resistances: 31%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 3,
+          "upgrade": "Armor: 32% All Resistances: 32%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 4,
+          "upgrade": "Armor: 34% All Resistances: 34%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 5,
+          "upgrade": "Armor: 35% All Resistances: 35%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 6,
+          "upgrade": "Armor: 36% All Resistances: 36%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 7,
+          "upgrade": "Armor: 37% All Resistances: 37%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 8,
+          "upgrade": "Armor: 38% All Resistances: 38%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 9,
+          "upgrade": "Armor: 38% All Resistances: 38%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 10,
+          "upgrade": "Armor: 39% All Resistances: 39%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 11,
+          "upgrade": "Armor: 40% All Resistances: 40%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 12,
+          "upgrade": "Armor: 40% All Resistances: 40%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 13,
+          "upgrade": "Armor: 41% All Resistances: 41%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 14,
+          "upgrade": "Armor: 41% All Resistances: 41%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 15,
+          "upgrade": "Armor: 42% All Resistances: 42%",
+          "bracketPercents": []
+        }
+      ]
+    },
+    {
+      "skillId": "aura_swietej_swiatlosci",
+      "plName": "Aura Świętej Światłości",
+      "enName": "Holy Light Aura",
+      "group": "Aury",
+      "htmlPath": "diablo4.wiki.fextralife.com/Holy Light Aura.html",
+      "title": "Holy Light Aura | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Passive Damage: [45%] Active Damage: [320%]",
+          "bracketPercents": [
+            45,
+            320
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "Passive Damage: [50%] Active Damage: [352%]",
+          "bracketPercents": [
+            50,
+            352
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "Passive Damage: [54%] Active Damage: [384%]",
+          "bracketPercents": [
+            54,
+            384
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "Passive Damage: [58%] Active Damage: [416%]",
+          "bracketPercents": [
+            58,
+            416
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "Passive Damage: [65%] Active Damage: [464%]",
+          "bracketPercents": [
+            65,
+            464
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "Passive Damage: [70%] Active Damage: [496%]",
+          "bracketPercents": [
+            70,
+            496
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "Passive Damage: [74%] Active Damage: [528%]",
+          "bracketPercents": [
+            74,
+            528
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "Passive Damage: [79%] Active Damage: [560%]",
+          "bracketPercents": [
+            79,
+            560
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "Passive Damage: [83%] Active Damage: [592%]",
+          "bracketPercents": [
+            83,
+            592
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "Passive Damage: [90%] Active Damage: [640%]",
+          "bracketPercents": [
+            90,
+            640
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "Passive Damage: [94%] Active Damage: [672%]",
+          "bracketPercents": [
+            94,
+            672
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "Passive Damage: [99%] Active Damage: [704%]",
+          "bracketPercents": [
+            99,
+            704
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "Passive Damage: [103%] Active Damage: [736%]",
+          "bracketPercents": [
+            103,
+            736
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "Passive Damage: [108%] Active Damage: [768%]",
+          "bracketPercents": [
+            108,
+            768
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "Passive Damage: [115%] Active Damage: [816%]",
+          "bracketPercents": [
+            115,
+            816
+          ]
+        }
+      ]
+    },
+    {
+      "skillId": "szarza_z_tarcza",
+      "plName": "Szarża z Tarczą",
+      "enName": "Shield Charge",
+      "group": "Odwaga",
+      "htmlPath": "diablo4.wiki.fextralife.com/Shield Charge.html",
+      "title": "Shield Charge | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Damage: [90%] Armor Gained: 40%",
+          "bracketPercents": [
+            90
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "Damage: [99%] Armor Gained: 42%",
+          "bracketPercents": [
+            99
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "Damage: [108%] Armor Gained: 43%",
+          "bracketPercents": [
+            108
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "Damage: [117%] Armor Gained: 45%",
+          "bracketPercents": [
+            117
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "Damage: [131%] Armor Gained: 46%",
+          "bracketPercents": [
+            131
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "Damage: [139%] Armor Gained: 48%",
+          "bracketPercents": [
+            139
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "Damage: [148%] Armor Gained: 49%",
+          "bracketPercents": [
+            148
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "Damage: [157%] Armor Gained: 50%",
+          "bracketPercents": [
+            157
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "Damage: [166%] Armor Gained: 51%",
+          "bracketPercents": [
+            166
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "Damage: [180%] Armor Gained: 52%",
+          "bracketPercents": [
+            180
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "Damage: [189%] Armor Gained: 53%",
+          "bracketPercents": [
+            189
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "Damage: [198%] Armor Gained: 54%",
+          "bracketPercents": [
+            198
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "Damage: [207%] Armor Gained: 54%",
+          "bracketPercents": [
+            207
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "Damage: [216%] Armor Gained: 55%",
+          "bracketPercents": [
+            216
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "Damage: [229%] Armor Gained: 56%",
+          "bracketPercents": [
+            229
+          ]
+        }
+      ]
+    },
+    {
+      "skillId": "egida",
+      "plName": "Egida",
+      "enName": "Aegis",
+      "group": "Odwaga",
+      "htmlPath": "diablo4.wiki.fextralife.com/Aegis.html",
+      "title": "Aegis | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Block Chance: 30%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 2,
+          "upgrade": "Block Chance: 31%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 3,
+          "upgrade": "Block Chance: 32%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 4,
+          "upgrade": "Block Chance: 34%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 5,
+          "upgrade": "Block Chance: 35%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 6,
+          "upgrade": "Block Chance: 36%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 7,
+          "upgrade": "Block Chance: 37%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 8,
+          "upgrade": "Block Chance: 38%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 9,
+          "upgrade": "Block Chance: 38%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 10,
+          "upgrade": "Block Chance: 39%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 11,
+          "upgrade": "Block Chance: 40%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 12,
+          "upgrade": "Block Chance: 40%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 13,
+          "upgrade": "Block Chance: 41%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 14,
+          "upgrade": "Block Chance: 41%",
+          "bracketPercents": []
+        },
+        {
+          "rank": 15,
+          "upgrade": "Block Chance: 42%",
+          "bracketPercents": []
+        }
+      ]
+    },
+    {
+      "skillId": "spadajaca_gwiazda",
+      "plName": "Spadająca Gwiazda",
+      "enName": "Falling Star",
+      "group": "Odwaga",
+      "htmlPath": "diablo4.wiki.fextralife.com/Falling Star.html",
+      "title": "Falling Star | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Landing Damage: [80%] Jump Damage: [240%]",
+          "bracketPercents": [
+            80,
+            240
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "Landing Damage: [264%]",
+          "bracketPercents": [
+            264
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "Jump Damage: [96%] Landing Damage: [288%]",
+          "bracketPercents": [
+            96,
+            288
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "Landing Damage: [312%]",
+          "bracketPercents": [
+            312
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "Jump Damage: [116%] Landing Damage: [348%]",
+          "bracketPercents": [
+            116,
+            348
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "Jump Damage: [124%] Landing Damage: [372%]",
+          "bracketPercents": [
+            124,
+            372
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "Jump Damage: [132%] Landing Damage: [396%]",
+          "bracketPercents": [
+            132,
+            396
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "Landing Damage: [420%]",
+          "bracketPercents": [
+            420
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "Jump Damage: [148%] Landing Damage: [444%]",
+          "bracketPercents": [
+            148,
+            444
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "Jump Damage: [160%] Landing Damage: [480%]",
+          "bracketPercents": [
+            160,
+            480
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "Jump Damage: [168%] Landing Damage: [504%]",
+          "bracketPercents": [
+            168,
+            504
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "Jump Damage: [176%] Landing Damage: [528%]",
+          "bracketPercents": [
+            176,
+            528
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "Landing Damage: [552%]",
+          "bracketPercents": [
+            552
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "Jump Damage: [192%] Landing Damage: [576%]",
+          "bracketPercents": [
+            192,
+            576
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "Jump Damage: [204%] Landing Damage: [612%]",
+          "bracketPercents": [
+            204,
+            612
+          ]
+        }
+      ]
+    },
+    {
+      "skillId": "mobilizacja",
+      "plName": "Mobilizacja",
+      "enName": "Rally",
+      "group": "Odwaga",
+      "htmlPath": "diablo4.wiki.fextralife.com/Rally.html",
+      "title": "Rally | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Faith Amount: 16",
+          "bracketPercents": []
+        },
+        {
+          "rank": 2,
+          "upgrade": "Faith Amount: 17",
+          "bracketPercents": []
+        },
+        {
+          "rank": 3,
+          "upgrade": "Faith Amount: 18",
+          "bracketPercents": []
+        },
+        {
+          "rank": 4,
+          "upgrade": "Faith Amount: 19",
+          "bracketPercents": []
+        },
+        {
+          "rank": 5,
+          "upgrade": "Faith Amount: 20",
+          "bracketPercents": []
+        },
+        {
+          "rank": 6,
+          "upgrade": "Faith Amount: 21",
+          "bracketPercents": []
+        },
+        {
+          "rank": 7,
+          "upgrade": "Faith Amount: 22",
+          "bracketPercents": []
+        },
+        {
+          "rank": 8,
+          "upgrade": "Faith Amount: 23",
+          "bracketPercents": []
+        },
+        {
+          "rank": 9,
+          "upgrade": "Faith Amount: 24",
+          "bracketPercents": []
+        },
+        {
+          "rank": 10,
+          "upgrade": "Faith Amount: 25",
+          "bracketPercents": []
+        },
+        {
+          "rank": 11,
+          "upgrade": "Faith Amount: 26",
+          "bracketPercents": []
+        },
+        {
+          "rank": 12,
+          "upgrade": "Faith Amount: 27",
+          "bracketPercents": []
+        },
+        {
+          "rank": 13,
+          "upgrade": "Faith Amount: 28",
+          "bracketPercents": []
+        },
+        {
+          "rank": 14,
+          "upgrade": "Faith Amount: 29",
+          "bracketPercents": []
+        },
+        {
+          "rank": 15,
+          "upgrade": "Faith Amount: 30",
+          "bracketPercents": []
+        }
+      ]
+    },
+    {
+      "skillId": "skazanie",
+      "plName": "Skazanie",
+      "enName": "Condemn",
+      "group": "Sprawiedliwość",
+      "htmlPath": "diablo4.wiki.fextralife.com/Condemn.html",
+      "title": "Condemn | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Damage: [240%]",
+          "bracketPercents": [
+            240
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "Damage: [264%]",
+          "bracketPercents": [
+            264
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "Damage: [288%]",
+          "bracketPercents": [
+            288
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "Damage: [312%]",
+          "bracketPercents": [
+            312
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "Damage: [348%]",
+          "bracketPercents": [
+            348
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "Damage: [372%]",
+          "bracketPercents": [
+            372
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "Damage: [396%]",
+          "bracketPercents": [
+            396
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "Damage: [420%]",
+          "bracketPercents": [
+            420
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "Damage: [444%]",
+          "bracketPercents": [
+            444
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "Damage: [480%]",
+          "bracketPercents": [
+            480
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "Damage: [504%]",
+          "bracketPercents": [
+            504
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "Damage: [528%]",
+          "bracketPercents": [
+            528
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "Damage: [552%]",
+          "bracketPercents": [
+            552
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "Damage: [576%]",
+          "bracketPercents": [
+            576
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "Damage: [612%]",
+          "bracketPercents": [
+            612
+          ]
+        }
+      ]
+    },
+    {
+      "skillId": "wlocznia_niebios",
+      "plName": "Włócznia Niebios",
+      "enName": "Spear of the Heavens",
+      "group": "Sprawiedliwość",
+      "htmlPath": "diablo4.wiki.fextralife.com/Spear of the Heavens.html",
+      "title": "Spear of the Heavens | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Damage: [160%] Burst Damage: [120%]",
+          "bracketPercents": [
+            160,
+            120
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "Damage: [176%] Burst Damage: [132%]",
+          "bracketPercents": [
+            176,
+            132
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "Damage: [192%] Burst Damage: [144%]",
+          "bracketPercents": [
+            192,
+            144
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "Damage: [208%] Burst Damage: [156%]",
+          "bracketPercents": [
+            208,
+            156
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "Damage: [232%] Burst Damage: [174%]",
+          "bracketPercents": [
+            232,
+            174
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "Damage: [248%] Burst Damage: [186%]",
+          "bracketPercents": [
+            248,
+            186
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "Damage: [264%] Burst Damage: [198%]",
+          "bracketPercents": [
+            264,
+            198
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "Damage: [280%] Burst Damage: [210%]",
+          "bracketPercents": [
+            280,
+            210
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "Damage: [296%] Burst Damage: [222%]",
+          "bracketPercents": [
+            296,
+            222
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "Damage: [320%] Burst Damage: [240%]",
+          "bracketPercents": [
+            320,
+            240
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "Damage: [336%] Burst Damage: [252%]",
+          "bracketPercents": [
+            336,
+            252
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "Damage: [352%] Burst Damage: [264%]",
+          "bracketPercents": [
+            352,
+            264
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "Damage: [368%] Burst Damage: [276%]",
+          "bracketPercents": [
+            368,
+            276
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "Damage: [384%] Burst Damage: [288%]",
+          "bracketPercents": [
+            384,
+            288
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "Damage: [408%] Burst Damage: [306%]",
+          "bracketPercents": [
+            408,
+            306
+          ]
+        }
+      ]
+    },
+    {
+      "skillId": "konsekracja",
+      "plName": "Konsekracja",
+      "enName": "Consecration",
+      "group": "Sprawiedliwość",
+      "htmlPath": "diablo4.wiki.fextralife.com/Consecration.html",
+      "title": "Consecration | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Damage: [75%] Healing Amount: 4.0%",
+          "bracketPercents": [
+            75
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "Damage: [83%] Healing Amount: 4.2%",
+          "bracketPercents": [
+            83
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "Damage: [90%] Healing Amount: 4.3%",
+          "bracketPercents": [
+            90
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "Damage: [97%] Healing Amount: 4.5%",
+          "bracketPercents": [
+            97
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "Damage: [109%] Healing Amount: 4.6%",
+          "bracketPercents": [
+            109
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "Damage: [116%] Healing Amount: 4.8%",
+          "bracketPercents": [
+            116
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "Damage: [124%] Healing Amount: 4.9%",
+          "bracketPercents": [
+            124
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "Damage: [131%] Healing Amount: 5.0%",
+          "bracketPercents": [
+            131
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "Damage: [139%] Healing Amount: 5.1%",
+          "bracketPercents": [
+            139
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "Damage: [150%] Healing Amount: 5.2%",
+          "bracketPercents": [
+            150
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "Damage: [157%] Healing Amount: 5.3%",
+          "bracketPercents": [
+            157
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "Damage: [165%] Healing Amount: 5.4%",
+          "bracketPercents": [
+            165
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "Damage: [172%] Healing Amount: 5.4%",
+          "bracketPercents": [
+            172
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "Damage: [180%] Healing Amount: 5.5%",
+          "bracketPercents": [
+            180
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "Damage: [191%] Healing Amount: 5.6%",
+          "bracketPercents": [
+            191
+          ]
+        }
+      ]
+    },
+    {
+      "skillId": "oczyszczenie",
+      "plName": "Oczyszczenie",
+      "enName": "Purify",
+      "group": "Sprawiedliwość",
+      "htmlPath": "diablo4.wiki.fextralife.com/Purify.html",
+      "title": "Purify | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Duration: 2 seconds",
+          "bracketPercents": []
+        },
+        {
+          "rank": 2,
+          "upgrade": "Duration: 2.08",
+          "bracketPercents": []
+        },
+        {
+          "rank": 3,
+          "upgrade": "Duration: 2.17",
+          "bracketPercents": []
+        },
+        {
+          "rank": 4,
+          "upgrade": "Duration: 2.23",
+          "bracketPercents": []
+        },
+        {
+          "rank": 5,
+          "upgrade": "Duration: 2.32",
+          "bracketPercents": []
+        },
+        {
+          "rank": 6,
+          "upgrade": "Duration: 2.38",
+          "bracketPercents": []
+        },
+        {
+          "rank": 7,
+          "upgrade": "Duration: 2.43",
+          "bracketPercents": []
+        },
+        {
+          "rank": 8,
+          "upgrade": "Duration: 2.5",
+          "bracketPercents": []
+        },
+        {
+          "rank": 9,
+          "upgrade": "Duration: 2.57",
+          "bracketPercents": []
+        },
+        {
+          "rank": 10,
+          "upgrade": "Duration: 2.6",
+          "bracketPercents": []
+        },
+        {
+          "rank": 11,
+          "upgrade": "Duration: 2.63",
+          "bracketPercents": []
+        },
+        {
+          "rank": 12,
+          "upgrade": "Duration: 2.68",
+          "bracketPercents": []
+        },
+        {
+          "rank": 13,
+          "upgrade": "Duration: 2.72",
+          "bracketPercents": []
+        },
+        {
+          "rank": 14,
+          "upgrade": "Duration: 2.77",
+          "bracketPercents": []
+        },
+        {
+          "rank": 15,
+          "upgrade": "Duration: 2.8",
+          "bracketPercents": []
+        }
+      ]
+    },
+    {
+      "skillId": "furia_niebios",
+      "plName": "Furia Niebios",
+      "enName": "Heaven's Fury",
+      "group": "Moce Specjalne",
+      "htmlPath": "diablo4.wiki.fextralife.com/Heaven's Fury.html",
+      "title": "Heaven's Fury | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Damage: [200%]",
+          "bracketPercents": [
+            200
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "Damage: [66%]",
+          "bracketPercents": [
+            66
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "Damage: [72%]",
+          "bracketPercents": [
+            72
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "Damage: [78%]",
+          "bracketPercents": [
+            78
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "Damage: [87%]",
+          "bracketPercents": [
+            87
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "Damage: [93%]",
+          "bracketPercents": [
+            93
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "Damage: [99%]",
+          "bracketPercents": [
+            99
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "Damage: [105%]",
+          "bracketPercents": [
+            105
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "Damage: [111%]",
+          "bracketPercents": [
+            111
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "Damage: [120%]",
+          "bracketPercents": [
+            120
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "Damage: [126%]",
+          "bracketPercents": [
+            126
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "Damage: [132%]",
+          "bracketPercents": [
+            132
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "Damage: [138%]",
+          "bracketPercents": [
+            138
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "Damage: [144%]",
+          "bracketPercents": [
+            144
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "Damage: [153%]",
+          "bracketPercents": [
+            153
+          ]
+        }
+      ]
+    },
+    {
+      "skillId": "forteca",
+      "plName": "Forteca",
+      "enName": "Fortress",
+      "group": "Moce Specjalne",
+      "htmlPath": "diablo4.wiki.fextralife.com/Fortress.html",
+      "title": "Fortress | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Defensive Area Duration: 8.0 seconds",
+          "bracketPercents": []
+        },
+        {
+          "rank": 2,
+          "upgrade": "Defensive Area Duration: 8.1",
+          "bracketPercents": []
+        },
+        {
+          "rank": 3,
+          "upgrade": "Defensive Area Duration: 8.2",
+          "bracketPercents": []
+        },
+        {
+          "rank": 4,
+          "upgrade": "Defensive Area Duration: 8.3",
+          "bracketPercents": []
+        },
+        {
+          "rank": 5,
+          "upgrade": "Defensive Area Duration: 8.4",
+          "bracketPercents": []
+        },
+        {
+          "rank": 6,
+          "upgrade": "Defensive Area Duration: 8.5",
+          "bracketPercents": []
+        },
+        {
+          "rank": 7,
+          "upgrade": "Defensive Area Duration: 8.6",
+          "bracketPercents": []
+        },
+        {
+          "rank": 8,
+          "upgrade": "Defensive Area Duration: 8.6",
+          "bracketPercents": []
+        },
+        {
+          "rank": 9,
+          "upgrade": "Defensive Area Duration: 8.7",
+          "bracketPercents": []
+        },
+        {
+          "rank": 10,
+          "upgrade": "Defensive Area Duration: 8.8",
+          "bracketPercents": []
+        },
+        {
+          "rank": 11,
+          "upgrade": "Defensive Area Duration: 8.8",
+          "bracketPercents": []
+        },
+        {
+          "rank": 12,
+          "upgrade": "Defensive Area Duration: 8.9",
+          "bracketPercents": []
+        },
+        {
+          "rank": 13,
+          "upgrade": "Defensive Area Duration: 8.9",
+          "bracketPercents": []
+        },
+        {
+          "rank": 14,
+          "upgrade": "Defensive Area Duration: 8.9",
+          "bracketPercents": []
+        },
+        {
+          "rank": 15,
+          "upgrade": "Defensive Area Duration: 9.0",
+          "bracketPercents": []
+        }
+      ]
+    },
+    {
+      "skillId": "zenit",
+      "plName": "Zenit",
+      "enName": "Zenith",
+      "group": "Moce Specjalne",
+      "htmlPath": "diablo4.wiki.fextralife.com/Zenith.html",
+      "title": "Zenith | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "First Strike Damage: [450%] Second Strike Damage: [400%]",
+          "bracketPercents": [
+            450,
+            400
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "First Strike Damage: [495%] Second Strike Damage: [440%]",
+          "bracketPercents": [
+            495,
+            440
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "First Strike Damage: [540%] Second Strike Damage: [480%]",
+          "bracketPercents": [
+            540,
+            480
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "First Strike Damage: [585%] Second Strike Damage: [520%]",
+          "bracketPercents": [
+            585,
+            520
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "First Strike Damage: [653%] Second Strike Damage: [580%]",
+          "bracketPercents": [
+            653,
+            580
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "First Strike Damage: [697%] Second Strike Damage: [620%]",
+          "bracketPercents": [
+            697,
+            620
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "First Strike Damage: [742%] Second Strike Damage: [660%]",
+          "bracketPercents": [
+            742,
+            660
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "First Strike Damage: [788%] Second Strike Damage: [700%]",
+          "bracketPercents": [
+            788,
+            700
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "First Strike Damage: [832%] Second Strike Damage: [740%]",
+          "bracketPercents": [
+            832,
+            740
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "First Strike Damage: [900%] Second Strike Damage: [800%]",
+          "bracketPercents": [
+            900,
+            800
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "First Strike Damage: [945%] Second Strike Damage: [840%]",
+          "bracketPercents": [
+            945,
+            840
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "First Strike Damage: [990%] Second Strike Damage: [880%]",
+          "bracketPercents": [
+            990,
+            880
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "First Strike Damage: [1,035%] Second Strike Damage: [920%]",
+          "bracketPercents": [
+            1035,
+            920
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "First Strike Damage: [1,080%] Second Strike Damage: [960%]",
+          "bracketPercents": [
+            1080,
+            960
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "First Strike Damage: [1,147%] Second Strike Damage: [1,020%]",
+          "bracketPercents": [
+            1147,
+            1020
+          ]
+        }
+      ]
+    },
+    {
+      "skillId": "arbiter_sprawiedliwosci",
+      "plName": "Arbiter Sprawiedliwości",
+      "enName": "Arbiter of Justice",
+      "group": "Moce Specjalne",
+      "htmlPath": "diablo4.wiki.fextralife.com/Arbiter of Justice.html",
+      "title": "Arbiter of Justice | Diablo 4 Wiki",
+      "rankTable": [
+        {
+          "rank": 1,
+          "upgrade": "Damage: [600%] Arbiter Duration: 20.0 seconds",
+          "bracketPercents": [
+            600
+          ]
+        },
+        {
+          "rank": 2,
+          "upgrade": "Damage: [660%] Arbiter Duration: 20.8",
+          "bracketPercents": [
+            660
+          ]
+        },
+        {
+          "rank": 3,
+          "upgrade": "Damage: [720%] Arbiter Duration: 21.6",
+          "bracketPercents": [
+            720
+          ]
+        },
+        {
+          "rank": 4,
+          "upgrade": "Damage: [780%] Arbiter Duration: 22.4",
+          "bracketPercents": [
+            780
+          ]
+        },
+        {
+          "rank": 5,
+          "upgrade": "Damage: [870%] Arbiter Duration: 23.2",
+          "bracketPercents": [
+            870
+          ]
+        },
+        {
+          "rank": 6,
+          "upgrade": "Damage: [930%] Arbiter Duration: 23.8",
+          "bracketPercents": [
+            930
+          ]
+        },
+        {
+          "rank": 7,
+          "upgrade": "Damage: [990%] Arbiter Duration: 24.4",
+          "bracketPercents": [
+            990
+          ]
+        },
+        {
+          "rank": 8,
+          "upgrade": "Damage: [1,050%] Arbiter Duration: 25.0",
+          "bracketPercents": [
+            1050
+          ]
+        },
+        {
+          "rank": 9,
+          "upgrade": "Damage: [1,110%] Arbiter Duration: 25.6",
+          "bracketPercents": [
+            1110
+          ]
+        },
+        {
+          "rank": 10,
+          "upgrade": "Damage: [1,200%] Arbiter Duration: 26.0",
+          "bracketPercents": [
+            1200
+          ]
+        },
+        {
+          "rank": 11,
+          "upgrade": "Damage: [1,260%] Arbiter Duration: 26.4",
+          "bracketPercents": [
+            1260
+          ]
+        },
+        {
+          "rank": 12,
+          "upgrade": "Damage: [1,320%] Arbiter Duration: 26.8",
+          "bracketPercents": [
+            1320
+          ]
+        },
+        {
+          "rank": 13,
+          "upgrade": "Damage: [1,380%] Arbiter Duration: 27.2",
+          "bracketPercents": [
+            1380
+          ]
+        },
+        {
+          "rank": 14,
+          "upgrade": "Damage: [1,440%] Arbiter Duration: 27.6",
+          "bracketPercents": [
+            1440
+          ]
+        },
+        {
+          "rank": 15,
+          "upgrade": "Damage: [530%] Arbiter Duration: 28.0",
+          "bracketPercents": [
+            530
+          ]
+        }
+      ]
+    }
+  ]
+}
