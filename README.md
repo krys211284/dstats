@@ -81,7 +81,8 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - empty state sekcji `Wstępnie rozpoznane pola` w imporcie pojedynczego itemu,
 - pierwsze minimalne webowe GUI SSR dla trybu `Znajdź najlepszy build`,
 - pierwszy drill-down SSR z wyniku searcha do pełnej analizy reprezentanta znormalizowanego wyniku na tym samym runtime co manual simulation,
-- ogólny opisowy ekran SSR `/ranking-obrazen` z parametrem `character=paladin`, pokazujący wszystkie 24 wpisy z `PaladinSkillTreeRegistry`, ich status policzalności, źródłowy PDF i blokadę DPS dla niezweryfikowanych mechanik,
+- ogólny opisowy ekran SSR `/ranking-obrazen` z parametrem `character=paladin`, pokazujący wszystkie 24 wpisy z `PaladinSkillTreeRegistry`, ich status policzalności, źródła opisowe i blokadę DPS dla niezweryfikowanych mechanik,
+- edytowalne źródła Markdown Paladyna w `docs/paladin/source-md/` oraz pomocniczy ekstrakt JSON tabel rang z lokalnej paczki HTML Fextralife,
 - foundation audytu/preflightu searcha z liczbą legalnych kandydatów i rozmiarem search space,
 - minimalny progress CLI searcha dla etapu oceny kandydatów,
 - CLI dla manual simulation oraz osobne CLI backendowego searcha jako równoległe smoke testy tego samego runtime.
@@ -258,9 +259,13 @@ Reguły legalności stanu skilla:
 - skill może mieć maksymalnie jeden dodatkowy modyfikator.
 
 ### 4.3. Rejestr drzewa Paladyna
-Model drzewa Paladyna w nowych funkcjach jest oparty o PDF-y w `docs/paladin/source-pdfs/`. Rejestr `krys.paladin.PaladinSkillTreeRegistry` rozróżnia wpisy umiejętności w drzewie, grupy ulepszeń, pojedyncze ulepszenia, `sourcePdf`, `skillGroup`, typ skilla oraz status obsługi.
+Model drzewa Paladyna w nowych funkcjach korzysta z lokalnych materiałów źródłowych w `docs/paladin/`. Rejestr `krys.paladin.PaladinSkillTreeRegistry` rozróżnia wpisy umiejętności w drzewie, grupy ulepszeń, pojedyncze ulepszenia, `sourcePdf`, `skillGroup`, typ skilla oraz status obsługi.
 
-Aktualny rejestr drzewa Paladyna jest pełnym rejestrem opisowym wpisów umiejętności w drzewie ze wszystkich lokalnych PDF-ów źródłowych:
+`docs/paladin/source-md/` jest nowym edytowalnym źródłem opisowego drzewa Paladyna. Zawiera wersje Markdown rejestrów umiejętności oraz materiały pomocnicze, które można rozwijać bez edycji PDF-ów.
+
+`docs/paladin/source-pdfs/` jest nadal utrzymywane jako archiwum i źródło porównawcze dla wcześniejszych PDF-ów. PDF-y nie są już opisywane jako jedyne źródło prawdy, ale pozostają użyteczne do audytu pochodzenia danych i regresji SHA istniejących materiałów.
+
+Aktualny rejestr drzewa Paladyna pozostaje pełnym rejestrem opisowym wpisów umiejętności w drzewie ze wszystkich lokalnych materiałów przeniesionych z PDF-ów źródłowych:
 - `paladin_basic_skill_registry_final.pdf`,
 - `paladin_core_skill_registry_final.pdf`,
 - `paladin_aura_skill_registry_final.pdf`,
@@ -268,13 +273,27 @@ Aktualny rejestr drzewa Paladyna jest pełnym rejestrem opisowym wpisów umieję
 - `diablo4_paladyn_sprawiedliwosc_umiejetnosci.pdf`,
 - `moce_specjalne_diablo4.pdf`.
 
+Wymagane edytowalne materiały Markdown w `docs/paladin/source-md/`:
+- `paladin_basic_skill_registry_final.md`,
+- `paladin_core_skill_registry_final.md`,
+- `paladin_aura_skill_registry_final.md`,
+- `diablo4_paladyn_odwaga_umiejetnosci.md`,
+- `diablo4_paladyn_sprawiedliwosc_umiejetnosci.md`,
+- `moce_specjalne_diablo4.md`,
+- `paladin_fextralife_rank_tables.md`,
+- `paladin_fextralife_html_manifest.md`.
+
+`docs/paladin/source-md/paladin_fextralife_rank_tables.json` jest maszynowym ekstraktem tabel rang z lokalnej paczki HTML Fextralife. JSON jest pomocniczym źródłem danych do przyszłego modelu `DamagePercentRankTable`, ale sam nie przełącza `PaladinSkillTreeRegistry` na pełne tabele rang i nie oznacza automatycznej implementacji realnego DPS.
+
+Nie są wymagane pliki `docs/paladin/source-md/README.md` ani `docs/paladin/source-md/SHASUMS.txt`. Nawigacja źródeł Paladyna może być prowadzona przez `docs/paladin/README.md` oraz ten główny README.
+
 Rejestr zawiera 24 wpisy umiejętności w drzewie. Dla każdego z nich modelowana jest relacja:
 - umiejętność bazowa w grupie,
 - `grupa_1`, `grupa_2`, `grupa_3`,
 - pojedyncze ulepszenia w grupie,
 - status ulepszenia i `sourceNote`.
 
-To nie jest jeszcze pełny DPS runtime. Rejestr może opisywać umiejętność i jej modyfikatory, ale dopóki mechanika single target nie jest zweryfikowana i zaimplementowana w `DamageEngine`, nie wolno liczyć dla niej `damagePerUse`, `effectiveCycleSeconds` ani `theoreticalDps`.
+To nie jest jeszcze pełny DPS runtime. Rejestr, Markdown i JSON mogą opisywać umiejętność, jej modyfikatory oraz wartości damage/rank, ale dopóki mechanika single target nie jest zweryfikowana i zaimplementowana w `DamageEngine`, nie wolno liczyć dla niej `damagePerUse`, `effectiveCycleSeconds` ani `theoreticalDps`.
 
 Poprawka Mocy Specjalnych: `Forteca` jest wpisem umiejętności w drzewie z PDF `moce_specjalne_diablo4.pdf`, ma `skillGroup=moce_specjalne` i opisowe tagi z PDF `Specjalne`, `Defensywa`, `Moloch`. Nie jest oznaczana jako kategoria `Główne` / `Core`. `Cierniowa Reduta` jest ulepszeniem `Fortecy` w `grupa_3`, a nie osobną umiejętnością bazową w grupie.
 
@@ -302,17 +321,17 @@ Warstwa `krys.verification` dodaje `Verification Matrix` dla mechanik z pełnego
 
 Warstwa `krys.ranking` dodaje aplikacyjny ranking obrażeń nad rejestrem drzewa wybranej klasy. `PlayableClass`, `CharacterSkillTreeRegistry` i `SkillTreeRegistryProvider` są cienką warstwą wyboru klasy; obecnie jedyną obsługiwaną klasą jest `paladin`, a jej provider używa `PaladinSkillTreeRegistry`. Nowe klasy mają być dodawane przez kolejny provider / rejestr klasy, nie przez nowe endpointy ani osobne zakładki per klasa.
 
-Ranking domyślnie działa w trybie `SINGLE_TARGET`, zwraca metadane źródłowe PDF oraz status weryfikacji danych. Ranking może też pokazywać bazowe procenty obrażeń z opisu / PDF, ale te wartości są wyłącznie źródłowym opisem siły umiejętności i nie są runtime DPS.
+Ranking domyślnie działa w trybie `SINGLE_TARGET`, zwraca metadane źródłowe oraz status weryfikacji danych. Ranking może też pokazywać bazowe procenty obrażeń z opisu, Markdown, JSON albo PDF, ale te wartości są wyłącznie źródłowym opisem siły umiejętności i nie są runtime DPS.
 
 Pola bazowych procentów obrażeń:
-- `baseDamagePercentAtRank1` - procent obrażeń jawnie podany w opisie / PDF dla rangi 1; R1 oznacza minimalny wyklikany poziom / rangę umiejętności w drzewie,
-- `baseDamagePercentAtTreeMaxRank` - procent obrażeń jawnie podany w opisie / PDF dla maksymalnej rangi możliwej do wyklikania w drzewie bez bonusów z przedmiotów.
+- `baseDamagePercentAtRank1` - procent obrażeń jawnie podany w opisie, Markdown, JSON albo PDF dla rangi 1; R1 oznacza minimalny wyklikany poziom / rangę umiejętności w drzewie,
+- `baseDamagePercentAtTreeMaxRank` - procent obrażeń jawnie podany w opisie, Markdown, JSON albo PDF dla maksymalnej rangi możliwej do wyklikania w drzewie bez bonusów z przedmiotów.
 
 `treeMaxRank` nie jest absolutnym maksimum umiejętności w całym buildzie. Bonusy z itemów, affixów, aspektów albo innych mechanik mogą w przyszłości zwiększać rzeczywistą rangę używaną przez build ponad `treeMaxRank`. Pojęcie `effectiveRank` jest zostawione na przyszłość i nie jest teraz implementowane.
 
-Wartości `baseDamagePercentAtRank1` i `baseDamagePercentAtTreeMaxRank` nie są normalizowane względem najlepszej umiejętności, nie są DPS, nie odblokowują runtime i nie mogą być zgadywane. Jeżeli źródło nie podaje jawnie wartości dla R1 albo maksymalnej rangi drzewa, odpowiednie pole pozostaje `null`, a SSR renderuje `brak danych`. Poziomy pośrednie nie są teraz zapisywane ani wyliczane jako dane źródłowe; interpolacja pozostaje poza bieżącym zakresem.
+Wartości `baseDamagePercentAtRank1` i `baseDamagePercentAtTreeMaxRank` nie są normalizowane względem najlepszej umiejętności, nie są DPS, nie odblokowują runtime i nie mogą być zgadywane. Jeżeli źródło nie podaje jawnie wartości dla R1 albo maksymalnej rangi drzewa, odpowiednie pole pozostaje `null`, a SSR renderuje `brak danych`. Poziomy pośrednie nie są teraz zapisywane ani wyliczane jako dane runtime; interpolacja pozostaje poza bieżącym zakresem.
 
-Aktualnie rejestr uzupełnia te pola tylko dla wartości jednoznacznie potwierdzonych w PDF-ach. `Błogosławiony Młot` ma `baseDamagePercentAtTreeMaxRank = 293`, ponieważ `paladin_core_skill_registry_final.pdf` podaje dla `15/15`: `0 [293%] pkt. obrażeń`. `baseDamagePercentAtRank1` pozostaje obecnie `null` dla wszystkich 24 wpisów, bo lokalne PDF-y nie podają jawnie wartości R1. Brak wartości w UI oznacza, że wartość nie została jednoznacznie potwierdzona i wpisana do rejestru; nie musi oznaczać, że PDF nie zawiera żadnej wzmianki o obrażeniach. Wartości wielohitowe, tickowe i warunkowe nie są sumowane ani przepisywane jako bazowa siła umiejętności bez osobnej weryfikacji interpretacji.
+Aktualnie rejestr uzupełnia te pola tylko dla wartości jednoznacznie potwierdzonych i ręcznie wpisanych do rejestru. `Błogosławiony Młot` ma `baseDamagePercentAtTreeMaxRank = 293`, ponieważ `paladin_core_skill_registry_final.pdf` podaje dla `15/15`: `0 [293%] pkt. obrażeń`. `baseDamagePercentAtRank1` pozostaje obecnie `null` w runtime rejestru, mimo że pomocniczy JSON Fextralife zawiera tabelę rang dla późniejszego modelu. Brak wartości w UI oznacza, że wartość nie została jeszcze bezpiecznie przeniesiona do rejestru runtime; nie musi oznaczać braku danych w MD, JSON albo PDF. Wartości wielohitowe, tickowe i warunkowe nie są sumowane ani przepisywane jako bazowa siła umiejętności bez osobnej weryfikacji interpretacji.
 
 Pola `damagePerUse`, `effectiveCycleSeconds` i `theoreticalDps` pozostają puste dla skilli `NEEDS_VERIFICATION` albo `UNSUPPORTED`. Obsługiwane metryki sortowania to:
 - `BASE_DAMAGE_PERCENT_RANK_1`,
@@ -340,11 +359,12 @@ Domyślne sortowanie ekranu:
 - w ramach grup sortowania używana jest wybrana metryka, a przy braku wartości DPS nazwa umiejętności.
 
 Ograniczenia rankingu:
-- ranking używa nowego rejestru PDF, a nie legacy `PaladinSkillDefs`,
-- bazowe procenty obrażeń pochodzą wyłącznie z jawnych danych źródłowych opisu / PDF; brak jawnej wartości oznacza `null` i `brak danych` w SSR,
+- ranking używa opisowego rejestru drzewa Paladyna, a nie legacy `PaladinSkillDefs`,
+- bazowe procenty obrażeń pochodzą wyłącznie z jawnych danych źródłowych opisu, Markdown, JSON albo PDF; brak jawnej wartości oznacza `null` i `brak danych` w SSR,
 - umiejętności niepoliczalne są widoczne jako `NEEDS_VERIFICATION`, `UNSUPPORTED` albo `NON_DAMAGE`,
 - node'y czysto użytkowe oznaczone jako `NON_DAMAGE` nie są traktowane jako damage skill; opisowy ekran nadal pokazuje je jawnie z pustymi wartościami DPS,
 - mechaniki z `Verification Matrix` pozostają `NEEDS_VERIFICATION` i nie są oznaczane jako `SUPPORTED`,
+- obecność plików MD albo JSON nie odblokowuje runtime DPS i nie implementuje `effectiveRank`,
 - efekty wielocelowe nie mogą zwiększać wyniku single target bez jawnego, zweryfikowanego modelu.
 
 Obecnie ekran jest rankingiem opisowym z blokadą niezweryfikowanych mechanik. Kolejne etapy mogą odblokowywać konkretne umiejętności dopiero po osobnej weryfikacji single target i dopiero wtedy wolno wypełniać `damagePerUse`, `theoreticalDps` oraz `singleTargetDps` dla tych wpisów.
