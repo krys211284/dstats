@@ -3,6 +3,7 @@ package krys.web;
 import krys.paladin.DamagePercentComponentRankTable;
 import krys.paladin.PaladinSkillTreeType;
 import krys.paladin.PaladinTreeSkill;
+import krys.paladin.SkillCategory;
 import krys.paladin.SkillTag;
 import krys.paladin.UpgradeDamageImpact;
 import krys.paladin.UpgradeDamageModifier;
@@ -12,11 +13,16 @@ import krys.ranking.PaladinSkillDamageRankingEntry;
 
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Wiersz widoku rankingu łączący opis rankingu z typem umiejętności z rejestru drzewa. */
 public final class DamageRankingRow {
+    private static final Pattern PERCENT_VALUE_PATTERN = Pattern.compile("(\\d+)%");
+
     private final PaladinSkillDamageRankingEntry entry;
     private final PaladinSkillTreeType type;
+    private final SkillCategory skillCategory;
     private final String damageComponentsDescription;
     private final DamagePercentComponentRankTable componentDamagePercentRanks;
     private final List<UpgradeDamageImpact> upgradeDamageImpacts;
@@ -26,6 +32,7 @@ public final class DamageRankingRow {
     public DamageRankingRow(PaladinSkillDamageRankingEntry entry, PaladinTreeSkill treeSkill) {
         this.entry = entry;
         this.type = treeSkill.getType();
+        this.skillCategory = treeSkill.getSkillCategory();
         this.damageComponentsDescription = describeDamageComponents(treeSkill);
         this.componentDamagePercentRanks = treeSkill.getComponentDamagePercentRanks();
         this.upgradeDamageImpacts = List.copyOf(treeSkill.getUpgradeDamageImpacts());
@@ -39,6 +46,14 @@ public final class DamageRankingRow {
 
     public PaladinSkillTreeType getType() {
         return type;
+    }
+
+    public SkillCategory getSkillCategory() {
+        return skillCategory;
+    }
+
+    public String getSkillCategoryDisplayName() {
+        return skillCategory.getDisplayName();
     }
 
     public String getDamageComponentsDescription() {
@@ -104,11 +119,12 @@ public final class DamageRankingRow {
     public boolean hasDirectUpgradeDamage() {
         return upgradeDamageModifiers.stream().anyMatch(modifier ->
                 modifier.getSafeForRankingDisplay() == UpgradeDamageSafety.YES
-                        && !modifier.createsNewDamageComponent()
                         && (modifier.getType() == UpgradeDamageModifierType.MULTIPLICATIVE_DAMAGE_PERCENT
                         || modifier.getType() == UpgradeDamageModifierType.ADDITIVE_DAMAGE_PERCENT
                         || modifier.getType() == UpgradeDamageModifierType.RANK_SCALING_COMPONENT_PERCENT
-                        || modifier.getType() == UpgradeDamageModifierType.FLAT_COMPONENT_PERCENT));
+                        || modifier.getType() == UpgradeDamageModifierType.FLAT_COMPONENT_PERCENT
+                        || modifier.getType() == UpgradeDamageModifierType.ADDITIONAL_HIT_OR_STRIKE
+                        || modifier.getType() == UpgradeDamageModifierType.DAMAGE_OVER_TIME));
     }
 
     public boolean hasNewDamageComponent() {
@@ -134,7 +150,7 @@ public final class DamageRankingRow {
     public boolean hasDefenseOrUtility() {
         return upgradeDamageModifiers.stream()
                 .anyMatch(modifier -> modifier.getType() == UpgradeDamageModifierType.DEFENSE_OR_UTILITY
-                        || modifier.getType() == UpgradeDamageModifierType.NO_DAMAGE_IMPACT);
+                        && modifier.getSafeForRankingDisplay() == UpgradeDamageSafety.YES);
     }
 
     public boolean hasManualReviewUpgrade() {
@@ -144,21 +160,50 @@ public final class DamageRankingRow {
                         || modifier.getType() == UpgradeDamageModifierType.THORNS_DAMAGE_MODIFIER);
     }
 
-    public List<UpgradeDamageModifier> directUpgradeDamageModifiers() {
+    public List<UpgradeDamageModifier> damageMultiplierModifiers() {
         return upgradeDamageModifiers.stream()
                 .filter(modifier -> modifier.getSafeForRankingDisplay() == UpgradeDamageSafety.YES)
-                .filter(modifier -> !modifier.createsNewDamageComponent())
-                .filter(modifier -> modifier.getType() == UpgradeDamageModifierType.MULTIPLICATIVE_DAMAGE_PERCENT
-                        || modifier.getType() == UpgradeDamageModifierType.ADDITIVE_DAMAGE_PERCENT
-                        || modifier.getType() == UpgradeDamageModifierType.RANK_SCALING_COMPONENT_PERCENT
-                        || modifier.getType() == UpgradeDamageModifierType.FLAT_COMPONENT_PERCENT)
+                .filter(modifier -> modifier.getType() == UpgradeDamageModifierType.MULTIPLICATIVE_DAMAGE_PERCENT)
                 .toList();
     }
 
-    public List<UpgradeDamageModifier> newDamageComponentModifiers() {
+    public Integer maxDamageMultiplierPercent() {
+        return maxPercentValue(damageMultiplierModifiers());
+    }
+
+    public List<UpgradeDamageModifier> damageBonusModifiers() {
         return upgradeDamageModifiers.stream()
-                .filter(UpgradeDamageModifier::createsNewDamageComponent)
+                .filter(modifier -> modifier.getSafeForRankingDisplay() == UpgradeDamageSafety.YES)
+                .filter(modifier -> modifier.getType() == UpgradeDamageModifierType.ADDITIVE_DAMAGE_PERCENT)
                 .toList();
+    }
+
+    public Integer maxDamageBonusPercent() {
+        return maxPercentValue(damageBonusModifiers());
+    }
+
+    public List<UpgradeDamageModifier> extraHitOrComponentModifiers() {
+        return upgradeDamageModifiers.stream()
+                .filter(modifier -> modifier.getSafeForRankingDisplay() == UpgradeDamageSafety.YES)
+                .filter(modifier -> modifier.getType() == UpgradeDamageModifierType.FLAT_COMPONENT_PERCENT
+                        || modifier.getType() == UpgradeDamageModifierType.RANK_SCALING_COMPONENT_PERCENT
+                        || modifier.getType() == UpgradeDamageModifierType.ADDITIONAL_HIT_OR_STRIKE)
+                .toList();
+    }
+
+    public Integer maxExtraHitOrComponentPercent() {
+        return maxPercentValue(extraHitOrComponentModifiers());
+    }
+
+    public List<UpgradeDamageModifier> damageOverTimeModifiers() {
+        return upgradeDamageModifiers.stream()
+                .filter(modifier -> modifier.getSafeForRankingDisplay() == UpgradeDamageSafety.YES)
+                .filter(modifier -> modifier.getType() == UpgradeDamageModifierType.DAMAGE_OVER_TIME)
+                .toList();
+    }
+
+    public Integer maxDamageOverTimePercent() {
+        return maxPercentValue(damageOverTimeModifiers());
     }
 
     public List<UpgradeDamageModifier> statusDamageModifiers() {
@@ -181,8 +226,8 @@ public final class DamageRankingRow {
 
     public List<UpgradeDamageModifier> defenseOrUtilityModifiers() {
         return upgradeDamageModifiers.stream()
-                .filter(modifier -> modifier.getType() == UpgradeDamageModifierType.DEFENSE_OR_UTILITY
-                        || modifier.getType() == UpgradeDamageModifierType.NO_DAMAGE_IMPACT)
+                .filter(modifier -> modifier.getType() == UpgradeDamageModifierType.DEFENSE_OR_UTILITY)
+                .filter(modifier -> modifier.getSafeForRankingDisplay() == UpgradeDamageSafety.YES)
                 .toList();
     }
 
@@ -202,6 +247,26 @@ public final class DamageRankingRow {
             case DAMAGE -> "brak prostej tabeli bazowych procentów; wymaga weryfikacji komponentów";
             case NON_DAMAGE, SUPPORT, DEFENSIVE, MOBILITY, SPECIAL, UNCLASSIFIED -> "brak prostego komponentu obrażeń w bieżącym modelu";
         };
+    }
+
+    private static Integer maxPercentValue(List<UpgradeDamageModifier> modifiers) {
+        return modifiers.stream()
+                .map(DamageRankingRow::firstPercentValue)
+                .filter(value -> value != null)
+                .max(Integer::compareTo)
+                .orElse(null);
+    }
+
+    private static Integer firstPercentValue(UpgradeDamageModifier modifier) {
+        Matcher matcher = PERCENT_VALUE_PATTERN.matcher(modifier.getValue());
+        Integer max = null;
+        while (matcher.find()) {
+            int value = Integer.parseInt(matcher.group(1));
+            if (max == null || value > max) {
+                max = value;
+            }
+        }
+        return max;
     }
 
 }

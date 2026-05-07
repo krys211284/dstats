@@ -152,8 +152,25 @@ public final class DamageRankingController implements HttpHandler {
             return numericComparator(DamageRankingRow::getBaseDamagePercentAtTreeMaxRank, filter.getDirection())
                     .thenComparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
         }
+        if (filter.getSort().equals("maxDamageMultiplierPercent")) {
+            return numericComparator(DamageRankingRow::maxDamageMultiplierPercent, filter.getDirection())
+                    .thenComparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
+        }
+        if (filter.getSort().equals("maxDamageBonusPercent")) {
+            return numericComparator(DamageRankingRow::maxDamageBonusPercent, filter.getDirection())
+                    .thenComparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
+        }
+        if (filter.getSort().equals("maxExtraHitOrComponentPercent")) {
+            return numericComparator(DamageRankingRow::maxExtraHitOrComponentPercent, filter.getDirection())
+                    .thenComparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
+        }
+        if (filter.getSort().equals("maxDamageOverTimePercent")) {
+            return numericComparator(DamageRankingRow::maxDamageOverTimePercent, filter.getDirection())
+                    .thenComparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
+        }
         Comparator<DamageRankingRow> primary = switch (filter.getSort()) {
             case "skillName" -> Comparator.comparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
+            case "skillCategory" -> Comparator.comparing(DamageRankingRow::getSkillCategoryDisplayName, String.CASE_INSENSITIVE_ORDER);
             case "skillGroup" -> Comparator.comparing(row -> row.getEntry().getSkillGroup(), String.CASE_INSENSITIVE_ORDER);
             case "type" -> Comparator.comparing(row -> row.getType().name());
             case "damageProfile" -> Comparator.comparing(DamageRankingRow::getDamageProfile);

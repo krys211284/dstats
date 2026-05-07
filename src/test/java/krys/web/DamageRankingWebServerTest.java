@@ -96,18 +96,22 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains("max-width: none"));
         assertTrue(response.body().contains("overflow-x: auto"));
         assertTrue(response.body().contains(">skillName<"));
+        assertTrue(response.body().contains(">Kategoria<"));
         assertTrue(response.body().contains(">tags<"));
-        assertTrue(response.body().contains(">skillGroup<"));
         assertTrue(response.body().contains(">type<"));
         assertTrue(response.body().contains(">Obrażenia % R1<"));
         assertTrue(response.body().contains(">Obrażenia % max drzewo<"));
-        assertTrue(response.body().contains(">Direct dmg upgrade<"));
-        assertTrue(response.body().contains(">New dmg component<"));
+        assertTrue(response.body().contains(">Dmg multiplier<"));
+        assertTrue(response.body().contains(">Dmg bonus<"));
+        assertTrue(response.body().contains(">Extra hit / component<"));
+        assertTrue(response.body().contains(">Damage over time<"));
         assertTrue(response.body().contains(">Status / debuff<"));
         assertTrue(response.body().contains(">Resource<"));
         assertTrue(response.body().contains(">Speed / cooldown<"));
         assertTrue(response.body().contains(">Defense / utility<"));
         assertTrue(response.body().contains(">Manual review<"));
+        assertFalse(response.body().contains(">Direct dmg upgrade<"));
+        assertFalse(response.body().contains(">New dmg component<"));
         assertFalse(response.body().contains("<th>grupa_1: wpływ na obrażenia</th>"));
         assertFalse(response.body().contains("<th>grupa_2: wpływ na obrażenia</th>"));
         assertFalse(response.body().contains("<th>grupa_3: wpływ na obrażenia</th>"));
@@ -125,6 +129,7 @@ class DamageRankingWebServerTest {
         assertFalse(response.body().contains("DAMAGE_PER_USE"));
         assertFalse(response.body().contains("THEORETICAL_DPS"));
         assertFalse(response.body().contains("SINGLE_TARGET_DPS"));
+        assertFalse(response.body().contains("brak wpływu na obrażenia"));
         assertTrue(response.body().contains("name=\"tag\""));
         assertTrue(response.body().contains("name=\"hasDirectUpgradeDamage\""));
         assertTrue(response.body().contains("name=\"hasNewDamageComponent\""));
@@ -136,6 +141,10 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains("aria-sort=\"descending\""));
         assertTrue(response.body().contains("sort=skillName"));
         assertTrue(response.body().contains("sort=baseDamageTreeMax"));
+        assertTrue(response.body().contains("sort=maxDamageMultiplierPercent"));
+        assertTrue(response.body().contains("sort=maxExtraHitOrComponentPercent"));
+        assertTrue(response.body().contains("Dmg multiplier = mnożnik"));
+        assertTrue(response.body().contains("Extra hit / component = osobny hit lub komponent"));
         assertEquals(24, countSkillRows(response.body()));
         assertTrue(response.body().contains("data-skill-id=\"furia_niebios\""));
         assertTrue(response.body().contains("data-verification-status=\"NEEDS_VERIFICATION\""));
@@ -208,12 +217,33 @@ class DamageRankingWebServerTest {
         assertTrue(brandishRow.contains("zasób"));
         assertTrue(brandishRow.contains("Powracająca Światłość"));
         assertTrue(brandishRow.contains("52%"));
+        assertTrue(brandishRow.contains("Miecz Mistrzostwa"));
+        assertTrue(brandishRow.contains("128%"));
         assertTrue(brandishRow.contains("Krzyżowe Uderzenie"));
         assertTrue(brandishRow.contains("120%"));
+        assertTrue(brandishRow.contains(">Adept</td>"));
+        List<String> cells = tableCells(brandishRow);
+        assertTrue(cells.get(6).contains("20%[X]"));
+        assertFalse(cells.get(6).contains("128%"));
+        assertTrue(cells.get(8).contains("52%"));
+        assertTrue(cells.get(8).contains("120%"));
+        assertTrue(cells.get(8).contains("128%"));
+        assertFalse(cells.get(8).contains("20%[X]"));
+        assertTrue(cells.get(10).contains("Odsłonięcie"));
+        assertFalse(cells.get(10).contains("20%[X]"));
+        assertTrue(cells.get(11).contains("Generowanie Wiary"));
+        assertTrue(cells.get(12).contains("Szybkość Użycia"));
+        assertTrue(cells.get(12).contains("20%[+]"));
+        assertFalse(cells.get(6).contains("20%[+]"));
+        assertTrue(cells.get(6).contains("20%[X]</span> <span class=\"facet-name\">&mdash; Zwiększenie Obrażeń"));
+        assertTrue(cells.get(8).contains("52%</span> <span class=\"facet-name\">&mdash; Powracająca Światłość"));
+        assertTrue(cells.get(8).contains("120%</span> <span class=\"facet-name\">&mdash; Krzyżowe Uderzenie"));
+        assertTrue(cells.get(8).contains("128%</span> <span class=\"facet-name\">&mdash; Miecz Mistrzostwa"));
         assertFalse(brandishRow.contains("suma"));
         assertFalse(brandishRow.contains("razem"));
         assertFalse(brandishRow.contains("total"));
         assertFalse(brandishRow.contains("DPS"));
+        assertFalse(brandishRow.contains("brak wpływu na obrażenia"));
     }
 
     @Test
@@ -303,7 +333,9 @@ class DamageRankingWebServerTest {
     void sortableHeadersShouldSortPaladinTreeWithoutMetricFilter() throws Exception {
         HttpResponse<String> defaultResponse = sendGet("/ranking-obrazen?character=paladin");
         HttpResponse<String> skillNameAscResponse = sendGet("/ranking-obrazen?character=paladin&sort=skillName&direction=asc");
-        HttpResponse<String> skillGroupAscResponse = sendGet("/ranking-obrazen?character=paladin&sort=skillGroup&direction=asc");
+        HttpResponse<String> skillCategoryAscResponse = sendGet("/ranking-obrazen?character=paladin&sort=skillCategory&direction=asc");
+        HttpResponse<String> multiplierDescResponse = sendGet("/ranking-obrazen?character=paladin&sort=maxDamageMultiplierPercent&direction=desc");
+        HttpResponse<String> extraComponentDescResponse = sendGet("/ranking-obrazen?character=paladin&sort=maxExtraHitOrComponentPercent&direction=desc");
 
         assertEquals(200, defaultResponse.statusCode());
         assertEquals(24, countSkillRows(defaultResponse.body()));
@@ -316,10 +348,20 @@ class DamageRankingWebServerTest {
         assertTrue(skillNameAscResponse.body().contains("sort=skillName"));
         assertTrue(skillNameAscResponse.body().contains("aria-sort=\"ascending\""));
 
-        assertEquals(200, skillGroupAscResponse.statusCode());
-        assertEquals("aura", firstSkillGroup(skillGroupAscResponse.body()));
-        assertTrue(skillGroupAscResponse.body().contains("sort=skillGroup"));
-        assertFalse(skillGroupAscResponse.body().contains("Metryka rankingu"));
+        assertEquals(200, skillCategoryAscResponse.statusCode());
+        assertEquals("Adept", firstSkillCategory(skillCategoryAscResponse.body()));
+        assertTrue(skillCategoryAscResponse.body().contains("sort=skillCategory"));
+        assertFalse(skillCategoryAscResponse.body().contains("Metryka rankingu"));
+
+        assertEquals(200, multiplierDescResponse.statusCode());
+        assertEquals("wymach", firstSkillId(multiplierDescResponse.body()));
+        assertTrue(multiplierDescResponse.body().contains("sort=maxDamageMultiplierPercent"));
+        assertEquals(1, countOccurrences(multiplierDescResponse.body(), "aria-sort=\"descending\""));
+
+        assertEquals(200, extraComponentDescResponse.statusCode());
+        assertEquals("wymach", firstSkillId(extraComponentDescResponse.body()));
+        assertTrue(extraComponentDescResponse.body().contains("sort=maxExtraHitOrComponentPercent"));
+        assertTrue(rowHtml(extraComponentDescResponse.body(), "wymach").contains("128%"));
     }
 
     @Test
@@ -373,7 +415,7 @@ class DamageRankingWebServerTest {
             found++;
             String skillId = matcher.group(1);
             List<String> cells = tableCells(matcher.group(2));
-            if (cells.size() != 13) {
+            if (cells.size() != 15) {
                 throw new AssertionError("Niepoprawna liczba komórek dla " + skillId + ": " + cells.size());
             }
             String rankOneCell = cells.get(4);
@@ -445,10 +487,20 @@ class DamageRankingWebServerTest {
         return matcher.group(1);
     }
 
-    private static String firstSkillGroup(String html) {
+    private static String firstSkillCategory(String html) {
         String row = rowHtml(html, firstSkillId(html));
         List<String> cells = tableCells(row);
-        return cells.get(2);
+        return cells.get(1);
+    }
+
+    private static int countOccurrences(String text, String fragment) {
+        int count = 0;
+        int index = text.indexOf(fragment);
+        while (index >= 0) {
+            count++;
+            index = text.indexOf(fragment, index + fragment.length());
+        }
+        return count;
     }
 
     private static void assertRowOrder(String html, String firstSkillId, String secondSkillId) {

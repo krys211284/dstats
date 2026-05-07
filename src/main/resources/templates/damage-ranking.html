@@ -30,7 +30,7 @@
         }
         .ranking-table {
             width: 100%;
-            min-width: 1680px;
+            min-width: 1900px;
             table-layout: fixed;
         }
         .ranking-table th {
@@ -51,15 +51,24 @@
             color: var(--text-secondary);
         }
         .col-skill-name { width: 9%; }
-        .col-tags { width: 15%; }
-        .col-group { width: 6%; }
-        .col-type { width: 7%; }
+        .col-category { width: 6%; }
+        .col-tags { width: 12%; }
+        .col-type { width: 6%; }
         .col-damage { width: 7%; }
-        .col-facet { width: 7%; }
+        .col-facet { width: 6.5%; }
+        .wide-facet { width: 10%; }
         .verification-legend {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
+            margin: 0 0 10px;
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+        }
+        .damage-modifier-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 14px;
             margin: 0 0 10px;
             color: var(--text-secondary);
             font-size: 0.78rem;
@@ -99,7 +108,7 @@
             line-height: 1.35;
         }
         .ranking-table td:nth-child(1),
-        .ranking-table td:nth-child(3),
+        .ranking-table td:nth-child(2),
         .ranking-table td:nth-child(4) {
             white-space: nowrap;
         }
@@ -141,6 +150,7 @@
         }
         .facet-value {
             color: var(--text-secondary);
+            font-weight: 700;
         }
         .component-percent-list {
             padding-left: 0;

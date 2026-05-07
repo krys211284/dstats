@@ -226,10 +226,15 @@ public final class DamageRankingFilter {
         }
         return switch (normalized) {
             case "skillName",
+                    "skillCategory",
                     "skillGroup",
                     "type",
                     "baseDamageRank1",
                     "baseDamageTreeMax",
+                    "maxDamageMultiplierPercent",
+                    "maxDamageBonusPercent",
+                    "maxExtraHitOrComponentPercent",
+                    "maxDamageOverTimePercent",
                     "damageProfile",
                     "hasDirectUpgradeDamage",
                     "hasNewDamageComponent",

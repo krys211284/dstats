@@ -210,6 +210,20 @@ public final class PaladinTreeSkill {
         return Set.copyOf(tags);
     }
 
+    public SkillCategory getSkillCategory() {
+        if (skillId.equals("wymach")) {
+            return SkillCategory.ADEPT;
+        }
+        return switch (type) {
+            case MOBILITY -> SkillCategory.MOBILNOSC;
+            case DEFENSIVE -> SkillCategory.DEFENSYWNA;
+            case SUPPORT -> SkillCategory.WSPARCIE;
+            case SPECIAL -> SkillCategory.SPECJALNA;
+            case DAMAGE -> damageSkillCategory();
+            case NON_DAMAGE, UNCLASSIFIED -> skillGroupCategory();
+        };
+    }
+
     public String getNotes() {
         return notes;
     }
@@ -231,6 +245,27 @@ public final class PaladinTreeSkill {
             default -> {
             }
         }
+    }
+
+    private SkillCategory damageSkillCategory() {
+        return switch (skillGroup) {
+            case "basic" -> SkillCategory.PODSTAWOWA;
+            case "core" -> SkillCategory.CORE;
+            case "aura" -> SkillCategory.AURA;
+            case "moce_specjalne" -> SkillCategory.SPECJALNA;
+            case "sprawiedliwosc", "odwaga" -> SkillCategory.ADEPT;
+            default -> SkillCategory.NEEDS_MANUAL_REVIEW;
+        };
+    }
+
+    private SkillCategory skillGroupCategory() {
+        return switch (skillGroup) {
+            case "basic" -> SkillCategory.PODSTAWOWA;
+            case "core" -> SkillCategory.CORE;
+            case "aura" -> SkillCategory.AURA;
+            case "moce_specjalne" -> SkillCategory.SPECJALNA;
+            default -> SkillCategory.NEEDS_MANUAL_REVIEW;
+        };
     }
 
     private void addTypeTags(EnumSet<SkillTag> tags) {

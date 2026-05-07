@@ -17,10 +17,13 @@ import java.io.InputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Renderuje ogólny ranking obrażeń z blokadą niezweryfikowanych mechanik DPS. */
 public final class DamageRankingPageRenderer {
     private static final String PAGE_PATH = "/ranking-obrazen";
+    private static final Pattern PERCENT_VALUE_PATTERN = Pattern.compile("(\\d+%\\[[X+]\\]|\\d+%)");
     private final String template;
 
     public DamageRankingPageRenderer() {
@@ -119,8 +122,8 @@ public final class DamageRankingPageRenderer {
                     </label>
                 """);
         html.append(renderTagFilter(model));
-        html.append(renderFacetFilter("hasDirectUpgradeDamage", "Direct dmg", filter.getHasDirectUpgradeDamage()));
-        html.append(renderFacetFilter("hasNewDamageComponent", "New component", filter.getHasNewDamageComponent()));
+        html.append(renderFacetFilter("hasDirectUpgradeDamage", "Damage modifier", filter.getHasDirectUpgradeDamage()));
+        html.append(renderFacetFilter("hasNewDamageComponent", "Extra component", filter.getHasNewDamageComponent()));
         html.append(renderFacetFilter("hasStatusDamageEnabler", "Status / debuff", filter.getHasStatusDamageEnabler()));
         html.append(renderFacetFilter("hasResourceGeneration", "Resource", filter.getHasResourceGeneration()));
         html.append(renderFacetFilter("hasCooldownOrCastSpeed", "Speed / cooldown", filter.getHasCooldownOrCastSpeed()));
@@ -261,16 +264,24 @@ public final class DamageRankingPageRenderer {
                     <span class="legend-item verification-non-damage">NON_DAMAGE - bez bezpośrednich obrażeń</span>
                     <span class="legend-item verification-unsupported">UNSUPPORTED - nieobsługiwane</span>
                 </div>
+                <div class="damage-modifier-legend" aria-label="Legenda kolumn modyfikatorów obrażeń">
+                    <span>Dmg multiplier = mnożnik, np. 20%%[X]</span>
+                    <span>Dmg bonus = bonus addytywny, np. 20%%[+]</span>
+                    <span>Extra hit / component = osobny hit lub komponent</span>
+                    <span>Wartości nie są sumowane i nie są DPS.</span>
+                </div>
                 <div class="ranking-table-wrap">
                     <table class="data-table ranking-table">
                         <colgroup>
                             <col class="col-skill-name">
+                            <col class="col-category">
                             <col class="col-tags">
-                            <col class="col-group">
                             <col class="col-type">
                             <col class="col-damage">
                             <col class="col-damage">
                             <col class="col-facet">
+                            <col class="col-facet">
+                            <col class="col-facet wide-facet">
                             <col class="col-facet">
                             <col class="col-facet">
                             <col class="col-facet">
@@ -293,18 +304,22 @@ public final class DamageRankingPageRenderer {
                                 %s
                                 %s
                                 %s
+                                %s
+                                %s
                             </tr>
                         </thead>
                         <tbody>
                 """.formatted(
                 renderSortableHeader(model, "skillName", "skillName"),
+                renderSortableHeader(model, "skillCategory", "Kategoria"),
                 renderSortableHeader(model, "tags", "tags"),
-                renderSortableHeader(model, "skillGroup", "skillGroup"),
                 renderSortableHeader(model, "type", "type"),
                 renderSortableHeader(model, "baseDamageRank1", "Obrażenia % R1"),
                 renderSortableHeader(model, "baseDamageTreeMax", "Obrażenia % max drzewo"),
-                renderSortableHeader(model, "hasDirectUpgradeDamage", "Direct dmg upgrade"),
-                renderSortableHeader(model, "hasNewDamageComponent", "New dmg component"),
+                renderSortableHeader(model, "maxDamageMultiplierPercent", "Dmg multiplier"),
+                renderSortableHeader(model, "maxDamageBonusPercent", "Dmg bonus"),
+                renderSortableHeader(model, "maxExtraHitOrComponentPercent", "Extra hit / component"),
+                renderSortableHeader(model, "maxDamageOverTimePercent", "Damage over time"),
                 renderSortableHeader(model, "hasStatusDamageEnabler", "Status / debuff"),
                 renderSortableHeader(model, "hasResourceGeneration", "Resource"),
                 renderSortableHeader(model, "hasCooldownOrCastSpeed", "Speed / cooldown"),
@@ -342,9 +357,9 @@ public final class DamageRankingPageRenderer {
                 .append("\"><td>")
                 .append(escapeHtml(entry.getSkillName()))
                 .append("</td><td>")
-                .append(renderTags(row))
+                .append(escapeHtml(row.getSkillCategoryDisplayName()))
                 .append("</td><td>")
-                .append(escapeHtml(entry.getSkillGroup()))
+                .append(renderTags(row))
                 .append("</td><td>")
                 .append(escapeHtml(row.getType().name()))
                 .append("</td><td>")
@@ -352,9 +367,13 @@ public final class DamageRankingPageRenderer {
                 .append("</td><td>")
                 .append(renderDamagePercentCell(row, 15))
                 .append("</td><td>")
-                .append(renderModifierSummary(row.directUpgradeDamageModifiers()))
+                .append(renderModifierSummary(row.damageMultiplierModifiers()))
                 .append("</td><td>")
-                .append(renderModifierSummary(row.newDamageComponentModifiers()))
+                .append(renderModifierSummary(row.damageBonusModifiers()))
+                .append("</td><td>")
+                .append(renderModifierSummary(row.extraHitOrComponentModifiers()))
+                .append("</td><td>")
+                .append(renderModifierSummary(row.damageOverTimeModifiers()))
                 .append("</td><td>")
                 .append(renderModifierSummary(row.statusDamageModifiers()))
                 .append("</td><td>")
@@ -440,7 +459,7 @@ public final class DamageRankingPageRenderer {
 
     private static String renderModifierSummary(List<UpgradeDamageModifier> modifiers) {
         if (modifiers.isEmpty()) {
-            return "<span class=\"missing-source-value\">-</span>";
+            return "<span class=\"missing-source-value\" title=\"Brak bezpośredniego wpływu w tej kategorii\" aria-label=\"Brak bezpośredniego wpływu w tej kategorii\">-</span>";
         }
         StringBuilder html = new StringBuilder("<ul class=\"compact-list facet-list\">");
         for (UpgradeDamageModifier modifier : modifiers) {
@@ -448,29 +467,66 @@ public final class DamageRankingPageRenderer {
                     .append(escapeHtml(modifier.getUpgradeGroup()))
                     .append(": ")
                     .append(escapeHtml(modifier.getNotes()))
-                    .append("\"><span class=\"facet-name\">")
-                    .append(escapeHtml(modifier.getUpgradeName()))
-                    .append("</span>");
-            String description = shortModifierDescription(modifier);
-            if (!description.isBlank()) {
-                html.append(" <span class=\"facet-value\">")
-                        .append(escapeHtml(description))
-                        .append("</span>");
-            }
-            html.append("</li>");
+                    .append("\">")
+                    .append(renderValueFirstModifier(modifier))
+                    .append("</li>");
         }
         html.append("</ul>");
         return html.toString();
+    }
+
+    private static String renderValueFirstModifier(UpgradeDamageModifier modifier) {
+        String value = modifier.getValue();
+        String name = modifier.getUpgradeName();
+        String suffix = valueSuffix(modifier);
+        if (modifier.getSafeForRankingDisplay() == UpgradeDamageSafety.NEEDS_MANUAL_REVIEW) {
+            return "<span class=\"facet-value\">wymaga weryfikacji</span>"
+                    + " <span class=\"facet-name\">&mdash; " + escapeHtml(name) + "</span>";
+        }
+        if (!isConcreteValue(value)) {
+            return "<span class=\"facet-name\">" + escapeHtml(name) + "</span>"
+                    + " <span class=\"facet-value\">" + escapeHtml(shortModifierDescription(modifier)) + "</span>";
+        }
+        Matcher matcher = PERCENT_VALUE_PATTERN.matcher(value);
+        if (matcher.find() && matcher.start() > 0) {
+            String percent = matcher.group(1);
+            String beforePercent = value.substring(0, matcher.start()).replace(";", "").trim();
+            StringBuilder rendered = new StringBuilder("<span class=\"facet-value\">")
+                    .append(escapeHtml(percent))
+                    .append("</span> <span class=\"facet-name\">&mdash; ")
+                    .append(escapeHtml(name));
+            if (!beforePercent.isBlank()) {
+                rendered.append(", ").append(escapeHtml(beforePercent));
+            }
+            if (!suffix.isBlank()) {
+                rendered.append(escapeHtml(suffix));
+            }
+            rendered.append("</span>");
+            return rendered.toString();
+        }
+        StringBuilder rendered = new StringBuilder("<span class=\"facet-value\">")
+                .append(escapeHtml(value))
+                .append("</span> <span class=\"facet-name\">&mdash; ")
+                .append(escapeHtml(name));
+        if (!suffix.isBlank()) {
+            rendered.append(escapeHtml(suffix));
+        }
+        rendered.append("</span>");
+        return rendered.toString();
+    }
+
+    private static boolean isConcreteValue(String value) {
+        return !value.equals("brak")
+                && !value.equals("tekst źródłowy")
+                && !value.equals("brak bezpośredniego damage")
+                && !value.equals("status");
     }
 
     private static String shortModifierDescription(UpgradeDamageModifier modifier) {
         if (modifier.getSafeForRankingDisplay() == UpgradeDamageSafety.NEEDS_MANUAL_REVIEW) {
             return "wymaga weryfikacji";
         }
-        if (!modifier.getValue().equals("brak")
-                && !modifier.getValue().equals("tekst źródłowy")
-                && !modifier.getValue().equals("brak bezpośredniego damage")
-                && !modifier.getValue().equals("status")) {
+        if (isConcreteValue(modifier.getValue())) {
             return modifier.getValue() + valueSuffix(modifier);
         }
         return switch (modifier.getType()) {
@@ -485,7 +541,7 @@ public final class DamageRankingPageRenderer {
             case CAST_SPEED_OR_COOLDOWN -> "tempo użycia / cooldown";
             case RESOURCE_OR_COST -> "zasób / koszt";
             case DEFENSE_OR_UTILITY -> "utility/defense";
-            case NO_DAMAGE_IMPACT -> "brak wpływu na obrażenia";
+            case NO_DAMAGE_IMPACT -> "-";
             case NEEDS_MANUAL_REVIEW -> "wymaga weryfikacji";
         };
     }
