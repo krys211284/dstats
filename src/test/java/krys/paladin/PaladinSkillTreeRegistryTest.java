@@ -6,10 +6,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -41,6 +45,49 @@ class PaladinSkillTreeRegistryTest {
             "forteca",
             "zenit",
             "arbiter_sprawiedliwosci"
+    );
+    private static final Set<String> SIMPLE_SINGLE_COMPONENT_SKILLS = Set.of(
+            "wymach",
+            "swiety_pocisk",
+            "starcie",
+            "natarcie",
+            "blogoslawiona_tarcza",
+            "blogoslawiony_mlot",
+            "boska_lanca",
+            "uderzenie_tarcza",
+            "szarza_z_tarcza",
+            "skazanie",
+            "konsekracja"
+    );
+    private static final Map<String, Map<Integer, Integer>> EXPECTED_SIMPLE_DAMAGE_RANK_TABLES = Map.ofEntries(
+            Map.entry("wymach", rankTable(75, 83, 90, 97, 109, 116, 124, 131, 139, 150, 157, 165, 172, 180, 191)),
+            Map.entry("swiety_pocisk", rankTable(90, 99, 108, 117, 131, 139, 148, 157, 166, 180, 189, 198, 207, 216, 229)),
+            Map.entry("starcie", rankTable(115, 126, 138, 149, 167, 178, 190, 201, 213, 230, 241, 253, 264, 276, 293)),
+            Map.entry("natarcie", rankTable(105, 115, 126, 136, 152, 163, 173, 184, 194, 210, 220, 231, 241, 252, 268)),
+            Map.entry("blogoslawiona_tarcza", rankTable(205, 226, 246, 266, 297, 318, 338, 359, 379, 410, 430, 451, 471, 492, 523)),
+            Map.entry("blogoslawiony_mlot", rankTable(115, 126, 138, 149, 167, 178, 190, 201, 213, 230, 241, 253, 264, 276, 293)),
+            Map.entry("boska_lanca", rankTable(90, 99, 108, 117, 131, 139, 148, 157, 166, 180, 189, 198, 207, 216, 229)),
+            Map.entry("uderzenie_tarcza", rankTable(205, 226, 246, 266, 297, 318, 338, 359, 379, 410, 430, 451, 471, 492, 523)),
+            Map.entry("szarza_z_tarcza", rankTable(90, 99, 108, 117, 131, 139, 148, 157, 166, 180, 189, 198, 207, 216, 229)),
+            Map.entry("skazanie", rankTable(240, 264, 288, 312, 348, 372, 396, 420, 444, 480, 504, 528, 552, 576, 612)),
+            Map.entry("konsekracja", rankTable(75, 83, 90, 97, 109, 116, 124, 131, 139, 150, 157, 165, 172, 180, 191))
+    );
+    private static final Set<String> MULTI_COMPONENT_OR_MANUAL_REVIEW_SKILLS_WITHOUT_SIMPLE_TABLE = Set.of(
+            "zapal",
+            "aura_swietej_swiatlosci",
+            "spadajaca_gwiazda",
+            "wlocznia_niebios",
+            "zenit",
+            "furia_niebios",
+            "arbiter_sprawiedliwosci"
+    );
+    private static final Set<String> NON_DAMAGE_SKILLS_WITHOUT_SIMPLE_TABLE = Set.of(
+            "aura_fanatyzmu",
+            "aura_smialosci",
+            "egida",
+            "mobilizacja",
+            "oczyszczenie",
+            "forteca"
     );
 
     @Test
@@ -172,26 +219,41 @@ class PaladinSkillTreeRegistryTest {
     }
 
     @Test
-    void blogoslawiony_mlot_powinien_miec_pelna_tabele_rang_z_lokalnego_jsona() {
+    void skille_simple_single_component_powinny_miec_pelne_tabele_rang_z_lokalnego_jsona() {
+        assertEquals(SIMPLE_SINGLE_COMPONENT_SKILLS, EXPECTED_SIMPLE_DAMAGE_RANK_TABLES.keySet());
+
+        for (Map.Entry<String, Map<Integer, Integer>> expectation : EXPECTED_SIMPLE_DAMAGE_RANK_TABLES.entrySet()) {
+            PaladinTreeSkill skill = PaladinSkillTreeRegistry.requireSkill(expectation.getKey());
+
+            assertFalse(skill.getBaseDamagePercentRanks().isEmpty(), expectation.getKey());
+            assertEquals(15, skill.getBaseDamagePercentRanks().asMap().size(), expectation.getKey());
+            assertEquals(IntStream.rangeClosed(1, 15).boxed().collect(Collectors.toSet()),
+                    skill.getBaseDamagePercentRanks().asMap().keySet(),
+                    expectation.getKey());
+            assertEquals(expectation.getValue(), skill.getBaseDamagePercentRanks().asMap(), expectation.getKey());
+            assertEquals(expectation.getValue().get(1), skill.getBaseDamagePercentAtRank1(), expectation.getKey());
+            assertEquals(expectation.getValue().get(15), skill.getBaseDamagePercentAtTreeMaxRank(), expectation.getKey());
+        }
+    }
+
+    @Test
+    void zaimportowane_tabele_simple_single_component_powinny_byc_zgodne_z_lokalnym_jsonem() throws Exception {
+        String json = Files.readString(Path.of("docs/paladin/source-md/paladin_fextralife_rank_tables.json"));
+
+        for (String skillId : SIMPLE_SINGLE_COMPONENT_SKILLS) {
+            assertEquals(EXPECTED_SIMPLE_DAMAGE_RANK_TABLES.get(skillId), firstBracketPercentTableFromJson(json, skillId), skillId);
+            assertEquals(firstBracketPercentTableFromJson(json, skillId),
+                    PaladinSkillTreeRegistry.requireSkill(skillId).getBaseDamagePercentRanks().asMap(),
+                    skillId);
+        }
+    }
+
+    @Test
+    void blogoslawiony_mlot_powinien_pozostac_z_pelna_tabela_rang_bez_zmian() {
         PaladinTreeSkill blessedHammer = PaladinSkillTreeRegistry.requireSkill("blogoslawiony_mlot");
 
-        assertEquals(Map.ofEntries(
-                Map.entry(1, 115),
-                Map.entry(2, 126),
-                Map.entry(3, 138),
-                Map.entry(4, 149),
-                Map.entry(5, 167),
-                Map.entry(6, 178),
-                Map.entry(7, 190),
-                Map.entry(8, 201),
-                Map.entry(9, 213),
-                Map.entry(10, 230),
-                Map.entry(11, 241),
-                Map.entry(12, 253),
-                Map.entry(13, 264),
-                Map.entry(14, 276),
-                Map.entry(15, 293)
-        ), blessedHammer.getBaseDamagePercentRanks().asMap());
+        assertEquals(rankTable(115, 126, 138, 149, 167, 178, 190, 201, 213, 230, 241, 253, 264, 276, 293),
+                blessedHammer.getBaseDamagePercentRanks().asMap());
     }
 
     @Test
@@ -214,24 +276,25 @@ class PaladinSkillTreeRegistryTest {
     }
 
     @Test
-    void pozostale_skille_paladyna_nie_powinny_miec_bazowych_procentow_bez_jawnego_r1_lub_tree_max() {
-        Set<String> skillsWithTreeMaxPercent = Set.of("blogoslawiony_mlot");
+    void multi_component_non_damage_i_manual_review_nie_powinny_miec_prostej_tabeli_rang() {
+        Set<String> skippedSkills = java.util.stream.Stream.concat(
+                        MULTI_COMPONENT_OR_MANUAL_REVIEW_SKILLS_WITHOUT_SIMPLE_TABLE.stream(),
+                        NON_DAMAGE_SKILLS_WITHOUT_SIMPLE_TABLE.stream())
+                .collect(Collectors.toSet());
 
-        for (PaladinTreeSkill skill : PaladinSkillTreeRegistry.allSkills()) {
-            if (!skillsWithTreeMaxPercent.contains(skill.getSkillId())) {
-                assertEquals(null, skill.getBaseDamagePercentAtRank1(), skill.getSkillId());
-                assertTrue(skill.getBaseDamagePercentRanks().isEmpty(), skill.getSkillId());
-            }
-            if (!skillsWithTreeMaxPercent.contains(skill.getSkillId())) {
-                assertEquals(null, skill.getBaseDamagePercentAtTreeMaxRank(), skill.getSkillId());
-            }
+        for (String skillId : skippedSkills) {
+            PaladinTreeSkill skill = PaladinSkillTreeRegistry.requireSkill(skillId);
+
+            assertEquals(null, skill.getBaseDamagePercentAtRank1(), skillId);
+            assertEquals(null, skill.getBaseDamagePercentAtTreeMaxRank(), skillId);
+            assertTrue(skill.getBaseDamagePercentRanks().isEmpty(), skillId);
         }
     }
 
     @Test
     void reprezentatywne_null_procenty_powinny_miec_powod_w_notatkach() {
         PaladinTreeSkill nonDamage = PaladinSkillTreeRegistry.requireSkill("aura_fanatyzmu");
-        PaladinTreeSkill noExplicitRank = PaladinSkillTreeRegistry.requireSkill("wymach");
+        PaladinTreeSkill noSimpleTable = PaladinSkillTreeRegistry.requireSkill("zapal");
         PaladinTreeSkill multiComponent = PaladinSkillTreeRegistry.requireSkill("furia_niebios");
 
         assertEquals(PaladinSkillTreeStatus.NON_DAMAGE, nonDamage.getStatus());
@@ -239,9 +302,9 @@ class PaladinSkillTreeRegistryTest {
         assertEquals(null, nonDamage.getBaseDamagePercentAtTreeMaxRank());
         assertTrue(nonDamage.getNotes().contains("brak bezpośredniego modelu obrażeń"));
 
-        assertEquals(null, noExplicitRank.getBaseDamagePercentAtRank1());
-        assertEquals(null, noExplicitRank.getBaseDamagePercentAtTreeMaxRank());
-        assertTrue(noExplicitRank.getNotes().contains("PDF nie podaje jednoznacznie R1/treeMax"));
+        assertEquals(null, noSimpleTable.getBaseDamagePercentAtRank1());
+        assertEquals(null, noSimpleTable.getBaseDamagePercentAtTreeMaxRank());
+        assertTrue(noSimpleTable.getNotes().contains("wielohitowy"));
 
         assertEquals(null, multiComponent.getBaseDamagePercentAtRank1());
         assertEquals(null, multiComponent.getBaseDamagePercentAtTreeMaxRank());
@@ -288,5 +351,95 @@ class PaladinSkillTreeRegistryTest {
         return group.getUpgrades().stream()
                 .map(PaladinSkillUpgrade::getName)
                 .toList();
+    }
+
+    private static Map<Integer, Integer> rankTable(int rank1,
+                                                   int rank2,
+                                                   int rank3,
+                                                   int rank4,
+                                                   int rank5,
+                                                   int rank6,
+                                                   int rank7,
+                                                   int rank8,
+                                                   int rank9,
+                                                   int rank10,
+                                                   int rank11,
+                                                   int rank12,
+                                                   int rank13,
+                                                   int rank14,
+                                                   int rank15) {
+        return Map.ofEntries(
+                Map.entry(1, rank1),
+                Map.entry(2, rank2),
+                Map.entry(3, rank3),
+                Map.entry(4, rank4),
+                Map.entry(5, rank5),
+                Map.entry(6, rank6),
+                Map.entry(7, rank7),
+                Map.entry(8, rank8),
+                Map.entry(9, rank9),
+                Map.entry(10, rank10),
+                Map.entry(11, rank11),
+                Map.entry(12, rank12),
+                Map.entry(13, rank13),
+                Map.entry(14, rank14),
+                Map.entry(15, rank15)
+        );
+    }
+
+    private static Map<Integer, Integer> firstBracketPercentTableFromJson(String json, String skillId) {
+        String skillMarker = "\"skillId\": \"" + skillId + "\"";
+        int skillIndex = json.indexOf(skillMarker);
+        if (skillIndex < 0) {
+            throw new AssertionError("Brak skilla w lokalnym JSON: " + skillId);
+        }
+        int rankTableIndex = json.indexOf("\"rankTable\"", skillIndex);
+        int arrayStart = json.indexOf('[', rankTableIndex);
+        int arrayEnd = findMatchingBracket(json, arrayStart);
+        String rankTableJson = json.substring(arrayStart + 1, arrayEnd);
+
+        Pattern rankPattern = Pattern.compile("(?s)\"rank\"\\s*:\\s*(\\d+).*?\"bracketPercents\"\\s*:\\s*\\[\\s*(\\d+)");
+        Matcher rankMatcher = rankPattern.matcher(rankTableJson);
+        Map<Integer, Integer> table = new LinkedHashMap<>();
+        while (rankMatcher.find()) {
+            table.put(Integer.parseInt(rankMatcher.group(1)), Integer.parseInt(rankMatcher.group(2)));
+        }
+        if (table.size() != 15) {
+            throw new AssertionError("Tabela JSON nie ma kompletu 1..15 dla: " + skillId);
+        }
+        return table;
+    }
+
+    private static int findMatchingBracket(String value, int arrayStart) {
+        int depth = 0;
+        boolean inString = false;
+        boolean escaped = false;
+        for (int index = arrayStart; index < value.length(); index++) {
+            char current = value.charAt(index);
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (current == '\\') {
+                escaped = true;
+                continue;
+            }
+            if (current == '"') {
+                inString = !inString;
+                continue;
+            }
+            if (inString) {
+                continue;
+            }
+            if (current == '[') {
+                depth++;
+            } else if (current == ']') {
+                depth--;
+                if (depth == 0) {
+                    return index;
+                }
+            }
+        }
+        throw new AssertionError("Nie zamknięto tablicy JSON.");
     }
 }

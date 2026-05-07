@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -25,6 +26,36 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DamageRankingServiceTest {
+    private static final Map<String, List<Integer>> SIMPLE_SINGLE_COMPONENT_R1_TREE_MAX = Map.ofEntries(
+            Map.entry("wymach", List.of(75, 191)),
+            Map.entry("swiety_pocisk", List.of(90, 229)),
+            Map.entry("starcie", List.of(115, 293)),
+            Map.entry("natarcie", List.of(105, 268)),
+            Map.entry("blogoslawiona_tarcza", List.of(205, 523)),
+            Map.entry("blogoslawiony_mlot", List.of(115, 293)),
+            Map.entry("boska_lanca", List.of(90, 229)),
+            Map.entry("uderzenie_tarcza", List.of(205, 523)),
+            Map.entry("szarza_z_tarcza", List.of(90, 229)),
+            Map.entry("skazanie", List.of(240, 612)),
+            Map.entry("konsekracja", List.of(75, 191))
+    );
+    private static final Set<String> SIMPLE_SINGLE_COMPONENT_SKILLS = SIMPLE_SINGLE_COMPONENT_R1_TREE_MAX.keySet();
+    private static final Set<String> SKILLS_WITHOUT_SIMPLE_DAMAGE_TABLE = Set.of(
+            "zapal",
+            "aura_fanatyzmu",
+            "aura_smialosci",
+            "aura_swietej_swiatlosci",
+            "egida",
+            "spadajaca_gwiazda",
+            "mobilizacja",
+            "wlocznia_niebios",
+            "oczyszczenie",
+            "furia_niebios",
+            "forteca",
+            "zenit",
+            "arbiter_sprawiedliwosci"
+    );
+
     private final DamageEngine damageEngine = new DamageEngine();
     private final DamageRankingService service = new DamageRankingService(damageEngine);
 
@@ -73,24 +104,35 @@ class DamageRankingServiceTest {
     }
 
     @Test
-    void ranking_paladyna_powinien_pokazywac_tylko_jawnie_zweryfikowane_bazowe_procenty_obrazen() {
+    void ranking_paladyna_powinien_pokazywac_zaimportowane_bazowe_procenty_simple_single_component() {
         List<PaladinSkillDamageRankingEntry> entries = service.describeTreeSkills(PlayableClass.PALADIN);
 
         assertEquals(24, entries.size());
-        PaladinSkillDamageRankingEntry blessedHammer = entries.stream()
-                .filter(entry -> entry.getSkillId().equals("blogoslawiony_mlot"))
-                .findFirst()
-                .orElseThrow();
-        assertEquals(115, blessedHammer.getBaseDamagePercentAtRank1());
-        assertEquals(293, blessedHammer.getBaseDamagePercentAtTreeMaxRank());
-        assertEquals(Set.of("blogoslawiony_mlot"), entries.stream()
+        Map<String, PaladinSkillDamageRankingEntry> entriesBySkillId = entries.stream()
+                .collect(Collectors.toMap(PaladinSkillDamageRankingEntry::getSkillId, entry -> entry));
+
+        for (Map.Entry<String, List<Integer>> expectation : SIMPLE_SINGLE_COMPONENT_R1_TREE_MAX.entrySet()) {
+            PaladinSkillDamageRankingEntry entry = entriesBySkillId.get(expectation.getKey());
+
+            assertEquals(expectation.getValue().get(0), entry.getBaseDamagePercentAtRank1(), expectation.getKey());
+            assertEquals(expectation.getValue().get(1), entry.getBaseDamagePercentAtTreeMaxRank(), expectation.getKey());
+            assertEquals(null, entry.getDamagePerUse(), expectation.getKey());
+            assertEquals(null, entry.getTheoreticalDps(), expectation.getKey());
+        }
+        assertEquals(SIMPLE_SINGLE_COMPONENT_SKILLS, entries.stream()
                 .filter(entry -> entry.getBaseDamagePercentAtRank1() != null)
                 .map(PaladinSkillDamageRankingEntry::getSkillId)
                 .collect(Collectors.toSet()));
-        assertEquals(Set.of("blogoslawiony_mlot"), entries.stream()
+        assertEquals(SIMPLE_SINGLE_COMPONENT_SKILLS, entries.stream()
                 .filter(entry -> entry.getBaseDamagePercentAtTreeMaxRank() != null)
                 .map(PaladinSkillDamageRankingEntry::getSkillId)
                 .collect(Collectors.toSet()));
+        for (String skillId : SKILLS_WITHOUT_SIMPLE_DAMAGE_TABLE) {
+            PaladinSkillDamageRankingEntry entry = entriesBySkillId.get(skillId);
+
+            assertEquals(null, entry.getBaseDamagePercentAtRank1(), skillId);
+            assertEquals(null, entry.getBaseDamagePercentAtTreeMaxRank(), skillId);
+        }
         assertTrue(entries.stream().allMatch(entry -> entry.getDamagePerUse() == null));
         assertTrue(entries.stream().allMatch(entry -> entry.getTheoreticalDps() == null));
     }
@@ -119,7 +161,7 @@ class DamageRankingServiceTest {
     }
 
     @Test
-    void sortowanie_po_bazowych_procentach_dla_rejestru_paladyna_powinno_wynosic_blogoslawiony_mlot_nad_brak_danych() {
+    void sortowanie_po_bazowych_procentach_dla_rejestru_paladyna_powinno_wynosic_najwyzszy_importowany_skill_nad_brak_danych() {
         List<String> rankOneOrder = service.rankDamageSkills(PlayableClass.PALADIN, PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1)
                 .stream()
                 .map(PaladinSkillDamageRankingEntry::getSkillId)
@@ -129,8 +171,10 @@ class DamageRankingServiceTest {
                 .map(PaladinSkillDamageRankingEntry::getSkillId)
                 .toList();
 
-        assertEquals("blogoslawiony_mlot", rankOneOrder.get(0));
-        assertEquals("blogoslawiony_mlot", treeMaxOrder.get(0));
+        assertEquals("skazanie", rankOneOrder.get(0));
+        assertEquals("skazanie", treeMaxOrder.get(0));
+        assertTrue(rankOneOrder.indexOf("skazanie") < rankOneOrder.indexOf("zapal"));
+        assertTrue(treeMaxOrder.indexOf("skazanie") < treeMaxOrder.indexOf("zapal"));
     }
 
     @Test

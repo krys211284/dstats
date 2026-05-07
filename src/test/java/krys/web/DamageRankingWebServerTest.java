@@ -12,6 +12,9 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,6 +23,35 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DamageRankingWebServerTest {
+    private static final Map<String, List<Integer>> SIMPLE_SINGLE_COMPONENT_R1_TREE_MAX = Map.ofEntries(
+            Map.entry("wymach", List.of(75, 191)),
+            Map.entry("swiety_pocisk", List.of(90, 229)),
+            Map.entry("starcie", List.of(115, 293)),
+            Map.entry("natarcie", List.of(105, 268)),
+            Map.entry("blogoslawiona_tarcza", List.of(205, 523)),
+            Map.entry("blogoslawiony_mlot", List.of(115, 293)),
+            Map.entry("boska_lanca", List.of(90, 229)),
+            Map.entry("uderzenie_tarcza", List.of(205, 523)),
+            Map.entry("szarza_z_tarcza", List.of(90, 229)),
+            Map.entry("skazanie", List.of(240, 612)),
+            Map.entry("konsekracja", List.of(75, 191))
+    );
+    private static final Set<String> SKILLS_WITHOUT_SIMPLE_DAMAGE_TABLE = Set.of(
+            "zapal",
+            "aura_fanatyzmu",
+            "aura_smialosci",
+            "aura_swietej_swiatlosci",
+            "egida",
+            "spadajaca_gwiazda",
+            "mobilizacja",
+            "wlocznia_niebios",
+            "oczyszczenie",
+            "furia_niebios",
+            "forteca",
+            "zenit",
+            "arbiter_sprawiedliwosci"
+    );
+
     private CurrentBuildWebServer webServer;
     private HttpClient httpClient;
     private String baseUrl;
@@ -96,15 +128,24 @@ class DamageRankingWebServerTest {
     }
 
     @Test
-    void baseDamagePercentValuesShouldRenderOnlyWhenRegistryContainsConfirmedSourceValue() throws Exception {
+    void baseDamagePercentValuesShouldRenderForImportedSimpleSingleComponentSkillsOnly() throws Exception {
         HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin");
 
         assertEquals(200, response.statusCode());
         assertEquals(24, countSkillRows(response.body()));
-        assertEquals(46, countOccurrences(response.body(), "brak danych"));
+        assertEquals(26, countOccurrences(response.body(), "brak danych"));
         assertTrue(response.body().contains("data-skill-id=\"blogoslawiony_mlot\""));
         assertTrue(response.body().contains(">115%</td>"));
         assertTrue(response.body().contains(">293%</td>"));
+        assertTrue(response.body().contains("data-skill-id=\"wymach\""));
+        assertTrue(response.body().contains(">75%</td>"));
+        assertTrue(response.body().contains(">191%</td>"));
+        assertTrue(response.body().contains("data-skill-id=\"skazanie\""));
+        assertTrue(response.body().contains(">240%</td>"));
+        assertTrue(response.body().contains(">612%</td>"));
+        assertTrue(response.body().contains("data-skill-id=\"blogoslawiona_tarcza\""));
+        assertTrue(response.body().contains(">205%</td>"));
+        assertTrue(response.body().contains(">523%</td>"));
         assertTrue(allRowsContainExpectedBaseDamageCells(response.body()));
         assertFalse(response.body().contains(">0%</td>"));
     }
@@ -187,7 +228,7 @@ class DamageRankingWebServerTest {
         assertEquals(200, rankOneMetricResponse.statusCode());
         assertEquals(24, countSkillRows(rankOneMetricResponse.body()));
         assertTrue(rankOneMetricResponse.body().contains("<option value=\"BASE_DAMAGE_PERCENT_RANK_1\" selected>"));
-        assertEquals("blogoslawiony_mlot", firstSkillId(rankOneMetricResponse.body()));
+        assertEquals("skazanie", firstSkillId(rankOneMetricResponse.body()));
         assertFalse(rankOneMetricResponse.body().contains("data-skill-id=\"BRANDISH\""));
         assertFalse(rankOneMetricResponse.body().contains("data-skill-id=\"HOLY_BOLT\""));
         assertFalse(rankOneMetricResponse.body().contains("data-skill-id=\"CLASH\""));
@@ -196,7 +237,7 @@ class DamageRankingWebServerTest {
         assertEquals(200, treeMaxMetricResponse.statusCode());
         assertEquals(24, countSkillRows(treeMaxMetricResponse.body()));
         assertTrue(treeMaxMetricResponse.body().contains("<option value=\"BASE_DAMAGE_PERCENT_TREE_MAX\" selected>"));
-        assertEquals("blogoslawiony_mlot", firstSkillId(treeMaxMetricResponse.body()));
+        assertEquals("skazanie", firstSkillId(treeMaxMetricResponse.body()));
         assertFalse(treeMaxMetricResponse.body().contains("data-skill-id=\"BRANDISH\""));
         assertFalse(treeMaxMetricResponse.body().contains("data-skill-id=\"HOLY_BOLT\""));
         assertFalse(treeMaxMetricResponse.body().contains("data-skill-id=\"CLASH\""));
@@ -211,7 +252,7 @@ class DamageRankingWebServerTest {
         assertEquals(24, countSkillRows(response.body()));
         assertTrue(response.body().contains("<option value=\"BASE_DAMAGE_PERCENT_TREE_MAX\" selected>"));
         assertFalse(response.body().contains("<option value=\"SINGLE_TARGET_DPS\""));
-        assertEquals("blogoslawiony_mlot", firstSkillId(response.body()));
+        assertEquals("skazanie", firstSkillId(response.body()));
     }
 
     private HttpResponse<String> sendGet(String path) throws Exception {
@@ -240,14 +281,17 @@ class DamageRankingWebServerTest {
             String skillId = matcher.group(1);
             String rankOneCell = matcher.group(2);
             String treeMaxCell = matcher.group(3);
-            if ("blogoslawiony_mlot".equals(skillId)) {
-                if (!rankOneCell.contains("115%") || !treeMaxCell.contains("293%")) {
+            if (SIMPLE_SINGLE_COMPONENT_R1_TREE_MAX.containsKey(skillId)) {
+                List<Integer> expected = SIMPLE_SINGLE_COMPONENT_R1_TREE_MAX.get(skillId);
+                if (!rankOneCell.contains(expected.get(0) + "%") || !treeMaxCell.contains(expected.get(1) + "%")) {
                     return false;
                 }
-            } else {
+            } else if (SKILLS_WITHOUT_SIMPLE_DAMAGE_TABLE.contains(skillId)) {
                 if (!rankOneCell.contains("brak danych") || !treeMaxCell.contains("brak danych")) {
                     return false;
                 }
+            } else {
+                return false;
             }
             if (rankOneCell.contains("zablokowane") || treeMaxCell.contains("zablokowane")) {
                 return false;

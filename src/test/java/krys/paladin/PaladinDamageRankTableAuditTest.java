@@ -36,6 +36,19 @@ class PaladinDamageRankTableAuditTest {
             "recommendedModel",
             "notes"
     );
+    private static final Set<String> SIMPLE_SINGLE_COMPONENT_IMPORTED_TO_REGISTRY = Set.of(
+            "wymach",
+            "swiety_pocisk",
+            "starcie",
+            "natarcie",
+            "blogoslawiona_tarcza",
+            "blogoslawiony_mlot",
+            "boska_lanca",
+            "uderzenie_tarcza",
+            "szarza_z_tarcza",
+            "skazanie",
+            "konsekracja"
+    );
 
     @Test
     void audyt_tabel_rang_powinien_istniec_i_zawierac_24_skille_z_wymaganymi_kolumnami() throws IOException {
@@ -90,16 +103,20 @@ class PaladinDamageRankTableAuditTest {
     }
 
     @Test
-    void audyt_nie_powinien_zmieniac_tabel_rang_w_rejestrze_paladyna() {
+    void tylko_skille_simple_single_component_powinny_miec_proste_tabele_rang_w_rejestrze() {
         Set<String> skillsWithRankTables = PaladinSkillTreeRegistry.allSkills().stream()
                 .filter(skill -> !skill.getBaseDamagePercentRanks().isEmpty())
                 .map(PaladinTreeSkill::getSkillId)
                 .collect(Collectors.toSet());
 
-        assertEquals(Set.of("blogoslawiony_mlot"), skillsWithRankTables);
+        assertEquals(SIMPLE_SINGLE_COMPONENT_IMPORTED_TO_REGISTRY, skillsWithRankTables);
         assertEquals(15, PaladinSkillTreeRegistry.requireSkill("blogoslawiony_mlot").getBaseDamagePercentRanks().asMap().size());
         assertEquals(115, PaladinSkillTreeRegistry.requireSkill("blogoslawiony_mlot").damagePercentAtRank1());
         assertEquals(293, PaladinSkillTreeRegistry.requireSkill("blogoslawiony_mlot").damagePercentAtTreeMaxRank(15));
+
+        assertTrue(PaladinSkillTreeRegistry.requireSkill("zapal").getBaseDamagePercentRanks().isEmpty());
+        assertTrue(PaladinSkillTreeRegistry.requireSkill("spadajaca_gwiazda").getBaseDamagePercentRanks().isEmpty());
+        assertTrue(PaladinSkillTreeRegistry.requireSkill("forteca").getBaseDamagePercentRanks().isEmpty());
     }
 
     @Test

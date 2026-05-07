@@ -291,28 +291,13 @@ Przed masowym importem wartości obrażeń z JSON-a obowiązuje audyt w `docs/pa
 - `NON_DAMAGE` - brak bezpośredniej tabeli obrażeń albo wpis utility/support/status/cooldown,
 - `NEEDS_MANUAL_REVIEW` - dane niejednoznaczne, podejrzane albo wymagające ręcznej weryfikacji.
 
-Audyt jest dokumentem źródłowym procesu importu. Nie wpisuje nowych wartości do rejestru, nie zmienia `DamagePercentRankTable`, nie odblokowuje runtime DPS i nie zastępuje testów mechaniki single target.
+Audyt jest dokumentem źródłowym procesu importu. Sam dokument audytu nie odblokowuje runtime DPS i nie zastępuje testów mechaniki single target.
 
 `DamagePercentRankTable` jest domenowym modelem pełnej tabeli bazowych procentów obrażeń per ranga. Tabela przechowuje wartości `rank -> damagePercent` dla dopuszczalnych rang `1..15`, gdzie liczba całkowita `115` oznacza `115%`. Model odrzuca rangi poza zakresem `1..15`, odrzuca `null` rank/value przy tworzeniu, przy odczycie brakującej poprawnej rangi zwraca `null` i pozostaje niemutowalny po utworzeniu.
 
-W tym etapie tylko `blogoslawiony_mlot` ma pełną tabelę rang wpisaną do rejestru. Dane pochodzą z lokalnego JSON-a i wynoszą:
-- `1 -> 115`,
-- `2 -> 126`,
-- `3 -> 138`,
-- `4 -> 149`,
-- `5 -> 167`,
-- `6 -> 178`,
-- `7 -> 190`,
-- `8 -> 201`,
-- `9 -> 213`,
-- `10 -> 230`,
-- `11 -> 241`,
-- `12 -> 253`,
-- `13 -> 264`,
-- `14 -> 276`,
-- `15 -> 293`.
+Po audycie do `PaladinSkillTreeRegistry` zaimportowano proste tabele `DamagePercentRankTable` tylko dla skilli sklasyfikowanych jako `SIMPLE_SINGLE_COMPONENT` i `recommendedModel = DamagePercentRankTable`: `wymach`, `swiety_pocisk`, `starcie`, `natarcie`, `blogoslawiona_tarcza`, `blogoslawiony_mlot`, `boska_lanca`, `uderzenie_tarcza`, `szarza_z_tarcza`, `skazanie` i `konsekracja`. Każda z tych tabel ma komplet rang `1..15` przepisany z lokalnego JSON-a. `blogoslawiony_mlot` zachowuje dotychczasową tabelę `1=115 ... 15=293`.
 
-Pozostałe skille nie mają jeszcze tabel rang w rejestrze, nawet jeśli lokalny JSON zawiera dla nich dane. Skille wielokomponentowe, tickowe, channelowane, pasywne, aktywacyjne i warunkowe nie są spłaszczane do jednej wartości procentowej bez osobnego modelu interpretacji.
+Skille `MULTI_COMPONENT`, `NON_DAMAGE` i `NEEDS_MANUAL_REVIEW` nie są importowane do prostych tabel rang, nawet jeśli lokalny JSON zawiera dla nich dane. Skille wielokomponentowe, tickowe, channelowane, pasywne, aktywacyjne i warunkowe nie są spłaszczane do jednej wartości procentowej bez osobnego modelu interpretacji.
 
 Nie są wymagane pliki `docs/paladin/source-md/README.md` ani `docs/paladin/source-md/SHASUMS.txt`. Nawigacja źródeł Paladyna może być prowadzona przez `docs/paladin/README.md` oraz ten główny README.
 
@@ -360,9 +345,9 @@ Pola bazowych procentów obrażeń:
 
 Wartości `baseDamagePercentAtRank1` i `baseDamagePercentAtTreeMaxRank` są wartościami pochodnymi z `DamagePercentRankTable`, jeśli dany skill ma tabelę rang. Jeżeli tabela nie istnieje, gettery zachowują kompatybilny fallback do ręcznie wpisanych wartości źródłowych. Te wartości nie są normalizowane względem najlepszej umiejętności, nie są DPS, nie odblokowują runtime i nie mogą być zgadywane. Jeżeli źródło nie podaje jawnie wartości dla R1 albo maksymalnej rangi drzewa, odpowiednie pole pozostaje `null`, a SSR renderuje `brak danych`. Poziomy pośrednie nie są wyliczane przez interpolację; albo istnieją jawnie w tabeli, albo pozostają brakiem danych.
 
-Aktualnie rejestr uzupełnia tabelę rang tylko dla wartości jednoznacznie przeniesionych z lokalnego JSON-a dla `Błogosławionego Młota`. `Błogosławiony Młot` ma `baseDamagePercentAtRank1 = 115` i `baseDamagePercentAtTreeMaxRank = 293`, bo są to wartości pochodne z tabeli rang `1..15`. Brak wartości w UI oznacza, że wartość nie została jeszcze bezpiecznie przeniesiona do rejestru runtime; nie musi oznaczać braku danych w MD, JSON albo PDF. Wartości wielohitowe, tickowe i warunkowe nie są sumowane ani przepisywane jako bazowa siła umiejętności bez osobnej weryfikacji interpretacji.
+Aktualnie rejestr uzupełnia tabele rang tylko dla wartości jednoznacznie przeniesionych z lokalnego JSON-a dla skilli `SIMPLE_SINGLE_COMPONENT`. `Błogosławiony Młot` ma `baseDamagePercentAtRank1 = 115` i `baseDamagePercentAtTreeMaxRank = 293`, bo są to wartości pochodne z tabeli rang `1..15`. Brak wartości w UI oznacza, że wartość nie została bezpiecznie przeniesiona do prostej tabeli rang; nie musi oznaczać braku danych w MD, JSON albo PDF. Wartości wielohitowe, tickowe i warunkowe nie są sumowane ani przepisywane jako bazowa siła umiejętności bez osobnej weryfikacji interpretacji.
 
-Lokalny JSON jest pomocniczym źródłem tabel rang, ale implementacja realnego runtime wymaga osobnych testów mechaniki single target. Sama tabela rang nie zmienia statusu `NEEDS_VERIFICATION`, nie wypełnia `damagePerUse`, `theoreticalDps` ani `singleTargetDps` i nie zmienia `DamageEngine`.
+Lokalny JSON jest pomocniczym źródłem tabel rang, ale implementacja realnego runtime wymaga osobnych testów mechaniki single target. Sama tabela rang nie zmienia statusu `NEEDS_VERIFICATION`, nie wypełnia `damagePerUse`, `theoreticalDps` ani `singleTargetDps`, nie odblokowuje runtime DPS i nie jest jeszcze konsumowana przez `DamageEngine`.
 
 Pola `damagePerUse`, `effectiveCycleSeconds` i `theoreticalDps` pozostają puste dla skilli `NEEDS_VERIFICATION` albo `UNSUPPORTED`. Obsługiwane metryki sortowania to:
 - `BASE_DAMAGE_PERCENT_RANK_1`,

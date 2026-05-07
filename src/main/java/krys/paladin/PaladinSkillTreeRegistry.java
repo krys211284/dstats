@@ -26,6 +26,7 @@ public final class PaladinSkillTreeRegistry {
     private static final String NO_RUNTIME = "Skill jest odwzorowany opisowo z PDF, ale nie ma jeszcze zweryfikowanego modelu DPS runtime.";
     private static final String NO_EXPLICIT_R1_TREE_MAX = NO_RUNTIME + " Bazowy procent obrażeń pozostaje null: PDF nie podaje jednoznacznie R1/treeMax.";
     private static final String MULTI_COMPONENT_PERCENT_NEEDS_VERIFICATION = NO_RUNTIME + " Bazowy procent obrażeń pozostaje null: komponent wielohitowy/tickowy/warunkowy wymaga weryfikacji interpretacji procentu obrażeń.";
+    private static final String LOCAL_JSON_DAMAGE_RANK_TABLE = NO_RUNTIME + " Lokalny JSON Fextralife podaje pełną pojedynczą tabelę bazowych procentów obrażeń 1..15; tabela pozostaje źródłem opisowym i nie odblokowuje DPS runtime.";
     private static final Map<String, PaladinTreeSkill> SKILLS_BY_ID = createSkills();
 
     private PaladinSkillTreeRegistry() {
@@ -47,55 +48,69 @@ public final class PaladinSkillTreeRegistry {
     private static Map<String, PaladinTreeSkill> createSkills() {
         LinkedHashMap<String, PaladinTreeSkill> skills = new LinkedHashMap<>();
 
-        put(skills, skill("wymach", "Wymach", BASIC_PDF, "basic", DAMAGE, NEEDS_VERIFICATION,
+        put(skills, skill("wymach", "Wymach", BASIC_PDF, "basic", damagePercentRanks(
+                        75, 83, 90, 97, 109, 116, 124, 131, 139, 150, 157, 165, 172, 180, 191
+                ), DAMAGE, NEEDS_VERIFICATION,
                 groups(BASIC_PDF, "Wymach",
                         group1(upgrade("generowanie_wiary", "Generowanie Wiary"), upgrade("zwiekszenie_obrazen", "Zwiększenie Obrażeń")),
                         group2(upgrade("szybkosc_uzycia", "Szybkość Użycia"), upgrade("odsloniecie", "Odsłonięcie")),
                         group3(upgrade("powracajaca_swiatlosc", "Powracająca Światłość"), upgrade("miecz_mistrzostwa", "Miecz Mistrzostwa"), upgrade("krzyzowe_uderzenie", "Krzyżowe Uderzenie"))),
-                NO_EXPLICIT_R1_TREE_MAX));
-        put(skills, skill("swiety_pocisk", "Święty Pocisk", BASIC_PDF, "basic", DAMAGE, NEEDS_VERIFICATION,
+                LOCAL_JSON_DAMAGE_RANK_TABLE));
+        put(skills, skill("swiety_pocisk", "Święty Pocisk", BASIC_PDF, "basic", damagePercentRanks(
+                        90, 99, 108, 117, 131, 139, 148, 157, 166, 180, 189, 198, 207, 216, 229
+                ), DAMAGE, NEEDS_VERIFICATION,
                 groups(BASIC_PDF, "Święty Pocisk",
                         group1(upgrade("generowanie_wiary", "Generowanie Wiary"), upgrade("osad", "Osąd")),
                         group2(upgrade("spowolnienie", "Spowolnienie"), upgrade("szybkosc_uzycia", "Szybkość Użycia")),
                         group3(upgrade("burzowy_pocisk", "Burzowy Pocisk"), upgrade("boski_pocisk", "Boski Pocisk"), upgrade("rykoszetujacy_pocisk", "Rykoszetujący Pocisk"))),
-                NO_EXPLICIT_R1_TREE_MAX));
-        put(skills, skill("starcie", "Starcie", BASIC_PDF, "basic", DAMAGE, NEEDS_VERIFICATION,
+                LOCAL_JSON_DAMAGE_RANK_TABLE));
+        put(skills, skill("starcie", "Starcie", BASIC_PDF, "basic", damagePercentRanks(
+                        115, 126, 138, 149, 167, 178, 190, 201, 213, 230, 241, 253, 264, 276, 293
+                ), DAMAGE, NEEDS_VERIFICATION,
                 groups(BASIC_PDF, "Starcie",
                         group1(upgrade("generowanie_wiary", "Generowanie Wiary"), upgrade("animusz", "Animusz")),
                         group2(upgrade("skutecznosc_marszu_krzyzowca", "Skuteczność Marszu Krzyżowca"), upgrade("zwiekszenie_obrazen", "Zwiększenie Obrażeń")),
                         group3(upgrade("brac_ich", "Brać Ich"), upgrade("potyczka", "Potyczka"), upgrade("kara", "Kara"))),
-                NO_EXPLICIT_R1_TREE_MAX));
-        put(skills, skill("natarcie", "Natarcie", BASIC_PDF, "basic", MOBILITY, NEEDS_VERIFICATION,
+                LOCAL_JSON_DAMAGE_RANK_TABLE));
+        put(skills, skill("natarcie", "Natarcie", BASIC_PDF, "basic", damagePercentRanks(
+                        105, 115, 126, 136, 152, 163, 173, 184, 194, 210, 220, 231, 241, 252, 268
+                ), MOBILITY, NEEDS_VERIFICATION,
                 groups(BASIC_PDF, "Natarcie",
                         group1(upgrade("umocnienie", "Umocnienie"), upgrade("nieograniczenie", "Nieograniczenie")),
                         group2(upgrade("blysk_ostrza", "Błysk Ostrza"), upgrade("pedzaca_fala", "Pędząca Fala")),
                         group3(upgrade("zryw_forpoczty", "Zryw Forpoczty"), upgrade("oslabienie", "Osłabienie"), upgrade("szansa_na_trafienie_krytyczne", "Szansa na Trafienie Krytyczne"))),
-                NO_EXPLICIT_R1_TREE_MAX));
+                LOCAL_JSON_DAMAGE_RANK_TABLE));
 
-        put(skills, skill("blogoslawiona_tarcza", "Błogosławiona Tarcza", CORE_PDF, "core", DAMAGE, NEEDS_VERIFICATION,
+        put(skills, skill("blogoslawiona_tarcza", "Błogosławiona Tarcza", CORE_PDF, "core", damagePercentRanks(
+                        205, 226, 246, 266, 297, 318, 338, 359, 379, 410, 430, 451, 471, 492, 523
+                ), DAMAGE, NEEDS_VERIFICATION,
                 groups(CORE_PDF, "Błogosławiona Tarcza",
                         group1(upgrade("generowanie_wiary", "Generowanie Wiary"), upgrade("szybkosc_uzycia", "Szybkość Użycia")),
                         group2(upgrade("premia_do_obrazen", "Premia do Obrażeń"), upgrade("dodatkowy_pancerz_i_szansa_na_blok", "Dodatkowy Pancerz i Szansa na Blok")),
                         group3(upgrade("tarcza_sprawiedliwosci", "Tarcza Sprawiedliwości"), upgrade("tarcza_ozywienca", "Tarcza Ożywieńca"), upgrade("tarcza_pomsty", "Tarcza Pomsty"))),
-                NO_EXPLICIT_R1_TREE_MAX));
+                LOCAL_JSON_DAMAGE_RANK_TABLE));
         put(skills, skill("blogoslawiony_mlot", "Błogosławiony Młot", CORE_PDF, "core", blessedHammerDamagePercentRanks(), DAMAGE, NEEDS_VERIFICATION,
                 groups(CORE_PDF, "Błogosławiony Młot",
                         group1(upgrade("redukcja_kosztu", "Redukcja Kosztu"), upgrade("premia_do_obrazen", "Premia do Obrażeń")),
                         group2(upgrade("zwiekszenie_szybkosci_uzycia", "Zwiększenie Szybkości Użycia"), upgrade("spowolnienie", "Spowolnienie")),
                         group3(upgrade("budujaca_walka", "Budująca Walka"), upgrade("apostolska_aureola", "Apostolska Aureola"), upgrade("druzgocacy_cios", "Druzgocący Cios"))),
                 NO_RUNTIME + " Lokalny JSON Fextralife podaje pełną tabelę bazowych procentów obrażeń 1..15; tabela pozostaje źródłem opisowym i nie odblokowuje DPS runtime."));
-        put(skills, skill("boska_lanca", "Boska Lanca", CORE_PDF, "core", DAMAGE, NEEDS_VERIFICATION,
+        put(skills, skill("boska_lanca", "Boska Lanca", CORE_PDF, "core", damagePercentRanks(
+                        90, 99, 108, 117, 131, 139, 148, 157, 166, 180, 189, 198, 207, 216, 229
+                ), DAMAGE, NEEDS_VERIFICATION,
                 groups(CORE_PDF, "Boska Lanca",
                         group1(upgrade("premia_do_obrazen", "Premia do Obrażeń"), upgrade("redukcja_kosztu", "Redukcja Kosztu")),
                         group2(upgrade("szybkosc_uzycia", "Szybkość Użycia"), upgrade("skumulowane_obrazenia", "Skumulowane Obrażenia")),
                         group3(upgrade("zarliwy_rzut", "Żarliwy Rzut"), upgrade("boski_oszczep", "Boski Oszczep"), unsupportedUpgrade("trzeci_wariant_grupy_3", "Trzeci wariant grupy 3"))),
-                "PDF wskazuje trzeci wariant grupy 3 bez nazwy i pełnego opisu; runtime DPS nadal nie jest zaimplementowany. Bazowy procent obrażeń pozostaje null: wielohitowy opis wymaga weryfikacji interpretacji procentu obrażeń."));
-        put(skills, skill("uderzenie_tarcza", "Uderzenie Tarczą", CORE_PDF, "core", DAMAGE, NEEDS_VERIFICATION,
+                LOCAL_JSON_DAMAGE_RANK_TABLE + " PDF wskazuje trzeci wariant grupy 3 bez nazwy i pełnego opisu."));
+        put(skills, skill("uderzenie_tarcza", "Uderzenie Tarczą", CORE_PDF, "core", damagePercentRanks(
+                        205, 226, 246, 266, 297, 318, 338, 359, 379, 410, 430, 451, 471, 492, 523
+                ), DAMAGE, NEEDS_VERIFICATION,
                 groups(CORE_PDF, "Uderzenie Tarczą",
                         group1(upgrade("uderzenia_sa_blokowaniem", "Uderzenia są Blokowaniem"), upgrade("premia_do_rozmiaru", "Premia do Rozmiaru")),
                         group2(upgrade("oblezenie", "Oblężenie"), upgrade("porazenie", "Porażenie")),
                         group3(upgrade("wylom", "Wyłom"), upgrade("odleglosc", "Odległość"), upgrade("premia_do_obrazen", "Premia do Obrażeń"))),
-                NO_EXPLICIT_R1_TREE_MAX));
+                LOCAL_JSON_DAMAGE_RANK_TABLE));
         put(skills, skill("zapal", "Zapał", CORE_PDF, "core", DAMAGE, NEEDS_VERIFICATION,
                 groups(CORE_PDF, "Zapał",
                         group1(upgrade("oslabienie", "Osłabienie"), upgrade("szansa_na_trafienie_krytyczne", "Szansa na Trafienie Krytyczne")),
@@ -122,12 +137,14 @@ public final class PaladinSkillTreeRegistry {
                         group3(upgrade("obrzed_osadu", "Obrzęd Osądu"), upgrade("obrzed_laski", "Obrzęd Łaski"), upgrade("obrzed_podporzadkowania", "Obrzęd Podporządkowania"))),
                 MULTI_COMPONENT_PERCENT_NEEDS_VERIFICATION));
 
-        put(skills, skill("szarza_z_tarcza", "Szarża z Tarczą", COURAGE_PDF, "odwaga", MOBILITY, NEEDS_VERIFICATION,
+        put(skills, skill("szarza_z_tarcza", "Szarża z Tarczą", COURAGE_PDF, "odwaga", damagePercentRanks(
+                        90, 99, 108, 117, 131, 139, 148, 157, 166, 180, 189, 198, 207, 216, 229
+                ), MOBILITY, NEEDS_VERIFICATION,
                 groups(COURAGE_PDF, "Szarża z Tarczą",
                         group1(upgrade("premia_do_obrazen", "Premia do Obrażeń"), upgrade("animusz", "Animusz")),
                         group2(upgrade("odwet", "Odwet"), upgrade("trafienie_jako_blok", "Trafienie Jako Blok")),
                         group3(upgrade("nieustepliwa_szarza", "Nieustępliwa Szarża"), upgrade("szarza_prawosci", "Szarża Prawości"), upgrade("szarza_falangi", "Szarża Falangi"))),
-                MULTI_COMPONENT_PERCENT_NEEDS_VERIFICATION));
+                LOCAL_JSON_DAMAGE_RANK_TABLE + " JSON zawiera też utility Armor Gained, które nie jest sumowane do obrażeń."));
         put(skills, skill("egida", "Egida", COURAGE_PDF, "odwaga", DEFENSIVE, NEEDS_VERIFICATION,
                 groups(COURAGE_PDF, "Egida",
                         group1(upgrade("nieustepliwosc", "Nieustępliwość"), upgrade("redukcja_czasu_odnowienia", "Redukcja Czasu Odnowienia")),
@@ -147,24 +164,28 @@ public final class PaladinSkillTreeRegistry {
                         group3(upgrade("slowa_poswiecenia", "Słowa Poświęcenia"), upgrade("slowa_natchnienia", "Słowa Natchnienia"), upgrade("slowa_pokrzepienia", "Słowa Pokrzepienia"))),
                 "Skill wsparcia bez bezpośredniego komponentu obrażeń w PDF."));
 
-        put(skills, skill("skazanie", "Skazanie", JUSTICE_PDF, "sprawiedliwosc", DAMAGE, NEEDS_VERIFICATION,
+        put(skills, skill("skazanie", "Skazanie", JUSTICE_PDF, "sprawiedliwosc", damagePercentRanks(
+                        240, 264, 288, 312, 348, 372, 396, 420, 444, 480, 504, 528, 552, 576, 612
+                ), DAMAGE, NEEDS_VERIFICATION,
                 groups(JUSTICE_PDF, "Skazanie",
                         group1(upgrade("oslabienie", "Osłabienie"), upgrade("redukcja_czasu_odnowienia", "Redukcja Czasu Odnowienia")),
                         group2(upgrade("szybkosc_ruchu", "Szybkość Ruchu"), upgrade("zwiekszenie_rozmiaru", "Zwiększenie Rozmiaru")),
                         group3(upgrade("zebranie_trzodki", "Zebranie Trzódki"), upgrade("zadoscuczynienie", "Zadośćuczynienie"), upgrade("wezwanie_winnych", "Wezwanie Winnych"))),
-                "PDF opisuje obrażenia Skazania, ale typ obrażeń i runtime single target wymagają weryfikacji. Bazowy procent obrażeń pozostaje null: PDF nie podaje jednoznacznie R1/treeMax."));
+                LOCAL_JSON_DAMAGE_RANK_TABLE + " Typ obrażeń i runtime single target nadal wymagają osobnej weryfikacji."));
         put(skills, skill("wlocznia_niebios", "Włócznia Niebios", JUSTICE_PDF, "sprawiedliwosc", DAMAGE, NEEDS_VERIFICATION,
                 groups(JUSTICE_PDF, "Włócznia Niebios",
                         group1(upgrade("premia_do_obrazen_osadu", "Premia do Obrażeń Osądu"), upgrade("redukcja_czasu_odnowienia", "Redukcja Czasu Odnowienia")),
                         group2(upgrade("pociski", "Pociski"), upgrade("odsloniecie", "Odsłonięcie")),
                         group3(upgrade("werdykt_niebios", "Werdykt Niebios"), upgrade("rozdarcie_niebios", "Rozdarcie Niebios"), upgrade("piesc_niebios", "Pięść Niebios"))),
                 MULTI_COMPONENT_PERCENT_NEEDS_VERIFICATION));
-        put(skills, skill("konsekracja", "Konsekracja", JUSTICE_PDF, "sprawiedliwosc", DAMAGE, NEEDS_VERIFICATION,
+        put(skills, skill("konsekracja", "Konsekracja", JUSTICE_PDF, "sprawiedliwosc", damagePercentRanks(
+                        75, 83, 90, 97, 109, 116, 124, 131, 139, 150, 157, 165, 172, 180, 191
+                ), DAMAGE, NEEDS_VERIFICATION,
                 groups(JUSTICE_PDF, "Konsekracja",
                         group1(upgrade("czas_dzialania", "Czas Działania"), upgrade("oslabienie", "Osłabienie")),
                         group2(upgrade("umocnienie", "Umocnienie"), upgrade("generowanie_zasobow", "Generowanie Zasobów")),
                         group3(upgrade("uswiecenie", "Uświęcenie"), upgrade("bastion", "Bastion"), upgrade("uswiecona_ziemia", "Uświęcona Ziemia"))),
-                MULTI_COMPONENT_PERCENT_NEEDS_VERIFICATION));
+                LOCAL_JSON_DAMAGE_RANK_TABLE + " JSON zawiera też healing, który nie jest sumowany do obrażeń."));
         put(skills, skill("oczyszczenie", "Oczyszczenie", JUSTICE_PDF, "sprawiedliwosc", SUPPORT, NEEDS_VERIFICATION,
                 groups(JUSTICE_PDF, "Oczyszczenie",
                         group1(upgrade("generowanie_wiary", "Generowanie Wiary"), upgrade("redukcja_czasu_odnowienia", "Redukcja Czasu Odnowienia")),
@@ -237,22 +258,40 @@ public final class PaladinSkillTreeRegistry {
     }
 
     private static DamagePercentRankTable blessedHammerDamagePercentRanks() {
+        return damagePercentRanks(115, 126, 138, 149, 167, 178, 190, 201, 213, 230, 241, 253, 264, 276, 293);
+    }
+
+    private static DamagePercentRankTable damagePercentRanks(int rank1,
+                                                             int rank2,
+                                                             int rank3,
+                                                             int rank4,
+                                                             int rank5,
+                                                             int rank6,
+                                                             int rank7,
+                                                             int rank8,
+                                                             int rank9,
+                                                             int rank10,
+                                                             int rank11,
+                                                             int rank12,
+                                                             int rank13,
+                                                             int rank14,
+                                                             int rank15) {
         return DamagePercentRankTable.of(Map.ofEntries(
-                Map.entry(1, 115),
-                Map.entry(2, 126),
-                Map.entry(3, 138),
-                Map.entry(4, 149),
-                Map.entry(5, 167),
-                Map.entry(6, 178),
-                Map.entry(7, 190),
-                Map.entry(8, 201),
-                Map.entry(9, 213),
-                Map.entry(10, 230),
-                Map.entry(11, 241),
-                Map.entry(12, 253),
-                Map.entry(13, 264),
-                Map.entry(14, 276),
-                Map.entry(15, 293)
+                Map.entry(1, rank1),
+                Map.entry(2, rank2),
+                Map.entry(3, rank3),
+                Map.entry(4, rank4),
+                Map.entry(5, rank5),
+                Map.entry(6, rank6),
+                Map.entry(7, rank7),
+                Map.entry(8, rank8),
+                Map.entry(9, rank9),
+                Map.entry(10, rank10),
+                Map.entry(11, rank11),
+                Map.entry(12, rank12),
+                Map.entry(13, rank13),
+                Map.entry(14, rank14),
+                Map.entry(15, rank15)
         ));
     }
 
