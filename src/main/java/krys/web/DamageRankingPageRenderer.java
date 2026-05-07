@@ -158,8 +158,6 @@ public final class DamageRankingPageRenderer {
                                 <th>damagePerUse</th>
                                 <th>theoreticalDps</th>
                                 <th>singleTargetDps</th>
-                                <th>reason / notes</th>
-                                <th>sourcePdf</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -203,11 +201,7 @@ public final class DamageRankingPageRenderer {
                 .append(formatDouble(entry.getTheoreticalDps()))
                 .append("</td><td>")
                 .append(formatDouble(row.getSingleTargetDps()))
-                .append("</td><td>")
-                .append(escapeHtml(entry.getNotes()))
-                .append("</td><td><code>")
-                .append(escapeHtml(entry.getSourcePdf()))
-                .append("</code></td></tr>")
+                .append("</td></tr>")
                 .toString();
     }
 

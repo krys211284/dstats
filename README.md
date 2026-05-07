@@ -363,7 +363,7 @@ Pola `damagePerUse`, `effectiveCycleSeconds` i `theoreticalDps` pozostają puste
 - `THEORETICAL_DPS`,
 - `SINGLE_TARGET_DPS`.
 
-Ekran SSR `/ranking-obrazen` jest widocznym dla użytkownika podglądem tego modelu. Parametr `character=paladin` wybiera rejestr Paladyna; gdy parametr `character` nie jest podany, a Paladyn jest jedyną obsługiwaną klasą, ekran domyślnie wybiera `paladin`. Dla `character=paladin` ekran pokazuje wszystkie 24 wpisy z `PaladinSkillTreeRegistry`, a nie tylko wpisy policzalne. Tabela zawiera kolumny `skillName`, `skillId`, `skillGroup`, `type`, `verificationStatus`, `Obrażenia % R1`, `Obrażenia % max drzewo`, `damagePerUse`, `theoreticalDps`, `singleTargetDps`, `reason / notes` i `sourcePdf`.
+Ekran SSR `/ranking-obrazen` jest widocznym dla użytkownika podglądem tego modelu. Parametr `character=paladin` wybiera rejestr Paladyna; gdy parametr `character` nie jest podany, a Paladyn jest jedyną obsługiwaną klasą, ekran domyślnie wybiera `paladin`. Dla `character=paladin` ekran pokazuje wszystkie 24 wpisy z `PaladinSkillTreeRegistry`, a nie tylko wpisy policzalne. Główna tabela używa szerokiego wariantu layoutu i zawiera skrócone kolumny decyzyjne: `skillName`, `skillId`, `skillGroup`, `type`, `verificationStatus`, `Obrażenia % R1`, `Obrażenia % max drzewo`, `damagePerUse`, `theoreticalDps` i `singleTargetDps`. Pola diagnostyczne `reason / notes` i `sourcePdf` pozostają w modelach oraz testach jako materiał pomocniczy, ale nie są renderowane w domyślnej tabeli rankingu.
 
 Endpoint `/ranking-obrazen-paladyna` pozostaje wyłącznie aliasem kompatybilności wstecznej do tego samego widoku Paladyna. Nie jest docelowym wzorcem dla kolejnych klas i nie jest osobnym widocznym modułem w głównej nawigacji.
 

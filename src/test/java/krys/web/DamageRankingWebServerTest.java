@@ -61,8 +61,22 @@ class DamageRankingWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("PaladinSkillTreeRegistry"));
+        assertTrue(response.body().contains("<main class=\"layout wide-page ranking-page\">"));
+        assertTrue(response.body().contains(".wide-page.ranking-page"));
+        assertTrue(response.body().contains("max-width: 1800px"));
+        assertTrue(response.body().contains("overflow-x: auto"));
+        assertTrue(response.body().contains("<th>skillName</th>"));
+        assertTrue(response.body().contains("<th>skillId</th>"));
+        assertTrue(response.body().contains("<th>skillGroup</th>"));
+        assertTrue(response.body().contains("<th>type</th>"));
+        assertTrue(response.body().contains("<th>verificationStatus</th>"));
         assertTrue(response.body().contains("<th>Obrażenia % R1</th>"));
         assertTrue(response.body().contains("<th>Obrażenia % max drzewo</th>"));
+        assertTrue(response.body().contains("<th>damagePerUse</th>"));
+        assertTrue(response.body().contains("<th>theoreticalDps</th>"));
+        assertTrue(response.body().contains("<th>singleTargetDps</th>"));
+        assertFalse(response.body().contains("<th>reason / notes</th>"));
+        assertFalse(response.body().contains("<th>sourcePdf</th>"));
         assertEquals(24, countSkillRows(response.body()));
         assertTrue(response.body().contains("data-skill-id=\"furia_niebios\""));
         assertTrue(response.body().contains("data-skill-id=\"zenit\""));

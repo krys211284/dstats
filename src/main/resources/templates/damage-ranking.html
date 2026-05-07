@@ -12,6 +12,10 @@
             gap: 14px;
             align-items: end;
         }
+        .wide-page.ranking-page {
+            width: 95vw;
+            max-width: 1800px;
+        }
         .filter-actions {
             display: flex;
             flex-wrap: wrap;
@@ -22,10 +26,7 @@
             overflow-x: auto;
         }
         .ranking-table {
-            min-width: 1460px;
-        }
-        .ranking-table td:nth-child(9) {
-            min-width: 260px;
+            min-width: 1120px;
         }
         code {
             font-family: "Cascadia Mono", "Consolas", monospace;
@@ -42,7 +43,7 @@
     </style>
 </head>
 <body>
-<main class="layout">
+<main class="layout wide-page ranking-page">
     {{GLOBAL_NAV}}
 
     <section class="hero">
