@@ -6,22 +6,19 @@ import krys.paladin.UpgradeDamageImpact;
 import krys.ranking.PaladinSkillDamageRankingEntry;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 /** Wiersz widoku rankingu łączący opis rankingu z typem umiejętności z rejestru drzewa. */
 public final class DamageRankingRow {
     private final PaladinSkillDamageRankingEntry entry;
     private final PaladinSkillTreeType type;
     private final String damageComponentsDescription;
-    private final String damageAffectingUpgradesDescription;
-    private final String nonDamageUpgradesDescription;
+    private final List<UpgradeDamageImpact> upgradeDamageImpacts;
 
     public DamageRankingRow(PaladinSkillDamageRankingEntry entry, PaladinTreeSkill treeSkill) {
         this.entry = entry;
         this.type = treeSkill.getType();
         this.damageComponentsDescription = describeDamageComponents(treeSkill);
-        this.damageAffectingUpgradesDescription = describeUpgrades(treeSkill.getUpgradeDamageImpacts(), true);
-        this.nonDamageUpgradesDescription = describeUpgrades(treeSkill.getUpgradeDamageImpacts(), false);
+        this.upgradeDamageImpacts = List.copyOf(treeSkill.getUpgradeDamageImpacts());
     }
 
     public PaladinSkillDamageRankingEntry getEntry() {
@@ -36,12 +33,10 @@ public final class DamageRankingRow {
         return damageComponentsDescription;
     }
 
-    public String getDamageAffectingUpgradesDescription() {
-        return damageAffectingUpgradesDescription;
-    }
-
-    public String getNonDamageUpgradesDescription() {
-        return nonDamageUpgradesDescription;
+    public List<UpgradeDamageImpact> getUpgradeDamageImpactsForGroup(String groupId) {
+        return upgradeDamageImpacts.stream()
+                .filter(impact -> impact.getGroupId().equals(groupId))
+                .toList();
     }
 
     public Integer getBaseDamagePercentAtRank1() {
@@ -71,16 +66,4 @@ public final class DamageRankingRow {
         };
     }
 
-    private static String describeUpgrades(List<UpgradeDamageImpact> impacts, boolean affectingDamage) {
-        String description = impacts.stream()
-                .filter(impact -> impact.affectsDamage() == affectingDamage)
-                .map(DamageRankingRow::formatImpact)
-                .collect(Collectors.joining("; "));
-        return description.isBlank() ? "brak" : description;
-    }
-
-    private static String formatImpact(UpgradeDamageImpact impact) {
-        String value = impact.getDamagePercent() == null ? "" : " (" + impact.getDamagePercent() + "%)";
-        return impact.getGroupId() + ": " + impact.getUpgradeName() + " - " + impact.getDescription() + value;
-    }
 }

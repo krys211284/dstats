@@ -63,7 +63,8 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains("PaladinSkillTreeRegistry"));
         assertTrue(response.body().contains("<main class=\"layout wide-page ranking-page\">"));
         assertTrue(response.body().contains(".wide-page.ranking-page"));
-        assertTrue(response.body().contains("max-width: 1800px"));
+        assertTrue(response.body().contains("width: calc(100vw - 32px)"));
+        assertTrue(response.body().contains("max-width: none"));
         assertTrue(response.body().contains("overflow-x: auto"));
         assertTrue(response.body().contains("<th>skillName</th>"));
         assertTrue(response.body().contains("<th>skillId</th>"));
@@ -73,13 +74,21 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains("<th>Obrażenia % R1</th>"));
         assertTrue(response.body().contains("<th>Obrażenia % max drzewo</th>"));
         assertTrue(response.body().contains("<th>Komponenty obrażeń</th>"));
-        assertTrue(response.body().contains("<th>Ulepszenia wpływające na obrażenia</th>"));
-        assertTrue(response.body().contains("<th>Ulepszenia bez wpływu na obrażenia</th>"));
+        assertTrue(response.body().contains("<th>grupa_1: wpływ na obrażenia</th>"));
+        assertTrue(response.body().contains("<th>grupa_2: wpływ na obrażenia</th>"));
+        assertTrue(response.body().contains("<th>grupa_3: wpływ na obrażenia</th>"));
+        assertFalse(response.body().contains("<th>Ulepszenia wpływające na obrażenia</th>"));
+        assertFalse(response.body().contains("<th>Ulepszenia bez wpływu na obrażenia</th>"));
         assertFalse(response.body().contains("<th>damagePerUse</th>"));
         assertFalse(response.body().contains("<th>theoreticalDps</th>"));
         assertFalse(response.body().contains("<th>singleTargetDps</th>"));
         assertFalse(response.body().contains("<th>reason / notes</th>"));
         assertFalse(response.body().contains("<th>sourcePdf</th>"));
+        assertTrue(response.body().contains("<option value=\"BASE_DAMAGE_PERCENT_RANK_1\""));
+        assertTrue(response.body().contains("<option value=\"BASE_DAMAGE_PERCENT_TREE_MAX\" selected>"));
+        assertFalse(response.body().contains("DAMAGE_PER_USE"));
+        assertFalse(response.body().contains("THEORETICAL_DPS"));
+        assertFalse(response.body().contains("SINGLE_TARGET_DPS"));
         assertEquals(24, countSkillRows(response.body()));
         assertTrue(response.body().contains("data-skill-id=\"furia_niebios\""));
         assertTrue(response.body().contains("data-skill-id=\"zenit\""));
@@ -160,14 +169,14 @@ class DamageRankingWebServerTest {
 
     @Test
     void shouldFilterBySkillGroupStatusTypeAndMetric() throws Exception {
-        HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin&skillGroup=moce_specjalne&verificationStatus=NEEDS_VERIFICATION&type=DAMAGE&metric=DAMAGE_PER_USE");
+        HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin&skillGroup=moce_specjalne&verificationStatus=NEEDS_VERIFICATION&type=DAMAGE&metric=BASE_DAMAGE_PERCENT_TREE_MAX");
 
         assertEquals(200, response.statusCode());
         assertEquals(2, countSkillRows(response.body()));
         assertTrue(response.body().contains("data-skill-id=\"furia_niebios\""));
         assertTrue(response.body().contains("data-skill-id=\"arbiter_sprawiedliwosci\""));
         assertFalse(response.body().contains("data-skill-id=\"forteca\""));
-        assertTrue(response.body().contains("<option value=\"DAMAGE_PER_USE\" selected>"));
+        assertTrue(response.body().contains("<option value=\"BASE_DAMAGE_PERCENT_TREE_MAX\" selected>"));
     }
 
     @Test
@@ -192,6 +201,17 @@ class DamageRankingWebServerTest {
         assertFalse(treeMaxMetricResponse.body().contains("data-skill-id=\"HOLY_BOLT\""));
         assertFalse(treeMaxMetricResponse.body().contains("data-skill-id=\"CLASH\""));
         assertFalse(treeMaxMetricResponse.body().contains("data-skill-id=\"ADVANCE\""));
+    }
+
+    @Test
+    void runtimeMetricQueryShouldFallBackToBaseMetricInMainRankingUi() throws Exception {
+        HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin&metric=SINGLE_TARGET_DPS");
+
+        assertEquals(200, response.statusCode());
+        assertEquals(24, countSkillRows(response.body()));
+        assertTrue(response.body().contains("<option value=\"BASE_DAMAGE_PERCENT_TREE_MAX\" selected>"));
+        assertFalse(response.body().contains("<option value=\"SINGLE_TARGET_DPS\""));
+        assertEquals("blogoslawiony_mlot", firstSkillId(response.body()));
     }
 
     private HttpResponse<String> sendGet(String path) throws Exception {

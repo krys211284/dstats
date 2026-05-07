@@ -1,6 +1,7 @@
 package krys.web;
 
 import krys.paladin.PaladinSkillTreeType;
+import krys.paladin.UpgradeDamageImpact;
 import krys.ranking.PaladinDamageRankingMetric;
 import krys.ranking.PaladinSkillDamageRankingEntry;
 import krys.ranking.PaladinSkillDamageVerificationStatus;
@@ -155,8 +156,9 @@ public final class DamageRankingPageRenderer {
                                 <th>Obrażenia % R1</th>
                                 <th>Obrażenia % max drzewo</th>
                                 <th>Komponenty obrażeń</th>
-                                <th>Ulepszenia wpływające na obrażenia</th>
-                                <th>Ulepszenia bez wpływu na obrażenia</th>
+                                <th>grupa_1: wpływ na obrażenia</th>
+                                <th>grupa_2: wpływ na obrażenia</th>
+                                <th>grupa_3: wpływ na obrażenia</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -197,11 +199,49 @@ public final class DamageRankingPageRenderer {
                 .append("</td><td>")
                 .append(escapeHtml(row.getDamageComponentsDescription()))
                 .append("</td><td>")
-                .append(escapeHtml(row.getDamageAffectingUpgradesDescription()))
+                .append(renderUpgradeGroup(row, "grupa_1"))
                 .append("</td><td>")
-                .append(escapeHtml(row.getNonDamageUpgradesDescription()))
+                .append(renderUpgradeGroup(row, "grupa_2"))
+                .append("</td><td>")
+                .append(renderUpgradeGroup(row, "grupa_3"))
                 .append("</td></tr>")
                 .toString();
+    }
+
+    private static String renderUpgradeGroup(DamageRankingRow row, String groupId) {
+        var impacts = row.getUpgradeDamageImpactsForGroup(groupId);
+        if (impacts.isEmpty()) {
+            return "<span class=\"missing-source-value\">brak danych</span>";
+        }
+        StringBuilder html = new StringBuilder("<ul class=\"compact-list upgrade-impact-list\">");
+        for (UpgradeDamageImpact impact : impacts) {
+            html.append("<li>")
+                    .append(escapeHtml(impact.getUpgradeName()))
+                    .append(" &mdash; <code>")
+                    .append(escapeHtml(impact.getType().name()))
+                    .append("</code> &mdash; ")
+                    .append(escapeHtml(shortImpactDescription(impact)))
+                    .append("</li>");
+        }
+        html.append("</ul>");
+        return html.toString();
+    }
+
+    private static String shortImpactDescription(UpgradeDamageImpact impact) {
+        if (impact.getDamagePercent() != null) {
+            return "+" + impact.getDamagePercent() + "%";
+        }
+        return switch (impact.getType()) {
+            case DIRECT_DAMAGE_PERCENT -> "bezpośredni procent obrażeń";
+            case ADDITIONAL_HIT -> "dodatkowe trafienie";
+            case DAMAGE_OVER_TIME -> "obrażenia w czasie";
+            case BURST_DAMAGE -> "obrażenia wybuchowe";
+            case CONDITIONAL_DAMAGE -> "obrażenia warunkowe";
+            case STATUS_OR_UTILITY -> "utility/status";
+            case COOLDOWN_OR_COST -> "koszt/odnowienie/zasób";
+            case NO_DAMAGE_IMPACT -> "brak wpływu na obrażenia";
+            case NEEDS_VERIFICATION -> "wymaga weryfikacji";
+        };
     }
 
     private static String renderStatus(PaladinSkillDamageVerificationStatus status) {

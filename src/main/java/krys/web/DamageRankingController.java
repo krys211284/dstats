@@ -89,10 +89,7 @@ public final class DamageRankingController implements HttpHandler {
                         PaladinSkillTreeType.SPECIAL,
                         PaladinSkillTreeType.UNCLASSIFIED),
                 List.of(PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1,
-                        PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX,
-                        PaladinDamageRankingMetric.DAMAGE_PER_USE,
-                        PaladinDamageRankingMetric.THEORETICAL_DPS,
-                        PaladinDamageRankingMetric.SINGLE_TARGET_DPS)
+                        PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX)
         );
     }
 

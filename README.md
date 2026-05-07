@@ -365,7 +365,7 @@ Pola `damagePerUse`, `effectiveCycleSeconds` i `theoreticalDps` pozostają puste
 
 Ekran SSR `/ranking-obrazen` jest na obecnym etapie widocznym dla użytkownika porównaniem bazowej siły umiejętności i opisowego wpływu ulepszeń, a nie ekranem realnego DPS. Parametr `character=paladin` wybiera rejestr Paladyna; gdy parametr `character` nie jest podany, a Paladyn jest jedyną obsługiwaną klasą, ekran domyślnie wybiera `paladin`. Dla `character=paladin` ekran pokazuje wszystkie 24 wpisy z `PaladinSkillTreeRegistry`, a nie tylko wpisy policzalne.
 
-Główna tabela używa szerokiego wariantu layoutu i zawiera skrócone kolumny decyzyjne: `skillName`, `skillId`, `skillGroup`, `type`, `verificationStatus`, `Obrażenia % R1`, `Obrażenia % max drzewo`, `Komponenty obrażeń`, `Ulepszenia wpływające na obrażenia` i `Ulepszenia bez wpływu na obrażenia`. Kolumny runtime `damagePerUse`, `theoreticalDps` i `singleTargetDps` nie są renderowane w domyślnej tabeli, dopóki runtime DPS nowych umiejętności pozostaje zablokowany. Pola diagnostyczne `reason / notes` i `sourcePdf` również pozostają poza domyślną tabelą.
+Główna tabela używa szerokiego wariantu layoutu i zawiera skrócone kolumny decyzyjne: `skillName`, `skillId`, `skillGroup`, `type`, `verificationStatus`, `Obrażenia % R1`, `Obrażenia % max drzewo`, `Komponenty obrażeń`, `grupa_1: wpływ na obrażenia`, `grupa_2: wpływ na obrażenia` i `grupa_3: wpływ na obrażenia`. Kolumny runtime `damagePerUse`, `theoreticalDps` i `singleTargetDps` nie są renderowane w domyślnej tabeli, dopóki runtime DPS nowych umiejętności pozostaje zablokowany. Pola diagnostyczne `reason / notes` i `sourcePdf` również pozostają poza domyślną tabelą.
 
 Dane runtime i diagnostyczne pozostają w modelach oraz testach jako materiał pomocniczy dla przyszłego widoku szczegółowego. Opisowy wpływ ulepszeń jest klasyfikowany bez liczenia DPS i bez wpisywania wartości liczbowych, jeśli lokalne źródła nie podają ich jednoznacznie. Wpływ ulepszeń nie jest sumowany z bazowym procentem skilla, nie zmienia `baseDamagePercentAtRank1`, nie zmienia `baseDamagePercentAtTreeMaxRank`, nie wpływa na sortowanie po bazowych procentach i nie odblokowuje `DamageEngine`.
 
@@ -376,14 +376,14 @@ Filtry ekranu:
 - grupa umiejętności (`skillGroup`),
 - status weryfikacji (`verificationStatus`),
 - typ umiejętności (`type`),
-- metryka rankingu (`metric`: `BASE_DAMAGE_PERCENT_RANK_1`, `BASE_DAMAGE_PERCENT_TREE_MAX`, `DAMAGE_PER_USE`, `THEORETICAL_DPS`, `SINGLE_TARGET_DPS`).
+- metryka rankingu (`metric`: w głównym widoku tylko `BASE_DAMAGE_PERCENT_RANK_1` i `BASE_DAMAGE_PERCENT_TREE_MAX`).
+
+Runtime metryki `DAMAGE_PER_USE`, `THEORETICAL_DPS` i `SINGLE_TARGET_DPS` pozostają w domenie na potrzeby przyszłego debug/runtime widoku, ale nie są pokazywane w filtrze `/ranking-obrazen`. Domyślna metryka tego ekranu to `BASE_DAMAGE_PERCENT_TREE_MAX`.
 
 Domyślne sortowanie ekranu:
-- najpierw wpisy z policzalnym DPS,
-- potem wpisy `NEEDS_VERIFICATION`,
-- potem `UNSUPPORTED`,
-- potem `NON_DAMAGE`,
-- w ramach grup sortowania używana jest wybrana metryka, a przy braku wartości DPS nazwa umiejętności.
+- dla metryk bazowych najpierw wpisy z jawną wartością wybranej metryki,
+- potem wpisy bez danych źródłowych dla tej metryki,
+- przy remisie używany jest status i nazwa umiejętności.
 
 Ograniczenia rankingu:
 - ranking używa opisowego rejestru drzewa Paladyna, a nie legacy `PaladinSkillDefs`,

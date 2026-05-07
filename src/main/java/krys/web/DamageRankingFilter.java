@@ -24,7 +24,9 @@ public final class DamageRankingFilter {
         this.skillGroup = normalizeOptionalValue(skillGroup);
         this.verificationStatus = verificationStatus;
         this.type = type;
-        this.metric = metric == null ? PaladinDamageRankingMetric.SINGLE_TARGET_DPS : metric;
+        this.metric = isVisibleRankingMetric(metric)
+                ? metric
+                : PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX;
     }
 
     public static DamageRankingFilter fromQuery(Map<String, String> queryFields) {
@@ -94,5 +96,10 @@ public final class DamageRankingFilter {
         } catch (IllegalArgumentException exception) {
             return null;
         }
+    }
+
+    private static boolean isVisibleRankingMetric(PaladinDamageRankingMetric metric) {
+        return metric == PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1
+                || metric == PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX;
     }
 }
