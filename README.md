@@ -285,6 +285,14 @@ Wymagane edytowalne materiały Markdown w `docs/paladin/source-md/`:
 
 `docs/paladin/source-md/paladin_fextralife_rank_tables.json` jest maszynowym ekstraktem tabel rang z lokalnej paczki HTML Fextralife. JSON jest pomocniczym źródłem danych dla modelu `DamagePercentRankTable`, ale sam nie przełącza `PaladinSkillTreeRegistry` automatycznie na pełne tabele rang i nie oznacza implementacji realnego DPS.
 
+Przed masowym importem wartości obrażeń z JSON-a obowiązuje audyt w `docs/paladin/source-md/paladin_damage_rank_table_audit.md`. Audyt klasyfikuje każdy wpis do jednej z kategorii:
+- `SIMPLE_SINGLE_COMPONENT` - jedna jednoznaczna tabela obrażeń, kandydat do `DamagePercentRankTable`,
+- `MULTI_COMPONENT` - więcej niż jeden komponent obrażeń, kandydat do przyszłego modelu komponentowego,
+- `NON_DAMAGE` - brak bezpośredniej tabeli obrażeń albo wpis utility/support/status/cooldown,
+- `NEEDS_MANUAL_REVIEW` - dane niejednoznaczne, podejrzane albo wymagające ręcznej weryfikacji.
+
+Audyt jest dokumentem źródłowym procesu importu. Nie wpisuje nowych wartości do rejestru, nie zmienia `DamagePercentRankTable`, nie odblokowuje runtime DPS i nie zastępuje testów mechaniki single target.
+
 `DamagePercentRankTable` jest domenowym modelem pełnej tabeli bazowych procentów obrażeń per ranga. Tabela przechowuje wartości `rank -> damagePercent` dla dopuszczalnych rang `1..15`, gdzie liczba całkowita `115` oznacza `115%`. Model odrzuca rangi poza zakresem `1..15`, odrzuca `null` rank/value przy tworzeniu, przy odczycie brakującej poprawnej rangi zwraca `null` i pozostaje niemutowalny po utworzeniu.
 
 W tym etapie tylko `blogoslawiony_mlot` ma pełną tabelę rang wpisaną do rejestru. Dane pochodzą z lokalnego JSON-a i wynoszą:
