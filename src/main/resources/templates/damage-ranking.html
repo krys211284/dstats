@@ -26,7 +26,14 @@
             overflow-x: auto;
         }
         .ranking-table {
-            min-width: 1120px;
+            min-width: 1500px;
+        }
+        .ranking-table td:nth-child(8),
+        .ranking-table td:nth-child(9),
+        .ranking-table td:nth-child(10) {
+            min-width: 260px;
+            max-width: 360px;
+            line-height: 1.45;
         }
         code {
             font-family: "Cascadia Mono", "Consolas", monospace;
@@ -49,7 +56,7 @@
     <section class="hero">
         <div class="eyebrow">{{REGISTRY_NAME}}</div>
         <h1>Ranking obrażeń</h1>
-        <p class="helper">Opisowy podgląd drzewa umiejętności dla postaci: {{CHARACTER_NAME}}. Ekran pokazuje, które wpisy są gotowe do policzenia, a które są blokowane przez weryfikację, brak wsparcia albo brak komponentu obrażeń.</p>
+        <p class="helper">Opisowy podgląd drzewa umiejętności dla postaci: {{CHARACTER_NAME}}. Ekran porównuje bazową siłę umiejętności oraz opisowy wpływ ulepszeń na obrażenia, bez liczenia runtime DPS.</p>
         {{SUMMARY}}
     </section>
 
@@ -60,7 +67,7 @@
 
     <section class="panel">
         <h2>Wpisy drzewa postaci</h2>
-        <p class="helper">Niezweryfikowane mechaniki pozostają bez wartości DPS. Widok nie używa legacy foundation jako domyślnego drzewa Paladyna.</p>
+        <p class="helper">Niezweryfikowane mechaniki pozostają poza runtime DPS. Widok nie używa legacy foundation jako domyślnego drzewa Paladyna i nie sumuje wpływu ulepszeń z bazowym procentem skilla.</p>
         {{TABLE}}
     </section>
 </main>

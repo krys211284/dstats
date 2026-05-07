@@ -72,9 +72,12 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains("<th>verificationStatus</th>"));
         assertTrue(response.body().contains("<th>Obrażenia % R1</th>"));
         assertTrue(response.body().contains("<th>Obrażenia % max drzewo</th>"));
-        assertTrue(response.body().contains("<th>damagePerUse</th>"));
-        assertTrue(response.body().contains("<th>theoreticalDps</th>"));
-        assertTrue(response.body().contains("<th>singleTargetDps</th>"));
+        assertTrue(response.body().contains("<th>Komponenty obrażeń</th>"));
+        assertTrue(response.body().contains("<th>Ulepszenia wpływające na obrażenia</th>"));
+        assertTrue(response.body().contains("<th>Ulepszenia bez wpływu na obrażenia</th>"));
+        assertFalse(response.body().contains("<th>damagePerUse</th>"));
+        assertFalse(response.body().contains("<th>theoreticalDps</th>"));
+        assertFalse(response.body().contains("<th>singleTargetDps</th>"));
         assertFalse(response.body().contains("<th>reason / notes</th>"));
         assertFalse(response.body().contains("<th>sourcePdf</th>"));
         assertEquals(24, countSkillRows(response.body()));
@@ -132,7 +135,11 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains("data-skill-id=\"furia_niebios\""));
         assertFalse(response.body().contains("data-verification-status=\"NON_DAMAGE\""));
         assertFalse(response.body().contains("data-verification-status=\"SUPPORTED\""));
-        assertTrue(allRowsWithStatusContainBlockedDps(response.body(), "NEEDS_VERIFICATION"));
+        assertFalse(response.body().contains("<th>damagePerUse</th>"));
+        assertFalse(response.body().contains("<th>theoreticalDps</th>"));
+        assertFalse(response.body().contains("<th>singleTargetDps</th>"));
+        assertFalse(response.body().contains("zablokowane"));
+        assertTrue(response.body().contains("wymaga weryfikacji"));
     }
 
     @Test
@@ -202,20 +209,6 @@ class DamageRankingWebServerTest {
             count++;
         }
         return count;
-    }
-
-    private static boolean allRowsWithStatusContainBlockedDps(String html, String status) {
-        Matcher matcher = Pattern.compile("(?s)<tr class=\"damage-ranking-row\"[^>]*data-verification-status=\"" + status + "\"[^>]*>(.*?)</tr>")
-                .matcher(html);
-        boolean found = false;
-        while (matcher.find()) {
-            found = true;
-            String row = matcher.group(1);
-            if (countOccurrences(row, "zablokowane") < 3) {
-                return false;
-            }
-        }
-        return found;
     }
 
     private static boolean allRowsContainExpectedBaseDamageCells(String html) {

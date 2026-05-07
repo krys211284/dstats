@@ -9,7 +9,6 @@ import krys.ranking.PlayableClass;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Locale;
 
 /** Renderuje ogólny ranking obrażeń z blokadą niezweryfikowanych mechanik DPS. */
 public final class DamageRankingPageRenderer {
@@ -155,9 +154,9 @@ public final class DamageRankingPageRenderer {
                                 <th>verificationStatus</th>
                                 <th>Obrażenia % R1</th>
                                 <th>Obrażenia % max drzewo</th>
-                                <th>damagePerUse</th>
-                                <th>theoreticalDps</th>
-                                <th>singleTargetDps</th>
+                                <th>Komponenty obrażeń</th>
+                                <th>Ulepszenia wpływające na obrażenia</th>
+                                <th>Ulepszenia bez wpływu na obrażenia</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -196,11 +195,11 @@ public final class DamageRankingPageRenderer {
                 .append("</td><td>")
                 .append(formatPercentSource(row.getBaseDamagePercentAtTreeMaxRank()))
                 .append("</td><td>")
-                .append(formatLong(entry.getDamagePerUse()))
+                .append(escapeHtml(row.getDamageComponentsDescription()))
                 .append("</td><td>")
-                .append(formatDouble(entry.getTheoreticalDps()))
+                .append(escapeHtml(row.getDamageAffectingUpgradesDescription()))
                 .append("</td><td>")
-                .append(formatDouble(row.getSingleTargetDps()))
+                .append(escapeHtml(row.getNonDamageUpgradesDescription()))
                 .append("</td></tr>")
                 .toString();
     }
@@ -220,20 +219,10 @@ public final class DamageRankingPageRenderer {
         };
     }
 
-    private static String formatLong(Long value) {
-        return value == null ? "<span class=\"blocked-value\">zablokowane</span>" : Long.toString(value);
-    }
-
     private static String formatPercentSource(Integer value) {
         return value == null
                 ? "<span class=\"missing-source-value\">brak danych</span>"
                 : value + "%";
-    }
-
-    private static String formatDouble(Double value) {
-        return value == null
-                ? "<span class=\"blocked-value\">zablokowane</span>"
-                : String.format(Locale.US, "%.4f", value);
     }
 
     private static String escapeHtml(String value) {

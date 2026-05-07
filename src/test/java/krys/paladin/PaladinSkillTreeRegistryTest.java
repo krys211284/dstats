@@ -195,6 +195,25 @@ class PaladinSkillTreeRegistryTest {
     }
 
     @Test
+    void blogoslawiony_mlot_powinien_miec_opisowy_podzial_wplywu_ulepszen_na_obrazenia() {
+        PaladinTreeSkill blessedHammer = PaladinSkillTreeRegistry.requireSkill("blogoslawiony_mlot");
+        Map<String, UpgradeDamageImpactType> impactsByUpgradeName = blessedHammer.getUpgradeDamageImpacts().stream()
+                .collect(Collectors.toMap(UpgradeDamageImpact::getUpgradeName, UpgradeDamageImpact::getType));
+
+        assertEquals(7, impactsByUpgradeName.size());
+        assertEquals(UpgradeDamageImpactType.COOLDOWN_OR_COST, impactsByUpgradeName.get("Redukcja Kosztu"));
+        assertEquals(UpgradeDamageImpactType.NEEDS_VERIFICATION, impactsByUpgradeName.get("Premia do Obrażeń"));
+        assertEquals(UpgradeDamageImpactType.COOLDOWN_OR_COST, impactsByUpgradeName.get("Zwiększenie Szybkości Użycia"));
+        assertEquals(UpgradeDamageImpactType.STATUS_OR_UTILITY, impactsByUpgradeName.get("Spowolnienie"));
+        assertEquals(UpgradeDamageImpactType.NO_DAMAGE_IMPACT, impactsByUpgradeName.get("Budująca Walka"));
+        assertEquals(UpgradeDamageImpactType.NO_DAMAGE_IMPACT, impactsByUpgradeName.get("Apostolska Aureola"));
+        assertEquals(UpgradeDamageImpactType.NEEDS_VERIFICATION, impactsByUpgradeName.get("Druzgocący Cios"));
+        assertTrue(blessedHammer.getUpgradeDamageImpacts().stream()
+                .filter(UpgradeDamageImpact::affectsDamage)
+                .allMatch(impact -> impact.getDamagePercent() == null));
+    }
+
+    @Test
     void pozostale_skille_paladyna_nie_powinny_miec_bazowych_procentow_bez_jawnego_r1_lub_tree_max() {
         Set<String> skillsWithTreeMaxPercent = Set.of("blogoslawiony_mlot");
 

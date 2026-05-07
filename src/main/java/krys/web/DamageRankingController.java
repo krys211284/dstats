@@ -103,7 +103,7 @@ public final class DamageRankingController implements HttpHandler {
         if (treeSkill == null) {
             throw new IllegalStateException("Ranking zwrócił skill spoza " + registry.getRegistryName() + ": " + entry.getSkillId());
         }
-        return new DamageRankingRow(entry, treeSkill.getType());
+        return new DamageRankingRow(entry, treeSkill);
     }
 
     private static boolean matchesFilter(DamageRankingRow row,

@@ -144,6 +144,13 @@ public final class PaladinTreeSkill {
         return upgradeGroups;
     }
 
+    public List<UpgradeDamageImpact> getUpgradeDamageImpacts() {
+        return upgradeGroups.stream()
+                .flatMap(group -> group.getUpgrades().stream()
+                        .map(upgrade -> UpgradeDamageImpact.fromUpgrade(group.getId(), upgrade)))
+                .toList();
+    }
+
     public String getNotes() {
         return notes;
     }
