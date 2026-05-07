@@ -36,19 +36,16 @@ class DamageRankingWebServerTest {
             Map.entry("skazanie", List.of(240, 612)),
             Map.entry("konsekracja", List.of(75, 191))
     );
-    private static final Set<String> SKILLS_WITHOUT_SIMPLE_DAMAGE_TABLE = Set.of(
-            "zapal",
+    private static final Set<String> NON_DAMAGE_DISPLAY_SKILLS = Set.of(
             "aura_fanatyzmu",
             "aura_smialosci",
-            "aura_swietej_swiatlosci",
             "egida",
-            "spadajaca_gwiazda",
             "mobilizacja",
-            "wlocznia_niebios",
             "oczyszczenie",
+            "forteca"
+    );
+    private static final Set<String> MANUAL_REVIEW_DISPLAY_SKILLS = Set.of(
             "furia_niebios",
-            "forteca",
-            "zenit",
             "arbiter_sprawiedliwosci"
     );
 
@@ -134,12 +131,11 @@ class DamageRankingWebServerTest {
     }
 
     @Test
-    void baseDamagePercentValuesShouldRenderForImportedSimpleSingleComponentSkillsOnly() throws Exception {
+    void baseDamagePercentColumnsShouldRenderSimpleValuesComponentsAndReviewStates() throws Exception {
         HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin");
 
         assertEquals(200, response.statusCode());
         assertEquals(24, countSkillRows(response.body()));
-        assertEquals(26, countOccurrences(response.body(), "brak danych"));
         assertTrue(response.body().contains("data-skill-id=\"blogoslawiony_mlot\""));
         assertTrue(response.body().contains(">115%</td>"));
         assertTrue(response.body().contains(">293%</td>"));
@@ -154,6 +150,41 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains(">523%</td>"));
         assertBaseDamageCells(response.body());
         assertFalse(response.body().contains(">0%</td>"));
+        assertFalse(response.body().contains("suma komponentów"));
+        assertFalse(response.body().contains("total"));
+        assertFalse(response.body().contains("razem"));
+    }
+
+    @Test
+    void multiComponentSkillsShouldRenderComponentPercentsWithoutFlattening() throws Exception {
+        HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin");
+
+        assertEquals(200, response.statusCode());
+        assertRowContains(response.body(), "zapal",
+                "PRIMARY_DAMAGE", "80%", "204%", "ADDITIONAL_STRIKE_DAMAGE", "20%", "51%");
+        assertRowContains(response.body(), "aura_swietej_swiatlosci",
+                "PASSIVE_DAMAGE", "45%", "115%", "ACTIVE_DAMAGE", "320%", "816%");
+        assertRowContains(response.body(), "spadajaca_gwiazda",
+                "LANDING_DAMAGE", "80%", "612%");
+        assertRowDoesNotContain(response.body(), "spadajaca_gwiazda", "JUMP_DAMAGE");
+        assertRowContains(response.body(), "wlocznia_niebios", "PRIMARY_DAMAGE", "BURST_DAMAGE");
+        assertRowContains(response.body(), "zenit", "FIRST_STRIKE_DAMAGE", "SECOND_STRIKE_DAMAGE");
+        assertFalse(response.body().contains("suma komponentów"));
+        assertFalse(response.body().contains("total"));
+        assertFalse(response.body().contains("razem"));
+    }
+
+    @Test
+    void nonDamageAndManualReviewSkillsShouldRenderExplicitStatesInBaseColumns() throws Exception {
+        HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin");
+
+        assertEquals(200, response.statusCode());
+        for (String skillId : NON_DAMAGE_DISPLAY_SKILLS) {
+            assertRowContains(response.body(), skillId, "nie dotyczy");
+        }
+        for (String skillId : MANUAL_REVIEW_DISPLAY_SKILLS) {
+            assertRowContains(response.body(), skillId, "wymaga weryfikacji");
+        }
     }
 
     @Test
@@ -296,9 +327,20 @@ class DamageRankingWebServerTest {
                 if (!rankOneCell.contains(expected.get(0) + "%") || !treeMaxCell.contains(expected.get(1) + "%")) {
                     throw new AssertionError("Niepoprawne procenty dla " + skillId + ": " + rankOneCell + " / " + treeMaxCell);
                 }
-            } else if (SKILLS_WITHOUT_SIMPLE_DAMAGE_TABLE.contains(skillId)) {
-                if (!rankOneCell.contains("brak danych") || !treeMaxCell.contains("brak danych")) {
-                    throw new AssertionError("Skill bez prostej tabeli ma procenty w widoku: " + skillId);
+            } else if (Set.of("zapal", "aura_swietej_swiatlosci", "spadajaca_gwiazda", "wlocznia_niebios", "zenit").contains(skillId)) {
+                if (rankOneCell.contains("brak danych") || treeMaxCell.contains("brak danych")) {
+                    throw new AssertionError("Skill komponentowy nie powinien pokazywać braku danych: " + skillId);
+                }
+                if (!rankOneCell.contains("<code>") || !treeMaxCell.contains("<code>")) {
+                    throw new AssertionError("Skill komponentowy powinien pokazywać nazwy komponentów: " + skillId);
+                }
+            } else if (NON_DAMAGE_DISPLAY_SKILLS.contains(skillId)) {
+                if (!rankOneCell.contains("nie dotyczy") || !treeMaxCell.contains("nie dotyczy")) {
+                    throw new AssertionError("Skill nieobrażeniowy powinien pokazywać 'nie dotyczy': " + skillId);
+                }
+            } else if (MANUAL_REVIEW_DISPLAY_SKILLS.contains(skillId)) {
+                if (!rankOneCell.contains("wymaga weryfikacji") || !treeMaxCell.contains("wymaga weryfikacji")) {
+                    throw new AssertionError("Skill manual review powinien pokazywać 'wymaga weryfikacji': " + skillId);
                 }
             } else {
                 throw new AssertionError("Nieoczekiwany skill w rankingu: " + skillId);
@@ -308,6 +350,26 @@ class DamageRankingWebServerTest {
             }
         }
         assertEquals(24, found);
+    }
+
+    private static void assertRowContains(String html, String skillId, String... fragments) {
+        String row = rowHtml(html, skillId);
+        for (String fragment : fragments) {
+            assertTrue(row.contains(fragment), skillId + " powinien zawierać: " + fragment);
+        }
+    }
+
+    private static void assertRowDoesNotContain(String html, String skillId, String fragment) {
+        assertFalse(rowHtml(html, skillId).contains(fragment), skillId + " nie powinien zawierać: " + fragment);
+    }
+
+    private static String rowHtml(String html, String skillId) {
+        Matcher matcher = Pattern.compile("(?s)<tr [^>]*data-skill-id=\"" + Pattern.quote(skillId) + "\"[^>]*>(.*?)</tr>")
+                .matcher(html);
+        if (!matcher.find()) {
+            throw new AssertionError("Brak wiersza: " + skillId);
+        }
+        return matcher.group(1);
     }
 
     private static List<String> tableCells(String rowHtml) {
@@ -325,15 +387,5 @@ class DamageRankingWebServerTest {
             throw new AssertionError("Brak wierszy rankingu.");
         }
         return matcher.group(1);
-    }
-
-    private static int countOccurrences(String value, String fragment) {
-        int count = 0;
-        int index = 0;
-        while ((index = value.indexOf(fragment, index)) >= 0) {
-            count++;
-            index += fragment.length();
-        }
-        return count;
     }
 }

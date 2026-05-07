@@ -1,5 +1,6 @@
 package krys.web;
 
+import krys.paladin.DamagePercentComponentRankTable;
 import krys.paladin.PaladinSkillTreeType;
 import krys.paladin.PaladinTreeSkill;
 import krys.paladin.UpgradeDamageImpact;
@@ -12,12 +13,14 @@ public final class DamageRankingRow {
     private final PaladinSkillDamageRankingEntry entry;
     private final PaladinSkillTreeType type;
     private final String damageComponentsDescription;
+    private final DamagePercentComponentRankTable componentDamagePercentRanks;
     private final List<UpgradeDamageImpact> upgradeDamageImpacts;
 
     public DamageRankingRow(PaladinSkillDamageRankingEntry entry, PaladinTreeSkill treeSkill) {
         this.entry = entry;
         this.type = treeSkill.getType();
         this.damageComponentsDescription = describeDamageComponents(treeSkill);
+        this.componentDamagePercentRanks = treeSkill.getComponentDamagePercentRanks();
         this.upgradeDamageImpacts = List.copyOf(treeSkill.getUpgradeDamageImpacts());
     }
 
@@ -31,6 +34,10 @@ public final class DamageRankingRow {
 
     public String getDamageComponentsDescription() {
         return damageComponentsDescription;
+    }
+
+    public DamagePercentComponentRankTable getComponentDamagePercentRanks() {
+        return componentDamagePercentRanks;
     }
 
     public List<UpgradeDamageImpact> getUpgradeDamageImpactsForGroup(String groupId) {

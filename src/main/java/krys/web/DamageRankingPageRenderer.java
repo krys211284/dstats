@@ -1,5 +1,7 @@
 package krys.web;
 
+import krys.paladin.DamagePercentComponent;
+import krys.paladin.DamagePercentComponentRankTable;
 import krys.paladin.PaladinSkillTreeType;
 import krys.paladin.UpgradeDamageImpact;
 import krys.ranking.PaladinDamageRankingMetric;
@@ -201,9 +203,9 @@ public final class DamageRankingPageRenderer {
                 .append("</td><td>")
                 .append(escapeHtml(row.getType().name()))
                 .append("</td><td>")
-                .append(formatPercentSource(row.getBaseDamagePercentAtRank1()))
+                .append(renderDamagePercentCell(row, 1))
                 .append("</td><td>")
-                .append(formatPercentSource(row.getBaseDamagePercentAtTreeMaxRank()))
+                .append(renderDamagePercentCell(row, 15))
                 .append("</td><td>")
                 .append(renderUpgradeGroup(row, "grupa_1"))
                 .append("</td><td>")
@@ -212,6 +214,44 @@ public final class DamageRankingPageRenderer {
                 .append(renderUpgradeGroup(row, "grupa_3"))
                 .append("</td></tr>")
                 .toString();
+    }
+
+    private static String renderDamagePercentCell(DamageRankingRow row, int rank) {
+        Integer simpleValue = rank == 1
+                ? row.getBaseDamagePercentAtRank1()
+                : row.getBaseDamagePercentAtTreeMaxRank();
+        if (simpleValue != null) {
+            return simpleValue + "%";
+        }
+
+        DamagePercentComponentRankTable componentTable = row.getComponentDamagePercentRanks();
+        if (!componentTable.isEmpty()) {
+            StringBuilder html = new StringBuilder("<ul class=\"compact-list component-percent-list\">");
+            for (DamagePercentComponent component : DamagePercentComponent.values()) {
+                Integer componentValue = componentTable.damagePercentAt(component, rank);
+                if (componentValue != null) {
+                    html.append("<li><code>")
+                            .append(escapeHtml(component.name()))
+                            .append("</code>: ")
+                            .append(componentValue)
+                            .append("%</li>");
+                }
+            }
+            html.append("</ul>");
+            return html.toString();
+        }
+
+        if (isNonDamageDisplay(row)) {
+            return "<span class=\"not-applicable-value\">nie dotyczy</span>";
+        }
+        return "<span class=\"needs-review-value\">wymaga weryfikacji</span>";
+    }
+
+    private static boolean isNonDamageDisplay(DamageRankingRow row) {
+        if (row.getEntry().getVerificationStatus() == PaladinSkillDamageVerificationStatus.NON_DAMAGE) {
+            return true;
+        }
+        return row.getType() != PaladinSkillTreeType.DAMAGE && row.getType() != PaladinSkillTreeType.SPECIAL;
     }
 
     private static String renderUpgradeGroup(DamageRankingRow row, String groupId) {
@@ -273,12 +313,6 @@ public final class DamageRankingPageRenderer {
             case UNSUPPORTED -> "verification-unsupported";
             case NON_DAMAGE -> "verification-non-damage";
         };
-    }
-
-    private static String formatPercentSource(Integer value) {
-        return value == null
-                ? "<span class=\"missing-source-value\">brak danych</span>"
-                : value + "%";
     }
 
     private static String escapeHtml(String value) {
