@@ -3,6 +3,7 @@ package krys.paladin;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /** Bazowy wpis umiejętności w rejestrze drzewa Paladyna. */
 public final class PaladinTreeSkill {
@@ -12,6 +13,7 @@ public final class PaladinTreeSkill {
     private final String skillGroup;
     private final Integer baseDamagePercentAtRank1;
     private final Integer baseDamagePercentAtTreeMaxRank;
+    private final DamagePercentRankTable baseDamagePercentRanks;
     private final PaladinSkillTreeType type;
     private final PaladinSkillTreeStatus status;
     private final List<PaladinSkillUpgradeGroup> upgradeGroups;
@@ -38,14 +40,42 @@ public final class PaladinTreeSkill {
                             PaladinSkillTreeStatus status,
                             List<PaladinSkillUpgradeGroup> upgradeGroups,
                             String notes) {
+        this(skillId, skillName, sourcePdf, skillGroup, baseDamagePercentAtRank1, baseDamagePercentAtTreeMaxRank,
+                DamagePercentRankTable.empty(), type, status, upgradeGroups, notes);
+    }
+
+    public PaladinTreeSkill(String skillId,
+                            String skillName,
+                            String sourcePdf,
+                            String skillGroup,
+                            DamagePercentRankTable baseDamagePercentRanks,
+                            PaladinSkillTreeType type,
+                            PaladinSkillTreeStatus status,
+                            List<PaladinSkillUpgradeGroup> upgradeGroups,
+                            String notes) {
+        this(skillId, skillName, sourcePdf, skillGroup, null, null, baseDamagePercentRanks, type, status, upgradeGroups, notes);
+    }
+
+    public PaladinTreeSkill(String skillId,
+                            String skillName,
+                            String sourcePdf,
+                            String skillGroup,
+                            Integer baseDamagePercentAtRank1,
+                            Integer baseDamagePercentAtTreeMaxRank,
+                            DamagePercentRankTable baseDamagePercentRanks,
+                            PaladinSkillTreeType type,
+                            PaladinSkillTreeStatus status,
+                            List<PaladinSkillUpgradeGroup> upgradeGroups,
+                            String notes) {
         this.skillId = requireText(skillId, "skillId");
         this.skillName = requireText(skillName, "skillName");
         this.sourcePdf = requireText(sourcePdf, "sourcePdf");
         this.skillGroup = requireText(skillGroup, "skillGroup");
         this.baseDamagePercentAtRank1 = baseDamagePercentAtRank1;
         this.baseDamagePercentAtTreeMaxRank = baseDamagePercentAtTreeMaxRank;
-        this.type = type;
-        this.status = status;
+        this.baseDamagePercentRanks = Objects.requireNonNull(baseDamagePercentRanks, "baseDamagePercentRanks");
+        this.type = Objects.requireNonNull(type, "type");
+        this.status = Objects.requireNonNull(status, "status");
         this.upgradeGroups = Collections.unmodifiableList(new ArrayList<>(upgradeGroups));
         this.notes = requireText(notes, "notes");
     }
@@ -67,11 +97,39 @@ public final class PaladinTreeSkill {
     }
 
     public Integer getBaseDamagePercentAtRank1() {
+        if (!baseDamagePercentRanks.isEmpty()) {
+            return baseDamagePercentRanks.damagePercentAtRank1();
+        }
         return baseDamagePercentAtRank1;
     }
 
     public Integer getBaseDamagePercentAtTreeMaxRank() {
+        if (!baseDamagePercentRanks.isEmpty()) {
+            return baseDamagePercentRanks.damagePercentAtTreeMaxRank(DamagePercentRankTable.MAX_RANK);
+        }
         return baseDamagePercentAtTreeMaxRank;
+    }
+
+    public DamagePercentRankTable getBaseDamagePercentRanks() {
+        return baseDamagePercentRanks;
+    }
+
+    public Integer damagePercentAtRank(int rank) {
+        return baseDamagePercentRanks.damagePercentAtRank(rank);
+    }
+
+    public Integer damagePercentAtRank1() {
+        return getBaseDamagePercentAtRank1();
+    }
+
+    public Integer damagePercentAtTreeMaxRank(int treeMaxRank) {
+        if (!baseDamagePercentRanks.isEmpty()) {
+            return baseDamagePercentRanks.damagePercentAtTreeMaxRank(treeMaxRank);
+        }
+        if (treeMaxRank == DamagePercentRankTable.MAX_RANK) {
+            return baseDamagePercentAtTreeMaxRank;
+        }
+        return null;
     }
 
     public PaladinSkillTreeType getType() {

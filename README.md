@@ -283,7 +283,28 @@ Wymagane edytowalne materiały Markdown w `docs/paladin/source-md/`:
 - `paladin_fextralife_rank_tables.md`,
 - `paladin_fextralife_html_manifest.md`.
 
-`docs/paladin/source-md/paladin_fextralife_rank_tables.json` jest maszynowym ekstraktem tabel rang z lokalnej paczki HTML Fextralife. JSON jest pomocniczym źródłem danych do przyszłego modelu `DamagePercentRankTable`, ale sam nie przełącza `PaladinSkillTreeRegistry` na pełne tabele rang i nie oznacza automatycznej implementacji realnego DPS.
+`docs/paladin/source-md/paladin_fextralife_rank_tables.json` jest maszynowym ekstraktem tabel rang z lokalnej paczki HTML Fextralife. JSON jest pomocniczym źródłem danych dla modelu `DamagePercentRankTable`, ale sam nie przełącza `PaladinSkillTreeRegistry` automatycznie na pełne tabele rang i nie oznacza implementacji realnego DPS.
+
+`DamagePercentRankTable` jest domenowym modelem pełnej tabeli bazowych procentów obrażeń per ranga. Tabela przechowuje wartości `rank -> damagePercent` dla dopuszczalnych rang `1..15`, gdzie liczba całkowita `115` oznacza `115%`. Model odrzuca rangi poza zakresem `1..15`, odrzuca `null` rank/value przy tworzeniu, przy odczycie brakującej poprawnej rangi zwraca `null` i pozostaje niemutowalny po utworzeniu.
+
+W tym etapie tylko `blogoslawiony_mlot` ma pełną tabelę rang wpisaną do rejestru. Dane pochodzą z lokalnego JSON-a i wynoszą:
+- `1 -> 115`,
+- `2 -> 126`,
+- `3 -> 138`,
+- `4 -> 149`,
+- `5 -> 167`,
+- `6 -> 178`,
+- `7 -> 190`,
+- `8 -> 201`,
+- `9 -> 213`,
+- `10 -> 230`,
+- `11 -> 241`,
+- `12 -> 253`,
+- `13 -> 264`,
+- `14 -> 276`,
+- `15 -> 293`.
+
+Pozostałe skille nie mają jeszcze tabel rang w rejestrze, nawet jeśli lokalny JSON zawiera dla nich dane. Skille wielokomponentowe, tickowe, channelowane, pasywne, aktywacyjne i warunkowe nie są spłaszczane do jednej wartości procentowej bez osobnego modelu interpretacji.
 
 Nie są wymagane pliki `docs/paladin/source-md/README.md` ani `docs/paladin/source-md/SHASUMS.txt`. Nawigacja źródeł Paladyna może być prowadzona przez `docs/paladin/README.md` oraz ten główny README.
 
@@ -327,11 +348,13 @@ Pola bazowych procentów obrażeń:
 - `baseDamagePercentAtRank1` - procent obrażeń jawnie podany w opisie, Markdown, JSON albo PDF dla rangi 1; R1 oznacza minimalny wyklikany poziom / rangę umiejętności w drzewie,
 - `baseDamagePercentAtTreeMaxRank` - procent obrażeń jawnie podany w opisie, Markdown, JSON albo PDF dla maksymalnej rangi możliwej do wyklikania w drzewie bez bonusów z przedmiotów.
 
-`treeMaxRank` nie jest absolutnym maksimum umiejętności w całym buildzie. Bonusy z itemów, affixów, aspektów albo innych mechanik mogą w przyszłości zwiększać rzeczywistą rangę używaną przez build ponad `treeMaxRank`. Pojęcie `effectiveRank` jest zostawione na przyszłość i nie jest teraz implementowane.
+`treeMaxRank` obecnie oznacza `15`, czyli maksymalną rangę możliwą do wyklikania w drzewie bez bonusów z itemów. Nie jest to absolutne maksimum umiejętności w całym buildzie. Bonusy z itemów, affixów, aspektów albo innych mechanik mogą w przyszłości zwiększać rzeczywistą rangę używaną przez build ponad `treeMaxRank`. Pojęcie `effectiveRank` po itemach jest zostawione na przyszłość i nie jest teraz implementowane.
 
-Wartości `baseDamagePercentAtRank1` i `baseDamagePercentAtTreeMaxRank` nie są normalizowane względem najlepszej umiejętności, nie są DPS, nie odblokowują runtime i nie mogą być zgadywane. Jeżeli źródło nie podaje jawnie wartości dla R1 albo maksymalnej rangi drzewa, odpowiednie pole pozostaje `null`, a SSR renderuje `brak danych`. Poziomy pośrednie nie są teraz zapisywane ani wyliczane jako dane runtime; interpolacja pozostaje poza bieżącym zakresem.
+Wartości `baseDamagePercentAtRank1` i `baseDamagePercentAtTreeMaxRank` są wartościami pochodnymi z `DamagePercentRankTable`, jeśli dany skill ma tabelę rang. Jeżeli tabela nie istnieje, gettery zachowują kompatybilny fallback do ręcznie wpisanych wartości źródłowych. Te wartości nie są normalizowane względem najlepszej umiejętności, nie są DPS, nie odblokowują runtime i nie mogą być zgadywane. Jeżeli źródło nie podaje jawnie wartości dla R1 albo maksymalnej rangi drzewa, odpowiednie pole pozostaje `null`, a SSR renderuje `brak danych`. Poziomy pośrednie nie są wyliczane przez interpolację; albo istnieją jawnie w tabeli, albo pozostają brakiem danych.
 
-Aktualnie rejestr uzupełnia te pola tylko dla wartości jednoznacznie potwierdzonych i ręcznie wpisanych do rejestru. `Błogosławiony Młot` ma `baseDamagePercentAtTreeMaxRank = 293`, ponieważ `paladin_core_skill_registry_final.pdf` podaje dla `15/15`: `0 [293%] pkt. obrażeń`. `baseDamagePercentAtRank1` pozostaje obecnie `null` w runtime rejestru, mimo że pomocniczy JSON Fextralife zawiera tabelę rang dla późniejszego modelu. Brak wartości w UI oznacza, że wartość nie została jeszcze bezpiecznie przeniesiona do rejestru runtime; nie musi oznaczać braku danych w MD, JSON albo PDF. Wartości wielohitowe, tickowe i warunkowe nie są sumowane ani przepisywane jako bazowa siła umiejętności bez osobnej weryfikacji interpretacji.
+Aktualnie rejestr uzupełnia tabelę rang tylko dla wartości jednoznacznie przeniesionych z lokalnego JSON-a dla `Błogosławionego Młota`. `Błogosławiony Młot` ma `baseDamagePercentAtRank1 = 115` i `baseDamagePercentAtTreeMaxRank = 293`, bo są to wartości pochodne z tabeli rang `1..15`. Brak wartości w UI oznacza, że wartość nie została jeszcze bezpiecznie przeniesiona do rejestru runtime; nie musi oznaczać braku danych w MD, JSON albo PDF. Wartości wielohitowe, tickowe i warunkowe nie są sumowane ani przepisywane jako bazowa siła umiejętności bez osobnej weryfikacji interpretacji.
+
+Lokalny JSON jest pomocniczym źródłem tabel rang, ale implementacja realnego runtime wymaga osobnych testów mechaniki single target. Sama tabela rang nie zmienia statusu `NEEDS_VERIFICATION`, nie wypełnia `damagePerUse`, `theoreticalDps` ani `singleTargetDps` i nie zmienia `DamageEngine`.
 
 Pola `damagePerUse`, `effectiveCycleSeconds` i `theoreticalDps` pozostają puste dla skilli `NEEDS_VERIFICATION` albo `UNSUPPORTED`. Obsługiwane metryki sortowania to:
 - `BASE_DAMAGE_PERCENT_RANK_1`,

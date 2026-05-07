@@ -4,14 +4,14 @@ Katalog `source-md/` jest nowym edytowalnym źródłem dokumentacji Paladyna. Za
 
 Katalog `source-pdfs/` zostaje czasowo w repo jako archiwum i źródło porównawcze dla wcześniejszych materiałów. PDF-y nie są już opisywane jako jedyne źródło prawdy; nowe prace dokumentacyjne powinny zaczynać się od edytowalnych plików Markdown w `source-md/`, a PDF-y mogą służyć do porównania albo audytu pochodzenia danych.
 
-Plik `source-md/paladin_fextralife_rank_tables.json` jest maszynowym ekstraktem tabel rang z lokalnej paczki HTML Fextralife. Te dane są wejściem źródłowym do przyszłego modelu tabel rang, a nie gotową implementacją DPS.
+Plik `source-md/paladin_fextralife_rank_tables.json` jest maszynowym ekstraktem tabel rang z lokalnej paczki HTML Fextralife. Te dane są źródłem pomocniczym dla `DamagePercentRankTable`, a nie gotową implementacją DPS. Na obecnym etapie do rejestru wpisano pełną tabelę rang tylko dla `blogoslawiony_mlot`.
 
 ## Zasady pracy
 
 - Nie wolno zgadywać brakujących wartości liczbowych.
 - Wartości i mechaniki muszą pochodzić z jawnych materiałów źródłowych w `source-md/` albo z archiwalnych PDF-ów w `source-pdfs/`, jeśli są używane porównawczo.
 - Obecność danych Markdown albo JSON nie odblokowuje runtime DPS.
-- Wartości damage/rank z Markdown albo JSON są wejściem źródłowym do późniejszego modelu, nie gotowym DPS i nie podstawą do automatycznego wypełniania runtime.
+- Wartości damage/rank z Markdown albo JSON są wejściem źródłowym do tabel rang, nie gotowym DPS i nie podstawą do automatycznego wypełniania runtime.
 - Wpisy oznaczone jako `DO_WERYFIKACJI` mają zostać później odwzorowane jako `requiresVerification: true`.
 - Niepewne mechaniki nie mogą wpływać na kalkulacje DPS bez osobnej weryfikacji.
 - Każda zmiana logiki wymaga aktualizacji kodu, testów i README w tym samym commicie.

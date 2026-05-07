@@ -75,8 +75,9 @@ class DamageRankingWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertEquals(24, countSkillRows(response.body()));
-        assertEquals(47, countOccurrences(response.body(), "brak danych"));
+        assertEquals(46, countOccurrences(response.body(), "brak danych"));
         assertTrue(response.body().contains("data-skill-id=\"blogoslawiony_mlot\""));
+        assertTrue(response.body().contains(">115%</td>"));
         assertTrue(response.body().contains(">293%</td>"));
         assertTrue(allRowsContainExpectedBaseDamageCells(response.body()));
         assertFalse(response.body().contains(">0%</td>"));
@@ -156,6 +157,7 @@ class DamageRankingWebServerTest {
         assertEquals(200, rankOneMetricResponse.statusCode());
         assertEquals(24, countSkillRows(rankOneMetricResponse.body()));
         assertTrue(rankOneMetricResponse.body().contains("<option value=\"BASE_DAMAGE_PERCENT_RANK_1\" selected>"));
+        assertEquals("blogoslawiony_mlot", firstSkillId(rankOneMetricResponse.body()));
         assertFalse(rankOneMetricResponse.body().contains("data-skill-id=\"BRANDISH\""));
         assertFalse(rankOneMetricResponse.body().contains("data-skill-id=\"HOLY_BOLT\""));
         assertFalse(rankOneMetricResponse.body().contains("data-skill-id=\"CLASH\""));
@@ -211,15 +213,14 @@ class DamageRankingWebServerTest {
             String skillId = matcher.group(1);
             String rankOneCell = matcher.group(2);
             String treeMaxCell = matcher.group(3);
-            if (!rankOneCell.contains("brak danych")) {
-                return false;
-            }
             if ("blogoslawiony_mlot".equals(skillId)) {
-                if (!treeMaxCell.contains("293%")) {
+                if (!rankOneCell.contains("115%") || !treeMaxCell.contains("293%")) {
                     return false;
                 }
-            } else if (!treeMaxCell.contains("brak danych")) {
-                return false;
+            } else {
+                if (!rankOneCell.contains("brak danych") || !treeMaxCell.contains("brak danych")) {
+                    return false;
+                }
             }
             if (rankOneCell.contains("zablokowane") || treeMaxCell.contains("zablokowane")) {
                 return false;

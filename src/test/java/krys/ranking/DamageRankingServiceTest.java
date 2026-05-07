@@ -77,16 +77,22 @@ class DamageRankingServiceTest {
         List<PaladinSkillDamageRankingEntry> entries = service.describeTreeSkills(PlayableClass.PALADIN);
 
         assertEquals(24, entries.size());
-        assertTrue(entries.stream().allMatch(entry -> entry.getBaseDamagePercentAtRank1() == null));
+        PaladinSkillDamageRankingEntry blessedHammer = entries.stream()
+                .filter(entry -> entry.getSkillId().equals("blogoslawiony_mlot"))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(115, blessedHammer.getBaseDamagePercentAtRank1());
+        assertEquals(293, blessedHammer.getBaseDamagePercentAtTreeMaxRank());
+        assertEquals(Set.of("blogoslawiony_mlot"), entries.stream()
+                .filter(entry -> entry.getBaseDamagePercentAtRank1() != null)
+                .map(PaladinSkillDamageRankingEntry::getSkillId)
+                .collect(Collectors.toSet()));
         assertEquals(Set.of("blogoslawiony_mlot"), entries.stream()
                 .filter(entry -> entry.getBaseDamagePercentAtTreeMaxRank() != null)
                 .map(PaladinSkillDamageRankingEntry::getSkillId)
                 .collect(Collectors.toSet()));
-        assertEquals(293, entries.stream()
-                .filter(entry -> entry.getSkillId().equals("blogoslawiony_mlot"))
-                .findFirst()
-                .orElseThrow()
-                .getBaseDamagePercentAtTreeMaxRank());
+        assertTrue(entries.stream().allMatch(entry -> entry.getDamagePerUse() == null));
+        assertTrue(entries.stream().allMatch(entry -> entry.getTheoreticalDps() == null));
     }
 
     @Test
@@ -110,6 +116,21 @@ class DamageRankingServiceTest {
 
         assertEquals(List.of("skill_b", "skill_a", "skill_c"), rankOneOrder);
         assertEquals(List.of("skill_a", "skill_b", "skill_c"), treeMaxOrder);
+    }
+
+    @Test
+    void sortowanie_po_bazowych_procentach_dla_rejestru_paladyna_powinno_wynosic_blogoslawiony_mlot_nad_brak_danych() {
+        List<String> rankOneOrder = service.rankDamageSkills(PlayableClass.PALADIN, PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1)
+                .stream()
+                .map(PaladinSkillDamageRankingEntry::getSkillId)
+                .toList();
+        List<String> treeMaxOrder = service.rankDamageSkills(PlayableClass.PALADIN, PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX)
+                .stream()
+                .map(PaladinSkillDamageRankingEntry::getSkillId)
+                .toList();
+
+        assertEquals("blogoslawiony_mlot", rankOneOrder.get(0));
+        assertEquals("blogoslawiony_mlot", treeMaxOrder.get(0));
     }
 
     @Test

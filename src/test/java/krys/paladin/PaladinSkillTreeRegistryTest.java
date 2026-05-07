@@ -163,10 +163,35 @@ class PaladinSkillTreeRegistryTest {
 
         assertEquals(PaladinSkillTreeRegistry.CORE_PDF, blessedHammer.getSourcePdf());
         assertEquals("Błogosławiony Młot", blessedHammer.getSkillName());
-        assertEquals(null, blessedHammer.getBaseDamagePercentAtRank1());
+        assertEquals(115, blessedHammer.getBaseDamagePercentAtRank1());
         assertEquals(293, blessedHammer.getBaseDamagePercentAtTreeMaxRank());
-        assertTrue(blessedHammer.getNotes().contains("15/15"));
-        assertTrue(blessedHammer.getNotes().contains("0 [293%] pkt. obrażeń"));
+        assertEquals(115, blessedHammer.damagePercentAtRank1());
+        assertEquals(293, blessedHammer.damagePercentAtTreeMaxRank(15));
+        assertTrue(blessedHammer.getNotes().contains("pełną tabelę bazowych procentów obrażeń 1..15"));
+        assertTrue(blessedHammer.getNotes().contains("nie odblokowuje DPS runtime"));
+    }
+
+    @Test
+    void blogoslawiony_mlot_powinien_miec_pelna_tabele_rang_z_lokalnego_jsona() {
+        PaladinTreeSkill blessedHammer = PaladinSkillTreeRegistry.requireSkill("blogoslawiony_mlot");
+
+        assertEquals(Map.ofEntries(
+                Map.entry(1, 115),
+                Map.entry(2, 126),
+                Map.entry(3, 138),
+                Map.entry(4, 149),
+                Map.entry(5, 167),
+                Map.entry(6, 178),
+                Map.entry(7, 190),
+                Map.entry(8, 201),
+                Map.entry(9, 213),
+                Map.entry(10, 230),
+                Map.entry(11, 241),
+                Map.entry(12, 253),
+                Map.entry(13, 264),
+                Map.entry(14, 276),
+                Map.entry(15, 293)
+        ), blessedHammer.getBaseDamagePercentRanks().asMap());
     }
 
     @Test
@@ -174,7 +199,10 @@ class PaladinSkillTreeRegistryTest {
         Set<String> skillsWithTreeMaxPercent = Set.of("blogoslawiony_mlot");
 
         for (PaladinTreeSkill skill : PaladinSkillTreeRegistry.allSkills()) {
-            assertEquals(null, skill.getBaseDamagePercentAtRank1(), skill.getSkillId());
+            if (!skillsWithTreeMaxPercent.contains(skill.getSkillId())) {
+                assertEquals(null, skill.getBaseDamagePercentAtRank1(), skill.getSkillId());
+                assertTrue(skill.getBaseDamagePercentRanks().isEmpty(), skill.getSkillId());
+            }
             if (!skillsWithTreeMaxPercent.contains(skill.getSkillId())) {
                 assertEquals(null, skill.getBaseDamagePercentAtTreeMaxRank(), skill.getSkillId());
             }

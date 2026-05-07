@@ -14,7 +14,7 @@ import static krys.paladin.PaladinSkillTreeType.MOBILITY;
 import static krys.paladin.PaladinSkillTreeType.SPECIAL;
 import static krys.paladin.PaladinSkillTreeType.SUPPORT;
 
-/** Pełny opisowy rejestr drzewa Paladyna oparty o lokalne PDF-y źródłowe. */
+/** Pelny opisowy rejestr drzewa Paladyna oparty o lokalne materialy zrodlowe. */
 public final class PaladinSkillTreeRegistry {
     public static final String BASIC_PDF = "docs/paladin/source-pdfs/paladin_basic_skill_registry_final.pdf";
     public static final String CORE_PDF = "docs/paladin/source-pdfs/paladin_core_skill_registry_final.pdf";
@@ -78,12 +78,12 @@ public final class PaladinSkillTreeRegistry {
                         group2(upgrade("premia_do_obrazen", "Premia do Obrażeń"), upgrade("dodatkowy_pancerz_i_szansa_na_blok", "Dodatkowy Pancerz i Szansa na Blok")),
                         group3(upgrade("tarcza_sprawiedliwosci", "Tarcza Sprawiedliwości"), upgrade("tarcza_ozywienca", "Tarcza Ożywieńca"), upgrade("tarcza_pomsty", "Tarcza Pomsty"))),
                 NO_EXPLICIT_R1_TREE_MAX));
-        put(skills, skill("blogoslawiony_mlot", "Błogosławiony Młot", CORE_PDF, "core", null, 293, DAMAGE, NEEDS_VERIFICATION,
+        put(skills, skill("blogoslawiony_mlot", "Błogosławiony Młot", CORE_PDF, "core", blessedHammerDamagePercentRanks(), DAMAGE, NEEDS_VERIFICATION,
                 groups(CORE_PDF, "Błogosławiony Młot",
                         group1(upgrade("redukcja_kosztu", "Redukcja Kosztu"), upgrade("premia_do_obrazen", "Premia do Obrażeń")),
                         group2(upgrade("zwiekszenie_szybkosci_uzycia", "Zwiększenie Szybkości Użycia"), upgrade("spowolnienie", "Spowolnienie")),
                         group3(upgrade("budujaca_walka", "Budująca Walka"), upgrade("apostolska_aureola", "Apostolska Aureola"), upgrade("druzgocacy_cios", "Druzgocący Cios"))),
-                NO_RUNTIME + " PDF podaje bazowy procent obrażeń dla 15/15: 0 [293%] pkt. obrażeń; R1 nie jest jednoznacznie podane."));
+                NO_RUNTIME + " Lokalny JSON Fextralife podaje pełną tabelę bazowych procentów obrażeń 1..15; tabela pozostaje źródłem opisowym i nie odblokowuje DPS runtime."));
         put(skills, skill("boska_lanca", "Boska Lanca", CORE_PDF, "core", DAMAGE, NEEDS_VERIFICATION,
                 groups(CORE_PDF, "Boska Lanca",
                         group1(upgrade("premia_do_obrazen", "Premia do Obrażeń"), upgrade("redukcja_kosztu", "Redukcja Kosztu")),
@@ -215,6 +215,18 @@ public final class PaladinSkillTreeRegistry {
                                           String skillName,
                                           String sourcePdf,
                                           String skillGroup,
+                                          DamagePercentRankTable baseDamagePercentRanks,
+                                          PaladinSkillTreeType type,
+                                          PaladinSkillTreeStatus status,
+                                          List<PaladinSkillUpgradeGroup> upgradeGroups,
+                                          String notes) {
+        return new PaladinTreeSkill(skillId, skillName, sourcePdf, skillGroup, baseDamagePercentRanks, type, status, upgradeGroups, notes);
+    }
+
+    private static PaladinTreeSkill skill(String skillId,
+                                          String skillName,
+                                          String sourcePdf,
+                                          String skillGroup,
                                           Integer baseDamagePercentAtRank1,
                                           Integer baseDamagePercentAtTreeMaxRank,
                                           PaladinSkillTreeType type,
@@ -222,6 +234,26 @@ public final class PaladinSkillTreeRegistry {
                                           List<PaladinSkillUpgradeGroup> upgradeGroups,
                                           String notes) {
         return new PaladinTreeSkill(skillId, skillName, sourcePdf, skillGroup, baseDamagePercentAtRank1, baseDamagePercentAtTreeMaxRank, type, status, upgradeGroups, notes);
+    }
+
+    private static DamagePercentRankTable blessedHammerDamagePercentRanks() {
+        return DamagePercentRankTable.of(Map.ofEntries(
+                Map.entry(1, 115),
+                Map.entry(2, 126),
+                Map.entry(3, 138),
+                Map.entry(4, 149),
+                Map.entry(5, 167),
+                Map.entry(6, 178),
+                Map.entry(7, 190),
+                Map.entry(8, 201),
+                Map.entry(9, 213),
+                Map.entry(10, 230),
+                Map.entry(11, 241),
+                Map.entry(12, 253),
+                Map.entry(13, 264),
+                Map.entry(14, 276),
+                Map.entry(15, 293)
+        ));
     }
 
     private static List<PaladinSkillUpgradeGroup> groups(String sourcePdf,
