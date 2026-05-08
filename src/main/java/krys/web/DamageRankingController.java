@@ -139,6 +139,7 @@ public final class DamageRankingController implements HttpHandler {
         return matchesFacet(filter.getHasDirectUpgradeDamage(), row.hasDirectUpgradeDamage())
                 && matchesFacet(filter.getHasNewDamageComponent(), row.hasNewDamageComponent())
                 && matchesFacet(filter.getHasStatusDamageEnabler(), row.hasStatusDamageEnabler())
+                && matchesFacet(filter.getHasFaithCost(), row.hasFaithCost())
                 && matchesFacet(filter.getHasResourceGeneration(), row.hasResourceGeneration())
                 && matchesFacet(filter.getHasCooldownOrCastSpeed(), row.hasCooldownOrCastSpeed())
                 && matchesFacet(filter.getHasDefenseOrUtility(), row.hasDefenseOrUtility())
@@ -160,6 +161,18 @@ public final class DamageRankingController implements HttpHandler {
         }
         if (filter.getSort().equals("baseDamageTreeMax")) {
             return numericComparator(DamageRankingRow::getBaseDamagePercentAtTreeMaxRank, filter.getDirection())
+                    .thenComparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
+        }
+        if (filter.getSort().equals("faithCost")) {
+            return numericComparator(DamageRankingRow::getFaithCostSortValue, filter.getDirection())
+                    .thenComparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
+        }
+        if (filter.getSort().equals("faithGeneratedBase")) {
+            return numericComparator(DamageRankingRow::getFaithGenerationBaseSortValue, filter.getDirection())
+                    .thenComparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
+        }
+        if (filter.getSort().equals("faithGeneratedMaxKnown")) {
+            return numericComparator(DamageRankingRow::getFaithGenerationMaxKnownSortValue, filter.getDirection())
                     .thenComparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
         }
         if (filter.getSort().equals("maxDamageMultiplierPercent")) {

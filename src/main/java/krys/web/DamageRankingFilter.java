@@ -22,6 +22,7 @@ public final class DamageRankingFilter {
     private final FacetFilter hasDirectUpgradeDamage;
     private final FacetFilter hasNewDamageComponent;
     private final FacetFilter hasStatusDamageEnabler;
+    private final FacetFilter hasFaithCost;
     private final FacetFilter hasResourceGeneration;
     private final FacetFilter hasCooldownOrCastSpeed;
     private final FacetFilter hasDefenseOrUtility;
@@ -36,7 +37,7 @@ public final class DamageRankingFilter {
                                PaladinDamageRankingMetric metric) {
         this(character, skillGroup, verificationStatus, type, metric, null, null,
                 FacetFilter.ALL, FacetFilter.ALL, FacetFilter.ALL, FacetFilter.ALL,
-                FacetFilter.ALL, FacetFilter.ALL, FacetFilter.ALL,
+                FacetFilter.ALL, FacetFilter.ALL, FacetFilter.ALL, FacetFilter.ALL,
                 "baseDamageTreeMax", SortDirection.DESC);
     }
 
@@ -50,6 +51,7 @@ public final class DamageRankingFilter {
                                FacetFilter hasDirectUpgradeDamage,
                                FacetFilter hasNewDamageComponent,
                                FacetFilter hasStatusDamageEnabler,
+                               FacetFilter hasFaithCost,
                                FacetFilter hasResourceGeneration,
                                FacetFilter hasCooldownOrCastSpeed,
                                FacetFilter hasDefenseOrUtility,
@@ -68,6 +70,7 @@ public final class DamageRankingFilter {
         this.hasDirectUpgradeDamage = hasDirectUpgradeDamage == null ? FacetFilter.ALL : hasDirectUpgradeDamage;
         this.hasNewDamageComponent = hasNewDamageComponent == null ? FacetFilter.ALL : hasNewDamageComponent;
         this.hasStatusDamageEnabler = hasStatusDamageEnabler == null ? FacetFilter.ALL : hasStatusDamageEnabler;
+        this.hasFaithCost = hasFaithCost == null ? FacetFilter.ALL : hasFaithCost;
         this.hasResourceGeneration = hasResourceGeneration == null ? FacetFilter.ALL : hasResourceGeneration;
         this.hasCooldownOrCastSpeed = hasCooldownOrCastSpeed == null ? FacetFilter.ALL : hasCooldownOrCastSpeed;
         this.hasDefenseOrUtility = hasDefenseOrUtility == null ? FacetFilter.ALL : hasDefenseOrUtility;
@@ -106,6 +109,7 @@ public final class DamageRankingFilter {
                 parseFacet(queryFields.get("hasDirectUpgradeDamage")),
                 parseFacet(queryFields.get("hasNewDamageComponent")),
                 parseFacet(queryFields.get("hasStatusDamageEnabler")),
+                parseFacet(queryFields.get("hasFaithCost")),
                 parseFacet(queryFields.get("hasResourceGeneration")),
                 parseFacet(queryFields.get("hasCooldownOrCastSpeed")),
                 parseFacet(queryFields.get("hasDefenseOrUtility")),
@@ -159,6 +163,10 @@ public final class DamageRankingFilter {
         return hasResourceGeneration;
     }
 
+    public FacetFilter getHasFaithCost() {
+        return hasFaithCost;
+    }
+
     public FacetFilter getHasCooldownOrCastSpeed() {
         return hasCooldownOrCastSpeed;
     }
@@ -203,6 +211,7 @@ public final class DamageRankingFilter {
         return hasDirectUpgradeDamage != FacetFilter.ALL
                 || hasNewDamageComponent != FacetFilter.ALL
                 || hasStatusDamageEnabler != FacetFilter.ALL
+                || hasFaithCost != FacetFilter.ALL
                 || hasResourceGeneration != FacetFilter.ALL
                 || hasCooldownOrCastSpeed != FacetFilter.ALL
                 || hasDefenseOrUtility != FacetFilter.ALL
@@ -245,6 +254,9 @@ public final class DamageRankingFilter {
                     "type",
                     "baseDamageRank1",
                     "baseDamageTreeMax",
+                    "faithCost",
+                    "faithGeneratedBase",
+                    "faithGeneratedMaxKnown",
                     "maxDamageMultiplierPercent",
                     "maxDamageBonusPercent",
                     "maxExtraHitOrComponentPercent",

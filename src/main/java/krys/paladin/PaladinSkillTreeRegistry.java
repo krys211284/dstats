@@ -64,7 +64,7 @@ public final class PaladinSkillTreeRegistry {
                         group1(upgrade("generowanie_wiary", "Generowanie Wiary"), upgrade("zwiekszenie_obrazen", "Zwiększenie Obrażeń")),
                         group2(upgrade("szybkosc_uzycia", "Szybkość Użycia"), upgrade("odsloniecie", "Odsłonięcie")),
                         group3(upgrade("powracajaca_swiatlosc", "Powracająca Światłość"), upgrade("miecz_mistrzostwa", "Miecz Mistrzostwa"), upgrade("krzyzowe_uderzenie", "Krzyżowe Uderzenie"))),
-                LOCAL_JSON_DAMAGE_RANK_TABLE));
+                LOCAL_JSON_DAMAGE_RANK_TABLE, null, 14, 5));
         put(skills, skill("swiety_pocisk", "Święty Pocisk", BASIC_PDF, "basic", damagePercentRanks(
                         90, 99, 108, 117, 131, 139, 148, 157, 166, 180, 189, 198, 207, 216, 229
                 ), DAMAGE, NEEDS_VERIFICATION,
@@ -72,7 +72,7 @@ public final class PaladinSkillTreeRegistry {
                         group1(upgrade("generowanie_wiary", "Generowanie Wiary"), upgrade("osad", "Osąd")),
                         group2(upgrade("spowolnienie", "Spowolnienie"), upgrade("szybkosc_uzycia", "Szybkość Użycia")),
                         group3(upgrade("burzowy_pocisk", "Burzowy Pocisk"), upgrade("boski_pocisk", "Boski Pocisk"), upgrade("rykoszetujacy_pocisk", "Rykoszetujący Pocisk"))),
-                LOCAL_JSON_DAMAGE_RANK_TABLE));
+                LOCAL_JSON_DAMAGE_RANK_TABLE, null, 16, 7));
         put(skills, skill("starcie", "Starcie", BASIC_PDF, "basic", damagePercentRanks(
                         115, 126, 138, 149, 167, 178, 190, 201, 213, 230, 241, 253, 264, 276, 293
                 ), DAMAGE, NEEDS_VERIFICATION,
@@ -80,7 +80,7 @@ public final class PaladinSkillTreeRegistry {
                         group1(upgrade("generowanie_wiary", "Generowanie Wiary"), upgrade("animusz", "Animusz")),
                         group2(upgrade("skutecznosc_marszu_krzyzowca", "Skuteczność Marszu Krzyżowca"), upgrade("zwiekszenie_obrazen", "Zwiększenie Obrażeń")),
                         group3(upgrade("brac_ich", "Brać Ich"), upgrade("potyczka", "Potyczka"), upgrade("kara", "Kara"))),
-                LOCAL_JSON_DAMAGE_RANK_TABLE));
+                LOCAL_JSON_DAMAGE_RANK_TABLE, null, 20, 10));
         put(skills, skill("natarcie", "Natarcie", BASIC_PDF, "basic", damagePercentRanks(
                         105, 115, 126, 136, 152, 163, 173, 184, 194, 210, 220, 231, 241, 252, 268
                 ), MOBILITY, NEEDS_VERIFICATION,
@@ -88,7 +88,7 @@ public final class PaladinSkillTreeRegistry {
                         group1(upgrade("umocnienie", "Umocnienie"), upgrade("nieograniczenie", "Nieograniczenie")),
                         group2(upgrade("blysk_ostrza", "Błysk Ostrza"), upgrade("pedzaca_fala", "Pędząca Fala")),
                         group3(upgrade("zryw_forpoczty", "Zryw Forpoczty"), upgrade("oslabienie", "Osłabienie"), upgrade("szansa_na_trafienie_krytyczne", "Szansa na Trafienie Krytyczne"))),
-                LOCAL_JSON_DAMAGE_RANK_TABLE));
+                LOCAL_JSON_DAMAGE_RANK_TABLE, null, 18, null));
 
         put(skills, skill("blogoslawiona_tarcza", "Błogosławiona Tarcza", CORE_PDF, "core", damagePercentRanks(
                         205, 226, 246, 266, 297, 318, 338, 359, 379, 410, 430, 451, 471, 492, 523
@@ -103,7 +103,8 @@ public final class PaladinSkillTreeRegistry {
                         group1(upgrade("redukcja_kosztu", "Redukcja Kosztu"), upgrade("premia_do_obrazen", "Premia do Obrażeń")),
                         group2(upgrade("zwiekszenie_szybkosci_uzycia", "Zwiększenie Szybkości Użycia"), upgrade("spowolnienie", "Spowolnienie")),
                         group3(upgrade("budujaca_walka", "Budująca Walka"), upgrade("apostolska_aureola", "Apostolska Aureola"), upgrade("druzgocacy_cios", "Druzgocący Cios"))),
-                NO_RUNTIME + " Lokalny JSON Fextralife podaje pełną tabelę bazowych procentów obrażeń 1..15; tabela pozostaje źródłem opisowym i nie odblokowuje DPS runtime."));
+                NO_RUNTIME + " Lokalny JSON Fextralife podaje pełną tabelę bazowych procentów obrażeń 1..15; tabela pozostaje źródłem opisowym i nie odblokowuje DPS runtime.",
+                10, null, null));
         put(skills, skill("boska_lanca", "Boska Lanca", CORE_PDF, "core", damagePercentRanks(
                         90, 99, 108, 117, 131, 139, 148, 157, 166, 180, 189, 198, 207, 216, 229
                 ), DAMAGE, NEEDS_VERIFICATION,
@@ -265,6 +266,23 @@ public final class PaladinSkillTreeRegistry {
                                           List<PaladinSkillUpgradeGroup> upgradeGroups,
                                           String notes) {
         return new PaladinTreeSkill(skillId, skillName, sourcePdf, skillGroup, baseDamagePercentRanks, type, status, upgradeGroups, notes);
+    }
+
+    private static PaladinTreeSkill skill(String skillId,
+                                          String skillName,
+                                          String sourcePdf,
+                                          String skillGroup,
+                                          DamagePercentRankTable baseDamagePercentRanks,
+                                          PaladinSkillTreeType type,
+                                          PaladinSkillTreeStatus status,
+                                          List<PaladinSkillUpgradeGroup> upgradeGroups,
+                                          String notes,
+                                          Integer faithCost,
+                                          Integer faithGenerationBase,
+                                          Integer faithGenerationBonusKnown) {
+        return new PaladinTreeSkill(skillId, skillName, sourcePdf, skillGroup, null, null,
+                baseDamagePercentRanks, DamagePercentComponentRankTable.empty(), type, status, upgradeGroups, notes,
+                faithCost, faithGenerationBase, faithGenerationBonusKnown);
     }
 
     private static PaladinTreeSkill skill(String skillId,

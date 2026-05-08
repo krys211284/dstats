@@ -30,7 +30,7 @@
         }
         .ranking-table {
             width: 100%;
-            min-width: 1900px;
+            min-width: 1680px;
             table-layout: fixed;
         }
         .ranking-table th {
@@ -46,16 +46,21 @@
         .sort-link:hover {
             text-decoration: underline;
         }
+        .secondary-sort-link {
+            display: inline-flex;
+            margin-left: 6px;
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+        }
         .sort-indicator {
             min-width: 1.1em;
             color: var(--text-secondary);
         }
         .col-skill-name { width: 8%; }
-        .col-group { width: 7%; }
-        .col-source-categories { width: 8%; }
-        .col-tags { width: 11%; }
-        .col-type { width: 5.5%; }
+        .col-source-categories { width: 10%; }
         .col-damage { width: 7%; }
+        .col-faith { width: 6%; }
+        .wide-faith { width: 9%; }
         .col-facet { width: 6.5%; }
         .wide-facet { width: 10%; }
         .verification-legend {
@@ -109,24 +114,9 @@
             line-height: 1.35;
         }
         .ranking-table td:nth-child(1),
-        .ranking-table td:nth-child(2),
         .ranking-table td:nth-child(3),
+        .ranking-table td:nth-child(4),
         .ranking-table td:nth-child(5) {
-            white-space: nowrap;
-        }
-        .tag-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 4px;
-        }
-        .tag-chip {
-            display: inline-flex;
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 2px 5px;
-            background: rgba(255, 255, 255, 0.62);
-            font-size: 0.68rem;
-            line-height: 1.15;
             white-space: nowrap;
         }
         .compact-list {

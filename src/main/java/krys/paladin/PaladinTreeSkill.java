@@ -22,6 +22,9 @@ public final class PaladinTreeSkill {
     private final PaladinSkillTreeStatus status;
     private final List<PaladinSkillUpgradeGroup> upgradeGroups;
     private final String notes;
+    private final Integer faithCost;
+    private final Integer faithGenerationBase;
+    private final Integer faithGenerationBonusKnown;
 
     public PaladinTreeSkill(String skillId,
                             String skillName,
@@ -100,6 +103,26 @@ public final class PaladinTreeSkill {
                             PaladinSkillTreeStatus status,
                             List<PaladinSkillUpgradeGroup> upgradeGroups,
                             String notes) {
+        this(skillId, skillName, sourcePdf, skillGroup, baseDamagePercentAtRank1, baseDamagePercentAtTreeMaxRank,
+                baseDamagePercentRanks, componentDamagePercentRanks, type, status, upgradeGroups, notes,
+                null, null, null);
+    }
+
+    public PaladinTreeSkill(String skillId,
+                            String skillName,
+                            String sourcePdf,
+                            String skillGroup,
+                            Integer baseDamagePercentAtRank1,
+                            Integer baseDamagePercentAtTreeMaxRank,
+                            DamagePercentRankTable baseDamagePercentRanks,
+                            DamagePercentComponentRankTable componentDamagePercentRanks,
+                            PaladinSkillTreeType type,
+                            PaladinSkillTreeStatus status,
+                            List<PaladinSkillUpgradeGroup> upgradeGroups,
+                            String notes,
+                            Integer faithCost,
+                            Integer faithGenerationBase,
+                            Integer faithGenerationBonusKnown) {
         this.skillId = requireText(skillId, "skillId");
         this.skillName = requireText(skillName, "skillName");
         this.sourcePdf = requireText(sourcePdf, "sourcePdf");
@@ -112,6 +135,9 @@ public final class PaladinTreeSkill {
         this.status = Objects.requireNonNull(status, "status");
         this.upgradeGroups = Collections.unmodifiableList(new ArrayList<>(upgradeGroups));
         this.notes = requireText(notes, "notes");
+        this.faithCost = faithCost;
+        this.faithGenerationBase = faithGenerationBase;
+        this.faithGenerationBonusKnown = faithGenerationBonusKnown;
     }
 
     public String getSkillId() {
@@ -217,7 +243,7 @@ public final class PaladinTreeSkill {
 
     public String getSkillCategoriesDisplay() {
         return getSkillCategories().stream()
-                .sorted()
+                .sorted(java.util.Comparator.comparingInt(SkillCategory::getDisplayOrder))
                 .map(SkillCategory::getDisplayName)
                 .collect(Collectors.joining(", "));
     }
@@ -228,6 +254,18 @@ public final class PaladinTreeSkill {
 
     public String getNotes() {
         return notes;
+    }
+
+    public Integer getFaithCost() {
+        return faithCost;
+    }
+
+    public Integer getFaithGenerationBase() {
+        return faithGenerationBase;
+    }
+
+    public Integer getFaithGenerationBonusKnown() {
+        return faithGenerationBonusKnown;
     }
 
     private static String requireText(String value, String fieldName) {

@@ -28,6 +28,9 @@ public final class DamageRankingRow {
     private final List<UpgradeDamageImpact> upgradeDamageImpacts;
     private final List<UpgradeDamageModifier> upgradeDamageModifiers;
     private final Set<SkillTag> tags;
+    private final Integer faithCost;
+    private final Integer faithGenerationBase;
+    private final Integer faithGenerationBonusKnown;
 
     public DamageRankingRow(PaladinSkillDamageRankingEntry entry, PaladinTreeSkill treeSkill) {
         this.entry = entry;
@@ -38,6 +41,9 @@ public final class DamageRankingRow {
         this.upgradeDamageImpacts = List.copyOf(treeSkill.getUpgradeDamageImpacts());
         this.upgradeDamageModifiers = List.copyOf(treeSkill.getUpgradeDamageModifiers());
         this.tags = treeSkill.getTags();
+        this.faithCost = treeSkill.getFaithCost();
+        this.faithGenerationBase = treeSkill.getFaithGenerationBase();
+        this.faithGenerationBonusKnown = treeSkill.getFaithGenerationBonusKnown();
     }
 
     public PaladinSkillDamageRankingEntry getEntry() {
@@ -54,9 +60,13 @@ public final class DamageRankingRow {
 
     public String getSkillCategoriesDisplay() {
         return skillCategories.stream()
-                .sorted()
+                .sorted(java.util.Comparator.comparingInt(SkillCategory::getDisplayOrder))
                 .map(SkillCategory::getDisplayName)
                 .collect(java.util.stream.Collectors.joining(", "));
+    }
+
+    public String getSourceCategoriesDisplay() {
+        return getSkillCategoriesDisplay();
     }
 
     public boolean hasSkillCategory(SkillCategory category) {
@@ -97,6 +107,13 @@ public final class DamageRankingRow {
 
     public Set<SkillTag> getTags() {
         return tags;
+    }
+
+    public String getMechanicTagsDisplay() {
+        return tags.stream()
+                .map(Enum::name)
+                .sorted()
+                .collect(java.util.stream.Collectors.joining(","));
     }
 
     public boolean hasTag(SkillTag tag) {
@@ -157,8 +174,13 @@ public final class DamageRankingRow {
     }
 
     public boolean hasResourceGeneration() {
-        return upgradeDamageModifiers.stream()
+        return faithGenerationBase != null
+                || upgradeDamageModifiers.stream()
                 .anyMatch(modifier -> modifier.getType() == UpgradeDamageModifierType.RESOURCE_OR_COST);
+    }
+
+    public boolean hasFaithCost() {
+        return faithCost != null;
     }
 
     public boolean hasCooldownOrCastSpeed() {
@@ -256,6 +278,38 @@ public final class DamageRankingRow {
                         || modifier.getType() == UpgradeDamageModifierType.NEEDS_MANUAL_REVIEW
                         || modifier.getType() == UpgradeDamageModifierType.THORNS_DAMAGE_MODIFIER)
                 .toList();
+    }
+
+    public String getFaithCostSummary() {
+        return faithCost == null ? "-" : faithCost.toString();
+    }
+
+    public Integer getFaithCostSortValue() {
+        return faithCost;
+    }
+
+    public String getFaithGenerationSummary() {
+        if (faithGenerationBase == null) {
+            return "-";
+        }
+        if (faithGenerationBonusKnown == null) {
+            return faithGenerationBase.toString();
+        }
+        return faithGenerationBase + "; +" + faithGenerationBonusKnown + " — Generowanie Wiary";
+    }
+
+    public Integer getFaithGenerationBaseSortValue() {
+        return faithGenerationBase;
+    }
+
+    public Integer getFaithGenerationMaxKnownSortValue() {
+        if (faithGenerationBase == null) {
+            return null;
+        }
+        if (faithGenerationBonusKnown == null) {
+            return faithGenerationBase;
+        }
+        return faithGenerationBase + faithGenerationBonusKnown;
     }
 
     private static String describeDamageComponents(PaladinTreeSkill treeSkill) {

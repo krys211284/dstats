@@ -4,7 +4,6 @@ import krys.paladin.DamagePercentComponent;
 import krys.paladin.DamagePercentComponentRankTable;
 import krys.paladin.PaladinSkillTreeType;
 import krys.paladin.SkillCategory;
-import krys.paladin.SkillTag;
 import krys.paladin.UpgradeDamageModifier;
 import krys.paladin.UpgradeDamageModifierType;
 import krys.paladin.UpgradeDamageSafety;
@@ -111,24 +110,13 @@ public final class DamageRankingPageRenderer {
         html.append("""
                         </select>
                     </label>
-                    <label>Typ umiejętności
-                        <select name="type">
-                """);
-        html.append(renderOption("ALL", "Wszystkie typy", !filter.hasType()));
-        for (PaladinSkillTreeType type : model.getTypes()) {
-            html.append(renderOption(type.name(), type.name(), type == filter.getType()));
-        }
-        html.append("""
-                        </select>
-                    </label>
                 """);
         html.append(renderSourceCategoryFilter(model));
-        html.append(renderTagFilter(model));
         html.append(renderFacetFilter("hasDirectUpgradeDamage", "Damage modifier", filter.getHasDirectUpgradeDamage()));
         html.append(renderFacetFilter("hasNewDamageComponent", "Extra component", filter.getHasNewDamageComponent()));
         html.append(renderFacetFilter("hasStatusDamageEnabler", "Status / debuff", filter.getHasStatusDamageEnabler()));
-        html.append(renderFacetFilter("hasResourceGeneration", "Resource", filter.getHasResourceGeneration()));
-        html.append(renderFacetFilter("hasCooldownOrCastSpeed", "Speed / cooldown", filter.getHasCooldownOrCastSpeed()));
+        html.append(renderFacetFilter("hasFaithCost", "Koszt Wiary", filter.getHasFaithCost()));
+        html.append(renderFacetFilter("hasResourceGeneration", "Generowanie Wiary", filter.getHasResourceGeneration()));
         html.append(renderFacetFilter("hasDefenseOrUtility", "Defense / utility", filter.getHasDefenseOrUtility()));
         html.append(renderFacetFilter("hasManualReviewUpgrade", "Manual review", filter.getHasManualReviewUpgrade()));
         html.append("""
@@ -143,25 +131,9 @@ public final class DamageRankingPageRenderer {
         return html.toString();
     }
 
-    private static String renderTagFilter(DamageRankingPageModel model) {
-        StringBuilder html = new StringBuilder("""
-                    <label>tag
-                        <select name="tag">
-                """);
-        html.append(renderOption("ALL", "Wszystkie tagi", !model.getFilter().hasTag()));
-        for (SkillTag tag : model.getTags()) {
-            html.append(renderOption(tag.name(), tag.name(), tag == model.getFilter().getTag()));
-        }
-        html.append("""
-                        </select>
-                    </label>
-                """);
-        return html.toString();
-    }
-
     private static String renderSourceCategoryFilter(DamageRankingPageModel model) {
         StringBuilder html = new StringBuilder("""
-                    <label>Kategoria źródłowa
+                    <label>Kategoria z gry
                         <select name="sourceCategory">
                 """);
         html.append(renderOption("ALL", "Wszystkie kategorie", !model.getFilter().hasSourceCategory()));
@@ -217,6 +189,33 @@ public final class DamageRankingPageRenderer {
                 + "</span></a></th>";
     }
 
+    private static String renderFaithGenerationHeader(DamageRankingPageModel model) {
+        DamageRankingFilter filter = model.getFilter();
+        boolean active = filter.getSort().equals("faithGeneratedBase")
+                || filter.getSort().equals("faithGeneratedMaxKnown");
+        DamageRankingFilter.SortDirection nextMaxDirection = filter.getSort().equals("faithGeneratedMaxKnown")
+                && filter.getDirection() == DamageRankingFilter.SortDirection.ASC
+                ? DamageRankingFilter.SortDirection.DESC
+                : DamageRankingFilter.SortDirection.ASC;
+        DamageRankingFilter.SortDirection nextBaseDirection = filter.getSort().equals("faithGeneratedBase")
+                && filter.getDirection() == DamageRankingFilter.SortDirection.ASC
+                ? DamageRankingFilter.SortDirection.DESC
+                : DamageRankingFilter.SortDirection.ASC;
+        String ariaSort = active
+                ? " aria-sort=\"" + (filter.getDirection() == DamageRankingFilter.SortDirection.ASC ? "ascending" : "descending") + "\""
+                : "";
+        String indicator = active
+                ? (filter.getDirection() == DamageRankingFilter.SortDirection.ASC ? " ▲" : " ▼")
+                : "";
+        return "<th" + ariaSort + "><a class=\"sort-link\" href=\""
+                + escapeHtml(sortUrl(filter, "faithGeneratedMaxKnown", nextMaxDirection))
+                + "\">Generowanie Wiary<span class=\"sort-indicator\">"
+                + escapeHtml(indicator)
+                + "</span></a><a class=\"sort-link secondary-sort-link\" href=\""
+                + escapeHtml(sortUrl(filter, "faithGeneratedBase", nextBaseDirection))
+                + "\">bazowo</a></th>";
+    }
+
     private static String sortUrl(DamageRankingFilter filter,
                                   String sortKey,
                                   DamageRankingFilter.SortDirection direction) {
@@ -226,20 +225,14 @@ public final class DamageRankingPageRenderer {
         if (filter.getVerificationStatus() != null) {
             appendQuery(query, "verificationStatus", filter.getVerificationStatus().name());
         }
-        if (filter.getType() != null) {
-            appendQuery(query, "type", filter.getType().name());
-        }
-        if (filter.getTag() != null) {
-            appendQuery(query, "tag", filter.getTag().name());
-        }
         if (filter.getSourceCategory() != null) {
             appendQuery(query, "sourceCategory", filter.getSourceCategory().name());
         }
         appendFacetQuery(query, "hasDirectUpgradeDamage", filter.getHasDirectUpgradeDamage());
         appendFacetQuery(query, "hasNewDamageComponent", filter.getHasNewDamageComponent());
         appendFacetQuery(query, "hasStatusDamageEnabler", filter.getHasStatusDamageEnabler());
+        appendFacetQuery(query, "hasFaithCost", filter.getHasFaithCost());
         appendFacetQuery(query, "hasResourceGeneration", filter.getHasResourceGeneration());
-        appendFacetQuery(query, "hasCooldownOrCastSpeed", filter.getHasCooldownOrCastSpeed());
         appendFacetQuery(query, "hasDefenseOrUtility", filter.getHasDefenseOrUtility());
         appendFacetQuery(query, "hasManualReviewUpgrade", filter.getHasManualReviewUpgrade());
         appendQuery(query, "sort", sortKey);
@@ -295,17 +288,14 @@ public final class DamageRankingPageRenderer {
                     <table class="data-table ranking-table">
                         <colgroup>
                             <col class="col-skill-name">
-                            <col class="col-group">
                             <col class="col-source-categories">
-                            <col class="col-tags">
-                            <col class="col-type">
                             <col class="col-damage">
                             <col class="col-damage">
+                            <col class="col-faith">
+                            <col class="col-faith wide-faith">
                             <col class="col-facet">
                             <col class="col-facet">
                             <col class="col-facet wide-facet">
-                            <col class="col-facet">
-                            <col class="col-facet">
                             <col class="col-facet">
                             <col class="col-facet">
                             <col class="col-facet">
@@ -326,27 +316,21 @@ public final class DamageRankingPageRenderer {
                                 %s
                                 %s
                                 %s
-                                %s
-                                %s
-                                %s
                             </tr>
                         </thead>
                         <tbody>
                 """.formatted(
                 renderSortableHeader(model, "skillName", "skillName"),
-                renderSortableHeader(model, "skillGroup", "Grupa drzewa"),
-                renderSortableHeader(model, "sourceCategories", "Kategorie / tagi"),
-                renderSortableHeader(model, "tags", "tags"),
-                renderSortableHeader(model, "type", "type"),
+                renderSortableHeader(model, "sourceCategories", "Kategorie z gry"),
                 renderSortableHeader(model, "baseDamageRank1", "Obrażenia % R1"),
                 renderSortableHeader(model, "baseDamageTreeMax", "Obrażenia % max drzewo"),
+                renderSortableHeader(model, "faithCost", "Koszt Wiary"),
+                renderFaithGenerationHeader(model),
                 renderSortableHeader(model, "maxDamageMultiplierPercent", "Dmg multiplier"),
                 renderSortableHeader(model, "maxDamageBonusPercent", "Dmg bonus"),
                 renderSortableHeader(model, "maxExtraHitOrComponentPercent", "Extra hit / component"),
                 renderSortableHeader(model, "maxDamageOverTimePercent", "Damage over time"),
                 renderSortableHeader(model, "hasStatusDamageEnabler", "Status / debuff"),
-                renderSortableHeader(model, "hasResourceGeneration", "Resource"),
-                renderSortableHeader(model, "hasCooldownOrCastSpeed", "Speed / cooldown"),
                 renderSortableHeader(model, "hasDefenseOrUtility", "Defense / utility"),
                 renderSortableHeader(model, "hasManualReviewUpgrade", "Manual review")
         ));
@@ -370,8 +354,10 @@ public final class DamageRankingPageRenderer {
                 .append(escapeHtml(entry.getSkillId()))
                 .append("\" data-verification-status=\"")
                 .append(escapeHtml(status.name()))
-                .append("\" data-skill-type=\"")
-                .append(escapeHtml(row.getType().name()))
+                .append("\" data-skill-group=\"")
+                .append(escapeHtml(entry.getSkillGroup()))
+                .append("\" data-mechanic-tags=\"")
+                .append(escapeHtml(row.getMechanicTagsDisplay()))
                 .append("\" title=\"Status weryfikacji: ")
                 .append(escapeHtml(status.name()))
                 .append("\" aria-label=\"")
@@ -381,17 +367,15 @@ public final class DamageRankingPageRenderer {
                 .append("\"><td>")
                 .append(escapeHtml(entry.getSkillName()))
                 .append("</td><td>")
-                .append(escapeHtml(row.getTreeGroupDisplayName()))
-                .append("</td><td>")
-                .append(escapeHtml(row.getSkillCategoriesDisplay()))
-                .append("</td><td>")
-                .append(renderTags(row))
-                .append("</td><td>")
-                .append(escapeHtml(row.getType().name()))
+                .append(escapeHtml(row.getSourceCategoriesDisplay()))
                 .append("</td><td>")
                 .append(renderDamagePercentCell(row, 1))
                 .append("</td><td>")
                 .append(renderDamagePercentCell(row, 15))
+                .append("</td><td>")
+                .append(escapeHtml(row.getFaithCostSummary()))
+                .append("</td><td>")
+                .append(escapeHtml(row.getFaithGenerationSummary()))
                 .append("</td><td>")
                 .append(renderModifierSummary(row.damageMultiplierModifiers()))
                 .append("</td><td>")
@@ -403,27 +387,11 @@ public final class DamageRankingPageRenderer {
                 .append("</td><td>")
                 .append(renderModifierSummary(row.statusDamageModifiers()))
                 .append("</td><td>")
-                .append(renderModifierSummary(row.resourceModifiers()))
-                .append("</td><td>")
-                .append(renderModifierSummary(row.cooldownOrCastSpeedModifiers()))
-                .append("</td><td>")
                 .append(renderModifierSummary(row.defenseOrUtilityModifiers()))
                 .append("</td><td>")
                 .append(renderModifierSummary(row.manualReviewModifiers()))
                 .append("</td></tr>")
                 .toString();
-    }
-
-    private static String renderTags(DamageRankingRow row) {
-        StringBuilder html = new StringBuilder("<div class=\"tag-list\">");
-        row.getTags().stream()
-                .map(Enum::name)
-                .sorted()
-                .forEach(tag -> html.append("<span class=\"tag-chip\">")
-                        .append(escapeHtml(tag))
-                        .append("</span>"));
-        html.append("</div>");
-        return html.toString();
     }
 
     private static String renderDamagePercentCell(DamageRankingRow row, int rank) {
@@ -510,6 +478,10 @@ public final class DamageRankingPageRenderer {
                     + " <span class=\"facet-name\">&mdash; " + escapeHtml(name) + "</span>";
         }
         if (!isConcreteValue(value)) {
+            if (modifier.getType() == UpgradeDamageModifierType.STATUS_DAMAGE_ENABLER
+                    || modifier.getType() == UpgradeDamageModifierType.DEFENSE_OR_UTILITY) {
+                return "<span class=\"facet-name\">" + escapeHtml(name) + "</span>";
+            }
             return "<span class=\"facet-name\">" + escapeHtml(name) + "</span>"
                     + " <span class=\"facet-value\">" + escapeHtml(shortModifierDescription(modifier)) + "</span>";
         }
@@ -563,10 +535,10 @@ public final class DamageRankingPageRenderer {
             case ADDITIONAL_HIT_OR_STRIKE -> "dodatkowe trafienie/uderzenie";
             case DAMAGE_OVER_TIME -> "obrażenia w czasie";
             case THORNS_DAMAGE_MODIFIER -> "ciernie, wymaga weryfikacji";
-            case STATUS_DAMAGE_ENABLER -> "status / pośredni wpływ";
+            case STATUS_DAMAGE_ENABLER -> "status";
             case CAST_SPEED_OR_COOLDOWN -> "tempo użycia / cooldown";
             case RESOURCE_OR_COST -> "zasób / koszt";
-            case DEFENSE_OR_UTILITY -> "utility/defense";
+            case DEFENSE_OR_UTILITY -> "efekt";
             case NO_DAMAGE_IMPACT -> "-";
             case NEEDS_MANUAL_REVIEW -> "wymaga weryfikacji";
         };
@@ -575,9 +547,6 @@ public final class DamageRankingPageRenderer {
     private static String valueSuffix(UpgradeDamageModifier modifier) {
         if (modifier.getType() == UpgradeDamageModifierType.CAST_SPEED_OR_COOLDOWN) {
             return ", tempo użycia";
-        }
-        if (modifier.getType() == UpgradeDamageModifierType.STATUS_DAMAGE_ENABLER) {
-            return ", status / pośredni wpływ";
         }
         if (modifier.getType() == UpgradeDamageModifierType.RESOURCE_OR_COST) {
             return ", zasób";

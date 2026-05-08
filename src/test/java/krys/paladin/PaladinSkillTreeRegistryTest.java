@@ -249,6 +249,27 @@ class PaladinSkillTreeRegistryTest {
     }
 
     @Test
+    void lokalne_dane_wiary_powinny_byc_rozdzielone_na_koszt_i_generowanie() {
+        PaladinTreeSkill brandish = PaladinSkillTreeRegistry.requireSkill("wymach");
+        PaladinTreeSkill holyBolt = PaladinSkillTreeRegistry.requireSkill("swiety_pocisk");
+        PaladinTreeSkill clash = PaladinSkillTreeRegistry.requireSkill("starcie");
+        PaladinTreeSkill advance = PaladinSkillTreeRegistry.requireSkill("natarcie");
+        PaladinTreeSkill blessedHammer = PaladinSkillTreeRegistry.requireSkill("blogoslawiony_mlot");
+
+        assertEquals(null, brandish.getFaithCost());
+        assertEquals(14, brandish.getFaithGenerationBase());
+        assertEquals(5, brandish.getFaithGenerationBonusKnown());
+        assertEquals(16, holyBolt.getFaithGenerationBase());
+        assertEquals(7, holyBolt.getFaithGenerationBonusKnown());
+        assertEquals(20, clash.getFaithGenerationBase());
+        assertEquals(10, clash.getFaithGenerationBonusKnown());
+        assertEquals(18, advance.getFaithGenerationBase());
+        assertEquals(null, advance.getFaithGenerationBonusKnown());
+        assertEquals(10, blessedHammer.getFaithCost());
+        assertEquals(null, blessedHammer.getFaithGenerationBase());
+    }
+
+    @Test
     void skille_simple_single_component_powinny_miec_pelne_tabele_rang_z_lokalnego_jsona() {
         assertEquals(SIMPLE_SINGLE_COMPONENT_SKILLS, EXPECTED_SIMPLE_DAMAGE_RANK_TABLES.keySet());
 

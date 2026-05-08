@@ -97,19 +97,22 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains("overflow-x: auto"));
         assertTrue(response.body().contains(">skillName<"));
         assertFalse(response.body().contains(">Kategoria<"));
-        assertTrue(response.body().contains(">Grupa drzewa<"));
-        assertTrue(response.body().contains(">Kategorie / tagi<"));
-        assertTrue(response.body().contains(">tags<"));
-        assertTrue(response.body().contains(">type<"));
+        assertFalse(response.body().contains(">Grupa drzewa<"));
+        assertTrue(response.body().contains(">Kategorie z gry<"));
+        assertFalse(response.body().contains(">Kategorie / tagi<"));
+        assertFalse(response.body().contains(">tags<"));
+        assertFalse(response.body().contains(">type<"));
         assertTrue(response.body().contains(">Obrażenia % R1<"));
         assertTrue(response.body().contains(">Obrażenia % max drzewo<"));
+        assertTrue(response.body().contains(">Koszt Wiary<"));
+        assertTrue(response.body().contains(">Generowanie Wiary<"));
         assertTrue(response.body().contains(">Dmg multiplier<"));
         assertTrue(response.body().contains(">Dmg bonus<"));
         assertTrue(response.body().contains(">Extra hit / component<"));
         assertTrue(response.body().contains(">Damage over time<"));
         assertTrue(response.body().contains(">Status / debuff<"));
-        assertTrue(response.body().contains(">Resource<"));
-        assertTrue(response.body().contains(">Speed / cooldown<"));
+        assertFalse(response.body().contains(">Resource<"));
+        assertFalse(response.body().contains(">Speed / cooldown<"));
         assertTrue(response.body().contains(">Defense / utility<"));
         assertTrue(response.body().contains(">Manual review<"));
         assertFalse(response.body().contains(">Direct dmg upgrade<"));
@@ -132,25 +135,31 @@ class DamageRankingWebServerTest {
         assertFalse(response.body().contains("THEORETICAL_DPS"));
         assertFalse(response.body().contains("SINGLE_TARGET_DPS"));
         assertFalse(response.body().contains("brak wpływu na obrażenia"));
-        assertTrue(response.body().contains("name=\"tag\""));
+        assertFalse(response.body().contains("name=\"type\""));
+        assertFalse(response.body().contains("name=\"tag\""));
+        assertFalse(response.body().contains("name=\"hasCooldownOrCastSpeed\""));
         assertTrue(response.body().contains("name=\"sourceCategory\""));
         assertTrue(response.body().contains("name=\"hasDirectUpgradeDamage\""));
         assertTrue(response.body().contains("name=\"hasNewDamageComponent\""));
         assertTrue(response.body().contains("name=\"hasStatusDamageEnabler\""));
+        assertTrue(response.body().contains("name=\"hasFaithCost\""));
         assertTrue(response.body().contains("name=\"hasResourceGeneration\""));
-        assertTrue(response.body().contains("name=\"hasCooldownOrCastSpeed\""));
         assertTrue(response.body().contains("name=\"hasDefenseOrUtility\""));
         assertTrue(response.body().contains("name=\"hasManualReviewUpgrade\""));
         assertTrue(response.body().contains("aria-sort=\"descending\""));
         assertTrue(response.body().contains("sort=skillName"));
         assertTrue(response.body().contains("sort=baseDamageTreeMax"));
         assertTrue(response.body().contains("sort=sourceCategories"));
+        assertTrue(response.body().contains("sort=faithCost"));
+        assertTrue(response.body().contains("sort=faithGeneratedMaxKnown"));
         assertTrue(response.body().contains("sort=maxDamageMultiplierPercent"));
         assertTrue(response.body().contains("sort=maxExtraHitOrComponentPercent"));
         assertTrue(response.body().contains("Dmg multiplier = mnożnik"));
         assertTrue(response.body().contains("Extra hit / component = osobny hit lub komponent"));
         assertEquals(24, countSkillRows(response.body()));
         assertTrue(response.body().contains("data-skill-id=\"furia_niebios\""));
+        assertTrue(response.body().contains("data-skill-group=\"moce_specjalne\""));
+        assertTrue(response.body().contains("data-mechanic-tags=\""));
         assertTrue(response.body().contains("data-verification-status=\"NEEDS_VERIFICATION\""));
         assertTrue(response.body().contains("title=\"Status weryfikacji: NEEDS_VERIFICATION\""));
         assertTrue(response.body().contains("verification-row verification-needs-verification"));
@@ -159,6 +168,9 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains("verification-unsupported"));
         assertTrue(response.body().contains("data-skill-id=\"zenit\""));
         assertTrue(response.body().contains("data-skill-id=\"forteca\""));
+        assertFalse(response.body().contains("status / pośredni wpływ"));
+        assertFalse(response.body().contains("pośredni wpływ"));
+        assertFalse(response.body().contains("zasób / koszt"));
     }
 
     @Test
@@ -213,42 +225,55 @@ class DamageRankingWebServerTest {
         assertEquals(200, response.statusCode());
         assertTrue(brandishRow.contains("Zwiększenie Obrażeń"));
         assertTrue(brandishRow.contains("20%[X]"));
-        assertTrue(brandishRow.contains("Szybkość Użycia"));
-        assertTrue(brandishRow.contains("20%[+]"));
         assertTrue(brandishRow.contains("Odsłonięcie"));
-        assertTrue(brandishRow.contains("status / pośredni wpływ"));
         assertTrue(brandishRow.contains("Generowanie Wiary"));
-        assertTrue(brandishRow.contains("zasób"));
         assertTrue(brandishRow.contains("Powracająca Światłość"));
         assertTrue(brandishRow.contains("52%"));
         assertTrue(brandishRow.contains("Miecz Mistrzostwa"));
         assertTrue(brandishRow.contains("128%"));
         assertTrue(brandishRow.contains("Krzyżowe Uderzenie"));
         assertTrue(brandishRow.contains("120%"));
-        assertTrue(brandishRow.contains(">Podstawowe / Basic</td>"));
         assertTrue(brandishRow.contains(">Podstawowe, Adept</td>"));
         List<String> cells = tableCells(brandishRow);
-        assertTrue(cells.get(7).contains("20%[X]"));
-        assertFalse(cells.get(7).contains("128%"));
-        assertTrue(cells.get(9).contains("52%"));
-        assertTrue(cells.get(9).contains("120%"));
-        assertTrue(cells.get(9).contains("128%"));
-        assertFalse(cells.get(9).contains("20%[X]"));
-        assertTrue(cells.get(11).contains("Odsłonięcie"));
-        assertFalse(cells.get(11).contains("20%[X]"));
-        assertTrue(cells.get(12).contains("Generowanie Wiary"));
-        assertTrue(cells.get(13).contains("Szybkość Użycia"));
-        assertTrue(cells.get(13).contains("20%[+]"));
-        assertFalse(cells.get(7).contains("20%[+]"));
-        assertTrue(cells.get(7).contains("20%[X]</span> <span class=\"facet-name\">&mdash; Zwiększenie Obrażeń"));
-        assertTrue(cells.get(9).contains("52%</span> <span class=\"facet-name\">&mdash; Powracająca Światłość"));
-        assertTrue(cells.get(9).contains("120%</span> <span class=\"facet-name\">&mdash; Krzyżowe Uderzenie"));
-        assertTrue(cells.get(9).contains("128%</span> <span class=\"facet-name\">&mdash; Miecz Mistrzostwa"));
+        assertEquals(13, cells.size());
+        assertEquals("-", cells.get(4));
+        assertTrue(cells.get(5).contains("14; +5"));
+        assertTrue(cells.get(5).contains("Generowanie Wiary"));
+        assertTrue(cells.get(6).contains("20%[X]"));
+        assertFalse(cells.get(6).contains("128%"));
+        assertTrue(cells.get(8).contains("52%"));
+        assertTrue(cells.get(8).contains("120%"));
+        assertTrue(cells.get(8).contains("128%"));
+        assertFalse(cells.get(8).contains("20%[X]"));
+        assertTrue(cells.get(10).contains("Odsłonięcie"));
+        assertFalse(cells.get(10).contains("20%[X]"));
+        assertFalse(cells.get(6).contains("20%[+]"));
+        assertTrue(cells.get(6).contains("20%[X]</span> <span class=\"facet-name\">&mdash; Zwiększenie Obrażeń"));
+        assertTrue(cells.get(8).contains("52%</span> <span class=\"facet-name\">&mdash; Powracająca Światłość"));
+        assertTrue(cells.get(8).contains("120%</span> <span class=\"facet-name\">&mdash; Krzyżowe Uderzenie"));
+        assertTrue(cells.get(8).contains("128%</span> <span class=\"facet-name\">&mdash; Miecz Mistrzostwa"));
+        assertFalse(brandishRow.contains("Szybkość Użycia"));
+        assertFalse(brandishRow.contains("status / pośredni wpływ"));
+        assertFalse(brandishRow.contains("zasób / koszt"));
         assertFalse(brandishRow.contains("suma"));
         assertFalse(brandishRow.contains("razem"));
         assertFalse(brandishRow.contains("total"));
         assertFalse(brandishRow.contains("DPS"));
         assertFalse(brandishRow.contains("brak wpływu na obrażenia"));
+    }
+
+    @Test
+    void basicSkillsShouldRenderGameCategoriesAndSeparateFaithColumns() throws Exception {
+        HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin&skillGroup=basic");
+
+        assertEquals(200, response.statusCode());
+        assertEquals(4, countSkillRows(response.body()));
+        assertBasicCategoryAndFaith(response.body(), "wymach", "Podstawowe, Adept", "-", "14; +5");
+        assertBasicCategoryAndFaith(response.body(), "swiety_pocisk", "Podstawowe, Sędzia", "-", "16; +7");
+        assertBasicCategoryAndFaith(response.body(), "starcie", "Podstawowe, Moloch", "-", "20; +10");
+        assertBasicCategoryAndFaith(response.body(), "natarcie", "Podstawowe, Mobilność, Fanatyk", "-", "18");
+        assertFalse(rowHtml(response.body(), "wymach").contains("BASIC"));
+        assertFalse(rowHtml(response.body(), "swiety_pocisk").contains("FAITH_GENERATION"));
     }
 
     @Test
@@ -314,7 +339,7 @@ class DamageRankingWebServerTest {
         assertEquals(2, countSkillRows(nonDamageResponse.body()));
         assertTrue(nonDamageResponse.body().contains("data-skill-id=\"aura_fanatyzmu\""));
         assertTrue(nonDamageResponse.body().contains("data-skill-id=\"mobilizacja\""));
-        assertFalse(nonDamageResponse.body().contains("data-skill-type=\"DAMAGE\""));
+        assertFalse(nonDamageResponse.body().contains("data-skill-type="));
 
         HttpResponse<String> damageTypeResponse = sendGet("/ranking-obrazen?character=paladin&type=DAMAGE");
         assertEquals(200, damageTypeResponse.statusCode());
@@ -341,6 +366,9 @@ class DamageRankingWebServerTest {
         HttpResponse<String> sourceCategoriesAscResponse = sendGet("/ranking-obrazen?character=paladin&sort=sourceCategories&direction=asc");
         HttpResponse<String> multiplierDescResponse = sendGet("/ranking-obrazen?character=paladin&sort=maxDamageMultiplierPercent&direction=desc");
         HttpResponse<String> extraComponentDescResponse = sendGet("/ranking-obrazen?character=paladin&sort=maxExtraHitOrComponentPercent&direction=desc");
+        HttpResponse<String> faithCostDescResponse = sendGet("/ranking-obrazen?character=paladin&sort=faithCost&direction=desc");
+        HttpResponse<String> faithGeneratedBaseDescResponse = sendGet("/ranking-obrazen?character=paladin&sort=faithGeneratedBase&direction=desc");
+        HttpResponse<String> faithGeneratedMaxKnownDescResponse = sendGet("/ranking-obrazen?character=paladin&sort=faithGeneratedMaxKnown&direction=desc");
 
         assertEquals(200, defaultResponse.statusCode());
         assertEquals(24, countSkillRows(defaultResponse.body()));
@@ -367,11 +395,27 @@ class DamageRankingWebServerTest {
         assertEquals("wymach", firstSkillId(extraComponentDescResponse.body()));
         assertTrue(extraComponentDescResponse.body().contains("sort=maxExtraHitOrComponentPercent"));
         assertTrue(rowHtml(extraComponentDescResponse.body(), "wymach").contains("128%"));
+
+        assertEquals(200, faithCostDescResponse.statusCode());
+        assertEquals("blogoslawiony_mlot", firstSkillId(faithCostDescResponse.body()));
+        assertTrue(faithCostDescResponse.body().contains("sort=faithCost"));
+        assertEquals(1, countOccurrences(faithCostDescResponse.body(), "aria-sort=\"descending\""));
+
+        assertEquals(200, faithGeneratedBaseDescResponse.statusCode());
+        assertEquals("starcie", firstSkillId(faithGeneratedBaseDescResponse.body()));
+        assertTrue(faithGeneratedBaseDescResponse.body().contains("sort=faithGeneratedBase"));
+        assertRowOrder(faithGeneratedBaseDescResponse.body(), "starcie", "natarcie");
+
+        assertEquals(200, faithGeneratedMaxKnownDescResponse.statusCode());
+        assertEquals("starcie", firstSkillId(faithGeneratedMaxKnownDescResponse.body()));
+        assertTrue(faithGeneratedMaxKnownDescResponse.body().contains("sort=faithGeneratedMaxKnown"));
+        assertRowOrder(faithGeneratedMaxKnownDescResponse.body(), "starcie", "swiety_pocisk");
     }
 
     @Test
     void facetedFiltersShouldFilterUpgradeAndTagColumns() throws Exception {
         HttpResponse<String> resourceResponse = sendGet("/ranking-obrazen?character=paladin&hasResourceGeneration=YES");
+        HttpResponse<String> faithCostResponse = sendGet("/ranking-obrazen?character=paladin&hasFaithCost=YES");
         HttpResponse<String> speedResponse = sendGet("/ranking-obrazen?character=paladin&hasCooldownOrCastSpeed=YES");
         HttpResponse<String> newComponentResponse = sendGet("/ranking-obrazen?character=paladin&hasNewDamageComponent=YES");
         HttpResponse<String> manualResponse = sendGet("/ranking-obrazen?character=paladin&hasManualReviewUpgrade=YES");
@@ -384,8 +428,13 @@ class DamageRankingWebServerTest {
         assertTrue(resourceResponse.body().contains("data-skill-id=\"wymach\""));
         assertTrue(resourceResponse.body().contains("name=\"hasResourceGeneration\""));
 
+        assertEquals(200, faithCostResponse.statusCode());
+        assertTrue(faithCostResponse.body().contains("data-skill-id=\"blogoslawiony_mlot\""));
+        assertTrue(faithCostResponse.body().contains("name=\"hasFaithCost\""));
+
         assertEquals(200, speedResponse.statusCode());
         assertTrue(speedResponse.body().contains("data-skill-id=\"wymach\""));
+        assertFalse(speedResponse.body().contains("name=\"hasCooldownOrCastSpeed\""));
 
         assertEquals(200, newComponentResponse.statusCode());
         assertTrue(newComponentResponse.body().contains("data-skill-id=\"wymach\""));
@@ -396,6 +445,7 @@ class DamageRankingWebServerTest {
         assertEquals(200, tagResponse.statusCode());
         assertTrue(tagResponse.body().contains("data-skill-id=\"wymach\""));
         assertTrue(tagResponse.body().contains("FAITH_GENERATION"));
+        assertFalse(tagResponse.body().contains("name=\"tag\""));
 
         assertEquals(200, basicSourceCategoryResponse.statusCode());
         assertTrue(basicSourceCategoryResponse.body().contains("data-skill-id=\"wymach\""));
@@ -407,7 +457,7 @@ class DamageRankingWebServerTest {
 
         assertEquals(200, basicTreeGroupResponse.statusCode());
         assertTrue(basicTreeGroupResponse.body().contains("data-skill-id=\"wymach\""));
-        assertTrue(basicTreeGroupResponse.body().contains(">Podstawowe / Basic</td>"));
+        assertTrue(basicTreeGroupResponse.body().contains("data-skill-group=\"basic\""));
     }
 
     private HttpResponse<String> sendGet(String path) throws Exception {
@@ -435,11 +485,11 @@ class DamageRankingWebServerTest {
             found++;
             String skillId = matcher.group(1);
             List<String> cells = tableCells(matcher.group(2));
-            if (cells.size() != 16) {
+            if (cells.size() != 13) {
                 throw new AssertionError("Niepoprawna liczba komórek dla " + skillId + ": " + cells.size());
             }
-            String rankOneCell = cells.get(5);
-            String treeMaxCell = cells.get(6);
+            String rankOneCell = cells.get(2);
+            String treeMaxCell = cells.get(3);
             if (SIMPLE_SINGLE_COMPONENT_R1_TREE_MAX.containsKey(skillId)) {
                 List<Integer> expected = SIMPLE_SINGLE_COMPONENT_R1_TREE_MAX.get(skillId);
                 if (!rankOneCell.contains(expected.get(0) + "%") || !treeMaxCell.contains(expected.get(1) + "%")) {
@@ -481,6 +531,18 @@ class DamageRankingWebServerTest {
         assertFalse(rowHtml(html, skillId).contains(fragment), skillId + " nie powinien zawierać: " + fragment);
     }
 
+    private static void assertBasicCategoryAndFaith(String html,
+                                                    String skillId,
+                                                    String categories,
+                                                    String faithCost,
+                                                    String faithGenerationPrefix) {
+        List<String> cells = tableCells(rowHtml(html, skillId));
+
+        assertEquals(categories, cells.get(1), skillId);
+        assertEquals(faithCost, cells.get(4), skillId);
+        assertTrue(cells.get(5).contains(faithGenerationPrefix), skillId);
+    }
+
     private static String rowHtml(String html, String skillId) {
         Matcher matcher = Pattern.compile("(?s)<tr [^>]*data-skill-id=\"" + Pattern.quote(skillId) + "\"[^>]*>(.*?)</tr>")
                 .matcher(html);
@@ -510,7 +572,7 @@ class DamageRankingWebServerTest {
     private static String firstSourceCategories(String html) {
         String row = rowHtml(html, firstSkillId(html));
         List<String> cells = tableCells(row);
-        return cells.get(2);
+        return cells.get(1);
     }
 
     private static int countOccurrences(String text, String fragment) {
