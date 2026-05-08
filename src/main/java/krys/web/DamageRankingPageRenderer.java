@@ -487,7 +487,7 @@ public final class DamageRankingPageRenderer {
         }
         Matcher matcher = PERCENT_VALUE_PATTERN.matcher(value);
         if (matcher.find() && matcher.start() > 0) {
-            String percent = matcher.group(1);
+            String percent = matcher.group();
             String beforePercent = value.substring(0, matcher.start()).replace(";", "").trim();
             StringBuilder rendered = new StringBuilder("<span class=\"facet-value\">")
                     .append(escapeHtml(percent))

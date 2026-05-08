@@ -245,13 +245,14 @@ class DamageRankingWebServerTest {
         assertTrue(cells.get(8).contains("120%"));
         assertTrue(cells.get(8).contains("128%"));
         assertFalse(cells.get(8).contains("20%[X]"));
+        String visibleExtraHitCell = stripTitleAttributes(cells.get(8));
+        assertTrue(visibleExtraHitCell.contains("52%</span> <span class=\"facet-name\">&mdash; Powracająca Światłość"));
+        assertTrue(visibleExtraHitCell.contains("120%</span> <span class=\"facet-name\">&mdash; Krzyżowe Uderzenie, 2 dodatkowe łuki"));
+        assertTrue(visibleExtraHitCell.contains("128%</span> <span class=\"facet-name\">&mdash; Miecz Mistrzostwa"));
         assertTrue(cells.get(10).contains("Odsłonięcie"));
         assertFalse(cells.get(10).contains("20%[X]"));
         assertFalse(cells.get(6).contains("20%[+]"));
         assertTrue(cells.get(6).contains("20%[X]</span> <span class=\"facet-name\">&mdash; Zwiększenie Obrażeń"));
-        assertTrue(cells.get(8).contains("52%</span> <span class=\"facet-name\">&mdash; Powracająca Światłość"));
-        assertTrue(cells.get(8).contains("120%</span> <span class=\"facet-name\">&mdash; Krzyżowe Uderzenie"));
-        assertTrue(cells.get(8).contains("128%</span> <span class=\"facet-name\">&mdash; Miecz Mistrzostwa"));
         assertFalse(brandishRow.contains("Szybkość Użycia"));
         assertFalse(brandishRow.contains("status / pośredni wpływ"));
         assertFalse(brandishRow.contains("zasób / koszt"));
@@ -559,6 +560,10 @@ class DamageRankingWebServerTest {
             cells.add(cellMatcher.group(1));
         }
         return cells;
+    }
+
+    private static String stripTitleAttributes(String html) {
+        return html.replaceAll(" title=\"[^\"]*\"", "");
     }
 
     private static String firstSkillId(String html) {
