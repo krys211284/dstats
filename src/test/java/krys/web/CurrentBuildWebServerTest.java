@@ -60,8 +60,19 @@ class CurrentBuildWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Policz aktualny build"));
+        assertFalse(response.body().contains("<h1>Policz aktualny build</h1>"));
+        assertFalse(response.body().contains("Bohater / Build / SSR"));
+        assertFalse(response.body().contains("Operacyjny ekran aktywnego bohatera"));
         assertTrue(response.body().contains("<main class=\"layout current-build-wide\">"));
         assertTrue(response.body().contains(".layout.current-build-wide"));
+        assertTrue(response.body().contains("current-build-details"));
+        assertTrue(response.body().contains("<details class=\"current-build-details hero-context-details\">"));
+        assertTrue(response.body().contains("<details class=\"current-build-details skill-point-details\" open>"));
+        assertTrue(response.body().contains("<details class=\"current-build-details assigned-skills-details\" open>"));
+        assertTrue(response.body().contains("<details class=\"current-build-details equipment-details\">"));
+        assertTrue(response.body().contains("<details class=\"current-build-details effective-stats-details\">"));
+        assertFalse(response.body().contains("<details class=\"current-build-details effective-stats-details\" open>"));
+        assertTrue(response.body().contains("<details class=\"current-build-details used-items-details\">"));
         assertTrue(response.body().contains("Aktywny bohater"));
         assertTrue(response.body().contains("name=\"selectedHeroId\""));
         assertFalse(response.body().contains("name=\"heroLevelEdit\""));
@@ -72,11 +83,14 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("Zapisz zmiany"));
         assertTrue(response.body().contains("Wycofaj zmiany"));
         assertTrue(response.body().contains("Ekwipunek aktualnego buildu"));
-        assertTrue(response.body().contains("Użyte itemy"));
+        assertTrue(response.body().contains("Szczegóły użytych itemów"));
+        assertFalse(response.body().contains("<h3>Użyte itemy</h3>"));
+        assertFalse(response.body().contains("<h4>Brak użytych itemów</h4>"));
         assertTrue(response.body().contains("Efektywne staty do obliczeń"));
         assertTrue(response.body().contains("Punkty umiejętności"));
         assertTrue(response.body().contains("skill-point-fields"));
         assertTrue(response.body().contains("skill-point-summary"));
+        assertTrue(response.body().contains("minmax(190px, 1fr)"));
         assertTrue(response.body().contains("equipment-paperdoll"));
         assertTrue(response.body().contains("equipment-column-left"));
         assertTrue(response.body().contains("equipment-column-right"));
@@ -93,6 +107,10 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("Zaawansowane: ręczne nadpisanie statów"));
         assertTrue(response.body().contains("Slot jest pusty"));
         assertTrue(response.body().contains(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.ADVANCE)));
+        assertTrue(response.body().contains("Ranga z punktów"));
+        assertTrue(response.body().contains("<option value=\"0\">0</option>"));
+        assertTrue(response.body().contains("<option value=\"15\">15</option>"));
+        assertFalse(response.body().contains("<option value=\"16\">16</option>"));
         assertFalse(response.body().contains("name=\"" + CurrentBuildFormData.rankFieldName(krys.skill.SkillId.HOLY_BOLT) + "\""));
         assertTrue(response.body().contains("<input type=\"number\" step=\"1\" name=\"weaponDamage\" value=\"8\">"));
         assertFalse(response.body().contains("min=\"1\" step=\"1\" name=\"weaponDamage\""));
@@ -105,7 +123,12 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("Wybierz z biblioteki"));
         assertFalse(response.body().contains("Centrum buildu"));
         assertTrue(response.body().contains("max-width: 1840px;"));
-        assertTrue(response.body().indexOf("Ekwipunek aktualnego buildu") < response.body().indexOf("Efektywne staty do obliczeń"));
+        assertTrue(response.body().indexOf("<div class=\"current-build-sticky-actions\">") < response.body().indexOf("<details class=\"current-build-details skill-point-details\" open>"));
+        assertTrue(response.body().indexOf("Punkty umiejętności") < response.body().indexOf("Umiejętności bohatera"));
+        assertTrue(response.body().indexOf("Umiejętności bohatera") < response.body().indexOf("Pasek akcji bohatera"));
+        assertTrue(response.body().indexOf("Pasek akcji bohatera") < response.body().indexOf("Ekwipunek aktualnego buildu"));
+        assertTrue(response.body().indexOf("Ekwipunek aktualnego buildu") < response.body().indexOf("Zaawansowane: ręczne nadpisanie statów"));
+        assertTrue(response.body().indexOf("Zaawansowane: ręczne nadpisanie statów") < response.body().indexOf("Efektywne staty do obliczeń"));
         assertTrue(response.body().indexOf("Hełm") < response.body().indexOf("Broń"));
         assertTrue(response.body().indexOf("Amulet") < response.body().indexOf("Tarcza"));
     }
@@ -276,22 +299,41 @@ class CurrentBuildWebServerTest {
     }
 
     @Test
-    void shouldNotInterpolateClashRankWithoutExplicitPresentationValue() throws Exception {
+    void shouldRenderBoughtRankFifteenWithoutTreatingItAsEffectiveRank() throws Exception {
         createHero("Testowy bohater", "13");
         assignSkill(krys.skill.SkillId.CLASH);
 
         Map<String, String> fields = buildAdvanceFlashFields(10);
-        fields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.CLASH), "16");
+        fields.put("level", "70");
+        fields.put("questSkillPoints", "14");
+        fields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.CLASH), "15");
         fields.put(CurrentBuildFormData.choiceFieldName(krys.skill.SkillId.CLASH), "NONE");
 
         HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
 
         assertEquals(200, response.statusCode());
         String clashCard = assignedSkillCard(response.body(), "CLASH");
-        assertTrue(clashCard.contains(summaryCard("Aktualna ranga", "16")));
-        assertTrue(clashCard.contains(summaryCard("Obrażenia na randze 16", "brak jawnej wartości dla tej rangi")));
+        assertTrue(clashCard.contains(summaryCard("Aktualna ranga", "15")));
+        assertTrue(clashCard.contains(summaryCard("Obrażenia na randze 15", "293%")));
+        assertFalse(clashCard.contains(">Max drzewo<"));
         assertFalse(clashCard.contains("115%"));
-        assertFalse(clashCard.contains("293%"));
+    }
+
+    @Test
+    void shouldRejectBoughtSkillRankAboveFifteen() throws Exception {
+        createHero("Testowy bohater", "70");
+        assignSkill(krys.skill.SkillId.CLASH);
+
+        Map<String, String> fields = buildAdvanceFlashFields(10);
+        fields.put("level", "70");
+        fields.put("questSkillPoints", "14");
+        fields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.CLASH), "16");
+        fields.put(CurrentBuildFormData.choiceFieldName(krys.skill.SkillId.CLASH), "NONE");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Ranga z punktów umiejętności CLASH musi być w zakresie 0..15."));
     }
 
     @Test
@@ -601,7 +643,7 @@ class CurrentBuildWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Ręczne nadpisanie statów"));
-        assertTrue(response.body().contains("Użyte itemy"));
+        assertTrue(response.body().contains("Szczegóły użytych itemów"));
         assertTrue(response.body().contains("Efektywne staty do obliczeń"));
         assertTrue(response.body().contains("Łączne obrażenia"));
         assertTrue(response.body().contains("Efektywne obrażenia broni"));

@@ -286,9 +286,9 @@
         }
 
         .subpanel {
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid var(--line);
+            margin-top: 0;
+            padding-top: 0;
+            border-top: none;
         }
 
         .equipment-shell {
@@ -593,8 +593,45 @@
         }
 
         .skill-point-summary {
-            grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
             align-items: stretch;
+        }
+
+        .current-build-details {
+            margin-top: 14px;
+            border: 1px solid rgba(112, 96, 79, 0.18);
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.68);
+            overflow: clip;
+        }
+
+        .current-build-details > summary {
+            cursor: pointer;
+            padding: 14px 16px;
+            color: var(--accent);
+            font-weight: 800;
+            list-style-position: inside;
+        }
+
+        .current-build-details[open] > summary {
+            border-bottom: 1px solid rgba(112, 96, 79, 0.14);
+            background: rgba(240, 221, 191, 0.34);
+        }
+
+        .current-build-details > section {
+            margin: 0;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        .hero-context-details {
+            margin-bottom: 16px;
+            background: rgba(255, 250, 241, 0.96);
+        }
+
+        .used-items-details {
+            background: rgba(255, 250, 241, 0.74);
         }
 
         .skill-point-status {
@@ -646,18 +683,6 @@
             border: 1px dashed rgba(112, 96, 79, 0.28);
             border-radius: 14px;
             background: rgba(255, 255, 255, 0.74);
-        }
-
-        .advanced-details {
-            margin-top: 16px;
-            padding: 14px 0 0;
-            border-top: 1px solid var(--line);
-        }
-
-        .advanced-details summary {
-            cursor: pointer;
-            font-weight: 700;
-            color: var(--accent);
         }
 
         .data-table {
@@ -745,12 +770,6 @@
 <body>
 <main class="layout current-build-wide">
     {{GLOBAL_NAV}}
-
-    <header class="hero">
-        <div class="eyebrow">Bohater / Build / SSR</div>
-        <h1>Policz aktualny build</h1>
-        <p>Operacyjny ekran aktywnego bohatera: ekwipunek, przypisane umiejętności, pasek akcji i wynik tej samej manual simulation co wcześniej.</p>
-    </header>
 
     {{HERO_CONTEXT}}
     {{FORM_MESSAGES}}

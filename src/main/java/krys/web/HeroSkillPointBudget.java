@@ -10,6 +10,7 @@ public final class HeroSkillPointBudget {
     public static final int MIN_HERO_LEVEL = 1;
     public static final int MAX_HERO_LEVEL = 70;
     public static final int MAX_QUEST_SKILL_POINTS = 14;
+    public static final int MAX_BOUGHT_SKILL_RANK = 15;
 
     private final Integer heroLevel;
     private final Integer questSkillPoints;
@@ -43,6 +44,7 @@ public final class HeroSkillPointBudget {
                 errors
         );
         int spentSkillPoints = spentSkillPoints(skillLoadout);
+        validateBoughtSkillRanks(skillLoadout, errors);
         if (heroLevel != null && questSkillPoints != null && spentSkillPoints > availableSkillPoints(heroLevel, questSkillPoints)) {
             errors.add("Konfiguracja przekracza budżet punktów umiejętności: wydano "
                     + spentSkillPoints
@@ -104,6 +106,18 @@ public final class HeroSkillPointBudget {
             }
         }
         return spent;
+    }
+
+    private static void validateBoughtSkillRanks(HeroSkillLoadout skillLoadout, List<String> errors) {
+        for (HeroAssignedSkill assignedSkill : skillLoadout.getAssignedSkills().values()) {
+            if (assignedSkill.getRank() > MAX_BOUGHT_SKILL_RANK) {
+                errors.add("Ranga z punktów umiejętności "
+                        + assignedSkill.getSkillId().name()
+                        + " musi być w zakresie 0.."
+                        + MAX_BOUGHT_SKILL_RANK
+                        + ".");
+            }
+        }
     }
 
     private static Integer parseRange(String rawValue,

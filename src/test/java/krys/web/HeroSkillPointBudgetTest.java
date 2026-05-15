@@ -41,10 +41,19 @@ class HeroSkillPointBudgetTest {
         assertEquals(1, budget("70", "0", loadout(new HeroAssignedSkill(SkillId.CLASH, 1, false, SkillUpgradeChoice.NONE))).getSpentSkillPoints());
         assertEquals(2, budget("70", "0", loadout(new HeroAssignedSkill(SkillId.CLASH, 1, true, SkillUpgradeChoice.NONE))).getSpentSkillPoints());
         assertEquals(3, budget("70", "0", loadout(new HeroAssignedSkill(SkillId.CLASH, 1, true, SkillUpgradeChoice.LEFT))).getSpentSkillPoints());
+        assertEquals(15, budget("70", "0", loadout(new HeroAssignedSkill(SkillId.CLASH, 15, false, SkillUpgradeChoice.NONE))).getSpentSkillPoints());
         assertEquals(8, budget("70", "0", loadout(
                 new HeroAssignedSkill(SkillId.CLASH, 1, true, SkillUpgradeChoice.LEFT),
                 new HeroAssignedSkill(SkillId.ADVANCE, 5, false, SkillUpgradeChoice.NONE)
         )).getSpentSkillPoints());
+    }
+
+    @Test
+    void shouldRejectBoughtSkillRankAboveFifteen() {
+        HeroSkillPointBudget budget = budget("70", "14", loadout(new HeroAssignedSkill(SkillId.CLASH, 16, false, SkillUpgradeChoice.NONE)));
+
+        assertFalse(budget.isValid());
+        assertTrue(budget.getValidationErrors().contains("Ranga z punktów umiejętności CLASH musi być w zakresie 0..15."));
     }
 
     @Test

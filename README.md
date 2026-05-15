@@ -51,13 +51,13 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - minimalne webowe GUI SSR dla trybu `Policz aktualny build`,
 - hero-centryczny ekran `Policz aktualny build`, który pracuje jawnie w kontekście aktywnego bohatera,
 - inline zmianę aktywnego bohatera bez opuszczania ekranu `Policz aktualny build`,
-- czytelną edycję poziomu aktywnego bohatera na ekranie `Policz aktualny build`,
+- czytelną edycję poziomu aktywnego bohatera wyłącznie w sekcji `Punkty umiejętności` na ekranie `Policz aktualny build`,
 - sekcję `Ekwipunek aktualnego buildu` pokazującą pełny układ slotów bohatera jako stały layout SSR z aktywnym itemem albo pustym slotem,
 - bezpośrednią zmianę aktywnego itemu per slot z poziomu current build w kontekście aktywnego bohatera bez budowania osobnego runtime ekwipunku,
 - czytelne rozdzielenie operacji slotu na `Wybierz z biblioteki`, `Importuj nowy item`, `Zmień item` i `Wyczyść slot`,
 - jawny model przypisanych umiejętności bohatera z trwałym zapisem rangi, bazowego ulepszenia i dodatkowego modyfikatora,
 - render current build ograniczony do umiejętności przypisanych aktywnemu bohaterowi oraz pasek akcji wybierający wyłącznie spośród przypisanych i nauczonych umiejętności,
-- sekcję `Użyte itemy` pokazującą, które aktywne itemy rzeczywiście składają się na bieżący build i jaki mają wkład,
+- zwinięte szczegóły użytych itemów pokazujące, które aktywne itemy rzeczywiście składają się na bieżący build i jaki mają wkład,
 - prawdziwy ekran główny `/` działający jako hub aplikacji z grupami modułów i statusami,
 - globalną nawigację SSR wspólną dla głównych ekranów aplikacji,
 - wspólny renderer app shell oraz wspólny zestaw tokenów wizualnych dla głównych ekranów SSR, z czytelnym wyróżnianiem aktywnego modułu, akcji i statusów,
@@ -152,23 +152,24 @@ Kontrakt aktualnej warstwy aplikacyjnej:
 - `ItemLibraryRepository` trwale zapisuje minimalną wspólną bibliotekę zatwierdzonych itemów bez duplikowania jej per bohater,
 - `ItemLibraryService` zapisuje zatwierdzony item do biblioteki, udostępnia listę zapisanych itemów, waliduje zgodność itemu z hero slotem i składa aktywne itemy wybranego bohatera do effective current build,
 - SSR current build pokazuje selekcję aktywnych slotów aktywnego bohatera jako `Ekwipunek aktualnego buildu` i zmienia aktywny item per slot bez budowania bocznego modelu equipment runtime,
-- SSR current build pozwala zmienić aktywnego bohatera i jego poziom bez opuszczania ekranu buildu,
+- SSR current build pozwala zmienić aktywnego bohatera bez opuszczania ekranu buildu, a poziom bohatera edytuje tylko w sekcji `Punkty umiejętności`,
 - bohater ma własny trwały `HeroSkillLoadout`, a current build renderuje i zapisuje wyłącznie umiejętności przypisane aktywnemu bohaterowi,
 - przypisywanie umiejętności bohatera odbywa się bezpośrednio na ekranie `Policz aktualny build` przez sekcję `Umiejętności bohatera` i operacje `Dodaj umiejętność` oraz `Usuń umiejętność`,
 - `/bohaterowie` pozostaje modułem zarządzania profilami, a `/policz-aktualny-build` jest istniejącym miejscem edycji przypisanych umiejętności aktywnego bohatera,
 - karty przypisanych umiejętności mogą pokazywać opisowy blok aktualnej konfiguracji z tego samego `PaladinSkillTreeRegistry`, którego używa `/ranking-obrazen`; pierwszy most prezentacyjny mapuje legacy `SkillId.CLASH` na wpis registry `starcie`, bez zmiany enumu runtime,
-- `/policz-aktualny-build` pokazuje dane przypisanej umiejętności na aktualnej randze bohatera: ranga `0` oznacza umiejętność przypisaną, ale bez aktywnych danych bojowych, a procent obrażeń jest pokazywany tylko wtedy, gdy istnieje jawna wartość dla tej rangi; ekran nie interpoluje między R1 i max drzewa,
+- `/policz-aktualny-build` pokazuje dane przypisanej umiejętności na aktualnej randze kupionej punktami: ranga `0` oznacza umiejętność przypisaną, ale bez aktywnych danych bojowych, a procent obrażeń jest pokazywany tylko wtedy, gdy istnieje jawna wartość dla tej rangi; ekran nie interpoluje między R1 i max drzewa,
 - przypisanie umiejętności nie aktywuje automatycznie wszystkich modyfikatorów katalogowych z drzewa Paladyna; aktywne modyfikatory prezentacyjne wynikają z aktualnej konfiguracji legacy, są renderowane jako nazwy z tooltipami źródłowymi i nie odblokowują runtime DPS, nie sumują komponentów ani nie zastępują sekcji `Konfiguracja runtime legacy`,
 - bazowe generowanie Wiary pokazywane przy przypisanej umiejętności jest bazową wartością umiejętności, a nie aktywnym modyfikatorem konfiguracji; modyfikator `Generowanie Wiary` może pojawić się w aktywnych modyfikatorach tylko wtedy, gdy istnieje jawne mapowanie aktualnej konfiguracji,
 - current build waliduje budżet punktów umiejętności: poziom bohatera `1..70` daje `max(0, poziom - 1)` punktów, dodatkowe punkty z zadań mają zakres `0..14`, więc poziom `70` z kompletem zadań daje maksymalnie `83` punkty,
-- koszt konfiguracji umiejętności to suma rang, aktywnych bazowych ulepszeń i wybranych dodatkowych modyfikatorów innych niż `Brak`; ranga `0` bez ulepszeń kosztuje `0`, a przekroczenie dostępnego budżetu oznacza nielegalną konfigurację bez automatycznego usuwania wyborów użytkownika,
-- `/policz-aktualny-build` używa szerokiego wariantu layoutu dla edycji aktualnego builda; poziom bohatera edytuje się tylko w sekcji `Punkty umiejętności`, a górny panel `Aktywny bohater` pokazuje poziom wyłącznie informacyjnie,
+- koszt konfiguracji umiejętności to suma rang kupionych punktami, aktywnych bazowych ulepszeń i wybranych dodatkowych modyfikatorów innych niż `Brak`; ranga kupiona punktami ma zakres `0..15`, ranga `0` bez ulepszeń kosztuje `0`, ranga `15` kosztuje `15`, a przekroczenie dostępnego budżetu oznacza nielegalną konfigurację bez automatycznego usuwania wyborów użytkownika,
+- itemowe bonusy do poziomu/rangi umiejętności są osobną przyszłą warstwą względem rangi kupionej punktami, nie kosztują punktów umiejętności i w tym etapie nie implementują `effectiveRank`,
+- `/policz-aktualny-build` używa szerokiego wariantu layoutu i zwijanych sekcji dla edycji aktualnego builda; duży widoczny hero nagłówek strony został usunięty, poziom bohatera edytuje się tylko w sekcji `Punkty umiejętności`, a zwinięty panel `Aktywny bohater` pokazuje poziom wyłącznie informacyjnie,
 - główne edytowalne pola aktualnego builda zapisuje sticky pasek `Zapisz zmiany`; link `Wycofaj zmiany` przeładowuje `/policz-aktualny-build` z ostatnio zapisanym stanem i nie usuwa bohatera, przypisanych umiejętności ani itemów,
 - pasek akcji current build jest ograniczony do przypisanych i nauczonych umiejętności aktywnego bohatera, a nielegalne konfiguracje są bezpiecznie czyszczone przed mapowaniem do requestu,
 - `ItemLibraryDataDirectoryResolver` rozwiązuje katalog trwałych danych biblioteki itemów przez `dstats.dataDir` albo domyślny katalog użytkownika `~/.dstats/item-library/` i wykonuje bezpieczną migrację z legacy `target/item-library-runtime/`,
 - biblioteka itemów pozostaje warstwą aplikacyjną przed `CurrentBuildRequest`, a aktywny wybór slotów należy do konkretnego bohatera,
 - effective current build jest składany jako `bohater + jego ręczne nadpisanie statów + jego aktywne itemy per slot -> finalne effective current build stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
-- ekran `Policz aktualny build` jest ekranem bohatera i pokazuje hierarchię `bohater -> ekwipunek -> użyte itemy -> efektywne staty -> skille -> pasek akcji -> wynik`, a ręczna baza pozostaje tylko w sekcji zaawansowanej,
+- ekran `Policz aktualny build` jest roboczym ekranem konfiguracji bohatera i pokazuje hierarchię `punkty umiejętności -> umiejętności -> pasek akcji -> ekwipunek -> ręczne nadpisania -> efektywne staty -> wynik`; efektywne staty do obliczeń są podsumowaniem wejścia do runtime na końcu, użyte itemy nie są główną sekcją flow, a ręczna baza pozostaje tylko w zwiniętej sekcji zaawansowanej,
 - pusty slot w current build rozdziela dwie ścieżki operacyjne: `Wybierz z biblioteki` dla istniejących itemów oraz `Importuj nowy item` dla dopisania nowego zapisu do wspólnej biblioteki,
 - slot z aktywnym itemem pokazuje operacje `Zmień item` i `Wyczyść slot`, a import pozostaje ścieżką pomocniczą do dopisania nowego itemu,
 - tryb searcha po bibliotece itemów używa analogicznego kontraktu `aktywny bohater + jego ręczna baza searcha + kandydacka kombinacja zapisanych itemów z biblioteki -> finalne effective current build stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`,
@@ -1337,21 +1338,21 @@ Kontrakt prezentacji dla tego smoke testu:
 - GUI jest po polsku i jasno komunikuje, że to aktualny foundation manual simulation, a nie pełny produkt końcowy.
 - GUI pokazuje globalną nawigację SSR prowadzącą do ekranu głównego i głównych modułów aplikacji.
 - GUI wymaga aktywnego bohatera i jasno komunikuje empty state, jeżeli bohater nie został jeszcze utworzony.
-- GUI pokazuje, dla którego bohatera pracujemy, pozwala inline zmienić aktywnego bohatera oraz zapisać jego poziom bez opuszczania ekranu.
+- GUI pokazuje, dla którego bohatera pracujemy, pozwala inline zmienić aktywnego bohatera, a poziom zapisuje tylko w sekcji `Punkty umiejętności`.
 - GUI pozwala ustawić ręczne nadpisania statów, konfigurację wyłącznie przypisanych umiejętności bohatera oraz jego pasek akcji, a następnie kliknąć `Policz aktualny build`.
 - GUI pozwala z tego samego formularza przejść do importu pojedynczego itemu ze screena z zachowaniem aktualnego kontekstu current build.
-- GUI rozdziela warstwy: `Aktywny bohater`, `Ekwipunek aktualnego buildu`, `Użyte itemy`, `Efektywne staty do obliczeń`, `Skille`, `Pasek akcji`, `Wynik symulacji`, a ręczna baza pozostaje w sekcji zaawansowanej.
-- GUI nie renderuje osobnej sekcji `Centrum buildu`; najważniejsze operacje są rozłożone bezpośrednio na sekcję bohatera, sloty ekwipunku i sekcję użytych itemów.
+- GUI rozdziela warstwy w zwijanych sekcjach: `Aktywny bohater`, `Punkty umiejętności`, `Umiejętności bohatera`, `Pasek akcji`, `Ekwipunek aktualnego buildu`, `Zaawansowane ręczne nadpisanie statów`, `Efektywne staty do obliczeń` i `Wynik symulacji`.
+- GUI nie renderuje osobnej sekcji `Centrum buildu` ani dużego hero nagłówka strony; najważniejsze operacje są ułożone od punktów i umiejętności, a szczegóły użytych itemów są pomocniczo zwinięte.
 - GUI pokazuje, że ręczne nadpisanie statów jest jedynie warstwą pomocniczą w kontekście bohatera i może pozostać częściowo puste albo zerowe, jeżeli aktywne itemy dopełnią finalne effective stats.
 - GUI pokazuje pełny stały layout slotów bohatera: `Hełm`, `Zbroja`, `Rękawice`, `Spodnie`, `Buty`, `Broń`, `Amulet`, `Pierścień 1`, `Pierścień 2`, `Tarcza`.
 - GUI pokazuje wspierane sloty ekwipunku, aktywny item albo pusty slot, skrót wkładu itemu, status aktywności oraz akcje `Wybierz z biblioteki`, `Importuj nowy item`, `Zmień item` i `Wyczyść slot` dla aktywnych slotów tego bohatera.
 - GUI pokazuje sekcję `Umiejętności bohatera`, pozwala dodać albo usunąć przypisaną umiejętność i nie renderuje bezwarunkowo wszystkich skilli foundation.
 - GUI w tej sekcji rozdziela aktualne dane przypisanej umiejętności od `Konfiguracja runtime legacy`; dla `SkillId.CLASH` prezentuje nazwę `Starcie`, aktualną rangę, kategorie, jawny procent obrażeń dla tej rangi, Lucky Hit i bazowe generowanie Wiary, a pełny katalog R1/max i modyfikatorów pozostaje w `/ranking-obrazen`.
-- GUI pokazuje sekcję `Punkty umiejętności`, w której można edytować poziom bohatera `1..70`, dodatkowe punkty z zadań `0..14` oraz zobaczyć punkty dostępne, wydane i pozostałe; błędny zakres albo przekroczenie budżetu blokuje poprawność konfiguracji, ale nie usuwa automatycznie wyborów.
+- GUI pokazuje sekcję `Punkty umiejętności`, w której można edytować poziom bohatera `1..70`, dodatkowe punkty z zadań `0..14` oraz zobaczyć punkty dostępne, wydane i pozostałe; ranga kupowana punktami przy przypisanej umiejętności ma zakres `0..15`, itemowe bonusy do poziomu/rangi umiejętności są osobną przyszłą warstwą, a błędny zakres albo przekroczenie budżetu blokuje poprawność konfiguracji bez automatycznego usuwania wyborów.
 - GUI current build ma szeroki layout i sticky pasek akcji formularza; `Zapisz zmiany` zapisuje główne pola edycji aktualnego buildu, a `Wycofaj zmiany` wraca do ostatniego zapisanego stanu bez usuwania profilu i przypisanych umiejętności.
 - GUI ogranicza pasek akcji do przypisanych i nauczonych umiejętności aktywnego bohatera oraz czyści nielegalne wpisy do bezpiecznego podzbioru.
 - GUI i główne ekrany SSR korzystają z szerszego kontenera layoutu, dzięki czemu lepiej wykorzystują szerokie monitory bez rozwalania mobilnego układu.
-- GUI pokazuje aktywny wkład biblioteki oraz finalne efektywne staty użyte do obliczeń na tym samym pipeline `effective stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`.
+- GUI pokazuje aktywny wkład biblioteki w zwiniętych szczegółach oraz finalne efektywne staty użyte do obliczeń na końcu formularza na tym samym pipeline `effective stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`.
 - GUI i CLI przechodzą przez ten sam kontrakt `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> CurrentBuildCalculationService -> runtime`.
 - scenariusze referencyjne są trybem pomocniczym do smoke testów i regresji, a nie główną ścieżką produktu.
 - GUI i CLI pokazują `Łączne obrażenia`, `DPS`, debug bezpośredniego hita dla użytego skilla, debug opóźnionych trafień, debug obrażeń reaktywnych, `Ślad kroków symulacji`, `Resolve aktywny na końcu`, `Końcowa szansa bloku` oraz `Końcowy bonus do kolców`.
