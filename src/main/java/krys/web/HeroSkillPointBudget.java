@@ -46,9 +46,9 @@ public final class HeroSkillPointBudget {
         int spentSkillPoints = spentSkillPoints(skillLoadout);
         validateBoughtSkillRanks(skillLoadout, errors);
         if (heroLevel != null && questSkillPoints != null && spentSkillPoints > availableSkillPoints(heroLevel, questSkillPoints)) {
-            errors.add("Konfiguracja przekracza budżet punktów umiejętności: wydano "
+            errors.add("Nie można zapisać: wydano "
                     + spentSkillPoints
-                    + ", dostępne "
+                    + " punktów, dostępne "
                     + availableSkillPoints(heroLevel, questSkillPoints)
                     + ".");
         }

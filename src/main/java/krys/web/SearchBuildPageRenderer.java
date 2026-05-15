@@ -368,7 +368,7 @@ public final class SearchBuildPageRenderer {
             appendHiddenField(html, CurrentBuildFormData.choiceFieldName(skillId), skillState == null ? SkillUpgradeChoice.NONE.name() : skillState.getChoiceUpgrade().name());
         }
 
-        for (int slot = 1; slot <= 4; slot++) {
+        for (int slot = 1; slot <= CurrentBuildFormData.ACTION_BAR_SLOT_COUNT; slot++) {
             String value = slot <= request.getActionBar().size()
                     ? request.getActionBar().get(slot - 1).name()
                     : "NONE";

@@ -129,7 +129,7 @@ class ItemLibraryWebServerTest {
         assertTrue(currentBuildResponse.body().contains("Ekwipunek aktualnego buildu"));
         assertTrue(currentBuildResponse.body().contains("Ręka dodatkowa / shield-b.png"));
         assertTrue(currentBuildResponse.body().contains("Efektywne staty do obliczeń"));
-        assertTrue(currentBuildResponse.body().contains(">120<"));
+        assertTrue(currentBuildResponse.body().contains(">150<"));
         assertTrue(currentBuildResponse.body().contains("Do runtime trafiają: obrażenia broni=200, siła=150"));
     }
 
@@ -431,7 +431,7 @@ class ItemLibraryWebServerTest {
                 + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
                 + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
                 + "&rank_ADVANCE=5&baseUpgrade_ADVANCE=true&choiceUpgrade_ADVANCE=RIGHT"
-                + "&actionBar1=ADVANCE&actionBar2=NONE&actionBar3=NONE&actionBar4=NONE";
+                + "&actionBar1=ADVANCE&actionBar2=NONE&actionBar3=NONE&actionBar4=NONE&actionBar5=NONE&actionBar6=NONE";
     }
 
     private HttpResponse<String> sendGet(String path) throws Exception {

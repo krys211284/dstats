@@ -174,15 +174,8 @@ public final class CurrentBuildPageRenderer {
                 + renderSkillPointSection(model)
                 + renderAssignedSkillsSection(model)
                 + renderActionBarSection(model)
+                + renderBasicHeroStatsSection(model)
                 + renderEquipmentSection(model)
-                + """
-                        <details class="current-build-details advanced-details">
-                            <summary>Zaawansowane: ręczne nadpisanie statów</summary>
-                """
-                + renderManualBaseSection(model)
-                + """
-                        </details>
-                """
                 + renderEffectiveStatsSection(model)
                 + """
                     </form>
@@ -243,7 +236,6 @@ public final class CurrentBuildPageRenderer {
                         </div>
                     </div>
                 """)
-                .append(renderUsedItemsSection(model))
                 .append("</section></details>");
         return html.toString();
     }
@@ -324,14 +316,10 @@ public final class CurrentBuildPageRenderer {
         if (budget == null) {
             return "";
         }
-        String budgetStatus = budget.isValid()
-                ? "Konfiguracja mieści się w budżecie punktów umiejętności."
-                : "Konfiguracja punktów umiejętności wymaga poprawy przed uznaniem buildu za legalny.";
         return new StringBuilder("""
-                <details class="current-build-details skill-point-details" open>
+                <details class="current-build-details skill-point-details">
                     <summary>Punkty umiejętności</summary>
                     <section class="subpanel skill-point-panel">
-                    <p class="helper">Budżet waliduje konfigurację bohatera: poziom 70 daje 69 punktów, a zadania mogą dodać maksymalnie 14 punktów.</p>
                     <div class="form-grid skill-point-fields">
                         <label>
                             Poziom bohatera
@@ -355,49 +343,21 @@ public final class CurrentBuildPageRenderer {
                 .append(renderSummaryCard("Dostępne punkty", Integer.toString(budget.getAvailableSkillPoints())))
                 .append(renderSummaryCard("Wydane punkty", Integer.toString(budget.getSpentSkillPoints())))
                 .append(renderSummaryCard("Pozostałe punkty", Integer.toString(budget.getRemainingSkillPoints())))
-                .append("</div><p class=\"skill-point-status ")
-                .append(budget.isValid() ? "skill-point-status-ok" : "skill-point-status-error")
-                .append("\">")
-                .append(escapeHtml(budgetStatus))
-                .append("</p></section></details>")
+                .append("</div>")
+                .append(renderSkillPointErrors(budget))
+                .append("</section></details>")
                 .toString();
     }
 
-    private static String renderUsedItemsSection(CurrentBuildPageModel model) {
-        StringBuilder html = new StringBuilder("""
-                <details class="current-build-details used-items-details">
-                    <summary>Szczegóły użytych itemów</summary>
-                    <section class="subpanel used-items-panel">
-                    <p class="helper">Tutaj widać dokładnie, które aktywne itemy z biblioteki składają się na aktualny build i jaki jest ich łączny wkład do wejścia obliczeń.</p>
-                    <div class="summary-grid compact-grid">
-                """);
-        CurrentBuildImportableStats contribution = model.getActiveLibraryContribution();
-        html.append(renderSummaryCard("Łączne obrażenia broni", Long.toString(contribution.getWeaponDamage())))
-                .append(renderSummaryCard("Łączna siła", ItemLibraryPresentationSupport.formatWhole(contribution.getStrength())))
-                .append(renderSummaryCard("Łączna inteligencja", ItemLibraryPresentationSupport.formatWhole(contribution.getIntelligence())))
-                .append(renderSummaryCard("Łączne kolce", ItemLibraryPresentationSupport.formatWhole(contribution.getThorns())))
-                .append(renderSummaryCard("Łączna szansa bloku [%]", formatPercentage(contribution.getBlockChance())))
-                .append(renderSummaryCard("Łączna szansa retribution [%]", formatPercentage(contribution.getRetributionChance())))
-                .append("</div>");
-
-        if (!model.hasActiveLibraryItems()) {
-            html.append("<p class=\"helper\">Brak aktywnych itemów z biblioteki dla aktualnego buildu.</p></section></details>");
-            return html.toString();
+    private static String renderSkillPointErrors(HeroSkillPointBudget budget) {
+        if (budget.isValid()) {
+            return "";
         }
-
-        html.append("<table class=\"data-table\"><thead><tr><th>Slot</th><th>Nazwa itemu</th><th>Identyfikator / źródło</th><th>Wkład do buildu</th></tr></thead><tbody>");
-        for (HeroSlotItemAssignment assignment : model.getActiveLibraryItems()) {
-            html.append("<tr><td>")
-                    .append(escapeHtml(ItemLibraryPresentationSupport.heroSlotDisplayName(assignment.getHeroSlot())))
-                    .append("</td><td>")
-                    .append(escapeHtml(assignment.getItem().getDisplayName()))
-                    .append("</td><td>")
-                    .append(escapeHtml(ItemLibraryPresentationSupport.userItemIdentifier(assignment.getItem())))
-                    .append("</td><td>")
-                    .append(escapeHtml(ItemLibraryPresentationSupport.itemContributionLabel(assignment.getItem())))
-                    .append("</td></tr>");
+        StringBuilder html = new StringBuilder("<div class=\"skill-point-status skill-point-status-error\"><ul class=\"error-list\">");
+        for (String error : budget.getValidationErrors()) {
+            html.append("<li>").append(escapeHtml(error)).append("</li>");
         }
-        html.append("</tbody></table></section></details>");
+        html.append("</ul></div>");
         return html.toString();
     }
 
@@ -446,12 +406,11 @@ public final class CurrentBuildPageRenderer {
 
     private static String renderAssignedSkillsSection(CurrentBuildPageModel model) {
         StringBuilder html = new StringBuilder("""
-                <details class="current-build-details assigned-skills-details" open>
+                <details class="current-build-details assigned-skills-details">
                     <summary>Umiejętności bohatera</summary>
                     <section class="subpanel">
                     <div class="section-head-inline">
                         <div>
-                            <p class="helper">Current build renderuje i edytuje tylko umiejętności przypisane do aktywnego bohatera. To nadal tylko stan wejściowy do tego samego runtime.</p>
                         </div>
                     </div>
                 """);
@@ -642,10 +601,9 @@ public final class CurrentBuildPageRenderer {
 
     private static String renderActionBarSection(CurrentBuildPageModel model) {
         StringBuilder html = new StringBuilder("""
-                <details class="current-build-details action-bar-details" open>
+                <details class="current-build-details action-bar-details">
                     <summary>Pasek akcji bohatera</summary>
                     <section class="subpanel">
-                    <p class="helper">Pasek akcji wybiera tylko spośród przypisanych i nauczonych umiejętności aktywnego bohatera. Jeśli konfiguracja przestaje być legalna, ekran czyści ją do bezpiecznego podzbioru.</p>
                 """);
         if (model.getActionBarEligibleSkillIds().isEmpty()) {
             html.append("<div class=\"empty-state\"><h4>Brak umiejętności gotowych do paska akcji</h4><p>Podnieś rangę co najmniej jednej przypisanej umiejętności powyżej 0, aby dodać ją do paska akcji.</p></div></section></details>");
@@ -655,6 +613,30 @@ public final class CurrentBuildPageRenderer {
                 .append(renderActionBarFields(model))
                 .append("</div></section></details>");
         return html.toString();
+    }
+
+    private static String renderBasicHeroStatsSection(CurrentBuildPageModel model) {
+        CurrentBuildImportableStats stats = model.getEffectiveStats() == null
+                ? resolveManualBaseStats(model)
+                : model.getEffectiveStats();
+        return new StringBuilder("""
+                <details class="current-build-details basic-hero-stats-details">
+                    <summary>Podstawowe statystyki bohatera</summary>
+                    <section class="subpanel basic-hero-stats-panel">
+                        <div class="summary-grid compact-grid">
+                """)
+                .append(renderSummaryCard("Obrażenia broni", Long.toString(stats.getWeaponDamage())))
+                .append(renderSummaryCard("Siła", ItemLibraryPresentationSupport.formatWhole(stats.getStrength())))
+                .append(renderSummaryCard("Inteligencja", ItemLibraryPresentationSupport.formatWhole(stats.getIntelligence())))
+                .append(renderSummaryCard("Kolce", ItemLibraryPresentationSupport.formatWhole(stats.getThorns())))
+                .append(renderSummaryCard("Szansa na blok [%]", formatPercentage(stats.getBlockChance())))
+                .append(renderSummaryCard("Szansa retribution [%]", formatPercentage(stats.getRetributionChance())))
+                .append("""
+                        </div>
+                    </section>
+                </details>
+                """)
+                .toString();
     }
 
     private static String renderManualBaseSection(CurrentBuildPageModel model) {
@@ -708,7 +690,7 @@ public final class CurrentBuildPageRenderer {
 
         CurrentBuildCalculation calculation = model.getCalculation();
         StringBuilder html = new StringBuilder("""
-                <details class="current-build-details result-details" open>
+                <details class="current-build-details result-details">
                     <summary>Wynik symulacji</summary>
                     <section class="panel result-panel">
                     <div class="summary-grid">
@@ -731,10 +713,15 @@ public final class CurrentBuildPageRenderer {
                 </section>
                 </details>
                 """);
+        html.append("""
+                <details class="current-build-details simulation-debug-details">
+                    <summary>Debug symulacji</summary>
+                """);
         html.append(CurrentBuildCalculationSectionsRenderer.renderDirectHitDebug(calculation));
         html.append(CurrentBuildCalculationSectionsRenderer.renderDelayedHitDebug(calculation));
         html.append(CurrentBuildCalculationSectionsRenderer.renderReactiveDebug(calculation));
         html.append(CurrentBuildCalculationSectionsRenderer.renderStepTrace(calculation));
+        html.append("</details>");
         return html.toString();
     }
 
@@ -780,7 +767,7 @@ public final class CurrentBuildPageRenderer {
 
     private static String renderActionBarFields(CurrentBuildPageModel model) {
         StringBuilder html = new StringBuilder();
-        for (int slot = 1; slot <= 4; slot++) {
+        for (int slot = 1; slot <= CurrentBuildFormData.ACTION_BAR_SLOT_COUNT; slot++) {
             html.append("""
                     <label>
                         Miejsce """).append(slot).append("""

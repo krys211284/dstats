@@ -47,7 +47,7 @@ final class CurrentBuildFormQuerySupport {
             }
             append(query, CurrentBuildFormData.choiceFieldName(skillId), skillConfig.getChoiceUpgrade());
         }
-        for (int slot = 1; slot <= 4; slot++) {
+        for (int slot = 1; slot <= CurrentBuildFormData.ACTION_BAR_SLOT_COUNT; slot++) {
             append(query, CurrentBuildFormData.actionBarFieldName(slot), formData.getActionBarSlot(slot));
         }
         return query.toString();
@@ -77,7 +77,7 @@ final class CurrentBuildFormQuerySupport {
         }
 
         List<String> actionBarSlots = new ArrayList<>();
-        for (int slot = 1; slot <= 4; slot++) {
+        for (int slot = 1; slot <= CurrentBuildFormData.ACTION_BAR_SLOT_COUNT; slot++) {
             actionBarSlots.add(baseFormData.getActionBarSlot(slot));
         }
 

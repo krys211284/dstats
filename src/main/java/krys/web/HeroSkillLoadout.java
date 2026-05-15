@@ -107,7 +107,7 @@ public final class HeroSkillLoadout {
         }
 
         List<String> actionBarSlots = new ArrayList<>();
-        for (int index = 0; index < 4; index++) {
+        for (int index = 0; index < CurrentBuildFormData.ACTION_BAR_SLOT_COUNT; index++) {
             actionBarSlots.add(index < actionBarSkills.size() ? actionBarSkills.get(index).name() : "NONE");
         }
 
@@ -179,7 +179,7 @@ public final class HeroSkillLoadout {
                     continue;
                 }
                 uniqueSkills.add(skillId);
-                if (uniqueSkills.size() == 4) {
+                if (uniqueSkills.size() == CurrentBuildFormData.ACTION_BAR_SLOT_COUNT) {
                     break;
                 }
             }

@@ -98,7 +98,7 @@ final class CurrentBuildFormMapper {
                                               List<String> errors) {
         List<SkillId> actionBar = new ArrayList<>();
         LinkedHashSet<SkillId> dedupe = new LinkedHashSet<>();
-        for (int slot = 1; slot <= 4; slot++) {
+        for (int slot = 1; slot <= CurrentBuildFormData.ACTION_BAR_SLOT_COUNT; slot++) {
             String rawSkillId = formData.getActionBarSlot(slot);
             if (rawSkillId == null || rawSkillId.isBlank() || "NONE".equalsIgnoreCase(rawSkillId)) {
                 continue;

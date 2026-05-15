@@ -28,6 +28,7 @@ public final class CurrentBuildPageModel {
     private final String itemImportUrl;
     private final String heroesUrl;
     private final String choiceHelpText;
+    private final HeroSkillLoadout renderedSkillLoadout;
 
     public CurrentBuildPageModel(CurrentBuildFormData formData,
                                  List<SelectOption> skillOptions,
@@ -59,6 +60,9 @@ public final class CurrentBuildPageModel {
         this.itemImportUrl = itemImportUrl;
         this.heroesUrl = heroesUrl;
         this.choiceHelpText = choiceHelpText;
+        this.renderedSkillLoadout = activeHero == null
+                ? null
+                : activeHero.getSkillLoadout().withAppliedFormData(formData);
     }
 
     public CurrentBuildFormData getFormData() {
@@ -129,14 +133,14 @@ public final class CurrentBuildPageModel {
         if (activeHero == null) {
             return List.of();
         }
-        return activeHero.getSkillLoadout().getAssignedSkillIds();
+        return renderedSkillLoadout.getAssignedSkillIds();
     }
 
     public List<SkillId> getActionBarEligibleSkillIds() {
         if (activeHero == null) {
             return List.of();
         }
-        return activeHero.getSkillLoadout().getActionBarEligibleSkills();
+        return renderedSkillLoadout.getActionBarEligibleSkills();
     }
 
     public boolean hasResult() {
@@ -176,7 +180,7 @@ public final class CurrentBuildPageModel {
         if (activeHero == null) {
             return null;
         }
-        return HeroSkillPointBudget.from(formData, activeHero.getSkillLoadout());
+        return HeroSkillPointBudget.from(formData, renderedSkillLoadout);
     }
 
     /** Najprostsza reprezentacja opcji selecta renderowanej po stronie serwera. */

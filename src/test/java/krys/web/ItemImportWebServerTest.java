@@ -175,7 +175,7 @@ class ItemImportWebServerTest {
                 + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
                 + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
                 + "&rank_ADVANCE=5&baseUpgrade_ADVANCE=true&choiceUpgrade_ADVANCE=RIGHT"
-                + "&actionBar1=ADVANCE&actionBar2=NONE&actionBar3=NONE&actionBar4=NONE";
+                + "&actionBar1=ADVANCE&actionBar2=NONE&actionBar3=NONE&actionBar4=NONE&actionBar5=NONE&actionBar6=NONE";
         HttpResponse<String> response = sendUrlEncodedPost("/importuj-item-ze-screena", Map.of(
                 "sourceImageName", "bulawa.png",
                 "slot", "MAIN_HAND",

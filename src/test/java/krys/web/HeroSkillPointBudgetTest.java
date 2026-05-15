@@ -61,7 +61,7 @@ class HeroSkillPointBudgetTest {
         HeroSkillPointBudget budget = budget("1", "0", loadout(new HeroAssignedSkill(SkillId.CLASH, 1, false, SkillUpgradeChoice.NONE)));
 
         assertFalse(budget.isValid());
-        assertTrue(budget.getValidationErrors().contains("Konfiguracja przekracza budżet punktów umiejętności: wydano 1, dostępne 0."));
+        assertTrue(budget.getValidationErrors().contains("Nie można zapisać: wydano 1 punktów, dostępne 0."));
     }
 
     @Test

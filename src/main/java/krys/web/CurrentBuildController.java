@@ -108,18 +108,25 @@ public final class CurrentBuildController implements HttpHandler {
 
         CurrentBuildFormData requestedFormData = CurrentBuildFormData.fromFormFields(fields, activeHero.getCurrentBuildFormData());
         HeroSkillLoadout updatedSkillLoadout = activeHero.getSkillLoadout().withAppliedFormData(requestedFormData);
-        CurrentBuildFormData formData = updatedSkillLoadout.applyToFormData(requestedFormData);
-        HeroSkillPointBudget skillPointBudget = HeroSkillPointBudget.from(formData, updatedSkillLoadout);
+        CurrentBuildFormData formData = requestedFormData;
+        HeroSkillPointBudget skillPointBudget = HeroSkillPointBudget.from(requestedFormData, updatedSkillLoadout);
         errors.addAll(skillPointBudget.getValidationErrors());
-        if (!requestedFormData.getActionBarSlots().equals(formData.getActionBarSlots())) {
-            messages.add("Pasek akcji został oczyszczony do umiejętności przypisanych i nauczonych przez aktywnego bohatera.");
+        EffectiveCurrentBuildResolution resolution = buildEffectiveResolution(requestedFormData, errors);
+        if (resolution.getEffectiveStats() != null) {
+            CurrentBuildFormData effectiveFormData = CurrentBuildFormQuerySupport.withAppliedStats(
+                    requestedFormData,
+                    resolution.getEffectiveStats()
+            );
+            CurrentBuildFormMapper.MappingResult preSaveMapping = formMapper.map(effectiveFormData);
+            errors.addAll(preSaveMapping.getErrors());
         }
-        if (skillPointBudget.isValid()) {
+        if (errors.isEmpty()) {
+            formData = updatedSkillLoadout.applyToFormData(requestedFormData);
             heroService.saveActiveHeroState(formData, updatedSkillLoadout);
             handlePageAction(fields, errors, messages);
             formData = heroService.requireActiveHero().getCurrentBuildFormData();
+            resolution = buildEffectiveResolution(formData, errors);
         }
-        EffectiveCurrentBuildResolution resolution = buildEffectiveResolution(formData, errors);
         CurrentBuildCalculation calculation = tryCalculate(formData, resolution, errors);
         return buildPageModel(formData, messages, errors, calculation, resolution);
     }

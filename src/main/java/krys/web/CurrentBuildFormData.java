@@ -11,6 +11,8 @@ import java.util.Map;
 
 /** Surowe dane formularza GUI M8, zachowywane także przy błędach walidacji. */
 public final class CurrentBuildFormData {
+    public static final int ACTION_BAR_SLOT_COUNT = 6;
+
     private final String level;
     private final String questSkillPoints;
     private final String weaponDamage;
@@ -44,7 +46,7 @@ public final class CurrentBuildFormData {
         this.retributionChance = retributionChance;
         this.horizonSeconds = horizonSeconds;
         this.skillConfigs = Collections.unmodifiableMap(new EnumMap<>(skillConfigs));
-        this.actionBarSlots = Collections.unmodifiableList(new ArrayList<>(actionBarSlots));
+        this.actionBarSlots = Collections.unmodifiableList(normalizeActionBarSlots(actionBarSlots));
     }
 
     public static CurrentBuildFormData defaultValues() {
@@ -52,7 +54,7 @@ public final class CurrentBuildFormData {
         skillConfigs.put(SkillId.ADVANCE, new SkillConfigFormData("5", true, SkillUpgradeChoice.RIGHT.name()));
         return new CurrentBuildFormData("13", "0", "8", "18", "0", "50", "50", "50", "10",
                 skillConfigs,
-                List.of(SkillId.ADVANCE.name(), "NONE", "NONE", "NONE"));
+                List.of(SkillId.ADVANCE.name(), "NONE", "NONE", "NONE", "NONE", "NONE"));
     }
 
     public static CurrentBuildFormData fromFormFields(Map<String, String> fields) {
@@ -71,7 +73,7 @@ public final class CurrentBuildFormData {
         }
 
         List<String> actionBarSlots = new ArrayList<>();
-        for (int slot = 1; slot <= 4; slot++) {
+        for (int slot = 1; slot <= ACTION_BAR_SLOT_COUNT; slot++) {
             actionBarSlots.add(fields.getOrDefault(actionBarFieldName(slot), defaults.getActionBarSlot(slot)));
         }
 
@@ -160,6 +162,22 @@ public final class CurrentBuildFormData {
 
     public String getActionBarSlot(int slot) {
         return actionBarSlots.get(slot - 1);
+    }
+
+    private static List<String> normalizeActionBarSlots(List<String> rawSlots) {
+        List<String> normalized = new ArrayList<>();
+        if (rawSlots != null) {
+            for (String rawSlot : rawSlots) {
+                if (normalized.size() == ACTION_BAR_SLOT_COUNT) {
+                    break;
+                }
+                normalized.add(rawSlot == null || rawSlot.isBlank() ? "NONE" : rawSlot);
+            }
+        }
+        while (normalized.size() < ACTION_BAR_SLOT_COUNT) {
+            normalized.add("NONE");
+        }
+        return normalized;
     }
 
     public static final class SkillConfigFormData {

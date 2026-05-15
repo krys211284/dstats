@@ -67,12 +67,17 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains(".layout.current-build-wide"));
         assertTrue(response.body().contains("current-build-details"));
         assertTrue(response.body().contains("<details class=\"current-build-details hero-context-details\">"));
-        assertTrue(response.body().contains("<details class=\"current-build-details skill-point-details\" open>"));
-        assertTrue(response.body().contains("<details class=\"current-build-details assigned-skills-details\" open>"));
+        assertTrue(response.body().contains("<details class=\"current-build-details skill-point-details\">"));
+        assertTrue(response.body().contains("<details class=\"current-build-details assigned-skills-details\">"));
+        assertTrue(response.body().contains("<details class=\"current-build-details action-bar-details\">"));
+        assertTrue(response.body().contains("<details class=\"current-build-details basic-hero-stats-details\">"));
         assertTrue(response.body().contains("<details class=\"current-build-details equipment-details\">"));
         assertTrue(response.body().contains("<details class=\"current-build-details effective-stats-details\">"));
+        assertFalse(response.body().contains("<details class=\"current-build-details skill-point-details\" open>"));
+        assertFalse(response.body().contains("<details class=\"current-build-details assigned-skills-details\" open>"));
+        assertFalse(response.body().contains("<details class=\"current-build-details action-bar-details\" open>"));
         assertFalse(response.body().contains("<details class=\"current-build-details effective-stats-details\" open>"));
-        assertTrue(response.body().contains("<details class=\"current-build-details used-items-details\">"));
+        assertFalse(response.body().contains("<details class=\"current-build-details used-items-details\">"));
         assertTrue(response.body().contains("Aktywny bohater"));
         assertTrue(response.body().contains("name=\"selectedHeroId\""));
         assertFalse(response.body().contains("name=\"heroLevelEdit\""));
@@ -83,11 +88,13 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("Zapisz zmiany"));
         assertTrue(response.body().contains("Wycofaj zmiany"));
         assertTrue(response.body().contains("Ekwipunek aktualnego buildu"));
-        assertTrue(response.body().contains("Szczegóły użytych itemów"));
+        assertFalse(response.body().contains("Szczegóły użytych itemów"));
         assertFalse(response.body().contains("<h3>Użyte itemy</h3>"));
         assertFalse(response.body().contains("<h4>Brak użytych itemów</h4>"));
         assertTrue(response.body().contains("Efektywne staty do obliczeń"));
         assertTrue(response.body().contains("Punkty umiejętności"));
+        assertFalse(response.body().contains("Budżet waliduje konfigurację bohatera"));
+        assertFalse(response.body().contains("Konfiguracja mieści się w budżecie punktów umiejętności."));
         assertTrue(response.body().contains("skill-point-fields"));
         assertTrue(response.body().contains("skill-point-summary"));
         assertTrue(response.body().contains("minmax(190px, 1fr)"));
@@ -104,7 +111,8 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("Pierścień 1"));
         assertTrue(response.body().contains("Pierścień 2"));
         assertTrue(response.body().contains("Tarcza"));
-        assertTrue(response.body().contains("Zaawansowane: ręczne nadpisanie statów"));
+        assertTrue(response.body().contains("Podstawowe statystyki bohatera"));
+        assertFalse(response.body().contains("Zaawansowane: ręczne nadpisanie statów"));
         assertTrue(response.body().contains("Slot jest pusty"));
         assertTrue(response.body().contains(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.ADVANCE)));
         assertTrue(response.body().contains("Ranga z punktów"));
@@ -112,23 +120,23 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("<option value=\"15\">15</option>"));
         assertFalse(response.body().contains("<option value=\"16\">16</option>"));
         assertFalse(response.body().contains("name=\"" + CurrentBuildFormData.rankFieldName(krys.skill.SkillId.HOLY_BOLT) + "\""));
-        assertTrue(response.body().contains("<input type=\"number\" step=\"1\" name=\"weaponDamage\" value=\"8\">"));
-        assertFalse(response.body().contains("min=\"1\" step=\"1\" name=\"weaponDamage\""));
-        assertTrue(response.body().contains("Szansa bloku [%]"));
+        assertFalse(response.body().contains("name=\"weaponDamage\""));
+        assertFalse(response.body().contains("name=\"horizonSeconds\""));
+        assertTrue(response.body().contains("Szansa na blok [%]"));
         assertTrue(response.body().contains("Szansa retribution [%]"));
         assertTrue(response.body().contains("name=\"actionBar1\""));
-        assertTrue(response.body().contains("name=\"horizonSeconds\""));
+        assertTrue(response.body().contains("name=\"actionBar6\""));
         assertTrue(response.body().contains("Otwórz bibliotekę itemów"));
         assertTrue(response.body().contains("Importuj nowy item"));
         assertTrue(response.body().contains("Wybierz z biblioteki"));
         assertFalse(response.body().contains("Centrum buildu"));
         assertTrue(response.body().contains("max-width: 1840px;"));
-        assertTrue(response.body().indexOf("<div class=\"current-build-sticky-actions\">") < response.body().indexOf("<details class=\"current-build-details skill-point-details\" open>"));
+        assertTrue(response.body().indexOf("<div class=\"current-build-sticky-actions\">") < response.body().indexOf("<details class=\"current-build-details skill-point-details\">"));
         assertTrue(response.body().indexOf("Punkty umiejętności") < response.body().indexOf("Umiejętności bohatera"));
         assertTrue(response.body().indexOf("Umiejętności bohatera") < response.body().indexOf("Pasek akcji bohatera"));
-        assertTrue(response.body().indexOf("Pasek akcji bohatera") < response.body().indexOf("Ekwipunek aktualnego buildu"));
-        assertTrue(response.body().indexOf("Ekwipunek aktualnego buildu") < response.body().indexOf("Zaawansowane: ręczne nadpisanie statów"));
-        assertTrue(response.body().indexOf("Zaawansowane: ręczne nadpisanie statów") < response.body().indexOf("Efektywne staty do obliczeń"));
+        assertTrue(response.body().indexOf("Pasek akcji bohatera") < response.body().indexOf("Podstawowe statystyki bohatera"));
+        assertTrue(response.body().indexOf("Podstawowe statystyki bohatera") < response.body().indexOf("Ekwipunek aktualnego buildu"));
+        assertTrue(response.body().indexOf("Ekwipunek aktualnego buildu") < response.body().indexOf("Efektywne staty do obliczeń"));
         assertTrue(response.body().indexOf("Hełm") < response.body().indexOf("Broń"));
         assertTrue(response.body().indexOf("Amulet") < response.body().indexOf("Tarcza"));
     }
@@ -168,7 +176,7 @@ class CurrentBuildWebServerTest {
     }
 
     @Test
-    void shouldRenderOnlyAssignedSkillsAndSanitizeActionBarToAssignedLearnedSkills() throws Exception {
+    void shouldRenderOnlyAssignedSkillsAndRejectActionBarOutsideAssignedLearnedSkills() throws Exception {
         createHero("Testowy bohater", "13");
 
         HttpResponse<String> initialResponse = sendGet("/policz-aktualny-build");
@@ -193,8 +201,12 @@ class CurrentBuildWebServerTest {
         HttpResponse<String> sanitizeResponse = sendPost("/policz-aktualny-build", invalidBarFields);
 
         assertEquals(200, sanitizeResponse.statusCode());
-        assertTrue(sanitizeResponse.body().contains("Pasek akcji został oczyszczony do umiejętności przypisanych i nauczonych przez aktywnego bohatera."));
-        assertFalse(sanitizeResponse.body().contains("Action bar slot 1 wskazuje skill bez rank > 0"));
+        assertFalse(sanitizeResponse.body().contains("Pasek akcji został oczyszczony do umiejętności przypisanych i nauczonych przez aktywnego bohatera."));
+        assertTrue(sanitizeResponse.body().contains("Action bar slot 1 wskazuje skill bez rank &gt; 0"));
+
+        HttpResponse<String> reloadResponse = sendGet("/policz-aktualny-build");
+        assertEquals(200, reloadResponse.statusCode());
+        assertFalse(reloadResponse.body().contains("<option value=\"HOLY_BOLT\" selected>Holy Bolt</option>"));
     }
 
     @Test
@@ -418,9 +430,14 @@ class CurrentBuildWebServerTest {
         HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
 
         assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("Konfiguracja przekracza budżet punktów umiejętności: wydano 7, dostępne 0."));
-        assertTrue(response.body().contains("Konfiguracja punktów umiejętności wymaga poprawy przed uznaniem buildu za legalny."));
-        assertFalse(response.body().contains("<h2>Wynik symulacji</h2><div class=\"summary-grid\">"));
+        assertTrue(response.body().contains("Nie można zapisać: wydano 7 punktów, dostępne 0."));
+        assertFalse(response.body().contains("Konfiguracja punktów umiejętności wymaga poprawy przed uznaniem buildu za legalny."));
+        assertFalse(response.body().contains("Konfiguracja mieści się w budżecie punktów umiejętności."));
+        assertFalse(response.body().contains("Łączne obrażenia"));
+
+        HttpResponse<String> reloadResponse = sendGet("/policz-aktualny-build");
+        assertEquals(200, reloadResponse.statusCode());
+        assertTrue(reloadResponse.body().contains(summaryCard("Poziom bohatera", "13")));
     }
 
     @Test
@@ -510,7 +527,6 @@ class CurrentBuildWebServerTest {
         assertTrue(activateResponse.body().contains("Broń główna / sword-b.png"));
         assertTrue(activateResponse.body().contains(">Zmień item<"));
         assertTrue(activateResponse.body().contains("Wyczyść slot"));
-        assertTrue(activateResponse.body().contains("obrażenia broni=321"));
         assertTrue(activateResponse.body().contains("Łączne obrażenia"));
     }
 
@@ -642,8 +658,8 @@ class CurrentBuildWebServerTest {
         HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
 
         assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("Ręczne nadpisanie statów"));
-        assertTrue(response.body().contains("Szczegóły użytych itemów"));
+        assertFalse(response.body().contains("Ręczne nadpisanie statów"));
+        assertFalse(response.body().contains("Szczegóły użytych itemów"));
         assertTrue(response.body().contains("Efektywne staty do obliczeń"));
         assertTrue(response.body().contains("Łączne obrażenia"));
         assertTrue(response.body().contains("Efektywne obrażenia broni"));
@@ -682,13 +698,10 @@ class CurrentBuildWebServerTest {
         HttpResponse<String> response = sendGet("/policz-aktualny-build?" + buildCurrentBuildQueryWithStats("10.5", "2.25"));
 
         assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains(summaryCard("Szansa bloku [%]", "10.5")));
-        assertTrue(response.body().contains(summaryCard("Szansa retribution [%]", "2.25")));
-        assertTrue(response.body().contains(summaryCard("Łączna szansa bloku [%]", "18.25")));
-        assertTrue(response.body().contains(summaryCard("Łączna szansa retribution [%]", "7.5")));
+        assertTrue(response.body().contains(summaryCard("Szansa na blok [%]", "28.75")));
+        assertTrue(response.body().contains(summaryCard("Szansa retribution [%]", "9.75")));
         assertTrue(response.body().contains(summaryCard("Szansa bloku [%]", "28.75")));
         assertTrue(response.body().contains(summaryCard("Szansa retribution [%]", "9.75")));
-        assertTrue(response.body().contains("szansa bloku=18.25%, szansa retribution=7.5%"));
         assertTrue(response.body().contains("szansa bloku=28.75, szansa retribution=9.75"));
     }
 
@@ -744,10 +757,9 @@ class CurrentBuildWebServerTest {
             fields.put(CurrentBuildFormData.rankFieldName(skillId), "0");
             fields.put(CurrentBuildFormData.choiceFieldName(skillId), "NONE");
         }
-        fields.put(CurrentBuildFormData.actionBarFieldName(1), "NONE");
-        fields.put(CurrentBuildFormData.actionBarFieldName(2), "NONE");
-        fields.put(CurrentBuildFormData.actionBarFieldName(3), "NONE");
-        fields.put(CurrentBuildFormData.actionBarFieldName(4), "NONE");
+        for (int slot = 1; slot <= CurrentBuildFormData.ACTION_BAR_SLOT_COUNT; slot++) {
+            fields.put(CurrentBuildFormData.actionBarFieldName(slot), "NONE");
+        }
         return fields;
     }
 
@@ -757,7 +769,7 @@ class CurrentBuildWebServerTest {
                 + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
                 + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
                 + "&rank_ADVANCE=5&baseUpgrade_ADVANCE=true&choiceUpgrade_ADVANCE=RIGHT"
-                + "&actionBar1=ADVANCE&actionBar2=NONE&actionBar3=NONE&actionBar4=NONE";
+                + "&actionBar1=ADVANCE&actionBar2=NONE&actionBar3=NONE&actionBar4=NONE&actionBar5=NONE&actionBar6=NONE";
     }
 
     private static String buildCurrentBuildQueryWithStats(String blockChance, String retributionChance) {
@@ -766,7 +778,7 @@ class CurrentBuildWebServerTest {
                 + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
                 + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
                 + "&rank_ADVANCE=5&baseUpgrade_ADVANCE=true&choiceUpgrade_ADVANCE=RIGHT"
-                + "&actionBar1=ADVANCE&actionBar2=NONE&actionBar3=NONE&actionBar4=NONE";
+                + "&actionBar1=ADVANCE&actionBar2=NONE&actionBar3=NONE&actionBar4=NONE&actionBar5=NONE&actionBar6=NONE";
     }
 
     private static String summaryCard(String label, String value) {
