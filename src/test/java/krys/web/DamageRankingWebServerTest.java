@@ -106,6 +106,7 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains(">Obrażenia % max drzewo<"));
         assertTrue(response.body().contains(">Koszt Wiary<"));
         assertTrue(response.body().contains(">Generowanie Wiary<"));
+        assertTrue(response.body().contains(">Lucky Hit<"));
         assertTrue(response.body().contains(">Dmg multiplier<"));
         assertTrue(response.body().contains(">Dmg bonus<"));
         assertTrue(response.body().contains(">Extra hit / component<"));
@@ -147,6 +148,8 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains("name=\"hasDefenseOrUtility\""));
         assertTrue(response.body().contains("name=\"hasManualReviewUpgrade\""));
         assertTrue(response.body().contains("class=\"filter-control filter-input\" id=\"ranking-search-query\" type=\"search\" name=\"q\""));
+        assertTrue(response.body().contains("input[type=\"search\"],"));
+        assertTrue(response.body().contains("input[type=\"search\"]:focus,"));
         assertTrue(response.body().contains("aria-sort=\"descending\""));
         assertTrue(response.body().contains("sort=skillName"));
         assertTrue(response.body().contains("sort=baseDamageTreeMax"));
@@ -236,31 +239,32 @@ class DamageRankingWebServerTest {
         assertTrue(brandishRow.contains("120%"));
         assertTrue(brandishRow.contains(">Podstawowe, Adept</td>"));
         List<String> cells = tableCells(brandishRow);
-        assertEquals(13, cells.size());
+        assertEquals(14, cells.size());
         assertEquals("-", cells.get(4));
         assertTrue(cells.get(5).contains("14; +5"));
         assertTrue(cells.get(5).contains("Generowanie Wiary"));
-        assertTrue(cells.get(6).contains("20%[X]"));
-        assertFalse(cells.get(6).contains("128%"));
-        assertTrue(cells.get(8).contains("52%"));
-        assertTrue(cells.get(8).contains("120%"));
-        assertTrue(cells.get(8).contains("128%"));
-        assertFalse(cells.get(8).contains("20%[X]"));
-        String visibleExtraHitCell = stripTitleAttributes(cells.get(8));
+        assertTrue(cells.get(6).contains("26%"));
+        assertTrue(cells.get(7).contains("20%[X]"));
+        assertFalse(cells.get(7).contains("128%"));
+        assertTrue(cells.get(9).contains("52%"));
+        assertTrue(cells.get(9).contains("120%"));
+        assertTrue(cells.get(9).contains("128%"));
+        assertFalse(cells.get(9).contains("20%[X]"));
+        String visibleExtraHitCell = stripTitleAttributes(cells.get(9));
         assertTrue(visibleExtraHitCell.contains("52%</span> <span class=\"facet-name\">&mdash; Powracająca Światłość"));
         assertTrue(visibleExtraHitCell.contains("120%</span> <span class=\"facet-name\">&mdash; Krzyżowe Uderzenie, 2 dodatkowe łuki"));
         assertTrue(visibleExtraHitCell.contains("128%</span> <span class=\"facet-name\">&mdash; Miecz Mistrzostwa"));
-        assertTrue(cells.get(10).contains("Odsłonięcie"));
-        assertFalse(cells.get(10).contains("20%[X]"));
-        assertFalse(cells.get(6).contains("20%[+]"));
-        assertTrue(cells.get(6).contains("20%[X]</span> <span class=\"facet-name\">&mdash; Zwiększenie Obrażeń"));
+        assertTrue(cells.get(11).contains("Odsłonięcie"));
+        assertFalse(cells.get(11).contains("20%[X]"));
+        assertFalse(cells.get(7).contains("20%[+]"));
+        assertTrue(cells.get(7).contains("20%[X]</span> <span class=\"facet-name\">&mdash; Zwiększenie Obrażeń"));
         assertFalse(brandishRow.contains("Szybkość Użycia"));
         assertFalse(brandishRow.contains("status / pośredni wpływ"));
         assertFalse(brandishRow.contains("zasób / koszt"));
         assertFalse(brandishRow.contains("suma"));
         assertFalse(brandishRow.contains("razem"));
         assertFalse(brandishRow.contains("total"));
-        assertFalse(brandishRow.contains("DPS"));
+        assertFalse(brandishRow.contains("nie odblokowują runtime DPS"));
         assertFalse(brandishRow.contains("brak wpływu na obrażenia"));
     }
 
@@ -274,8 +278,82 @@ class DamageRankingWebServerTest {
         assertBasicCategoryAndFaith(response.body(), "swiety_pocisk", "Podstawowe, Sędzia", "-", "16; +7");
         assertBasicCategoryAndFaith(response.body(), "starcie", "Podstawowe, Moloch", "-", "20; +10");
         assertBasicCategoryAndFaith(response.body(), "natarcie", "Podstawowe, Mobilność, Fanatyk", "-", "18");
+        assertRowContains(response.body(), "wymach", ">26%</span>");
+        assertRowContains(response.body(), "swiety_pocisk", ">57%</span>");
+        assertRowContains(response.body(), "starcie", ">63%</span>");
+        assertRowDoesNotContain(response.body(), "starcie", ">65%</span>");
+        assertRowContains(response.body(), "natarcie", ">18%</span>");
         assertFalse(rowHtml(response.body(), "wymach").contains("BASIC"));
         assertFalse(rowHtml(response.body(), "swiety_pocisk").contains("FAITH_GENERATION"));
+    }
+
+    @Test
+    void clashSearchRowShouldRenderConfirmedDescriptiveMetadataWithoutRuntimeDps() throws Exception {
+        HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin&skillGroup=basic&q=star");
+        String clashRow = rowHtml(response.body(), "starcie");
+        List<String> cells = tableCells(clashRow);
+
+        assertEquals(200, response.statusCode());
+        assertEquals(1, countSkillRows(response.body()));
+        assertEquals(14, cells.size());
+        assertEquals("Starcie", cells.get(0));
+        assertEquals("Podstawowe, Moloch", cells.get(1));
+        assertEquals("115%", cells.get(2));
+        assertEquals("293%", cells.get(3));
+        assertEquals("-", cells.get(4));
+        assertTrue(cells.get(5).contains("20; +10 — Generowanie Wiary"));
+        assertTrue(cells.get(5).contains("class=\"ranking-tooltip\""));
+        assertTrue(cells.get(5).contains("title=\"Modyfikator: Generowanie Wiary — dodaje +10 Wiary.\""));
+        assertTrue(cells.get(5).contains("aria-label=\"Modyfikator: Generowanie Wiary — dodaje +10 Wiary.\""));
+        assertFalse(cells.get(5).contains("runtime DPS"));
+        assertFalse(cells.get(5).contains("dane opisowe"));
+        assertFalse(cells.get(5).contains("Lokalny Markdown"));
+        assertTrue(cells.get(6).contains("63%"));
+        assertTrue(cells.get(6).contains("Umiejętność: Starcie — Lucky Hit 63%"));
+        assertFalse(cells.get(6).contains("Lucky Hit 65%"));
+        assertTrue(cells.get(7).contains("20%[X]</span> <span class=\"facet-name\">&mdash; Zwiększenie Obrażeń"));
+        String visibleDmgMultiplierCell = stripTooltipAttributes(cells.get(7));
+        assertFalse(visibleDmgMultiplierCell.contains("8%[X]</span> <span class=\"facet-name\">&mdash; Brać Ich"));
+        assertTrue(visibleDmgMultiplierCell.contains("<span class=\"facet-name\">Brać Ich</span> <span class=\"facet-value\">&mdash; efekt co 3. atak</span>"));
+        assertTrue(cells.get(7).contains("Modyfikator: Brać Ich"));
+        assertTrue(cells.get(7).contains("przyciąga wrogów co 3. atak"));
+        assertTrue(cells.get(7).contains("Animuszu"));
+        assertTrue(cells.get(9).contains("155% R1</span> <span class=\"facet-name\">&mdash; Potyczka"));
+        assertTrue(cells.get(9).contains("Fanatyka"));
+        assertTrue(cells.get(9).contains("Modyfikator: Potyczka"));
+        assertTrue(cells.get(9).contains("155% dotyczy R1"));
+        assertTrue(cells.get(9).contains("bonus do bloku znika"));
+        assertTrue(cells.get(9).contains("szansą na trafienie krytyczne"));
+        String visibleUtilityCell = stripTooltipAttributes(cells.get(12));
+        assertTrue(cells.get(12).contains("Marsz Krzyżowca"));
+        assertTrue(visibleUtilityCell.contains("Marsz Krzyżowca</span> <span class=\"facet-value\">&mdash; szansa na blok</span>"));
+        assertFalse(visibleUtilityCell.contains("15%[X]"));
+        assertFalse(visibleUtilityCell.contains("25%[X]"));
+        assertFalse(visibleUtilityCell.contains("25%[+]"));
+        assertTrue(cells.get(12).contains("Umiejętność: Marsz Krzyżowca"));
+        assertTrue(cells.get(12).contains("15%[X]"));
+        assertTrue(cells.get(12).contains("6 sek."));
+        assertTrue(cells.get(12).contains("szansa na blok"));
+        assertTrue(cells.get(12).contains("Animusz"));
+        assertTrue(visibleUtilityCell.contains("Animusz</span> <span class=\"facet-value\">&mdash; 2 kumulacje</span>"));
+        assertTrue(cells.get(12).contains("Modyfikator: Animusz"));
+        assertTrue(cells.get(12).contains("trafienie Starciem zapewnia 2 kumulacje Animuszu"));
+        assertFalse(cells.get(12).contains("pancerz +25%[+]"));
+        assertFalse(cells.get(12).contains("limit 8 ładunków"));
+        assertTrue(visibleUtilityCell.contains("Skuteczność Marszu Krzyżowca"));
+        assertTrue(cells.get(12).contains("Modyfikator: Skuteczność Marszu Krzyżowca"));
+        assertTrue(cells.get(13).contains("Kara"));
+        String visibleManualReviewCell = stripTooltipAttributes(cells.get(13));
+        assertTrue(visibleManualReviewCell.contains("Kara</span> <span class=\"facet-value\">&mdash; Odwet / ciernie</span>"));
+        assertFalse(visibleManualReviewCell.contains("30%[+]"));
+        assertFalse(visibleManualReviewCell.contains("3489 cierni"));
+        assertFalse(visibleManualReviewCell.contains("20%[X]"));
+        assertTrue(cells.get(13).contains("Manual review: Kara"));
+        assertTrue(cells.get(13).contains("Odwet"));
+        assertTrue(cells.get(13).contains("3489 cierni"));
+        assertTrue(cells.get(13).contains("20%[X]"));
+        assertFalse(clashRow.contains("damagePerUse"));
+        assertFalse(clashRow.contains("theoreticalDps"));
     }
 
     @Test
@@ -292,6 +370,10 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains("grid-column: span 2"));
         assertTrue(response.body().contains(".filter-control"));
         assertTrue(response.body().contains("min-height: 42px"));
+        assertTrue(response.body().contains("input[type=\"search\"],"));
+        assertTrue(response.body().contains("input[type=\"search\"]:focus,"));
+        assertTrue(response.body().contains(".ranking-tooltip"));
+        assertTrue(response.body().contains("cursor: help"));
         assertTrue(response.body().contains(".visually-hidden"));
         assertTrue(response.body().contains("<select class=\"filter-control filter-select\" name=\"character\">"));
         assertTrue(response.body().contains("<select class=\"filter-control filter-select\" name=\"skillGroup\">"));
@@ -477,13 +559,15 @@ class DamageRankingWebServerTest {
         assertFalse(sourceCategoriesAscResponse.body().contains("Metryka rankingu"));
 
         assertEquals(200, multiplierDescResponse.statusCode());
-        assertEquals("wymach", firstSkillId(multiplierDescResponse.body()));
+        assertEquals("starcie", firstSkillId(multiplierDescResponse.body()));
         assertTrue(multiplierDescResponse.body().contains("sort=maxDamageMultiplierPercent"));
         assertEquals(1, countOccurrences(multiplierDescResponse.body(), "aria-sort=\"descending\""));
+        assertRowOrder(multiplierDescResponse.body(), "starcie", "wymach");
 
         assertEquals(200, extraComponentDescResponse.statusCode());
-        assertEquals("wymach", firstSkillId(extraComponentDescResponse.body()));
+        assertEquals("starcie", firstSkillId(extraComponentDescResponse.body()));
         assertTrue(extraComponentDescResponse.body().contains("sort=maxExtraHitOrComponentPercent"));
+        assertTrue(rowHtml(extraComponentDescResponse.body(), "starcie").contains("155%"));
         assertTrue(rowHtml(extraComponentDescResponse.body(), "wymach").contains("128%"));
 
         assertEquals(200, faithCostDescResponse.statusCode());
@@ -575,7 +659,7 @@ class DamageRankingWebServerTest {
             found++;
             String skillId = matcher.group(1);
             List<String> cells = tableCells(matcher.group(2));
-            if (cells.size() != 13) {
+            if (cells.size() != 14) {
                 throw new AssertionError("Niepoprawna liczba komórek dla " + skillId + ": " + cells.size());
             }
             String rankOneCell = cells.get(2);
@@ -653,6 +737,12 @@ class DamageRankingWebServerTest {
 
     private static String stripTitleAttributes(String html) {
         return html.replaceAll(" title=\"[^\"]*\"", "");
+    }
+
+    private static String stripTooltipAttributes(String html) {
+        return html
+                .replaceAll(" title=\"[^\"]*\"", "")
+                .replaceAll(" aria-label=\"[^\"]*\"", "");
     }
 
     private static String firstSkillId(String html) {

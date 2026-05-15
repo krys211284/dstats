@@ -25,6 +25,8 @@ public final class PaladinTreeSkill {
     private final Integer faithCost;
     private final Integer faithGenerationBase;
     private final Integer faithGenerationBonusKnown;
+    private final Integer luckyHitPercent;
+    private final List<UpgradeDamageModifier> baseDescriptionModifiers;
 
     public PaladinTreeSkill(String skillId,
                             String skillName,
@@ -105,7 +107,7 @@ public final class PaladinTreeSkill {
                             String notes) {
         this(skillId, skillName, sourcePdf, skillGroup, baseDamagePercentAtRank1, baseDamagePercentAtTreeMaxRank,
                 baseDamagePercentRanks, componentDamagePercentRanks, type, status, upgradeGroups, notes,
-                null, null, null);
+                null, null, null, null, List.of());
     }
 
     public PaladinTreeSkill(String skillId,
@@ -123,6 +125,28 @@ public final class PaladinTreeSkill {
                             Integer faithCost,
                             Integer faithGenerationBase,
                             Integer faithGenerationBonusKnown) {
+        this(skillId, skillName, sourcePdf, skillGroup, baseDamagePercentAtRank1, baseDamagePercentAtTreeMaxRank,
+                baseDamagePercentRanks, componentDamagePercentRanks, type, status, upgradeGroups, notes,
+                faithCost, faithGenerationBase, faithGenerationBonusKnown, null, List.of());
+    }
+
+    public PaladinTreeSkill(String skillId,
+                            String skillName,
+                            String sourcePdf,
+                            String skillGroup,
+                            Integer baseDamagePercentAtRank1,
+                            Integer baseDamagePercentAtTreeMaxRank,
+                            DamagePercentRankTable baseDamagePercentRanks,
+                            DamagePercentComponentRankTable componentDamagePercentRanks,
+                            PaladinSkillTreeType type,
+                            PaladinSkillTreeStatus status,
+                            List<PaladinSkillUpgradeGroup> upgradeGroups,
+                            String notes,
+                            Integer faithCost,
+                            Integer faithGenerationBase,
+                            Integer faithGenerationBonusKnown,
+                            Integer luckyHitPercent,
+                            List<UpgradeDamageModifier> baseDescriptionModifiers) {
         this.skillId = requireText(skillId, "skillId");
         this.skillName = requireText(skillName, "skillName");
         this.sourcePdf = requireText(sourcePdf, "sourcePdf");
@@ -138,6 +162,8 @@ public final class PaladinTreeSkill {
         this.faithCost = faithCost;
         this.faithGenerationBase = faithGenerationBase;
         this.faithGenerationBonusKnown = faithGenerationBonusKnown;
+        this.luckyHitPercent = luckyHitPercent;
+        this.baseDescriptionModifiers = List.copyOf(Objects.requireNonNull(baseDescriptionModifiers, "baseDescriptionModifiers"));
     }
 
     public String getSkillId() {
@@ -216,10 +242,12 @@ public final class PaladinTreeSkill {
     }
 
     public List<UpgradeDamageModifier> getUpgradeDamageModifiers() {
-        return upgradeGroups.stream()
+        List<UpgradeDamageModifier> modifiers = new ArrayList<>(baseDescriptionModifiers);
+        modifiers.addAll(upgradeGroups.stream()
                 .flatMap(group -> group.getUpgrades().stream()
                         .map(upgrade -> UpgradeDamageModifier.fromUpgrade(skillId, group.getId(), upgrade)))
-                .toList();
+                .toList());
+        return List.copyOf(modifiers);
     }
 
     public Set<SkillTag> getTags() {
@@ -266,6 +294,10 @@ public final class PaladinTreeSkill {
 
     public Integer getFaithGenerationBonusKnown() {
         return faithGenerationBonusKnown;
+    }
+
+    public Integer getLuckyHitPercent() {
+        return luckyHitPercent;
     }
 
     private static String requireText(String value, String fieldName) {

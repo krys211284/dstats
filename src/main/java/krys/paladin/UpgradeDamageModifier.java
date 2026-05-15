@@ -64,6 +64,12 @@ public final class UpgradeDamageModifier {
                 return brandishModifier;
             }
         }
+        if (normalizedSkillId.equals("starcie")) {
+            UpgradeDamageModifier clashModifier = clashModifier(groupId, upgrade);
+            if (clashModifier != null) {
+                return clashModifier;
+            }
+        }
         return classifyGeneric(groupId, upgrade);
     }
 
@@ -167,6 +173,110 @@ public final class UpgradeDamageModifier {
                     UpgradeDamageSafety.YES,
                     UpgradeDamageSafety.NO,
                     "Lokalny Markdown Wymachu podaje 2 dodatkowe łuki po 120%; bez sumowania w single target.");
+            default -> null;
+        };
+    }
+
+    private static UpgradeDamageModifier clashModifier(String groupId, PaladinSkillUpgrade upgrade) {
+        return switch (upgrade.getId()) {
+            case "generowanie_wiary" -> new UpgradeDamageModifier(
+                    groupId,
+                    upgrade.getName(),
+                    UpgradeDamageSafety.NO,
+                    UpgradeDamageModifierType.RESOURCE_OR_COST,
+                    "+10 Faith",
+                    UpgradeDamageValueKind.TEXT_ONLY,
+                    "po wyborze ulepszenia",
+                    false,
+                    "none",
+                    false,
+                    UpgradeDamageSafety.YES,
+                    UpgradeDamageSafety.NO,
+                    "Lokalny Markdown Starcia podaje: Starcie generuje dodatkowe 10 pkt. wiary.");
+            case "animusz" -> new UpgradeDamageModifier(
+                    groupId,
+                    upgrade.getName(),
+                    UpgradeDamageSafety.NO,
+                    UpgradeDamageModifierType.DEFENSE_OR_UTILITY,
+                    "2 kumulacje; 25%[+]",
+                    UpgradeDamageValueKind.TEXT_ONLY,
+                    "po trafieniu wroga Starciem; limit 8 ładunków",
+                    false,
+                    "ANIMUSZ",
+                    false,
+                    UpgradeDamageSafety.YES,
+                    UpgradeDamageSafety.NO,
+                    "Animusz: uderzenie wroga Starciem zapewnia 2 kumulacje Animuszu. Animusz zwiększa pancerz o 25%[+], obrażenia bezpośrednie wyczerpują ładunek, limit 8 ładunków.");
+            case "skutecznosc_marszu_krzyzowca" -> new UpgradeDamageModifier(
+                    groupId,
+                    upgrade.getName(),
+                    UpgradeDamageSafety.NO,
+                    UpgradeDamageModifierType.DEFENSE_OR_UTILITY,
+                    "25%[X]",
+                    UpgradeDamageValueKind.PERCENT_X,
+                    "wzmacnia Marsz Krzyżowca",
+                    false,
+                    "MARSZ_KRZYZOWCA",
+                    false,
+                    UpgradeDamageSafety.YES,
+                    UpgradeDamageSafety.NO,
+                    "Skuteczność Marszu Krzyżowca: skuteczność Marszu Krzyżowca zwiększona o 25%[x]. To efekt utility/defense, nie DPS runtime.");
+            case "zwiekszenie_obrazen" -> new UpgradeDamageModifier(
+                    groupId,
+                    upgrade.getName(),
+                    UpgradeDamageSafety.YES,
+                    UpgradeDamageModifierType.MULTIPLICATIVE_DAMAGE_PERCENT,
+                    "20%[X]",
+                    UpgradeDamageValueKind.PERCENT_X,
+                    "po wyborze ulepszenia",
+                    false,
+                    "PRIMARY_DAMAGE",
+                    false,
+                    UpgradeDamageSafety.YES,
+                    UpgradeDamageSafety.NO,
+                    "Lokalny Markdown Starcia podaje obrażenia zwiększone o 20%[x]. Wartość jest tylko prezentacyjna i nie odblokowuje runtime DPS.");
+            case "brac_ich" -> new UpgradeDamageModifier(
+                    groupId,
+                    upgrade.getName(),
+                    UpgradeDamageSafety.YES,
+                    UpgradeDamageModifierType.MULTIPLICATIVE_DAMAGE_PERCENT,
+                    "8%[X]",
+                    UpgradeDamageValueKind.PERCENT_X,
+                    "za każdy poziom Animuszu",
+                    false,
+                    "PRIMARY_DAMAGE",
+                    false,
+                    UpgradeDamageSafety.YES,
+                    UpgradeDamageSafety.NO,
+                    "Brać Ich: Animusz wzmacnia Starcie, które zadaje obrażenia zwiększone o 8%[x] za każdy poziom Animuszu. Warunkowe, nie sumowane i nie używane w runtime DPS.");
+            case "potyczka" -> new UpgradeDamageModifier(
+                    groupId,
+                    upgrade.getName(),
+                    UpgradeDamageSafety.YES,
+                    UpgradeDamageModifierType.ADDITIONAL_HIT_OR_STRIKE,
+                    "155%",
+                    UpgradeDamageValueKind.COMPONENT_PERCENT,
+                    "dodatkowe uderzenie; Starcie staje się umiejętnością Fanatyka",
+                    true,
+                    "ADDITIONAL_STRIKE_DAMAGE",
+                    false,
+                    UpgradeDamageSafety.YES,
+                    UpgradeDamageSafety.NO,
+                    "Potyczka: Starcie staje się umiejętnością Fanatyka i wywołuje dodatkowe uderzenie za 155%. Marsz Krzyżowca nie zapewnia już szansy na blok, tylko 10%[+] premii do szansy na trafienie krytyczne, maks. 30%[+]. Wartość nie jest sumowana z bazowymi obrażeniami.");
+            case "kara" -> new UpgradeDamageModifier(
+                    groupId,
+                    upgrade.getName(),
+                    UpgradeDamageSafety.NEEDS_MANUAL_REVIEW,
+                    UpgradeDamageModifierType.THORNS_DAMAGE_MODIFIER,
+                    "30%[+] Odwet; 3489 cierni; 20%[X]",
+                    UpgradeDamageValueKind.NEEDS_MANUAL_REVIEW,
+                    "Odwet i ciernie wymagają osobnej weryfikacji",
+                    false,
+                    "THORNS_RETRIBUTION",
+                    false,
+                    UpgradeDamageSafety.NEEDS_MANUAL_REVIEW,
+                    UpgradeDamageSafety.NEEDS_MANUAL_REVIEW,
+                    "Kara: 30%[+] szansy na Odwet, 3489 cierni i 20%[x] obrażeń od cierni. Pozostaje w Manual review, nie jest zwykłym direct damage.");
             default -> null;
         };
     }

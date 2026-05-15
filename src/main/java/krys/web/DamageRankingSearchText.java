@@ -49,6 +49,10 @@ public final class DamageRankingSearchText {
         }
         append(text, row.getFaithCostSummary());
         append(text, row.getFaithGenerationSummary());
+        append(text, row.getLuckyHitSummary());
+        if (row.getLuckyHitPercent() != null) {
+            append(text, "Lucky Hit");
+        }
         if (row.hasFaithCost()) {
             append(text, "Koszt Wiary");
         }

@@ -31,6 +31,7 @@ public final class DamageRankingRow {
     private final Integer faithCost;
     private final Integer faithGenerationBase;
     private final Integer faithGenerationBonusKnown;
+    private final Integer luckyHitPercent;
 
     public DamageRankingRow(PaladinSkillDamageRankingEntry entry, PaladinTreeSkill treeSkill) {
         this.entry = entry;
@@ -44,6 +45,7 @@ public final class DamageRankingRow {
         this.faithCost = treeSkill.getFaithCost();
         this.faithGenerationBase = treeSkill.getFaithGenerationBase();
         this.faithGenerationBonusKnown = treeSkill.getFaithGenerationBonusKnown();
+        this.luckyHitPercent = treeSkill.getLuckyHitPercent();
     }
 
     public PaladinSkillDamageRankingEntry getEntry() {
@@ -296,6 +298,18 @@ public final class DamageRankingRow {
             return faithGenerationBase.toString();
         }
         return faithGenerationBase + "; +" + faithGenerationBonusKnown + " — Generowanie Wiary";
+    }
+
+    public Integer getFaithGenerationBonusKnown() {
+        return faithGenerationBonusKnown;
+    }
+
+    public Integer getLuckyHitPercent() {
+        return luckyHitPercent;
+    }
+
+    public String getLuckyHitSummary() {
+        return luckyHitPercent == null ? "-" : luckyHitPercent + "%";
     }
 
     public Integer getFaithGenerationBaseSortValue() {

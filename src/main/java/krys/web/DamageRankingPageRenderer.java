@@ -301,6 +301,7 @@ public final class DamageRankingPageRenderer {
                             <col class="col-damage">
                             <col class="col-faith">
                             <col class="col-faith wide-faith">
+                            <col class="col-faith">
                             <col class="col-facet">
                             <col class="col-facet">
                             <col class="col-facet wide-facet">
@@ -324,6 +325,7 @@ public final class DamageRankingPageRenderer {
                                 %s
                                 %s
                                 %s
+                                %s
                             </tr>
                         </thead>
                         <tbody>
@@ -334,6 +336,7 @@ public final class DamageRankingPageRenderer {
                 renderSortableHeader(model, "baseDamageTreeMax", "Obrażenia % max drzewo"),
                 renderSortableHeader(model, "faithCost", "Koszt Wiary"),
                 renderFaithGenerationHeader(model),
+                "<th>Lucky Hit</th>",
                 renderSortableHeader(model, "maxDamageMultiplierPercent", "Dmg multiplier"),
                 renderSortableHeader(model, "maxDamageBonusPercent", "Dmg bonus"),
                 renderSortableHeader(model, "maxExtraHitOrComponentPercent", "Extra hit / component"),
@@ -386,23 +389,52 @@ public final class DamageRankingPageRenderer {
                 .append("</td><td>")
                 .append(escapeHtml(row.getFaithCostSummary()))
                 .append("</td><td>")
-                .append(escapeHtml(row.getFaithGenerationSummary()))
+                .append(renderFaithGenerationCell(row))
                 .append("</td><td>")
-                .append(renderModifierSummary(row.damageMultiplierModifiers()))
+                .append(renderLuckyHitCell(row))
                 .append("</td><td>")
-                .append(renderModifierSummary(row.damageBonusModifiers()))
+                .append(renderModifierSummary(row, row.damageMultiplierModifiers()))
                 .append("</td><td>")
-                .append(renderModifierSummary(row.extraHitOrComponentModifiers()))
+                .append(renderModifierSummary(row, row.damageBonusModifiers()))
                 .append("</td><td>")
-                .append(renderModifierSummary(row.damageOverTimeModifiers()))
+                .append(renderModifierSummary(row, row.extraHitOrComponentModifiers()))
                 .append("</td><td>")
-                .append(renderModifierSummary(row.statusDamageModifiers()))
+                .append(renderModifierSummary(row, row.damageOverTimeModifiers()))
                 .append("</td><td>")
-                .append(renderModifierSummary(row.defenseOrUtilityModifiers()))
+                .append(renderModifierSummary(row, row.statusDamageModifiers()))
                 .append("</td><td>")
-                .append(renderModifierSummary(row.manualReviewModifiers()))
+                .append(renderModifierSummary(row, row.defenseOrUtilityModifiers()))
+                .append("</td><td>")
+                .append(renderModifierSummary(row, row.manualReviewModifiers()))
                 .append("</td></tr>")
                 .toString();
+    }
+
+    private static String renderFaithGenerationCell(DamageRankingRow row) {
+        String summary = row.getFaithGenerationSummary();
+        if (row.getFaithGenerationBonusKnown() == null) {
+            return escapeHtml(summary);
+        }
+        String tooltip = "Modyfikator: Generowanie Wiary — dodaje +"
+                + row.getFaithGenerationBonusKnown()
+                + " Wiary.";
+        return "<span class=\"ranking-tooltip\" title=\"" + escapeHtml(tooltip) + "\" aria-label=\"" + escapeHtml(tooltip) + "\">"
+                + escapeHtml(summary)
+                + "</span>";
+    }
+
+    private static String renderLuckyHitCell(DamageRankingRow row) {
+        if (row.getLuckyHitPercent() == null) {
+            return "<span class=\"missing-source-value ranking-tooltip\" title=\"Brak źródłowej wartości Lucky Hit\" aria-label=\"Brak źródłowej wartości Lucky Hit\">-</span>";
+        }
+        String tooltip = "Umiejętność: "
+                + row.getEntry().getSkillName()
+                + " — Lucky Hit "
+                + row.getLuckyHitPercent()
+                + "%.";
+        return "<span class=\"ranking-tooltip\" title=\"" + escapeHtml(tooltip) + "\" aria-label=\"" + escapeHtml(tooltip) + "\">"
+                + escapeHtml(row.getLuckyHitSummary())
+                + "</span>";
     }
 
     private static String renderDamagePercentCell(DamageRankingRow row, int rank) {
@@ -462,16 +494,16 @@ public final class DamageRankingPageRenderer {
         return html.toString();
     }
 
-    private static String renderModifierSummary(List<UpgradeDamageModifier> modifiers) {
+    private static String renderModifierSummary(DamageRankingRow row, List<UpgradeDamageModifier> modifiers) {
         if (modifiers.isEmpty()) {
-            return "<span class=\"missing-source-value\" title=\"Brak bezpośredniego wpływu w tej kategorii\" aria-label=\"Brak bezpośredniego wpływu w tej kategorii\">-</span>";
+            return "<span class=\"missing-source-value ranking-tooltip\" title=\"Brak bezpośredniego wpływu w tej kategorii\" aria-label=\"Brak bezpośredniego wpływu w tej kategorii\">-</span>";
         }
         StringBuilder html = new StringBuilder("<ul class=\"compact-list facet-list\">");
         for (UpgradeDamageModifier modifier : modifiers) {
-            html.append("<li title=\"")
-                    .append(escapeHtml(modifier.getUpgradeGroup()))
-                    .append(": ")
-                    .append(escapeHtml(modifier.getNotes()))
+            html.append("<li class=\"ranking-tooltip\" title=\"")
+                    .append(escapeHtml(modifierTooltip(modifier)))
+                    .append("\" aria-label=\"")
+                    .append(escapeHtml(modifierTooltip(modifier)))
                     .append("\">")
                     .append(renderValueFirstModifier(modifier))
                     .append("</li>");
@@ -481,11 +513,16 @@ public final class DamageRankingPageRenderer {
     }
 
     private static String renderValueFirstModifier(UpgradeDamageModifier modifier) {
+        String semanticSummary = semanticModifierSummary(modifier);
+        if (semanticSummary != null) {
+            return semanticSummary;
+        }
         String value = modifier.getValue();
         String name = modifier.getUpgradeName();
         String suffix = valueSuffix(modifier);
         if (modifier.getSafeForRankingDisplay() == UpgradeDamageSafety.NEEDS_MANUAL_REVIEW) {
-            return "<span class=\"facet-value\">wymaga weryfikacji</span>"
+            String manualValue = isConcreteValue(value) ? value : "wymaga weryfikacji";
+            return "<span class=\"facet-value\">" + escapeHtml(manualValue) + "</span>"
                     + " <span class=\"facet-name\">&mdash; " + escapeHtml(name) + "</span>";
         }
         if (!isConcreteValue(value)) {
@@ -522,6 +559,23 @@ public final class DamageRankingPageRenderer {
         }
         rendered.append("</span>");
         return rendered.toString();
+    }
+
+    private static String semanticModifierSummary(UpgradeDamageModifier modifier) {
+        return switch (modifier.getUpgradeName()) {
+            case "Animusz" -> "<span class=\"facet-name\">Animusz</span>"
+                    + " <span class=\"facet-value\">&mdash; 2 kumulacje</span>";
+            case "Marsz Krzyżowca" -> "<span class=\"facet-name\">Marsz Krzyżowca</span>"
+                    + " <span class=\"facet-value\">&mdash; szansa na blok</span>";
+            case "Skuteczność Marszu Krzyżowca" -> "<span class=\"facet-name\">Skuteczność Marszu Krzyżowca</span>";
+            case "Brać Ich" -> "<span class=\"facet-name\">Brać Ich</span>"
+                    + " <span class=\"facet-value\">&mdash; efekt co 3. atak</span>";
+            case "Potyczka" -> "<span class=\"facet-value\">155% R1</span>"
+                    + " <span class=\"facet-name\">&mdash; Potyczka</span>";
+            case "Kara" -> "<span class=\"facet-name\">Kara</span>"
+                    + " <span class=\"facet-value\">&mdash; Odwet / ciernie</span>";
+            default -> null;
+        };
     }
 
     private static boolean isConcreteValue(String value) {
@@ -566,6 +620,45 @@ public final class DamageRankingPageRenderer {
             return ", nowy komponent";
         }
         return "";
+    }
+
+    private static String modifierTooltip(UpgradeDamageModifier modifier) {
+        return switch (modifier.getUpgradeName()) {
+            case "Generowanie Wiary" -> "Modyfikator: " + modifier.getUpgradeName() + " — dodaje "
+                    + normalizedFaithBonus(modifier.getValue())
+                    + " Wiary.";
+            case "Marsz Krzyżowca" -> "Umiejętność: Marsz Krzyżowca — Starcie zapewnia 15%[X] dodatkowej szansy na blok przez 6 sek.";
+            case "Animusz" -> "Modyfikator: Animusz — trafienie Starciem zapewnia 2 kumulacje Animuszu.";
+            case "Skuteczność Marszu Krzyżowca" -> "Modyfikator: Skuteczność Marszu Krzyżowca — opisuje efekt 25%[X] zgodnie z danymi źródłowymi.";
+            case "Zwiększenie Obrażeń" -> "Modyfikator: Zwiększenie Obrażeń — " + modifier.getValue() + ".";
+            case "Brać Ich" -> "Modyfikator: Brać Ich — Starcie przyciąga wrogów co 3. atak; zawiera efekt 8%[X] za każdy poziom Animuszu.";
+            case "Potyczka" -> "Modyfikator: Potyczka — Starcie staje się umiejętnością Fanatyka; komponent obrażeń 155% dotyczy R1 i skaluje się z rangą; bonus do bloku znika i zostaje zastąpiony szansą na trafienie krytyczne.";
+            case "Kara" -> "Manual review: Kara — 30%[+] szansy na Odwet, 3489 cierni oraz 20%[X] obrażeń od cierni.";
+            default -> genericModifierTooltip(modifier);
+        };
+    }
+
+    private static String genericModifierTooltip(UpgradeDamageModifier modifier) {
+        String description = shortModifierDescription(modifier);
+        if (!modifier.getCondition().equals("po wyborze ulepszenia")
+                && !modifier.getCondition().equals("brak bezpiecznego kontraktu runtime")) {
+            description = description + "; " + modifier.getCondition();
+        }
+        return modifierTooltipPrefix(modifier) + modifier.getUpgradeName() + " — " + description + ".";
+    }
+
+    private static String modifierTooltipPrefix(UpgradeDamageModifier modifier) {
+        if (modifier.getSafeForRankingDisplay() == UpgradeDamageSafety.NEEDS_MANUAL_REVIEW) {
+            return "Manual review: ";
+        }
+        if (modifier.getUpgradeGroup().equals("base")) {
+            return "Umiejętność: ";
+        }
+        return "Modyfikator: ";
+    }
+
+    private static String normalizedFaithBonus(String value) {
+        return value.replace(" Faith", ""); 
     }
 
     private static String treeGroupDisplayName(String skillGroup) {

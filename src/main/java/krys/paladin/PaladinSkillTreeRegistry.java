@@ -64,7 +64,7 @@ public final class PaladinSkillTreeRegistry {
                         group1(upgrade("generowanie_wiary", "Generowanie Wiary"), upgrade("zwiekszenie_obrazen", "Zwiększenie Obrażeń")),
                         group2(upgrade("szybkosc_uzycia", "Szybkość Użycia"), upgrade("odsloniecie", "Odsłonięcie")),
                         group3(upgrade("powracajaca_swiatlosc", "Powracająca Światłość"), upgrade("miecz_mistrzostwa", "Miecz Mistrzostwa"), upgrade("krzyzowe_uderzenie", "Krzyżowe Uderzenie"))),
-                LOCAL_JSON_DAMAGE_RANK_TABLE, null, 14, 5));
+                LOCAL_JSON_DAMAGE_RANK_TABLE, null, 14, 5, 26, List.of()));
         put(skills, skill("swiety_pocisk", "Święty Pocisk", BASIC_PDF, "basic", damagePercentRanks(
                         90, 99, 108, 117, 131, 139, 148, 157, 166, 180, 189, 198, 207, 216, 229
                 ), DAMAGE, NEEDS_VERIFICATION,
@@ -72,7 +72,7 @@ public final class PaladinSkillTreeRegistry {
                         group1(upgrade("generowanie_wiary", "Generowanie Wiary"), upgrade("osad", "Osąd")),
                         group2(upgrade("spowolnienie", "Spowolnienie"), upgrade("szybkosc_uzycia", "Szybkość Użycia")),
                         group3(upgrade("burzowy_pocisk", "Burzowy Pocisk"), upgrade("boski_pocisk", "Boski Pocisk"), upgrade("rykoszetujacy_pocisk", "Rykoszetujący Pocisk"))),
-                LOCAL_JSON_DAMAGE_RANK_TABLE, null, 16, 7));
+                LOCAL_JSON_DAMAGE_RANK_TABLE, null, 16, 7, 57, List.of()));
         put(skills, skill("starcie", "Starcie", BASIC_PDF, "basic", damagePercentRanks(
                         115, 126, 138, 149, 167, 178, 190, 201, 213, 230, 241, 253, 264, 276, 293
                 ), DAMAGE, NEEDS_VERIFICATION,
@@ -80,7 +80,13 @@ public final class PaladinSkillTreeRegistry {
                         group1(upgrade("generowanie_wiary", "Generowanie Wiary"), upgrade("animusz", "Animusz")),
                         group2(upgrade("skutecznosc_marszu_krzyzowca", "Skuteczność Marszu Krzyżowca"), upgrade("zwiekszenie_obrazen", "Zwiększenie Obrażeń")),
                         group3(upgrade("brac_ich", "Brać Ich"), upgrade("potyczka", "Potyczka"), upgrade("kara", "Kara"))),
-                LOCAL_JSON_DAMAGE_RANK_TABLE, null, 20, 10));
+                LOCAL_JSON_DAMAGE_RANK_TABLE, null, 20, 10, 63, List.of(baseUtilityModifier(
+                        "Starcie",
+                        "Marsz Krzyżowca",
+                        "15%[X]",
+                        "6 sek.",
+                        "Trafienie wroga Starciem zwiększa szansę na blok o 15%[x] na 6 sek. To opisowy efekt defensywny i nie odblokowuje runtime DPS."
+                ))));
         put(skills, skill("natarcie", "Natarcie", BASIC_PDF, "basic", damagePercentRanks(
                         105, 115, 126, 136, 152, 163, 173, 184, 194, 210, 220, 231, 241, 252, 268
                 ), MOBILITY, NEEDS_VERIFICATION,
@@ -88,7 +94,7 @@ public final class PaladinSkillTreeRegistry {
                         group1(upgrade("umocnienie", "Umocnienie"), upgrade("nieograniczenie", "Nieograniczenie")),
                         group2(upgrade("blysk_ostrza", "Błysk Ostrza"), upgrade("pedzaca_fala", "Pędząca Fala")),
                         group3(upgrade("zryw_forpoczty", "Zryw Forpoczty"), upgrade("oslabienie", "Osłabienie"), upgrade("szansa_na_trafienie_krytyczne", "Szansa na Trafienie Krytyczne"))),
-                LOCAL_JSON_DAMAGE_RANK_TABLE, null, 18, null));
+                LOCAL_JSON_DAMAGE_RANK_TABLE, null, 18, null, 18, List.of()));
 
         put(skills, skill("blogoslawiona_tarcza", "Błogosławiona Tarcza", CORE_PDF, "core", damagePercentRanks(
                         205, 226, 246, 266, 297, 318, 338, 359, 379, 410, 430, 451, 471, 492, 523
@@ -289,6 +295,25 @@ public final class PaladinSkillTreeRegistry {
                                           String skillName,
                                           String sourcePdf,
                                           String skillGroup,
+                                          DamagePercentRankTable baseDamagePercentRanks,
+                                          PaladinSkillTreeType type,
+                                          PaladinSkillTreeStatus status,
+                                          List<PaladinSkillUpgradeGroup> upgradeGroups,
+                                          String notes,
+                                          Integer faithCost,
+                                          Integer faithGenerationBase,
+                                          Integer faithGenerationBonusKnown,
+                                          Integer luckyHitPercent,
+                                          List<UpgradeDamageModifier> baseDescriptionModifiers) {
+        return new PaladinTreeSkill(skillId, skillName, sourcePdf, skillGroup, null, null,
+                baseDamagePercentRanks, DamagePercentComponentRankTable.empty(), type, status, upgradeGroups, notes,
+                faithCost, faithGenerationBase, faithGenerationBonusKnown, luckyHitPercent, baseDescriptionModifiers);
+    }
+
+    private static PaladinTreeSkill skill(String skillId,
+                                          String skillName,
+                                          String sourcePdf,
+                                          String skillGroup,
                                           DamagePercentComponentRankTable componentDamagePercentRanks,
                                           PaladinSkillTreeType type,
                                           PaladinSkillTreeStatus status,
@@ -396,6 +421,28 @@ public final class PaladinSkillTreeRegistry {
 
     private static PaladinSkillUpgrade unsupportedUpgrade(String id, String name) {
         return new PaladinSkillUpgrade(id, name, UNSUPPORTED, "PDF nie podaje pełnej nazwy albo opisu wariantu.");
+    }
+
+    private static UpgradeDamageModifier baseUtilityModifier(String skillName,
+                                                             String effectName,
+                                                             String value,
+                                                             String condition,
+                                                             String notes) {
+        return new UpgradeDamageModifier(
+                "efekt_bazowy",
+                effectName,
+                UpgradeDamageSafety.NO,
+                UpgradeDamageModifierType.DEFENSE_OR_UTILITY,
+                value,
+                UpgradeDamageValueKind.TEXT_ONLY,
+                condition,
+                false,
+                "utility",
+                false,
+                UpgradeDamageSafety.YES,
+                UpgradeDamageSafety.NO,
+                "Efekt bazowy " + skillName + ": " + notes
+        );
     }
 
     private static void put(Map<String, PaladinTreeSkill> skills, PaladinTreeSkill skill) {

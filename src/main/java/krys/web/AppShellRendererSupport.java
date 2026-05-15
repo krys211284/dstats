@@ -256,6 +256,7 @@ public final class AppShellRendererSupport {
                 }
 
                 input[type="text"],
+                input[type="search"],
                 input[type="number"],
                 input[type="file"],
                 select,
@@ -271,6 +272,7 @@ public final class AppShellRendererSupport {
                 }
 
                 input[type="text"]:focus,
+                input[type="search"]:focus,
                 input[type="number"]:focus,
                 input[type="file"]:focus,
                 select:focus,
