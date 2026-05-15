@@ -30,6 +30,7 @@ final class CurrentBuildFormQuerySupport {
     static String toQuery(CurrentBuildFormData formData) {
         StringJoiner query = new StringJoiner("&");
         append(query, "level", formData.getLevel());
+        append(query, "questSkillPoints", formData.getQuestSkillPoints());
         append(query, "weaponDamage", formData.getWeaponDamage());
         append(query, "strength", formData.getStrength());
         append(query, "intelligence", formData.getIntelligence());
@@ -82,6 +83,7 @@ final class CurrentBuildFormQuerySupport {
 
         return new CurrentBuildFormData(
                 baseFormData.getLevel(),
+                baseFormData.getQuestSkillPoints(),
                 Long.toString(appliedStats.getWeaponDamage()),
                 formatWhole(appliedStats.getStrength()),
                 formatWhole(appliedStats.getIntelligence()),
@@ -106,6 +108,7 @@ final class CurrentBuildFormQuerySupport {
         }
         return new CurrentBuildFormData(
                 Integer.toString(heroLevel),
+                baseFormData.getQuestSkillPoints(),
                 baseFormData.getWeaponDamage(),
                 baseFormData.getStrength(),
                 baseFormData.getIntelligence(),
@@ -131,6 +134,7 @@ final class CurrentBuildFormQuerySupport {
         }
         return new CurrentBuildFormData(
                 defaults.getLevel(),
+                defaults.getQuestSkillPoints(),
                 defaults.getWeaponDamage(),
                 "0",
                 "0",

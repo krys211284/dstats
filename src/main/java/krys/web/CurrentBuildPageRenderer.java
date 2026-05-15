@@ -85,7 +85,7 @@ public final class CurrentBuildPageRenderer {
                 .append(renderSummaryCard("Przypisane umiejętności", Integer.toString(model.getAssignedSkillIds().size())))
                 .append("""
                     </div>
-                    <div class="hero-context-inline-actions">
+                    <div class="hero-context-inline-actions hero-context-inline-actions-single">
                         <form method="post" action="/policz-aktualny-build" class="inline-action-form">
                             <input type="hidden" name="heroAction" value="setActiveHeroInline">
                             <label>
@@ -97,18 +97,6 @@ public final class CurrentBuildPageRenderer {
                                 </select>
                             </label>
                             <button type="submit">Ustaw aktywnego</button>
-                        </form>
-                        <form method="post" action="/policz-aktualny-build" class="inline-action-form">
-                            <input type="hidden" name="heroAction" value="updateHeroLevel">
-                            <label>
-                                Poziom bohatera
-                                <input type="number" min="1" step="1" name="heroLevelEdit" value="
-                """)
-                .append(escapeHtml(model.getFormData().getLevel()))
-                .append("""
-                                ">
-                            </label>
-                            <button type="submit">Zapisz poziom</button>
                         </form>
                     </div>
                 </section>
@@ -180,8 +168,10 @@ public final class CurrentBuildPageRenderer {
                 <section class="panel panel-build-workspace">
                     <form method="post" action="/policz-aktualny-build">
                 """
+                + renderStickyFormActions()
                 + renderEquipmentSection(model)
                 + renderEffectiveStatsSection(model)
+                + renderSkillPointSection(model)
                 + renderAssignedSkillsSection(model)
                 + renderActionBarSection(model)
                 + """
@@ -191,12 +181,23 @@ public final class CurrentBuildPageRenderer {
                 + renderManualBaseSection(model)
                 + """
                         </details>
-                        <div class="submit-row">
-                            <button type="submit">Policz aktualny build</button>
-                            <button type="submit" formmethod="get" formaction="/importuj-item-ze-screena" class="secondary-button">Importuj item dla aktywnego bohatera</button>
-                        </div>
                     </form>
                 </section>
+                """;
+    }
+
+    private static String renderStickyFormActions() {
+        return """
+                <div class="current-build-sticky-actions">
+                    <div>
+                        <strong>Zapis konfiguracji</strong>
+                        <p>Główne pola aktualnego buildu zapisują się jednym przyciskiem.</p>
+                    </div>
+                    <div class="current-build-sticky-buttons">
+                        <button type="submit">Zapisz zmiany</button>
+                        <a class="nav-link secondary-link" href="/policz-aktualny-build">Wycofaj zmiany</a>
+                    </div>
+                </div>
                 """;
     }
 
@@ -312,6 +313,49 @@ public final class CurrentBuildPageRenderer {
         return html.toString();
     }
 
+    private static String renderSkillPointSection(CurrentBuildPageModel model) {
+        HeroSkillPointBudget budget = model.getSkillPointBudget();
+        if (budget == null) {
+            return "";
+        }
+        String budgetStatus = budget.isValid()
+                ? "Konfiguracja mieści się w budżecie punktów umiejętności."
+                : "Konfiguracja punktów umiejętności wymaga poprawy przed uznaniem buildu za legalny.";
+        return new StringBuilder("""
+                <section class="subpanel skill-point-panel">
+                    <h3>Punkty umiejętności</h3>
+                    <p class="helper">Budżet waliduje konfigurację bohatera: poziom 70 daje 69 punktów, a zadania mogą dodać maksymalnie 14 punktów.</p>
+                    <div class="form-grid skill-point-fields">
+                        <label>
+                            Poziom bohatera
+                            <input type="number" min="1" max="70" step="1" name="level" value=\"""")
+                .append(escapeHtml(model.getFormData().getLevel()))
+                .append("""
+                ">
+                        </label>
+                        <label>
+                            Dodatkowe punkty z zadań
+                            <input type="number" min="0" max="14" step="1" name="questSkillPoints" value=\"""")
+                .append(escapeHtml(model.getFormData().getQuestSkillPoints()))
+                .append("""
+                ">
+                        </label>
+                    </div>
+                    <div class="summary-grid compact-grid skill-point-summary">
+                """)
+                .append(renderSummaryCard("Punkty z poziomu", Integer.toString(budget.getLevelSkillPoints())))
+                .append(renderSummaryCard("Dodatkowe punkty z zadań", formatNullableInteger(budget.getQuestSkillPoints())))
+                .append(renderSummaryCard("Dostępne punkty", Integer.toString(budget.getAvailableSkillPoints())))
+                .append(renderSummaryCard("Wydane punkty", Integer.toString(budget.getSpentSkillPoints())))
+                .append(renderSummaryCard("Pozostałe punkty", Integer.toString(budget.getRemainingSkillPoints())))
+                .append("</div><p class=\"skill-point-status ")
+                .append(budget.isValid() ? "skill-point-status-ok" : "skill-point-status-error")
+                .append("\">")
+                .append(escapeHtml(budgetStatus))
+                .append("</p></section>")
+                .toString();
+    }
+
     private static String renderUsedItemsSection(CurrentBuildPageModel model) {
         StringBuilder html = new StringBuilder("""
                 <section class="subpanel">
@@ -420,7 +464,7 @@ public final class CurrentBuildPageRenderer {
                 html.append("<option value=\"")
                         .append(skillId.name())
                         .append("\">")
-                        .append(escapeHtml(PaladinSkillDefs.get(skillId).getName()))
+                        .append(escapeHtml(HeroSkillCatalogAdapter.displayName(skillId)))
                         .append("</option>");
             }
             html.append("""
@@ -446,19 +490,24 @@ public final class CurrentBuildPageRenderer {
 
     private static String renderAssignedSkillCard(CurrentBuildPageModel model, SkillId skillId) {
         CurrentBuildFormData.SkillConfigFormData skillConfig = model.getFormData().getSkillConfig(skillId);
-        return new StringBuilder("""
-                <article class="skill-card">
+        HeroAssignedSkillPresentation presentation = HeroSkillCatalogAdapter.present(skillId, skillConfig);
+        return new StringBuilder("<article class=\"skill-card\" data-assigned-skill-id=\"")
+                .append(skillId.name())
+                .append("\">")
+                .append("""
                     <div class="skill-card-head">
                         <div>
                             <span class="section-kicker">Przypisana umiejętność</span>
                             <h4>""")
-                .append(escapeHtml(PaladinSkillDefs.get(skillId).getName()))
+                .append(escapeHtml(presentation.getDisplayName()))
                 .append("""
                             </h4>
                         </div>
                         <button type="submit" name="heroAction" value="removeAssignedSkill:""")
                 .append(skillId.name())
-                .append("\" class=\"secondary-button\">Usuń umiejętność</button></div><div class=\"form-grid\">")
+                .append("\" class=\"secondary-button\">Usuń umiejętność</button></div>")
+                .append(renderPaladinTreeData(presentation))
+                .append("<div class=\"runtime-config-label\">Konfiguracja runtime legacy</div><div class=\"form-grid\">")
                 .append("""
                         <label>
                             Ranga
@@ -494,6 +543,91 @@ public final class CurrentBuildPageRenderer {
                 </article>
                 """)
                 .toString();
+    }
+
+    private static String renderPaladinTreeData(HeroAssignedSkillPresentation presentation) {
+        if (!presentation.hasTreeSkill()) {
+            return "";
+        }
+        krys.paladin.PaladinTreeSkill treeSkill = presentation.getTreeSkill();
+        StringBuilder html = new StringBuilder("""
+                <div class="tree-skill-data">
+                    <div class="tree-skill-data-head">
+                        <span class="section-kicker">Aktualne dane umiejętności</span>
+                        <p class="runtime-warning">Opisowe modyfikatory z drzewa Paladyna nie są jeszcze aktywne w runtime DPS.</p>
+                    </div>
+                    <div class="summary-grid compact-grid">
+                """);
+        html.append(renderSummaryCard("Nazwa", presentation.getDisplayName()))
+                .append(renderSummaryCard("Aktualna ranga", Integer.toString(presentation.getCurrentRank())))
+                .append(renderSummaryCard("Kategorie z gry", treeSkill.getSkillCategoriesDisplay()));
+        if (presentation.getCurrentRank() <= 0) {
+            html.append("</div>")
+                    .append("<p class=\"current-skill-state-message\">Ranga 0 — umiejętność przypisana, ale nieaktywna w danych bojowych.</p>")
+                    .append("<p class=\"no-active-modifiers\">Brak aktywnych modyfikatorów z konfiguracji.</p>")
+                    .append("</div>");
+            return html.toString();
+        }
+        html.append(renderSummaryCard(
+                        "Obrażenia na randze " + presentation.getCurrentRank(),
+                        currentDamageSummary(presentation)
+                ))
+                .append(renderSummaryCard("Lucky Hit", formatPercent(treeSkill.getLuckyHitPercent())))
+                .append(renderSummaryCard("Bazowe generowanie Wiary", baseFaithGenerationSummary(treeSkill)));
+        if (treeSkill.getFaithCost() != null) {
+            html.append(renderSummaryCard("Koszt Wiary", treeSkill.getFaithCost().toString()));
+        }
+        html.append("</div>");
+        if (!presentation.getBaseEffects().isEmpty()) {
+            html.append("<div class=\"tree-effect-group\"><span class=\"tree-effect-label\">Efekt bazowy umiejętności</span>")
+                    .append(renderModifierList(presentation.getBaseEffects()))
+                    .append("</div>");
+        }
+        html.append("<div class=\"tree-effect-group\"><span class=\"tree-effect-label\">Aktywne modyfikatory z konfiguracji</span>");
+        if (presentation.getActiveModifiers().isEmpty()) {
+            html.append("<p class=\"no-active-modifiers\">Brak aktywnych modyfikatorów z konfiguracji.</p>");
+        } else {
+            html.append(renderModifierList(presentation.getActiveModifiers()));
+        }
+        html.append("</div>");
+        html.append("</div>");
+        return html.toString();
+    }
+
+    private static String renderModifierList(List<HeroAssignedSkillPresentation.ModifierPresentation> modifiers) {
+        StringBuilder html = new StringBuilder("<ul class=\"tree-modifier-list\">");
+        for (HeroAssignedSkillPresentation.ModifierPresentation modifier : modifiers) {
+            html.append("<li class=\"tree-modifier\" title=\"")
+                    .append(escapeHtml(modifier.getTooltip()))
+                    .append("\" aria-label=\"")
+                    .append(escapeHtml(modifier.getTooltip()))
+                    .append("\">")
+                    .append(escapeHtml(modifier.getName()))
+                    .append("</li>");
+        }
+        html.append("</ul>");
+        return html.toString();
+    }
+
+    private static String currentDamageSummary(HeroAssignedSkillPresentation presentation) {
+        return presentation.getCurrentDamagePercent() == null
+                ? "brak jawnej wartości dla tej rangi"
+                : presentation.getCurrentDamagePercent() + "%";
+    }
+
+    private static String baseFaithGenerationSummary(krys.paladin.PaladinTreeSkill treeSkill) {
+        if (treeSkill.getFaithGenerationBase() == null) {
+            return "-";
+        }
+        return treeSkill.getFaithGenerationBase().toString();
+    }
+
+    private static String formatPercent(Integer value) {
+        return value == null ? "-" : value + "%";
+    }
+
+    private static String formatNullableInteger(Integer value) {
+        return value == null ? "-" : value.toString();
     }
 
     private static String renderActionBarSection(CurrentBuildPageModel model) {
@@ -681,7 +815,7 @@ public final class CurrentBuildPageRenderer {
             }
             options.add(new CurrentBuildPageModel.SelectOption(
                     skillId.name(),
-                    PaladinSkillDefs.get(skillId).getName(),
+                    HeroSkillCatalogAdapter.displayName(skillId),
                     selected
             ));
         }

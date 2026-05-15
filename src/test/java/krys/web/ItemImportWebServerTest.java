@@ -84,8 +84,10 @@ class ItemImportWebServerTest {
         HttpResponse<String> response = sendGet("/policz-aktualny-build");
 
         assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("formaction=\"/importuj-item-ze-screena\""));
-        assertTrue(response.body().contains("Importuj item dla aktywnego bohatera"));
+        assertTrue(response.body().contains("href=\"/importuj-item-ze-screena"));
+        assertTrue(response.body().contains("Importuj nowy item"));
+        assertTrue(response.body().contains("current-build-sticky-actions"));
+        assertTrue(response.body().contains("Zapisz zmiany"));
     }
 
     @Test
@@ -168,7 +170,7 @@ class ItemImportWebServerTest {
     @Test
     void shouldConfirmImportedItemAutomaticallySaveItToLibraryAndExposeNextActions() throws Exception {
         createHero("Importer", "13");
-        String currentBuildQuery = "level=13&weaponDamage=200&strength=30&intelligence=11&thorns=70&blockChance=10&retributionChance=15&horizonSeconds=10"
+        String currentBuildQuery = "level=13&questSkillPoints=0&weaponDamage=200&strength=30&intelligence=11&thorns=70&blockChance=10&retributionChance=15&horizonSeconds=10"
                 + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
                 + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
                 + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"

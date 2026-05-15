@@ -75,7 +75,7 @@ class CurrentBuildWebServerStorageIntegrationTest {
     }
 
     private static String buildCurrentBuildQuery() {
-        return "level=13&weaponDamage=8&strength=18&intelligence=0&thorns=50&blockChance=50&retributionChance=50&horizonSeconds=10"
+        return "level=13&questSkillPoints=0&weaponDamage=8&strength=18&intelligence=0&thorns=50&blockChance=50&retributionChance=50&horizonSeconds=10"
                 + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
                 + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
                 + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"

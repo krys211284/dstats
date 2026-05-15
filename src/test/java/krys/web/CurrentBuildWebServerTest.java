@@ -60,12 +60,23 @@ class CurrentBuildWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Policz aktualny build"));
+        assertTrue(response.body().contains("<main class=\"layout current-build-wide\">"));
+        assertTrue(response.body().contains(".layout.current-build-wide"));
         assertTrue(response.body().contains("Aktywny bohater"));
         assertTrue(response.body().contains("name=\"selectedHeroId\""));
-        assertTrue(response.body().contains("name=\"heroLevelEdit\""));
+        assertFalse(response.body().contains("name=\"heroLevelEdit\""));
+        assertFalse(response.body().contains("Zapisz poziom"));
+        assertEquals(1, countOccurrences(response.body(), "name=\"level\""));
+        assertTrue(response.body().contains("current-build-sticky-actions"));
+        assertTrue(response.body().contains("position: sticky"));
+        assertTrue(response.body().contains("Zapisz zmiany"));
+        assertTrue(response.body().contains("Wycofaj zmiany"));
         assertTrue(response.body().contains("Ekwipunek aktualnego buildu"));
         assertTrue(response.body().contains("Użyte itemy"));
         assertTrue(response.body().contains("Efektywne staty do obliczeń"));
+        assertTrue(response.body().contains("Punkty umiejętności"));
+        assertTrue(response.body().contains("skill-point-fields"));
+        assertTrue(response.body().contains("skill-point-summary"));
         assertTrue(response.body().contains("equipment-paperdoll"));
         assertTrue(response.body().contains("equipment-column-left"));
         assertTrue(response.body().contains("equipment-column-right"));
@@ -93,14 +104,14 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("Importuj nowy item"));
         assertTrue(response.body().contains("Wybierz z biblioteki"));
         assertFalse(response.body().contains("Centrum buildu"));
-        assertTrue(response.body().contains("max-width: 1460px;"));
+        assertTrue(response.body().contains("max-width: 1840px;"));
         assertTrue(response.body().indexOf("Ekwipunek aktualnego buildu") < response.body().indexOf("Efektywne staty do obliczeń"));
         assertTrue(response.body().indexOf("Hełm") < response.body().indexOf("Broń"));
         assertTrue(response.body().indexOf("Amulet") < response.body().indexOf("Tarcza"));
     }
 
     @Test
-    void shouldAllowInlineSwitchingActiveHeroAndUpdatingHeroLevel() throws Exception {
+    void shouldAllowInlineSwitchingActiveHero() throws Exception {
         createHero("Alaric", "13");
         createHero("Gregor", "25");
 
@@ -112,15 +123,25 @@ class CurrentBuildWebServerTest {
         assertEquals(200, switchResponse.statusCode());
         assertTrue(switchResponse.body().contains("Zmieniono aktywnego bohatera bez opuszczania ekranu buildu."));
         assertTrue(switchResponse.body().contains("Gregor"));
+        assertTrue(switchResponse.body().contains(summaryCard("Poziom bohatera", "25")));
+    }
 
-        HttpResponse<String> levelResponse = sendPost("/policz-aktualny-build", Map.of(
-                "heroAction", "updateHeroLevel",
-                "heroLevelEdit", "31"
-        ));
+    @Test
+    void shouldSaveHeroLevelOnlyFromSkillPointSection() throws Exception {
+        createHero("Alaric", "13");
+
+        Map<String, String> fields = buildAdvanceFlashFields(10);
+        fields.put("level", "50");
+        fields.put("questSkillPoints", "14");
+
+        HttpResponse<String> levelResponse = sendPost("/policz-aktualny-build", fields);
 
         assertEquals(200, levelResponse.statusCode());
-        assertTrue(levelResponse.body().contains("Zapisano poziom aktywnego bohatera."));
-        assertTrue(levelResponse.body().contains(summaryCard("Poziom bohatera", "31")));
+        assertTrue(levelResponse.body().contains(summaryCard("Poziom bohatera", "50")));
+        assertTrue(levelResponse.body().contains("name=\"level\" value=\"50\""));
+        assertTrue(levelResponse.body().contains(summaryCard("Punkty z poziomu", "49")));
+        assertEquals(1, countOccurrences(levelResponse.body(), "name=\"level\""));
+        assertFalse(levelResponse.body().contains("name=\"heroLevelEdit\""));
     }
 
     @Test
@@ -151,6 +172,246 @@ class CurrentBuildWebServerTest {
         assertEquals(200, sanitizeResponse.statusCode());
         assertTrue(sanitizeResponse.body().contains("Pasek akcji został oczyszczony do umiejętności przypisanych i nauczonych przez aktywnego bohatera."));
         assertFalse(sanitizeResponse.body().contains("Action bar slot 1 wskazuje skill bez rank > 0"));
+    }
+
+    @Test
+    void shouldRenderFreshClashAssignedSkillAsInactiveRankZero() throws Exception {
+        createHero("Testowy bohater", "13");
+
+        HttpResponse<String> initialResponse = sendGet("/policz-aktualny-build");
+        assertEquals(200, initialResponse.statusCode());
+        assertTrue(initialResponse.body().contains("Umiejętności bohatera"));
+        assertTrue(initialResponse.body().contains("<option value=\"CLASH\">Starcie</option>"));
+        assertFalse(initialResponse.body().contains("<option value=\"CLASH\">Clash</option>"));
+
+        HttpResponse<String> addClashResponse = sendPost("/policz-aktualny-build", Map.of(
+                "heroAction", "addAssignedSkill",
+                "skillIdToAdd", "CLASH"
+        ));
+        assertEquals(200, addClashResponse.statusCode());
+        assertTrue(addClashResponse.body().contains("Dodano umiejętność Starcie do bohatera."));
+
+        String clashCard = assignedSkillCard(addClashResponse.body(), "CLASH");
+        assertTrue(clashCard.contains("<h4>Starcie"));
+        assertTrue(clashCard.contains("Aktualne dane umiejętności"));
+        assertTrue(clashCard.contains("Konfiguracja runtime legacy"));
+        assertTrue(clashCard.contains("Opisowe modyfikatory z drzewa Paladyna nie są jeszcze aktywne w runtime DPS."));
+        assertTrue(clashCard.contains(summaryCard("Nazwa", "Starcie")));
+        assertTrue(clashCard.contains(summaryCard("Aktualna ranga", "0")));
+        assertTrue(clashCard.contains(summaryCard("Kategorie z gry", "Podstawowe, Moloch")));
+        assertTrue(clashCard.contains("Ranga 0 — umiejętność przypisana, ale nieaktywna w danych bojowych."));
+        assertTrue(clashCard.contains("Brak aktywnych modyfikatorów z konfiguracji."));
+        assertFalse(clashCard.contains("115%"));
+        assertFalse(clashCard.contains("293%"));
+        assertFalse(clashCard.contains(">Lucky Hit<"));
+        assertFalse(clashCard.contains(">Generowanie Wiary<"));
+
+        String visibleCard = stripTooltipAttributes(clashCard);
+        assertFalse(visibleCard.contains(">Zwiększenie Obrażeń</li>"));
+        assertFalse(visibleCard.contains(">Brać Ich</li>"));
+        assertFalse(visibleCard.contains(">Potyczka</li>"));
+        assertFalse(visibleCard.contains(">Marsz Krzyżowca</li>"));
+        assertFalse(visibleCard.contains(">Animusz</li>"));
+        assertFalse(visibleCard.contains(">Skuteczność Marszu Krzyżowca</li>"));
+        assertFalse(visibleCard.contains(">Kara</li>"));
+        assertFalse(visibleCard.contains("+10"));
+        assertFalse(visibleCard.contains("20%[X]"));
+        assertFalse(visibleCard.contains("8%[X]"));
+        assertFalse(visibleCard.contains("155%"));
+        assertFalse(visibleCard.contains("15%[X]"));
+        assertFalse(visibleCard.contains("25%[+]"));
+        assertFalse(visibleCard.contains("25%[X]"));
+        assertFalse(visibleCard.contains("30%[+]"));
+        assertFalse(visibleCard.contains("3489"));
+        assertFalse(visibleCard.contains("Odwet / ciernie"));
+        assertFalse(visibleCard.contains("szansa na blok"));
+        assertFalse(visibleCard.contains("efekt co 3. atak"));
+        assertFalse(clashCard.contains("damagePerUse"));
+        assertFalse(clashCard.contains("theoreticalDps"));
+
+        HttpResponse<String> reloadResponse = sendGet("/policz-aktualny-build");
+        assertEquals(200, reloadResponse.statusCode());
+        assertTrue(assignedSkillCard(reloadResponse.body(), "CLASH").contains("<h4>Starcie"));
+
+        HttpResponse<String> rankingResponse = sendGet("/ranking-obrazen?character=paladin&skillGroup=basic&q=star");
+        assertEquals(200, rankingResponse.statusCode());
+        assertTrue(rankingResponse.body().contains("data-skill-id=\"starcie\""));
+        assertFalse(rankingResponse.body().contains(">Grupa drzewa<"));
+        assertFalse(rankingResponse.body().contains(">tags<"));
+        assertFalse(rankingResponse.body().contains(">type<"));
+        assertFalse(rankingResponse.body().contains(">Speed / cooldown<"));
+    }
+
+    @Test
+    void shouldRenderClashCurrentRankOneValuesWithoutCatalogMax() throws Exception {
+        createHero("Testowy bohater", "13");
+        assignSkill(krys.skill.SkillId.CLASH);
+
+        Map<String, String> fields = buildAdvanceFlashFields(10);
+        fields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.CLASH), "1");
+        fields.put(CurrentBuildFormData.choiceFieldName(krys.skill.SkillId.CLASH), "NONE");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        String clashCard = assignedSkillCard(response.body(), "CLASH");
+        assertTrue(clashCard.contains(summaryCard("Aktualna ranga", "1")));
+        assertTrue(clashCard.contains(summaryCard("Obrażenia na randze 1", "115%")));
+        assertTrue(clashCard.contains(summaryCard("Lucky Hit", "63%")));
+        assertTrue(clashCard.contains(summaryCard("Bazowe generowanie Wiary", "20")));
+        assertFalse(clashCard.contains(">R1<"));
+        assertFalse(clashCard.contains(">Max drzewo<"));
+        assertFalse(clashCard.contains("293%"));
+
+        String visibleCard = stripTooltipAttributes(clashCard);
+        assertTrue(visibleCard.contains(">Marsz Krzyżowca</li>"));
+        assertTrue(visibleCard.contains("Brak aktywnych modyfikatorów z konfiguracji."));
+        assertFalse(visibleCard.contains(">Generowanie Wiary</li>"));
+        assertFalse(visibleCard.contains(">Zwiększenie Obrażeń</li>"));
+        assertFalse(visibleCard.contains(">Brać Ich</li>"));
+        assertFalse(visibleCard.contains(">Potyczka</li>"));
+        assertFalse(visibleCard.contains(">Animusz</li>"));
+        assertFalse(visibleCard.contains(">Skuteczność Marszu Krzyżowca</li>"));
+        assertFalse(visibleCard.contains(">Kara</li>"));
+    }
+
+    @Test
+    void shouldNotInterpolateClashRankWithoutExplicitPresentationValue() throws Exception {
+        createHero("Testowy bohater", "13");
+        assignSkill(krys.skill.SkillId.CLASH);
+
+        Map<String, String> fields = buildAdvanceFlashFields(10);
+        fields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.CLASH), "16");
+        fields.put(CurrentBuildFormData.choiceFieldName(krys.skill.SkillId.CLASH), "NONE");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        String clashCard = assignedSkillCard(response.body(), "CLASH");
+        assertTrue(clashCard.contains(summaryCard("Aktualna ranga", "16")));
+        assertTrue(clashCard.contains(summaryCard("Obrażenia na randze 16", "brak jawnej wartości dla tej rangi")));
+        assertFalse(clashCard.contains("115%"));
+        assertFalse(clashCard.contains("293%"));
+    }
+
+    @Test
+    void shouldRenderAndPersistSkillPointBudgetOnCurrentBuild() throws Exception {
+        createHero("Testowy bohater", "13");
+
+        Map<String, String> fields = buildAdvanceFlashFields(10);
+        fields.put("level", "70");
+        fields.put("questSkillPoints", "14");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Punkty umiejętności"));
+        assertTrue(response.body().contains(summaryCard("Punkty z poziomu", "69")));
+        assertTrue(response.body().contains(summaryCard("Dodatkowe punkty z zadań", "14")));
+        assertTrue(response.body().contains(summaryCard("Dostępne punkty", "83")));
+        assertTrue(response.body().contains(summaryCard("Wydane punkty", "7")));
+        assertTrue(response.body().contains(summaryCard("Pozostałe punkty", "76")));
+        assertTrue(response.body().contains("<a class=\"nav-link secondary-link\" href=\"/policz-aktualny-build\">Wycofaj zmiany</a>"));
+
+        HttpResponse<String> reloadResponse = sendGet("/policz-aktualny-build");
+        assertEquals(200, reloadResponse.statusCode());
+        assertTrue(reloadResponse.body().contains("name=\"questSkillPoints\" value=\"14\""));
+        assertTrue(reloadResponse.body().contains(summaryCard("Dostępne punkty", "83")));
+    }
+
+    @Test
+    void shouldWithdrawUnsavedChangesByReloadingSavedCurrentBuildState() throws Exception {
+        createHero("Testowy bohater", "13");
+        assignSkill(krys.skill.SkillId.CLASH);
+
+        Map<String, String> fields = buildAdvanceFlashFields(10);
+        fields.put("level", "50");
+        fields.put("questSkillPoints", "14");
+        fields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.CLASH), "1");
+        fields.put(CurrentBuildFormData.choiceFieldName(krys.skill.SkillId.CLASH), "NONE");
+        HttpResponse<String> saveResponse = sendPost("/policz-aktualny-build", fields);
+        assertEquals(200, saveResponse.statusCode());
+        assertTrue(saveResponse.body().contains("<h4>Starcie"));
+
+        HttpResponse<String> withdrawResponse = sendGet("/policz-aktualny-build");
+
+        assertEquals(200, withdrawResponse.statusCode());
+        assertTrue(withdrawResponse.body().contains("<h4>Starcie"));
+        assertTrue(withdrawResponse.body().contains(summaryCard("Poziom bohatera", "50")));
+        assertTrue(withdrawResponse.body().contains("name=\"questSkillPoints\" value=\"14\""));
+        assertTrue(withdrawResponse.body().contains(summaryCard("Aktualna ranga", "1")));
+    }
+
+    @Test
+    void shouldRejectSkillPointBudgetInputsOutsideAllowedRange() throws Exception {
+        createHero("Testowy bohater", "13");
+
+        Map<String, String> tooManyQuestPoints = buildAdvanceFlashFields(10);
+        tooManyQuestPoints.put("level", "70");
+        tooManyQuestPoints.put("questSkillPoints", "15");
+
+        HttpResponse<String> questResponse = sendPost("/policz-aktualny-build", tooManyQuestPoints);
+
+        assertEquals(200, questResponse.statusCode());
+        assertTrue(questResponse.body().contains("Dodatkowe punkty z zadań musi być w zakresie 0..14."));
+
+        Map<String, String> tooHighLevel = buildAdvanceFlashFields(10);
+        tooHighLevel.put("level", "71");
+        tooHighLevel.put("questSkillPoints", "0");
+
+        HttpResponse<String> levelResponse = sendPost("/policz-aktualny-build", tooHighLevel);
+
+        assertEquals(200, levelResponse.statusCode());
+        assertTrue(levelResponse.body().contains("Poziom bohatera musi być w zakresie 1..70."));
+    }
+
+    @Test
+    void shouldShowIllegalConfigurationWhenSpentSkillPointsExceedBudget() throws Exception {
+        createHero("Testowy bohater", "13");
+
+        Map<String, String> fields = buildAdvanceFlashFields(10);
+        fields.put("level", "1");
+        fields.put("questSkillPoints", "0");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Konfiguracja przekracza budżet punktów umiejętności: wydano 7, dostępne 0."));
+        assertTrue(response.body().contains("Konfiguracja punktów umiejętności wymaga poprawy przed uznaniem buildu za legalny."));
+        assertFalse(response.body().contains("<h2>Wynik symulacji</h2><div class=\"summary-grid\">"));
+    }
+
+    @Test
+    void shouldRenderOnlySelectedClashModifierAsActive() throws Exception {
+        createHero("Testowy bohater", "13");
+        assignSkill(krys.skill.SkillId.CLASH);
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", buildClashPunishmentFields(10));
+
+        assertEquals(200, response.statusCode());
+        String clashCard = assignedSkillCard(response.body(), "CLASH");
+        String visibleCard = stripTooltipAttributes(clashCard);
+        assertTrue(visibleCard.contains(">Kara</li>"));
+        assertTrue(clashCard.contains("Manual review: Kara"));
+        assertTrue(clashCard.contains("Odwet"));
+        assertTrue(clashCard.contains("3489 cierni"));
+        assertFalse(visibleCard.contains(">Zwiększenie Obrażeń</li>"));
+        assertFalse(visibleCard.contains(">Brać Ich</li>"));
+        assertFalse(visibleCard.contains(">Potyczka</li>"));
+        assertFalse(visibleCard.contains(">Animusz</li>"));
+        assertFalse(visibleCard.contains(">Skuteczność Marszu Krzyżowca</li>"));
+        assertFalse(visibleCard.contains("+10"));
+        assertFalse(visibleCard.contains("20%[X]"));
+        assertFalse(visibleCard.contains("8%[X]"));
+        assertFalse(visibleCard.contains("155%"));
+        assertFalse(visibleCard.contains("15%[X]"));
+        assertFalse(visibleCard.contains("25%[+]"));
+        assertFalse(visibleCard.contains("25%[X]"));
+        assertFalse(visibleCard.contains("30%[+]"));
+        assertFalse(visibleCard.contains("3489"));
+        assertFalse(visibleCard.contains("Odwet / ciernie"));
+        assertFalse(visibleCard.contains("szansa na blok"));
+        assertFalse(visibleCard.contains("efekt co 3. atak"));
     }
 
     @Test
@@ -429,6 +690,7 @@ class CurrentBuildWebServerTest {
     private static Map<String, String> buildBaseReferenceFields(String horizonSeconds) {
         Map<String, String> fields = new HashMap<>();
         fields.put("level", "13");
+        fields.put("questSkillPoints", "0");
         fields.put("weaponDamage", "8");
         fields.put("strength", "18");
         fields.put("intelligence", "0");
@@ -448,7 +710,7 @@ class CurrentBuildWebServerTest {
     }
 
     private static String buildCurrentBuildQuery() {
-        return "level=13&weaponDamage=8&strength=18&intelligence=0&thorns=50&blockChance=50&retributionChance=50&horizonSeconds=10"
+        return "level=13&questSkillPoints=0&weaponDamage=8&strength=18&intelligence=0&thorns=50&blockChance=50&retributionChance=50&horizonSeconds=10"
                 + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
                 + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
                 + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
@@ -457,7 +719,7 @@ class CurrentBuildWebServerTest {
     }
 
     private static String buildCurrentBuildQueryWithStats(String blockChance, String retributionChance) {
-        return "level=13&weaponDamage=8&strength=18&intelligence=0&thorns=50&blockChance=" + blockChance + "&retributionChance=" + retributionChance + "&horizonSeconds=10"
+        return "level=13&questSkillPoints=0&weaponDamage=8&strength=18&intelligence=0&thorns=50&blockChance=" + blockChance + "&retributionChance=" + retributionChance + "&horizonSeconds=10"
                 + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
                 + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
                 + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
@@ -493,7 +755,38 @@ class CurrentBuildWebServerTest {
                 "skillIdToAdd", skillId.name()
         ));
         assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("Dodano umiejętność " + krys.skill.PaladinSkillDefs.get(skillId).getName() + " do bohatera."));
+        assertTrue(response.body().contains("Dodano umiejętność " + HeroSkillCatalogAdapter.displayName(skillId) + " do bohatera."));
+    }
+
+    private static String assignedSkillCard(String html, String skillId) {
+        String marker = "<article class=\"skill-card\" data-assigned-skill-id=\"" + skillId + "\">";
+        int start = html.indexOf(marker);
+        if (start < 0) {
+            throw new AssertionError("Brak karty przypisanej umiejętności: " + skillId);
+        }
+        int nextCard = html.indexOf("<article class=\"skill-card\" data-assigned-skill-id=\"", start + marker.length());
+        int gridEnd = html.indexOf("</div></section>", start);
+        int end = nextCard >= 0 ? nextCard : gridEnd;
+        if (end < 0) {
+            throw new AssertionError("Nie udało się wyznaczyć końca karty przypisanej umiejętności: " + skillId);
+        }
+        return html.substring(start, end);
+    }
+
+    private static String stripTooltipAttributes(String html) {
+        return html
+                .replaceAll(" title=\"[^\"]*\"", "")
+                .replaceAll(" aria-label=\"[^\"]*\"", "");
+    }
+
+    private static int countOccurrences(String text, String needle) {
+        int count = 0;
+        int index = 0;
+        while ((index = text.indexOf(needle, index)) >= 0) {
+            count++;
+            index += needle.length();
+        }
+        return count;
     }
 
     private HttpResponse<String> sendGet(String path) throws Exception {

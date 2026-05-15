@@ -34,8 +34,8 @@ public final class HeroService {
         if (heroName == null || heroName.isBlank()) {
             throw new IllegalArgumentException("Nazwa bohatera jest wymagana.");
         }
-        if (level <= 0) {
-            throw new IllegalArgumentException("Poziom bohatera musi być dodatni.");
+        if (level < HeroSkillPointBudget.MIN_HERO_LEVEL || level > HeroSkillPointBudget.MAX_HERO_LEVEL) {
+            throw new IllegalArgumentException("Poziom bohatera musi być w zakresie 1..70.");
         }
         long nextHeroId = repository.findAll().stream()
                 .mapToLong(HeroProfile::getHeroId)
@@ -90,8 +90,8 @@ public final class HeroService {
     }
 
     public void updateActiveHeroLevel(int level) {
-        if (level <= 0) {
-            throw new IllegalArgumentException("Poziom bohatera musi być dodatni.");
+        if (level < HeroSkillPointBudget.MIN_HERO_LEVEL || level > HeroSkillPointBudget.MAX_HERO_LEVEL) {
+            throw new IllegalArgumentException("Poziom bohatera musi być w zakresie 1..70.");
         }
         HeroProfile activeHero = requireActiveHero();
         CurrentBuildFormData updatedFormData = CurrentBuildFormQuerySupport.withHeroLevel(activeHero.getCurrentBuildFormData(), level);

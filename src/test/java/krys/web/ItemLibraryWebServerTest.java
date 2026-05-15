@@ -140,12 +140,12 @@ class ItemLibraryWebServerTest {
         HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow?" + buildCurrentBuildQuery());
 
         assertEquals(200, libraryResponse.statusCode());
-        assertTrue(libraryResponse.body().contains("href=\"/importuj-item-ze-screena?level=13&amp;weaponDamage=200&amp;strength=30"));
+        assertTrue(libraryResponse.body().contains("href=\"/importuj-item-ze-screena?level=13&amp;questSkillPoints=0&amp;weaponDamage=200&amp;strength=30"));
 
         HttpResponse<String> importResponse = sendGet("/importuj-item-ze-screena?" + buildCurrentBuildQuery());
 
         assertEquals(200, importResponse.statusCode());
-        assertTrue(importResponse.body().contains("action=\"/importuj-item-ze-screena?level=13&amp;weaponDamage=200&amp;strength=30"));
+        assertTrue(importResponse.body().contains("action=\"/importuj-item-ze-screena?level=13&amp;questSkillPoints=0&amp;weaponDamage=200&amp;strength=30"));
         assertTrue(importResponse.body().contains("blockChance=10&amp;retributionChance=15&amp;horizonSeconds=10"));
     }
 
@@ -158,7 +158,7 @@ class ItemLibraryWebServerTest {
         assertEquals(200, emptyResponse.statusCode());
         assertTrue(emptyResponse.body().contains("Biblioteka jest pusta"));
         assertTrue(emptyResponse.body().contains("Zaimportuj pierwszy item"));
-        assertTrue(emptyResponse.body().contains("href=\"/importuj-item-ze-screena?level=13&amp;weaponDamage=200&amp;strength=30"));
+        assertTrue(emptyResponse.body().contains("href=\"/importuj-item-ze-screena?level=13&amp;questSkillPoints=0&amp;weaponDamage=200&amp;strength=30"));
 
         HttpResponse<String> saveResponse = sendUrlEncodedPost("/biblioteka-itemow", Map.of(
                 "action", "saveImportedItem",
@@ -426,7 +426,7 @@ class ItemLibraryWebServerTest {
     }
 
     private static String buildCurrentBuildQuery() {
-        return "level=13&weaponDamage=200&strength=30&intelligence=11&thorns=70&blockChance=10&retributionChance=15&horizonSeconds=10"
+        return "level=13&questSkillPoints=0&weaponDamage=200&strength=30&intelligence=11&thorns=70&blockChance=10&retributionChance=15&horizonSeconds=10"
                 + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
                 + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
                 + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"

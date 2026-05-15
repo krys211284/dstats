@@ -113,6 +113,7 @@ public final class HeroSkillLoadout {
 
         return new CurrentBuildFormData(
                 baseFormData.getLevel(),
+                baseFormData.getQuestSkillPoints(),
                 baseFormData.getWeaponDamage(),
                 baseFormData.getStrength(),
                 baseFormData.getIntelligence(),

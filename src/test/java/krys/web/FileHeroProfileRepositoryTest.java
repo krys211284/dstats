@@ -26,11 +26,15 @@ class FileHeroProfileRepositoryTest {
         assignedSkills.put(SkillId.ADVANCE, new HeroAssignedSkill(SkillId.ADVANCE, 5, true, SkillUpgradeChoice.RIGHT));
         assignedSkills.put(SkillId.CLASH, new HeroAssignedSkill(SkillId.CLASH, 3, true, SkillUpgradeChoice.LEFT));
         HeroSkillLoadout loadout = new HeroSkillLoadout(assignedSkills, List.of(SkillId.ADVANCE, SkillId.CLASH));
+        CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(
+                java.util.Map.of("level", "70", "questSkillPoints", "14"),
+                loadout.applyToFormData(CurrentBuildFormData.defaultValues())
+        );
         HeroProfile hero = new HeroProfile(
                 1L,
                 "Alaric",
                 HeroClass.PALADIN,
-                CurrentBuildFormQuerySupport.toQuery(loadout.applyToFormData(CurrentBuildFormData.defaultValues())),
+                CurrentBuildFormQuerySupport.toQuery(formData),
                 HeroItemSelection.empty().withSelectedItem(HeroEquipmentSlot.MAIN_HAND, 101L).withSelectedItem(HeroEquipmentSlot.OFF_HAND, 202L),
                 loadout
         );
@@ -43,6 +47,8 @@ class FileHeroProfileRepositoryTest {
         assertEquals(hero.getHeroId(), restoredHero.getHeroId());
         assertEquals("Alaric", restoredHero.getName());
         assertEquals(HeroClass.PALADIN, restoredHero.getHeroClass());
+        assertEquals("70", restoredHero.getCurrentBuildFormData().getLevel());
+        assertEquals("14", restoredHero.getCurrentBuildFormData().getQuestSkillPoints());
         assertEquals(101L, restoredHero.getItemSelection().getSelectedItemId(HeroEquipmentSlot.MAIN_HAND));
         assertEquals(202L, restoredHero.getItemSelection().getSelectedItemId(HeroEquipmentSlot.OFF_HAND));
         assertEquals(Set.of(SkillId.ADVANCE, SkillId.CLASH), Set.copyOf(restoredHero.getSkillLoadout().getAssignedSkillIds()));

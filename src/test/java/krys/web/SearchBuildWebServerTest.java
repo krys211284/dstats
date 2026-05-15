@@ -234,7 +234,7 @@ class SearchBuildWebServerTest {
                 "skillIdToAdd", skillId.name()
         ));
         assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("Dodano umiejętność " + krys.skill.PaladinSkillDefs.get(skillId).getName() + " do bohatera."));
+        assertTrue(response.body().contains("Dodano umiejętność " + HeroSkillCatalogAdapter.displayName(skillId) + " do bohatera."));
     }
 
     private static Map<String, String> buildReferenceSearchFields() {

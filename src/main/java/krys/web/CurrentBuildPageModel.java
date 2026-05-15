@@ -172,6 +172,13 @@ public final class CurrentBuildPageModel {
         return effectiveCurrentBuildResolution.getEffectiveStats();
     }
 
+    public HeroSkillPointBudget getSkillPointBudget() {
+        if (activeHero == null) {
+            return null;
+        }
+        return HeroSkillPointBudget.from(formData, activeHero.getSkillLoadout());
+    }
+
     /** Najprostsza reprezentacja opcji selecta renderowanej po stronie serwera. */
     public static final class SelectOption {
         private final String value;

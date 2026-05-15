@@ -12,6 +12,7 @@ import java.util.Map;
 /** Surowe dane formularza GUI M8, zachowywane także przy błędach walidacji. */
 public final class CurrentBuildFormData {
     private final String level;
+    private final String questSkillPoints;
     private final String weaponDamage;
     private final String strength;
     private final String intelligence;
@@ -23,6 +24,7 @@ public final class CurrentBuildFormData {
     private final List<String> actionBarSlots;
 
     public CurrentBuildFormData(String level,
+                                String questSkillPoints,
                                 String weaponDamage,
                                 String strength,
                                 String intelligence,
@@ -33,6 +35,7 @@ public final class CurrentBuildFormData {
                                 Map<SkillId, SkillConfigFormData> skillConfigs,
                                 List<String> actionBarSlots) {
         this.level = level;
+        this.questSkillPoints = questSkillPoints;
         this.weaponDamage = weaponDamage;
         this.strength = strength;
         this.intelligence = intelligence;
@@ -47,7 +50,7 @@ public final class CurrentBuildFormData {
     public static CurrentBuildFormData defaultValues() {
         Map<SkillId, SkillConfigFormData> skillConfigs = createEmptySkillConfigs();
         skillConfigs.put(SkillId.ADVANCE, new SkillConfigFormData("5", true, SkillUpgradeChoice.RIGHT.name()));
-        return new CurrentBuildFormData("13", "8", "18", "0", "50", "50", "50", "10",
+        return new CurrentBuildFormData("13", "0", "8", "18", "0", "50", "50", "50", "10",
                 skillConfigs,
                 List.of(SkillId.ADVANCE.name(), "NONE", "NONE", "NONE"));
     }
@@ -74,6 +77,7 @@ public final class CurrentBuildFormData {
 
         return new CurrentBuildFormData(
                 fields.getOrDefault("level", defaults.getLevel()),
+                fields.getOrDefault("questSkillPoints", defaults.getQuestSkillPoints()),
                 fields.getOrDefault("weaponDamage", defaults.getWeaponDamage()),
                 fields.getOrDefault("strength", defaults.getStrength()),
                 fields.getOrDefault("intelligence", defaults.getIntelligence()),
@@ -112,6 +116,10 @@ public final class CurrentBuildFormData {
 
     public String getLevel() {
         return level;
+    }
+
+    public String getQuestSkillPoints() {
+        return questSkillPoints;
     }
 
     public String getWeaponDamage() {
