@@ -128,7 +128,9 @@ class ItemLibraryWebServerTest {
         assertEquals(200, currentBuildResponse.statusCode());
         assertTrue(currentBuildResponse.body().contains("Ekwipunek aktualnego buildu"));
         assertTrue(currentBuildResponse.body().contains("Ręka dodatkowa / shield-b.png"));
-        assertTrue(currentBuildResponse.body().contains("Efektywne staty do obliczeń"));
+        assertFalse(currentBuildResponse.body().contains("Efektywne staty do obliczeń"));
+        assertTrue(currentBuildResponse.body().contains("Statystyki bohatera"));
+        assertTrue(currentBuildResponse.body().contains("Techniczne wejście runtime"));
         assertTrue(currentBuildResponse.body().contains(">150<"));
         assertTrue(currentBuildResponse.body().contains("Do runtime trafiają: obrażenia broni=200, siła=150"));
     }

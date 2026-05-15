@@ -2,6 +2,7 @@ package krys.web;
 
 import krys.app.CurrentBuildCalculation;
 import krys.hero.HeroClassDefs;
+import krys.hero.HeroClassStatBaseline;
 import krys.item.HeroEquipmentSlot;
 import krys.itemimport.CurrentBuildImportableStats;
 import krys.itemlibrary.HeroSlotItemAssignment;
@@ -176,7 +177,6 @@ public final class CurrentBuildPageRenderer {
                 + renderActionBarSection(model)
                 + renderBasicHeroStatsSection(model)
                 + renderEquipmentSection(model)
-                + renderEffectiveStatsSection(model)
                 + """
                     </form>
                 </section>
@@ -358,49 +358,6 @@ public final class CurrentBuildPageRenderer {
             html.append("<li>").append(escapeHtml(error)).append("</li>");
         }
         html.append("</ul></div>");
-        return html.toString();
-    }
-
-    private static String renderEffectiveStatsSection(CurrentBuildPageModel model) {
-        StringBuilder html = new StringBuilder("""
-                <details class="current-build-details effective-stats-details">
-                    <summary>Efektywne staty do obliczeń</summary>
-                    <section class="layer-panel layer-panel-emphasis">
-                    <div class="layer-heading">
-                        <span class="layer-index">2</span>
-                        <div>
-                            <p class="helper">To te finalne staty trafiają do pipeline’u `efektywne staty -&gt; CurrentBuildRequest -&gt; CurrentBuildSnapshotFactory -&gt; runtime`. Sekcja nie buduje alternatywnego flow, tylko pokazuje końcowy stan wejścia do obliczeń.</p>
-                        </div>
-                    </div>
-                    <div class="formula-strip">Ręczne nadpisania statów + aktywne itemy per slot = efektywne staty do obliczeń</div>
-                """);
-        if (model.getEffectiveStats() == null) {
-            html.append("<p class=\"helper\">Efektywne staty nie są jeszcze dostępne, bo ręczna baza zawiera błędy walidacji.</p></section></details>");
-            return html.toString();
-        }
-
-        CurrentBuildImportableStats effectiveStats = model.getEffectiveStats();
-        html.append("<div class=\"summary-grid compact-grid\">")
-                .append(renderSummaryCard("Obrażenia broni", Long.toString(effectiveStats.getWeaponDamage())))
-                .append(renderSummaryCard("Siła", ItemLibraryPresentationSupport.formatWhole(effectiveStats.getStrength())))
-                .append(renderSummaryCard("Inteligencja", ItemLibraryPresentationSupport.formatWhole(effectiveStats.getIntelligence())))
-                .append(renderSummaryCard("Kolce", ItemLibraryPresentationSupport.formatWhole(effectiveStats.getThorns())))
-                .append(renderSummaryCard("Szansa bloku [%]", formatPercentage(effectiveStats.getBlockChance())))
-                .append(renderSummaryCard("Szansa retribution [%]", formatPercentage(effectiveStats.getRetributionChance())))
-                .append("</div>")
-                .append("<p class=\"helper\">Do runtime trafiają: obrażenia broni=")
-                .append(escapeHtml(Long.toString(effectiveStats.getWeaponDamage())))
-                .append(", siła=")
-                .append(escapeHtml(ItemLibraryPresentationSupport.formatWhole(effectiveStats.getStrength())))
-                .append(", inteligencja=")
-                .append(escapeHtml(ItemLibraryPresentationSupport.formatWhole(effectiveStats.getIntelligence())))
-                .append(", kolce=")
-                .append(escapeHtml(ItemLibraryPresentationSupport.formatWhole(effectiveStats.getThorns())))
-                .append(", szansa bloku=")
-                .append(escapeHtml(formatPercentage(effectiveStats.getBlockChance())))
-                .append(", szansa retribution=")
-                .append(escapeHtml(formatPercentage(effectiveStats.getRetributionChance())))
-                .append(".</p></section></details>");
         return html.toString();
     }
 
@@ -616,27 +573,89 @@ public final class CurrentBuildPageRenderer {
     }
 
     private static String renderBasicHeroStatsSection(CurrentBuildPageModel model) {
-        CurrentBuildImportableStats stats = model.getEffectiveStats() == null
-                ? resolveManualBaseStats(model)
-                : model.getEffectiveStats();
-        return new StringBuilder("""
-                <details class="current-build-details basic-hero-stats-details">
-                    <summary>Podstawowe statystyki bohatera</summary>
-                    <section class="subpanel basic-hero-stats-panel">
-                        <div class="summary-grid compact-grid">
+        CurrentHeroStatsPresentation stats = CurrentHeroStatsPresentation.from(model);
+        HeroClassStatBaseline baseline = stats.getVerifiedBaseline().orElse(null);
+        StringBuilder html = new StringBuilder("""
+                <details class="current-build-details hero-stats-details">
+                    <summary>Statystyki bohatera</summary>
+                    <section class="subpanel hero-stats-panel">
                 """)
-                .append(renderSummaryCard("Obrażenia broni", Long.toString(stats.getWeaponDamage())))
-                .append(renderSummaryCard("Siła", ItemLibraryPresentationSupport.formatWhole(stats.getStrength())))
-                .append(renderSummaryCard("Inteligencja", ItemLibraryPresentationSupport.formatWhole(stats.getIntelligence())))
-                .append(renderSummaryCard("Kolce", ItemLibraryPresentationSupport.formatWhole(stats.getThorns())))
-                .append(renderSummaryCard("Szansa na blok [%]", formatPercentage(stats.getBlockChance())))
-                .append(renderSummaryCard("Szansa retribution [%]", formatPercentage(stats.getRetributionChance())))
-                .append("""
-                        </div>
+                .append(renderHeroStatGroup("Główne",
+                        renderSummaryCard("Klasa", stats.getHeroClassName())
+                                + renderSummaryCard("Poziom", Integer.toString(stats.getLevel()))
+                                + renderSummaryCard("Siła", stats.getStrengthDisplay())
+                                + renderSummaryCard("Inteligencja", stats.getIntelligenceDisplay())
+                                + (baseline == null ? "" : renderSummaryCard("Siła woli", Integer.toString(baseline.getWillpower()))
+                                + renderSummaryCard("Zręczność", Integer.toString(baseline.getDexterity())))));
+        if (baseline != null) {
+            html.append(renderHeroStatGroup("Pancerz i defensywa",
+                            renderSummaryCard("Wytrzymałość", Integer.toString(baseline.getToughness()))
+                                    + renderSummaryCard("Pancerz", Integer.toString(baseline.getArmor()))
+                                    + renderSummaryCard("Maksimum zdrowia", Integer.toString(baseline.getMaxHealth()))))
+                    .append(renderHeroStatGroup("Odporności",
+                            renderSummaryCard("Fizyczne", Integer.toString(baseline.getPhysicalResistance()))
+                                    + renderSummaryCard("Ogień", Integer.toString(baseline.getFireResistance()))
+                                    + renderSummaryCard("Błyskawice", Integer.toString(baseline.getLightningResistance()))
+                                    + renderSummaryCard("Zimno", Integer.toString(baseline.getColdResistance()))
+                                    + renderSummaryCard("Trucizna", Integer.toString(baseline.getPoisonResistance()))
+                                    + renderSummaryCard("Cień", Integer.toString(baseline.getShadowResistance()))))
+                    .append(renderHeroStatGroup("Ofensywa",
+                            renderSummaryCard("Podstawowe obrażenia od broni", Long.toString(stats.getWeaponDamage()))
+                                    + renderSummaryCard("Szybkość broni", formatDecimalComma(baseline.getWeaponSpeed(), 2))
+                                    + renderSummaryCard("Szansa na trafienie krytyczne", formatPercentComma(baseline.getCriticalChancePercent(), 1))
+                                    + renderSummaryCard("Obrażenia od trafień krytycznych", formatPercentComma(baseline.getCriticalDamagePercent(), 1))
+                                    + renderSummaryCard("Obrażenia zadawane odsłoniętym celom", formatPercentComma(baseline.getVulnerableDamagePercent(), 1))
+                                    + renderSummaryCard("Ciernie", ItemLibraryPresentationSupport.formatWhole(stats.getThorns()))));
+        } else {
+            html.append("<p class=\"helper\">Brak jawnego baseline'u gry dla tego poziomu; UI pokazuje tylko statystyki z jawną formułą albo z aktywnych itemów.</p>");
+            if (stats.getWeaponDamage() > 0L || stats.getThorns() > 0.0d
+                    || stats.hasActiveItemBlockChance() || stats.hasActiveItemRetributionChance()) {
+                html.append(renderHeroStatGroup("Aktywne itemy",
+                        renderOptionalActiveItemStats(stats)));
+            }
+        }
+        html.append("""
                     </section>
                 </details>
-                """)
-                .toString();
+                """);
+        return html.toString();
+    }
+
+    private static String renderHeroStatGroup(String title, String cards) {
+        return """
+                <div class="hero-stat-group">
+                    <h3>""" + escapeHtml(title) + """
+                </h3>
+                    <div class="summary-grid compact-grid">
+                """ + cards + """
+                    </div>
+                </div>
+                """;
+    }
+
+    private static String renderOptionalActiveItemStats(CurrentHeroStatsPresentation stats) {
+        StringBuilder cards = new StringBuilder();
+        if (stats.getWeaponDamage() > 0L) {
+            cards.append(renderSummaryCard("Podstawowe obrażenia od broni", Long.toString(stats.getWeaponDamage())));
+        }
+        if (stats.getThorns() > 0.0d) {
+            cards.append(renderSummaryCard("Ciernie", ItemLibraryPresentationSupport.formatWhole(stats.getThorns())));
+        }
+        if (stats.hasActiveItemBlockChance()) {
+            cards.append(renderSummaryCard("Szansa na blok z aktywnych itemów [%]", formatPercentage(stats.getActiveItemStats().getBlockChance())));
+        }
+        if (stats.hasActiveItemRetributionChance()) {
+            cards.append(renderSummaryCard("Szansa retribution z aktywnych itemów [%]", formatPercentage(stats.getActiveItemStats().getRetributionChance())));
+        }
+        return cards.toString();
+    }
+
+    private static String formatDecimalComma(BigDecimal value, int scale) {
+        return value.setScale(scale).toPlainString().replace('.', ',');
+    }
+
+    private static String formatPercentComma(BigDecimal value, int scale) {
+        return formatDecimalComma(value, scale) + "%";
     }
 
     private static String renderManualBaseSection(CurrentBuildPageModel model) {
@@ -685,7 +704,8 @@ public final class CurrentBuildPageRenderer {
                         <p>To jest aktualny foundation manual simulation dla trybu „Policz aktualny build”. Ustaw ekwipunek, przypisane umiejętności, pasek akcji i poziom bohatera, a potem uruchom obliczenie.</p>
                         </section>
                     </details>
-                """;
+                """
+                    + renderSimulationDebugSection(model, null);
         }
 
         CurrentBuildCalculation calculation = model.getCalculation();
@@ -713,15 +733,65 @@ public final class CurrentBuildPageRenderer {
                 </section>
                 </details>
                 """);
-        html.append("""
+        html.append(renderSimulationDebugSection(model, calculation));
+        return html.toString();
+    }
+
+    private static String renderSimulationDebugSection(CurrentBuildPageModel model, CurrentBuildCalculation calculation) {
+        StringBuilder html = new StringBuilder("""
                 <details class="current-build-details simulation-debug-details">
                     <summary>Debug symulacji</summary>
                 """);
-        html.append(CurrentBuildCalculationSectionsRenderer.renderDirectHitDebug(calculation));
-        html.append(CurrentBuildCalculationSectionsRenderer.renderDelayedHitDebug(calculation));
-        html.append(CurrentBuildCalculationSectionsRenderer.renderReactiveDebug(calculation));
-        html.append(CurrentBuildCalculationSectionsRenderer.renderStepTrace(calculation));
+        html.append(renderTechnicalRuntimeInput(model));
+        if (calculation != null) {
+            html.append(CurrentBuildCalculationSectionsRenderer.renderDirectHitDebug(calculation));
+            html.append(CurrentBuildCalculationSectionsRenderer.renderDelayedHitDebug(calculation));
+            html.append(CurrentBuildCalculationSectionsRenderer.renderReactiveDebug(calculation));
+            html.append(CurrentBuildCalculationSectionsRenderer.renderStepTrace(calculation));
+        }
         html.append("</details>");
+        return html.toString();
+    }
+
+    private static String renderTechnicalRuntimeInput(CurrentBuildPageModel model) {
+        CurrentBuildImportableStats manualBaseStats = resolveManualBaseStats(model);
+        CurrentBuildImportableStats effectiveStats = model.getEffectiveStats();
+        StringBuilder html = new StringBuilder("""
+                <section class="panel result-panel technical-runtime-input">
+                    <h2>Techniczne wejście runtime</h2>
+                    <p class="helper">Wartości poniżej są wejściem runtime/manual fallback, a nie sekcją statystyk bohatera.</p>
+                    <div class="formula-strip">Manual current build + aktywne itemy per slot = effective stats runtime</div>
+                    <div class="summary-grid compact-grid">
+                """);
+        html.append(renderSummaryCard("Manual: obrażenia broni", Long.toString(manualBaseStats.getWeaponDamage())))
+                .append(renderSummaryCard("Manual: siła", ItemLibraryPresentationSupport.formatWhole(manualBaseStats.getStrength())))
+                .append(renderSummaryCard("Manual: inteligencja", ItemLibraryPresentationSupport.formatWhole(manualBaseStats.getIntelligence())))
+                .append(renderSummaryCard("Manual: kolce", ItemLibraryPresentationSupport.formatWhole(manualBaseStats.getThorns())))
+                .append(renderSummaryCard("Manual: szansa bloku [%]", formatPercentage(manualBaseStats.getBlockChance())))
+                .append(renderSummaryCard("Manual: szansa retribution [%]", formatPercentage(manualBaseStats.getRetributionChance())));
+        if (effectiveStats != null) {
+            html.append(renderSummaryCard("Runtime: obrażenia broni", Long.toString(effectiveStats.getWeaponDamage())))
+                    .append(renderSummaryCard("Runtime: siła", ItemLibraryPresentationSupport.formatWhole(effectiveStats.getStrength())))
+                    .append(renderSummaryCard("Runtime: inteligencja", ItemLibraryPresentationSupport.formatWhole(effectiveStats.getIntelligence())))
+                    .append(renderSummaryCard("Runtime: kolce", ItemLibraryPresentationSupport.formatWhole(effectiveStats.getThorns())))
+                    .append(renderSummaryCard("Runtime: szansa bloku [%]", formatPercentage(effectiveStats.getBlockChance())))
+                    .append(renderSummaryCard("Runtime: szansa retribution [%]", formatPercentage(effectiveStats.getRetributionChance())))
+                    .append("</div><p class=\"helper\">Do runtime trafiają: obrażenia broni=")
+                    .append(escapeHtml(Long.toString(effectiveStats.getWeaponDamage())))
+                    .append(", siła=")
+                    .append(escapeHtml(ItemLibraryPresentationSupport.formatWhole(effectiveStats.getStrength())))
+                    .append(", inteligencja=")
+                    .append(escapeHtml(ItemLibraryPresentationSupport.formatWhole(effectiveStats.getIntelligence())))
+                    .append(", kolce=")
+                    .append(escapeHtml(ItemLibraryPresentationSupport.formatWhole(effectiveStats.getThorns())))
+                    .append(", szansa bloku=")
+                    .append(escapeHtml(formatPercentage(effectiveStats.getBlockChance())))
+                    .append(", szansa retribution=")
+                    .append(escapeHtml(formatPercentage(effectiveStats.getRetributionChance())))
+                    .append(".</p></section>");
+            return html.toString();
+        }
+        html.append("</div><p class=\"helper\">Effective stats runtime nie są dostępne, bo wejście manual fallback zawiera błędy walidacji.</p></section>");
         return html.toString();
     }
 

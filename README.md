@@ -1342,9 +1342,13 @@ Kontrakt prezentacji dla tego smoke testu:
 - GUI pokazuje, dla którego bohatera pracujemy, pozwala inline zmienić aktywnego bohatera, a poziom zapisuje tylko w sekcji `Punkty umiejętności`.
 - GUI pozwala ustawić konfigurację wyłącznie przypisanych umiejętności bohatera oraz jego pasek akcji, a zapis wykonuje sticky przycisk `Zapisz zmiany`.
 - GUI pozwala z tego samego formularza przejść do importu pojedynczego itemu ze screena z zachowaniem aktualnego kontekstu current build.
-- GUI rozdziela warstwy w domyślnie zwiniętych sekcjach: `Aktywny bohater`, `Punkty umiejętności`, `Umiejętności bohatera`, `Pasek akcji`, `Podstawowe statystyki bohatera`, `Ekwipunek aktualnego buildu`, `Efektywne staty do obliczeń`, `Wynik symulacji` i `Debug symulacji`.
+- GUI rozdziela warstwy w domyślnie zwiniętych sekcjach: `Aktywny bohater`, `Punkty umiejętności`, `Umiejętności bohatera`, `Pasek akcji`, `Statystyki bohatera`, `Ekwipunek aktualnego buildu`, `Wynik symulacji` i `Debug symulacji`.
 - GUI nie renderuje osobnej sekcji `Centrum buildu`, dużego hero nagłówka strony, sekcji `Szczegóły użytych itemów` ani sekcji `Zaawansowane ręczne nadpisanie statów`.
-- GUI pokazuje `Podstawowe statystyki bohatera` jako użytkową prezentację istniejących statystyk z modelu current build / effective stats, bez dodawania nowych wzorów i bez zgadywania wartości.
+- GUI pokazuje jedną użytkową sekcję `Statystyki bohatera`; jej wartości pochodzą z jawnych źródeł: klasy, poziomu bohatera, aktywnych itemów oraz zweryfikowanych baseline'ów prezentacyjnych. Legacy manual defaults current build nie są statystykami bohatera.
+- W `Statystyki bohatera` atrybuty `Siła`, `Inteligencja`, `Siła woli` i `Zręczność` są prezentowane razem w grupie `Główne`; informacja o baseline Paladyna poziom `70` bez itemów pozostaje kontraktem danych, ale nie jest widocznym akapitem w UI.
+- Zweryfikowany baseline prezentacyjny istnieje obecnie dla `Paladyn`, poziom `70`, bez itemów: siła `79`, inteligencja `76`, siła woli `76`, zręczność `77`, wytrzymałość `1610`, pancerz `158`, maksimum zdrowia `1526`, podstawowe obrażenia od broni `0`, szybkość broni `1,00`, szansa na trafienie krytyczne `5,2%`, obrażenia od trafień krytycznych `50,0%`, obrażenia zadawane odsłoniętym celom `20,0%` i ciernie `0`.
+- Odporności w sekcji `Statystyki bohatera` są rozdzielone na typy, bez zbiorczego kafelka: fizyczne, ogień, błyskawice, zimno, trucizna i cień. Dla baseline'u Paladyna poziom `70` bez itemów każda z tych odporności wynosi `30`.
+- Brakujące statystyki dla poziomów bez jawnego baseline'u nie są interpolowane z poziomu `70`; UI pokazuje tylko statystyki z jawną formułą albo z aktywnych itemów i komunikuje brak baseline'u.
 - GUI pokazuje pełny stały layout slotów bohatera: `Hełm`, `Zbroja`, `Rękawice`, `Spodnie`, `Buty`, `Broń`, `Amulet`, `Pierścień 1`, `Pierścień 2`, `Tarcza`.
 - GUI pokazuje wspierane sloty ekwipunku, aktywny item albo pusty slot, skrót wkładu itemu, status aktywności oraz akcje `Wybierz z biblioteki`, `Importuj nowy item`, `Zmień item` i `Wyczyść slot` dla aktywnych slotów tego bohatera.
 - GUI pokazuje sekcję `Umiejętności bohatera`, pozwala dodać albo usunąć przypisaną umiejętność i nie renderuje bezwarunkowo wszystkich skilli foundation.
@@ -1353,7 +1357,7 @@ Kontrakt prezentacji dla tego smoke testu:
 - GUI current build ma szeroki layout i sticky pasek akcji formularza; `Zapisz zmiany` zapisuje główne pola edycji aktualnego buildu, a `Wycofaj zmiany` wraca do ostatniego zapisanego stanu bez usuwania profilu i przypisanych umiejętności.
 - GUI ogranicza sześciomiejscowy pasek akcji do przypisanych i nauczonych umiejętności aktywnego bohatera; nielegalne wpisy blokują zapis profilu.
 - GUI i główne ekrany SSR korzystają z szerszego kontenera layoutu, dzięki czemu lepiej wykorzystują szerokie monitory bez rozwalania mobilnego układu.
-- GUI pokazuje finalne efektywne staty użyte do obliczeń na końcu formularza na tym samym pipeline `effective stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`; debugi runtime są w końcowej zwiniętej sekcji.
+- Techniczne effective stats użyte do obliczeń pozostają częścią końcowego, domyślnie zwiniętego `Debug symulacji` na tym samym pipeline `effective stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`; nie są równorzędną sekcją użytkową obok `Statystyki bohatera`.
 - GUI i CLI przechodzą przez ten sam kontrakt `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> CurrentBuildCalculationService -> runtime`.
 - scenariusze referencyjne są trybem pomocniczym do smoke testów i regresji, a nie główną ścieżką produktu.
 - GUI i CLI pokazują `Łączne obrażenia`, `DPS`, debug bezpośredniego hita dla użytego skilla, debug opóźnionych trafień, debug obrażeń reaktywnych, `Ślad kroków symulacji`, `Resolve aktywny na końcu`, `Końcowa szansa bloku` oraz `Końcowy bonus do kolców`.
