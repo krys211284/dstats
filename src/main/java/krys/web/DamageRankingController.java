@@ -136,6 +136,11 @@ public final class DamageRankingController implements HttpHandler {
         if (filter.hasSourceCategory() && !row.hasSkillCategory(filter.getSourceCategory())) {
             return false;
         }
+        if (filter.hasSearchQuery()
+                && !DamageRankingSearchText.normalizedRowText(row)
+                .contains(DamageRankingSearchText.normalize(filter.getQ()))) {
+            return false;
+        }
         return matchesFacet(filter.getHasDirectUpgradeDamage(), row.hasDirectUpgradeDamage())
                 && matchesFacet(filter.getHasNewDamageComponent(), row.hasNewDamageComponent())
                 && matchesFacet(filter.getHasStatusDamageEnabler(), row.hasStatusDamageEnabler())

@@ -12,6 +12,35 @@
             gap: 14px;
             align-items: end;
         }
+        .filter-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .filter-field-search {
+            grid-column: span 2;
+        }
+        .filter-control {
+            width: 100%;
+            min-height: 42px;
+            box-sizing: border-box;
+        }
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        @media (max-width: 620px) {
+            .filter-field-search {
+                grid-column: span 1;
+            }
+        }
         .wide-page.ranking-page {
             width: calc(100vw - 32px);
             max-width: none;
@@ -169,6 +198,9 @@
             color: var(--text-secondary);
             font-weight: 700;
         }
+        .ranking-live-empty[hidden] {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -193,5 +225,63 @@
         {{TABLE}}
     </section>
 </main>
+<script>
+(() => {
+    const searchInput = document.querySelector('#ranking-search-query');
+    const rows = Array.from(document.querySelectorAll('[data-skill-row]'));
+    const visibleCount = document.querySelector('#ranking-visible-count');
+    const emptyState = document.querySelector('#ranking-live-empty');
+    const sortLinks = Array.from(document.querySelectorAll('.sort-link'));
+    if (!searchInput || rows.length === 0) {
+        return;
+    }
+
+    const normalize = (value) => (value || '')
+        .replace(/[łŁ]/g, (letter) => letter === 'Ł' ? 'L' : 'l')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLocaleLowerCase('pl')
+        .trim();
+
+    const updateSortLinks = (query) => {
+        sortLinks.forEach((link) => {
+            const url = new URL(link.getAttribute('href'), window.location.origin);
+            if (query) {
+                url.searchParams.set('q', query);
+            } else {
+                url.searchParams.delete('q');
+            }
+            link.setAttribute('href', url.pathname + url.search);
+        });
+    };
+
+    const applySearch = () => {
+        const rawQuery = searchInput.value.trim();
+        const query = normalize(rawQuery);
+        let count = 0;
+        rows.forEach((row) => {
+            const matches = query === '' || (row.dataset.searchText || '').includes(query);
+            row.hidden = !matches;
+            if (matches) {
+                count += 1;
+            }
+        });
+        if (visibleCount) {
+            visibleCount.textContent = String(count);
+        }
+        if (emptyState) {
+            emptyState.hidden = count !== 0;
+        }
+        updateSortLinks(rawQuery);
+    };
+
+    let debounceId;
+    searchInput.addEventListener('input', () => {
+        window.clearTimeout(debounceId);
+        debounceId = window.setTimeout(applySearch, 180);
+    });
+    applySearch();
+})();
+</script>
 </body>
 </html>

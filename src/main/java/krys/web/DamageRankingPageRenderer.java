@@ -65,21 +65,28 @@ public final class DamageRankingPageRenderer {
     }
 
     private static String renderSummaryCard(String label, String value) {
+        String valueAttributes = label.equals("Widoczne po filtrach")
+                ? " id=\"ranking-visible-count\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\""
+                : "";
         return """
                 <div class="summary-card">
                     <div class="summary-label">%s</div>
-                    <div class="summary-value">%s</div>
+                    <div class="summary-value"%s>%s</div>
                 </div>
-                """.formatted(escapeHtml(label), escapeHtml(value));
+                """.formatted(escapeHtml(label), valueAttributes, escapeHtml(value));
     }
 
     private static String renderFilters(DamageRankingPageModel model) {
         DamageRankingFilter filter = model.getFilter();
         StringBuilder html = new StringBuilder("""
                 <form class="ranking-filters" method="get" action="/ranking-obrazen">
-                    <label>Postać
-                        <select name="character">
-                """);
+                    <label class="filter-field filter-field-search">Szukaj
+                        <input class="filter-control filter-input" id="ranking-search-query" type="search" name="q" value="%s" placeholder="Starcie, Adept, Odsłonięcie" aria-describedby="ranking-search-help">
+                        <span id="ranking-search-help" class="visually-hidden">Filtruje po nazwie, id, kategoriach i widocznych cechach.</span>
+                    </label>
+                    <label class="filter-field">Postać
+                        <select class="filter-control filter-select" name="character">
+                """.formatted(escapeHtml(filter.getQ() == null ? "" : filter.getQ())));
         for (PlayableClass playableClass : model.getSupportedClasses()) {
             html.append(renderOption(
                     playableClass.getQueryValue(),
@@ -90,8 +97,8 @@ public final class DamageRankingPageRenderer {
         html.append("""
                         </select>
                     </label>
-                    <label>Grupa drzewa
-                        <select name="skillGroup">
+                    <label class="filter-field">Grupa drzewa
+                        <select class="filter-control filter-select" name="skillGroup">
                 """);
         html.append(renderOption("ALL", "Wszystkie grupy drzewa", !filter.hasSkillGroup()));
         for (String skillGroup : model.getSkillGroups()) {
@@ -100,8 +107,8 @@ public final class DamageRankingPageRenderer {
         html.append("""
                         </select>
                     </label>
-                    <label>Status weryfikacji
-                        <select name="verificationStatus">
+                    <label class="filter-field">Status weryfikacji
+                        <select class="filter-control filter-select" name="verificationStatus">
                 """);
         html.append(renderOption("ALL", "Wszystkie statusy", !filter.hasVerificationStatus()));
         for (PaladinSkillDamageVerificationStatus status : model.getVerificationStatuses()) {
@@ -133,8 +140,8 @@ public final class DamageRankingPageRenderer {
 
     private static String renderSourceCategoryFilter(DamageRankingPageModel model) {
         StringBuilder html = new StringBuilder("""
-                    <label>Kategoria z gry
-                        <select name="sourceCategory">
+                    <label class="filter-field">Kategoria z gry
+                        <select class="filter-control filter-select" name="sourceCategory">
                 """);
         html.append(renderOption("ALL", "Wszystkie kategorie", !model.getFilter().hasSourceCategory()));
         for (SkillCategory category : model.getSourceCategories()) {
@@ -150,9 +157,9 @@ public final class DamageRankingPageRenderer {
     private static String renderFacetFilter(String name,
                                             String label,
                                             DamageRankingFilter.FacetFilter selectedValue) {
-        StringBuilder html = new StringBuilder("<label>")
+        StringBuilder html = new StringBuilder("<label class=\"filter-field\">")
                 .append(escapeHtml(label))
-                .append("<select name=\"")
+                .append("<select class=\"filter-control filter-select\" name=\"")
                 .append(escapeHtml(name))
                 .append("\">");
         for (DamageRankingFilter.FacetFilter value : DamageRankingFilter.FacetFilter.values()) {
@@ -228,6 +235,7 @@ public final class DamageRankingPageRenderer {
         if (filter.getSourceCategory() != null) {
             appendQuery(query, "sourceCategory", filter.getSourceCategory().name());
         }
+        appendQuery(query, "q", filter.getQ());
         appendFacetQuery(query, "hasDirectUpgradeDamage", filter.getHasDirectUpgradeDamage());
         appendFacetQuery(query, "hasNewDamageComponent", filter.getHasNewDamageComponent());
         appendFacetQuery(query, "hasStatusDamageEnabler", filter.getHasStatusDamageEnabler());
@@ -266,8 +274,8 @@ public final class DamageRankingPageRenderer {
         if (model.getRows().isEmpty()) {
             return """
                     <div class="empty-state">
-                        <h2>Brak wpisów dla wybranych filtrów</h2>
-                        <p>Zmień filtry, aby wrócić do opisowego rankingu wybranej postaci.</p>
+                        <h2>Brak umiejętności pasujących do filtrów.</h2>
+                        <p>Zmień filtr tekstowy albo pozostałe filtry, aby wrócić do opisowego rankingu wybranej postaci.</p>
                     </div>
                     """;
         }
@@ -341,6 +349,7 @@ public final class DamageRankingPageRenderer {
                         </tbody>
                     </table>
                 </div>
+                <p class="empty-state ranking-live-empty" id="ranking-live-empty" hidden>Brak umiejętności pasujących do filtrów.</p>
                 """);
         return html.toString();
     }
@@ -358,6 +367,8 @@ public final class DamageRankingPageRenderer {
                 .append(escapeHtml(entry.getSkillGroup()))
                 .append("\" data-mechanic-tags=\"")
                 .append(escapeHtml(row.getMechanicTagsDisplay()))
+                .append("\" data-search-text=\"")
+                .append(escapeHtml(DamageRankingSearchText.normalizedRowText(row)))
                 .append("\" title=\"Status weryfikacji: ")
                 .append(escapeHtml(status.name()))
                 .append("\" aria-label=\"")

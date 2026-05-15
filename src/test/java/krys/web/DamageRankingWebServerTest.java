@@ -146,6 +146,7 @@ class DamageRankingWebServerTest {
         assertTrue(response.body().contains("name=\"hasResourceGeneration\""));
         assertTrue(response.body().contains("name=\"hasDefenseOrUtility\""));
         assertTrue(response.body().contains("name=\"hasManualReviewUpgrade\""));
+        assertTrue(response.body().contains("class=\"filter-control filter-input\" id=\"ranking-search-query\" type=\"search\" name=\"q\""));
         assertTrue(response.body().contains("aria-sort=\"descending\""));
         assertTrue(response.body().contains("sort=skillName"));
         assertTrue(response.body().contains("sort=baseDamageTreeMax"));
@@ -275,6 +276,94 @@ class DamageRankingWebServerTest {
         assertBasicCategoryAndFaith(response.body(), "natarcie", "Podstawowe, Mobilność, Fanatyk", "-", "18");
         assertFalse(rowHtml(response.body(), "wymach").contains("BASIC"));
         assertFalse(rowHtml(response.body(), "swiety_pocisk").contains("FAITH_GENERATION"));
+    }
+
+    @Test
+    void searchFilterShouldRenderAccessibleLiveSearchMetadata() throws Exception {
+        HttpResponse<String> response = sendGet("/ranking-obrazen?character=paladin&q=star");
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("<label class=\"filter-field filter-field-search\">Szukaj"));
+        assertTrue(response.body().contains("<input class=\"filter-control filter-input\" id=\"ranking-search-query\" type=\"search\" name=\"q\" value=\"star\""));
+        assertTrue(response.body().contains("placeholder=\"Starcie, Adept, Odsłonięcie\""));
+        assertTrue(response.body().contains("aria-describedby=\"ranking-search-help\""));
+        assertTrue(response.body().contains("<span id=\"ranking-search-help\" class=\"visually-hidden\">Filtruje po nazwie, id, kategoriach i widocznych cechach.</span>"));
+        assertTrue(response.body().contains(".filter-field-search"));
+        assertTrue(response.body().contains("grid-column: span 2"));
+        assertTrue(response.body().contains(".filter-control"));
+        assertTrue(response.body().contains("min-height: 42px"));
+        assertTrue(response.body().contains(".visually-hidden"));
+        assertTrue(response.body().contains("<select class=\"filter-control filter-select\" name=\"character\">"));
+        assertTrue(response.body().contains("<select class=\"filter-control filter-select\" name=\"skillGroup\">"));
+        assertFalse(response.body().contains("class=\"filter-help\""));
+        assertTrue(response.body().contains("id=\"ranking-visible-count\" role=\"status\" aria-live=\"polite\""));
+        assertTrue(response.body().contains("data-search-text=\""));
+        assertTrue(response.body().contains("addEventListener('input'"));
+        assertTrue(response.body().contains("row.dataset.searchText"));
+        assertTrue(response.body().contains("visibleCount.textContent"));
+        assertTrue(response.body().contains("ranking-live-empty"));
+        assertTrue(response.body().contains("window.setTimeout(applySearch, 180)"));
+    }
+
+    @Test
+    void backendSearchQueryShouldFilterRowsAndNormalizePolishCharacters() throws Exception {
+        HttpResponse<String> starResponse = sendGet("/ranking-obrazen?character=paladin&skillGroup=basic&q=star");
+        assertEquals(200, starResponse.statusCode());
+        assertEquals(1, countSkillRows(starResponse.body()));
+        assertTrue(starResponse.body().contains("data-skill-id=\"starcie\""));
+        assertFalse(starResponse.body().contains("data-skill-id=\"wymach\""));
+
+        HttpResponse<String> adeptResponse = sendGet("/ranking-obrazen?character=paladin&skillGroup=basic&q=adept");
+        assertEquals(200, adeptResponse.statusCode());
+        assertEquals(1, countSkillRows(adeptResponse.body()));
+        assertTrue(adeptResponse.body().contains("data-skill-id=\"wymach\""));
+
+        HttpResponse<String> molochResponse = sendGet("/ranking-obrazen?character=paladin&skillGroup=basic&q=moloch");
+        assertEquals(200, molochResponse.statusCode());
+        assertEquals(1, countSkillRows(molochResponse.body()));
+        assertTrue(molochResponse.body().contains("data-skill-id=\"starcie\""));
+
+        HttpResponse<String> generationResponse = sendGet("/ranking-obrazen?character=paladin&skillGroup=basic&q=generowanie");
+        assertEquals(200, generationResponse.statusCode());
+        assertEquals(4, countSkillRows(generationResponse.body()));
+        assertTrue(generationResponse.body().contains("data-skill-id=\"wymach\""));
+        assertTrue(generationResponse.body().contains("data-skill-id=\"swiety_pocisk\""));
+        assertTrue(generationResponse.body().contains("data-skill-id=\"starcie\""));
+        assertTrue(generationResponse.body().contains("data-skill-id=\"natarcie\""));
+
+        HttpResponse<String> emptyResponse = sendGet("/ranking-obrazen?character=paladin&skillGroup=basic&q=nieistniejacytekst");
+        assertEquals(200, emptyResponse.statusCode());
+        assertEquals(0, countSkillRows(emptyResponse.body()));
+        assertTrue(emptyResponse.body().contains("Brak umiejętności pasujących do filtrów."));
+
+        HttpResponse<String> holyBoltResponse = sendGet("/ranking-obrazen?character=paladin&skillGroup=basic&q=swiety");
+        assertEquals(200, holyBoltResponse.statusCode());
+        assertEquals(1, countSkillRows(holyBoltResponse.body()));
+        assertTrue(holyBoltResponse.body().contains("data-skill-id=\"swiety_pocisk\""));
+
+        HttpResponse<String> hammerWithoutAccentResponse = sendGet("/ranking-obrazen?character=paladin&q=mlot");
+        assertEquals(200, hammerWithoutAccentResponse.statusCode());
+        assertTrue(hammerWithoutAccentResponse.body().contains("data-skill-id=\"blogoslawiony_mlot\""));
+
+        HttpResponse<String> blessedHammerResponse = sendGet("/ranking-obrazen?character=paladin&q=blogoslawiony");
+        assertEquals(200, blessedHammerResponse.statusCode());
+        assertTrue(blessedHammerResponse.body().contains("data-skill-id=\"blogoslawiony_mlot\""));
+    }
+
+    @Test
+    void searchQueryShouldCooperateWithOtherFiltersAndSortLinks() throws Exception {
+        HttpResponse<String> basicStarResponse = sendGet("/ranking-obrazen?character=paladin&skillGroup=basic&q=star");
+        HttpResponse<String> coreStarResponse = sendGet("/ranking-obrazen?character=paladin&skillGroup=core&q=star");
+
+        assertEquals(200, basicStarResponse.statusCode());
+        assertTrue(basicStarResponse.body().contains("data-skill-id=\"starcie\""));
+        assertTrue(basicStarResponse.body().contains("q=star"));
+        assertTrue(basicStarResponse.body().contains("<input class=\"filter-control filter-input\" id=\"ranking-search-query\" type=\"search\" name=\"q\" value=\"star\""));
+        assertTrue(basicStarResponse.body().contains("href=\"/ranking-obrazen\""));
+
+        assertEquals(200, coreStarResponse.statusCode());
+        assertEquals(0, countSkillRows(coreStarResponse.body()));
+        assertFalse(coreStarResponse.body().contains("data-skill-id=\"starcie\""));
     }
 
     @Test

@@ -17,6 +17,7 @@ public final class DamageRankingFilter {
     private final PaladinSkillDamageVerificationStatus verificationStatus;
     private final PaladinSkillTreeType type;
     private final PaladinDamageRankingMetric metric;
+    private final String q;
     private final SkillCategory sourceCategory;
     private final SkillTag tag;
     private final FacetFilter hasDirectUpgradeDamage;
@@ -36,6 +37,7 @@ public final class DamageRankingFilter {
                                PaladinSkillTreeType type,
                                PaladinDamageRankingMetric metric) {
         this(character, skillGroup, verificationStatus, type, metric, null, null,
+                null,
                 FacetFilter.ALL, FacetFilter.ALL, FacetFilter.ALL, FacetFilter.ALL,
                 FacetFilter.ALL, FacetFilter.ALL, FacetFilter.ALL, FacetFilter.ALL,
                 "baseDamageTreeMax", SortDirection.DESC);
@@ -48,6 +50,7 @@ public final class DamageRankingFilter {
                                PaladinDamageRankingMetric metric,
                                SkillCategory sourceCategory,
                                SkillTag tag,
+                               String q,
                                FacetFilter hasDirectUpgradeDamage,
                                FacetFilter hasNewDamageComponent,
                                FacetFilter hasStatusDamageEnabler,
@@ -65,6 +68,7 @@ public final class DamageRankingFilter {
         this.metric = isVisibleRankingMetric(metric)
                 ? metric
                 : PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX;
+        this.q = normalizeOptionalValue(q);
         this.sourceCategory = sourceCategory;
         this.tag = tag;
         this.hasDirectUpgradeDamage = hasDirectUpgradeDamage == null ? FacetFilter.ALL : hasDirectUpgradeDamage;
@@ -98,6 +102,7 @@ public final class DamageRankingFilter {
         SkillCategory sourceCategory = parseEnum(SkillCategory.class, queryFields.get("sourceCategory"));
         String sort = normalizeOptionalValue(queryFields.get("sort"));
         SortDirection direction = parseEnum(SortDirection.class, queryFields.get("direction"));
+        String q = normalizeOptionalValue(queryFields.get("q"));
         return new DamageRankingFilter(
                 character,
                 group,
@@ -106,6 +111,7 @@ public final class DamageRankingFilter {
                 metric,
                 sourceCategory,
                 tag,
+                q,
                 parseFacet(queryFields.get("hasDirectUpgradeDamage")),
                 parseFacet(queryFields.get("hasNewDamageComponent")),
                 parseFacet(queryFields.get("hasStatusDamageEnabler")),
@@ -137,6 +143,10 @@ public final class DamageRankingFilter {
 
     public PaladinDamageRankingMetric getMetric() {
         return metric;
+    }
+
+    public String getQ() {
+        return q;
     }
 
     public SkillTag getTag() {
@@ -205,6 +215,10 @@ public final class DamageRankingFilter {
 
     public boolean hasSourceCategory() {
         return sourceCategory != null;
+    }
+
+    public boolean hasSearchQuery() {
+        return q != null;
     }
 
     public boolean isFacetEnabled() {
