@@ -28,7 +28,7 @@ class SkillCategoryTest {
         assertEquals(Set.of(SkillCategory.PODSTAWOWE, SkillCategory.MOLOCH), clash.getSkillCategories());
 
         assertEquals("basic", advance.getSkillGroup());
-        assertEquals(Set.of(SkillCategory.PODSTAWOWE, SkillCategory.MOBILNOSC, SkillCategory.FANATYK), advance.getSkillCategories());
+        assertEquals(Set.of(SkillCategory.PODSTAWOWE, SkillCategory.MOBILNOSC, SkillCategory.ZELOTY), advance.getSkillCategories());
     }
 
     @Test

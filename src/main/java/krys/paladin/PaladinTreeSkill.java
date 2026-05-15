@@ -337,7 +337,7 @@ public final class PaladinTreeSkill {
             case "natarcie" -> {
                 categories.add(SkillCategory.PODSTAWOWE);
                 categories.add(SkillCategory.MOBILNOSC);
-                categories.add(SkillCategory.FANATYK);
+                categories.add(SkillCategory.ZELOTY);
             }
             case "forteca" -> {
                 categories.add(SkillCategory.SPECJALNA);

@@ -171,7 +171,7 @@ Wymach          Podstawowe, Adept    Świętość   14      26%         75%     
 Starcie         Podstawowe, Moloch   Fizyczne   20      65%         115%         Marsz Krzyżowca, wymaga tarczy
 
 Natarcie        Podstawowe,          Fizyczne   18      18%         105%         szarża / mobilność
-Mobilność, Fanatyk
+Mobilność, Zeloty
 
 3. Wymach
 Status: potwierdzone po korektach użytkownika. Ranga na screenie: 0/15.
@@ -251,7 +251,7 @@ Grupa 3 - wybór 1 z 3
 - Brać Ich: potwierdzone. Animusz wzmacnia Starcie, które zadaje obrażenia zwiększone o 8%[x] za każdy
 poziom kumulacji Animuszu. Co 3. atak przyciąga do ciebie wrogów.
 
-- Potyczka: potwierdzone. Starcie staje się umiejętnością Fanatyka i wywołuje dodatkowe uderzenie za 113
+- Potyczka: potwierdzone. Starcie staje się umiejętnością Zeloty i wywołuje dodatkowe uderzenie za 113
 240 [155%]. Marsz Krzyżowca nie zapewnia już szansy na blok, tylko 10%[+] premii do szansy na trafienie
 krytyczne, maksymalnie 30%[+].
 
@@ -262,7 +262,7 @@ zwiększone o 20%[x].
 Status: kompletne w zakresie dostarczonych screenów Basic.
 
 Bazowo: ranga 0/15, generuje 18 pkt. wiary, Lucky Hit 18%, obrażenia Fizyczne, tagi Podstawowe, Mobilność i
-Fanatyk. Opis: szarżujesz naprzód, zadając wrogom na drodze 76 587 [105%] pkt. obrażeń.
+Zeloty. Opis: szarżujesz naprzód, zadając wrogom na drodze 76 587 [105%] pkt. obrażeń.
 
 Grupa 1 - wybór 1 z 2
 - Umocnienie: Natarcie zapewnia 2% maksymalnego zdrowia jako umocnienie, kiedy trafisz wroga po raz

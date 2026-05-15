@@ -7,7 +7,7 @@ public enum SkillCategory {
     SEDZIA("Sędzia", 30),
     MOLOCH("Moloch", 40),
     MOBILNOSC("Mobilność", 50),
-    FANATYK("Fanatyk", 60),
+    ZELOTY("Zeloty", 60),
     CORE("Core", 70),
     AURA("Aura", 80),
     ODWAGA("Odwaga", 90),

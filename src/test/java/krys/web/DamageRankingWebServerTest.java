@@ -282,7 +282,7 @@ class DamageRankingWebServerTest {
         assertBasicCategoryAndFaith(response.body(), "wymach", "Podstawowe, Adept", "-", "14; Generowanie Wiary");
         assertBasicCategoryAndFaith(response.body(), "swiety_pocisk", "Podstawowe, Sędzia", "-", "16; Generowanie Wiary");
         assertBasicCategoryAndFaith(response.body(), "starcie", "Podstawowe, Moloch", "-", "20; Generowanie Wiary");
-        assertBasicCategoryAndFaith(response.body(), "natarcie", "Podstawowe, Mobilność, Fanatyk", "-", "18");
+        assertBasicCategoryAndFaith(response.body(), "natarcie", "Podstawowe, Mobilność, Zeloty", "-", "18");
         assertRowContains(response.body(), "wymach", ">26%</span>");
         assertRowContains(response.body(), "swiety_pocisk", ">57%</span>");
         assertRowContains(response.body(), "starcie", ">63%</span>");
@@ -324,6 +324,7 @@ class DamageRankingWebServerTest {
         assertFalse(visibleDmgMultiplierCell.contains("8%[X]"));
         assertFalse(visibleDmgMultiplierCell.contains("efekt co 3. atak"));
         assertTrue(cells.get(7).contains("Modyfikator: Brać Ich"));
+        assertTrue(cells.get(7).contains("Animusz wzmacnia Starcie"));
         assertTrue(cells.get(7).contains("Co 3. atak przyciąga do ciebie wrogów"));
         assertTrue(cells.get(7).contains("8%[x]"));
         assertTrue(cells.get(7).contains("Animuszu"));
@@ -331,9 +332,12 @@ class DamageRankingWebServerTest {
         assertTrue(visibleExtraComponentCell.contains("<span class=\"facet-name\">Potyczka</span>"));
         assertFalse(visibleExtraComponentCell.contains("155%"));
         assertFalse(visibleExtraComponentCell.contains("R1"));
-        assertTrue(cells.get(9).contains("Fanatyka"));
+        assertTrue(cells.get(9).contains("Zeloty"));
+        assertFalse(cells.get(9).contains("Fanatyk"));
+        assertFalse(cells.get(9).contains("Fanatyka"));
         assertTrue(cells.get(9).contains("Modyfikator: Potyczka"));
         assertTrue(cells.get(9).contains("155%"));
+        assertTrue(cells.get(9).contains("113 240 [155%]"));
         assertTrue(cells.get(9).contains("nie zapewnia już szansy na blok"));
         assertTrue(cells.get(9).contains("premii do szansy na trafienie krytyczne"));
         String visibleUtilityCell = stripTooltipAttributes(cells.get(12));
@@ -369,6 +373,18 @@ class DamageRankingWebServerTest {
         assertTrue(cells.get(13).contains("20%[x]"));
         assertFalse(clashRow.contains("damagePerUse"));
         assertFalse(clashRow.contains("theoreticalDps"));
+        assertFalse(clashRow.contains("Fanatyk"));
+        assertFalse(clashRow.contains("Fanatyka"));
+    }
+
+    @Test
+    void basicSourceMarkdownShouldUseCorrectedZealotTerminology() throws IOException {
+        String basicSource = Files.readString(Path.of("docs/paladin/source-md/paladin_basic_skill_registry_final.md"), StandardCharsets.UTF_8);
+
+        assertFalse(basicSource.contains("Fanatyk"));
+        assertFalse(basicSource.contains("Fanatyka"));
+        assertTrue(basicSource.contains("Mobilność, Zeloty"));
+        assertTrue(basicSource.contains("Starcie staje się umiejętnością Zeloty"));
     }
 
     @Test
@@ -482,6 +498,18 @@ class DamageRankingWebServerTest {
         String brandishExtraComponentRow = rowHtml(brandishExtraComponentResponse.body(), "wymach");
         assertTrue(brandishExtraComponentRow.contains("Krzyżowe Uderzenie"));
         assertFalse(stripTooltipAttributes(brandishExtraComponentRow).contains("120%"));
+
+        HttpResponse<String> zealotResponse = sendGet("/ranking-obrazen?character=paladin&q=zeloty");
+        assertEquals(200, zealotResponse.statusCode());
+        assertTrue(zealotResponse.body().contains("data-skill-id=\"starcie\""));
+        assertTrue(zealotResponse.body().contains("data-skill-id=\"natarcie\""));
+        assertTrue(rowHtml(zealotResponse.body(), "starcie").contains("Potyczka"));
+        assertTrue(rowHtml(zealotResponse.body(), "natarcie").contains("Podstawowe, Mobilność, Zeloty"));
+
+        HttpResponse<String> fanaticResponse = sendGet("/ranking-obrazen?character=paladin&q=fanatyk");
+        assertEquals(200, fanaticResponse.statusCode());
+        assertFalse(fanaticResponse.body().contains("data-skill-id=\"starcie\""));
+        assertFalse(fanaticResponse.body().contains("data-skill-id=\"natarcie\""));
     }
 
     @Test

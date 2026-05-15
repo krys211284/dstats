@@ -256,13 +256,13 @@ public final class UpgradeDamageModifier {
                     UpgradeDamageModifierType.ADDITIONAL_HIT_OR_STRIKE,
                     "155%",
                     UpgradeDamageValueKind.COMPONENT_PERCENT,
-                    "dodatkowe uderzenie; Starcie staje się umiejętnością Fanatyka",
+                    "dodatkowe uderzenie; Starcie staje się umiejętnością Zeloty",
                     true,
                     "ADDITIONAL_STRIKE_DAMAGE",
                     false,
                     UpgradeDamageSafety.YES,
                     UpgradeDamageSafety.NO,
-                    "Potyczka: Starcie staje się umiejętnością Fanatyka i wywołuje dodatkowe uderzenie za 155%. Marsz Krzyżowca nie zapewnia już szansy na blok, tylko 10%[+] premii do szansy na trafienie krytyczne, maksymalnie 30%[+].");
+                    "Potyczka: Starcie staje się umiejętnością Zeloty i wywołuje dodatkowe uderzenie za 113 240 [155%]. Marsz Krzyżowca nie zapewnia już szansy na blok, tylko 10%[+] premii do szansy na trafienie krytyczne, maksymalnie 30%[+].");
             case "kara" -> new UpgradeDamageModifier(
                     groupId,
                     upgrade.getName(),
@@ -346,10 +346,15 @@ public final class UpgradeDamageModifier {
     }
 
     public String getRankingTooltipDescription() {
-        return notes
+        String description = notes
                 .replaceFirst("^Efekt bazowy [^:]+: ", "")
                 .replaceFirst("^Lokalny Markdown [^:]+ podaje: ", "")
                 .replaceFirst("^Lokalny Markdown [^ ]+ podaje ", "");
+        String ownLabel = upgradeName + ": ";
+        if (description.startsWith(ownLabel)) {
+            return description.substring(ownLabel.length());
+        }
+        return description;
     }
 
     public boolean isDirectDamageModifier() {
