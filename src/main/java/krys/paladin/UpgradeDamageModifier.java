@@ -88,7 +88,7 @@ public final class UpgradeDamageModifier {
                     false,
                     UpgradeDamageSafety.YES,
                     UpgradeDamageSafety.NO,
-                    "Źródło Brandish podaje dodatkowe generowanie wiary; to nie jest bezpośredni damage.");
+                    "Wymach generuje dodatkowo 5 pkt. wiary.");
             case "zwiekszenie_obrazen" -> new UpgradeDamageModifier(
                     groupId,
                     upgrade.getName(),
@@ -102,7 +102,7 @@ public final class UpgradeDamageModifier {
                     false,
                     UpgradeDamageSafety.YES,
                     UpgradeDamageSafety.NO,
-                    "Dla Wymachu lokalny Markdown podaje obrażenia zwiększone o 20%[x]. Dla innych skilli wymaga potwierdzenia mechaniki runtime.");
+                    "Wymach zadaje obrażenia zwiększone o 20%[x].");
             case "szybkosc_uzycia", "zwiekszenie_szybkosci_uzycia" -> new UpgradeDamageModifier(
                     groupId,
                     upgrade.getName(),
@@ -116,7 +116,7 @@ public final class UpgradeDamageModifier {
                     false,
                     UpgradeDamageSafety.YES,
                     UpgradeDamageSafety.NO,
-                    "Szybkość użycia może wpływać pośrednio na rotację, ale nie jest bezpośrednim procentem obrażeń.");
+                    "Wymach ma zwiększoną o 20%[+] szybkość użycia.");
             case "odsloniecie" -> new UpgradeDamageModifier(
                     groupId,
                     upgrade.getName(),
@@ -130,7 +130,7 @@ public final class UpgradeDamageModifier {
                     false,
                     UpgradeDamageSafety.YES,
                     UpgradeDamageSafety.NO,
-                    "Status zwiększa potencjalne obrażenia pośrednio; runtime wymaga osobnego kontraktu.");
+                    "Wymach wywołuje Odsłonięcie wrogów na 4 sek. Odsłonięci wrogowie otrzymują obrażenia zwiększone o 20%.");
             case "powracajaca_swiatlosc" -> new UpgradeDamageModifier(
                     groupId,
                     upgrade.getName(),
@@ -144,7 +144,7 @@ public final class UpgradeDamageModifier {
                     false,
                     UpgradeDamageSafety.YES,
                     UpgradeDamageSafety.NO,
-                    "Lokalny Markdown Wymachu podaje powrotny komponent 52%.");
+                    "Światłość Wymachu powraca do ciebie, zadając w drodze powrotnej 52% pkt. obrażeń.");
             case "miecz_mistrzostwa" -> new UpgradeDamageModifier(
                     groupId,
                     upgrade.getName(),
@@ -158,7 +158,7 @@ public final class UpgradeDamageModifier {
                     false,
                     UpgradeDamageSafety.YES,
                     UpgradeDamageSafety.NO,
-                    "Lokalny Markdown Wymachu podaje warunkowe 128% i szybsze przemieszczenie.");
+                    "Gdy jesteś w pełni sił, Wymach zadaje 128% pkt. obrażeń i przemieszcza się o 100% szybciej. Pełnia sił oznacza więcej niż 80% zdrowia.");
             case "krzyzowe_uderzenie" -> new UpgradeDamageModifier(
                     groupId,
                     upgrade.getName(),
@@ -172,7 +172,7 @@ public final class UpgradeDamageModifier {
                     false,
                     UpgradeDamageSafety.YES,
                     UpgradeDamageSafety.NO,
-                    "Lokalny Markdown Wymachu podaje 2 dodatkowe łuki po 120%; bez sumowania w single target.");
+                    "Wymach uderza 2 dodatkowymi łukami zadającymi 120% pkt. obrażeń.");
             default -> null;
         };
     }
@@ -192,7 +192,7 @@ public final class UpgradeDamageModifier {
                     false,
                     UpgradeDamageSafety.YES,
                     UpgradeDamageSafety.NO,
-                    "Lokalny Markdown Starcia podaje: Starcie generuje dodatkowe 10 pkt. wiary.");
+                    "Starcie generuje dodatkowe 10 pkt. wiary.");
             case "animusz" -> new UpgradeDamageModifier(
                     groupId,
                     upgrade.getName(),
@@ -220,7 +220,7 @@ public final class UpgradeDamageModifier {
                     false,
                     UpgradeDamageSafety.YES,
                     UpgradeDamageSafety.NO,
-                    "Skuteczność Marszu Krzyżowca: skuteczność Marszu Krzyżowca zwiększona o 25%[x]. To efekt utility/defense, nie DPS runtime.");
+                    "Skuteczność Marszu Krzyżowca: skuteczność Marszu Krzyżowca zwiększa się o 25%[x].");
             case "zwiekszenie_obrazen" -> new UpgradeDamageModifier(
                     groupId,
                     upgrade.getName(),
@@ -234,7 +234,7 @@ public final class UpgradeDamageModifier {
                     false,
                     UpgradeDamageSafety.YES,
                     UpgradeDamageSafety.NO,
-                    "Lokalny Markdown Starcia podaje obrażenia zwiększone o 20%[x]. Wartość jest tylko prezentacyjna i nie odblokowuje runtime DPS.");
+                    "Starcie zadaje obrażenia zwiększone o 20%[x].");
             case "brac_ich" -> new UpgradeDamageModifier(
                     groupId,
                     upgrade.getName(),
@@ -248,7 +248,7 @@ public final class UpgradeDamageModifier {
                     false,
                     UpgradeDamageSafety.YES,
                     UpgradeDamageSafety.NO,
-                    "Brać Ich: Animusz wzmacnia Starcie, które zadaje obrażenia zwiększone o 8%[x] za każdy poziom Animuszu. Warunkowe, nie sumowane i nie używane w runtime DPS.");
+                    "Brać Ich: Animusz wzmacnia Starcie, które zadaje obrażenia zwiększone o 8%[x] za każdy poziom kumulacji Animuszu. Co 3. atak przyciąga do ciebie wrogów.");
             case "potyczka" -> new UpgradeDamageModifier(
                     groupId,
                     upgrade.getName(),
@@ -262,7 +262,7 @@ public final class UpgradeDamageModifier {
                     false,
                     UpgradeDamageSafety.YES,
                     UpgradeDamageSafety.NO,
-                    "Potyczka: Starcie staje się umiejętnością Fanatyka i wywołuje dodatkowe uderzenie za 155%. Marsz Krzyżowca nie zapewnia już szansy na blok, tylko 10%[+] premii do szansy na trafienie krytyczne, maks. 30%[+]. Wartość nie jest sumowana z bazowymi obrażeniami.");
+                    "Potyczka: Starcie staje się umiejętnością Fanatyka i wywołuje dodatkowe uderzenie za 155%. Marsz Krzyżowca nie zapewnia już szansy na blok, tylko 10%[+] premii do szansy na trafienie krytyczne, maksymalnie 30%[+].");
             case "kara" -> new UpgradeDamageModifier(
                     groupId,
                     upgrade.getName(),
@@ -331,6 +331,25 @@ public final class UpgradeDamageModifier {
 
     public String getNotes() {
         return notes;
+    }
+
+    public String getRankingTooltipSourceLabel() {
+        if (safeForRankingDisplay == UpgradeDamageSafety.NEEDS_MANUAL_REVIEW
+                || type == UpgradeDamageModifierType.NEEDS_MANUAL_REVIEW
+                || type == UpgradeDamageModifierType.THORNS_DAMAGE_MODIFIER) {
+            return "Manual review";
+        }
+        if (upgradeGroup.equals("efekt_bazowy")) {
+            return "Umiejętność";
+        }
+        return "Modyfikator";
+    }
+
+    public String getRankingTooltipDescription() {
+        return notes
+                .replaceFirst("^Efekt bazowy [^:]+: ", "")
+                .replaceFirst("^Lokalny Markdown [^:]+ podaje: ", "")
+                .replaceFirst("^Lokalny Markdown [^ ]+ podaje ", "");
     }
 
     public boolean isDirectDamageModifier() {

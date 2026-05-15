@@ -85,7 +85,7 @@ public final class PaladinSkillTreeRegistry {
                         "Marsz Krzyżowca",
                         "15%[X]",
                         "6 sek.",
-                        "Trafienie wroga Starciem zwiększa szansę na blok o 15%[x] na 6 sek. To opisowy efekt defensywny i nie odblokowuje runtime DPS."
+                        "Trafienie wroga Starciem zwiększa szansę na blok o 15%[x] na 6 sek."
                 ))));
         put(skills, skill("natarcie", "Natarcie", BASIC_PDF, "basic", damagePercentRanks(
                         105, 115, 126, 136, 152, 163, 173, 184, 194, 210, 220, 231, 241, 252, 268

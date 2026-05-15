@@ -17,13 +17,10 @@ import java.io.InputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /** Renderuje ogólny ranking obrażeń z blokadą niezweryfikowanych mechanik DPS. */
 public final class DamageRankingPageRenderer {
     private static final String PAGE_PATH = "/ranking-obrazen";
-    private static final Pattern PERCENT_VALUE_PATTERN = Pattern.compile("(\\d+%\\[[X+]\\]|\\d+%)");
     private final String template;
 
     public DamageRankingPageRenderer() {
@@ -411,13 +408,17 @@ public final class DamageRankingPageRenderer {
     }
 
     private static String renderFaithGenerationCell(DamageRankingRow row) {
-        String summary = row.getFaithGenerationSummary();
         if (row.getFaithGenerationBonusKnown() == null) {
-            return escapeHtml(summary);
+            return escapeHtml(row.getFaithGenerationSummary());
         }
-        String tooltip = "Modyfikator: Generowanie Wiary — dodaje +"
-                + row.getFaithGenerationBonusKnown()
-                + " Wiary.";
+        String summary = row.getFaithGenerationBaseSortValue() + "; Generowanie Wiary";
+        String tooltip = row.resourceModifiers().stream()
+                .filter(modifier -> modifier.getUpgradeName().equals("Generowanie Wiary"))
+                .findFirst()
+                .map(DamageRankingPageRenderer::modifierTooltip)
+                .orElse("Modyfikator: Generowanie Wiary — dodatkowe "
+                        + row.getFaithGenerationBonusKnown()
+                        + " pkt. wiary.");
         return "<span class=\"ranking-tooltip\" title=\"" + escapeHtml(tooltip) + "\" aria-label=\"" + escapeHtml(tooltip) + "\">"
                 + escapeHtml(summary)
                 + "</span>";
@@ -505,77 +506,15 @@ public final class DamageRankingPageRenderer {
                     .append("\" aria-label=\"")
                     .append(escapeHtml(modifierTooltip(modifier)))
                     .append("\">")
-                    .append(renderValueFirstModifier(modifier))
+                    .append(renderModifierName(modifier))
                     .append("</li>");
         }
         html.append("</ul>");
         return html.toString();
     }
 
-    private static String renderValueFirstModifier(UpgradeDamageModifier modifier) {
-        String semanticSummary = semanticModifierSummary(modifier);
-        if (semanticSummary != null) {
-            return semanticSummary;
-        }
-        String value = modifier.getValue();
-        String name = modifier.getUpgradeName();
-        String suffix = valueSuffix(modifier);
-        if (modifier.getSafeForRankingDisplay() == UpgradeDamageSafety.NEEDS_MANUAL_REVIEW) {
-            String manualValue = isConcreteValue(value) ? value : "wymaga weryfikacji";
-            return "<span class=\"facet-value\">" + escapeHtml(manualValue) + "</span>"
-                    + " <span class=\"facet-name\">&mdash; " + escapeHtml(name) + "</span>";
-        }
-        if (!isConcreteValue(value)) {
-            if (modifier.getType() == UpgradeDamageModifierType.STATUS_DAMAGE_ENABLER
-                    || modifier.getType() == UpgradeDamageModifierType.DEFENSE_OR_UTILITY) {
-                return "<span class=\"facet-name\">" + escapeHtml(name) + "</span>";
-            }
-            return "<span class=\"facet-name\">" + escapeHtml(name) + "</span>"
-                    + " <span class=\"facet-value\">" + escapeHtml(shortModifierDescription(modifier)) + "</span>";
-        }
-        Matcher matcher = PERCENT_VALUE_PATTERN.matcher(value);
-        if (matcher.find() && matcher.start() > 0) {
-            String percent = matcher.group();
-            String beforePercent = value.substring(0, matcher.start()).replace(";", "").trim();
-            StringBuilder rendered = new StringBuilder("<span class=\"facet-value\">")
-                    .append(escapeHtml(percent))
-                    .append("</span> <span class=\"facet-name\">&mdash; ")
-                    .append(escapeHtml(name));
-            if (!beforePercent.isBlank()) {
-                rendered.append(", ").append(escapeHtml(beforePercent));
-            }
-            if (!suffix.isBlank()) {
-                rendered.append(escapeHtml(suffix));
-            }
-            rendered.append("</span>");
-            return rendered.toString();
-        }
-        StringBuilder rendered = new StringBuilder("<span class=\"facet-value\">")
-                .append(escapeHtml(value))
-                .append("</span> <span class=\"facet-name\">&mdash; ")
-                .append(escapeHtml(name));
-        if (!suffix.isBlank()) {
-            rendered.append(escapeHtml(suffix));
-        }
-        rendered.append("</span>");
-        return rendered.toString();
-    }
-
-    private static String semanticModifierSummary(UpgradeDamageModifier modifier) {
-        return switch (modifier.getUpgradeName()) {
-            case "Animusz" -> "<span class=\"facet-name\">Animusz</span>"
-                    + " <span class=\"facet-value\">&mdash; 2 kumulacje</span>";
-            case "Marsz Krzyżowca" -> "<span class=\"facet-name\">Marsz Krzyżowca</span>"
-                    + " <span class=\"facet-value\">&mdash; szansa na blok</span>";
-            case "Skuteczność Marszu Krzyżowca" -> "<span class=\"facet-name\">Skuteczność Marszu Krzyżowca</span>";
-            case "Brać Ich" -> "<span class=\"facet-name\">Brać Ich</span>"
-                    + " <span class=\"facet-value\">&mdash; efekt co 3. atak</span>";
-            case "Potyczka" -> "<span class=\"facet-value\">155% R1</span>"
-                    + " <span class=\"facet-name\">&mdash; Potyczka</span>";
-            case "Kara" -> "<span class=\"facet-name\">Kara</span>"
-                    + " <span class=\"facet-value\">&mdash; Odwet / ciernie</span>";
-            default -> null;
-        };
+    private static String renderModifierName(UpgradeDamageModifier modifier) {
+        return "<span class=\"facet-name\">" + escapeHtml(modifier.getUpgradeName()) + "</span>";
     }
 
     private static boolean isConcreteValue(String value) {
@@ -623,42 +562,11 @@ public final class DamageRankingPageRenderer {
     }
 
     private static String modifierTooltip(UpgradeDamageModifier modifier) {
-        return switch (modifier.getUpgradeName()) {
-            case "Generowanie Wiary" -> "Modyfikator: " + modifier.getUpgradeName() + " — dodaje "
-                    + normalizedFaithBonus(modifier.getValue())
-                    + " Wiary.";
-            case "Marsz Krzyżowca" -> "Umiejętność: Marsz Krzyżowca — Starcie zapewnia 15%[X] dodatkowej szansy na blok przez 6 sek.";
-            case "Animusz" -> "Modyfikator: Animusz — trafienie Starciem zapewnia 2 kumulacje Animuszu.";
-            case "Skuteczność Marszu Krzyżowca" -> "Modyfikator: Skuteczność Marszu Krzyżowca — opisuje efekt 25%[X] zgodnie z danymi źródłowymi.";
-            case "Zwiększenie Obrażeń" -> "Modyfikator: Zwiększenie Obrażeń — " + modifier.getValue() + ".";
-            case "Brać Ich" -> "Modyfikator: Brać Ich — Starcie przyciąga wrogów co 3. atak; zawiera efekt 8%[X] za każdy poziom Animuszu.";
-            case "Potyczka" -> "Modyfikator: Potyczka — Starcie staje się umiejętnością Fanatyka; komponent obrażeń 155% dotyczy R1 i skaluje się z rangą; bonus do bloku znika i zostaje zastąpiony szansą na trafienie krytyczne.";
-            case "Kara" -> "Manual review: Kara — 30%[+] szansy na Odwet, 3489 cierni oraz 20%[X] obrażeń od cierni.";
-            default -> genericModifierTooltip(modifier);
-        };
-    }
-
-    private static String genericModifierTooltip(UpgradeDamageModifier modifier) {
-        String description = shortModifierDescription(modifier);
-        if (!modifier.getCondition().equals("po wyborze ulepszenia")
-                && !modifier.getCondition().equals("brak bezpiecznego kontraktu runtime")) {
-            description = description + "; " + modifier.getCondition();
-        }
-        return modifierTooltipPrefix(modifier) + modifier.getUpgradeName() + " — " + description + ".";
-    }
-
-    private static String modifierTooltipPrefix(UpgradeDamageModifier modifier) {
-        if (modifier.getSafeForRankingDisplay() == UpgradeDamageSafety.NEEDS_MANUAL_REVIEW) {
-            return "Manual review: ";
-        }
-        if (modifier.getUpgradeGroup().equals("base")) {
-            return "Umiejętność: ";
-        }
-        return "Modyfikator: ";
-    }
-
-    private static String normalizedFaithBonus(String value) {
-        return value.replace(" Faith", ""); 
+        return modifier.getRankingTooltipSourceLabel()
+                + ": "
+                + modifier.getUpgradeName()
+                + " — "
+                + modifier.getRankingTooltipDescription();
     }
 
     private static String treeGroupDisplayName(String skillGroup) {
