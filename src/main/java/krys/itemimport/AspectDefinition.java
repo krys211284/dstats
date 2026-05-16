@@ -12,6 +12,8 @@ public final class AspectDefinition {
     private final String id;
     private final String displayName;
     private final String effectDescription;
+    private final AspectType aspectType;
+    private final AspectRuntimeStatus runtimeStatus;
     private final Set<EquipmentSlot> allowedItemSlots;
     private final Set<HeroClass> heroClasses;
     private final List<String> tags;
@@ -19,6 +21,18 @@ public final class AspectDefinition {
     public AspectDefinition(String id,
                             String displayName,
                             String effectDescription,
+                            Set<EquipmentSlot> allowedItemSlots,
+                            Set<HeroClass> heroClasses,
+                            List<String> tags) {
+        this(id, displayName, effectDescription, AspectType.LEGENDARY, AspectRuntimeStatus.DESCRIPTIVE_ONLY,
+                allowedItemSlots, heroClasses, tags);
+    }
+
+    public AspectDefinition(String id,
+                            String displayName,
+                            String effectDescription,
+                            AspectType aspectType,
+                            AspectRuntimeStatus runtimeStatus,
                             Set<EquipmentSlot> allowedItemSlots,
                             Set<HeroClass> heroClasses,
                             List<String> tags) {
@@ -37,6 +51,8 @@ public final class AspectDefinition {
         this.id = id;
         this.displayName = displayName;
         this.effectDescription = effectDescription;
+        this.aspectType = aspectType == null ? AspectType.LEGENDARY : aspectType;
+        this.runtimeStatus = runtimeStatus == null ? AspectRuntimeStatus.DESCRIPTIVE_ONLY : runtimeStatus;
         this.allowedItemSlots = EnumSet.copyOf(allowedItemSlots);
         this.heroClasses = heroClasses == null || heroClasses.isEmpty()
                 ? EnumSet.noneOf(HeroClass.class)
@@ -54,6 +70,18 @@ public final class AspectDefinition {
 
     public String getEffectDescription() {
         return effectDescription;
+    }
+
+    public AspectType getAspectType() {
+        return aspectType;
+    }
+
+    public AspectRuntimeStatus getRuntimeStatus() {
+        return runtimeStatus;
+    }
+
+    public boolean isUniqueAspect() {
+        return aspectType == AspectType.UNIQUE;
     }
 
     public Set<EquipmentSlot> getAllowedItemSlots() {

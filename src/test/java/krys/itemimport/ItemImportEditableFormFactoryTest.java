@@ -37,7 +37,7 @@ class ItemImportEditableFormFactoryTest {
 
         assertEquals("tarcza.png", form.getSourceImageName());
         assertEquals("OFF_HAND", form.getSlot());
-        assertEquals("", form.getWeaponDamage());
+        assertEquals("0", form.getWeaponDamage());
         assertEquals("55", form.getStrength());
         assertEquals("12", form.getIntelligence());
         assertEquals("90", form.getThorns());
@@ -117,5 +117,51 @@ class ItemImportEditableFormFactoryTest {
         assertEquals(ItemImportFieldConfidence.UNKNOWN, form.getOcrAspectConfidence());
         assertEquals("", form.getSelectedAspectId());
         assertEquals("Aspekt zupełnie nieznany z OCR", form.getFullItemRead().getLines().getFirst().getText());
+    }
+
+    @Test
+    void shouldPrefillVerathielManualConfirmationFromNoisyOcrDetailsWithoutLegacyWeaponDamage() {
+        ItemImageImportCandidateParseResult parseResult = new ItemImageImportTextParser().parse(
+                new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768),
+                """
+                        ODLFIK VERATHEL
+                        Starożytny unikatowy miecz
+                        Moc przedmiotu. 900
+                        1 830 pkt. obrażeń na sek.
+                        [1 350 - 1 978] pkt. obrażeń za trafienie
+                        1,10 ataku na sekundę
+                        """
+        );
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
+
+        assertEquals("Odłamek Verathiela", form.getItemName());
+        assertEquals("Miecz", form.getItemType());
+        assertEquals("UNIQUE", form.getItemRarity());
+        assertEquals(true, form.isAncient());
+        assertEquals("MAIN_HAND", form.getSlot());
+        assertEquals("900", form.getItemPower());
+        assertEquals("1830", form.getWeaponDps());
+        assertEquals("1350", form.getWeaponDamageMin());
+        assertEquals("1978", form.getWeaponDamageMax());
+        assertEquals("1664", form.getAverageWeaponDamage());
+        assertEquals("1.10", form.getAttacksPerSecond());
+        assertEquals("0", form.getWeaponDamage());
+    }
+
+    @Test
+    void shouldSelectVerathielUniqueAspectFromRecognizedUniqueEffect() {
+        ItemImageImportCandidateParseResult parseResult = new ItemImageImportTextParser().parse(
+                new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768),
+                ItemImageImportTextParserTest.verathielRawText()
+        );
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
+        AspectDefinition aspect = ApplicationAspectRegistry.get().findById(form.getSelectedAspectId()).orElseThrow();
+
+        assertEquals("verathiel_shard", form.getOcrSuggestedAspectId());
+        assertEquals("verathiel_shard", form.getSelectedAspectId());
+        assertEquals(AspectType.UNIQUE, aspect.getAspectType());
+        assertEquals(AspectRuntimeStatus.DESCRIPTIVE_ONLY, aspect.getRuntimeStatus());
     }
 }

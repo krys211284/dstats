@@ -1,11 +1,16 @@
 package krys.itemimport;
 
 import krys.item.EquipmentSlot;
+import krys.itemlibrary.FileItemLibraryRepository;
+import krys.itemlibrary.ItemLibraryService;
+import krys.itemlibrary.SavedImportedItem;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -161,5 +166,31 @@ class ItemImportFormMapperTest {
 
         assertNull(result.getItem());
         assertTrue(result.getErrors().contains("Wybrany aspekt nie pasuje do slotu itemu."));
+    }
+
+    @Test
+    void shouldKeepVerathielWeaponDetailsOutOfLegacyWeaponDamageInFullFlow() throws Exception {
+        ItemImageImportCandidateParseResult parseResult = new ItemImageImportTextParser().parse(
+                new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768),
+                ItemImageImportTextParserTest.verathielRawText()
+        );
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
+
+        ItemImportFormMapper.MappingResult mappingResult = new ItemImportFormMapper().map(form);
+        assertTrue(mappingResult.getErrors().isEmpty(), () -> String.join(", ", mappingResult.getErrors()));
+
+        ItemLibraryService service = new ItemLibraryService(new FileItemLibraryRepository(Files.createTempDirectory("verathiel-flow")));
+        SavedImportedItem saved = service.saveImportedItem(mappingResult.getItem(), form.getFullItemRead());
+        SavedImportedItem reloaded = service.requireItem(saved.getItemId());
+
+        assertEquals(1830L, reloaded.getWeaponDps());
+        assertEquals(1350L, reloaded.getWeaponDamageMin());
+        assertEquals(1978L, reloaded.getWeaponDamageMax());
+        assertEquals(1664L, reloaded.getAverageWeaponDamage());
+        assertEquals(0L, reloaded.getWeaponDamage());
+        assertFalse(reloaded.getWeaponDamage() == 1830L);
+        assertEquals("verathiel_shard", reloaded.getSelectedAspectId());
+        assertEquals(4, reloaded.getAffixes().size());
+        assertTrue(reloaded.getUniqueEffectText().contains("100%[x]"));
     }
 }

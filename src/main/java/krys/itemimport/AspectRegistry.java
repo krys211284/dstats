@@ -46,7 +46,22 @@ public final class AspectRegistry {
                 .filter(line -> line.getType() == FullItemReadLineType.ASPECT)
                 .map(FullItemReadLine::getText)
                 .reduce("", (left, right) -> left + " " + right);
+        String allText = fullItemRead.getItemName() + " "
+                + fullItemRead.getItemTypeLine() + " "
+                + fullItemRead.getRarity() + " "
+                + fullItemRead.getDetails().getItemName() + " "
+                + fullItemRead.getDetails().getItemType() + " "
+                + fullItemRead.getDetails().getItemRarity() + " "
+                + fullItemRead.getDetails().getUniqueEffectText() + " "
+                + fullItemRead.getLines().stream()
+                .map(FullItemReadLine::getText)
+                .reduce("", (left, right) -> left + " " + right);
         String normalized = normalize(aspectText);
+        String normalizedAll = normalize(allText);
+        if (looksLikeVerathielUniqueAspect(normalizedAll)) {
+            return findById("verathiel_shard")
+                    .map(definition -> new AspectMatch(definition.getId(), ItemImportFieldConfidence.HIGH));
+        }
         if (normalized.contains("ZADAJESZ OBRAZENIA ZWIEKSZONE")
                 && normalized.contains("TA PREMIA JEST TRZY RAZY WIEKSZA")) {
             return findById("inner-calm")
@@ -57,6 +72,19 @@ public final class AspectRegistry {
                     .map(definition -> new AspectMatch(definition.getId(), ItemImportFieldConfidence.MEDIUM));
         }
         return Optional.empty();
+    }
+
+    private static boolean looksLikeVerathielUniqueAspect(String normalizedAll) {
+        String collapsed = normalizedAll.replaceAll("[^A-Z0-9]", "");
+        boolean itemContext = (collapsed.contains("VERATHEL") || collapsed.contains("VERATHIEL"))
+                && (collapsed.contains("MIECZ") || collapsed.contains("SWORD"))
+                && (collapsed.contains("UNIKAT") || collapsed.contains("UNIQUE"));
+        boolean effectContext = collapsed.contains("UMIEJETNOSCIPODSTAWOWE")
+                && (collapsed.contains("PODSTAWOWEGOZASOBU") || collapsed.contains("PODSTAWOWYZASOB"))
+                && collapsed.contains("25")
+                && collapsed.contains("70")
+                && collapsed.contains("100");
+        return itemContext && effectContext;
     }
 
     private static String normalize(String value) {

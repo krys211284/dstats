@@ -102,7 +102,20 @@ final class ItemImageImportCandidateMerger {
             }
         }
 
-        return new FullItemRead(itemName, itemTypeLine, rarity, itemPower, baseItemValue, List.copyOf(mergedLines.values()));
+        FullItemRead mergedRead = ItemImageImportTextParser.buildFullItemRead(
+                mergedLines.values().stream()
+                        .map(FullItemReadLine::getText)
+                        .toList()
+        );
+        return new FullItemRead(
+                itemName.isBlank() ? mergedRead.getItemName() : itemName,
+                itemTypeLine.isBlank() ? mergedRead.getItemTypeLine() : itemTypeLine,
+                rarity.isBlank() ? mergedRead.getRarity() : rarity,
+                itemPower.isBlank() ? mergedRead.getItemPower() : itemPower,
+                baseItemValue.isBlank() ? mergedRead.getBaseItemValue() : baseItemValue,
+                List.copyOf(mergedLines.values()),
+                mergedRead.getDetails()
+        );
     }
 
     private static String fullReadLineDeduplicationKey(FullItemReadLine line) {

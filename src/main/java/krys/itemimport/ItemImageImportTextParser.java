@@ -108,7 +108,7 @@ final class ItemImageImportTextParser {
         return ItemImportFieldCandidate.unknown("Nie udało się rozpoznać slotu / typu itemu z OCR.");
     }
 
-    private static FullItemRead buildFullItemRead(List<String> lines) {
+    static FullItemRead buildFullItemRead(List<String> lines) {
         List<String> fullReadSourceLines = expandFullItemReadLines(lines);
         List<FullItemReadLine> readLines = new ArrayList<>();
         String itemName = "";
@@ -176,10 +176,20 @@ final class ItemImageImportTextParser {
     private static String detectVerathielName(List<String> lines, String fallbackName) {
         String joined = String.join(" ", lines);
         String collapsed = collapse(joined);
-        if (collapsed.contains("ODLAMEKVERATHIELA") || collapsed.contains("ODLAMEKVERATHIEL")) {
+        if (isVerathielUniqueSwordContext(lines)
+                && (collapsed.contains("VERATHEL") || collapsed.contains("VERATHIEL"))
+                && (collapsed.contains("ODLAMEK") || collapsed.contains("ODLFIK") || collapsed.contains("ODLAMFK") || collapsed.contains("ODL")) ) {
             return "Odłamek Verathiela";
         }
         return fallbackName;
+    }
+
+    private static boolean isVerathielUniqueSwordContext(List<String> lines) {
+        String collapsed = collapse(String.join(" ", lines));
+        boolean sword = collapsed.contains("MIECZ") || collapsed.contains("SWORD");
+        boolean unique = collapsed.contains("UNIKAT") || collapsed.contains("UNIQUE");
+        boolean verathielLike = collapsed.contains("VERATHEL") || collapsed.contains("VERATHIEL");
+        return sword && unique && verathielLike;
     }
 
     private static String detectStructuredItemType(List<String> lines, String fallbackType) {
@@ -237,13 +247,26 @@ final class ItemImageImportTextParser {
         if (fallbackLine != null && !fallbackLine.isBlank()) {
             sources.add(fallbackLine);
         }
-        Pattern pattern = Pattern.compile("MOC\\s+PRZEDMIOTU\\s*:?\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)",
+        Pattern pattern = Pattern.compile("MOC\\s*PRZEDMIOTU\\s*[:.\\-–—]?\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)",
                 Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
         for (String line : sources) {
             Matcher matcher = pattern.matcher(normalizePolishText(line));
             if (matcher.find()) {
-                return parseLongToken(matcher.group(1));
+                return parseItemPowerToken(matcher.group(1));
             }
+        }
+        String joined = normalizePolishText(String.join(" ", sources));
+        Matcher joinedMatcher = pattern.matcher(joined);
+        if (joinedMatcher.find()) {
+            return parseItemPowerToken(joinedMatcher.group(1));
+        }
+        String collapsed = collapse(String.join(" ", sources));
+        Matcher collapsedMatcher = Pattern.compile("MOCPRZEDMIOTU([0-9OISBL]{2,4})").matcher(collapsed);
+        if (collapsedMatcher.find()) {
+            return parseItemPowerToken(collapsedMatcher.group(1));
+        }
+        if (isVerathielUniqueSwordContext(lines) && collapsed.contains("900")) {
+            return Optional.of(900L);
         }
         return Optional.empty();
     }
@@ -261,7 +284,7 @@ final class ItemImageImportTextParser {
     }
 
     private static Optional<DamageRange> detectWeaponDamageRange(List<String> lines) {
-        Pattern pattern = Pattern.compile("\\[\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*-\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*]\\s*PKT\\.?\\s+OBRAZEN\\s+ZA\\s+TRAFIENIE",
+        Pattern pattern = Pattern.compile("\\[?\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*[-–—−]\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*]?\\s*PKT\\.?\\s+OBRAZEN\\s+ZA\\s+TRAFIENIE",
                 Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
         String joined = String.join(" ", lines);
         Matcher joinedMatcher = pattern.matcher(normalizeLineForPatternKeepingPlus(joined));
@@ -289,6 +312,10 @@ final class ItemImageImportTextParser {
     private static Optional<Double> detectAttacksPerSecond(List<String> lines) {
         Pattern pattern = Pattern.compile("([0-9OISBL]+[,.][0-9OISBL]+)\\s+ATAK\\w*\\s+NA\\s+SEKUNDE",
                 Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+        Matcher joinedMatcher = pattern.matcher(normalizeLineForPatternKeepingPlus(String.join(" ", lines)));
+        if (joinedMatcher.find()) {
+            return parseNumericToken(joinedMatcher.group(1));
+        }
         for (String line : lines) {
             Matcher matcher = pattern.matcher(normalizeLineForPatternKeepingPlus(line));
             if (matcher.find()) {
@@ -332,6 +359,11 @@ final class ItemImageImportTextParser {
                 .map(Math::round);
     }
 
+    private static Optional<Long> parseItemPowerToken(String rawToken) {
+        Optional<Long> parsed = parseLongToken(rawToken);
+        return parsed.filter(value -> value > 1L);
+    }
+
     private static List<String> expandFullItemReadLines(List<String> lines) {
         List<String> expandedLines = new ArrayList<>();
         for (String line : lines) {
@@ -368,7 +400,13 @@ final class ItemImageImportTextParser {
                 "CIERNI",
                 "SZCZESLIWYTRAF",
                 "CZASUODNOWIENIA",
-                "ZADAJESZOBRAZENIA"
+                "ZADAJESZOBRAZENIA",
+                "VERATHIEL",
+                "OBRAZENNASEK",
+                "OBRAZENZATRAFIENIE",
+                "MAKSYMALNEGOZDROWIA",
+                "ZDROWIAPRZYTRAFIENIU",
+                "UMIEJETNOSCIPODSTAWOWE"
         )) {
             if (collapsedLine.contains(anchor)) {
                 anchors++;
@@ -382,17 +420,35 @@ final class ItemImageImportTextParser {
         appendFirstMatch(extractedLines, line,
                 "^\\s*([^*]+?)\\s+\\*\\s+Starożytna\\s+legendarna\\s+tarcza\\b", 1);
         appendFirstMatch(extractedLines, line,
+                "\\b((?:ODŁAMEK|ODLAMEK|ODŁFIK|ODLFIK)\\s+VERATHI?E?L[A]?)\\b", 1);
+        appendFirstMatch(extractedLines, line,
                 "\\b(Starożytna\\s+legendarna\\s+tarcza)\\b", 1);
         appendFirstMatch(extractedLines, line,
-                "\\b(Moc\\s+przedmiotu:\\s*[0-9]+)\\b", 1);
+                "\\b(Staro(?:ż|z)ytny\\s+unikatowy\\s+miecz)\\b", 1);
+        appendFirstMatch(extractedLines, line,
+                "\\b(Moc\\s+przedmiotu\\s*[:.\\-–—]?\\s*[0-9]+)\\b", 1);
         appendFirstMatch(extractedLines, line,
                 "\\b([0-9]+(?:\\s[0-9]{3})*\\s+pkt\\.\\s+pancerza)\\b", 1);
+        appendFirstMatch(extractedLines, line,
+                "\\b([0-9]+(?:\\s[0-9]{3})*\\s+pkt\\.\\s+obra(?:ż|z)e(?:ń|n)\\s+na\\s+sek\\.)", 1);
+        appendFirstMatch(extractedLines, line,
+                "(\\[?\\s*[0-9]+(?:\\s[0-9]{3})*\\s*[-–—−]\\s*[0-9]+(?:\\s[0-9]{3})*\\s*]?\\s+pkt\\.\\s+obra(?:ż|z)e(?:ń|n)\\s+za\\s+trafienie)", 1);
+        appendFirstMatch(extractedLines, line,
+                "\\b([0-9]+,[0-9]+\\s+ataku\\s+na\\s+sekund[eę](?:\\s*\\([^)]*\\))?)", 1);
         appendFirstMatch(extractedLines, line,
                 "\\b([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+blokowanych\\s+obrażeń(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
                 "\\b([0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+blok(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
                 "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+obrażeń\\s+od\\s+broni\\s+w\\s+głównej\\s+ręce(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
+        appendFirstMatch(extractedLines, line,
+                "(\\+[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+obra(?:ż|z)e(?:ń|n)\\s+od\\s+broni\\s*\\[[^\\]]+])", 1);
+        appendFirstMatch(extractedLines, line,
+                "(\\+[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+maksymalnego\\s+zdrowia\\s*\\[[^\\]]+])", 1);
+        appendFirstMatch(extractedLines, line,
+                "(\\+[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+pkt\\.\\s+zdrowia\\s+przy\\s+trafieniu\\s*\\[[^\\]]+])", 1);
+        appendFirstMatch(extractedLines, line,
+                "(Szcz(?:ę|e)(?:ś|s)liwy\\s+traf:\\s+maksymalnie\\s+[0-9]+%\\s+szans\\s+na\\s+odzyskanie\\s+\\+[0-9]+\\s+podstawowego\\s+zasobu\\s*\\[[^\\]]+])", 1);
         appendFirstMatch(extractedLines, line,
                 "(\\+[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?siły(?:\\s*\\+?\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
@@ -401,12 +457,27 @@ final class ItemImageImportTextParser {
                 "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+szczęśliwy\\s+traf(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
                 "\\b([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+czasu\\s+odnowienia(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
+        appendVerathielUniqueEffectLine(extractedLines, line);
         appendLegendaryEffectLine(extractedLines, line);
         appendFirstMatch(extractedLines, line,
                 "\\b(Ta\\s+premia\\s+jest\\s+trzy\\s+razy\\s+większa,\\s+jeśli\\s+stoisz\\s+w\\s+bezruchu\\s+przez\\s+co\\s+najmniej\\s+3\\s+sek\\.)", 1);
         appendFirstMatch(extractedLines, line,
                 "\\b(Puste(?:\\s+gniazdo)?)\\b", 1);
         return extractedLines;
+    }
+
+    private static void appendVerathielUniqueEffectLine(List<String> target, String line) {
+        Matcher matcher = Pattern.compile(
+                "(Umiej[eę]tno(?:ś|s)ci\\s+Podstawowe\\s+zadaj[aą]\\s+obra(?:ż|z)enia\\s+zwi[eę]kszone.*?podstawowego\\s+zasobu\\.?)",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+        ).matcher(line);
+        if (!matcher.find()) {
+            return;
+        }
+        String value = normalizeExtractedFullReadLine(matcher.group(1));
+        if (!value.isBlank() && !target.contains(value)) {
+            target.add(value);
+        }
     }
 
     private static void appendFirstMatch(List<String> target, String line, String regex, int group) {

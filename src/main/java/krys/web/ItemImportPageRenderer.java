@@ -224,7 +224,7 @@ public final class ItemImportPageRenderer {
                 .append(renderItemHeaderField("Slot", details.getEquipmentSlot() == null ? "Brak pewnego odczytu" : ItemLibraryPresentationSupport.slotDisplayName(details.getEquipmentSlot())))
                 .append(renderItemHeaderField("Moc przedmiotu", details.getItemPower() == null ? simplifyItemPower(fullItemRead.getItemPower()) : Long.toString(details.getItemPower())))
                 .append(renderWeaponSummaryFields(details))
-                .append(renderItemHeaderField(baseValueLabel(fullItemRead.getBaseItemValue()), simplifyBaseValue(fullItemRead.getBaseItemValue())))
+                .append(renderBaseValueHeader(fullItemRead))
                 .append("</div>")
                 .append("""
                     <div class="item-read-groups">
@@ -247,6 +247,18 @@ public final class ItemImportPageRenderer {
                     <div class="summary-value">%s</div>
                 </div>
                 """.formatted(escapeHtml(label), escapeHtml(value));
+    }
+
+    private static String renderBaseValueHeader(FullItemRead fullItemRead) {
+        if (fullItemRead == null || fullItemRead.getBaseItemValue().isBlank()) {
+            return "";
+        }
+        if (fullItemRead.getDetails().getWeaponDps() != null
+                || fullItemRead.getDetails().getWeaponDamageMin() != null
+                || fullItemRead.getDetails().getWeaponDamageMax() != null) {
+            return "";
+        }
+        return renderItemHeaderField(baseValueLabel(fullItemRead.getBaseItemValue()), simplifyBaseValue(fullItemRead.getBaseItemValue()));
     }
 
     private static String renderWeaponSummaryFields(ItemImportDetails details) {
@@ -391,6 +403,9 @@ public final class ItemImportPageRenderer {
 
     private static String simplifyItemPower(String itemPower) {
         String value = firstNumber(itemPower);
+        if ("1".equals(value)) {
+            return "Brak pewnego odczytu";
+        }
         return value.isBlank() ? emptyLabel(itemPower) : value;
     }
 
@@ -407,6 +422,10 @@ public final class ItemImportPageRenderer {
 
     private static String simplifyBaseValue(String baseItemValue) {
         String value = firstNumber(baseItemValue);
+        String normalized = normalizeForDisplayRules(baseItemValue);
+        if ("1".equals(value) && (normalized.contains("OBRAZEN") || normalized.contains("DAMAGE"))) {
+            return "Brak pewnego odczytu";
+        }
         return value.isBlank() ? emptyLabel(baseItemValue) : value;
     }
 
@@ -598,8 +617,12 @@ public final class ItemImportPageRenderer {
                     </select>
                 """);
         if (selectedAspect != null) {
-            html.append("<span class=\"helper\">Wybrany aspekt: ")
+            html.append("<span class=\"helper\">")
+                    .append(escapeHtml(aspectSelectionLabel(selectedAspect)))
+                    .append(": ")
                     .append(escapeHtml(selectedAspect.getDisplayName()))
+                    .append("</span><span class=\"helper\">Status runtime: ")
+                    .append(escapeHtml(selectedAspect.getRuntimeStatus().getDisplayName()))
                     .append("</span><span class=\"helper\">Opis aspektu: ")
                     .append(escapeHtml(selectedAspect.getEffectDescription()))
                     .append("</span>");
@@ -749,6 +772,13 @@ public final class ItemImportPageRenderer {
         return ASPECT_REGISTRY.findById(selectedAspectId)
                 .map(AspectDefinition::getDisplayName)
                 .orElse(selectedAspectId);
+    }
+
+    private static String aspectSelectionLabel(AspectDefinition aspect) {
+        if (aspect != null && aspect.isUniqueAspect()) {
+            return "Aspekt unikatowy";
+        }
+        return "Wybrany aspekt";
     }
 
     private static String renderReadonlyItemType(ItemImportEditableForm form) {

@@ -16,6 +16,16 @@ public final class ApplicationAspectRegistry {
                     EnumSet.of(EquipmentSlot.OFF_HAND),
                     EnumSet.of(HeroClass.PALADIN),
                     List.of("legendary", "damage")
+            ),
+            new AspectDefinition(
+                    "verathiel_shard",
+                    "Odłamek Verathiela",
+                    "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu.",
+                    AspectType.UNIQUE,
+                    AspectRuntimeStatus.DESCRIPTIVE_ONLY,
+                    EnumSet.of(EquipmentSlot.MAIN_HAND),
+                    EnumSet.noneOf(HeroClass.class),
+                    List.of("unique", "sword", "basic-skills", "resource-cost")
             )
     );
 

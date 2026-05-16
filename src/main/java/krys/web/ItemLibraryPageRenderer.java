@@ -246,7 +246,9 @@ public final class ItemLibraryPageRenderer {
                 + "\" aria-label=\""
                 + escapeHtml(aspect.getDisplayName() + ". " + aspect.getEffectDescription())
                 + "\">"
-                + escapeHtml(aspect.getDisplayName())
+                + escapeHtml(aspect.isUniqueAspect()
+                ? "Aspekt unikatowy: " + aspect.getDisplayName()
+                : aspect.getDisplayName())
                 + "</span>";
     }
 
@@ -384,7 +386,9 @@ public final class ItemLibraryPageRenderer {
             if (aspect == null) {
                 addUnique(lines, "Wybrany aspekt: " + item.getSelectedAspectId());
             } else {
-                addUnique(lines, "Wybrany aspekt: " + aspect.getDisplayName());
+                addUnique(lines, (aspect.isUniqueAspect() ? "Aspekt unikatowy: " : "Wybrany aspekt: ")
+                        + aspect.getDisplayName());
+                addUnique(lines, "Status runtime: " + aspect.getRuntimeStatus().getDisplayName());
                 addUnique(lines, "Opis aspektu: " + aspect.getEffectDescription());
             }
         } else {

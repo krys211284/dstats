@@ -3,6 +3,8 @@ package krys.itemimport;
 import krys.item.EquipmentSlot;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -170,6 +172,98 @@ class ItemImageImportTextParserTest {
                         && affix.getSourceText().contains("[3 - 4]")));
         assertTrue(form.getAffixes().stream()
                 .noneMatch(affix -> affix.getSourceText().contains("Umiejętności Podstawowe")));
+    }
+
+    @Test
+    void shouldRecognizeNoisyVerathielOcrWithoutPolishCharacters() {
+        ItemImageImportCandidateParseResult result = parser.parse(
+                new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768),
+                """
+                        ODLFIK VERATHEL
+                        STAROZYTNY UNIKATOWY MIECZ
+                        Moc   przedmiotu . 900
+                        1 830 pkt. obrazen na sek. (+1830)
+                        [1 350 - 1 978] pkt. obrazen za trafienie
+                        1,10 ataku na sekunde
+                        +94 obrazen od broni [94 - 157]
+                        Umiejetnosci Podstawowe zadaja obrazenia zwiekszone o 100%[x] [70 - 100],
+                        ale dodatkowo zuzywaja 25 pkt. podstawowego zasobu.
+                        """
+        );
+
+        ItemImportDetails details = result.getFullItemRead().getDetails();
+
+        assertEquals("Odłamek Verathiela", details.getItemName());
+        assertEquals("UNIQUE", details.getItemRarity());
+        assertTrue(details.isAncient());
+        assertEquals("Miecz", details.getItemType());
+        assertEquals(EquipmentSlot.MAIN_HAND, details.getEquipmentSlot());
+        assertEquals(900L, details.getItemPower());
+        assertEquals(1830L, details.getWeaponDps());
+        assertEquals(1350L, details.getWeaponDamageMin());
+        assertEquals(1978L, details.getWeaponDamageMax());
+        assertEquals(1664L, details.getAverageWeaponDamage());
+        assertEquals(1.10d, details.getAttacksPerSecond());
+    }
+
+    @Test
+    void shouldRecognizeVerathielDamageRangeFromCondensedNoisyOcrLine() {
+        ItemImageImportCandidateParseResult result = parser.parse(
+                new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768),
+                """
+                        ODLFIK VERATHEL Starozytny unikatowy miecz Moc przedmiotu 900 1 830 pkt. obrazen na sek. 1350–1978 pkt. obrazen za trafienie 1,10 ataku na sekunde +94 obrazen od broni [94 - 157] +2 141 maksymalnego zdrowia [1 831 - 2 200] +545 pkt. zdrowia przy trafieniu [526 - 632] Szczesliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4] Umiejetnosci Podstawowe zadaja obrazenia zwiekszone o 100%[x] [70 - 100], ale dodatkowo zuzywaja 25 pkt. podstawowego zasobu.
+                        """
+        );
+
+        ItemImportDetails details = result.getFullItemRead().getDetails();
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(1350L, details.getWeaponDamageMin());
+        assertEquals(1978L, details.getWeaponDamageMax());
+        assertEquals(1664L, details.getAverageWeaponDamage());
+        assertEquals(4, form.getAffixes().size());
+        assertEquals("verathiel_shard", form.getSelectedAspectId());
+    }
+
+    @Test
+    void shouldTreatAncientUniqueRarityAsAncientTrueAndUnique() {
+        for (String text : List.of(
+                "Starożytny unikatowy miecz",
+                "Starożytna unikatowa",
+                "STAROZYTNY UNIKATOWY MIECZ",
+                "starozytny unikatowy miecz"
+        )) {
+            ItemImageImportCandidateParseResult result = parser.parse(
+                    new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768),
+                    text
+            );
+
+            assertEquals("UNIQUE", result.getFullItemRead().getDetails().getItemRarity(), text);
+            assertTrue(result.getFullItemRead().getDetails().isAncient(), text);
+            if (text.toUpperCase().contains("MIECZ")) {
+                assertEquals("Miecz", result.getFullItemRead().getDetails().getItemType(), text);
+                assertEquals(EquipmentSlot.MAIN_HAND, result.getFullItemRead().getDetails().getEquipmentSlot(), text);
+            }
+        }
+    }
+
+    @Test
+    void shouldRecognizeItemPowerNineHundredFromLooseAndCondensedOcrForms() {
+        for (String text : List.of(
+                "Moc przedmiotu : 900",
+                "Moc przedmiotu. 900",
+                "Moc przedmiotu 900",
+                "Moc@@@przedmiotu###900",
+                "Mocprzedmiotu900"
+        )) {
+            ItemImageImportCandidateParseResult result = parser.parse(
+                    new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768),
+                    text
+            );
+
+            assertEquals(900L, result.getFullItemRead().getDetails().getItemPower(), text);
+            assertFalse(Long.valueOf(1L).equals(result.getFullItemRead().getDetails().getItemPower()), text);
+        }
     }
 
     static String verathielRawText() {

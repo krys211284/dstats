@@ -21,8 +21,10 @@ public final class ItemImportEditableFormFactory {
         ItemImportDraft draft = createDraft(parseResult);
         return new ItemImportEditableForm(
                 parseResult.getImageMetadata().getOriginalFilename(),
-                toSlotValue(parseResult.getSlotCandidate().getSuggestedValue()),
-                toLongValue(parseResult.getWeaponDamageCandidate().getSuggestedValue()),
+                toSlotValue(parseResult.getSlotCandidate().getSuggestedValue() == null
+                        ? parseResult.getFullItemRead().getDetails().getEquipmentSlot()
+                        : parseResult.getSlotCandidate().getSuggestedValue()),
+                "0",
                 toDoubleValue(parseResult.getStrengthCandidate().getSuggestedValue()),
                 toDoubleValue(parseResult.getIntelligenceCandidate().getSuggestedValue()),
                 toDoubleValue(parseResult.getThornsCandidate().getSuggestedValue()),
@@ -40,9 +42,12 @@ public final class ItemImportEditableFormFactory {
     public ItemImportDraft createDraft(ItemImageImportCandidateParseResult parseResult) {
         AspectRegistry.AspectMatch aspectMatch = aspectRegistry.suggestFromFullRead(parseResult.getFullItemRead())
                 .orElse(new AspectRegistry.AspectMatch("", ItemImportFieldConfidence.UNKNOWN));
+        EquipmentSlot effectiveSlot = parseResult.getSlotCandidate().getSuggestedValue() == null
+                ? parseResult.getFullItemRead().getDetails().getEquipmentSlot()
+                : parseResult.getSlotCandidate().getSuggestedValue();
         if (!aspectMatch.aspectId().isBlank()
                 && aspectRegistry.findById(aspectMatch.aspectId())
-                .filter(aspect -> aspect.allowsSlot(parseResult.getSlotCandidate().getSuggestedValue()))
+                .filter(aspect -> aspect.allowsSlot(effectiveSlot))
                 .isEmpty()) {
             aspectMatch = new AspectRegistry.AspectMatch("", ItemImportFieldConfidence.UNKNOWN);
         }
