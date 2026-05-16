@@ -199,12 +199,21 @@ class ItemImportFormMapperTest {
         assertEquals(94.0d, weaponDamageAffix.getValue());
         assertEquals(94.0d, weaponDamageAffix.getRollRangeMin());
         assertEquals(157.0d, weaponDamageAffix.getRollRangeMax());
+        ImportedItemAffix lifeOnHitAffix = reloaded.getAffixes().stream()
+                .filter(affix -> affix.getType() == ImportedItemAffixType.LIFE_ON_HIT)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(545.0d, lifeOnHitAffix.getValue());
+        assertEquals(526.0d, lifeOnHitAffix.getRollRangeMin());
+        assertEquals(632.0d, lifeOnHitAffix.getRollRangeMax());
         ImportedItemAffix luckyHitAffix = reloaded.getAffixes().stream()
                 .filter(affix -> affix.getType() == ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE)
                 .findFirst()
                 .orElseThrow();
         assertEquals(3.0d, luckyHitAffix.getValue());
         assertEquals("15% / +3", luckyHitAffix.getDisplayValue());
+        assertEquals(3.0d, luckyHitAffix.getRollRangeMin());
+        assertEquals(4.0d, luckyHitAffix.getRollRangeMax());
         assertTrue(reloaded.getUniqueEffectText().contains("100%[x]"));
     }
 }

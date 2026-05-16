@@ -284,6 +284,10 @@ final class ItemImageImportTextParser {
     }
 
     private static Optional<DamageRange> detectWeaponDamageRange(List<String> lines) {
+        Optional<DamageRange> damagedRange = detectDamagedWeaponDamageRange(lines);
+        if (damagedRange.isPresent()) {
+            return damagedRange;
+        }
         Pattern pattern = Pattern.compile("\\[?\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*[-–—−]\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*]?\\s*PKT\\.?\\s+OBRAZEN\\s+ZA\\s+TRAFIENIE",
                 Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
         String joined = String.join(" ", lines);
@@ -304,6 +308,25 @@ final class ItemImageImportTextParser {
         Optional<DamageRange> standaloneRange = detectStandaloneDamageRangeNearWeaponStats(lines);
         if (standaloneRange.isPresent()) {
             return standaloneRange;
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<DamageRange> detectDamagedWeaponDamageRange(List<String> lines) {
+        Pattern damagedPrefixPattern = Pattern.compile(
+                "(?:\\(\\+?\\s*)?[0-9OISBL]{3}([0-9OISBL])\\s+([0-9OISBL]{3})\\s*[-–—−]\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*]?\\s*PKT\\.?\\s+OBRAZEN\\s+ZA\\s+TRAFIENIE",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+        );
+        String joined = normalizeLineForPatternKeepingPlus(String.join(" ", lines));
+        Matcher joinedMatcher = damagedPrefixPattern.matcher(joined);
+        if (joinedMatcher.find()) {
+            return parseDamageRange(joinedMatcher.group(1) + " " + joinedMatcher.group(2), joinedMatcher.group(3));
+        }
+        for (String line : lines) {
+            Matcher matcher = damagedPrefixPattern.matcher(normalizeLineForPatternKeepingPlus(line));
+            if (matcher.find()) {
+                return parseDamageRange(matcher.group(1) + " " + matcher.group(2), matcher.group(3));
+            }
         }
         return Optional.empty();
     }

@@ -61,6 +61,39 @@ class ImportedItemAffixExtractorTest {
         assertFalse(missingRangeAffix.toDisplayLine().startsWith("* "));
     }
 
+    @Test
+    void shouldRepairVerathielLifeOnHitRangeFromDamagedOcrUsingCatalogContext() {
+        for (String sourceLine : List.of(
+                "+545 pkt. zdrowia przy trafieniu [526 - 632]",
+                "+545 pkt. zdrowia przy trafieniu [5 - 632]",
+                "+545 pkt. zdrowia przy trafieniu [632]",
+                "+545 pkt. zdrowia przy trafieniu 526 632",
+                "+545 pkt. zdrowia przy trafieniu [526 – 632]"
+        )) {
+            ImportedItemAffix affix = extractSingleVerathiel(sourceLine);
+
+            assertEquals(ImportedItemAffixType.LIFE_ON_HIT, affix.getType(), sourceLine);
+            assertEquals(545.0d, affix.getValue(), sourceLine);
+            assertEquals(526.0d, affix.getRollRangeMin(), sourceLine);
+            assertEquals(632.0d, affix.getRollRangeMax(), sourceLine);
+        }
+    }
+
+    @Test
+    void shouldKeepVerathielLuckyHitResourceRestoreAsSingleCompositeAffix() {
+        List<ImportedItemAffix> affixes = extractVerathiel(
+                "Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]"
+        );
+
+        assertEquals(1, affixes.size());
+        ImportedItemAffix affix = affixes.getFirst();
+        assertEquals(ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE, affix.getType());
+        assertEquals(3.0d, affix.getValue());
+        assertEquals("15% / +3", affix.getDisplayValue());
+        assertEquals(3.0d, affix.getRollRangeMin());
+        assertEquals(4.0d, affix.getRollRangeMax());
+    }
+
     private void assertGreaterAffix(String text, FullItemReadLineType type) {
         assertTrue(extractSingle(text, type).isGreaterAffix(), text);
     }
@@ -87,6 +120,37 @@ class ImportedItemAffixExtractorTest {
                 "800 mocy przedmiotu",
                 "1 131 pkt. pancerza",
                 List.of(new FullItemReadLine(type, text))
+        ));
+    }
+
+    private ImportedItemAffix extractSingleVerathiel(String text) {
+        List<ImportedItemAffix> affixes = extractVerathiel(text);
+        assertEquals(1, affixes.size(), text);
+        return affixes.getFirst();
+    }
+
+    private List<ImportedItemAffix> extractVerathiel(String text) {
+        return extractor.extractEditableAffixes(new FullItemRead(
+                "Odłamek Verathiela",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "1 830 pkt. obrażeń na sek.",
+                List.of(new FullItemReadLine(FullItemReadLineType.AFFIX, text)),
+                new ItemImportDetails(
+                        "Odłamek Verathiela",
+                        "Miecz",
+                        "UNIQUE",
+                        true,
+                        krys.item.EquipmentSlot.MAIN_HAND,
+                        900L,
+                        1830L,
+                        1350L,
+                        1978L,
+                        1664L,
+                        1.10d,
+                        ""
+                )
         ));
     }
 }

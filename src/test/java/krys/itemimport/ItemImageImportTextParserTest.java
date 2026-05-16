@@ -1,6 +1,11 @@
 package krys.itemimport;
 
+import krys.hero.HeroClass;
 import krys.item.EquipmentSlot;
+import krys.web.HeroItemSelection;
+import krys.web.HeroProfile;
+import krys.web.ItemImportPageModel;
+import krys.web.ItemImportPageRenderer;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -213,7 +218,10 @@ class ItemImageImportTextParserTest {
                 "1 350 - 1 978 pkt. obrażeń za trafienie",
                 "[1350 - 1978] pkt. obrażeń za trafienie",
                 "1350-1978 pkt. obrażeń za trafienie",
-                "1 350 – 1 978"
+                "1 350 – 1 978",
+                "(+1830) [1 350 - 1 978] pkt. obrażeń za trafienie",
+                "(+1831 350 - 1 978] pkt. obrażeń za trafienie",
+                "1831 350 - 1 978 pkt. obrażeń za trafienie"
         )) {
             ItemImageImportCandidateParseResult result = parser.parse(
                     new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768),
@@ -232,6 +240,54 @@ class ItemImageImportTextParserTest {
             assertEquals(1664L, details.getAverageWeaponDamage(), rangeLine);
             assertFalse(Long.valueOf(1830L).equals(details.getAverageWeaponDamage()), rangeLine);
         }
+    }
+
+    @Test
+    void shouldRenderVerathielNoisyOcrWeaponAndAffixPrefillInFinalHtmlForm() {
+        List<ItemImageImportCandidateParseResult> variants = List.of(
+                parser.parse(new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768), verathielNoisyUiFixture()),
+                parser.parse(new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768), """
+                        ODŁAMEK VERATHIEL
+                        Starożytny unikatowy miecz
+                        Moc przedmiotu: 900
+                        1 830 pkt. obrażeń na sek.
+                        (+1831 350 - 1 978] pkt. obrażeń za trafienie
+                        1,10 ataku na sekundę
+                        +545 pkt. zdrowia przy trafieniu [5 - 632]
+                        Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]
+                        """)
+        );
+        ItemImageImportCandidateParseResult merged = new ItemImageImportCandidateMerger()
+                .merge(new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768), variants.size(), variants);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(merged);
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                merged,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "Import testowy",
+                ""
+        ));
+
+        assertTrue(html.contains("name=\"weaponDps\" value=\"1830\""));
+        assertTrue(html.contains("name=\"weaponDamageMin\" value=\"1350\""));
+        assertTrue(html.contains("name=\"weaponDamageMax\" value=\"1978\""));
+        assertTrue(html.contains("name=\"averageWeaponDamage\" value=\"1664\""));
+        assertTrue(html.contains("name=\"attacksPerSecond\" value=\"1.10\""));
+        assertFalse(html.contains("name=\"averageWeaponDamage\" value=\"1830\""));
+        assertTrue(html.contains("526 - 632"));
+        assertTrue(html.contains("15% / +3"));
+        assertTrue(html.contains("3 - 4"));
+        assertFalse(html.contains("<input type=\"number\" min=\"0\" step=\"0.01\" name=\"affixValue_3\" value=\"3\""));
+        assertTrue(html.contains("name=\"affixType_0\""));
+        assertTrue(html.contains("name=\"affixType_1\""));
+        assertTrue(html.contains("name=\"affixType_2\""));
+        assertTrue(html.contains("name=\"affixType_3\""));
+        assertFalse(html.contains("name=\"affixType_4\""));
+        assertFalse(html.contains("Odczyt OCR / źródło"));
+        assertFalse(html.contains("Źródło: OCR"));
     }
 
     @Test
@@ -312,4 +368,22 @@ class ItemImageImportTextParserTest {
                 ale dodatkowo zużywają 25 pkt. podstawowego zasobu.
                 """;
     }
+
+    static String verathielNoisyUiFixture() {
+        return """
+                ODŁAMEK
+                VERATHIEL
+                Starożytny unikatowy miecz
+                Moc przedmiotu: 900
+                1 830 pkt. obrażeń na sek. (+1830) [1 350 - 1 978] pkt. obrażeń za trafienie
+                1,10 ataku na sekundę
+                +94 obrażeń od broni [94 - 157]
+                +2 141 maksymalnego zdrowia [1 831 - 2 200]
+                +545 pkt. zdrowia przy trafieniu [526 - 632]
+                Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]
+                Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100],
+                ale dodatkowo zużywają 25 pkt. podstawowego zasobu.
+                """;
+    }
+
 }

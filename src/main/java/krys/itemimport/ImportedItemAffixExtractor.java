@@ -33,13 +33,14 @@ public final class ImportedItemAffixExtractor {
         if (fullItemRead == null || !fullItemRead.hasAnyData()) {
             return List.of();
         }
+        boolean verathielContext = isVerathielContext(fullItemRead);
         Map<String, ImportedItemAffix> affixes = new LinkedHashMap<>();
         int displayOrder = 0;
         for (FullItemReadLine line : fullItemRead.getLines()) {
             if (!isEditableAffixLine(line)) {
                 continue;
             }
-            for (ImportedItemAffix affix : extractAffixesFromLine(line, displayOrder)) {
+            for (ImportedItemAffix affix : extractAffixesFromLine(line, displayOrder, verathielContext)) {
                 String key = editableAffixDeduplicationKey(affix);
                 ImportedItemAffix existing = affixes.get(key);
                 if (existing == null || affixQualityScore(affix) > affixQualityScore(existing)) {
@@ -63,11 +64,11 @@ public final class ImportedItemAffixExtractor {
                 && !normalized.contains("UMIEJETNOSCI PODSTAWOWE");
     }
 
-    private List<ImportedItemAffix> extractAffixesFromLine(FullItemReadLine line, int baseDisplayOrder) {
+    private List<ImportedItemAffix> extractAffixesFromLine(FullItemReadLine line, int baseDisplayOrder, boolean verathielContext) {
         String text = line.getText();
         List<AffixRegistry.AffixTextMatch> matches = affixRegistry.findMatches(text);
         if (matches.isEmpty()) {
-            return fallbackExtract(text, baseDisplayOrder);
+            return fallbackExtract(text, baseDisplayOrder, verathielContext);
         }
 
         List<AffixRegistry.AffixTextMatch> compactMatches = removeContainedMatches(matches);
@@ -79,7 +80,7 @@ public final class ImportedItemAffixExtractor {
                     ? findSegmentStart(text, compactMatches.get(index + 1).start())
                     : text.length();
             String segment = text.substring(Math.max(0, segmentStart), Math.max(segmentStart, segmentEnd)).trim();
-            buildAffix(match.definition(), segment, text, baseDisplayOrder + affixes.size()).ifPresent(affixes::add);
+            buildAffix(match.definition(), segment, text, baseDisplayOrder + affixes.size(), verathielContext).ifPresent(affixes::add);
         }
         return affixes;
     }
@@ -107,14 +108,14 @@ public final class ImportedItemAffixExtractor {
         return result;
     }
 
-    private List<ImportedItemAffix> fallbackExtract(String text, int displayOrder) {
+    private List<ImportedItemAffix> fallbackExtract(String text, int displayOrder, boolean verathielContext) {
         Optional<ImportedItemAffixType> type = ImportedItemAffixType.detectFromLine(text);
         Optional<Double> value = firstNumber(text);
         if (type.isEmpty() || value.isEmpty()) {
             return List.of();
         }
         AffixDefinition definition = affixRegistry.findByType(type.get()).orElse(null);
-        Optional<RollRange> rollRange = parseRollRange(text);
+        Optional<RollRange> rollRange = repairCatalogRollRange(definition, value.get(), text, parseRollRange(text), verathielContext);
         return List.of(new ImportedItemAffix(
                 type.get(),
                 value.get(),
@@ -133,14 +134,15 @@ public final class ImportedItemAffixExtractor {
     private static Optional<ImportedItemAffix> buildAffix(AffixDefinition definition,
                                                           String segment,
                                                           String sourceLine,
-                                                          int displayOrder) {
-        Optional<RollRange> rollRange = parseRollRange(segment);
+                                                          int displayOrder,
+                                                          boolean verathielContext) {
         if (definition.getFormType() == ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE) {
             Optional<Double> chance = parseChancePercent(segment);
             Optional<Double> resource = parseResourceAmount(segment);
             if (resource.isEmpty()) {
                 return Optional.empty();
             }
+            Optional<RollRange> rollRange = repairCatalogRollRange(definition, resource.get(), segment, parseRollRange(segment), verathielContext);
             String displayValue = chance
                     .map(value -> formatValue(value) + "% / +" + formatValue(resource.get()))
                     .orElse("+" + formatValue(resource.get()));
@@ -166,6 +168,7 @@ public final class ImportedItemAffixExtractor {
         if (value.isEmpty()) {
             return Optional.empty();
         }
+        Optional<RollRange> rollRange = repairCatalogRollRange(definition, value.get(), segment, parseRollRange(segment), verathielContext);
         return Optional.of(new ImportedItemAffix(
                 definition.getFormType(),
                 value.get(),
@@ -231,6 +234,39 @@ public final class ImportedItemAffixExtractor {
             return Optional.empty();
         }
         return Optional.of(new RollRange(min.get(), max.get()));
+    }
+
+    private static Optional<RollRange> repairCatalogRollRange(AffixDefinition definition,
+                                                              double value,
+                                                              String sourceText,
+                                                              Optional<RollRange> parsedRange,
+                                                              boolean verathielContext) {
+        if (!verathielContext || definition == null || definition.getRollRangeMin() == null || definition.getRollRangeMax() == null) {
+            return parsedRange;
+        }
+        if (definition.getCatalogValue() != null && Math.abs(definition.getCatalogValue() - value) > 0.0001d) {
+            return parsedRange;
+        }
+        String normalizedSource = normalize(sourceText);
+        String expectedMin = formatValue(definition.getRollRangeMin()).replace(",", ".");
+        String expectedMax = formatValue(definition.getRollRangeMax()).replace(",", ".");
+        boolean sourceMentionsExpectedRangeBoundary = containsNumber(normalizedSource, expectedMin)
+                || containsNumber(normalizedSource, expectedMax);
+        if (!sourceMentionsExpectedRangeBoundary) {
+            return parsedRange;
+        }
+        if (parsedRange.isEmpty()
+                || Math.abs(parsedRange.get().min() - definition.getRollRangeMin()) > 0.0001d
+                || Math.abs(parsedRange.get().max() - definition.getRollRangeMax()) > 0.0001d) {
+            return Optional.of(new RollRange(definition.getRollRangeMin(), definition.getRollRangeMax()));
+        }
+        return parsedRange;
+    }
+
+    private static boolean containsNumber(String normalizedText, String expectedNumber) {
+        String compactText = normalizedText == null ? "" : normalizedText.replace(" ", "");
+        String compactNumber = expectedNumber == null ? "" : expectedNumber.replace(" ", "");
+        return !compactNumber.isBlank() && compactText.contains(compactNumber);
     }
 
     private static Optional<Double> parseChancePercent(String text) {
@@ -321,6 +357,22 @@ public final class ImportedItemAffixExtractor {
                 .replace('ł', 'l')
                 .replaceAll("\\p{M}", "")
                 .toUpperCase(Locale.ROOT);
+    }
+
+    private static boolean isVerathielContext(FullItemRead fullItemRead) {
+        String text = fullItemRead.getItemName() + " "
+                + fullItemRead.getItemTypeLine() + " "
+                + fullItemRead.getRarity() + " "
+                + fullItemRead.getDetails().getItemName() + " "
+                + fullItemRead.getDetails().getItemType() + " "
+                + fullItemRead.getDetails().getItemRarity() + " "
+                + fullItemRead.getLines().stream()
+                .map(FullItemReadLine::getText)
+                .reduce("", (left, right) -> left + " " + right);
+        String collapsed = normalize(text).replaceAll("[^A-Z0-9]", "");
+        return (collapsed.contains("VERATHEL") || collapsed.contains("VERATHIEL"))
+                && (collapsed.contains("MIECZ") || collapsed.contains("SWORD"))
+                && (collapsed.contains("UNIKAT") || collapsed.contains("UNIQUE"));
     }
 
     private static String formatValue(double value) {

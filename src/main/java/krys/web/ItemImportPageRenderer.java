@@ -452,6 +452,23 @@ public final class ItemImportPageRenderer {
         return "<div class=\"helper\">" + escapeHtml(affix.getDisplayValue()) + "</div>";
     }
 
+    private static String renderAffixValueControl(int index, ImportedItemAffix affix) {
+        if (affix != null && !affix.getDisplayValue().isBlank()) {
+            return "<span class=\"summary-value\">"
+                    + escapeHtml(affix.getDisplayValue())
+                    + "</span><input type=\"hidden\" name=\"affixValue_"
+                    + index
+                    + "\" value=\""
+                    + escapeHtml(formatDecimal(affix.getValue()))
+                    + "\">";
+        }
+        return "<input type=\"number\" min=\"0\" step=\"0.01\" name=\"affixValue_"
+                + index
+                + "\" value=\""
+                + escapeHtml(formatDecimal(affix == null ? 0.0d : affix.getValue()))
+                + "\">";
+    }
+
     private static String emptyLabelForRollRange(String value) {
         return value == null || value.isBlank() ? "Brak zakresu" : value;
     }
@@ -524,7 +541,6 @@ public final class ItemImportPageRenderer {
                             <input type="hidden" name="affixDisplayValue_%s" value="%s">
                         </td>
                         <td>
-                            <input type="number" min="0" step="0.01" name="affixValue_%s" value="%s">
                             %s
                         </td>
                         <td>
@@ -552,9 +568,7 @@ public final class ItemImportPageRenderer {
                     affix.getRollRangeMax() == null ? "" : formatDecimal(affix.getRollRangeMax()),
                     index,
                     escapeHtml(affix.getDisplayValue()),
-                    index,
-                    formatDecimal(affix.getValue()),
-                    renderAffixDisplayValue(affix),
+                    renderAffixValueControl(index, affix),
                     escapeHtml(emptyLabelForRollRange(affix.getRollRangeLabel())),
                     index,
                     affix.isGreaterAffix() ? " checked" : ""
