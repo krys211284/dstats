@@ -2,6 +2,7 @@ package krys.web;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
+import krys.item.EquipmentSlot;
 import krys.itemimport.FullItemRead;
 import krys.itemimport.FullItemReadAffixUpdater;
 import krys.itemimport.FullItemReadFormCodec;
@@ -9,6 +10,7 @@ import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ItemImportEditableForm;
+import krys.itemimport.ItemImportDetails;
 import krys.itemimport.ItemImportFieldConfidence;
 import krys.itemimport.ItemImportFormMapper;
 import krys.itemimport.ValidatedImportedItem;
@@ -114,7 +116,8 @@ final class ItemEditController implements HttpHandler {
                 item.getAffixes(),
                 "",
                 ItemImportFieldConfidence.UNKNOWN,
-                item.getSelectedAspectId()
+                item.getSelectedAspectId(),
+                item.getDetails()
         );
     }
 
@@ -135,7 +138,28 @@ final class ItemEditController implements HttpHandler {
                 affixes,
                 "",
                 ItemImportFieldConfidence.UNKNOWN,
-                fields.getOrDefault("selectedAspectId", "")
+                fields.getOrDefault("selectedAspectId", ""),
+                parseItemDetails(fields, existingItem)
+        );
+    }
+
+    private static ItemImportDetails parseItemDetails(Map<String, String> fields, SavedImportedItem existingItem) {
+        ItemImportDetails fallback = existingItem.getDetails();
+        EquipmentSlot equipmentSlot = parseEquipmentSlot(valueOrFallback(fields, "slot",
+                fallback.getEquipmentSlot() == null ? existingItem.getSlot().name() : fallback.getEquipmentSlot().name()));
+        return new ItemImportDetails(
+                valueOrFallback(fields, "itemName", firstNonBlank(fallback.getItemName(), existingItem.getDisplayName())),
+                valueOrFallback(fields, "itemType", fallback.getItemType()),
+                valueOrFallback(fields, "itemRarity", fallback.getItemRarity()),
+                fields.containsKey("isAncientSubmitted") ? "true".equals(fields.get("isAncient")) : fallback.isAncient(),
+                equipmentSlot,
+                parseLongOrFallback(fields.get("itemPower"), fallback.getItemPower()),
+                parseLongOrFallback(fields.get("weaponDps"), fallback.getWeaponDps()),
+                parseLongOrFallback(fields.get("weaponDamageMin"), fallback.getWeaponDamageMin()),
+                parseLongOrFallback(fields.get("weaponDamageMax"), fallback.getWeaponDamageMax()),
+                parseLongOrFallback(fields.get("averageWeaponDamage"), fallback.getAverageWeaponDamage()),
+                parseDoubleOrFallback(fields.get("attacksPerSecond"), fallback.getAttacksPerSecond()),
+                valueOrFallback(fields, "uniqueEffectText", fallback.getUniqueEffectText())
         );
     }
 
@@ -155,7 +179,14 @@ final class ItemEditController implements HttpHandler {
                 fields.getOrDefault("affixValue_" + index, ""),
                 "true".equals(fields.get("affixGreater_" + index)),
                 index,
-                ImportedItemAffixSource.CORRECTED,
+                parseAffixSource(fields.get("affixSource_" + index), ImportedItemAffixSource.CORRECTED),
+                fields.getOrDefault("affixSourceText_" + index, ""),
+                fields.getOrDefault("affixOriginalType_" + index, fields.getOrDefault("affixType_" + index, "")),
+                fields.getOrDefault("affixOriginalValue_" + index, fields.getOrDefault("affixValue_" + index, "")),
+                fields.getOrDefault("affixDefinitionId_" + index, ""),
+                parseNullableDouble(fields.get("affixRangeMin_" + index)),
+                parseNullableDouble(fields.get("affixRangeMax_" + index)),
+                fields.getOrDefault("affixDisplayValue_" + index, ""),
                 errors
         );
     }
@@ -167,6 +198,13 @@ final class ItemEditController implements HttpHandler {
                 "true".equals(fields.get("newAffixGreater")),
                 parseAffixCount(fields.get("affixCount")),
                 ImportedItemAffixSource.MANUAL,
+                "",
+                fields.getOrDefault("newAffixType", ""),
+                fields.getOrDefault("newAffixValue", ""),
+                "",
+                null,
+                null,
+                "",
                 errors
         );
     }
@@ -176,6 +214,13 @@ final class ItemEditController implements HttpHandler {
                                                                     boolean greaterAffix,
                                                                     int displayOrder,
                                                                     ImportedItemAffixSource source,
+                                                                    String sourceText,
+                                                                    String originalType,
+                                                                    String originalValue,
+                                                                    String affixDefinitionId,
+                                                                    Double rollRangeMin,
+                                                                    Double rollRangeMax,
+                                                                    String displayValue,
                                                                     List<String> errors) {
         boolean missingType = rawType == null || rawType.isBlank();
         boolean missingValue = rawValue == null || rawValue.isBlank();
@@ -197,7 +242,16 @@ final class ItemEditController implements HttpHandler {
                 errors.add("Affix #" + (displayOrder + 1) + ": wartość affixu nie może być ujemna.");
                 return java.util.Optional.empty();
             }
-            return java.util.Optional.of(new ImportedItemAffix(type, value, defaultUnit(type), greaterAffix, displayOrder, "", source));
+            if (!rawType.equals(originalType) || !normalizeNumber(rawValue).equals(normalizeNumber(originalValue))) {
+                sourceText = "";
+                affixDefinitionId = "";
+                rollRangeMin = null;
+                rollRangeMax = null;
+                displayValue = "";
+                source = ImportedItemAffixSource.CORRECTED;
+            }
+            return java.util.Optional.of(new ImportedItemAffix(type, value, defaultUnit(type), greaterAffix,
+                    displayOrder, sourceText, source, affixDefinitionId, rollRangeMin, rollRangeMax, displayValue));
         } catch (IllegalArgumentException exception) {
             errors.add("Affix #" + (displayOrder + 1) + ": affix ma niepoprawny typ albo wartość.");
             return java.util.Optional.empty();
@@ -222,6 +276,74 @@ final class ItemEditController implements HttpHandler {
         } catch (NumberFormatException exception) {
             return 0;
         }
+    }
+
+    private static EquipmentSlot parseEquipmentSlot(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return null;
+        }
+        try {
+            return EquipmentSlot.valueOf(rawValue);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
+    }
+
+    private static Long parseLongOrFallback(String rawValue, Long fallback) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return fallback;
+        }
+        try {
+            return Long.parseLong(rawValue.replace(" ", ""));
+        } catch (NumberFormatException exception) {
+            return fallback;
+        }
+    }
+
+    private static Double parseDoubleOrFallback(String rawValue, Double fallback) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return fallback;
+        }
+        try {
+            return Double.parseDouble(rawValue.replace(',', '.'));
+        } catch (NumberFormatException exception) {
+            return fallback;
+        }
+    }
+
+    private static Double parseNullableDouble(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return null;
+        }
+        try {
+            return Double.parseDouble(rawValue.replace(',', '.'));
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    private static ImportedItemAffixSource parseAffixSource(String rawValue, ImportedItemAffixSource fallback) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return fallback;
+        }
+        try {
+            return ImportedItemAffixSource.valueOf(rawValue);
+        } catch (IllegalArgumentException exception) {
+            return fallback;
+        }
+    }
+
+    private static String valueOrFallback(Map<String, String> fields, String key, String fallback) {
+        String value = fields.get(key);
+        return value == null || value.isBlank() ? (fallback == null ? "" : fallback) : value;
+    }
+
+    private static String firstNonBlank(String preferred, String fallback) {
+        return preferred == null || preferred.isBlank() ? (fallback == null ? "" : fallback) : preferred;
+    }
+
+    private static String normalizeNumber(String value) {
+        return value == null ? "" : value.replace(" ", "").replace(',', '.').trim();
     }
 
     private static long parseItemId(String rawValue) {

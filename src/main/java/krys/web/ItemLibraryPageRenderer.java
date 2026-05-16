@@ -193,13 +193,11 @@ public final class ItemLibraryPageRenderer {
 
     private static String renderItemCell(SavedImportedItem item, List<HeroEquipmentSlot> activeSlots) {
         FullItemRead fullItemRead = item.getFullItemRead();
-        String itemName = fullItemRead != null && !fullItemRead.getItemName().isBlank()
-                ? fullItemRead.getItemName()
-                : item.getDisplayName();
+        String itemName = ItemLibraryPresentationSupport.canonicalItemName(item);
         List<String> meta = new ArrayList<>();
         if (fullItemRead != null) {
-            String rarity = simplifyRarity(fullItemRead.getRarity());
-            String power = simplifyItemPower(fullItemRead.getItemPower());
+            String rarity = simplifyRarity(item.getItemRarity().isBlank() ? fullItemRead.getRarity() : item.getItemRarity());
+            String power = item.getItemPower() == null ? simplifyItemPower(fullItemRead.getItemPower()) : Long.toString(item.getItemPower());
             if (!"Brak pewnego odczytu".equals(rarity)) {
                 meta.add(rarity);
             }
@@ -221,7 +219,8 @@ public final class ItemLibraryPageRenderer {
     }
 
     private static String renderSlotTypeCell(SavedImportedItem item) {
-        String itemType = simplifyItemType(item.getFullItemRead().getItemTypeLine());
+        String rawType = item.getItemType().isBlank() ? item.getFullItemRead().getItemTypeLine() : item.getItemType();
+        String itemType = simplifyItemType(rawType);
         return """
                 <div class="slot-type-cell">
                     <strong>%s</strong>
@@ -246,9 +245,7 @@ public final class ItemLibraryPageRenderer {
                 + "\" aria-label=\""
                 + escapeHtml(aspect.getDisplayName() + ". " + aspect.getEffectDescription())
                 + "\">"
-                + escapeHtml(aspect.isUniqueAspect()
-                ? "Aspekt unikatowy: " + aspect.getDisplayName()
-                : aspect.getDisplayName())
+                + escapeHtml(aspect.getDisplayName())
                 + "</span>";
     }
 
@@ -259,25 +256,15 @@ public final class ItemLibraryPageRenderer {
         StringBuilder html = new StringBuilder("<ul class=\"affix-summary\">");
         for (ImportedItemAffix affix : item.getAffixes()) {
             html.append("<li>")
-                    .append(escapeHtml(compactAffixLine(affix)))
+                    .append(escapeHtml(ItemLibraryPresentationSupport.formatAffixForList(affix)))
                     .append("</li>");
         }
         html.append("</ul>");
         return html.toString();
     }
 
-    private static String compactAffixLine(ImportedItemAffix affix) {
-        String line = affix.getType().formatLine(affix.getValue());
-        if (!affix.isGreaterAffix()) {
-            return line;
-        }
-        return "★ " + line.replaceFirst("^[*★⭐✦]\\s*", "");
-    }
-
     private static String renderItemDetailsModal(SavedImportedItem item) {
-        String title = item.getFullItemRead() != null && !item.getFullItemRead().getItemName().isBlank()
-                ? item.getFullItemRead().getItemName()
-                : item.getDisplayName();
+        String title = ItemLibraryPresentationSupport.canonicalItemName(item);
         return """
                 <section id="item-details-%s" class="item-details-modal" role="dialog" aria-modal="true" aria-labelledby="item-details-title-%s">
                     <a class="modal-backdrop" href="#biblioteka-lista" aria-label="Zamknij szczegóły itemu"></a>
@@ -306,11 +293,9 @@ public final class ItemLibraryPageRenderer {
         List<String> baseStats = collectBaseStats(fullItemRead);
         List<String> implicitLines = collectLines(fullItemRead, ItemReadLineGroup.IMPLICIT);
         List<String> affixLines = item.getAffixes().stream()
-                .map(ImportedItemAffix::toDisplayLine)
+                .map(ItemLibraryPresentationSupport::formatAffixForDetails)
                 .toList();
-        List<String> aspectLines = collectAspectLines(item, fullItemRead);
         List<String> socketLines = collectLines(fullItemRead, ItemReadLineGroup.SOCKET);
-        List<String> diagnosticLines = collectLines(fullItemRead, ItemReadLineGroup.OTHER);
 
         StringBuilder html = new StringBuilder("""
                 <div class="item-read-details">
@@ -329,14 +314,12 @@ public final class ItemLibraryPageRenderer {
                 .append(renderMeta("Średnie obrażenia trafienia", nullableLongLabel(item.getAverageWeaponDamage())))
                 .append(renderMeta("Ataki na sekundę", item.getAttacksPerSecond() == null ? "Brak pewnego odczytu" : String.format(java.util.Locale.US, "%.2f", item.getAttacksPerSecond())))
                 .append(renderMeta("Identyfikator", item.getDisplayName()))
-                .append(renderMeta("Źródło", item.getSourceImageName()))
                 .append("</div></section>")
                 .append(renderTextLineGroup("Base stats", baseStats))
                 .append(renderTextLineGroup("Implicit / linie bazowe", implicitLines))
                 .append(renderTextLineGroup("Affixy", affixLines))
-                .append(renderTextLineGroup("Aspekt / efekt legendarny", aspectLines))
+                .append(renderAspectDetails(item))
                 .append(renderTextLineGroup("Socket / gniazdo", socketLines))
-                .append(renderDiagnostics(diagnosticLines))
                 .append("</div>");
         return html.toString();
     }
@@ -379,48 +362,23 @@ public final class ItemLibraryPageRenderer {
         return lines;
     }
 
-    private static List<String> collectAspectLines(SavedImportedItem item, FullItemRead fullItemRead) {
+    private static String renderAspectDetails(SavedImportedItem item) {
         List<String> lines = new ArrayList<>();
         if (!item.getSelectedAspectId().isBlank()) {
             AspectDefinition aspect = ASPECT_REGISTRY.findById(item.getSelectedAspectId()).orElse(null);
             if (aspect == null) {
-                addUnique(lines, "Wybrany aspekt: " + item.getSelectedAspectId());
+                addUnique(lines, item.getSelectedAspectId());
             } else {
-                addUnique(lines, (aspect.isUniqueAspect() ? "Aspekt unikatowy: " : "Wybrany aspekt: ")
-                        + aspect.getDisplayName());
-                addUnique(lines, "Status runtime: " + aspect.getRuntimeStatus().getDisplayName());
-                addUnique(lines, "Opis aspektu: " + aspect.getEffectDescription());
+                addUnique(lines, aspect.getDisplayName());
+                addUnique(lines, firstNonBlank(item.getUniqueEffectText(), aspect.getEffectDescription()));
             }
         } else {
             addUnique(lines, "Brak wybranego aspektu.");
         }
-        if (!item.getUniqueEffectText().isBlank()) {
+        if (!item.getSelectedAspectId().isBlank() && !item.getUniqueEffectText().isBlank()) {
             addUnique(lines, item.getUniqueEffectText());
-            addUnique(lines, "Efekt unikatowy zapisany opisowo — nieaktywny w runtime DPS.");
         }
-        return lines;
-    }
-
-    private static String renderDiagnostics(List<String> diagnosticLines) {
-        if (diagnosticLines.isEmpty()) {
-            return "";
-        }
-        return """
-                <details class="item-line-group">
-                    <summary>Diagnostyka OCR</summary>
-                    <ul class="item-read-lines">
-                        %s
-                    </ul>
-                </details>
-                """.formatted(renderListItems(diagnosticLines));
-    }
-
-    private static String renderListItems(List<String> lines) {
-        StringBuilder html = new StringBuilder();
-        for (String line : lines) {
-            html.append("<li>").append(escapeHtml(line)).append("</li>");
-        }
-        return html.toString();
+        return renderTextLineGroup("Aspekt / efekt", lines);
     }
 
     private static String normalizedBaseStatLine(String line) {
@@ -461,14 +419,15 @@ public final class ItemLibraryPageRenderer {
     }
 
     private static String renderItemActions(ItemLibraryPageModel model, SavedImportedItem item, List<HeroEquipmentSlot> activeSlots) {
+        String itemName = ItemLibraryPresentationSupport.canonicalItemName(item);
         String editLink = "<a class=\"icon-action edit-action\" href=\""
                 + escapeHtml(buildEditItemUrl(model, item))
                 + "\" title=\"Edytuj\" aria-label=\"Edytuj item "
-                + escapeHtml(item.getDisplayName())
+                + escapeHtml(itemName)
                 + "\">✎<span class=\"sr-only\">Edytuj</span></a>";
         if (!model.hasActiveHero()) {
             return "<a class=\"icon-action assign-action\" href=\"/bohaterowie\" title=\"Wybierz bohatera\" aria-label=\"Wybierz bohatera, aby założyć item "
-                    + escapeHtml(item.getDisplayName())
+                    + escapeHtml(itemName)
                     + "\">⇧<span class=\"sr-only\">Wybierz bohatera</span></a>"
                     + editLink
                     + renderDeleteForm(model, item);
@@ -484,6 +443,7 @@ public final class ItemLibraryPageRenderer {
 
     private static String renderAssignmentForms(ItemLibraryPageModel model, SavedImportedItem item, boolean compact) {
         StringBuilder html = new StringBuilder("<div class=\"assign-actions\">");
+        String itemName = ItemLibraryPresentationSupport.canonicalItemName(item);
         for (HeroEquipmentSlot heroSlot : HeroEquipmentSlot.compatibleWith(item.getSlot())) {
             Long selectedItemId = model.getActiveSelection().getSelectedItemId(heroSlot);
             boolean slotEmpty = selectedItemId == null;
@@ -495,7 +455,7 @@ public final class ItemLibraryPageRenderer {
                     html.append("<span class=\"icon-action assign-action assign-action-selected\" title=\"Już założony w slocie ")
                             .append(escapeHtml(heroSlotLabel))
                             .append("\" aria-label=\"Item ")
-                            .append(escapeHtml(item.getDisplayName()))
+                            .append(escapeHtml(itemName))
                             .append(" jest już założony w slocie ")
                             .append(escapeHtml(heroSlotLabel))
                             .append("\">✓<span class=\"sr-only\">Już założony</span></span>");
@@ -507,8 +467,8 @@ public final class ItemLibraryPageRenderer {
                 continue;
             }
             String assignAriaLabel = slotEmpty
-                    ? "Załóż item " + item.getDisplayName() + " bohaterowi w slocie " + heroSlotLabel
-                    : "Zmień item w slocie " + heroSlotLabel + " na " + item.getDisplayName();
+                    ? "Załóż item " + itemName + " bohaterowi w slocie " + heroSlotLabel
+                    : "Zmień item w slocie " + heroSlotLabel + " na " + itemName;
             String assignIcon = slotEmpty ? "⇧" : "⇄";
             if (compact) {
                 html.append("""
@@ -556,6 +516,7 @@ public final class ItemLibraryPageRenderer {
     }
 
     private static String renderDeleteForm(ItemLibraryPageModel model, SavedImportedItem item) {
+        String itemName = ItemLibraryPresentationSupport.canonicalItemName(item);
         return """
                 <form method="post" action="/biblioteka-itemow" class="inline-form action-form">
                     <input type="hidden" name="action" value="deleteItem">
@@ -568,7 +529,7 @@ public final class ItemLibraryPageRenderer {
                 item.getItemId(),
                 escapeHtml(model.getCurrentBuildQuery()),
                 renderFilterHiddenFields(model.getFilter()),
-                escapeHtml(item.getDisplayName())
+                escapeHtml(itemName)
         );
     }
 

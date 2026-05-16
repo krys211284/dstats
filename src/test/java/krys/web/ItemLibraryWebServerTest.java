@@ -220,6 +220,14 @@ class ItemLibraryWebServerTest {
         assertTrue(editForm.body().contains("name=\"affixGreater_0\" value=\"true\" checked"));
         assertTrue(editForm.body().contains("value=\"inner-calm\""));
         assertTrue(editForm.body().contains("selected>Aspekt Wewnętrznego Spokoju"));
+        assertTrue(editForm.body().contains("Ręczna edycja itemu"));
+        assertTrue(editForm.body().contains("Dane broni"));
+        assertTrue(editForm.body().contains("Aspekt / efekt"));
+        assertTrue(editForm.body().contains("Zakres rolla"));
+        assertTrue(editForm.body().contains("item-affix-add-grid"));
+        assertFalse(editForm.body().contains("Odczyt OCR / źródło"));
+        assertFalse(editForm.body().contains("Odczyt OCR efektu"));
+        assertFalse(editForm.body().contains("Dane itemu zapisane w bibliotece"));
         assertTrue(editForm.body().contains("Tarcza Edytora"));
 
         Map<String, String> updateFields = shieldUpdateFields("1", "tarcza-edit.png", "Tarcza Edytora", "120", true, "inner-calm");
@@ -235,15 +243,16 @@ class ItemLibraryWebServerTest {
 
         assertEquals(200, libraryResponse.statusCode());
         assertTrue(libraryResponse.body().contains("1 item"));
-        assertTrue(libraryResponse.body().contains("* +120 siły"));
+        assertFalse(libraryResponse.body().contains("* +120 siły"));
         assertTrue(libraryResponse.body().contains("★ +120 siły"));
         assertFalse(libraryResponse.body().contains("+114 siły"));
-        assertTrue(libraryResponse.body().contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
+        assertTrue(libraryResponse.body().contains("Aspekt Wewnętrznego Spokoju"));
+        assertFalse(libraryResponse.body().contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
         assertTrue(libraryResponse.body().contains("class=\"status-badge status-active\">Założony</span>"));
 
         HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build?" + buildCurrentBuildQuery());
         assertEquals(200, currentBuildResponse.statusCode());
-        assertTrue(currentBuildResponse.body().contains("Ręka dodatkowa / tarcza-edit.png"));
+        assertTrue(currentBuildResponse.body().contains("Tarcza Edytora"));
         assertTrue(currentBuildResponse.body().contains("Do runtime trafiają: obrażenia broni=200, siła=150"));
 
         Map<String, String> removeAffixFields = shieldUpdateFields("1", "tarcza-edit.png", "Tarcza Edytora", "120", true, "inner-calm");
@@ -253,7 +262,101 @@ class ItemLibraryWebServerTest {
 
         HttpResponse<String> afterRemove = sendGet("/biblioteka-itemow");
         assertFalse(afterRemove.body().contains("+120 siły"));
-        assertTrue(afterRemove.body().contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
+        assertTrue(afterRemove.body().contains("Aspekt Wewnętrznego Spokoju"));
+        assertFalse(afterRemove.body().contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
+    }
+
+    @Test
+    void shouldEditSavedVerathielFromCanonicalDetailsWithoutLosingWeaponAndAffixRanges() throws Exception {
+        createHero("Verathiel", "13");
+        HttpResponse<String> importResponse = sendUrlEncodedPost("/importuj-item-ze-screena", verathielImportFields());
+        assertEquals(200, importResponse.statusCode());
+        assertTrue(importResponse.body().contains("Zatwierdzony item zapisany do biblioteki"));
+
+        HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow");
+        assertEquals(200, libraryResponse.statusCode());
+        assertTrue(libraryResponse.body().contains("Odłamek Verathiela"));
+        assertFalse(libraryResponse.body().contains("ODŁAMEK VERATHIEL"));
+        assertTrue(libraryResponse.body().contains("Szczęśliwy traf: maks. 15% szans na odzyskanie +3 podstawowego zasobu"));
+        assertFalse(libraryResponse.body().contains("Szczęśliwy traf: +3 podstawowego zasobu"));
+        String verathielPopup = itemDetailsFragment(libraryResponse.body(), "1");
+        assertTrue(verathielPopup.contains("Aspekt / efekt"));
+        assertTrue(verathielPopup.contains("Odłamek Verathiela"));
+        assertEquals(1, countOccurrences(verathielPopup, verathielEffectText()));
+        assertFalse(verathielPopup.contains("Aspekt unikatowy:"));
+        assertFalse(verathielPopup.contains("Status runtime:"));
+        assertFalse(verathielPopup.contains("Nieaktywny w runtime DPS"));
+        assertFalse(verathielPopup.contains("Efekt unikatowy zapisany opisowo"));
+        assertFalse(verathielPopup.contains("Odczyt OCR efektu"));
+        assertFalse(verathielPopup.contains("Diagnostyka OCR"));
+        assertFalse(verathielPopup.contains("Źródło: OCR"));
+        assertTrue(verathielPopup.contains("+94 obrażeń od broni [94 - 157]"));
+        assertTrue(verathielPopup.contains("+2141 maksymalnego zdrowia [1831 - 2200]"));
+        assertTrue(verathielPopup.contains("+545 zdrowia przy trafieniu [526 - 632]"));
+        assertFalse(verathielPopup.contains("+545 pkt. zdrowia przy trafieniu [5 - 632]"));
+        assertFalse(verathielPopup.contains("5 - 632"));
+        assertTrue(verathielPopup.contains("Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]"));
+        assertFalse(verathielPopup.contains("15% / +3"));
+
+        HttpResponse<String> editForm = sendGet("/biblioteka-itemow/edytuj?itemId=1");
+        assertEquals(200, editForm.statusCode());
+        assertTrue(editForm.body().contains("name=\"itemName\" value=\"Odłamek Verathiela\""));
+        assertFalse(editForm.body().contains("ODŁAMEK VERATHIEL"));
+        assertFalse(editForm.body().contains("Diagnostyka OCR"));
+        assertTrue(editForm.body().contains("name=\"itemPower\" value=\"900\""));
+        assertTrue(editForm.body().contains("name=\"weaponDps\" value=\"1830\""));
+        assertTrue(editForm.body().contains("name=\"weaponDamageMin\" value=\"1350\""));
+        assertTrue(editForm.body().contains("name=\"weaponDamageMax\" value=\"1978\""));
+        assertTrue(editForm.body().contains("name=\"averageWeaponDamage\" value=\"1664\""));
+        assertTrue(editForm.body().contains("name=\"attacksPerSecond\" value=\"1.10\""));
+        assertTrue(editForm.body().contains("<option value=\"verathiel_shard\""));
+        assertTrue(editForm.body().contains("selected>Odłamek Verathiela</option>"));
+        assertEquals(1, countOccurrences(editForm.body(), "Treść efektu"));
+        assertFalse(editForm.body().contains("Wybrany aspekt:"));
+        assertFalse(editForm.body().contains("Opis aspektu:"));
+        assertFalse(editForm.body().contains("Odczyt OCR efektu"));
+        assertFalse(editForm.body().contains("Dane itemu zapisane w bibliotece"));
+        assertTrue(editForm.body().contains("affix-table"));
+        assertTrue(editForm.body().contains("Zakres rolla"));
+        assertFalse(editForm.body().contains("Odczyt OCR / źródło"));
+        assertTrue(editForm.body().contains("name=\"affixValue_0\" value=\"94\""));
+        assertTrue(editForm.body().contains("94 - 157"));
+        assertTrue(editForm.body().contains("name=\"affixValue_1\" value=\"2141\""));
+        assertTrue(editForm.body().contains("1831 - 2200"));
+        assertTrue(editForm.body().contains("name=\"affixValue_2\" value=\"545\""));
+        assertTrue(editForm.body().contains("526 - 632"));
+        assertTrue(editForm.body().contains("Szczęśliwy traf: zasób podstawowy"));
+        assertTrue(editForm.body().contains("name=\"affixValue_3\" value=\"3\""));
+        assertTrue(editForm.body().contains("3 - 4"));
+        assertTrue(editForm.body().contains("name=\"affixDisplayValue_3\" value=\"+3\""));
+        assertTrue(editForm.body().contains("name=\"affixSource_3\" value=\"CORRECTED\""));
+        assertEquals(1, countOccurrences(editForm.body(), "name=\"affixValue_3\""));
+
+        HttpResponse<String> updateResponse = sendUrlEncodedPost("/biblioteka-itemow/edytuj", verathielEditFields("1"));
+        assertEquals(200, updateResponse.statusCode());
+        assertTrue(updateResponse.body().contains("Zapisano zmiany itemu."));
+        assertTrue(updateResponse.body().contains("name=\"weaponDps\" value=\"1830\""));
+        assertTrue(updateResponse.body().contains("name=\"weaponDamageMin\" value=\"1350\""));
+        assertTrue(updateResponse.body().contains("name=\"weaponDamageMax\" value=\"1978\""));
+        assertTrue(updateResponse.body().contains("name=\"averageWeaponDamage\" value=\"1664\""));
+        assertTrue(updateResponse.body().contains("name=\"attacksPerSecond\" value=\"1.10\""));
+        assertTrue(updateResponse.body().contains("526 - 632"));
+        assertTrue(updateResponse.body().contains("name=\"affixValue_3\" value=\"3\""));
+        assertTrue(updateResponse.body().contains("name=\"affixDisplayValue_3\" value=\"+3\""));
+        assertTrue(updateResponse.body().contains("name=\"affixSource_3\" value=\"CORRECTED\""));
+
+        HttpResponse<String> editAfterPost = sendGet("/biblioteka-itemow/edytuj?itemId=1");
+        assertEquals(200, editAfterPost.statusCode());
+        assertTrue(editAfterPost.body().contains("name=\"itemName\" value=\"Odłamek Verathiela\""));
+        assertTrue(editAfterPost.body().contains("name=\"weaponDps\" value=\"1830\""));
+        assertTrue(editAfterPost.body().contains("name=\"weaponDamageMin\" value=\"1350\""));
+        assertTrue(editAfterPost.body().contains("name=\"weaponDamageMax\" value=\"1978\""));
+        assertTrue(editAfterPost.body().contains("name=\"averageWeaponDamage\" value=\"1664\""));
+        assertTrue(editAfterPost.body().contains("94 - 157"));
+        assertTrue(editAfterPost.body().contains("1831 - 2200"));
+        assertTrue(editAfterPost.body().contains("526 - 632"));
+        assertTrue(editAfterPost.body().contains("3 - 4"));
+        assertTrue(editAfterPost.body().contains("id=\"affixCount\" name=\"affixCount\" value=\"4\""));
     }
 
     @Test
@@ -283,27 +386,27 @@ class ItemLibraryWebServerTest {
         assertTrue(all.body().contains("name=\"q\""));
         assertTrue(all.body().contains("Wyczyść filtry"));
 
-        assertOnlyContains("/biblioteka-itemow?slot=BOOTS", "Buty / buty-speed.png", "Ręka dodatkowa / tarcza-a.png");
-        assertOnlyContains("/biblioteka-itemow?type=" + encode("Tarcza"), "Ręka dodatkowa / tarcza-a.png", "Buty / buty-speed.png");
-        assertOnlyContains("/biblioteka-itemow?status=used", "Ręka dodatkowa / tarcza-a.png", "Ręka dodatkowa / tarcza-b.png");
-        assertOnlyContains("/biblioteka-itemow?status=unused", "Ręka dodatkowa / tarcza-b.png", "Ręka dodatkowa / tarcza-a.png");
-        assertOnlyContains("/biblioteka-itemow?aspect=inner-calm", "Ręka dodatkowa / tarcza-a.png", "Ręka dodatkowa / tarcza-b.png");
-        assertOnlyContains("/biblioteka-itemow?aspect=__NONE__", "Ręka dodatkowa / tarcza-b.png", "Ręka dodatkowa / tarcza-a.png");
-        assertOnlyContains("/biblioteka-itemow?affix=THORNS", "Ręka dodatkowa / tarcza-b.png", "Ręka dodatkowa / tarcza-a.png");
-        assertOnlyContains("/biblioteka-itemow?greater=true", "Buty / buty-speed.png", "Ręka dodatkowa / tarcza-a.png");
-        assertOnlyContains("/biblioteka-itemow?q=Alfa", "Ręka dodatkowa / tarcza-a.png", "Ręka dodatkowa / tarcza-b.png");
-        assertOnlyContains("/biblioteka-itemow?q=tarcza-b", "Ręka dodatkowa / tarcza-b.png", "Ręka dodatkowa / tarcza-a.png");
-        assertOnlyContains("/biblioteka-itemow?q=" + encode("Wewnętrznego"), "Ręka dodatkowa / tarcza-a.png", "Ręka dodatkowa / tarcza-b.png");
-        assertOnlyContains("/biblioteka-itemow?q=" + encode("Ciernie"), "Ręka dodatkowa / tarcza-b.png", "Ręka dodatkowa / tarcza-a.png");
+        assertOnlyContains("/biblioteka-itemow?slot=BOOTS", "Buty Szybkie", "Tarcza Alfa");
+        assertOnlyContains("/biblioteka-itemow?type=" + encode("Tarcza"), "Tarcza Alfa", "Buty Szybkie");
+        assertOnlyContains("/biblioteka-itemow?status=used", "Tarcza Alfa", "Tarcza Beta");
+        assertOnlyContains("/biblioteka-itemow?status=unused", "Tarcza Beta", "Tarcza Alfa");
+        assertOnlyContains("/biblioteka-itemow?aspect=inner-calm", "Tarcza Alfa", "Tarcza Beta");
+        assertOnlyContains("/biblioteka-itemow?aspect=__NONE__", "Tarcza Beta", "Tarcza Alfa");
+        assertOnlyContains("/biblioteka-itemow?affix=THORNS", "Tarcza Beta", "Tarcza Alfa");
+        assertOnlyContains("/biblioteka-itemow?greater=true", "Buty Szybkie", "Tarcza Alfa");
+        assertOnlyContains("/biblioteka-itemow?q=Alfa", "Tarcza Alfa", "Tarcza Beta");
+        assertOnlyContains("/biblioteka-itemow?q=tarcza-b", "Tarcza Beta", "Tarcza Alfa");
+        assertOnlyContains("/biblioteka-itemow?q=" + encode("Wewnętrznego"), "Tarcza Alfa", "Tarcza Beta");
+        assertOnlyContains("/biblioteka-itemow?q=" + encode("Ciernie"), "Tarcza Beta", "Tarcza Alfa");
 
         HttpResponse<String> selected = sendGet("/biblioteka-itemow?slot=BOOTS&greater=true");
         assertTrue(selected.body().contains("<option value=\"BOOTS\" selected>Buty</option>"));
         assertTrue(selected.body().contains("name=\"greater\" value=\"true\" checked"));
 
         HttpResponse<String> cleared = sendGet("/biblioteka-itemow");
-        assertTrue(cleared.body().contains("Ręka dodatkowa / tarcza-a.png"));
-        assertTrue(cleared.body().contains("Ręka dodatkowa / tarcza-b.png"));
-        assertTrue(cleared.body().contains("Buty / buty-speed.png"));
+        assertTrue(cleared.body().contains("Tarcza Alfa"));
+        assertTrue(cleared.body().contains("Tarcza Beta"));
+        assertTrue(cleared.body().contains("Buty Szybkie"));
     }
 
     private void createHero(String heroName, String heroLevel) throws Exception {
@@ -339,6 +442,11 @@ class ItemLibraryWebServerTest {
         fields.put("sourceImageName", sourceImageName);
         fields.put("slot", "OFF_HAND");
         fields.put("weaponDamage", "0");
+        fields.put("itemName", itemName);
+        fields.put("itemType", "Tarcza");
+        fields.put("itemRarity", "LEGENDARY");
+        fields.put("itemPower", "800");
+        fields.put("uniqueEffectText", "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%");
         fields.put("fullItemRead", FullItemReadFormCodec.encode(new FullItemRead(
                 itemName,
                 "Tarcza",
@@ -369,6 +477,10 @@ class ItemLibraryWebServerTest {
         fields.put("sourceImageName", sourceImageName);
         fields.put("slot", "BOOTS");
         fields.put("weaponDamage", "0");
+        fields.put("itemName", itemName);
+        fields.put("itemType", "Buty");
+        fields.put("itemRarity", "LEGENDARY");
+        fields.put("itemPower", "800");
         fields.put("fullItemRead", FullItemReadFormCodec.encode(new FullItemRead(
                 itemName,
                 "Buty",
@@ -404,6 +516,11 @@ class ItemLibraryWebServerTest {
         fields.put("sourceImageName", sourceImageName);
         fields.put("slot", "OFF_HAND");
         fields.put("weaponDamage", "0");
+        fields.put("itemName", itemName);
+        fields.put("itemType", "Tarcza");
+        fields.put("itemRarity", "LEGENDARY");
+        fields.put("itemPower", "800");
+        fields.put("uniqueEffectText", "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%");
         fields.put("fullItemRead", FullItemReadFormCodec.encode(new FullItemRead(
                 itemName,
                 "Tarcza",
@@ -425,6 +542,91 @@ class ItemLibraryWebServerTest {
             fields.put("affixGreater_0", "true");
         }
         return fields;
+    }
+
+    private static Map<String, String> verathielImportFields() {
+        Map<String, String> fields = verathielEditFields("1");
+        fields.remove("action");
+        fields.remove("itemId");
+        fields.put("formAction", "confirmItem");
+        return fields;
+    }
+
+    private static Map<String, String> verathielEditFields(String itemId) {
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("action", "updateItem");
+        fields.put("itemId", itemId);
+        fields.put("sourceImageName", "miecz.png");
+        fields.put("slot", "MAIN_HAND");
+        fields.put("weaponDamage", "0");
+        fields.put("itemName", "Odłamek Verathiela");
+        fields.put("itemType", "Miecz");
+        fields.put("itemRarity", "UNIQUE");
+        fields.put("isAncientSubmitted", "true");
+        fields.put("isAncient", "true");
+        fields.put("itemPower", "900");
+        fields.put("weaponDps", "1830");
+        fields.put("weaponDamageMin", "1350");
+        fields.put("weaponDamageMax", "1978");
+        fields.put("averageWeaponDamage", "1664");
+        fields.put("attacksPerSecond", "1.10");
+        fields.put("uniqueEffectText", verathielEffectText());
+        fields.put("selectedAspectId", "verathiel_shard");
+        fields.put("fullItemRead", FullItemReadFormCodec.encode(new FullItemRead(
+                "ODŁAMEK VERATHIEL",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "1 830 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.ITEM_NAME, "ODŁAMEK VERATHIEL"),
+                        new FullItemReadLine(FullItemReadLineType.TYPE_OR_SLOT, "Starożytny unikatowy miecz"),
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT, "1 830 pkt. obrażeń na sek."),
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT, "[1 350 - 1 978] pkt. obrażeń za trafienie"),
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT, "1,10 ataku na sekundę"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+94 obrażeń od broni [94 - 157]"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+2 141 maksymalnego zdrowia [1 831 - 2 200]"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+545 pkt. zdrowia przy trafieniu [526 - 632]"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]"),
+                        new FullItemReadLine(FullItemReadLineType.ASPECT, verathielEffectText())
+                )
+        )));
+        fields.put("affixCount", "4");
+        putAffix(fields, 0, "WEAPON_DAMAGE_FLAT", "94", "+94 obrażeń od broni [94 - 157]",
+                "verathiel_weapon_damage_flat", "94", "157", "");
+        putAffix(fields, 1, "MAXIMUM_LIFE", "2141", "+2 141 maksymalnego zdrowia [1 831 - 2 200]",
+                "verathiel_maximum_life", "1831", "2200", "");
+        putAffix(fields, 2, "LIFE_ON_HIT", "545", "+545 pkt. zdrowia przy trafieniu [5 - 632]",
+                "verathiel_life_on_hit", "526", "632", "");
+        putAffix(fields, 3, "LUCKY_HIT_PRIMARY_RESOURCE", "3",
+                "Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]",
+                "verathiel_lucky_hit_primary_resource", "3", "4", "+3");
+        return fields;
+    }
+
+    private static void putAffix(Map<String, String> fields,
+                                 int index,
+                                 String type,
+                                 String value,
+                                 String sourceText,
+                                 String definitionId,
+                                 String rangeMin,
+                                 String rangeMax,
+                                 String displayValue) {
+        fields.put("affixType_" + index, type);
+        fields.put("affixValue_" + index, value);
+        fields.put("affixSourceText_" + index, sourceText);
+        fields.put("affixSource_" + index, "CORRECTED");
+        fields.put("affixOriginalType_" + index, type);
+        fields.put("affixOriginalValue_" + index, value);
+        fields.put("affixDefinitionId_" + index, definitionId);
+        fields.put("affixRangeMin_" + index, rangeMin);
+        fields.put("affixRangeMax_" + index, rangeMax);
+        fields.put("affixDisplayValue_" + index, displayValue);
+    }
+
+    private static String verathielEffectText() {
+        return "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu.";
     }
 
     private static String buildCurrentBuildQuery() {
@@ -463,5 +665,25 @@ class ItemLibraryWebServerTest {
 
     private static String encode(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private static int countOccurrences(String value, String needle) {
+        int count = 0;
+        int index = value.indexOf(needle);
+        while (index >= 0) {
+            count++;
+            index = value.indexOf(needle, index + needle.length());
+        }
+        return count;
+    }
+
+    private static String itemDetailsFragment(String html, String itemId) {
+        String marker = "<section id=\"item-details-" + itemId + "\"";
+        int start = html.indexOf(marker);
+        if (start < 0) {
+            return "";
+        }
+        int next = html.indexOf("<section id=\"item-details-", start + marker.length());
+        return next < 0 ? html.substring(start) : html.substring(start, next);
     }
 }

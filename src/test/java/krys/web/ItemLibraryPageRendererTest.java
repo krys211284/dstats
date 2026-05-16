@@ -89,22 +89,25 @@ class ItemLibraryPageRendererTest {
         assertTrue(html.contains("Base stats"));
         assertTrue(html.contains("Implicit / linie bazowe"));
         assertTrue(html.contains("Affixy"));
-        assertTrue(html.contains("Aspekt / efekt legendarny"));
+        assertTrue(html.contains("Aspekt / efekt"));
+        assertFalse(html.contains("Aspekt / efekt legendarny"));
         assertTrue(html.contains("Socket / gniazdo"));
         assertTrue(html.contains("1 131 pkt. pancerza"));
         assertTrue(html.contains("45% redukcji blokowanych obrażeń [45]%"));
         assertTrue(html.contains("20,0% szansy na blok [20,0]%"));
         assertTrue(html.contains("+100% obrażeń od broni w głównej ręce [100]%"));
-        assertTrue(html.contains("+494 cierni [473 - 506]"));
-        assertTrue(html.contains("+7,0% szansy na szczęśliwy traf [7,0"));
-        assertTrue(html.contains("* 13,2% redukcji czasu odnowienia"));
+        assertTrue(html.contains("+494 cierni"));
+        assertTrue(html.contains("+7% szansy na szczęśliwy traf"));
+        assertFalse(html.contains("+7,0% szansy na szczęśliwy traf [7,0"));
+        assertFalse(html.contains("* 13,2% redukcji czasu odnowienia"));
         assertTrue(html.contains("★ 13,2% redukcji czasu odnowienia"));
         assertTrue(html.contains("<ul class=\"affix-summary\"><li>+494 cierni</li><li>+7% szansy na szczęśliwy traf</li><li>★ 13,2% redukcji czasu odnowienia</li><li>+114 siły</li></ul>"));
-        assertTrue(html.contains("+114 siły [107 - 121]"));
+        assertTrue(html.contains("+114 siły"));
         assertTrue(html.contains("Aspekt Wewnętrznego Spokoju"));
         assertTrue(html.contains("<span class=\"aspect-summary\" title=\"Zwiększa zadawane obrażenia podczas stania w bezruchu"));
-        assertTrue(html.contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
-        assertTrue(html.contains("Opis aspektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
+        assertFalse(html.contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
+        assertFalse(html.contains("Opis aspektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
+        assertFalse(html.contains("Status runtime:"));
         assertFalse(html.contains("Odczyt OCR efektu:"));
         assertFalse(html.contains("Zadajesz obrażenia zwiększone o 11,0%[x]"));
         assertFalse(html.contains("Odczyt efektu OCR niepełny / wymaga ręcznej weryfikacji."));
@@ -157,8 +160,10 @@ class ItemLibraryPageRendererTest {
 
         String html = render(List.of(shield));
 
-        assertTrue(html.contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
-        assertTrue(html.contains("Opis aspektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
+        assertTrue(html.contains("Aspekt Wewnętrznego Spokoju"));
+        assertTrue(html.contains("Zwiększa zadawane obrażenia podczas stania w bezruchu"));
+        assertFalse(html.contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
+        assertFalse(html.contains("Opis aspektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
         assertFalse(html.contains("Odczyt efektu OCR niepełny / wymaga ręcznej weryfikacji."));
         assertFalse(html.contains("<li>Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek.</li>"));
     }
@@ -204,8 +209,8 @@ class ItemLibraryPageRendererTest {
         assertTrue(html.contains("Base stats"));
         assertTrue(html.contains("354 pkt. pancerza"));
         assertTrue(html.contains("Affixy"));
-        assertTrue(html.contains("* +12,5% szybkości ruchu"));
-        assertTrue(html.contains("* +7,0% uniku"));
+        assertFalse(html.contains("* +12,5% szybkości ruchu"));
+        assertFalse(html.contains("* +7,0% uniku"));
         assertTrue(html.contains("★ +12,5% szybkości ruchu"));
         assertTrue(html.contains("★ +7% uniku"));
         assertTrue(html.contains("<ul class=\"affix-summary\"><li>★ +12,5% szybkości ruchu</li><li>★ +7% uniku</li></ul>"));
