@@ -220,6 +220,8 @@ class ItemImageImportTextParserTest {
                 "1350-1978 pkt. obrażeń za trafienie",
                 "1 350 – 1 978",
                 "(+1830) [1 350 - 1 978] pkt. obrażeń za trafienie",
+                "(+1830) [1 350 - 1 9781 pkt. obrażeń za trafienie",
+                "(+1831 [1 350- 1 9781 pkt. obrażeń za trafienie",
                 "(+1831 350 - 1 978] pkt. obrażeń za trafienie",
                 "1831 350 - 1 978 pkt. obrażeń za trafienie"
         )) {
@@ -278,9 +280,17 @@ class ItemImageImportTextParserTest {
         assertTrue(html.contains("name=\"attacksPerSecond\" value=\"1.10\""));
         assertFalse(html.contains("name=\"averageWeaponDamage\" value=\"1830\""));
         assertTrue(html.contains("526 - 632"));
-        assertTrue(html.contains("15% / +3"));
+        assertTrue(html.contains("Szczęśliwy traf: zasób podstawowy"));
+        assertTrue(html.contains("title=\"Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +X podstawowego zasobu\""));
+        assertTrue(html.contains("name=\"affixValue_3\" value=\"3\""));
+        assertFalse(html.contains("<span class=\"summary-value\">+3</span>"));
+        assertFalse(html.contains("15% / +3"));
         assertTrue(html.contains("3 - 4"));
-        assertFalse(html.contains("<input type=\"number\" min=\"0\" step=\"0.01\" name=\"affixValue_3\" value=\"3\""));
+        assertTrue(html.contains("aspect-effect-fieldset"));
+        assertTrue(html.contains("Treść efektu"));
+        assertFalse(html.contains("Aspekt / efekt legendarny"));
+        assertFalse(html.contains("Unikatowy efekt / aspekt"));
+        assertTrue(html.contains("<input type=\"number\" min=\"0\" step=\"0.01\" name=\"affixValue_3\" value=\"3\""));
         assertTrue(html.contains("name=\"affixType_0\""));
         assertTrue(html.contains("name=\"affixType_1\""));
         assertTrue(html.contains("name=\"affixType_2\""));

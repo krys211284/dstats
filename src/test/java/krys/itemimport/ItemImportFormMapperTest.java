@@ -211,7 +211,7 @@ class ItemImportFormMapperTest {
                 .findFirst()
                 .orElseThrow();
         assertEquals(3.0d, luckyHitAffix.getValue());
-        assertEquals("15% / +3", luckyHitAffix.getDisplayValue());
+        assertEquals("+3", luckyHitAffix.getDisplayValue());
         assertEquals(3.0d, luckyHitAffix.getRollRangeMin());
         assertEquals(4.0d, luckyHitAffix.getRollRangeMax());
         assertTrue(reloaded.getUniqueEffectText().contains("100%[x]"));

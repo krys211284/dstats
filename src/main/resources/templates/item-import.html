@@ -117,6 +117,11 @@
             background: rgba(255, 255, 255, 0.72);
         }
         .inline-fieldset legend { padding: 0 6px; color: var(--muted); font-weight: 700; }
+        .aspect-effect-fieldset {
+            grid-template-columns: minmax(240px, 0.75fr) minmax(320px, 1.25fr);
+            align-items: start;
+        }
+        .aspect-effect-text textarea { min-height: 112px; }
         .helper { margin-top: 10px; color: var(--muted); font-size: 0.95rem; }
         .submit-row { margin-top: 16px; }
         button, .link-button {
@@ -204,13 +209,39 @@
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.72);
         }
+        .item-affix-add-grid {
+            display: grid;
+            grid-template-columns: minmax(280px, 1.4fr) minmax(120px, 0.55fr) minmax(150px, 0.45fr) auto;
+            gap: 12px;
+            align-items: end;
+        }
+        .item-affix-add-actions {
+            display: flex;
+            align-items: end;
+            justify-content: flex-end;
+            gap: 8px;
+        }
         .empty-state {
             padding: 18px;
             border: 1px dashed rgba(109, 102, 92, 0.22);
             border-radius: 14px;
             background: rgba(255, 255, 255, 0.72);
         }
+        .affix-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
         .data-table { width: 100%; border-collapse: collapse; font-size: 0.94rem; }
+        .affix-table {
+            min-width: 820px;
+            table-layout: fixed;
+        }
+        .affix-type-col { width: 36%; }
+        .affix-value-col { width: 16%; }
+        .affix-range-col { width: 17%; }
+        .affix-greater-col { width: 16%; }
+        .affix-action-col { width: 15%; }
         .data-table th, .data-table td {
             padding: 10px 8px;
             border-bottom: 1px solid rgba(109, 102, 92, 0.18);
@@ -218,11 +249,33 @@
             vertical-align: top;
         }
         .data-table thead th { color: var(--muted); font-weight: 700; }
+        .affix-table select,
+        .affix-table input[type="number"] {
+            min-width: 0;
+            height: 42px;
+        }
+        .affix-value-cell input[type="number"] { max-width: 120px; }
+        .affix-range-cell { white-space: nowrap; }
+        .affix-action-cell {
+            text-align: right;
+            white-space: nowrap;
+        }
+        .affix-greater-cell .checkbox-label {
+            min-height: 40px;
+        }
         .error-list { margin: 0; padding-left: 20px; color: var(--error); }
         @media (max-width: 900px) {
             .manual-confirm-grid { grid-template-columns: 1fr; }
+            .aspect-effect-fieldset,
+            .item-affix-add-grid {
+                grid-template-columns: 1fr;
+            }
+            .item-affix-add-actions {
+                justify-content: flex-start;
+            }
             .data-table, .data-table thead, .data-table tbody, .data-table tr, .data-table th, .data-table td { display: block; }
             .data-table thead { display: none; }
+            .affix-table { min-width: 0; }
             .data-table tr {
                 margin-bottom: 12px;
                 padding: 10px;

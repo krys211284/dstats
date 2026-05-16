@@ -15,6 +15,7 @@ import java.util.regex.Pattern;
 final class ItemImageImportTextParser {
     private static final Pattern OCR_NUMBER_PATTERN = Pattern.compile("([0-9OISBL]+(?:[.,][0-9OISBL]+)?)");
     private static final String ROLL_RANGE_FRAGMENT = "\\[[0-9]+(?:[,.][0-9]+)?(?:\\s*-\\s*[0-9]+(?:[,.][0-9]+)?)?(?:\\]%?)?";
+    private static final String DAMAGE_RANGE_NUMBER_PATTERN = "[0-9OISBL]+(?:\\s+[0-9OISBL]{3}[0-9OISBL]?)*";
 
     ItemImageImportCandidateParseResult parse(ItemImageMetadata metadata, String ocrText) {
         List<String> lines = normalizedLines(ocrText);
@@ -137,7 +138,9 @@ final class ItemImageImportTextParser {
                 baseItemValue = line;
             }
         }
-        ItemImportDetails details = detectItemDetails(fullReadSourceLines, itemName, itemTypeLine, rarity, itemPower, readLines);
+        List<String> detailSourceLines = new ArrayList<>(lines);
+        detailSourceLines.addAll(fullReadSourceLines);
+        ItemImportDetails details = detectItemDetails(detailSourceLines, itemName, itemTypeLine, rarity, itemPower, readLines);
         return new FullItemRead(itemName, itemTypeLine, rarity, itemPower, baseItemValue, readLines, details);
     }
 
@@ -288,7 +291,7 @@ final class ItemImageImportTextParser {
         if (damagedRange.isPresent()) {
             return damagedRange;
         }
-        Pattern pattern = Pattern.compile("\\[?\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*[-–—−]\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*]?\\s*PKT\\.?\\s+OBRAZEN\\s+ZA\\s+TRAFIENIE",
+        Pattern pattern = Pattern.compile("\\[?\\s*(" + DAMAGE_RANGE_NUMBER_PATTERN + ")\\s*[-–—−]\\s*(" + DAMAGE_RANGE_NUMBER_PATTERN + ")\\s*]?\\s*PKT\\.?\\s+OBRAZEN\\s+ZA\\s+TRAFIENIE",
                 Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
         String joined = String.join(" ", lines);
         Matcher joinedMatcher = pattern.matcher(normalizeLineForPatternKeepingPlus(joined));
@@ -314,7 +317,7 @@ final class ItemImageImportTextParser {
 
     private static Optional<DamageRange> detectDamagedWeaponDamageRange(List<String> lines) {
         Pattern damagedPrefixPattern = Pattern.compile(
-                "(?:\\(\\+?\\s*)?[0-9OISBL]{3}([0-9OISBL])\\s+([0-9OISBL]{3})\\s*[-–—−]\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*]?\\s*PKT\\.?\\s+OBRAZEN\\s+ZA\\s+TRAFIENIE",
+                "(?:\\(\\+?\\s*)?[0-9OISBL]{3}([0-9OISBL])\\s+([0-9OISBL]{3})\\s*[-–—−]\\s*(" + DAMAGE_RANGE_NUMBER_PATTERN + ")\\s*]?\\s*PKT\\.?\\s+OBRAZEN\\s+ZA\\s+TRAFIENIE",
                 Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
         );
         String joined = normalizeLineForPatternKeepingPlus(String.join(" ", lines));
@@ -334,7 +337,7 @@ final class ItemImageImportTextParser {
     private static Optional<DamageRange> detectDamageRangeBetweenDpsAndAttackSpeed(List<String> lines) {
         String normalized = normalizeLineForPatternKeepingPlus(String.join(" ", lines));
         Pattern betweenStatsPattern = Pattern.compile(
-                "OBRAZEN\\s+NA\\s+SEK\\.?[^0-9]{0,40}.*?([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*[-–—−]\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)(?=\\D{0,40}[0-9OISBL]+[,.][0-9OISBL]+\\s+ATAK)",
+                "OBRAZEN\\s+NA\\s+SEK\\.?[^0-9]{0,40}.*?(" + DAMAGE_RANGE_NUMBER_PATTERN + ")\\s*[-–—−]\\s*(" + DAMAGE_RANGE_NUMBER_PATTERN + ")(?=\\D{0,40}[0-9OISBL]+[,.][0-9OISBL]+\\s+ATAK)",
                 Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
         );
         Matcher matcher = betweenStatsPattern.matcher(normalized);
@@ -345,7 +348,7 @@ final class ItemImageImportTextParser {
     }
 
     private static Optional<DamageRange> detectStandaloneDamageRangeNearWeaponStats(List<String> lines) {
-        Pattern rangeOnlyPattern = Pattern.compile("^\\s*\\[?\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*[-–—−]\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*]?\\s*$",
+        Pattern rangeOnlyPattern = Pattern.compile("^\\s*\\[?\\s*(" + DAMAGE_RANGE_NUMBER_PATTERN + ")\\s*[-–—−]\\s*(" + DAMAGE_RANGE_NUMBER_PATTERN + ")\\s*]?\\s*$",
                 Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
         for (int index = 0; index < lines.size(); index++) {
             Matcher matcher = rangeOnlyPattern.matcher(normalizeLineForPatternKeepingPlus(lines.get(index)));
@@ -362,12 +365,27 @@ final class ItemImageImportTextParser {
     }
 
     private static Optional<DamageRange> parseDamageRange(String min, String max) {
-        Optional<Long> parsedMin = parseLongToken(min);
-        Optional<Long> parsedMax = parseLongToken(max);
+        Optional<Long> parsedMin = parseDamageRangeNumber(min);
+        Optional<Long> parsedMax = parseDamageRangeNumber(max);
         if (parsedMin.isEmpty() || parsedMax.isEmpty()) {
             return Optional.empty();
         }
         return Optional.of(new DamageRange(parsedMin.get(), parsedMax.get()));
+    }
+
+    private static Optional<Long> parseDamageRangeNumber(String rawToken) {
+        String normalized = rawToken == null ? "" : rawToken.trim();
+        Optional<Long> parsed = parseLongToken(normalized);
+        if (parsed.isEmpty()) {
+            return Optional.empty();
+        }
+        String compact = normalizeLineForPatternKeepingPlus(normalized).replace(" ", "");
+        if (compact.length() == 5
+                && normalized.matches(".*\\s+[0-9OISBL]{4}\\s*$")
+                && (compact.endsWith("1") || compact.endsWith("I") || compact.endsWith("L"))) {
+            return parseLongToken(compact.substring(0, 4));
+        }
+        return parsed;
     }
 
     private static Optional<Double> detectAttacksPerSecond(List<String> lines) {

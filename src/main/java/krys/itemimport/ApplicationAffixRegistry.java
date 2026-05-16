@@ -56,7 +56,8 @@ public final class ApplicationAffixRegistry {
             new AffixDefinition(
                     "verathiel_lucky_hit_primary_resource",
                     ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE,
-                    "Szczęśliwy traf: odzyskanie podstawowego zasobu",
+                    "Szczęśliwy traf: zasób podstawowy",
+                    "Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +X podstawowego zasobu",
                     AffixCategory.RESOURCE,
                     List.of("Szczęśliwy traf", "Szczesliwy traf", "maksymalnie 15% szans", "odzyskanie +3 podstawowego zasobu"),
                     AffixValueUnit.TEXT,

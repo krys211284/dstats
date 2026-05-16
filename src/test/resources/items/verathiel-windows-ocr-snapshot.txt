@@ -1,0 +1,21 @@
+# Snapshot realnego Windows OCR dla src/test/resources/items/verathiel-miecz.png.
+# Zebrany przez ItemImageOcrPreprocessor + WindowsItemOcrTextReader.
+# Linie zachowują błędy OCR istotne dla kontraktu importu, np. 1 9781 zamiast 1 978].
+---original---
+ODLAfl1EK VERATHIEL Starożytny unikatowy miecz Moc przedmiotu: 900 1 830 pkt. obrażeń na sek. (+1830) [1 350- 1 9781 pkt. obrażeń za trafienie 1,10 ataku na sekundę (Szybka) o +94 obrażeń od broni [94- 157] +2 141 maksymalnego zdrowia [1 831-2 200] o +545 pkt. zdrowia przy trafieniu [526 - 6321 Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4] + Umiejętności Podstawowe zadają obrażenia zwiększone 0 1009ó[x] [70 - 1001%, ale dodatkowo zużywają 25 pkt. podstawowego zasobu.
+---text-crop---
+ODŁAfl1EK VERATHIEL Starożytny unikatowy miecz Moc przedmiotu: 900 1 830 pkt. obrażeń na sek. (+1831 [1 350- 1 9781 pkt. obrażeń za trafienie 1,10 ataku na sekundę (Szybka) o +94 obrażeń od broni [94- 157] +2 141 maksymalnego zdrowia [1 831-2 200] o +545 pkt. zdrowia przy trafieniu [5: - 6321 Szczęśliwy traf: maksymalnie 159ó szans na odzyskanie +3 podstawowego zasobu [3 - 4] + Umiejętności Podstawowe zadają
+---text-crop-gray-x2-contrast---
+ODLAfl1EK VERATHIEL Starożytny unikatowy miecz Moc przedmiotu: 900 1 830 pkt. obrażeń na sek. (+1831 [1 350- 1 9781 pkt. obrażeń za trafienie • 1,10 ataku na sekundę (Szybka) o +94 obrażeń od broni [94 - 157] +2 141 maksymalnego zdrowia [1 831 -2 200] +545 pkt. zdrowia przy trafieniu [5. - 632] o Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4] Umiejętności Podstawowe zadają
+---text-crop-gray-x3-threshold---
+ODŁAfl1EK VERATHIEL N/loc przedni iotu: 900 1 830 pkt. obrażeń na sek. (+1831 (1 350- 1 9781 pkt. obrażeń za trafienie • 1,1() ataku na sekundę (Szybka) +94 obrażeń od broni [94 - 157] +2 141 zdrołvvia [1 831 -2 200] +545 pkt. zdro\ț'ia przy trafieniu [5 SzczęślŔvy tra f: łnaksvnlalnie 1500 szans na odzyskanie +3 podstaM'0\Nłego zasobu [3 - 4] Ułniejętności Podstawowe zadają
+---text-crop-gray-x3-sharpen---
+ODŁAmEK VERATHIEL d. Starożytny unikatowy miecz Moc przedmiotu: 900 1 830 pkt. obrażeń na sek. (+1831 [1 350- 1 9781 pkt. obrażeń za trafienie 1,10 ataku na sekundę (Szybka) +94 obrażeń od broni [94 - 157] +2 141 maksymalnego zdrowia [1 831-2 200] +545 pkt. zdrowia przy trafieniu [5 632] Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4] Umiejętności Podstawowe zadają
+---weapon-stats-crop-x4---
+VE RATHIEL Starożytny unikatowy miecz Moc przedmiotu: 900 1 830 pkt. obrażeń na sek. (+1830) [1 350 - 1 9781 pkt. obrażeń za trafienie 1,10 ataku na sekundę (Szybka) +94 obrażeń od broni [94-1571
+---weapon-stats-crop-gray-x4-contrast---
+Starożytny unikatowy nłiecz Moc przedmiotu: 900 1 830 pkt. obrażeń na sek. (+1830) [1 350- 1 9781 pkt. obrażeń za trafienie • 1,10 ataku na sekundę (Szybka) +94 obrażeń od broni [94- 1571
+---weapon-stats-crop-gray-x4-sharpen---
+Starożytny unikatowy miecz Moc przedmiotu: 900 1 830 pkt. obrażeń na sek. (+1830) [1 350- 1 9781 pkt. obrażeń za trafienie 1,10 ataku na sekundę (Szybka) +94 obrażeń od broni [94 - 157]
+---bottom-effect-x4---
++ Umiejętności Podstawowe zadają obrażenia zwiększone 0 [70 - 1001%, ale dodatkowo zużywają 25 pkt. podstawowego zasobu.

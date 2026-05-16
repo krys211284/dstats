@@ -1,5 +1,10 @@
 package krys.itemimport;
 
+import krys.hero.HeroClass;
+import krys.web.HeroItemSelection;
+import krys.web.HeroProfile;
+import krys.web.ItemImportPageModel;
+import krys.web.ItemImportPageRenderer;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
@@ -152,6 +157,70 @@ class ItemImageImportServiceTest {
         assertAffixGreaterFlag(form, ImportedItemAffixType.THORNS, false);
         assertAffixGreaterFlag(form, ImportedItemAffixType.STRENGTH, false);
         assertAffixGreaterFlag(form, ImportedItemAffixType.LUCKY_HIT_CHANCE, false);
+    }
+
+    @Test
+    void shouldRenderVerathielWeaponRangeFromCapturedRealOcrFlow() throws Exception {
+        Path imagePath = Path.of("src/test/resources/items/verathiel-miecz.png");
+        Path snapshotPath = Path.of("src/test/resources/items/verathiel-windows-ocr-snapshot.txt");
+        assertTrue(Files.exists(imagePath), "Fixture obrazu Odłamka Verathiela musi istnieć.");
+        assertTrue(Files.exists(snapshotPath), "Snapshot rzeczywistego OCR Odłamka Verathiela musi istnieć.");
+        byte[] imageBytes = Files.readAllBytes(imagePath);
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new CapturedOcrSnapshotReader(snapshotPath),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(
+                new ItemImageImportRequest("verathiel-miecz.png", "image/png", imageBytes)
+        );
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                result,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "Import testowy",
+                ""
+        ));
+
+        assertEquals(447, result.getImageMetadata().getWidth());
+        assertEquals(736, result.getImageMetadata().getHeight());
+        assertEquals(1830L, result.getFullItemRead().getDetails().getWeaponDps());
+        assertEquals(1350L, result.getFullItemRead().getDetails().getWeaponDamageMin());
+        assertEquals(1978L, result.getFullItemRead().getDetails().getWeaponDamageMax());
+        assertEquals(1664L, result.getFullItemRead().getDetails().getAverageWeaponDamage());
+        assertEquals(1.10d, result.getFullItemRead().getDetails().getAttacksPerSecond());
+
+        assertTrue(html.contains("name=\"weaponDps\" value=\"1830\""));
+        assertTrue(html.contains("name=\"weaponDamageMin\" value=\"1350\""));
+        assertTrue(html.contains("name=\"weaponDamageMax\" value=\"1978\""));
+        assertTrue(html.contains("name=\"averageWeaponDamage\" value=\"1664\""));
+        assertTrue(html.contains("name=\"attacksPerSecond\" value=\"1.10\""));
+        assertFalse(html.contains("name=\"averageWeaponDamage\" value=\"1830\""));
+        assertFalse(html.contains("<td>Brak pewnego odczytu</td><td>HIGH</td><td>weaponDamageMin"));
+
+        assertTrue(html.contains("526 - 632"));
+        assertTrue(html.contains("Szczęśliwy traf: zasób podstawowy"));
+        assertTrue(html.contains("title=\"Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +X podstawowego zasobu\""));
+        assertTrue(html.contains("name=\"affixValue_3\" value=\"3\""));
+        assertFalse(html.contains("<span class=\"summary-value\">+3</span>"));
+        assertFalse(html.contains("15% / +3"));
+        assertTrue(html.contains("3 - 4"));
+        assertTrue(html.contains("aspect-effect-fieldset"));
+        assertTrue(html.contains("Treść efektu"));
+        assertFalse(html.contains("Aspekt / efekt legendarny"));
+        assertFalse(html.contains("Unikatowy efekt / aspekt"));
+        assertFalse(html.contains("Ta lista jest głównym modelem korekty itemu. Finalny zapis użyje tylko aktywnych wierszy widocznych w tej tabeli."));
+        assertTrue(html.contains("name=\"affixType_0\""));
+        assertTrue(html.contains("name=\"affixType_1\""));
+        assertTrue(html.contains("name=\"affixType_2\""));
+        assertTrue(html.contains("name=\"affixType_3\""));
+        assertFalse(html.contains("name=\"affixType_4\""));
+        assertEquals("verathiel_shard", form.getSelectedAspectId());
     }
 
     @Test

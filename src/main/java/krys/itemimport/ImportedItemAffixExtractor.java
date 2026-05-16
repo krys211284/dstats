@@ -143,9 +143,7 @@ public final class ImportedItemAffixExtractor {
                 return Optional.empty();
             }
             Optional<RollRange> rollRange = repairCatalogRollRange(definition, resource.get(), segment, parseRollRange(segment), verathielContext);
-            String displayValue = chance
-                    .map(value -> formatValue(value) + "% / +" + formatValue(resource.get()))
-                    .orElse("+" + formatValue(resource.get()));
+            String displayValue = "+" + formatValue(resource.get());
             return Optional.of(new ImportedItemAffix(
                     definition.getFormType(),
                     resource.get(),

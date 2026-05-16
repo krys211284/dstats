@@ -84,10 +84,16 @@ class ItemImportPageRendererTest {
         assertFalse(html.contains(">Aspekt Wewnętrznego Spokoju (wysoka)<"));
         assertFalse(html.contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
         assertFalse(html.contains("Typ: Legendarny"));
-        assertTrue(html.contains("Opis efektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
+        assertTrue(html.contains("Treść efektu"));
+        assertTrue(html.contains("Zwiększa zadawane obrażenia podczas stania w bezruchu"));
         assertFalse(html.contains("Sugestia OCR: Aspekt Wewnętrznego Spokoju"));
         assertFalse(html.contains("Pewność OCR sugestii: wysoka"));
         assertFalse(html.contains("Dopasowano w katalogu aspektów."));
+        assertFalse(html.contains("Ta lista jest głównym modelem korekty itemu. Finalny zapis użyje tylko aktywnych wierszy widocznych w tej tabeli."));
+        assertTrue(html.contains("affix-table-wrap"));
+        assertTrue(html.contains("data-table affix-table"));
+        assertTrue(html.contains("item-affix-add-grid"));
+        assertTrue(html.contains("item-affix-add-actions"));
         assertFalse(html.contains("Projekcja do aktualnego runtime"));
         assertFalse(html.contains("Mapowanie do aktualnego modelu buildu"));
     }
@@ -167,7 +173,8 @@ class ItemImportPageRendererTest {
                 ""
         ));
 
-        assertTrue(html.contains("Odczyt efektu OCR niepełny / wymaga ręcznej weryfikacji."));
+        assertTrue(html.contains("Treść efektu"));
+        assertFalse(html.contains("Odczyt efektu OCR niepełny / wymaga ręcznej weryfikacji."));
         assertFalse(html.contains("<li>Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek.</li>"));
     }
 
@@ -211,10 +218,11 @@ class ItemImportPageRendererTest {
                 ""
         ));
 
-        assertTrue(html.contains("Opis efektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
-        assertTrue(html.contains("Odczyt OCR efektu:"));
+        assertTrue(html.contains("Treść efektu"));
+        assertTrue(html.contains("Zwiększa zadawane obrażenia podczas stania w bezruchu"));
+        assertFalse(html.contains("Odczyt OCR efektu:"));
         assertFalse(html.contains("Zadajesz obrażenia zwiększone o [5,0 - Ta premia"));
-        assertEquals(1, countOccurrences(html, "Ta premia jest trzy razy większa"));
+        assertFalse(html.contains("<li>Ta premia jest trzy razy większa"));
         assertFalse(html.contains("Opis aspektu: Zadajesz obrażenia zwiększone o 11,0%"));
     }
 
@@ -256,7 +264,8 @@ class ItemImportPageRendererTest {
 
         assertTrue(html.contains("OCR wykrył tekst aspektu, ale nie znaleziono dopasowania w katalogu aspektów. Wybierz ręcznie albo zostaw brak."));
         assertTrue(html.contains("Brak wybranego aspektu."));
-        assertTrue(html.contains("Odczyt OCR efektu: Aspekt zupełnie nieznany z OCR"));
+        assertFalse(html.contains("Odczyt OCR efektu: Aspekt zupełnie nieznany z OCR"));
+        assertTrue(html.contains("Treść efektu"));
         assertTrue(html.contains("<option value=\"\" selected"));
     }
 
@@ -303,7 +312,7 @@ class ItemImportPageRendererTest {
                         new ImportedItemAffix(ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 94.0d, "+94 obrażeń od broni [94 - 157]"),
                         new ImportedItemAffix(ImportedItemAffixType.MAXIMUM_LIFE, 2141.0d, "+2 141 maksymalnego zdrowia [1 831 - 2 200]"),
                         new ImportedItemAffix(ImportedItemAffixType.LIFE_ON_HIT, 545.0d, "+545 pkt. zdrowia przy trafieniu [526 - 632]"),
-                        new ImportedItemAffix(ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE, 15.0d, "Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]")
+                        new ImportedItemAffix(ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE, 3.0d, "Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]")
                 ),
                 "verathiel_shard",
                 ItemImportFieldConfidence.HIGH,
@@ -354,7 +363,11 @@ class ItemImportPageRendererTest {
         assertFalse(html.contains("Nieaktywny w runtime DPS"));
         assertTrue(html.contains("<option value=\"verathiel_shard\""));
         assertTrue(html.contains(">Odłamek Verathiela</option>"));
+        assertTrue(html.contains("aspect-effect-fieldset"));
         assertTrue(html.contains("<textarea name=\"uniqueEffectText\""));
+        assertEquals(1, countOccurrences(html, "Treść efektu"));
+        assertFalse(html.contains("Unikatowy efekt / aspekt"));
+        assertFalse(html.contains("Aspekt / efekt legendarny"));
         assertFalse(html.contains("Brak wybranego aspektu."));
         assertFalse(html.contains("nie znaleziono dopasowania w katalogu aspektów"));
         assertFalse(html.contains("Sugestia OCR"));
@@ -369,10 +382,22 @@ class ItemImportPageRendererTest {
         assertTrue(html.contains("[1 831 - 2 200]"));
         assertTrue(html.contains("value=\"545\""));
         assertTrue(html.contains("[526 - 632]"));
-        assertTrue(html.contains("15%"));
-        assertTrue(html.contains("+3 podstawowego zasobu [3 - 4]"));
+        assertTrue(html.contains("Szczęśliwy traf: zasób podstawowy"));
+        assertTrue(html.contains("title=\"Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +X podstawowego zasobu\""));
+        assertTrue(html.contains("name=\"affixValue_3\" value=\"3\""));
+        assertFalse(html.contains("<span class=\"summary-value\">+3</span>"));
+        assertFalse(html.contains("15% / +3"));
+        assertTrue(html.contains("3 - 4"));
+        assertTrue(html.contains("name=\"affixValue_0\" value=\"94\""));
+        assertTrue(html.contains("name=\"affixValue_1\" value=\"2141\""));
+        assertTrue(html.contains("name=\"affixValue_2\" value=\"545\""));
+        assertEquals(1, countOccurrences(html, "name=\"affixValue_3\""));
         assertFalse(html.contains("Odczyt OCR / źródło"));
         assertFalse(html.contains("Źródło: OCR"));
+        assertFalse(html.contains("Ta lista jest głównym modelem korekty itemu. Finalny zapis użyje tylko aktywnych wierszy widocznych w tej tabeli."));
+        assertTrue(html.contains("affix-table-wrap"));
+        assertTrue(html.contains("item-affix-add-grid"));
+        assertTrue(html.contains("item-affix-add-actions"));
         assertTrue(html.contains("name=\"affixType_0\""));
         assertTrue(html.contains("name=\"affixType_1\""));
         assertTrue(html.contains("name=\"affixType_2\""));

@@ -89,7 +89,7 @@ class ImportedItemAffixExtractorTest {
         ImportedItemAffix affix = affixes.getFirst();
         assertEquals(ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE, affix.getType());
         assertEquals(3.0d, affix.getValue());
-        assertEquals("15% / +3", affix.getDisplayValue());
+        assertEquals("+3", affix.getDisplayValue());
         assertEquals(3.0d, affix.getRollRangeMin());
         assertEquals(4.0d, affix.getRollRangeMax());
     }

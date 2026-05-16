@@ -147,7 +147,6 @@ public final class ItemImportPageRenderer {
                 .append("""
                             </div>
                 """)
-                .append(renderUniqueEffectEditor(form))
                 .append(renderAffixEditor(form))
                 .append("""
                             <div class="submit-row">
@@ -235,7 +234,6 @@ public final class ItemImportPageRenderer {
                         <h4>Pełny zapis itemu</h4>
                     """)
                 .append(renderLineGroup("Linie bazowe / implicit", groupedLines(fullItemRead, ItemReadLineGroup.IMPLICIT)))
-                .append(renderTextLineGroup("Aspekt / efekt legendarny", uniqueEffectLines(fullItemRead)))
                 .append(renderLineGroup("Dodatkowe / sezonowe linie", groupedLines(fullItemRead, ItemReadLineGroup.OTHER)))
                 .append(renderLineGroup("Socket / gniazdo", groupedLines(fullItemRead, ItemReadLineGroup.SOCKET)))
                 .append("</div>")
@@ -279,13 +277,6 @@ public final class ItemImportPageRenderer {
         return html.toString();
     }
 
-    private static List<String> uniqueEffectLines(FullItemRead fullItemRead) {
-        if (fullItemRead.getDetails() != null && !fullItemRead.getDetails().getUniqueEffectText().isBlank()) {
-            return List.of(fullItemRead.getDetails().getUniqueEffectText());
-        }
-        return ItemAspectEffectPresentation.effectLines(fullItemRead);
-    }
-
     private static String renderLineGroup(String heading, List<FullItemReadLine> lines) {
         return renderLineGroup(heading, lines, false);
     }
@@ -301,22 +292,6 @@ public final class ItemImportPageRenderer {
                 """.formatted(primary ? " item-line-group-primary" : "", escapeHtml(heading)));
         for (FullItemReadLine line : lines) {
             html.append("<li>").append(escapeHtml(line.getText())).append("</li>");
-        }
-        html.append("</ul></section>");
-        return html.toString();
-    }
-
-    private static String renderTextLineGroup(String heading, List<String> lines) {
-        if (lines.isEmpty()) {
-            return "";
-        }
-        StringBuilder html = new StringBuilder("""
-                <section class="item-line-group">
-                    <h5>%s</h5>
-                    <ul class="item-line-list">
-                """.formatted(escapeHtml(heading)));
-        for (String line : lines) {
-            html.append("<li>").append(escapeHtml(line)).append("</li>");
         }
         html.append("</ul></section>");
         return html.toString();
@@ -453,15 +428,6 @@ public final class ItemImportPageRenderer {
     }
 
     private static String renderAffixValueControl(int index, ImportedItemAffix affix) {
-        if (affix != null && !affix.getDisplayValue().isBlank()) {
-            return "<span class=\"summary-value\">"
-                    + escapeHtml(affix.getDisplayValue())
-                    + "</span><input type=\"hidden\" name=\"affixValue_"
-                    + index
-                    + "\" value=\""
-                    + escapeHtml(formatDecimal(affix.getValue()))
-                    + "\">";
-        }
         return "<input type=\"number\" min=\"0\" step=\"0.01\" name=\"affixValue_"
                 + index
                 + "\" value=\""
@@ -512,9 +478,16 @@ public final class ItemImportPageRenderer {
         StringBuilder html = new StringBuilder("""
                 <section class="subpanel">
                     <h3>Ręczna weryfikacja affixów</h3>
-                    <p class="helper">Ta lista jest głównym modelem korekty itemu. Finalny zapis użyje tylko aktywnych wierszy widocznych w tej tabeli.</p>
                     <input type="hidden" id="affixCount" name="affixCount" value="%s">
-                    <table class="data-table" id="affixTable">
+                    <div class="affix-table-wrap">
+                    <table class="data-table affix-table" id="affixTable">
+                        <colgroup>
+                            <col class="affix-type-col">
+                            <col class="affix-value-col">
+                            <col class="affix-range-col">
+                            <col class="affix-greater-col">
+                            <col class="affix-action-col">
+                        </colgroup>
                         <thead>
                             <tr>
                                 <th>Typ affixu</th>
@@ -530,7 +503,7 @@ public final class ItemImportPageRenderer {
             ImportedItemAffix affix = form.getAffixes().get(index);
             html.append("""
                     <tr>
-                        <td>
+                        <td class="affix-type-cell">
                             <select name="affixType_%s">%s</select>
                             <input type="hidden" name="affixSourceText_%s" value="%s">
                             <input type="hidden" name="affixOriginalType_%s" value="%s">
@@ -540,16 +513,16 @@ public final class ItemImportPageRenderer {
                             <input type="hidden" name="affixRangeMax_%s" value="%s">
                             <input type="hidden" name="affixDisplayValue_%s" value="%s">
                         </td>
-                        <td>
+                        <td class="affix-value-cell">
                             %s
                         </td>
-                        <td>
+                        <td class="affix-range-cell">
                             %s
                         </td>
-                        <td>
+                        <td class="affix-greater-cell">
                             <label class="checkbox-label"><input type="checkbox" name="affixGreater_%s" value="true"%s> Gwiazdka</label>
                         </td>
-                        <td><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
+                        <td class="affix-action-cell"><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
                     </tr>
                     """.formatted(
                     index,
@@ -577,9 +550,10 @@ public final class ItemImportPageRenderer {
         html.append("""
                         </tbody>
                     </table>
+                    </div>
                     <div class="add-affix-row">
                         <h4>Dodaj affix</h4>
-                        <div class="form-grid">
+                        <div class="item-affix-add-grid">
                             <label>
                                 Typ affixu
                                 <select name="newAffixType">
@@ -594,19 +568,21 @@ public final class ItemImportPageRenderer {
                             <label class="checkbox-label">
                                 <input type="checkbox" id="newAffixGreater" value="true"> Greater Affix
                             </label>
+                            <div class="item-affix-add-actions">
+                                <button type="button" id="addAffixButton">Dodaj affix</button>
+                                <noscript>
+                                    <button type="submit" name="formAction" value="addAffix">Dodaj affix</button>
+                                </noscript>
+                            </div>
                         </div>
-                        <button type="button" id="addAffixButton">Dodaj affix</button>
-                        <noscript>
-                            <button type="submit" name="formAction" value="addAffix">Dodaj affix</button>
-                        </noscript>
                     </div>
                     <template id="affixRowTemplate">
                         <tr>
-                            <td><select name="affixType___INDEX__">%s</select><input type="hidden" name="affixSourceText___INDEX__" value=""><input type="hidden" name="affixDefinitionId___INDEX__" value=""><input type="hidden" name="affixRangeMin___INDEX__" value=""><input type="hidden" name="affixRangeMax___INDEX__" value=""><input type="hidden" name="affixDisplayValue___INDEX__" value=""></td>
-                            <td><input type="number" min="0" step="0.01" name="affixValue___INDEX__" value="__VALUE__"></td>
-                            <td><span class="helper">Brak zakresu</span></td>
-                            <td><label class="checkbox-label"><input type="checkbox" name="affixGreater___INDEX__" value="true"> Gwiazdka</label></td>
-                            <td><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
+                            <td class="affix-type-cell"><select name="affixType___INDEX__">%s</select><input type="hidden" name="affixSourceText___INDEX__" value=""><input type="hidden" name="affixDefinitionId___INDEX__" value=""><input type="hidden" name="affixRangeMin___INDEX__" value=""><input type="hidden" name="affixRangeMax___INDEX__" value=""><input type="hidden" name="affixDisplayValue___INDEX__" value=""></td>
+                            <td class="affix-value-cell"><input type="number" min="0" step="0.01" name="affixValue___INDEX__" value="__VALUE__"></td>
+                            <td class="affix-range-cell"><span class="helper">Brak zakresu</span></td>
+                            <td class="affix-greater-cell"><label class="checkbox-label"><input type="checkbox" name="affixGreater___INDEX__" value="true"> Gwiazdka</label></td>
+                            <td class="affix-action-cell"><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
                         </tr>
                     </template>
                 </section>
@@ -653,11 +629,7 @@ public final class ItemImportPageRenderer {
         html.append("""
                     </select>
                 """);
-        if (selectedAspect != null) {
-            html.append("<span class=\"helper\">Opis efektu: ")
-                    .append(escapeHtml(selectedAspect.getEffectDescription()))
-                    .append("</span>");
-        } else {
+        if (selectedAspect == null) {
             html.append("<span class=\"helper\">Brak wybranego aspektu.</span>");
         }
         if (selectedAspect == null && hasAspectText(form.getFullItemRead())) {
@@ -666,10 +638,45 @@ public final class ItemImportPageRenderer {
         if (selectedAspectKnown && !selectedAspectAllowed) {
             html.append("<span class=\"helper\">Wybrany aspekt nie pasuje do obecnego slotu itemu i wymaga zmiany przed zapisem.</span>");
         }
-        html.append("</label>");
-        return html.toString();
+        html.append("""
+                </label>
+                <label class="aspect-effect-text">
+                    Treść efektu
+                    <textarea name="uniqueEffectText" rows="4">%s</textarea>
+                </label>
+                """.formatted(escapeHtml(aspectEffectText(form, selectedAspect))));
+        return "<fieldset class=\"inline-fieldset aspect-effect-fieldset\"><legend>Aspekt / efekt</legend>"
+                + html
+                + "</fieldset>";
     }
 
+    private static String aspectEffectText(ItemImportEditableForm form, AspectDefinition selectedAspect) {
+        String effectText = firstNonBlank(form.getUniqueEffectText(), form.getFullItemRead().getDetails().getUniqueEffectText());
+        if (effectText.isBlank() && selectedAspect != null) {
+            return selectedAspect.getEffectDescription();
+        }
+        return effectText;
+    }
+
+    private static String selectedAspectLabel(String selectedAspectId) {
+        if (selectedAspectId == null || selectedAspectId.isBlank()) {
+            return "Brak";
+        }
+        return ASPECT_REGISTRY.findById(selectedAspectId)
+                .map(AspectDefinition::getDisplayName)
+                .orElse(selectedAspectId);
+    }
+
+    private static EquipmentSlot parseSlot(String rawSlot) {
+        if (rawSlot == null || rawSlot.isBlank()) {
+            return null;
+        }
+        try {
+            return EquipmentSlot.valueOf(rawSlot);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
+    }
     private static String allowedSlotNames(AspectDefinition aspect) {
         return aspect.getAllowedItemSlots().stream()
                 .map(EquipmentSlot::name)
@@ -769,72 +776,6 @@ public final class ItemImportPageRenderer {
         );
     }
 
-    private static String renderUniqueEffectEditor(ItemImportEditableForm form) {
-        String effectText = firstNonBlank(form.getUniqueEffectText(), form.getFullItemRead().getDetails().getUniqueEffectText());
-        return """
-                <section class="subpanel">
-                    <h3>Unikatowy efekt / aspekt</h3>
-                    <label>
-                        Treść efektu
-                        <textarea name="uniqueEffectText" rows="4">%s</textarea>
-                    </label>
-                </section>
-                """.formatted(escapeHtml(effectText));
-    }
-
-    private static String selectedAspectLabel(String selectedAspectId) {
-        if (selectedAspectId == null || selectedAspectId.isBlank()) {
-            return "Brak";
-        }
-        return ASPECT_REGISTRY.findById(selectedAspectId)
-                .map(AspectDefinition::getDisplayName)
-                .orElse(selectedAspectId);
-    }
-
-    private static String aspectSelectionLabel(AspectDefinition aspect) {
-        if (aspect != null && aspect.isUniqueAspect()) {
-            return "Aspekt unikatowy";
-        }
-        return "Wybrany aspekt";
-    }
-
-    private static String renderReadonlyItemType(ItemImportEditableForm form) {
-        String itemType = simplifyItemType(form.getFullItemRead().getItemTypeLine());
-        return """
-                <div class="readonly-form-field">
-                    <div class="summary-label">Typ itemu</div>
-                    <div class="summary-value">%s</div>
-                </div>
-                """.formatted(escapeHtml(itemType));
-    }
-
-    private static String renderVisibleWeaponDamageField(ItemImportEditableForm form) {
-        String weaponDamage = form.getWeaponDamage();
-        if (weaponDamage == null || weaponDamage.isBlank()) {
-            String baseItemValue = form.getFullItemRead().getBaseItemValue();
-            String normalized = normalizeForDisplayRules(baseItemValue);
-            if (!normalized.contains("OBRAZEN") && !normalized.contains("DAMAGE")) {
-                return "";
-            }
-            weaponDamage = simplifyBaseValue(baseItemValue).replace(" ", "");
-        }
-        if (weaponDamage == null || weaponDamage.isBlank()) {
-            return "";
-        }
-        return renderNumberField("weaponDamage", "Bazowe obrażenia broni", weaponDamage, "1");
-    }
-
-    private static EquipmentSlot parseSlot(String rawSlot) {
-        if (rawSlot == null || rawSlot.isBlank()) {
-            return null;
-        }
-        try {
-            return EquipmentSlot.valueOf(rawSlot);
-        } catch (IllegalArgumentException exception) {
-            return null;
-        }
-    }
-
     private static String renderAffixTypeOptions(ImportedItemAffixType selectedType) {
         StringBuilder html = new StringBuilder();
         for (AffixDefinition definition : AFFIX_REGISTRY.all()) {
@@ -844,6 +785,12 @@ public final class ItemImportPageRenderer {
                     .append("\"")
                     .append(" data-affix-definition-id=\"")
                     .append(escapeHtml(definition.getId()))
+                    .append("\"")
+                    .append(" title=\"")
+                    .append(escapeHtml(definition.getDescription()))
+                    .append("\"")
+                    .append(" aria-label=\"")
+                    .append(escapeHtml(definition.getDescription()))
                     .append("\"")
                     .append(type == selectedType ? " selected" : "")
                     .append(">")

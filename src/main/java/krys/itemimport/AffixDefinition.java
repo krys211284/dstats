@@ -7,6 +7,7 @@ public final class AffixDefinition {
     private final String id;
     private final ImportedItemAffixType formType;
     private final String displayName;
+    private final String description;
     private final AffixCategory category;
     private final List<String> ocrAliases;
     private final AffixValueUnit valueUnit;
@@ -33,6 +34,26 @@ public final class AffixDefinition {
                            AffixRuntimeStatus runtimeStatus,
                            boolean automaticMatchingAllowed,
                            boolean manualVerificationRequired) {
+        this(id, formType, displayName, displayName, category, ocrAliases, valueUnit, catalogValue, rollRangeMin,
+                rollRangeMax, chancePercent, resourceAmount, runtimeStatus, automaticMatchingAllowed,
+                manualVerificationRequired);
+    }
+
+    public AffixDefinition(String id,
+                           ImportedItemAffixType formType,
+                           String displayName,
+                           String description,
+                           AffixCategory category,
+                           List<String> ocrAliases,
+                           AffixValueUnit valueUnit,
+                           Double catalogValue,
+                           Double rollRangeMin,
+                           Double rollRangeMax,
+                           Double chancePercent,
+                           Double resourceAmount,
+                           AffixRuntimeStatus runtimeStatus,
+                           boolean automaticMatchingAllowed,
+                           boolean manualVerificationRequired) {
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("Id affixu jest wymagane.");
         }
@@ -48,6 +69,7 @@ public final class AffixDefinition {
         this.id = id;
         this.formType = formType;
         this.displayName = displayName;
+        this.description = description == null || description.isBlank() ? displayName : description;
         this.category = category == null ? AffixCategory.UTILITY : category;
         this.ocrAliases = List.copyOf(ocrAliases);
         this.valueUnit = valueUnit == null ? AffixValueUnit.FLAT : valueUnit;
@@ -71,6 +93,10 @@ public final class AffixDefinition {
 
     public String getDisplayName() {
         return displayName;
+    }
+
+    public String getDescription() {
+        return description;
     }
 
     public AffixCategory getCategory() {

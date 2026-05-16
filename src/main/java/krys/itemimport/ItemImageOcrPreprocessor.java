@@ -59,6 +59,33 @@ final class ItemImageOcrPreprocessor {
                 cropBox.width(),
                 cropBox.height()
         ));
+        CropBox weaponStatsCropBox = weaponStatsCrop(originalImage);
+        BufferedImage weaponStatsCrop = crop(originalImage, weaponStatsCropBox);
+        variants.add(new ItemImageOcrVariant(
+                "weapon-stats-crop-x4",
+                upscale(weaponStatsCrop, 4.0d),
+                weaponStatsCropBox.x(),
+                weaponStatsCropBox.y(),
+                weaponStatsCropBox.width(),
+                weaponStatsCropBox.height()
+        ));
+        BufferedImage weaponStatsContrast = adjustContrast(toGrayscale(upscale(weaponStatsCrop, 4.0d)), 1.45f, 12.0f);
+        variants.add(new ItemImageOcrVariant(
+                "weapon-stats-crop-gray-x4-contrast",
+                weaponStatsContrast,
+                weaponStatsCropBox.x(),
+                weaponStatsCropBox.y(),
+                weaponStatsCropBox.width(),
+                weaponStatsCropBox.height()
+        ));
+        variants.add(new ItemImageOcrVariant(
+                "weapon-stats-crop-gray-x4-sharpen",
+                sharpen(weaponStatsContrast),
+                weaponStatsCropBox.x(),
+                weaponStatsCropBox.y(),
+                weaponStatsCropBox.width(),
+                weaponStatsCropBox.height()
+        ));
         CropBox bottomEffectCropBox = bottomEffectCrop(originalImage);
         variants.add(new ItemImageOcrVariant(
                 "bottom-effect-x4",
@@ -141,6 +168,16 @@ final class ItemImageOcrPreprocessor {
         int y = clamp((int) Math.round(height * 0.78d), 0, height - 1);
         int bottom = clamp((int) Math.round(height * 0.96d), y + 1, height);
         return new CropBox(0, y, width, bottom - y);
+    }
+
+    private static CropBox weaponStatsCrop(BufferedImage image) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        int x = clamp((int) Math.round(width * 0.04d), 0, width - 1);
+        int right = clamp((int) Math.round(width * 0.96d), x + 1, width);
+        int y = clamp((int) Math.round(height * 0.08d), 0, height - 1);
+        int bottom = clamp((int) Math.round(height * 0.52d), y + 1, height);
+        return new CropBox(x, y, right - x, bottom - y);
     }
 
     private static boolean isLikelyTextPixel(BufferedImage image, int x, int y) {

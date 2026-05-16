@@ -20,10 +20,17 @@ class AffixRegistryTest {
         assertEquals(4, verathielAffixes.size());
         for (AffixDefinition definition : verathielAffixes) {
             assertFalse(definition.getOcrAliases().isEmpty(), definition.getId());
+            assertFalse(definition.getDescription().isBlank(), definition.getId());
             assertEquals(AffixRuntimeStatus.DESCRIPTIVE_ONLY, definition.getRuntimeStatus(), definition.getId());
             assertTrue(definition.isAutomaticMatchingAllowed(), definition.getId());
             assertTrue(definition.isManualVerificationRequired(), definition.getId());
         }
+        AffixDefinition luckyHit = registry.findById("verathiel_lucky_hit_primary_resource").orElseThrow();
+        assertEquals("Szczęśliwy traf: zasób podstawowy", luckyHit.getDisplayName());
+        assertEquals("Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +X podstawowego zasobu",
+                luckyHit.getDescription());
+        assertEquals(15.0d, luckyHit.getChancePercent());
+        assertEquals(3.0d, luckyHit.getResourceAmount());
     }
 
     @Test
