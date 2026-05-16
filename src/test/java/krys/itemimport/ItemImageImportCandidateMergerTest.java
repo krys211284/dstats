@@ -102,6 +102,87 @@ class ItemImageImportCandidateMergerTest {
         assertEquals(1664L, details.getAverageWeaponDamage());
     }
 
+    @Test
+    void shouldPreserveWeaponDamageRangeWhenMergedLinesMissParsedRange() {
+        ItemImportDetails parsedWeaponDetails = new ItemImportDetails(
+                "Odłamek Verathiela",
+                "Miecz",
+                "UNIQUE",
+                true,
+                EquipmentSlot.MAIN_HAND,
+                900L,
+                1830L,
+                1350L,
+                1978L,
+                null,
+                1.10d,
+                "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu."
+        );
+        ItemImageImportCandidateParseResult detailsOnlyVariant = parseResult(new FullItemRead(
+                "Odłamek Verathiela",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "1 830 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.ITEM_NAME, "Odłamek Verathiela"),
+                        new FullItemReadLine(FullItemReadLineType.TYPE_OR_SLOT, "Starożytny unikatowy miecz"),
+                        new FullItemReadLine(FullItemReadLineType.ITEM_POWER, "Moc przedmiotu: 900"),
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT, "1 830 pkt. obrażeń na sek.")
+                ),
+                parsedWeaponDetails
+        ));
+
+        ItemImageImportCandidateParseResult merged = new ItemImageImportCandidateMerger()
+                .merge(metadata, 1, List.of(detailsOnlyVariant));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(merged);
+
+        assertEquals(1350L, merged.getFullItemRead().getDetails().getWeaponDamageMin());
+        assertEquals(1978L, merged.getFullItemRead().getDetails().getWeaponDamageMax());
+        assertEquals(1664L, merged.getFullItemRead().getDetails().getAverageWeaponDamage());
+        assertEquals("1350", form.getWeaponDamageMin());
+        assertEquals("1978", form.getWeaponDamageMax());
+        assertEquals("1664", form.getAverageWeaponDamage());
+    }
+
+    @Test
+    void shouldMergeVerathielAffixesToFourUniqueRowsAfterOcrVariants() {
+        ItemImageImportCandidateParseResult firstVariant = parseResult(
+                ItemImageImportTextParser.buildFullItemRead(List.of(
+                        "ODŁAMEK VERATHIEL",
+                        "Starożytny unikatowy miecz",
+                        "+94 obrażeń od broni [94 - 157]",
+                        "+2 141 maksymalnego zdrowia [1 831 - 2 200]",
+                        "+545 pkt. zdrowia przy trafieniu [526 - 632]",
+                        "Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]",
+                        "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu."
+                ))
+        );
+        ItemImageImportCandidateParseResult secondVariant = parseResult(
+                ItemImageImportTextParser.buildFullItemRead(List.of(
+                        "+94 obrazen od broni [94 - 157] +2 141 maksymalnego zdrowia [1 831 - 2 200]",
+                        "+545 pkt. zdrowia przy trafieniu [5 - 632] Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]"
+                ))
+        );
+
+        ItemImageImportCandidateParseResult merged = new ItemImageImportCandidateMerger()
+                .merge(metadata, 2, java.util.List.of(firstVariant, secondVariant));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(merged);
+
+        assertEquals(4, form.getAffixes().size());
+        assertEquals(1L, countAffix(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT));
+        assertEquals(1L, countAffix(form, ImportedItemAffixType.MAXIMUM_LIFE));
+        assertEquals(1L, countAffix(form, ImportedItemAffixType.LIFE_ON_HIT));
+        assertEquals(1L, countAffix(form, ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE));
+        ImportedItemAffix lifeOnHit = form.getAffixes().stream()
+                .filter(affix -> affix.getType() == ImportedItemAffixType.LIFE_ON_HIT)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(526.0d, lifeOnHit.getRollRangeMin());
+        assertEquals(632.0d, lifeOnHit.getRollRangeMax());
+        assertTrue(form.getAffixes().stream().noneMatch(affix -> affix.getSourceText().contains("Umiejętności Podstawowe")));
+    }
+
     private ItemImageImportCandidateParseResult parseResult(ItemImportFieldCandidate<EquipmentSlot> slotCandidate,
                                                             ItemImportFieldCandidate<Long> weaponDamageCandidate,
                                                             ItemImportFieldCandidate<Double> strengthCandidate,
@@ -136,5 +217,11 @@ class ItemImageImportCandidateMergerTest {
                 ItemImportFieldCandidate.unknown("retribution"),
                 "test"
         );
+    }
+
+    private static long countAffix(ItemImportEditableForm form, ImportedItemAffixType type) {
+        return form.getAffixes().stream()
+                .filter(affix -> affix.getType() == type)
+                .count();
     }
 }

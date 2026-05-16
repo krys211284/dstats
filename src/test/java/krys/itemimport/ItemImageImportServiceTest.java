@@ -148,7 +148,7 @@ class ItemImageImportServiceTest {
         assertAffixTypeOccursOnce(form, ImportedItemAffixType.THORNS);
         assertAffixTypeOccursOnce(form, ImportedItemAffixType.LUCKY_HIT_CHANCE);
         assertAffixTypeOccursOnce(form, ImportedItemAffixType.COOLDOWN_REDUCTION);
-        assertAffixGreaterFlag(form, ImportedItemAffixType.COOLDOWN_REDUCTION, true);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.COOLDOWN_REDUCTION, false);
         assertAffixGreaterFlag(form, ImportedItemAffixType.THORNS, false);
         assertAffixGreaterFlag(form, ImportedItemAffixType.STRENGTH, false);
         assertAffixGreaterFlag(form, ImportedItemAffixType.LUCKY_HIT_CHANCE, false);
@@ -207,7 +207,7 @@ class ItemImageImportServiceTest {
         assertFullReadDoesNotContain(result, "+7,0% szansy na szczęśliwy traf [7,0 13,2");
 
         ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
-        assertAffixGreaterFlag(form, ImportedItemAffixType.COOLDOWN_REDUCTION, true);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.COOLDOWN_REDUCTION, false);
         assertAffixGreaterFlag(form, ImportedItemAffixType.THORNS, false);
         assertAffixGreaterFlag(form, ImportedItemAffixType.STRENGTH, false);
         assertAffixGreaterFlag(form, ImportedItemAffixType.LUCKY_HIT_CHANCE, false);

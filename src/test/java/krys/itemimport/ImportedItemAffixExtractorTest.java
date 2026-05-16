@@ -21,11 +21,11 @@ class ImportedItemAffixExtractorTest {
     }
 
     @Test
-    void shouldRecognizeGreaterAffixWhenKnownAffixHasNoRollRange() {
-        assertGreaterAffix("+114 siły", FullItemReadLineType.AFFIX);
-        assertGreaterAffix("+494 cierni", FullItemReadLineType.AFFIX);
-        assertGreaterAffix("13,2% redukcji czasu odnowienia", FullItemReadLineType.AFFIX);
-        assertGreaterAffix("+7,0% szansy na szczęśliwy traf", FullItemReadLineType.AFFIX);
+    void shouldNotGuessGreaterAffixWhenKnownAffixHasNoRollRange() {
+        assertNotGreaterAffix("+114 siły", FullItemReadLineType.AFFIX);
+        assertNotGreaterAffix("+494 cierni", FullItemReadLineType.AFFIX);
+        assertNotGreaterAffix("13,2% redukcji czasu odnowienia", FullItemReadLineType.AFFIX);
+        assertNotGreaterAffix("+7,0% szansy na szczęśliwy traf", FullItemReadLineType.AFFIX);
     }
 
     @Test
@@ -58,7 +58,7 @@ class ImportedItemAffixExtractorTest {
         assertEquals("* +55 siły", markedAffix.getRawOcrLine());
         assertEquals("13,2% redukcji czasu odnowienia", missingRangeAffix.getRawOcrLine());
         assertEquals("13,2% redukcji czasu odnowienia", missingRangeAffix.getSourceText());
-        assertTrue(missingRangeAffix.toDisplayLine().startsWith("* "));
+        assertFalse(missingRangeAffix.toDisplayLine().startsWith("* "));
     }
 
     private void assertGreaterAffix(String text, FullItemReadLineType type) {

@@ -3,6 +3,9 @@ package krys.web;
 import krys.item.EquipmentSlot;
 import krys.item.HeroEquipmentSlot;
 import krys.item.ItemStat;
+import krys.itemimport.AffixDefinition;
+import krys.itemimport.AffixRegistry;
+import krys.itemimport.ApplicationAffixRegistry;
 import krys.itemimport.ApplicationAspectRegistry;
 import krys.itemimport.AspectDefinition;
 import krys.itemimport.AspectRegistry;
@@ -32,6 +35,7 @@ import java.util.Locale;
 public final class ItemImportPageRenderer {
     private final String template;
     private static final AspectRegistry ASPECT_REGISTRY = ApplicationAspectRegistry.get();
+    private static final AffixRegistry AFFIX_REGISTRY = ApplicationAffixRegistry.get();
 
     public ItemImportPageRenderer() {
         this.template = loadTemplate();
@@ -231,7 +235,6 @@ public final class ItemImportPageRenderer {
                         <h4>Pełny zapis itemu</h4>
                     """)
                 .append(renderLineGroup("Linie bazowe / implicit", groupedLines(fullItemRead, ItemReadLineGroup.IMPLICIT)))
-                .append(renderLineGroup("Affixy", groupedLines(fullItemRead, ItemReadLineGroup.AFFIX), true))
                 .append(renderTextLineGroup("Aspekt / efekt legendarny", uniqueEffectLines(fullItemRead)))
                 .append(renderLineGroup("Dodatkowe / sezonowe linie", groupedLines(fullItemRead, ItemReadLineGroup.OTHER)))
                 .append(renderLineGroup("Socket / gniazdo", groupedLines(fullItemRead, ItemReadLineGroup.SOCKET)))
@@ -278,10 +281,7 @@ public final class ItemImportPageRenderer {
 
     private static List<String> uniqueEffectLines(FullItemRead fullItemRead) {
         if (fullItemRead.getDetails() != null && !fullItemRead.getDetails().getUniqueEffectText().isBlank()) {
-            return List.of(
-                    fullItemRead.getDetails().getUniqueEffectText(),
-                    "Efekt unikatowy zapisany opisowo — nieaktywny w runtime DPS."
-            );
+            return List.of(fullItemRead.getDetails().getUniqueEffectText());
         }
         return ItemAspectEffectPresentation.effectLines(fullItemRead);
     }
@@ -445,6 +445,17 @@ public final class ItemImportPageRenderer {
         return value == null ? "Brak pewnego odczytu" : Long.toString(value);
     }
 
+    private static String renderAffixDisplayValue(ImportedItemAffix affix) {
+        if (affix == null || affix.getDisplayValue().isBlank()) {
+            return "";
+        }
+        return "<div class=\"helper\">" + escapeHtml(affix.getDisplayValue()) + "</div>";
+    }
+
+    private static String emptyLabelForRollRange(String value) {
+        return value == null || value.isBlank() ? "Brak zakresu" : value;
+    }
+
     private static String normalizeForDisplayRules(String value) {
         if (value == null) {
             return "";
@@ -491,8 +502,8 @@ public final class ItemImportPageRenderer {
                             <tr>
                                 <th>Typ affixu</th>
                                 <th>Wartość</th>
+                                <th>Zakres rolla</th>
                                 <th>Greater Affix</th>
-                                <th>Odczyt OCR / źródło</th>
                                 <th>Akcja</th>
                             </tr>
                         </thead>
@@ -507,16 +518,20 @@ public final class ItemImportPageRenderer {
                             <input type="hidden" name="affixSourceText_%s" value="%s">
                             <input type="hidden" name="affixOriginalType_%s" value="%s">
                             <input type="hidden" name="affixOriginalValue_%s" value="%s">
+                            <input type="hidden" name="affixDefinitionId_%s" value="%s">
+                            <input type="hidden" name="affixRangeMin_%s" value="%s">
+                            <input type="hidden" name="affixRangeMax_%s" value="%s">
+                            <input type="hidden" name="affixDisplayValue_%s" value="%s">
                         </td>
                         <td>
                             <input type="number" min="0" step="0.01" name="affixValue_%s" value="%s">
-                        </td>
-                        <td>
-                            <label class="checkbox-label"><input type="checkbox" name="affixGreater_%s" value="true"%s> Gwiazdka</label>
+                            %s
                         </td>
                         <td>
                             %s
-                            <div class="helper">Źródło: %s</div>
+                        </td>
+                        <td>
+                            <label class="checkbox-label"><input type="checkbox" name="affixGreater_%s" value="true"%s> Gwiazdka</label>
                         </td>
                         <td><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
                     </tr>
@@ -530,11 +545,19 @@ public final class ItemImportPageRenderer {
                     index,
                     formatDecimal(affix.getValue()),
                     index,
-                    formatDecimal(affix.getValue()),
+                    escapeHtml(affix.getAffixDefinitionId()),
                     index,
-                    affix.isGreaterAffix() ? " checked" : "",
-                    escapeHtml(affix.toDisplayLine()),
-                    escapeHtml(affix.getSource().name())
+                    affix.getRollRangeMin() == null ? "" : formatDecimal(affix.getRollRangeMin()),
+                    index,
+                    affix.getRollRangeMax() == null ? "" : formatDecimal(affix.getRollRangeMax()),
+                    index,
+                    escapeHtml(affix.getDisplayValue()),
+                    index,
+                    formatDecimal(affix.getValue()),
+                    renderAffixDisplayValue(affix),
+                    escapeHtml(emptyLabelForRollRange(affix.getRollRangeLabel())),
+                    index,
+                    affix.isGreaterAffix() ? " checked" : ""
             ));
         }
         html.append("""
@@ -565,10 +588,10 @@ public final class ItemImportPageRenderer {
                     </div>
                     <template id="affixRowTemplate">
                         <tr>
-                            <td><select name="affixType___INDEX__">%s</select><input type="hidden" name="affixSourceText___INDEX__" value=""></td>
+                            <td><select name="affixType___INDEX__">%s</select><input type="hidden" name="affixSourceText___INDEX__" value=""><input type="hidden" name="affixDefinitionId___INDEX__" value=""><input type="hidden" name="affixRangeMin___INDEX__" value=""><input type="hidden" name="affixRangeMax___INDEX__" value=""><input type="hidden" name="affixDisplayValue___INDEX__" value=""></td>
                             <td><input type="number" min="0" step="0.01" name="affixValue___INDEX__" value="__VALUE__"></td>
+                            <td><span class="helper">Brak zakresu</span></td>
                             <td><label class="checkbox-label"><input type="checkbox" name="affixGreater___INDEX__" value="true"> Gwiazdka</label></td>
-                            <td><span class="helper">Dodany ręcznie</span></td>
                             <td><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
                         </tr>
                     </template>
@@ -617,37 +640,17 @@ public final class ItemImportPageRenderer {
                     </select>
                 """);
         if (selectedAspect != null) {
-            html.append("<span class=\"helper\">")
-                    .append(escapeHtml(aspectSelectionLabel(selectedAspect)))
-                    .append(": ")
-                    .append(escapeHtml(selectedAspect.getDisplayName()))
-                    .append("</span><span class=\"helper\">Status runtime: ")
-                    .append(escapeHtml(selectedAspect.getRuntimeStatus().getDisplayName()))
-                    .append("</span><span class=\"helper\">Opis aspektu: ")
+            html.append("<span class=\"helper\">Opis efektu: ")
                     .append(escapeHtml(selectedAspect.getEffectDescription()))
                     .append("</span>");
         } else {
             html.append("<span class=\"helper\">Brak wybranego aspektu.</span>");
         }
-        if (!form.getOcrSuggestedAspectId().isBlank()) {
-            String suggestionLabel = ASPECT_REGISTRY.findById(form.getOcrSuggestedAspectId())
-                    .map(AspectDefinition::getDisplayName)
-                    .orElse(form.getOcrSuggestedAspectId());
-            html.append("<span class=\"helper\">Sugestia OCR: ")
-                    .append(escapeHtml(suggestionLabel))
-                    .append("</span><span class=\"helper\">Pewność OCR sugestii: ")
-                    .append(escapeHtml(form.getOcrAspectConfidence().getDisplayName()))
-                    .append(". Dopasowano w katalogu aspektów.</span>");
-        } else if (hasAspectText(form.getFullItemRead())) {
+        if (selectedAspect == null && hasAspectText(form.getFullItemRead())) {
             html.append("<span class=\"helper\">OCR wykrył tekst aspektu, ale nie znaleziono dopasowania w katalogu aspektów. Wybierz ręcznie albo zostaw brak.</span>");
         }
         if (selectedAspectKnown && !selectedAspectAllowed) {
             html.append("<span class=\"helper\">Wybrany aspekt nie pasuje do obecnego slotu itemu i wymaga zmiany przed zapisem.</span>");
-        }
-        for (String effectLine : ItemAspectEffectPresentation.effectLines(form.getFullItemRead())) {
-            html.append("<span class=\"helper\">")
-                    .append(escapeHtml(effectLine))
-                    .append("</span>");
         }
         html.append("</label>");
         return html.toString();
@@ -753,6 +756,7 @@ public final class ItemImportPageRenderer {
     }
 
     private static String renderUniqueEffectEditor(ItemImportEditableForm form) {
+        String effectText = firstNonBlank(form.getUniqueEffectText(), form.getFullItemRead().getDetails().getUniqueEffectText());
         return """
                 <section class="subpanel">
                     <h3>Unikatowy efekt / aspekt</h3>
@@ -760,9 +764,8 @@ public final class ItemImportPageRenderer {
                         Treść efektu
                         <textarea name="uniqueEffectText" rows="4">%s</textarea>
                     </label>
-                    <p class="helper">Efekt unikatowy zapisany opisowo — nieaktywny w runtime DPS.</p>
                 </section>
-                """.formatted(escapeHtml(firstNonBlank(form.getUniqueEffectText(), form.getFullItemRead().getDetails().getUniqueEffectText())));
+                """.formatted(escapeHtml(effectText));
     }
 
     private static String selectedAspectLabel(String selectedAspectId) {
@@ -820,13 +823,17 @@ public final class ItemImportPageRenderer {
 
     private static String renderAffixTypeOptions(ImportedItemAffixType selectedType) {
         StringBuilder html = new StringBuilder();
-        for (ImportedItemAffixType type : ImportedItemAffixType.values()) {
+        for (AffixDefinition definition : AFFIX_REGISTRY.all()) {
+            ImportedItemAffixType type = definition.getFormType();
             html.append("<option value=\"")
                     .append(type.name())
                     .append("\"")
+                    .append(" data-affix-definition-id=\"")
+                    .append(escapeHtml(definition.getId()))
+                    .append("\"")
                     .append(type == selectedType ? " selected" : "")
                     .append(">")
-                    .append(escapeHtml(type.getDisplayName()))
+                    .append(escapeHtml(definition.getDisplayName()))
                     .append("</option>");
         }
         return html.toString();

@@ -189,8 +189,22 @@ class ItemImportFormMapperTest {
         assertEquals(1664L, reloaded.getAverageWeaponDamage());
         assertEquals(0L, reloaded.getWeaponDamage());
         assertFalse(reloaded.getWeaponDamage() == 1830L);
+        assertFalse(reloaded.getAverageWeaponDamage() == 1758L);
         assertEquals("verathiel_shard", reloaded.getSelectedAspectId());
         assertEquals(4, reloaded.getAffixes().size());
+        ImportedItemAffix weaponDamageAffix = reloaded.getAffixes().stream()
+                .filter(affix -> affix.getType() == ImportedItemAffixType.WEAPON_DAMAGE_FLAT)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(94.0d, weaponDamageAffix.getValue());
+        assertEquals(94.0d, weaponDamageAffix.getRollRangeMin());
+        assertEquals(157.0d, weaponDamageAffix.getRollRangeMax());
+        ImportedItemAffix luckyHitAffix = reloaded.getAffixes().stream()
+                .filter(affix -> affix.getType() == ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(3.0d, luckyHitAffix.getValue());
+        assertEquals("15% / +3", luckyHitAffix.getDisplayValue());
         assertTrue(reloaded.getUniqueEffectText().contains("100%[x]"));
     }
 }

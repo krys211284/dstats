@@ -10,6 +10,10 @@ public final class ImportedItemAffix {
     private final String rawOcrLine;
     private final ImportedItemAffixSource source;
     private final String sourceText;
+    private final String affixDefinitionId;
+    private final Double rollRangeMin;
+    private final Double rollRangeMax;
+    private final String displayValue;
 
     public ImportedItemAffix(ImportedItemAffixType type, double value) {
         this(type, value, "");
@@ -26,6 +30,20 @@ public final class ImportedItemAffix {
                              int displayOrder,
                              String rawOcrLine,
                              ImportedItemAffixSource source) {
+        this(type, value, unit, greaterAffix, displayOrder, rawOcrLine, source, "", null, null, "");
+    }
+
+    public ImportedItemAffix(ImportedItemAffixType type,
+                             double value,
+                             String unit,
+                             boolean greaterAffix,
+                             int displayOrder,
+                             String rawOcrLine,
+                             ImportedItemAffixSource source,
+                             String affixDefinitionId,
+                             Double rollRangeMin,
+                             Double rollRangeMax,
+                             String displayValue) {
         if (type == null) {
             throw new IllegalArgumentException("Typ affixu jest wymagany.");
         }
@@ -40,6 +58,10 @@ public final class ImportedItemAffix {
         this.rawOcrLine = rawOcrLine == null ? "" : rawOcrLine;
         this.source = source == null ? ImportedItemAffixSource.MANUAL : source;
         this.sourceText = this.rawOcrLine;
+        this.affixDefinitionId = affixDefinitionId == null ? "" : affixDefinitionId;
+        this.rollRangeMin = nonNegativeRangeValue(rollRangeMin);
+        this.rollRangeMax = nonNegativeRangeValue(rollRangeMax);
+        this.displayValue = displayValue == null ? "" : displayValue;
     }
 
     public ImportedItemAffixType getType() {
@@ -82,6 +104,33 @@ public final class ImportedItemAffix {
         return sourceText;
     }
 
+    public String getAffixDefinitionId() {
+        return affixDefinitionId.isBlank() ? type.name() : affixDefinitionId;
+    }
+
+    public Double getRollRangeMin() {
+        return rollRangeMin;
+    }
+
+    public Double getRollRangeMax() {
+        return rollRangeMax;
+    }
+
+    public String getDisplayValue() {
+        return displayValue;
+    }
+
+    public String getValueLabel() {
+        return displayValue.isBlank() ? formatValue(value) + unit : displayValue;
+    }
+
+    public String getRollRangeLabel() {
+        if (rollRangeMin == null || rollRangeMax == null) {
+            return "";
+        }
+        return formatValue(rollRangeMin) + " - " + formatValue(rollRangeMax);
+    }
+
     public String toDisplayLine() {
         String displayLine = sourceText.isBlank() ? type.formatLine(value) : sourceText;
         return greaterAffix && !startsWithGreaterMarker(displayLine) ? "* " + displayLine : displayLine;
@@ -105,5 +154,19 @@ public final class ImportedItemAffix {
             case STRENGTH, INTELLIGENCE, THORNS, WEAPON_DAMAGE_FLAT, MAXIMUM_LIFE, LIFE_ON_HIT,
                  LUCKY_HIT_PRIMARY_RESOURCE -> "";
         };
+    }
+
+    private static Double nonNegativeRangeValue(Double value) {
+        if (value != null && value < 0.0d) {
+            throw new IllegalArgumentException("Zakres rolla affixu nie może być ujemny.");
+        }
+        return value;
+    }
+
+    private static String formatValue(double value) {
+        if (Math.rint(value) == value) {
+            return String.format(java.util.Locale.US, "%.0f", value);
+        }
+        return String.format(java.util.Locale.US, "%.2f", value).replace('.', ',');
     }
 }

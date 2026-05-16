@@ -207,6 +207,34 @@ class ItemImageImportTextParserTest {
     }
 
     @Test
+    void shouldRecognizeVerathielDamageRangeFromSupportedOcrVariants() {
+        for (String rangeLine : List.of(
+                "[1 350 - 1 978] pkt. obrażeń za trafienie",
+                "1 350 - 1 978 pkt. obrażeń za trafienie",
+                "[1350 - 1978] pkt. obrażeń za trafienie",
+                "1350-1978 pkt. obrażeń za trafienie",
+                "1 350 – 1 978"
+        )) {
+            ItemImageImportCandidateParseResult result = parser.parse(
+                    new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768),
+                    """
+                            ODŁAMEK VERATHIEL
+                            Starożytny unikatowy miecz
+                            1 830 pkt. obrażeń na sek.
+                            %s
+                            1,10 ataku na sekundę
+                            """.formatted(rangeLine)
+            );
+
+            ItemImportDetails details = result.getFullItemRead().getDetails();
+            assertEquals(1350L, details.getWeaponDamageMin(), rangeLine);
+            assertEquals(1978L, details.getWeaponDamageMax(), rangeLine);
+            assertEquals(1664L, details.getAverageWeaponDamage(), rangeLine);
+            assertFalse(Long.valueOf(1830L).equals(details.getAverageWeaponDamage()), rangeLine);
+        }
+    }
+
+    @Test
     void shouldRecognizeVerathielDamageRangeFromCondensedNoisyOcrLine() {
         ItemImageImportCandidateParseResult result = parser.parse(
                 new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768),

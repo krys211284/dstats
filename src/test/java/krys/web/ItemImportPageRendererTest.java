@@ -82,18 +82,18 @@ class ItemImportPageRendererTest {
         assertTrue(html.contains("name=\"newAffixValue\""));
         assertTrue(html.contains("Aspekt Wewnętrznego Spokoju"));
         assertFalse(html.contains(">Aspekt Wewnętrznego Spokoju (wysoka)<"));
-        assertTrue(html.contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
-        assertTrue(html.contains("Opis aspektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
-        assertTrue(html.contains("Sugestia OCR: Aspekt Wewnętrznego Spokoju"));
-        assertTrue(html.contains("Pewność OCR sugestii: wysoka"));
-        assertTrue(html.contains("Dopasowano w katalogu aspektów."));
-        assertTrue(html.contains("wysoka"));
+        assertFalse(html.contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
+        assertFalse(html.contains("Typ: Legendarny"));
+        assertTrue(html.contains("Opis efektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
+        assertFalse(html.contains("Sugestia OCR: Aspekt Wewnętrznego Spokoju"));
+        assertFalse(html.contains("Pewność OCR sugestii: wysoka"));
+        assertFalse(html.contains("Dopasowano w katalogu aspektów."));
         assertFalse(html.contains("Projekcja do aktualnego runtime"));
         assertFalse(html.contains("Mapowanie do aktualnego modelu buildu"));
     }
 
     @Test
-    void shouldCheckGreaterAffixCheckboxWhenExtractorDetectsMissingRollRange() {
+    void shouldKeepGreaterAffixUncheckedWhenOnlyRollRangeIsMissing() {
         ItemImageImportCandidateParseResult parseResult = new ItemImageImportCandidateParseResult(
                 new ItemImageMetadata("tarcza.png", "image/png", "PNG", 1200, 800),
                 new FullItemRead(
@@ -126,8 +126,8 @@ class ItemImportPageRendererTest {
                 ""
         ));
 
-        assertTrue(html.contains("name=\"affixGreater_0\" value=\"true\" checked"));
-        assertTrue(html.contains("* 13,2% redukcji czasu odnowienia"));
+        assertFalse(html.contains("name=\"affixGreater_0\" value=\"true\" checked"));
+        assertFalse(html.contains("* 13,2% redukcji czasu odnowienia"));
     }
 
     @Test
@@ -211,10 +211,10 @@ class ItemImportPageRendererTest {
                 ""
         ));
 
-        assertTrue(html.contains("Opis aspektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
-        assertTrue(html.contains("Odczyt OCR efektu: Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]% Ta premia jest trzy razy większa"));
+        assertTrue(html.contains("Opis efektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
+        assertTrue(html.contains("Odczyt OCR efektu:"));
         assertFalse(html.contains("Zadajesz obrażenia zwiększone o [5,0 - Ta premia"));
-        assertEquals(2, countOccurrences(html, "Ta premia jest trzy razy większa"));
+        assertEquals(1, countOccurrences(html, "Ta premia jest trzy razy większa"));
         assertFalse(html.contains("Opis aspektu: Zadajesz obrażenia zwiększone o 11,0%"));
     }
 
@@ -348,11 +348,18 @@ class ItemImportPageRendererTest {
         assertFalse(html.contains("<div class=\"summary-label\">Moc przedmiotu</div>\n                    <div class=\"summary-value\">1</div>"));
         assertFalse(html.contains("<div class=\"summary-label\">Bazowe obrażenia</div>\n                    <div class=\"summary-value\">1</div>"));
         assertFalse(html.contains("name=\"averageWeaponDamage\" value=\"1830\""));
-        assertTrue(html.contains("Efekt unikatowy zapisany opisowo"));
-        assertTrue(html.contains("Aspekt unikatowy: Odłamek Verathiela"));
-        assertTrue(html.contains("Status runtime: Nieaktywny w runtime DPS"));
+        assertFalse(html.contains("Aspekt unikatowy: Odłamek Verathiela"));
+        assertFalse(html.contains("Typ: Unikatowy"));
+        assertFalse(html.contains("Status runtime:"));
+        assertFalse(html.contains("Nieaktywny w runtime DPS"));
+        assertTrue(html.contains("<option value=\"verathiel_shard\""));
+        assertTrue(html.contains(">Odłamek Verathiela</option>"));
+        assertTrue(html.contains("<textarea name=\"uniqueEffectText\""));
         assertFalse(html.contains("Brak wybranego aspektu."));
         assertFalse(html.contains("nie znaleziono dopasowania w katalogu aspektów"));
+        assertFalse(html.contains("Sugestia OCR"));
+        assertFalse(html.contains("Pewność OCR sugestii"));
+        assertFalse(html.contains("Odczyt OCR efektu"));
         assertTrue(html.contains("100%[x]"));
         assertTrue(html.contains("[70 - 100]"));
         assertTrue(html.contains("25 pkt. podstawowego zasobu"));
@@ -364,7 +371,13 @@ class ItemImportPageRendererTest {
         assertTrue(html.contains("[526 - 632]"));
         assertTrue(html.contains("15%"));
         assertTrue(html.contains("+3 podstawowego zasobu [3 - 4]"));
-        assertEquals(4, countOccurrences(html, "Źródło: OCR"));
+        assertFalse(html.contains("Odczyt OCR / źródło"));
+        assertFalse(html.contains("Źródło: OCR"));
+        assertTrue(html.contains("name=\"affixType_0\""));
+        assertTrue(html.contains("name=\"affixType_1\""));
+        assertTrue(html.contains("name=\"affixType_2\""));
+        assertTrue(html.contains("name=\"affixType_3\""));
+        assertFalse(html.contains("<h5>Affixy</h5>"));
     }
 
     private static int countOccurrences(String value, String needle) {

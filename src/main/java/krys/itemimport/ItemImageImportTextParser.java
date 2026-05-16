@@ -297,6 +297,44 @@ final class ItemImageImportTextParser {
                 return parseDamageRange(matcher.group(1), matcher.group(2));
             }
         }
+        Optional<DamageRange> rangeBetweenWeaponStats = detectDamageRangeBetweenDpsAndAttackSpeed(lines);
+        if (rangeBetweenWeaponStats.isPresent()) {
+            return rangeBetweenWeaponStats;
+        }
+        Optional<DamageRange> standaloneRange = detectStandaloneDamageRangeNearWeaponStats(lines);
+        if (standaloneRange.isPresent()) {
+            return standaloneRange;
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<DamageRange> detectDamageRangeBetweenDpsAndAttackSpeed(List<String> lines) {
+        String normalized = normalizeLineForPatternKeepingPlus(String.join(" ", lines));
+        Pattern betweenStatsPattern = Pattern.compile(
+                "OBRAZEN\\s+NA\\s+SEK\\.?[^0-9]{0,40}.*?([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*[-–—−]\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)(?=\\D{0,40}[0-9OISBL]+[,.][0-9OISBL]+\\s+ATAK)",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+        );
+        Matcher matcher = betweenStatsPattern.matcher(normalized);
+        if (matcher.find()) {
+            return parseDamageRange(matcher.group(1), matcher.group(2));
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<DamageRange> detectStandaloneDamageRangeNearWeaponStats(List<String> lines) {
+        Pattern rangeOnlyPattern = Pattern.compile("^\\s*\\[?\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*[-–—−]\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*]?\\s*$",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+        for (int index = 0; index < lines.size(); index++) {
+            Matcher matcher = rangeOnlyPattern.matcher(normalizeLineForPatternKeepingPlus(lines.get(index)));
+            if (!matcher.find()) {
+                continue;
+            }
+            boolean previousLooksLikeDps = index > 0 && collapse(lines.get(index - 1)).contains("OBRAZENNASEK");
+            boolean nextLooksLikeAttackSpeed = index + 1 < lines.size() && collapse(lines.get(index + 1)).contains("ATAKUNASEK");
+            if (previousLooksLikeDps || nextLooksLikeAttackSpeed) {
+                return parseDamageRange(matcher.group(1), matcher.group(2));
+            }
+        }
         return Optional.empty();
     }
 

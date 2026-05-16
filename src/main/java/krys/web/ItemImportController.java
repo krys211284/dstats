@@ -290,10 +290,19 @@ public final class ItemImportController implements HttpHandler {
         String sourceText = fields.getOrDefault("affixSourceText_" + index, "");
         String originalType = fields.getOrDefault("affixOriginalType_" + index, typeValue);
         String originalValue = fields.getOrDefault("affixOriginalValue_" + index, value);
+        String affixDefinitionId = fields.getOrDefault("affixDefinitionId_" + index, "");
+        Double rollRangeMin = parseNullableDouble(fields.get("affixRangeMin_" + index));
+        Double rollRangeMax = parseNullableDouble(fields.get("affixRangeMax_" + index));
+        String displayValue = fields.getOrDefault("affixDisplayValue_" + index, "");
         if (!typeValue.equals(originalType) || !normalizeNumber(value).equals(normalizeNumber(originalValue))) {
             sourceText = "";
+            affixDefinitionId = "";
+            rollRangeMin = null;
+            rollRangeMax = null;
+            displayValue = "";
         }
-        return parseAffix(typeValue, value, greaterAffix, sourceText, index, ImportedItemAffixSource.CORRECTED, errors);
+        return parseAffix(typeValue, value, greaterAffix, sourceText, index, ImportedItemAffixSource.CORRECTED,
+                affixDefinitionId, rollRangeMin, rollRangeMax, displayValue, errors);
     }
 
     private static java.util.Optional<ImportedItemAffix> parseNewAffix(Map<String, String> fields, List<String> errors) {
@@ -304,6 +313,10 @@ public final class ItemImportController implements HttpHandler {
                 "",
                 parseAffixCount(fields.get("affixCount")),
                 ImportedItemAffixSource.MANUAL,
+                "",
+                null,
+                null,
+                "",
                 errors
         );
     }
@@ -311,10 +324,14 @@ public final class ItemImportController implements HttpHandler {
     private static java.util.Optional<ImportedItemAffix> parseAffix(String rawType,
                                                                     String rawValue,
                                                                     boolean greaterAffix,
-                                                                    String sourceText,
-                                                                    int displayOrder,
-                                                                    ImportedItemAffixSource source,
-                                                                    List<String> errors) {
+                                                                     String sourceText,
+                                                                     int displayOrder,
+                                                                     ImportedItemAffixSource source,
+                                                                     String affixDefinitionId,
+                                                                     Double rollRangeMin,
+                                                                     Double rollRangeMax,
+                                                                     String displayValue,
+                                                                     List<String> errors) {
         boolean missingType = rawType == null || rawType.isBlank();
         boolean missingValue = rawValue == null || rawValue.isBlank();
         if (missingType && missingValue) {
@@ -335,7 +352,8 @@ public final class ItemImportController implements HttpHandler {
                 errors.add("Affix #" + (displayOrder + 1) + ": wartość affixu nie może być ujemna.");
                 return java.util.Optional.empty();
             }
-            return java.util.Optional.of(new ImportedItemAffix(type, value, defaultUnit(type), greaterAffix, displayOrder, sourceText, source));
+            return java.util.Optional.of(new ImportedItemAffix(type, value, defaultUnit(type), greaterAffix,
+                    displayOrder, sourceText, source, affixDefinitionId, rollRangeMin, rollRangeMax, displayValue));
         } catch (IllegalArgumentException exception) {
             errors.add("Affix #" + (displayOrder + 1) + ": affix ma niepoprawny typ albo wartość.");
             return java.util.Optional.empty();

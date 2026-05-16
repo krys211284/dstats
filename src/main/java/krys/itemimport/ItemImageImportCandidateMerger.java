@@ -69,12 +69,14 @@ final class ItemImageImportCandidateMerger {
         String rarity = "";
         String itemPower = "";
         String baseItemValue = "";
+        List<ItemImportDetails> sourceDetails = new ArrayList<>();
 
         for (ItemImageImportCandidateParseResult parseResult : parseResults) {
             FullItemRead read = parseResult.getFullItemRead();
             if (read == null || !read.hasAnyData()) {
                 continue;
             }
+            sourceDetails.add(read.getDetails());
             if (itemName.isBlank() && !read.getItemName().isBlank()) {
                 itemName = read.getItemName();
             }
@@ -114,8 +116,93 @@ final class ItemImageImportCandidateMerger {
                 itemPower.isBlank() ? mergedRead.getItemPower() : itemPower,
                 baseItemValue.isBlank() ? mergedRead.getBaseItemValue() : baseItemValue,
                 List.copyOf(mergedLines.values()),
-                mergedRead.getDetails()
+                mergeDetails(mergedRead.getDetails(), sourceDetails)
         );
+    }
+
+    private static ItemImportDetails mergeDetails(ItemImportDetails rebuiltDetails, List<ItemImportDetails> sourceDetails) {
+        ItemImportDetails safeRebuiltDetails = rebuiltDetails == null ? ItemImportDetails.empty() : rebuiltDetails;
+        List<ItemImportDetails> details = new ArrayList<>();
+        details.add(safeRebuiltDetails);
+        for (ItemImportDetails sourceDetail : sourceDetails) {
+            if (sourceDetail != null && sourceDetail.hasAnyData()) {
+                details.add(sourceDetail);
+            }
+        }
+        Long weaponDamageMin = firstLong(details, DetailLongField.WEAPON_DAMAGE_MIN);
+        Long weaponDamageMax = firstLong(details, DetailLongField.WEAPON_DAMAGE_MAX);
+        return new ItemImportDetails(
+                firstText(details, DetailTextField.ITEM_NAME),
+                firstText(details, DetailTextField.ITEM_TYPE),
+                firstText(details, DetailTextField.ITEM_RARITY),
+                firstBoolean(details, safeRebuiltDetails.isAncient()),
+                firstSlot(details),
+                firstLong(details, DetailLongField.ITEM_POWER),
+                firstLong(details, DetailLongField.WEAPON_DPS),
+                weaponDamageMin,
+                weaponDamageMax,
+                firstLong(details, DetailLongField.AVERAGE_WEAPON_DAMAGE),
+                firstDouble(details),
+                firstText(details, DetailTextField.UNIQUE_EFFECT_TEXT)
+        );
+    }
+
+    private static String firstText(List<ItemImportDetails> details, DetailTextField field) {
+        for (ItemImportDetails detail : details) {
+            String value = switch (field) {
+                case ITEM_NAME -> detail.getItemName();
+                case ITEM_TYPE -> detail.getItemType();
+                case ITEM_RARITY -> detail.getItemRarity();
+                case UNIQUE_EFFECT_TEXT -> detail.getUniqueEffectText();
+            };
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return "";
+    }
+
+    private static boolean firstBoolean(List<ItemImportDetails> details, boolean fallback) {
+        for (ItemImportDetails detail : details) {
+            if (detail.isAncient()) {
+                return true;
+            }
+        }
+        return fallback;
+    }
+
+    private static EquipmentSlot firstSlot(List<ItemImportDetails> details) {
+        for (ItemImportDetails detail : details) {
+            if (detail.getEquipmentSlot() != null) {
+                return detail.getEquipmentSlot();
+            }
+        }
+        return null;
+    }
+
+    private static Long firstLong(List<ItemImportDetails> details, DetailLongField field) {
+        for (ItemImportDetails detail : details) {
+            Long value = switch (field) {
+                case ITEM_POWER -> detail.getItemPower();
+                case WEAPON_DPS -> detail.getWeaponDps();
+                case WEAPON_DAMAGE_MIN -> detail.getWeaponDamageMin();
+                case WEAPON_DAMAGE_MAX -> detail.getWeaponDamageMax();
+                case AVERAGE_WEAPON_DAMAGE -> detail.getAverageWeaponDamage();
+            };
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private static Double firstDouble(List<ItemImportDetails> details) {
+        for (ItemImportDetails detail : details) {
+            if (detail.getAttacksPerSecond() != null) {
+                return detail.getAttacksPerSecond();
+            }
+        }
+        return null;
     }
 
     private static String fullReadLineDeduplicationKey(FullItemReadLine line) {
@@ -319,5 +406,20 @@ final class ItemImageImportCandidateMerger {
                                       int bestConfidenceScore,
                                       int occurrences,
                                       int firstIndex) {
+    }
+
+    private enum DetailTextField {
+        ITEM_NAME,
+        ITEM_TYPE,
+        ITEM_RARITY,
+        UNIQUE_EFFECT_TEXT
+    }
+
+    private enum DetailLongField {
+        ITEM_POWER,
+        WEAPON_DPS,
+        WEAPON_DAMAGE_MIN,
+        WEAPON_DAMAGE_MAX,
+        AVERAGE_WEAPON_DAMAGE
     }
 }

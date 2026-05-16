@@ -281,7 +281,11 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     Boolean.toString(affix.isGreaterAffix()),
                     Integer.toString(affix.getDisplayOrder()),
                     encode(affix.getRawOcrLine()),
-                    affix.getSource().name()
+                    affix.getSource().name(),
+                    encode(affix.getAffixDefinitionId()),
+                    encodeDouble(affix.getRollRangeMin()),
+                    encodeDouble(affix.getRollRangeMax()),
+                    encode(affix.getDisplayValue())
             ));
         }
         return encode(String.join("\n", payloadLines));
@@ -387,7 +391,11 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                         Boolean.parseBoolean(tokens[3]),
                         Integer.parseInt(tokens[4]),
                         decode(tokens[5]),
-                        ImportedItemAffixSource.valueOf(tokens[6])
+                        ImportedItemAffixSource.valueOf(tokens[6]),
+                        tokens.length >= 8 ? decode(tokens[7]) : "",
+                        tokens.length >= 9 ? decodeDouble(tokens[8]) : null,
+                        tokens.length >= 10 ? decodeDouble(tokens[9]) : null,
+                        tokens.length >= 11 ? decode(tokens[10]) : ""
                 ));
             } else {
                 affixes.add(new ImportedItemAffix(type, value, tokens.length >= 3 ? decode(tokens[2]) : ""));

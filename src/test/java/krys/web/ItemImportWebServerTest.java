@@ -302,11 +302,11 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("45% redukcji blokowanych obrażeń [45]%"));
         assertTrue(response.body().contains("20,0% szansy na blok [20,01]%"));
         assertTrue(response.body().contains("+100% obrażeń od broni w głównej ręce [100]%"));
-        assertTrue(response.body().contains("Affixy"));
-        assertTrue(response.body().contains("+114 siły"));
-        assertTrue(response.body().contains("+494 cierni"));
-        assertTrue(response.body().contains("+7% szansy na szczęśliwy traf"));
-        assertTrue(response.body().contains("13,2% redukcji czasu odnowienia"));
+        assertFalse(response.body().contains("Affixy"));
+        assertFalse(response.body().contains("+114 siły"));
+        assertFalse(response.body().contains("+494 cierni"));
+        assertFalse(response.body().contains("+7% szansy na szczęśliwy traf"));
+        assertFalse(response.body().contains("13,2% redukcji czasu odnowienia"));
         assertTrue(response.body().contains("Aspekt / efekt legendarny"));
         assertTrue(response.body().contains("Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"));
         assertTrue(response.body().contains("Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."));
@@ -316,8 +316,7 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("Puste gniazdo"));
         assertTrue(response.body().indexOf("Aspekt / efekt legendarny") < response.body().indexOf("Ta premia jest trzy razy większa"));
         assertTrue(response.body().indexOf("Ta premia jest trzy razy większa") < response.body().indexOf("Socket / gniazdo"));
-        assertTrue(response.body().indexOf("Linie bazowe / implicit") < response.body().indexOf("Affixy"));
-        assertTrue(response.body().indexOf("Affixy") < response.body().indexOf("Aspekt / efekt legendarny"));
+        assertTrue(response.body().indexOf("Linie bazowe / implicit") < response.body().indexOf("Aspekt / efekt legendarny"));
         assertTrue(response.body().indexOf("Aspekt / efekt legendarny") < response.body().indexOf("Dodatkowe / sezonowe linie"));
         assertTrue(response.body().indexOf("Dodatkowe / sezonowe linie") < response.body().indexOf("Socket / gniazdo"));
         assertFalse(response.body().contains("Szczegóły techniczne OCR"));
@@ -397,11 +396,11 @@ class ItemImportWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Zatwierdzony item zapisany do biblioteki"));
-        assertTrue(response.body().contains("+120 siły"));
+        assertFalse(response.body().contains("+120 siły"));
         assertFalse(response.body().contains("+114 siły [107 - 121]"));
-        assertTrue(response.body().contains("+494 cierni"));
-        assertTrue(response.body().contains("13,2% redukcji czasu odnowienia"));
-        assertTrue(response.body().contains("+33 inteligencji"));
+        assertFalse(response.body().contains("+494 cierni"));
+        assertFalse(response.body().contains("13,2% redukcji czasu odnowienia"));
+        assertFalse(response.body().contains("+33 inteligencji"));
         assertFalse(response.body().contains("+7,0% szansy na szczęśliwy traf [7,0 - 8,0]%"));
         assertFalse(response.body().contains("Mapowanie do aktualnego modelu buildu"));
         assertFalse(response.body().contains("Projekcja do aktualnego runtime"));
