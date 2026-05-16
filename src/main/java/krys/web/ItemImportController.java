@@ -15,6 +15,7 @@ import krys.itemimport.ItemImageImportCandidateParseResult;
 import krys.itemimport.ItemImageImportRequest;
 import krys.itemimport.ItemImageImportService;
 import krys.itemimport.ItemImportEditableForm;
+import krys.itemimport.ItemImportDetails;
 import krys.itemimport.ItemImportEditableFormFactory;
 import krys.itemimport.ItemImportFieldConfidence;
 import krys.itemimport.ItemImportFormMapper;
@@ -198,7 +199,16 @@ public final class ItemImportController implements HttpHandler {
 
         HeroProfile activeHero = heroService.requireActiveHero();
         ValidatedImportedItem importedItem = mappingResult.getItem();
-        FullItemRead fullItemRead = fullItemReadAffixUpdater.withEditedAffixes(form.getFullItemRead(), form.getAffixes());
+        FullItemRead editedFullItemRead = fullItemReadAffixUpdater.withEditedAffixes(form.getFullItemRead(), form.getAffixes());
+        FullItemRead fullItemRead = new FullItemRead(
+                editedFullItemRead.getItemName(),
+                editedFullItemRead.getItemTypeLine(),
+                editedFullItemRead.getRarity(),
+                editedFullItemRead.getItemPower(),
+                editedFullItemRead.getBaseItemValue(),
+                editedFullItemRead.getLines(),
+                importedItem.getDetails()
+        );
         SavedImportedItem savedItem = itemLibraryService.saveImportedItem(importedItem, fullItemRead);
         if (itemKnowledgeService != null) {
             itemKnowledgeService.learnFromConfirmedItem(importedItem, fullItemRead);
@@ -237,7 +247,26 @@ public final class ItemImportController implements HttpHandler {
                 affixes,
                 fields.getOrDefault("ocrSuggestedAspectId", ""),
                 parseConfidence(fields.getOrDefault("ocrAspectConfidence", "")),
-                fields.getOrDefault("selectedAspectId", "")
+                fields.getOrDefault("selectedAspectId", ""),
+                parseItemDetails(fields)
+        );
+    }
+
+    private static ItemImportDetails parseItemDetails(Map<String, String> fields) {
+        krys.item.EquipmentSlot equipmentSlot = parseEquipmentSlot(fields.getOrDefault("slot", ""));
+        return new ItemImportDetails(
+                fields.getOrDefault("itemName", ""),
+                fields.getOrDefault("itemType", ""),
+                fields.getOrDefault("itemRarity", ""),
+                "true".equals(fields.get("isAncient")),
+                equipmentSlot,
+                parseNullableLong(fields.get("itemPower")),
+                parseNullableLong(fields.get("weaponDps")),
+                parseNullableLong(fields.get("weaponDamageMin")),
+                parseNullableLong(fields.get("weaponDamageMax")),
+                parseNullableLong(fields.get("averageWeaponDamage")),
+                parseNullableDouble(fields.get("attacksPerSecond")),
+                fields.getOrDefault("uniqueEffectText", "")
         );
     }
 
@@ -258,7 +287,13 @@ public final class ItemImportController implements HttpHandler {
         String typeValue = fields.getOrDefault("affixType_" + index, "");
         String value = fields.getOrDefault("affixValue_" + index, "");
         boolean greaterAffix = "true".equals(fields.get("affixGreater_" + index));
-        return parseAffix(typeValue, value, greaterAffix, "", index, ImportedItemAffixSource.CORRECTED, errors);
+        String sourceText = fields.getOrDefault("affixSourceText_" + index, "");
+        String originalType = fields.getOrDefault("affixOriginalType_" + index, typeValue);
+        String originalValue = fields.getOrDefault("affixOriginalValue_" + index, value);
+        if (!typeValue.equals(originalType) || !normalizeNumber(value).equals(normalizeNumber(originalValue))) {
+            sourceText = "";
+        }
+        return parseAffix(typeValue, value, greaterAffix, sourceText, index, ImportedItemAffixSource.CORRECTED, errors);
     }
 
     private static java.util.Optional<ImportedItemAffix> parseNewAffix(Map<String, String> fields, List<String> errors) {
@@ -322,8 +357,46 @@ public final class ItemImportController implements HttpHandler {
         return switch (type) {
             case BLOCK_CHANCE, RETRIBUTION_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
                  MOVEMENT_SPEED, DODGE_CHANCE -> "%";
-            case STRENGTH, INTELLIGENCE, THORNS -> "";
+            case STRENGTH, INTELLIGENCE, THORNS, WEAPON_DAMAGE_FLAT, MAXIMUM_LIFE, LIFE_ON_HIT,
+                 LUCKY_HIT_PRIMARY_RESOURCE -> "";
         };
+    }
+
+    private static Long parseNullableLong(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(rawValue.replace(" ", ""));
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    private static Double parseNullableDouble(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return null;
+        }
+        try {
+            return Double.parseDouble(rawValue.replace(',', '.'));
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    private static krys.item.EquipmentSlot parseEquipmentSlot(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return null;
+        }
+        try {
+            return krys.item.EquipmentSlot.valueOf(rawValue);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
+    }
+
+    private static String normalizeNumber(String value) {
+        return value == null ? "" : value.replace(" ", "").replace(',', '.').trim();
     }
 
     private static int parseAffixCount(String rawValue) {

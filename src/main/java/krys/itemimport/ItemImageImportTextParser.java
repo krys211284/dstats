@@ -88,7 +88,7 @@ final class ItemImageImportTextParser {
                 return field(line, EquipmentSlot.OFF_HAND, ItemImportFieldConfidence.HIGH,
                         "Slot rozpoznany bezpośrednio z nazwy typu itemu w OCR.");
             }
-            if (containsAny(collapsedLine, List.of("SWORD", "AXE", "MACE", "HAMMER", "DAGGER", "WEAPON"))) {
+            if (containsAny(collapsedLine, List.of("SWORD", "AXE", "MACE", "HAMMER", "DAGGER", "WEAPON", "MIECZ"))) {
                 return field(line, EquipmentSlot.MAIN_HAND, ItemImportFieldConfidence.MEDIUM,
                         "Slot MAIN_HAND został wywnioskowany z typu broni w OCR.");
             }
@@ -137,7 +137,199 @@ final class ItemImageImportTextParser {
                 baseItemValue = line;
             }
         }
-        return new FullItemRead(itemName, itemTypeLine, rarity, itemPower, baseItemValue, readLines);
+        ItemImportDetails details = detectItemDetails(fullReadSourceLines, itemName, itemTypeLine, rarity, itemPower, readLines);
+        return new FullItemRead(itemName, itemTypeLine, rarity, itemPower, baseItemValue, readLines, details);
+    }
+
+    private static ItemImportDetails detectItemDetails(List<String> lines,
+                                                       String itemName,
+                                                       String itemTypeLine,
+                                                       String rarityLine,
+                                                       String itemPowerLine,
+                                                       List<FullItemReadLine> readLines) {
+        String detectedName = detectVerathielName(lines, itemName);
+        String detectedType = detectStructuredItemType(lines, itemTypeLine);
+        String detectedRarity = detectStructuredRarity(lines, rarityLine);
+        boolean ancient = detectAncient(lines, itemTypeLine, rarityLine);
+        EquipmentSlot equipmentSlot = detectEquipmentSlot(lines).orElse(null);
+        Long itemPower = detectItemPower(lines, itemPowerLine).orElse(null);
+        Long weaponDps = detectWeaponDps(lines).orElse(null);
+        DamageRange damageRange = detectWeaponDamageRange(lines).orElse(new DamageRange(null, null));
+        Double attacksPerSecond = detectAttacksPerSecond(lines).orElse(null);
+        String uniqueEffectText = detectUniqueEffect(readLines);
+        return new ItemImportDetails(
+                detectedName,
+                detectedType,
+                detectedRarity,
+                ancient,
+                equipmentSlot,
+                itemPower,
+                weaponDps,
+                damageRange.min(),
+                damageRange.max(),
+                null,
+                attacksPerSecond,
+                uniqueEffectText
+        );
+    }
+
+    private static String detectVerathielName(List<String> lines, String fallbackName) {
+        String joined = String.join(" ", lines);
+        String collapsed = collapse(joined);
+        if (collapsed.contains("ODLAMEKVERATHIELA") || collapsed.contains("ODLAMEKVERATHIEL")) {
+            return "Odłamek Verathiela";
+        }
+        return fallbackName;
+    }
+
+    private static String detectStructuredItemType(List<String> lines, String fallbackType) {
+        for (String line : lines) {
+            String collapsedLine = collapse(line);
+            if (collapsedLine.contains("MIECZ") || collapsedLine.contains("SWORD")) {
+                return "Miecz";
+            }
+            if (collapsedLine.contains("TARCZA") || collapsedLine.contains("SHIELD")) {
+                return "Tarcza";
+            }
+            if (collapsedLine.contains("BUTY") || collapsedLine.contains("BOOTS")) {
+                return "Buty";
+            }
+        }
+        return fallbackType;
+    }
+
+    private static String detectStructuredRarity(List<String> lines, String fallbackRarity) {
+        for (String line : lines) {
+            String collapsedLine = collapse(line);
+            if (collapsedLine.contains("UNIKATOWY") || collapsedLine.contains("UNIKATOWA") || collapsedLine.contains("UNIQUE")) {
+                return "UNIQUE";
+            }
+            if (collapsedLine.contains("LEGENDARNY") || collapsedLine.contains("LEGENDARNA") || collapsedLine.contains("LEGENDARY")) {
+                return "LEGENDARY";
+            }
+            if (collapsedLine.contains("RZADKI") || collapsedLine.contains("RZADKA") || collapsedLine.contains("RARE")) {
+                return "RARE";
+            }
+        }
+        String normalizedFallback = collapse(fallbackRarity);
+        if (normalizedFallback.contains("UNIKAT")) {
+            return "UNIQUE";
+        }
+        if (normalizedFallback.contains("LEGENDAR")) {
+            return "LEGENDARY";
+        }
+        return fallbackRarity;
+    }
+
+    private static boolean detectAncient(List<String> lines, String itemTypeLine, String rarityLine) {
+        String joined = String.join(" ", lines) + " " + itemTypeLine + " " + rarityLine;
+        String collapsed = collapse(joined);
+        return collapsed.contains("STAROZYTNY") || collapsed.contains("STAROZYTNA") || collapsed.contains("ANCESTRAL");
+    }
+
+    private static Optional<EquipmentSlot> detectEquipmentSlot(List<String> lines) {
+        ItemImportFieldCandidate<EquipmentSlot> candidate = detectSlot(lines);
+        return Optional.ofNullable(candidate.getSuggestedValue());
+    }
+
+    private static Optional<Long> detectItemPower(List<String> lines, String fallbackLine) {
+        List<String> sources = new ArrayList<>(lines);
+        if (fallbackLine != null && !fallbackLine.isBlank()) {
+            sources.add(fallbackLine);
+        }
+        Pattern pattern = Pattern.compile("MOC\\s+PRZEDMIOTU\\s*:?\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+        for (String line : sources) {
+            Matcher matcher = pattern.matcher(normalizePolishText(line));
+            if (matcher.find()) {
+                return parseLongToken(matcher.group(1));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<Long> detectWeaponDps(List<String> lines) {
+        Pattern pattern = Pattern.compile("([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s+PKT\\.?\\s+OBRAZEN\\s+NA\\s+SEK",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+        for (String line : lines) {
+            Matcher matcher = pattern.matcher(normalizeLineForPatternKeepingPlus(line));
+            if (matcher.find()) {
+                return parseLongToken(matcher.group(1));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<DamageRange> detectWeaponDamageRange(List<String> lines) {
+        Pattern pattern = Pattern.compile("\\[\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*-\\s*([0-9OISBL]+(?:\\s+[0-9OISBL]{3})*)\\s*]\\s*PKT\\.?\\s+OBRAZEN\\s+ZA\\s+TRAFIENIE",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+        String joined = String.join(" ", lines);
+        Matcher joinedMatcher = pattern.matcher(normalizeLineForPatternKeepingPlus(joined));
+        if (joinedMatcher.find()) {
+            return parseDamageRange(joinedMatcher.group(1), joinedMatcher.group(2));
+        }
+        for (String line : lines) {
+            Matcher matcher = pattern.matcher(normalizeLineForPatternKeepingPlus(line));
+            if (matcher.find()) {
+                return parseDamageRange(matcher.group(1), matcher.group(2));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<DamageRange> parseDamageRange(String min, String max) {
+        Optional<Long> parsedMin = parseLongToken(min);
+        Optional<Long> parsedMax = parseLongToken(max);
+        if (parsedMin.isEmpty() || parsedMax.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new DamageRange(parsedMin.get(), parsedMax.get()));
+    }
+
+    private static Optional<Double> detectAttacksPerSecond(List<String> lines) {
+        Pattern pattern = Pattern.compile("([0-9OISBL]+[,.][0-9OISBL]+)\\s+ATAK\\w*\\s+NA\\s+SEKUNDE",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+        for (String line : lines) {
+            Matcher matcher = pattern.matcher(normalizeLineForPatternKeepingPlus(line));
+            if (matcher.find()) {
+                return parseNumericToken(matcher.group(1));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static String detectUniqueEffect(List<FullItemReadLine> readLines) {
+        List<String> effectParts = new ArrayList<>();
+        boolean collectingUniqueEffect = false;
+        for (FullItemReadLine line : readLines) {
+            String collapsedLine = collapse(line.getText());
+            if (collapsedLine.contains("UMIEJETNOSCIPODSTAWOWE")) {
+                collectingUniqueEffect = true;
+            }
+            if (line.getType() == FullItemReadLineType.ASPECT
+                    || collapsedLine.contains("UMIEJETNOSCIPODSTAWOWE")
+                    || collapsedLine.contains("ZUZYWAJA25")
+                    || collectingUniqueEffect) {
+                effectParts.add(line.getText());
+            }
+            if (collectingUniqueEffect && collapsedLine.contains("PODSTAWOWEGOZASOBU")) {
+                collectingUniqueEffect = false;
+            }
+        }
+        String joined = String.join(" ", effectParts).replaceAll("\\s+", " ").trim();
+        if (joined.isBlank()) {
+            return "";
+        }
+        String collapsed = collapse(joined);
+        if (collapsed.contains("UMIEJETNOSCIPODSTAWOWE") && collapsed.contains("100") && collapsed.contains("25")) {
+            return "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu.";
+        }
+        return joined;
+    }
+
+    private static Optional<Long> parseLongToken(String rawToken) {
+        return parseNumericToken(rawToken.replace(" ", ""))
+                .map(Math::round);
     }
 
     private static List<String> expandFullItemReadLines(List<String> lines) {
@@ -273,13 +465,16 @@ final class ItemImageImportTextParser {
         if (isItemTypeLine(collapsedLine)) {
             return FullItemReadLineType.TYPE_OR_SLOT;
         }
-        if (containsAny(collapsedLine, List.of("PANCERZ", "ARMOR", "WEAPONDAMAGE", "OBRAZENIABRONI", "DAMAGEPERSECOND"))) {
+        if (containsAny(collapsedLine, List.of(
+                "PANCERZ", "ARMOR", "WEAPONDAMAGE", "OBRAZENIABRONI", "DAMAGEPERSECOND",
+                "OBRAZENNASEK", "OBRAZENNASEK", "OBRAZENZATRAFIENIE", "ATAKUNASEKUNDE", "ATAKUNASEKUNDE"
+        ))) {
             return FullItemReadLineType.BASE_STAT;
         }
         if (containsAny(collapsedLine, List.of("REDUKCJIBLOKOWANYCHOBRAZEN", "SZANSYNABLOK", "SZANSANABLOK", "OBRAZENODBRONIWGLOWNEJRECE"))) {
             return FullItemReadLineType.IMPLICIT;
         }
-        if (containsAny(collapsedLine, List.of("ASPEKT", "ASPECT", "LEGENDARYPOWER", "ZADAJESZOBRAZENIAZWIEKSZONE", "TAPREMIAJEST"))) {
+        if (containsAny(collapsedLine, List.of("ASPEKT", "ASPECT", "LEGENDARYPOWER", "ZADAJESZOBRAZENIAZWIEKSZONE", "TAPREMIAJEST", "UMIEJETNOSCIPODSTAWOWE"))) {
             return FullItemReadLineType.ASPECT;
         }
         if (containsAny(collapsedLine, List.of("GNIAZDO", "GNIAZDA", "SOCKET", "SOCKETS", "PUSTE"))) {
@@ -297,7 +492,7 @@ final class ItemImageImportTextParser {
     private static boolean isItemTypeLine(String collapsedLine) {
         return containsAny(collapsedLine, List.of(
                 "MAINHAND", "OFFHAND", "CHEST", "RING", "BOOTS", "BUTY", "BUCIORY", "OBUWIE",
-                "SHIELD", "TARCZA", "SWORD", "AXE", "MACE", "HAMMER", "DAGGER", "WEAPON",
+                "SHIELD", "TARCZA", "SWORD", "AXE", "MACE", "HAMMER", "DAGGER", "WEAPON", "MIECZ",
                 "FOCUS", "ARMOR", "CHESTPLATE", "BREASTPLATE", "BAND"
         ));
     }
@@ -589,6 +784,13 @@ final class ItemImageImportTextParser {
                 .trim();
     }
 
+    private static String normalizeLineForPatternKeepingPlus(String line) {
+        return normalizePolishText(line)
+                .toUpperCase(Locale.ROOT)
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
     private static String normalizePolishText(String text) {
         return Normalizer.normalize(text, Normalizer.Form.NFD)
                 .replace('Ł', 'L')
@@ -601,5 +803,8 @@ final class ItemImageImportTextParser {
                                          int end,
                                          boolean insideReferenceRange,
                                          boolean baseItemValue) {
+    }
+
+    private record DamageRange(Long min, Long max) {
     }
 }

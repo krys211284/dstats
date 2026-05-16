@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 
 /** Wyciąga edytowalne affixy z pełnego odczytu itemu. */
 public final class ImportedItemAffixExtractor {
-    private static final Pattern NUMBER_PATTERN = Pattern.compile("([0-9]+(?:[,.][0-9]+)?)");
+    private static final Pattern NUMBER_PATTERN = Pattern.compile("([0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?)");
 
     public List<ImportedItemAffix> extractEditableAffixes(FullItemRead fullItemRead) {
         if (fullItemRead == null || !fullItemRead.hasAnyData()) {
@@ -58,7 +58,7 @@ public final class ImportedItemAffixExtractor {
         if (!matcher.find()) {
             return Optional.empty();
         }
-        return Optional.of(Double.parseDouble(matcher.group(1).replace(',', '.')));
+        return Optional.of(Double.parseDouble(matcher.group(1).replace(" ", "").replace(',', '.')));
     }
 
     private static String editableAffixDeduplicationKey(ImportedItemAffix affix) {
@@ -89,7 +89,8 @@ public final class ImportedItemAffixExtractor {
         return switch (type) {
             case BLOCK_CHANCE, RETRIBUTION_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
                  MOVEMENT_SPEED, DODGE_CHANCE -> "%";
-            case STRENGTH, INTELLIGENCE, THORNS -> "";
+            case STRENGTH, INTELLIGENCE, THORNS, WEAPON_DAMAGE_FLAT, MAXIMUM_LIFE, LIFE_ON_HIT,
+                 LUCKY_HIT_PRIMARY_RESOURCE -> "";
         };
     }
 

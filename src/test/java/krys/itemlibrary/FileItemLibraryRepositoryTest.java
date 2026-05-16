@@ -9,6 +9,7 @@ import krys.itemimport.ItemImageImportCandidateParseResult;
 import krys.itemimport.ItemImageMetadata;
 import krys.itemimport.ItemImportEditableForm;
 import krys.itemimport.ItemImportEditableFormFactory;
+import krys.itemimport.ItemImportDetails;
 import krys.itemimport.ItemImportFieldCandidate;
 import krys.itemimport.ItemImportFieldConfidence;
 import krys.itemimport.ItemImportFormMapper;
@@ -144,5 +145,85 @@ class FileItemLibraryRepositoryTest {
                 .anyMatch(line -> line.getText().contains("354 pkt. pancerza")));
         assertFalse(savedItem.getAffixes().stream()
                 .anyMatch(affix -> affix.getSourceText().contains("354 pkt. pancerza")));
+    }
+
+    @Test
+    void shouldPersistVerathielWeaponDetailsUniqueEffectAndAffixes() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("verathiel-item-library-repo");
+        FileItemLibraryRepository repository = new FileItemLibraryRepository(tempDirectory);
+        ItemLibraryService service = new ItemLibraryService(repository);
+        ItemImportDetails details = new ItemImportDetails(
+                "Odłamek Verathiela",
+                "Miecz",
+                "UNIQUE",
+                true,
+                EquipmentSlot.MAIN_HAND,
+                900L,
+                1830L,
+                1350L,
+                1978L,
+                1664L,
+                1.10d,
+                "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu."
+        );
+        FullItemRead fullItemRead = new FullItemRead(
+                "Odłamek Verathiela",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "1 830 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+94 obrażeń od broni [94 - 157]"),
+                        new FullItemReadLine(FullItemReadLineType.ASPECT, details.getUniqueEffectText())
+                ),
+                details
+        );
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "miecz.png",
+                "MAIN_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                fullItemRead,
+                List.of(
+                        new ImportedItemAffix(ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 94.0d, "", false, 0, "+94 obrażeń od broni [94 - 157]", ImportedItemAffixSource.OCR),
+                        new ImportedItemAffix(ImportedItemAffixType.MAXIMUM_LIFE, 2141.0d, "", false, 1, "+2 141 maksymalnego zdrowia [1 831 - 2 200]", ImportedItemAffixSource.OCR),
+                        new ImportedItemAffix(ImportedItemAffixType.LIFE_ON_HIT, 545.0d, "", false, 2, "+545 pkt. zdrowia przy trafieniu [526 - 632]", ImportedItemAffixSource.OCR),
+                        new ImportedItemAffix(ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE, 15.0d, "%", false, 3, "Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]", ImportedItemAffixSource.OCR)
+                ),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                details
+        );
+
+        ItemImportFormMapper.MappingResult mappingResult = new ItemImportFormMapper().map(form);
+        assertTrue(mappingResult.getErrors().isEmpty(), () -> String.join(", ", mappingResult.getErrors()));
+        service.saveImportedItem(mappingResult.getItem(), fullItemRead);
+
+        SavedImportedItem savedItem = new FileItemLibraryRepository(tempDirectory).findAll().getFirst();
+
+        assertEquals("Odłamek Verathiela", savedItem.getItemName());
+        assertEquals("UNIQUE", savedItem.getItemRarity());
+        assertTrue(savedItem.isAncient());
+        assertEquals(EquipmentSlot.MAIN_HAND, savedItem.getEquipmentSlot());
+        assertEquals(900L, savedItem.getItemPower());
+        assertEquals(1830L, savedItem.getWeaponDps());
+        assertEquals(1350L, savedItem.getWeaponDamageMin());
+        assertEquals(1978L, savedItem.getWeaponDamageMax());
+        assertEquals(1664L, savedItem.getAverageWeaponDamage());
+        assertEquals(1.10d, savedItem.getAttacksPerSecond());
+        assertEquals(0L, savedItem.getWeaponDamage());
+        assertTrue(savedItem.getUniqueEffectText().contains("100%[x]"));
+        assertTrue(savedItem.getUniqueEffectText().contains("[70 - 100]"));
+        assertTrue(savedItem.getUniqueEffectText().contains("25 pkt. podstawowego zasobu"));
+        assertEquals(4, savedItem.getAffixes().size());
+        assertTrue(savedItem.getAffixes().stream()
+                .anyMatch(affix -> affix.getSourceText().contains("+94 obrażeń od broni [94 - 157]")));
+        assertTrue(savedItem.getAffixes().stream()
+                .noneMatch(affix -> affix.getSourceText().contains("Umiejętności Podstawowe")));
     }
 }

@@ -32,7 +32,8 @@ public final class ItemImportEditableFormFactory {
                 draft.getAffixes(),
                 draft.getOcrSuggestedAspectId(),
                 draft.getOcrAspectConfidence(),
-                draft.getOcrSuggestedAspectId()
+                draft.getOcrSuggestedAspectId(),
+                parseResult.getFullItemRead().getDetails()
         );
     }
 

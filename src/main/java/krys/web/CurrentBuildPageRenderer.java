@@ -1,7 +1,9 @@
 package krys.web;
 
 import krys.app.CurrentBuildCalculation;
+import krys.hero.HeroArmorBreakdown;
 import krys.hero.HeroClassDefs;
+import krys.hero.HeroCriticalChanceBreakdown;
 import krys.hero.HeroClassStatBaseline;
 import krys.item.HeroEquipmentSlot;
 import krys.itemimport.CurrentBuildImportableStats;
@@ -588,9 +590,11 @@ public final class CurrentBuildPageRenderer {
                                 + (baseline == null ? "" : renderSummaryCard("Siła woli", Integer.toString(baseline.getWillpower()))
                                 + renderSummaryCard("Zręczność", Integer.toString(baseline.getDexterity())))));
         if (baseline != null) {
+            HeroArmorBreakdown armor = baseline.getArmorBreakdown();
+            HeroCriticalChanceBreakdown criticalChance = baseline.getCriticalChanceBreakdown();
             html.append(renderHeroStatGroup("Pancerz i defensywa",
                             renderSummaryCard("Wytrzymałość", Integer.toString(baseline.getToughness()))
-                                    + renderSummaryCard("Pancerz", Integer.toString(baseline.getArmor()))
+                                    + renderSummaryCardWithTooltip("Pancerz", Integer.toString(armor.getTotalArmor()), buildArmorBreakdownLabel(armor))
                                     + renderSummaryCard("Maksimum zdrowia", Integer.toString(baseline.getMaxHealth()))))
                     .append(renderHeroStatGroup("Odporności",
                             renderSummaryCard("Fizyczne", Integer.toString(baseline.getPhysicalResistance()))
@@ -602,7 +606,7 @@ public final class CurrentBuildPageRenderer {
                     .append(renderHeroStatGroup("Ofensywa",
                             renderSummaryCard("Podstawowe obrażenia od broni", Long.toString(stats.getWeaponDamage()))
                                     + renderSummaryCard("Szybkość broni", formatDecimalComma(baseline.getWeaponSpeed(), 2))
-                                    + renderSummaryCard("Szansa na trafienie krytyczne", formatPercentComma(baseline.getCriticalChancePercent(), 1))
+                                    + renderSummaryCardWithTooltip("Szansa na trafienie krytyczne", formatPercentComma(criticalChance.getTotalCriticalChancePercent(), 1), buildCriticalChanceBreakdownLabel(criticalChance))
                                     + renderSummaryCard("Obrażenia od trafień krytycznych", formatPercentComma(baseline.getCriticalDamagePercent(), 1))
                                     + renderSummaryCard("Obrażenia zadawane odsłoniętym celom", formatPercentComma(baseline.getVulnerableDamagePercent(), 1))
                                     + renderSummaryCard("Ciernie", ItemLibraryPresentationSupport.formatWhole(stats.getThorns()))));
@@ -631,6 +635,32 @@ public final class CurrentBuildPageRenderer {
                     </div>
                 </div>
                 """;
+    }
+
+    private static String buildArmorBreakdownLabel(HeroArmorBreakdown armor) {
+        return armor.getArmorFromStrength() + " z siły, "
+                + armor.getArmorFromItems() + " z itemów/głównego wyposażenia, "
+                + armor.getArmorFromOtherSources() + " z innych źródeł, razem "
+                + armor.getTotalArmor() + ".";
+    }
+
+    private static String buildCriticalChanceBreakdownLabel(HeroCriticalChanceBreakdown criticalChance) {
+        return "bazowo " + formatPercentComma(criticalChance.getBaseCriticalChancePercent(), 1)
+                + ", +" + formatPercentComma(criticalChance.getCriticalChanceFromIntelligencePercent(), 1) + " z Inteligencji"
+                + ", +" + formatPercentComma(criticalChance.getCriticalChanceFromItemsPercent(), 1) + " z itemów"
+                + ", +" + formatPercentComma(criticalChance.getCriticalChanceFromOtherSourcesPercent(), 1) + " z innych źródeł"
+                + ", razem " + formatPercentComma(criticalChance.getTotalCriticalChancePercent(), 1) + ".";
+    }
+
+    private static String renderSummaryCardWithTooltip(String label, String value, String tooltip) {
+        String accessibilityLabel = label + ": " + value + ". " + tooltip;
+        return "<article class=\"summary-card\" title=\"" + escapeHtml(tooltip)
+                + "\" aria-label=\"" + escapeHtml(accessibilityLabel) + "\">\n"
+                + "    <div class=\"summary-label\">" + escapeHtml(label) + "\n"
+                + "</div>\n"
+                + "    <div class=\"summary-value\">" + escapeHtml(value) + "\n"
+                + "</div>\n"
+                + "</article>\n";
     }
 
     private static String renderOptionalActiveItemStats(CurrentHeroStatsPresentation stats) {

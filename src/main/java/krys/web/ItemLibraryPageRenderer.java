@@ -316,11 +316,16 @@ public final class ItemLibraryPageRenderer {
                         <h5>Dane podstawowe</h5>
                     <div class="item-meta-grid">
                 """);
-        html.append(renderMeta("Nazwa itemu", emptyLabel(fullItemRead.getItemName())))
-                .append(renderMeta("Typ itemu", simplifyItemType(fullItemRead.getItemTypeLine())))
+        html.append(renderMeta("Nazwa itemu", emptyLabel(firstNonBlank(item.getItemName(), fullItemRead.getItemName()))))
+                .append(renderMeta("Typ itemu", emptyLabel(firstNonBlank(item.getItemType(), simplifyItemType(fullItemRead.getItemTypeLine())))))
                 .append(renderMeta("Slot ekwipunku", ItemLibraryPresentationSupport.slotDisplayName(item.getSlot())))
-                .append(renderMeta("Rzadkość", simplifyRarity(fullItemRead.getRarity())))
-                .append(renderMeta("Moc przedmiotu", simplifyItemPower(fullItemRead.getItemPower())))
+                .append(renderMeta("Rzadkość", simplifyRarity(firstNonBlank(item.getItemRarity(), fullItemRead.getRarity()))))
+                .append(renderMeta("Ancient", item.isAncient() ? "true" : "false"))
+                .append(renderMeta("Moc przedmiotu", item.getItemPower() == null ? simplifyItemPower(fullItemRead.getItemPower()) : Long.toString(item.getItemPower())))
+                .append(renderMeta("DPS broni", nullableLongLabel(item.getWeaponDps())))
+                .append(renderMeta("Obrażenia min/max", weaponRangeLabel(item)))
+                .append(renderMeta("Średnie obrażenia trafienia", nullableLongLabel(item.getAverageWeaponDamage())))
+                .append(renderMeta("Ataki na sekundę", item.getAttacksPerSecond() == null ? "Brak pewnego odczytu" : String.format(java.util.Locale.US, "%.2f", item.getAttacksPerSecond())))
                 .append(renderMeta("Identyfikator", item.getDisplayName()))
                 .append(renderMeta("Źródło", item.getSourceImageName()))
                 .append("</div></section>")
@@ -384,6 +389,10 @@ public final class ItemLibraryPageRenderer {
             }
         } else {
             addUnique(lines, "Brak wybranego aspektu.");
+        }
+        if (!item.getUniqueEffectText().isBlank()) {
+            addUnique(lines, item.getUniqueEffectText());
+            addUnique(lines, "Efekt unikatowy zapisany opisowo — nieaktywny w runtime DPS.");
         }
         return lines;
     }
@@ -782,7 +791,8 @@ public final class ItemLibraryPageRenderer {
         }
         if (line.getType() == FullItemReadLineType.ASPECT
                 || normalized.contains("ZADAJESZ OBRAZENIA ZWIEKSZONE")
-                || normalized.contains("TA PREMIA JEST")) {
+                || normalized.contains("TA PREMIA JEST")
+                || normalized.contains("UMIEJETNOSCI PODSTAWOWE")) {
             return ItemReadLineGroup.SPECIAL;
         }
         if (line.getType() == FullItemReadLineType.SOCKET) {
@@ -796,6 +806,9 @@ public final class ItemLibraryPageRenderer {
 
     private static String simplifyItemType(String itemTypeLine) {
         String normalized = normalizeForDisplayRules(itemTypeLine);
+        if (normalized.contains("MIECZ") || normalized.contains("SWORD")) {
+            return "Miecz";
+        }
         if (normalized.contains("TARCZA") || normalized.contains("SHIELD")) {
             return "Tarcza";
         }
@@ -841,6 +854,21 @@ public final class ItemLibraryPageRenderer {
         }
         java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\d+(?:\\s\\d{3})*(?:[,.]\\d+)?").matcher(value);
         return matcher.find() ? matcher.group() : "";
+    }
+
+    private static String firstNonBlank(String preferred, String fallback) {
+        return preferred == null || preferred.isBlank() ? fallback : preferred;
+    }
+
+    private static String nullableLongLabel(Long value) {
+        return value == null ? "Brak pewnego odczytu" : Long.toString(value);
+    }
+
+    private static String weaponRangeLabel(SavedImportedItem item) {
+        if (item.getWeaponDamageMin() == null || item.getWeaponDamageMax() == null) {
+            return "Brak pewnego odczytu";
+        }
+        return item.getWeaponDamageMin() + " - " + item.getWeaponDamageMax();
     }
 
     private static String normalizeForDisplayRules(String value) {

@@ -15,6 +15,7 @@ import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ItemImageImportCandidateParseResult;
 import krys.itemimport.ItemImportEditableForm;
+import krys.itemimport.ItemImportDetails;
 import krys.itemimport.ItemImportFieldCandidate;
 import krys.itemimport.ValidatedImportedItem;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
@@ -126,18 +127,23 @@ public final class ItemImportPageRenderer {
                 .append(renderHiddenField("sourceImageName", form.getSourceImageName()))
                 .append(renderHiddenField("currentBuildQuery", model.getCurrentBuildQuery()))
                 .append(renderHiddenField("fullItemRead", FullItemReadFormCodec.encode(form.getFullItemRead())))
+                .append(renderHiddenField("weaponDamage", emptyNumberLabel(form.getWeaponDamage())))
                 .append(renderHiddenField("ocrSuggestedAspectId", form.getOcrSuggestedAspectId()))
                 .append(renderHiddenField("ocrAspectConfidence", form.getOcrAspectConfidence().name()))
                 .append("""
                             <div class="manual-confirm-grid">
                 """)
-                .append(renderReadonlyItemType(form))
+                .append(renderItemIdentityFields(form))
                 .append(renderSlotSelect(form.getSlot()))
+                .append(renderRaritySelect(form.getItemRarity()))
+                .append(renderAncientCheckbox(form.isAncient()))
+                .append(renderNumberField("itemPower", "Moc przedmiotu", form.getItemPower(), "1"))
+                .append(renderWeaponFieldSet(form))
                 .append(renderAspectSelect(form))
-                .append(renderVisibleWeaponDamageField(form))
                 .append("""
                             </div>
                 """)
+                .append(renderUniqueEffectEditor(form))
                 .append(renderAffixEditor(form))
                 .append("""
                             <div class="submit-row">
@@ -210,10 +216,14 @@ public final class ItemImportPageRenderer {
                     <h3>%s</h3>
                     <div class="item-read-header">
                 """.formatted(escapeHtml(heading)));
-        html.append(renderItemHeaderField("Nazwa", emptyLabel(fullItemRead.getItemName())))
-                .append(renderItemHeaderField("Typ", simplifyItemType(fullItemRead.getItemTypeLine())))
-                .append(renderItemHeaderField("Rzadkość", simplifyRarity(fullItemRead.getRarity())))
-                .append(renderItemHeaderField("Moc przedmiotu", simplifyItemPower(fullItemRead.getItemPower())))
+        ItemImportDetails details = fullItemRead.getDetails();
+        html.append(renderItemHeaderField("Nazwa", emptyLabel(firstNonBlank(details.getItemName(), fullItemRead.getItemName()))))
+                .append(renderItemHeaderField("Typ", emptyLabel(firstNonBlank(details.getItemType(), simplifyItemType(fullItemRead.getItemTypeLine())))))
+                .append(renderItemHeaderField("Rzadkość", simplifyRarity(firstNonBlank(details.getItemRarity(), fullItemRead.getRarity()))))
+                .append(renderItemHeaderField("Ancient", details.isAncient() ? "true" : "false"))
+                .append(renderItemHeaderField("Slot", details.getEquipmentSlot() == null ? "Brak pewnego odczytu" : ItemLibraryPresentationSupport.slotDisplayName(details.getEquipmentSlot())))
+                .append(renderItemHeaderField("Moc przedmiotu", details.getItemPower() == null ? simplifyItemPower(fullItemRead.getItemPower()) : Long.toString(details.getItemPower())))
+                .append(renderWeaponSummaryFields(details))
                 .append(renderItemHeaderField(baseValueLabel(fullItemRead.getBaseItemValue()), simplifyBaseValue(fullItemRead.getBaseItemValue())))
                 .append("</div>")
                 .append("""
@@ -222,7 +232,7 @@ public final class ItemImportPageRenderer {
                     """)
                 .append(renderLineGroup("Linie bazowe / implicit", groupedLines(fullItemRead, ItemReadLineGroup.IMPLICIT)))
                 .append(renderLineGroup("Affixy", groupedLines(fullItemRead, ItemReadLineGroup.AFFIX), true))
-                .append(renderTextLineGroup("Aspekt / efekt legendarny", ItemAspectEffectPresentation.effectLines(fullItemRead)))
+                .append(renderTextLineGroup("Aspekt / efekt legendarny", uniqueEffectLines(fullItemRead)))
                 .append(renderLineGroup("Dodatkowe / sezonowe linie", groupedLines(fullItemRead, ItemReadLineGroup.OTHER)))
                 .append(renderLineGroup("Socket / gniazdo", groupedLines(fullItemRead, ItemReadLineGroup.SOCKET)))
                 .append("</div>")
@@ -237,6 +247,31 @@ public final class ItemImportPageRenderer {
                     <div class="summary-value">%s</div>
                 </div>
                 """.formatted(escapeHtml(label), escapeHtml(value));
+    }
+
+    private static String renderWeaponSummaryFields(ItemImportDetails details) {
+        if (details == null || !details.hasAnyData()) {
+            return "";
+        }
+        StringBuilder html = new StringBuilder();
+        html.append(renderItemHeaderField("DPS broni", nullableLongLabel(details.getWeaponDps())));
+        html.append(renderItemHeaderField("Obrażenia za trafienie min", nullableLongLabel(details.getWeaponDamageMin())));
+        html.append(renderItemHeaderField("Obrażenia za trafienie max", nullableLongLabel(details.getWeaponDamageMax())));
+        html.append(renderItemHeaderField("Średnie obrażenia trafienia", nullableLongLabel(details.getAverageWeaponDamage())));
+        html.append(renderItemHeaderField("Ataki na sekundę", details.getAttacksPerSecond() == null
+                ? "Brak pewnego odczytu"
+                : String.format(Locale.US, "%.2f", details.getAttacksPerSecond())));
+        return html.toString();
+    }
+
+    private static List<String> uniqueEffectLines(FullItemRead fullItemRead) {
+        if (fullItemRead.getDetails() != null && !fullItemRead.getDetails().getUniqueEffectText().isBlank()) {
+            return List.of(
+                    fullItemRead.getDetails().getUniqueEffectText(),
+                    "Efekt unikatowy zapisany opisowo — nieaktywny w runtime DPS."
+            );
+        }
+        return ItemAspectEffectPresentation.effectLines(fullItemRead);
     }
 
     private static String renderLineGroup(String heading, List<FullItemReadLine> lines) {
@@ -317,6 +352,9 @@ public final class ItemImportPageRenderer {
 
     private static String simplifyItemType(String itemTypeLine) {
         String normalized = normalizeForDisplayRules(itemTypeLine);
+        if (normalized.contains("MIECZ") || normalized.contains("SWORD")) {
+            return "Miecz";
+        }
         if (normalized.contains("TARCZA") || normalized.contains("SHIELD")) {
             return "Tarcza";
         }
@@ -338,11 +376,11 @@ public final class ItemImportPageRenderer {
         if (normalized.contains("STAROZYTNA") || normalized.contains("STAROZYTNY") || normalized.contains("ANCESTRAL")) {
             parts.add("Starożytna");
         }
-        if (normalized.contains("LEGENDARNA") || normalized.contains("LEGENDARNY") || normalized.contains("LEGENDARY")) {
+        if (normalized.equals("LEGENDARY") || normalized.contains("LEGENDARNA") || normalized.contains("LEGENDARNY") || normalized.contains("LEGENDARY")) {
             parts.add("legendarna");
-        } else if (normalized.contains("UNIKATOWA") || normalized.contains("UNIKATOWY") || normalized.contains("UNIQUE")) {
+        } else if (normalized.equals("UNIQUE") || normalized.contains("UNIKATOWA") || normalized.contains("UNIKATOWY") || normalized.contains("UNIQUE")) {
             parts.add("unikatowa");
-        } else if (normalized.contains("RZADKA") || normalized.contains("RZADKI") || normalized.contains("RARE")) {
+        } else if (normalized.equals("RARE") || normalized.contains("RZADKA") || normalized.contains("RZADKI") || normalized.contains("RARE")) {
             parts.add("rzadka");
         }
         if (!parts.isEmpty()) {
@@ -378,6 +416,14 @@ public final class ItemImportPageRenderer {
         }
         java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\d+(?:\\s\\d{3})*(?:[,.]\\d+)?").matcher(value);
         return matcher.find() ? matcher.group() : "";
+    }
+
+    private static String firstNonBlank(String preferred, String fallback) {
+        return preferred == null || preferred.isBlank() ? fallback : preferred;
+    }
+
+    private static String nullableLongLabel(Long value) {
+        return value == null ? "Brak pewnego odczytu" : Long.toString(value);
     }
 
     private static String normalizeForDisplayRules(String value) {
@@ -439,6 +485,9 @@ public final class ItemImportPageRenderer {
                     <tr>
                         <td>
                             <select name="affixType_%s">%s</select>
+                            <input type="hidden" name="affixSourceText_%s" value="%s">
+                            <input type="hidden" name="affixOriginalType_%s" value="%s">
+                            <input type="hidden" name="affixOriginalValue_%s" value="%s">
                         </td>
                         <td>
                             <input type="number" min="0" step="0.01" name="affixValue_%s" value="%s">
@@ -455,6 +504,12 @@ public final class ItemImportPageRenderer {
                     """.formatted(
                     index,
                     renderAffixTypeOptions(affix.getType()),
+                    index,
+                    escapeHtml(affix.getSourceText()),
+                    index,
+                    escapeHtml(affix.getType().name()),
+                    index,
+                    formatDecimal(affix.getValue()),
                     index,
                     formatDecimal(affix.getValue()),
                     index,
@@ -491,7 +546,7 @@ public final class ItemImportPageRenderer {
                     </div>
                     <template id="affixRowTemplate">
                         <tr>
-                            <td><select name="affixType___INDEX__">%s</select></td>
+                            <td><select name="affixType___INDEX__">%s</select><input type="hidden" name="affixSourceText___INDEX__" value=""></td>
                             <td><input type="number" min="0" step="0.01" name="affixValue___INDEX__" value="__VALUE__"></td>
                             <td><label class="checkbox-label"><input type="checkbox" name="affixGreater___INDEX__" value="true"> Gwiazdka</label></td>
                             <td><span class="helper">Dodany ręcznie</span></td>
@@ -595,6 +650,96 @@ public final class ItemImportPageRenderer {
             }
         }
         return false;
+    }
+
+    private static String renderItemIdentityFields(ItemImportEditableForm form) {
+        return """
+                <label>
+                    Nazwa
+                    <input type="text" name="itemName" value="%s">
+                </label>
+                <label>
+                    Typ itemu
+                    <input type="text" name="itemType" value="%s">
+                </label>
+                """.formatted(
+                escapeHtml(firstNonBlank(form.getItemName(), form.getFullItemRead().getItemName())),
+                escapeHtml(firstNonBlank(form.getItemType(), simplifyItemType(form.getFullItemRead().getItemTypeLine())))
+        );
+    }
+
+    private static String renderRaritySelect(String selectedRarity) {
+        String selected = selectedRarity == null ? "" : selectedRarity;
+        return """
+                <label>
+                    Rzadkość
+                    <select name="itemRarity">
+                        %s
+                    </select>
+                </label>
+                """.formatted(
+                renderRarityOption("", "UNKNOWN / do potwierdzenia", selected.isBlank())
+                        + renderRarityOption("UNIQUE", "UNIQUE / Unikatowy", "UNIQUE".equalsIgnoreCase(selected))
+                        + renderRarityOption("LEGENDARY", "LEGENDARY / Legendarny", "LEGENDARY".equalsIgnoreCase(selected))
+                        + renderRarityOption("RARE", "RARE / Rzadki", "RARE".equalsIgnoreCase(selected))
+        );
+    }
+
+    private static String renderRarityOption(String value, String label, boolean selected) {
+        return "<option value=\"" + escapeHtml(value) + "\"" + (selected ? " selected" : "") + ">"
+                + escapeHtml(label) + "</option>";
+    }
+
+    private static String renderAncientCheckbox(boolean ancient) {
+        return """
+                <label class="checkbox-label">
+                    <input type="checkbox" name="isAncient" value="true"%s> Ancient / starożytny
+                </label>
+                """.formatted(ancient ? " checked" : "");
+    }
+
+    private static String renderWeaponFieldSet(ItemImportEditableForm form) {
+        String averageValue = form.getAverageWeaponDamage();
+        if ((averageValue == null || averageValue.isBlank())
+                && !form.getWeaponDamageMin().isBlank()
+                && !form.getWeaponDamageMax().isBlank()) {
+            try {
+                long min = Long.parseLong(form.getWeaponDamageMin());
+                long max = Long.parseLong(form.getWeaponDamageMax());
+                averageValue = Long.toString(Math.round((min + max) / 2.0d));
+            } catch (NumberFormatException exception) {
+                averageValue = form.getAverageWeaponDamage();
+            }
+        }
+        return """
+                <fieldset class="inline-fieldset">
+                    <legend>Dane broni</legend>
+                    %s
+                    %s
+                    %s
+                    %s
+                    %s
+                </fieldset>
+                """.formatted(
+                renderNumberField("weaponDps", "DPS broni", form.getWeaponDps(), "1"),
+                renderNumberField("weaponDamageMin", "Obrażenia za trafienie min", form.getWeaponDamageMin(), "1"),
+                renderNumberField("weaponDamageMax", "Obrażenia za trafienie max", form.getWeaponDamageMax(), "1"),
+                renderNumberField("averageWeaponDamage", "Średnie obrażenia trafienia", averageValue, "1"),
+                renderNumberField("attacksPerSecond", "Ataki na sekundę", form.getAttacksPerSecond(), "0.01")
+        );
+    }
+
+    private static String renderUniqueEffectEditor(ItemImportEditableForm form) {
+        return """
+                <section class="subpanel">
+                    <h3>Unikatowy efekt / aspekt</h3>
+                    <label>
+                        Treść efektu
+                        <textarea name="uniqueEffectText" rows="4">%s</textarea>
+                    </label>
+                    <p class="helper">Efekt unikatowy zapisany opisowo — nieaktywny w runtime DPS.</p>
+                </section>
+                """.formatted(escapeHtml(firstNonBlank(form.getUniqueEffectText(), form.getFullItemRead().getDetails().getUniqueEffectText())));
     }
 
     private static String selectedAspectLabel(String selectedAspectId) {

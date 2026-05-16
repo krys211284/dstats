@@ -29,7 +29,8 @@ public final class FullItemReadAffixUpdater {
                 safeRead.getRarity(),
                 safeRead.getItemPower(),
                 safeRead.getBaseItemValue(),
-                updatedLines
+                updatedLines,
+                safeRead.getDetails()
         );
     }
 

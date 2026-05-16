@@ -11,7 +11,7 @@ public final class HeroClassStatBaseline {
     private final int willpower;
     private final int dexterity;
     private final int toughness;
-    private final int armor;
+    private final HeroArmorBreakdown armorBreakdown;
     private final int maxHealth;
     private final int physicalResistance;
     private final int fireResistance;
@@ -21,7 +21,7 @@ public final class HeroClassStatBaseline {
     private final int shadowResistance;
     private final long weaponDamage;
     private final BigDecimal weaponSpeed;
-    private final BigDecimal criticalChancePercent;
+    private final HeroCriticalChanceBreakdown criticalChanceBreakdown;
     private final BigDecimal criticalDamagePercent;
     private final BigDecimal vulnerableDamagePercent;
     private final int thorns;
@@ -33,7 +33,7 @@ public final class HeroClassStatBaseline {
                                  int willpower,
                                  int dexterity,
                                  int toughness,
-                                 int armor,
+                                 HeroArmorBreakdown armorBreakdown,
                                  int maxHealth,
                                  int physicalResistance,
                                  int fireResistance,
@@ -43,7 +43,7 @@ public final class HeroClassStatBaseline {
                                  int shadowResistance,
                                  long weaponDamage,
                                  BigDecimal weaponSpeed,
-                                 BigDecimal criticalChancePercent,
+                                 HeroCriticalChanceBreakdown criticalChanceBreakdown,
                                  BigDecimal criticalDamagePercent,
                                  BigDecimal vulnerableDamagePercent,
                                  int thorns) {
@@ -54,7 +54,7 @@ public final class HeroClassStatBaseline {
         this.willpower = willpower;
         this.dexterity = dexterity;
         this.toughness = toughness;
-        this.armor = armor;
+        this.armorBreakdown = armorBreakdown;
         this.maxHealth = maxHealth;
         this.physicalResistance = physicalResistance;
         this.fireResistance = fireResistance;
@@ -64,7 +64,7 @@ public final class HeroClassStatBaseline {
         this.shadowResistance = shadowResistance;
         this.weaponDamage = weaponDamage;
         this.weaponSpeed = weaponSpeed;
-        this.criticalChancePercent = criticalChancePercent;
+        this.criticalChanceBreakdown = criticalChanceBreakdown;
         this.criticalDamagePercent = criticalDamagePercent;
         this.vulnerableDamagePercent = vulnerableDamagePercent;
         this.thorns = thorns;
@@ -99,7 +99,11 @@ public final class HeroClassStatBaseline {
     }
 
     public int getArmor() {
-        return armor;
+        return armorBreakdown.getTotalArmor();
+    }
+
+    public HeroArmorBreakdown getArmorBreakdown() {
+        return armorBreakdown;
     }
 
     public int getMaxHealth() {
@@ -139,7 +143,11 @@ public final class HeroClassStatBaseline {
     }
 
     public BigDecimal getCriticalChancePercent() {
-        return criticalChancePercent;
+        return criticalChanceBreakdown.getTotalCriticalChancePercent();
+    }
+
+    public HeroCriticalChanceBreakdown getCriticalChanceBreakdown() {
+        return criticalChanceBreakdown;
     }
 
     public BigDecimal getCriticalDamagePercent() {

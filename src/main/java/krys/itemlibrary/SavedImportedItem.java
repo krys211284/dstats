@@ -3,6 +3,7 @@ package krys.itemlibrary;
 import krys.item.EquipmentSlot;
 import krys.itemimport.FullItemRead;
 import krys.itemimport.ImportedItemAffix;
+import krys.itemimport.ItemImportDetails;
 
 import java.util.List;
 
@@ -21,6 +22,7 @@ public final class SavedImportedItem {
     private final FullItemRead fullItemRead;
     private final List<ImportedItemAffix> affixes;
     private final String selectedAspectId;
+    private final ItemImportDetails details;
 
     public SavedImportedItem(long itemId,
                              String displayName,
@@ -78,6 +80,24 @@ public final class SavedImportedItem {
                              FullItemRead fullItemRead,
                              List<ImportedItemAffix> affixes,
                              String selectedAspectId) {
+        this(itemId, displayName, sourceImageName, slot, weaponDamage, strength, intelligence, thorns,
+                blockChance, retributionChance, fullItemRead, affixes, selectedAspectId, ItemImportDetails.empty());
+    }
+
+    public SavedImportedItem(long itemId,
+                             String displayName,
+                             String sourceImageName,
+                             EquipmentSlot slot,
+                             long weaponDamage,
+                             double strength,
+                             double intelligence,
+                             double thorns,
+                             double blockChance,
+                             double retributionChance,
+                             FullItemRead fullItemRead,
+                             List<ImportedItemAffix> affixes,
+                             String selectedAspectId,
+                             ItemImportDetails details) {
         if (itemId < 0L) {
             throw new IllegalArgumentException("Id itemu nie może być ujemne.");
         }
@@ -112,6 +132,7 @@ public final class SavedImportedItem {
         this.fullItemRead = fullItemRead == null ? FullItemRead.empty() : fullItemRead;
         this.affixes = affixes == null ? List.of() : List.copyOf(affixes);
         this.selectedAspectId = selectedAspectId == null ? "" : selectedAspectId;
+        this.details = details == null ? ItemImportDetails.empty() : details;
     }
 
     private static void validateNonNegative(String label, double value) {
@@ -170,5 +191,57 @@ public final class SavedImportedItem {
 
     public String getSelectedAspectId() {
         return selectedAspectId;
+    }
+
+    public ItemImportDetails getDetails() {
+        return details;
+    }
+
+    public String getItemName() {
+        return details.getItemName();
+    }
+
+    public String getItemType() {
+        return details.getItemType();
+    }
+
+    public String getItemRarity() {
+        return details.getItemRarity();
+    }
+
+    public boolean isAncient() {
+        return details.isAncient();
+    }
+
+    public EquipmentSlot getEquipmentSlot() {
+        return details.getEquipmentSlot();
+    }
+
+    public Long getItemPower() {
+        return details.getItemPower();
+    }
+
+    public Long getWeaponDps() {
+        return details.getWeaponDps();
+    }
+
+    public Long getWeaponDamageMin() {
+        return details.getWeaponDamageMin();
+    }
+
+    public Long getWeaponDamageMax() {
+        return details.getWeaponDamageMax();
+    }
+
+    public Long getAverageWeaponDamage() {
+        return details.getAverageWeaponDamage();
+    }
+
+    public Double getAttacksPerSecond() {
+        return details.getAttacksPerSecond();
+    }
+
+    public String getUniqueEffectText() {
+        return details.getUniqueEffectText();
     }
 }

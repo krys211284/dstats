@@ -7,6 +7,7 @@ import krys.itemimport.FullItemReadLine;
 import krys.itemimport.FullItemReadLineType;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixType;
+import krys.itemimport.ItemImportDetails;
 import krys.itemimport.ItemImageImportCandidateParseResult;
 import krys.itemimport.ItemImageMetadata;
 import krys.itemimport.ItemImportFieldConfidence;
@@ -257,6 +258,91 @@ class ItemImportPageRendererTest {
         assertTrue(html.contains("Brak wybranego aspektu."));
         assertTrue(html.contains("Odczyt OCR efektu: Aspekt zupełnie nieznany z OCR"));
         assertTrue(html.contains("<option value=\"\" selected"));
+    }
+
+    @Test
+    void shouldRenderVerathielWeaponFieldsForManualConfirmationWithoutMixingDpsWithAverage() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "miecz.png",
+                "MAIN_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                new FullItemRead(
+                        "Odłamek Verathiela",
+                        "Starożytny unikatowy miecz",
+                        "UNIQUE",
+                        "Moc przedmiotu: 900",
+                        "1 830 pkt. obrażeń na sek.",
+                        List.of(
+                                new FullItemReadLine(FullItemReadLineType.BASE_STAT, "1 830 pkt. obrażeń na sek."),
+                                new FullItemReadLine(FullItemReadLineType.BASE_STAT, "[1 350 - 1 978] pkt. obrażeń za trafienie"),
+                                new FullItemReadLine(FullItemReadLineType.BASE_STAT, "1,10 ataku na sekundę"),
+                                new FullItemReadLine(FullItemReadLineType.AFFIX, "+94 obrażeń od broni [94 - 157]"),
+                                new FullItemReadLine(FullItemReadLineType.ASPECT, "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu.")
+                        ),
+                        new ItemImportDetails(
+                                "Odłamek Verathiela",
+                                "Miecz",
+                                "UNIQUE",
+                                true,
+                                EquipmentSlot.MAIN_HAND,
+                                900L,
+                                1830L,
+                                1350L,
+                                1978L,
+                                1664L,
+                                1.10d,
+                                "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu."
+                        )
+                ),
+                List.of(new ImportedItemAffix(ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 94.0d, "+94 obrażeń od broni [94 - 157]")),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails(
+                        "Odłamek Verathiela",
+                        "Miecz",
+                        "UNIQUE",
+                        true,
+                        EquipmentSlot.MAIN_HAND,
+                        900L,
+                        1830L,
+                        1350L,
+                        1978L,
+                        1664L,
+                        1.10d,
+                        "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu."
+                )
+        );
+        HeroProfile activeHero = new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty());
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                null,
+                List.of(),
+                null,
+                activeHero,
+                "Import testowy",
+                ""
+        ));
+
+        assertTrue(html.contains("Odłamek Verathiela"));
+        assertTrue(html.contains("name=\"weaponDps\" value=\"1830\""));
+        assertTrue(html.contains("name=\"weaponDamageMin\" value=\"1350\""));
+        assertTrue(html.contains("name=\"weaponDamageMax\" value=\"1978\""));
+        assertTrue(html.contains("name=\"averageWeaponDamage\" value=\"1664\""));
+        assertTrue(html.contains("name=\"attacksPerSecond\" value=\"1.10\""));
+        assertTrue(html.contains("DPS broni"));
+        assertTrue(html.contains("Średnie obrażenia trafienia"));
+        assertFalse(html.contains("name=\"averageWeaponDamage\" value=\"1830\""));
+        assertTrue(html.contains("Efekt unikatowy zapisany opisowo"));
+        assertTrue(html.contains("100%[x]"));
+        assertTrue(html.contains("[70 - 100]"));
+        assertTrue(html.contains("25 pkt. podstawowego zasobu"));
     }
 
     private static int countOccurrences(String value, String needle) {

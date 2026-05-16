@@ -34,13 +34,11 @@ public final class ItemImportFormMapper {
             return new MappingResult(null, errors);
         }
 
-        if (slot == EquipmentSlot.MAIN_HAND && weaponDamage <= 0L) {
-            errors.add("Weapon damage jest wymagany dla slotu MAIN_HAND.");
-        }
         if (slot != EquipmentSlot.MAIN_HAND && weaponDamage > 0L) {
             errors.add("Weapon damage można ustawić wyłącznie dla slotu MAIN_HAND.");
         }
         String selectedAspectId = validateAspect(form.getSelectedAspectId(), slot, errors);
+        ItemImportDetails details = buildDetails(form, slot, errors);
 
         if (!errors.isEmpty()) {
             return new MappingResult(null, errors);
@@ -56,8 +54,43 @@ public final class ItemImportFormMapper {
                 blockChance,
                 retributionChance,
                 form.getAffixes(),
-                selectedAspectId
+                selectedAspectId,
+                details
         ), errors);
+    }
+
+    private static ItemImportDetails buildDetails(ItemImportEditableForm form,
+                                                  EquipmentSlot slot,
+                                                  List<String> errors) {
+        Long itemPower = parseOptionalLong(form.getItemPower(), "Moc przedmiotu", errors);
+        Long weaponDps = parseOptionalLong(form.getWeaponDps(), "DPS broni", errors);
+        Long weaponDamageMin = parseOptionalLong(form.getWeaponDamageMin(), "Minimalne obrażenia za trafienie", errors);
+        Long weaponDamageMax = parseOptionalLong(form.getWeaponDamageMax(), "Maksymalne obrażenia za trafienie", errors);
+        Long averageWeaponDamage = parseOptionalLong(form.getAverageWeaponDamage(), "Średnie obrażenia za trafienie", errors);
+        Double attacksPerSecond = parseOptionalDouble(form.getAttacksPerSecond(), "Ataki na sekundę", errors);
+
+        if (weaponDamageMin != null && weaponDamageMax != null) {
+            long calculatedAverage = Math.round((weaponDamageMin + weaponDamageMax) / 2.0d);
+            if (averageWeaponDamage == null || averageWeaponDamage == 0L) {
+                averageWeaponDamage = calculatedAverage;
+            }
+        }
+
+        EquipmentSlot detailSlot = slot == null ? form.getDetails().getEquipmentSlot() : slot;
+        return new ItemImportDetails(
+                form.getItemName(),
+                form.getItemType(),
+                form.getItemRarity(),
+                form.isAncient(),
+                detailSlot,
+                itemPower,
+                weaponDps,
+                weaponDamageMin,
+                weaponDamageMax,
+                averageWeaponDamage,
+                attacksPerSecond,
+                form.getUniqueEffectText()
+        );
     }
 
     private String validateAspect(String rawAspectId, EquipmentSlot slot, List<String> errors) {
@@ -115,7 +148,7 @@ public final class ItemImportFormMapper {
             return 0L;
         }
         try {
-            long value = Long.parseLong(rawValue);
+            long value = Long.parseLong(rawValue.replace(" ", ""));
             if (value < 0L) {
                 errors.add(label + " nie może być ujemny.");
                 return null;
@@ -127,12 +160,19 @@ public final class ItemImportFormMapper {
         }
     }
 
+    private static Long parseOptionalLong(String rawValue, String label, List<String> errors) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return null;
+        }
+        return parseLong(rawValue, label, errors);
+    }
+
     private static Double parseDouble(String rawValue, String label, List<String> errors) {
         if (rawValue == null || rawValue.isBlank()) {
             return 0.0d;
         }
         try {
-            double value = Double.parseDouble(rawValue);
+            double value = Double.parseDouble(rawValue.replace(',', '.'));
             if (value < 0.0d) {
                 errors.add(label + " nie może być ujemny.");
                 return null;
@@ -142,6 +182,13 @@ public final class ItemImportFormMapper {
             errors.add(label + " musi być liczbą.");
             return null;
         }
+    }
+
+    private static Double parseOptionalDouble(String rawValue, String label, List<String> errors) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return null;
+        }
+        return parseDouble(rawValue, label, errors);
     }
 
     private static String resolveVisibleWeaponDamage(ItemImportEditableForm form) {

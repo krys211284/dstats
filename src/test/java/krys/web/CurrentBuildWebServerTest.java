@@ -219,7 +219,7 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().indexOf(summaryCard("Siła woli", "76")) < response.body().indexOf(summaryCard("Zręczność", "77")));
         assertTrue(response.body().indexOf(summaryCard("Zręczność", "77")) < response.body().indexOf("<h3>Pancerz i defensywa"));
         assertTrue(response.body().contains(summaryCard("Wytrzymałość", "1610")));
-        assertTrue(response.body().contains(summaryCard("Pancerz", "158")));
+        assertTrue(response.body().contains(summaryCardWithTooltipPrefix("Pancerz", "158", "158 z siły, 0 z itemów/głównego wyposażenia, 0 z innych źródeł, razem 158.")));
         assertTrue(response.body().contains(summaryCard("Maksimum zdrowia", "1526")));
         assertTrue(response.body().contains(summaryCard("Fizyczne", "30")));
         assertTrue(response.body().contains(summaryCard("Ogień", "30")));
@@ -230,7 +230,7 @@ class CurrentBuildWebServerTest {
         assertFalse(response.body().contains(summaryCard("Odporności", "30")));
         assertTrue(response.body().contains(summaryCard("Podstawowe obrażenia od broni", "0")));
         assertTrue(response.body().contains(summaryCard("Szybkość broni", "1,00")));
-        assertTrue(response.body().contains(summaryCard("Szansa na trafienie krytyczne", "5,2%")));
+        assertTrue(response.body().contains(summaryCardWithTooltipPrefix("Szansa na trafienie krytyczne", "5,2%", "bazowo 5,0%, +0,2% z Inteligencji, +0,0% z itemów, +0,0% z innych źródeł, razem 5,2%.")));
         assertTrue(response.body().contains(summaryCard("Obrażenia od trafień krytycznych", "50,0%")));
         assertTrue(response.body().contains(summaryCard("Obrażenia zadawane odsłoniętym celom", "20,0%")));
         assertTrue(response.body().contains(summaryCard("Ciernie", "0")));
@@ -239,6 +239,25 @@ class CurrentBuildWebServerTest {
         assertFalse(response.body().contains(summaryCard("Inteligencja", "0")));
         assertFalse(response.body().contains(summaryCard("Kolce", "50")));
         assertFalse(response.body().contains(summaryCard("Szansa na blok [%]", "50")));
+        String visibleStats = stripTooltipAttributes(response.body());
+        assertFalse(visibleStats.contains("158 z siły"));
+        assertFalse(visibleStats.contains("bazowo 5,0%"));
+    }
+
+    @Test
+    void shouldNotIntroduceUnverifiedCriticalChanceFormulaOrCritDamageMapping() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/krys/hero/HeroClassStatBaselines.java"))
+                + Files.readString(Path.of("src/main/java/krys/hero/HeroCriticalChanceBreakdown.java"))
+                + Files.readString(Path.of("src/main/java/krys/web/CurrentBuildPageRenderer.java"))
+                + Files.readString(Path.of("src/main/java/krys/web/CurrentHeroStatsPresentation.java"));
+
+        assertFalse(java.util.regex.Pattern
+                .compile("criticalChanceFromIntelligence[^;=]*=\\s*[^;]*intelligence\\s*\\*",
+                        java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(source)
+                .find());
+        assertFalse(source.contains("ItemStatType.CRIT_DAMAGE"));
+        assertFalse(Files.readString(Path.of("src/main/java/krys/item/ItemStatType.java")).contains("CRIT_CHANCE"));
     }
 
     @Test
@@ -859,6 +878,16 @@ class CurrentBuildWebServerTest {
                 </div>
                 </article>
                 """;
+    }
+
+    private static String summaryCardWithTooltipPrefix(String label, String value, String tooltip) {
+        return "<article class=\"summary-card\" title=\"" + tooltip
+                + "\" aria-label=\"" + label + ": " + value + ". " + tooltip + "\">\n"
+                + "    <div class=\"summary-label\">" + label + "\n"
+                + "</div>\n"
+                + "    <div class=\"summary-value\">" + value + "\n"
+                + "</div>\n"
+                + "</article>\n";
     }
 
     private static String formatWholeForTest(double value) {

@@ -12,6 +12,10 @@ public enum ImportedItemAffixType {
     BLOCK_CHANCE("Szansa na blok", "%s%% szansy na blok", RuntimeProjection.BLOCK_CHANCE),
     RETRIBUTION_CHANCE("Szansa retribution", "%s%% szansy retribution", RuntimeProjection.RETRIBUTION_CHANCE),
     LUCKY_HIT_CHANCE("Szansa na szczęśliwy traf", "+%s%% szansy na szczęśliwy traf", RuntimeProjection.NONE),
+    WEAPON_DAMAGE_FLAT("Obrażenia od broni", "+%s obrażeń od broni", RuntimeProjection.NONE),
+    MAXIMUM_LIFE("Maksymalne zdrowie", "+%s maksymalnego zdrowia", RuntimeProjection.NONE),
+    LIFE_ON_HIT("Zdrowie przy trafieniu", "+%s pkt. zdrowia przy trafieniu", RuntimeProjection.NONE),
+    LUCKY_HIT_PRIMARY_RESOURCE("Szczęśliwy traf: podstawowy zasób", "Szczęśliwy traf: +%s podstawowego zasobu", RuntimeProjection.NONE),
     COOLDOWN_REDUCTION("Redukcja czasu odnowienia", "%s%% redukcji czasu odnowienia", RuntimeProjection.NONE),
     MOVEMENT_SPEED("Szybkość ruchu", "+%s%% szybkości ruchu", RuntimeProjection.NONE),
     DODGE_CHANCE("Unik", "+%s%% uniku", RuntimeProjection.NONE);
@@ -56,7 +60,19 @@ public enum ImportedItemAffixType {
             return Optional.of(RETRIBUTION_CHANCE);
         }
         if (normalized.contains("SZCZESLIWY TRAF") || normalized.contains("LUCKY HIT")) {
+            if (normalized.contains("PODSTAWOWEGO ZASOBU") || normalized.contains("PODSTAWOWY ZASOB")) {
+                return Optional.of(LUCKY_HIT_PRIMARY_RESOURCE);
+            }
             return Optional.of(LUCKY_HIT_CHANCE);
+        }
+        if (normalized.contains("OBRAZEN OD BRONI") || normalized.contains("WEAPON DAMAGE")) {
+            return Optional.of(WEAPON_DAMAGE_FLAT);
+        }
+        if (normalized.contains("MAKSYMALNEGO ZDROWIA") || normalized.contains("MAXIMUM LIFE")) {
+            return Optional.of(MAXIMUM_LIFE);
+        }
+        if (normalized.contains("ZDROWIA PRZY TRAFIENIU") || normalized.contains("LIFE ON HIT")) {
+            return Optional.of(LIFE_ON_HIT);
         }
         if (normalized.contains("CZASU ODNOWIENIA") || normalized.contains("COOLDOWN")) {
             return Optional.of(COOLDOWN_REDUCTION);

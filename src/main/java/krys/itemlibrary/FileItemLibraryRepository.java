@@ -7,6 +7,7 @@ import krys.itemimport.FullItemReadLineType;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
+import krys.itemimport.ItemImportDetails;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -56,7 +57,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     item.getRetributionChance(),
                     item.getFullItemRead(),
                     item.getAffixes(),
-                    item.getSelectedAspectId()
+                    item.getSelectedAspectId(),
+                    item.getDetails()
             );
         }
 
@@ -152,7 +154,7 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
 
     private SavedImportedItem parseItem(String line) {
         String[] tokens = line.split("\\|", -1);
-        if ((tokens.length != 11 && tokens.length != 12 && tokens.length != 13 && tokens.length != 14) || !ITEM_PREFIX.equals(tokens[0])) {
+        if (tokens.length < 11 || !ITEM_PREFIX.equals(tokens[0])) {
             throw new IllegalStateException("Plik biblioteki itemów ma niepoprawny format.");
         }
         return new SavedImportedItem(
@@ -168,7 +170,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                 Double.parseDouble(tokens[10]),
                 tokens.length >= 12 ? decodeFullItemRead(tokens[11]) : FullItemRead.empty(),
                 tokens.length >= 13 ? decodeAffixes(tokens[12]) : List.of(),
-                tokens.length >= 14 ? decode(tokens[13]) : ""
+                tokens.length >= 14 ? decode(tokens[13]) : "",
+                tokens.length >= 15 ? decodeDetails(tokens[14]) : ItemImportDetails.empty()
         );
     }
 
@@ -190,7 +193,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     formatDouble(item.getRetributionChance()),
                     encodeFullItemRead(item.getFullItemRead()),
                     encodeAffixes(item.getAffixes()),
-                    encode(item.getSelectedAspectId())
+                    encode(item.getSelectedAspectId()),
+                    encodeDetails(item.getDetails())
             ));
         }
         try {
@@ -281,6 +285,85 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
             ));
         }
         return encode(String.join("\n", payloadLines));
+    }
+
+    private static String encodeDetails(ItemImportDetails details) {
+        ItemImportDetails safeDetails = details == null ? ItemImportDetails.empty() : details;
+        List<String> payloadLines = new ArrayList<>();
+        payloadLines.add("ITEM_NAME|" + encode(safeDetails.getItemName()));
+        payloadLines.add("ITEM_TYPE|" + encode(safeDetails.getItemType()));
+        payloadLines.add("ITEM_RARITY|" + encode(safeDetails.getItemRarity()));
+        payloadLines.add("ANCIENT|" + safeDetails.isAncient());
+        payloadLines.add("EQUIPMENT_SLOT|" + encode(safeDetails.getEquipmentSlot() == null ? "" : safeDetails.getEquipmentSlot().name()));
+        payloadLines.add("ITEM_POWER|" + encodeLong(safeDetails.getItemPower()));
+        payloadLines.add("WEAPON_DPS|" + encodeLong(safeDetails.getWeaponDps()));
+        payloadLines.add("WEAPON_DAMAGE_MIN|" + encodeLong(safeDetails.getWeaponDamageMin()));
+        payloadLines.add("WEAPON_DAMAGE_MAX|" + encodeLong(safeDetails.getWeaponDamageMax()));
+        payloadLines.add("AVERAGE_WEAPON_DAMAGE|" + encodeLong(safeDetails.getAverageWeaponDamage()));
+        payloadLines.add("ATTACKS_PER_SECOND|" + encodeDouble(safeDetails.getAttacksPerSecond()));
+        payloadLines.add("UNIQUE_EFFECT_TEXT|" + encode(safeDetails.getUniqueEffectText()));
+        return encode(String.join("\n", payloadLines));
+    }
+
+    private static ItemImportDetails decodeDetails(String encodedPayload) {
+        String payload = decode(encodedPayload);
+        String itemName = "";
+        String itemType = "";
+        String itemRarity = "";
+        boolean ancient = false;
+        EquipmentSlot equipmentSlot = null;
+        Long itemPower = null;
+        Long weaponDps = null;
+        Long weaponDamageMin = null;
+        Long weaponDamageMax = null;
+        Long averageWeaponDamage = null;
+        Double attacksPerSecond = null;
+        String uniqueEffectText = "";
+        for (String line : payload.split("\\R")) {
+            String[] tokens = line.split("\\|", -1);
+            if (tokens.length < 2) {
+                continue;
+            }
+            switch (tokens[0]) {
+                case "ITEM_NAME" -> itemName = decode(tokens[1]);
+                case "ITEM_TYPE" -> itemType = decode(tokens[1]);
+                case "ITEM_RARITY" -> itemRarity = decode(tokens[1]);
+                case "ANCIENT" -> ancient = Boolean.parseBoolean(tokens[1]);
+                case "EQUIPMENT_SLOT" -> {
+                    String rawSlot = decode(tokens[1]);
+                    if (!rawSlot.isBlank()) {
+                        equipmentSlot = EquipmentSlot.valueOf(rawSlot);
+                    }
+                }
+                case "ITEM_POWER" -> itemPower = decodeLong(tokens[1]);
+                case "WEAPON_DPS" -> weaponDps = decodeLong(tokens[1]);
+                case "WEAPON_DAMAGE_MIN" -> weaponDamageMin = decodeLong(tokens[1]);
+                case "WEAPON_DAMAGE_MAX" -> weaponDamageMax = decodeLong(tokens[1]);
+                case "AVERAGE_WEAPON_DAMAGE" -> averageWeaponDamage = decodeLong(tokens[1]);
+                case "ATTACKS_PER_SECOND" -> attacksPerSecond = decodeDouble(tokens[1]);
+                case "UNIQUE_EFFECT_TEXT" -> uniqueEffectText = decode(tokens[1]);
+                default -> {
+                }
+            }
+        }
+        return new ItemImportDetails(itemName, itemType, itemRarity, ancient, equipmentSlot, itemPower,
+                weaponDps, weaponDamageMin, weaponDamageMax, averageWeaponDamage, attacksPerSecond, uniqueEffectText);
+    }
+
+    private static String encodeLong(Long value) {
+        return value == null ? "" : Long.toString(value);
+    }
+
+    private static Long decodeLong(String value) {
+        return value == null || value.isBlank() ? null : Long.parseLong(value);
+    }
+
+    private static String encodeDouble(Double value) {
+        return value == null ? "" : formatDouble(value);
+    }
+
+    private static Double decodeDouble(String value) {
+        return value == null || value.isBlank() ? null : Double.parseDouble(value);
     }
 
     private static List<ImportedItemAffix> decodeAffixes(String encodedPayload) {

@@ -97,7 +97,7 @@
         }
         label { display: grid; gap: 8px; font-weight: 600; }
         .checkbox-label { display: inline-flex; gap: 8px; align-items: center; font-weight: 600; }
-        input[type="file"], input[type="number"], select {
+        input[type="file"], input[type="number"], input[type="text"], select, textarea {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid var(--line);
@@ -106,6 +106,17 @@
             color: var(--text);
             font: inherit;
         }
+        textarea { resize: vertical; }
+        .inline-fieldset {
+            display: grid;
+            gap: 10px;
+            grid-column: 1 / -1;
+            padding: 12px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.72);
+        }
+        .inline-fieldset legend { padding: 0 6px; color: var(--muted); font-weight: 700; }
         .helper { margin-top: 10px; color: var(--muted); font-size: 0.95rem; }
         .submit-row { margin-top: 16px; }
         button, .link-button {
@@ -277,9 +288,15 @@
             const type = row.querySelector('select[name^="affixType_"]');
             const value = row.querySelector('input[name^="affixValue_"]');
             const greater = row.querySelector('input[name^="affixGreater_"]');
+            const sourceText = row.querySelector('input[name^="affixSourceText_"]');
+            const originalType = row.querySelector('input[name^="affixOriginalType_"]');
+            const originalValue = row.querySelector('input[name^="affixOriginalValue_"]');
             if (type) type.name = `affixType_${index}`;
             if (value) value.name = `affixValue_${index}`;
             if (greater) greater.name = `affixGreater_${index}`;
+            if (sourceText) sourceText.name = `affixSourceText_${index}`;
+            if (originalType) originalType.name = `affixOriginalType_${index}`;
+            if (originalValue) originalValue.name = `affixOriginalValue_${index}`;
         });
         count.value = rows.querySelectorAll('tr').length.toString();
     };

@@ -57,7 +57,8 @@ public final class ItemLibraryService {
                 importedItem.getRetributionChance(),
                 fullItemRead,
                 importedItem.getAffixes(),
-                importedItem.getSelectedAspectId()
+                importedItem.getSelectedAspectId(),
+                importedItem.getDetails()
         );
         return repository.save(itemToSave);
     }
@@ -78,7 +79,8 @@ public final class ItemLibraryService {
                 importedItem.getRetributionChance(),
                 fullItemRead,
                 importedItem.getAffixes(),
-                importedItem.getSelectedAspectId()
+                importedItem.getSelectedAspectId(),
+                importedItem.getDetails()
         );
         return repository.save(itemToSave);
     }
@@ -251,6 +253,9 @@ public final class ItemLibraryService {
     }
 
     private static String buildDisplayName(ValidatedImportedItem importedItem) {
+        if (importedItem.getItemName() != null && !importedItem.getItemName().isBlank()) {
+            return importedItem.getItemName();
+        }
         return ItemLibraryPresentationSupport.slotDisplayName(importedItem.getSlot()) + " / " + importedItem.getSourceImageName();
     }
 }

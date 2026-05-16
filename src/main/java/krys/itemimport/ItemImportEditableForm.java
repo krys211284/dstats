@@ -17,6 +17,7 @@ public final class ItemImportEditableForm {
     private final String ocrSuggestedAspectId;
     private final ItemImportFieldConfidence ocrAspectConfidence;
     private final String selectedAspectId;
+    private final ItemImportDetails details;
 
     public ItemImportEditableForm(String sourceImageName,
                                   String slot,
@@ -64,6 +65,7 @@ public final class ItemImportEditableForm {
         this.ocrSuggestedAspectId = "";
         this.ocrAspectConfidence = ItemImportFieldConfidence.UNKNOWN;
         this.selectedAspectId = "";
+        this.details = fullItemRead == null ? ItemImportDetails.empty() : fullItemRead.getDetails();
     }
 
     public ItemImportEditableForm(String sourceImageName,
@@ -92,6 +94,37 @@ public final class ItemImportEditableForm {
         this.ocrSuggestedAspectId = ocrSuggestedAspectId == null ? "" : ocrSuggestedAspectId;
         this.ocrAspectConfidence = ocrAspectConfidence == null ? ItemImportFieldConfidence.UNKNOWN : ocrAspectConfidence;
         this.selectedAspectId = selectedAspectId == null ? "" : selectedAspectId;
+        this.details = fullItemRead == null ? ItemImportDetails.empty() : fullItemRead.getDetails();
+    }
+
+    public ItemImportEditableForm(String sourceImageName,
+                                  String slot,
+                                  String weaponDamage,
+                                  String strength,
+                                  String intelligence,
+                                  String thorns,
+                                  String blockChance,
+                                  String retributionChance,
+                                  FullItemRead fullItemRead,
+                                  List<ImportedItemAffix> affixes,
+                                  String ocrSuggestedAspectId,
+                                  ItemImportFieldConfidence ocrAspectConfidence,
+                                  String selectedAspectId,
+                                  ItemImportDetails details) {
+        this.sourceImageName = sourceImageName;
+        this.slot = slot;
+        this.weaponDamage = weaponDamage;
+        this.strength = strength;
+        this.intelligence = intelligence;
+        this.thorns = thorns;
+        this.blockChance = blockChance;
+        this.retributionChance = retributionChance;
+        this.fullItemRead = fullItemRead == null ? FullItemRead.empty() : fullItemRead;
+        this.affixes = affixes == null ? List.of() : List.copyOf(affixes);
+        this.ocrSuggestedAspectId = ocrSuggestedAspectId == null ? "" : ocrSuggestedAspectId;
+        this.ocrAspectConfidence = ocrAspectConfidence == null ? ItemImportFieldConfidence.UNKNOWN : ocrAspectConfidence;
+        this.selectedAspectId = selectedAspectId == null ? "" : selectedAspectId;
+        this.details = details == null ? ItemImportDetails.empty() : details;
     }
 
     public String getSourceImageName() {
@@ -144,5 +177,53 @@ public final class ItemImportEditableForm {
 
     public String getSelectedAspectId() {
         return selectedAspectId;
+    }
+
+    public ItemImportDetails getDetails() {
+        return details;
+    }
+
+    public String getItemName() {
+        return details.getItemName();
+    }
+
+    public String getItemType() {
+        return details.getItemType();
+    }
+
+    public String getItemRarity() {
+        return details.getItemRarity();
+    }
+
+    public boolean isAncient() {
+        return details.isAncient();
+    }
+
+    public String getItemPower() {
+        return details.getItemPower() == null ? "" : Long.toString(details.getItemPower());
+    }
+
+    public String getWeaponDps() {
+        return details.getWeaponDps() == null ? "" : Long.toString(details.getWeaponDps());
+    }
+
+    public String getWeaponDamageMin() {
+        return details.getWeaponDamageMin() == null ? "" : Long.toString(details.getWeaponDamageMin());
+    }
+
+    public String getWeaponDamageMax() {
+        return details.getWeaponDamageMax() == null ? "" : Long.toString(details.getWeaponDamageMax());
+    }
+
+    public String getAverageWeaponDamage() {
+        return details.getAverageWeaponDamage() == null ? "" : Long.toString(details.getAverageWeaponDamage());
+    }
+
+    public String getAttacksPerSecond() {
+        return details.getAttacksPerSecond() == null ? "" : String.format(java.util.Locale.US, "%.2f", details.getAttacksPerSecond());
+    }
+
+    public String getUniqueEffectText() {
+        return details.getUniqueEffectText();
     }
 }

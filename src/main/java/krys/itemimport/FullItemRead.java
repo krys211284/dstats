@@ -11,6 +11,7 @@ public final class FullItemRead {
     private final String rarity;
     private final String itemPower;
     private final String baseItemValue;
+    private final ItemImportDetails details;
     private final List<FullItemReadLine> lines;
 
     public FullItemRead(String itemName,
@@ -19,11 +20,22 @@ public final class FullItemRead {
                         String itemPower,
                         String baseItemValue,
                         List<FullItemReadLine> lines) {
+        this(itemName, itemTypeLine, rarity, itemPower, baseItemValue, lines, ItemImportDetails.empty());
+    }
+
+    public FullItemRead(String itemName,
+                        String itemTypeLine,
+                        String rarity,
+                        String itemPower,
+                        String baseItemValue,
+                        List<FullItemReadLine> lines,
+                        ItemImportDetails details) {
         this.itemName = normalize(itemName);
         this.itemTypeLine = normalize(itemTypeLine);
         this.rarity = normalize(rarity);
         this.itemPower = normalize(itemPower);
         this.baseItemValue = normalize(baseItemValue);
+        this.details = details == null ? ItemImportDetails.empty() : details;
         this.lines = Collections.unmodifiableList(new ArrayList<>(lines == null ? List.of() : lines));
     }
 
@@ -51,6 +63,10 @@ public final class FullItemRead {
         return baseItemValue;
     }
 
+    public ItemImportDetails getDetails() {
+        return details;
+    }
+
     public List<FullItemReadLine> getLines() {
         return lines;
     }
@@ -61,6 +77,7 @@ public final class FullItemRead {
                 || !rarity.isBlank()
                 || !itemPower.isBlank()
                 || !baseItemValue.isBlank()
+                || details.hasAnyData()
                 || !lines.isEmpty();
     }
 

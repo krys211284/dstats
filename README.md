@@ -440,6 +440,7 @@ Aktualny foundation importu obrazu obejmuje wyłącznie pojedynczy item i jawnie
 Kontrakt domenowy importu itemu:
 - `ItemImageImportRequest` reprezentuje upload pojedynczego obrazu itemu,
 - `FullItemRead` reprezentuje pełniejszy odczyt widocznego itemu z OCR: nazwę, typ / slot, rzadkość, moc przedmiotu, base stat, linie implicit / bazowe, właściwe affixy, aspekt / moc, gniazda i inne zachowane linie,
+- `ItemImportDetails` reprezentuje strukturalnie potwierdzane dane itemu: `itemName`, `itemType`, `itemRarity`, `isAncient`, `equipmentSlot`, `itemPower`, osobne pola broni `weaponDps`, `weaponDamageMin`, `weaponDamageMax`, `averageWeaponDamage`, `attacksPerSecond` oraz opisowy `uniqueEffectText`,
 - `ItemImageImportCandidateParseResult` reprezentuje wstępny odczyt OCR wraz z metadanymi obrazu, pełnym odczytem itemu, poziomem pewności i uwagami per pole foundation po scaleniu kilku wariantów OCR,
 - `ItemImportDraft` jest strukturalnym draftem importu powstałym z OCR; OCR może w nim zapisać sugestie, ale nie tworzy finalnego itemu,
 - `AspectDefinition` i `AspectRegistry` reprezentują znane aspekty przez stabilne `id`, nazwę prezentacyjną, semantyczny opis efektu aspektu, dozwolone sloty itemu, opcjonalne klasy i tagi,
@@ -448,6 +449,7 @@ Kontrakt domenowy importu itemu:
 - opis efektu w `AspectRegistry` jest ogólnym opisem znanego aspektu, a nie raw OCR z konkretnego itemu; dla `inner-calm` opis mówi o zwiększaniu zadawanych obrażeń podczas stania w bezruchu i trzykrotnie większej premii po co najmniej 3 sekundach bez ruchu,
 - nie zgadujemy wartości rolli liczbowych w registry; procenty i zakresy rolla mogą pochodzić wyłącznie z pomocniczego OCR effect konkretnego itemu albo z przyszłej ręcznej korekty itemu,
 - aspekt na finalnym itemie jest zapisywany jako `selectedAspectId`; surowy tekst OCR aspektu może istnieć w `FullItemRead` tylko jako zachowany odczyt diagnostyczno-prezentacyjny,
+- unikatowy efekt itemu jest zapisywany osobno jako `uniqueEffectText`, a nie jako zwykły affix; w tym etapie efekt unikatowy jest opisowy i nieaktywny w runtime DPS,
 - OCR może zaproponować wyłącznie `ocrSuggestedAspectId` i poziom pewności sugestii, a nie dowolny finalny tekst aspektu,
 - wybrany aspekt musi istnieć w `AspectRegistry` i jego `allowedItemSlots` musi zawierać slot importowanego itemu; aspekt spoza slotu jest błędem walidacji i nie może zostać zapisany,
 - jeśli OCR wykryje tekst aspektu, ale katalog nie zna dopasowania, `ocrSuggestedAspectId` i `selectedAspectId` pozostają puste, UI pokazuje komunikat o braku dopasowania w katalogu, a surowy tekst może zostać zachowany wyłącznie w `FullItemRead` jako diagnostyka,
@@ -460,25 +462,27 @@ Kontrakt domenowy importu itemu:
 - parser nie może oznaczać affixu jako `Greater Affix` tylko dlatego, że własna normalizacja zgubiła zakres rolla obecny w raw OCR albo w sąsiednim wariancie OCR,
 - heurystyka braku zakresu dotyczy wyłącznie rozpoznanych affixów i nie dotyczy base statów, implicitów, aspektów ani socketów / gniazd,
 - `ItemImportEditableForm` reprezentuje ręcznie edytowalny formularz potwierdzenia, którego głównym modelem korekty jest lista affixów, a nie sztywna tabela kilku pól foundation,
-- `ValidatedImportedItem` reprezentuje item zatwierdzony po walidacji razem z pełnym rekordem affixów po edycji użytkownika i finalnym `selectedAspectId`,
+- `ValidatedImportedItem` reprezentuje item zatwierdzony po walidacji razem z pełnym rekordem affixów po edycji użytkownika, finalnym `selectedAspectId` i strukturalnymi `ItemImportDetails`,
 - `ValidatedImportedItemToItemMapper` mapuje zatwierdzony item do aktualnego modelu `Item`,
 - `ImportedItemCurrentBuildContributionMapper` mapuje zatwierdzony item do agregowanych pól aktualnego modelu current build,
-- `ItemLibraryService` zapisuje zatwierdzony item razem z `FullItemRead` i listą affixów po ręcznej edycji do biblioteki,
+- `ItemLibraryService` zapisuje zatwierdzony item razem z `FullItemRead`, `ItemImportDetails` i listą affixów po ręcznej edycji do biblioteki,
 - mapping foundation pozostaje osobną warstwą: z pełnego odczytu, listy affixów i ręcznie potwierdzonego slotu do aktualnie wspieranego podzbioru runtime.
 
 Semantyczny podział linii itemu:
 - dane podstawowe itemu obejmują nazwę, typ itemu, slot ekwipunku, rzadkość i moc przedmiotu; nie są affixami,
 - base stat to bazowa wartość itemu, np. pancerz albo bazowe obrażenia broni; base stat nie trafia do listy edytowalnych affixów,
+- dla broni import rozdziela `DPS broni`, minimalne i maksymalne obrażenia za trafienie, `Średnie obrażenia trafienia` oraz `Ataki na sekundę`; DPS nie jest średnią obrażeń trafienia,
 - implicit / linie bazowe to właściwości bazowe typu itemu, np. redukcja blokowanych obrażeń, szansa bloku albo obrażenia od broni w głównej ręce na tarczy; są prezentowane osobno od affixów,
 - affix to edytowalna właściwość z katalogu `ImportedItemAffixType`, np. siła, ciernie, szansa na szczęśliwy traf albo redukcja czasu odnowienia; tylko ta lista zasila ręczną korektę affixów,
 - aspekt / efekt legendarny jest mapowany do `selectedAspectId` z `AspectRegistry`, a surowe linie OCR aspektu mogą pozostać tylko kontekstem diagnostyczno-prezentacyjnym,
+- unikatowy efekt / aspekt unikatowego itemu może zostać zapisany jako osobne pole opisowe `uniqueEffectText`; nie jest dodawany do listy affixów i nie odblokowuje runtime DPS,
 - `selectedAspectId` jest finalnym źródłem prawdy aspektu zapisanego itemu; raw OCR efektu aspektu nigdy nie zastępuje finalnego wyboru z `AspectRegistry`,
 - raw OCR efektu aspektu jest prezentowany tylko pomocniczo: pełny bezpieczny odczyt jest pokazywany jako `Odczyt OCR efektu`, a samotny ogon efektu bez pierwszej części jest zastępowany komunikatem `Odczyt efektu OCR niepełny / wymaga ręcznej weryfikacji.`,
 - socket / gniazdo jest osobną sekcją prezentacyjną i nie może przejmować tekstu aspektu ani affixów.
 
 Kontrakt prezentacji pełnego odczytu itemu:
 - główny widok pełnego odczytu nie jest technicznym dumpem OCR, tylko rekordem produktu możliwie 1:1 względem screena,
-- nagłówek itemu pokazuje osobno nazwę, typ, rzadkość, moc przedmiotu oraz bazową wartość, np. `Pancerz` albo bazowe obrażenia,
+- nagłówek itemu pokazuje osobno nazwę, typ, rzadkość, `Ancient`, slot, moc przedmiotu oraz dane broni, jeżeli item je posiada,
 - pełny zapis itemu pokazuje osobno i w czytelnej kolejności linie bazowe / implicit, affixy, aspekt / efekt legendarny, dodatkowe / sezonowe linie oraz socket / gniazdo,
 - klasyfikacja semantyczna aspektu / efektu legendarnego ma pierwszeństwo przed technicznym typem linii OCR, więc treść aspektu nie może trafiać do `Socket / gniazdo`,
 - sekcja ręcznej walidacji affixów jest głównym modelem korekty itemu i pozwala zmienić typ affixu, poprawić jego wartość, usunąć błędny affix albo dodać brakujący affix z katalogu znanych typów,
@@ -494,6 +498,7 @@ Kontrakt prezentacji pełnego odczytu itemu:
 - usunięcie affixu usuwa wiersz z formularza; usunięty affix nie jest wysyłany jako aktywny affix i nie może wrócić z `FullItemRead` ani z pól foundation,
 - `Zatwierdź item` jest osobną końcową akcją walidacji i zapisu zatwierdzonego itemu do biblioteki,
 - pełny odczyt nie usuwa widocznych informacji tylko dlatego, że obecny runtime ich jeszcze nie wykorzystuje,
+- dla `Odłamek Verathiela` kontrakt importu zapisuje: `itemPower=900`, `weaponDps=1830`, zakres obrażeń za trafienie `1350-1978`, `averageWeaponDamage=1664` oraz `attacksPerSecond=1.10`; `900` jest obecnie maksymalną mocą przedmiotu według ustalenia projektu,
 - ekran importu nie pokazuje projekcji do aktualnego runtime; import itemu jest korektą i zapisem danych itemu, a nie ekranem analizy DPS,
 - techniczne kandydaty OCR, tabela pewności i surowy techniczny dump OCR nie są częścią zwykłego głównego flow użytkownika.
 
@@ -506,9 +511,13 @@ Minimalny zakres pól foundation mapowanych do runtime:
 - `block chance`,
 - `retribution chance`.
 
+`weapon damage` w tej sekcji jest polem legacy / foundation i nie oznacza DPS broni. Nowe dane broni z importu są zapisywane w `ItemImportDetails`; ten etap nie przekazuje `averageWeaponDamage` ani unikatowego efektu do runtime current build.
+
 Minimalny zakres rozpoznawania tekstu OCR dla M13.1:
 - slot / typ itemu rozpoznawany jest ostrożnie zarówno z angielskich, jak i wybranych polskich nazw typu itemu,
-- aktualnie jawnie wspierane są co najmniej `tarcza` i `buty`, a dotychczasowe foundation slotów `broń główna`, `ręka dodatkowa`, `pancerz` i `pierścień` pozostają bez zmian,
+- aktualnie jawnie wspierane są co najmniej `tarcza`, `buty` i unikatowy miecz `Odłamek Verathiela`, a dotychczasowe foundation slotów `broń główna`, `ręka dodatkowa`, `pancerz` i `pierścień` pozostają bez zmian,
+- parser obsługuje polskie separatory liczb z OCR, np. `1 830`, `1 350`, `1 978`, `2 141`, `1 831`, `2 200`, oraz przecinek dziesiętny, np. `1,10`,
+- parser rozpoznaje bezpieczne frazy broni: `pkt. obrażeń na sek.`, `pkt. obrażeń za trafienie`, `ataku na sekundę`, `Moc przedmiotu`, `Starożytny unikatowy miecz` i `Umiejętności Podstawowe`,
 - pełny odczyt OCR zachowuje rozpoznane linie widocznego itemu nawet wtedy, gdy aktualny runtime ich jeszcze nie liczy,
 - pełny odczyt rozdziela linie co najmniej na: nazwa, typ / slot, rzadkość, moc przedmiotu, base stat, implicit / linia bazowa, affix, aspekt / moc, gniazdo oraz inna linia,
 - po scaleniu wariantów OCR ta sama stabilna linia itemu albo ten sam affix nie może występować wielokrotnie w `FullItemRead`,
@@ -522,6 +531,8 @@ Minimalny zakres rozpoznawania tekstu OCR dla M13.1:
 - uszkodzone fragmenty zakresów z OCR, np. `[1001%`, nie mogą powodować odrzucenia kolejnego poprawnego rolla affixu,
 - bazowa wartość pancerza itemu, np. `1 131 pkt. pancerza`, nie jest affixem i nie może zasilać pól `strength`, `thorns` ani `block chance`,
 - nieobsługiwane affixy nie mogą być mapowane do statów foundation.
+
+Ten etap importu miecza nie zmienia `DamageEngine`, nie podłącza itemu do liczenia DPS current build i nie implementuje `effectiveRank`.
 
 Jawne ograniczenia aktualnego foundation importu:
 - flow nie obiecuje pełnej bezbłędności OCR ani vision,
@@ -592,7 +603,7 @@ Kontrakt biblioteki itemów:
 - biblioteka renderuje właściwe affixy z zatwierdzonej listy `SavedImportedItem.getAffixes()`, dzięki czemu ręczne usunięcie albo korekta affixu nie jest cofana przez surowy `FullItemRead`,
 - base staty i implicity nie mogą być renderowane jako `Affix`; `Greater Affix` jest pokazywany wyłącznie prezentacyjną gwiazdką przy affixach z `greaterAffix=true`,
 - biblioteka normalizuje base staty defensywnie: moc przedmiotu pozostaje w `Dane podstawowe`, pancerz pozostaje w `Base stats`, a sklejki OCR typu `800 1 131 pkt. pancerza` nie są renderowane jako osobna wartość,
-- sekcja aspektu w normalnym widoku biblioteki pokazuje finalny `selectedAspectId` przez nazwę z `AspectRegistry` oraz opis efektu znanego aspektu z registry; raw OCR effect nie jest pokazywany jako finalny aspekt ani jako zwykła treść biblioteki,
+- sekcja aspektu w normalnym widoku biblioteki pokazuje finalny `selectedAspectId` przez nazwę z `AspectRegistry` oraz opis efektu znanego aspektu z registry; `uniqueEffectText` unikatowego itemu może być pokazany osobno ze statusem opisowym, ale raw OCR effect nie jest pokazywany jako finalny aspekt registry,
 - UI importu i formularz edycji mogą pokazywać pomocniczy `Odczyt OCR efektu` albo neutralny komunikat o niepełnym odczycie OCR, bo tam użytkownik zatwierdza dane; normalny widok biblioteki tych komunikatów nie pokazuje,
 - kolumna `Akcje` używa kompaktowych ikon o wspólnym rozmiarze dla `Załóż / Zmień w slocie`, `Edytuj` i `Usuń`; akcje mają dostępne `aria-label`, a semantyka pustego i zajętego slotu pozostaje zachowana w etykietach,
 - każdy zapisany item ma minimalistyczną akcję `Edytuj`, prowadzącą do SSR formularza `/biblioteka-itemow/edytuj?itemId=<id>`, oraz minimalistyczną akcję `Usuń` z dostępnym `aria-label`,
@@ -1347,6 +1358,9 @@ Kontrakt prezentacji dla tego smoke testu:
 - GUI pokazuje jedną użytkową sekcję `Statystyki bohatera`; jej wartości pochodzą z jawnych źródeł: klasy, poziomu bohatera, aktywnych itemów oraz zweryfikowanych baseline'ów prezentacyjnych. Legacy manual defaults current build nie są statystykami bohatera.
 - W `Statystyki bohatera` atrybuty `Siła`, `Inteligencja`, `Siła woli` i `Zręczność` są prezentowane razem w grupie `Główne`; informacja o baseline Paladyna poziom `70` bez itemów pozostaje kontraktem danych, ale nie jest widocznym akapitem w UI.
 - Zweryfikowany baseline prezentacyjny istnieje obecnie dla `Paladyn`, poziom `70`, bez itemów: siła `79`, inteligencja `76`, siła woli `76`, zręczność `77`, wytrzymałość `1610`, pancerz `158`, maksimum zdrowia `1526`, podstawowe obrażenia od broni `0`, szybkość broni `1,00`, szansa na trafienie krytyczne `5,2%`, obrażenia od trafień krytycznych `50,0%`, obrażenia zadawane odsłoniętym celom `20,0%` i ciernie `0`.
+- Pancerz w `Statystyki bohatera` jest modelem prezentacyjnym z rozbiciem na `z siły`, `z itemów/głównego wyposażenia`, `z innych źródeł` i `łącznie`. Dla zweryfikowanego Paladyna poziom `70` bez itemów tooltip gry potwierdza `79 * 2 = 158` pancerza z siły, `0` z itemów/głównego wyposażenia, `0` z innych źródeł i `158` łącznie. Obecny model aktywnego itemu nie ma jawnego pola `ARMOR`, więc wkład pancerza z itemów pozostaje `0` i nie jest zgadywany.
+- Szansa na trafienie krytyczne w `Statystyki bohatera` jest modelem prezentacyjnym z rozbiciem baseline: bazowo `5,0%`, `+0,2%` z Inteligencji dla zweryfikowanego baseline'u `76` Inteligencji, `+0,0%` z itemów, `+0,0%` z innych źródeł i `5,2%` łącznie. Pełny wzór kryta z Inteligencji nie jest jeszcze potwierdzony i nie jest implementowany; brak baseline'u nie jest interpolowany. Obecny model itemu nie ma jawnego `CRIT_CHANCE`, a `CRIT_DAMAGE` nie jest `CRIT_CHANCE` i pozostaje osobną statystyką obrażeń krytycznych.
+- Rozbicie pancerza i szansy krytycznej jest dostępne w `title`/`aria-label` kafelków, bez długiego technicznego akapitu w głównym widoku. Ta zmiana nie zmienia `DamageEngine`, nie odblokowuje runtime DPS i nie implementuje `effectiveRank`.
 - Odporności w sekcji `Statystyki bohatera` są rozdzielone na typy, bez zbiorczego kafelka: fizyczne, ogień, błyskawice, zimno, trucizna i cień. Dla baseline'u Paladyna poziom `70` bez itemów każda z tych odporności wynosi `30`.
 - Brakujące statystyki dla poziomów bez jawnego baseline'u nie są interpolowane z poziomu `70`; UI pokazuje tylko statystyki z jawną formułą albo z aktywnych itemów i komunikuje brak baseline'u.
 - GUI pokazuje pełny stały layout slotów bohatera: `Hełm`, `Zbroja`, `Rękawice`, `Spodnie`, `Buty`, `Broń`, `Amulet`, `Pierścień 1`, `Pierścień 2`, `Tarcza`.
@@ -1456,7 +1470,7 @@ Kontrakt prezentacji dla smoke testu importu itemu:
 - po zatwierdzeniu itemu baza wiedzy zapisuje obserwacje typów affixów i aspektów dla typu itemu, ale nie zmienia konkretnego itemu użytkownika,
 - GUI po zatwierdzeniu itemu pokazuje, dla jakiego aktywnego bohatera pracujemy,
 - GUI po zatwierdzeniu itemu pokazuje nazwę itemu / plik źródłowy, slot, identyfikator biblioteki, wkład oraz akcje `Załóż bohaterowi`, `Przejdź do biblioteki` i `Wróć do aktualnego buildu`,
-- GUI po zatwierdzeniu pokazuje `Pełny odczyt zapisany w bibliotece` jako podgląd itemu bez sekcji DPS importu,
+- GUI po zatwierdzeniu pokazuje `Pełny odczyt zapisany w bibliotece` jako podgląd itemu; dla broni rozdziela DPS, min/max obrażeń za trafienie, średnią obrażeń trafienia i szybkość ataku,
 - flow nie obiecuje pełnej bezbłędności OCR i wymaga ręcznego potwierdzenia użytkownika przed użyciem danych,
 - poza zakresem pozostają pełny wielo-itemowy workflow i pełny OCR całej postaci.
 

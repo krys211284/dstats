@@ -224,7 +224,8 @@ public final class ItemLibraryController implements HttpHandler {
         String unit = switch (type) {
             case BLOCK_CHANCE, RETRIBUTION_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
                  MOVEMENT_SPEED, DODGE_CHANCE -> "%";
-            case STRENGTH, INTELLIGENCE, THORNS -> "";
+            case STRENGTH, INTELLIGENCE, THORNS, WEAPON_DAMAGE_FLAT, MAXIMUM_LIFE, LIFE_ON_HIT,
+                 LUCKY_HIT_PRIMARY_RESOURCE -> "";
         };
         affixes.add(new ImportedItemAffix(type, value, unit, false, affixes.size(), "", ImportedItemAffixSource.MANUAL));
     }

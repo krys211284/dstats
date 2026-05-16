@@ -16,6 +16,7 @@ public final class ValidatedImportedItem {
     private final double retributionChance;
     private final List<ImportedItemAffix> affixes;
     private final String selectedAspectId;
+    private final ItemImportDetails details;
 
     public ValidatedImportedItem(String sourceImageName,
                                  EquipmentSlot slot,
@@ -50,6 +51,21 @@ public final class ValidatedImportedItem {
                                  double retributionChance,
                                  List<ImportedItemAffix> affixes,
                                  String selectedAspectId) {
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
+                affixes, selectedAspectId, ItemImportDetails.empty());
+    }
+
+    public ValidatedImportedItem(String sourceImageName,
+                                 EquipmentSlot slot,
+                                 long weaponDamage,
+                                 double strength,
+                                 double intelligence,
+                                 double thorns,
+                                 double blockChance,
+                                 double retributionChance,
+                                 List<ImportedItemAffix> affixes,
+                                 String selectedAspectId,
+                                 ItemImportDetails details) {
         this.sourceImageName = sourceImageName == null || sourceImageName.isBlank() ? "item" : sourceImageName;
         this.slot = slot;
         this.weaponDamage = weaponDamage;
@@ -60,6 +76,7 @@ public final class ValidatedImportedItem {
         this.retributionChance = retributionChance;
         this.affixes = affixes == null ? List.of() : List.copyOf(affixes);
         this.selectedAspectId = selectedAspectId == null ? "" : selectedAspectId;
+        this.details = details == null ? ItemImportDetails.empty() : details;
     }
 
     public String getSourceImageName() {
@@ -100,5 +117,57 @@ public final class ValidatedImportedItem {
 
     public String getSelectedAspectId() {
         return selectedAspectId;
+    }
+
+    public ItemImportDetails getDetails() {
+        return details;
+    }
+
+    public String getItemName() {
+        return details.getItemName();
+    }
+
+    public String getItemType() {
+        return details.getItemType();
+    }
+
+    public String getItemRarity() {
+        return details.getItemRarity();
+    }
+
+    public boolean isAncient() {
+        return details.isAncient();
+    }
+
+    public EquipmentSlot getEquipmentSlot() {
+        return details.getEquipmentSlot();
+    }
+
+    public Long getItemPower() {
+        return details.getItemPower();
+    }
+
+    public Long getWeaponDps() {
+        return details.getWeaponDps();
+    }
+
+    public Long getWeaponDamageMin() {
+        return details.getWeaponDamageMin();
+    }
+
+    public Long getWeaponDamageMax() {
+        return details.getWeaponDamageMax();
+    }
+
+    public Long getAverageWeaponDamage() {
+        return details.getAverageWeaponDamage();
+    }
+
+    public Double getAttacksPerSecond() {
+        return details.getAttacksPerSecond();
+    }
+
+    public String getUniqueEffectText() {
+        return details.getUniqueEffectText();
     }
 }

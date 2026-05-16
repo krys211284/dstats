@@ -4,7 +4,9 @@ import krys.item.EquipmentSlot;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Testuje polskie frazy OCR dla foundation importu itemu. */
 class ItemImageImportTextParserTest {
@@ -100,5 +102,92 @@ class ItemImageImportTextParserTest {
         assertNull(result.getThornsCandidate().getSuggestedValue());
         assertNull(result.getBlockChanceCandidate().getSuggestedValue());
         assertNull(result.getRetributionChanceCandidate().getSuggestedValue());
+    }
+
+    @Test
+    void shouldRecognizeVerathielUniqueSwordWeaponFieldsFromPolishOcr() {
+        ItemImageImportCandidateParseResult result = parser.parse(
+                new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768),
+                verathielRawText()
+        );
+
+        ItemImportDetails details = result.getFullItemRead().getDetails();
+
+        assertEquals("Odłamek Verathiela", details.getItemName());
+        assertEquals("UNIQUE", details.getItemRarity());
+        assertTrue(details.isAncient());
+        assertEquals("Miecz", details.getItemType());
+        assertEquals(EquipmentSlot.MAIN_HAND, details.getEquipmentSlot());
+        assertEquals(900L, details.getItemPower());
+        assertEquals(1830L, details.getWeaponDps());
+        assertEquals(1350L, details.getWeaponDamageMin());
+        assertEquals(1978L, details.getWeaponDamageMax());
+        assertEquals(1664L, details.getAverageWeaponDamage());
+        assertEquals(1.10d, details.getAttacksPerSecond());
+        assertFalse(details.getUniqueEffectText().isBlank());
+        assertTrue(details.getUniqueEffectText().contains("100%[x]"));
+        assertTrue(details.getUniqueEffectText().contains("[70 - 100]"));
+        assertTrue(details.getUniqueEffectText().contains("25 pkt. podstawowego zasobu"));
+    }
+
+    @Test
+    void shouldNotRegressItemPowerToFirstDigitWhenVerathielRawTextContainsNineHundred() {
+        ItemImageImportCandidateParseResult result = parser.parse(
+                new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768),
+                verathielRawText()
+        );
+
+        assertEquals(900L, result.getFullItemRead().getDetails().getItemPower());
+        assertFalse(Long.valueOf(1L).equals(result.getFullItemRead().getDetails().getItemPower()));
+    }
+
+    @Test
+    void shouldExtractVerathielAffixesSeparatelyFromUniqueEffect() {
+        ItemImageImportCandidateParseResult result = parser.parse(
+                new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768),
+                verathielRawText()
+        );
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(4, form.getAffixes().size());
+        assertTrue(form.getAffixes().stream().anyMatch(affix ->
+                affix.getType() == ImportedItemAffixType.WEAPON_DAMAGE_FLAT
+                        && affix.getValue() == 94.0d
+                        && affix.getSourceText().contains("[94 - 157]")));
+        assertTrue(form.getAffixes().stream().anyMatch(affix ->
+                affix.getType() == ImportedItemAffixType.MAXIMUM_LIFE
+                        && affix.getValue() == 2141.0d
+                        && affix.getSourceText().contains("[1 831 - 2 200]")));
+        assertTrue(form.getAffixes().stream().anyMatch(affix ->
+                affix.getType() == ImportedItemAffixType.LIFE_ON_HIT
+                        && affix.getValue() == 545.0d
+                        && affix.getSourceText().contains("[526 - 632]")));
+        assertTrue(form.getAffixes().stream().anyMatch(affix ->
+                affix.getType() == ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE
+                        && affix.getSourceText().contains("15%")
+                        && affix.getSourceText().contains("+3")
+                        && affix.getSourceText().contains("[3 - 4]")));
+        assertTrue(form.getAffixes().stream()
+                .noneMatch(affix -> affix.getSourceText().contains("Umiejętności Podstawowe")));
+    }
+
+    static String verathielRawText() {
+        return """
+                ODŁAMEK
+                VERATHIEL
+                Starożytny unikatowy miecz
+                Moc przedmiotu: 900
+                1 830 pkt. obrażeń na sek.
+                [1 350 - 1 978] pkt. obrażeń za trafienie
+                1,10 ataku na sekundę (Szybka)
+                +94 obrażeń od broni [94 - 157]
+                +2 141 maksymalnego zdrowia [1 831 - 2 200]
+                +545 pkt. zdrowia przy trafieniu [526 - 632]
+                Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]
+                Umiejętności Podstawowe zadają
+                obrażenia zwiększone o 100%[x] [70 - 100],
+                ale dodatkowo zużywają 25 pkt. podstawowego zasobu.
+                """;
     }
 }
