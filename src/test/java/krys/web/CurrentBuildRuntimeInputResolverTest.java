@@ -49,7 +49,7 @@ class CurrentBuildRuntimeInputResolverTest {
     }
 
     @Test
-    void shouldKeepWeaponDamageFallbackWhenSavedWeaponIsNotActive() throws Exception {
+    void shouldUseZeroWeaponDamageWhenSavedWeaponIsNotActive() throws Exception {
         Path tempDirectory = Files.createTempDirectory("runtime-input-inactive");
         ItemLibraryService service = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
         service.saveImportedItem(verathielItem());
@@ -59,9 +59,12 @@ class CurrentBuildRuntimeInputResolverTest {
 
         CurrentBuildImportableStats runtimeStats = resolver.resolve(hero(emptySelection, formData), formData, libraryResolution);
 
-        assertEquals(8L, runtimeStats.getWeaponDamage());
+        assertEquals(0L, runtimeStats.getWeaponDamage());
         assertEquals(79.0d, runtimeStats.getStrength(), 0.0000001d);
         assertEquals(76.0d, runtimeStats.getIntelligence(), 0.0000001d);
+        assertEquals(0.0d, runtimeStats.getThorns(), 0.0000001d);
+        assertEquals(0.0d, runtimeStats.getBlockChance(), 0.0000001d);
+        assertEquals(0.0d, runtimeStats.getRetributionChance(), 0.0000001d);
     }
 
     private static HeroProfile hero(HeroItemSelection selection, CurrentBuildFormData formData) {

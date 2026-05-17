@@ -131,8 +131,9 @@ class ItemLibraryWebServerTest {
         assertFalse(currentBuildResponse.body().contains("Efektywne staty do obliczeń"));
         assertTrue(currentBuildResponse.body().contains("Statystyki bohatera"));
         assertTrue(currentBuildResponse.body().contains("Techniczne wejście runtime"));
-        assertTrue(currentBuildResponse.body().contains(">150<"));
-        assertTrue(currentBuildResponse.body().contains("Do runtime trafiają: obrażenia broni=200, siła=150"));
+        assertTrue(currentBuildResponse.body().contains(">120<"));
+        assertTrue(currentBuildResponse.body().contains(runtimeInputCard("Obrażenia broni", "0", "Brak aktywnej broni")));
+        assertTrue(currentBuildResponse.body().contains(runtimeInputCard("Siła", "120", "Aktywne itemy")));
     }
 
     @Test
@@ -253,7 +254,8 @@ class ItemLibraryWebServerTest {
         HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build?" + buildCurrentBuildQuery());
         assertEquals(200, currentBuildResponse.statusCode());
         assertTrue(currentBuildResponse.body().contains("Tarcza Edytora"));
-        assertTrue(currentBuildResponse.body().contains("Do runtime trafiają: obrażenia broni=200, siła=150"));
+        assertTrue(currentBuildResponse.body().contains(runtimeInputCard("Obrażenia broni", "0", "Brak aktywnej broni")));
+        assertTrue(currentBuildResponse.body().contains(runtimeInputCard("Siła", "120", "Aktywne itemy")));
 
         Map<String, String> removeAffixFields = shieldUpdateFields("1", "tarcza-edit.png", "Tarcza Edytora", "120", true, "inner-calm");
         removeAffixFields.put("affixCount", "0");
@@ -627,6 +629,19 @@ class ItemLibraryWebServerTest {
 
     private static String verathielEffectText() {
         return "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu.";
+    }
+
+    private static String runtimeInputCard(String label, String value, String source) {
+        return """
+                <article class="summary-card runtime-input-card">
+                    <div class="summary-label">""" + label + """
+                </div>
+                    <div class="summary-value">""" + value + """
+                </div>
+                    <div class="summary-source">Źródło: """ + source + """
+                </div>
+                </article>
+                """;
     }
 
     private static String buildCurrentBuildQuery() {

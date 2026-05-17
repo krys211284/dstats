@@ -8,7 +8,6 @@ import krys.combat.ReactiveHitBreakdown;
 import krys.simulation.SimulationStepTrace;
 import krys.simulation.SkillBarStateTrace;
 import krys.simulation.SkillHitDebugSnapshot;
-import krys.skill.PaladinSkillDefs;
 import krys.skill.SkillId;
 
 import java.util.ArrayList;
@@ -35,7 +34,6 @@ final class CurrentBuildCalculationSectionsRenderer {
         StringBuilder html = new StringBuilder("""
                 <section class="panel result-panel">
                     <h2>Debug bezpośrednich trafień</h2>
-                    <p class="muted">Szczegóły pojedynczych trafień obliczonych przez runtime.</p>
                 """);
         if (calculation.getResult().getDirectHitDebugSnapshots().isEmpty()) {
             html.append("<p>Brak bezpośrednich hitów w bieżącej symulacji.</p></section>");
@@ -46,7 +44,12 @@ final class CurrentBuildCalculationSectionsRenderer {
             DamageBreakdown breakdown = debugSnapshot.getBreakdown();
             html.append("""
                     <article class="subpanel">
-                        <h3>""").append(escapeHtml(debugSnapshot.getSkillName())).append("</h3>")
+                        <h3 title=\"""").append(escapeHtml(debugSnapshot.getSkillId().name()))
+                    .append("\" data-skill-id=\"")
+                    .append(escapeHtml(debugSnapshot.getSkillId().name()))
+                    .append("\">")
+                    .append(escapeHtml(HeroSkillCatalogAdapter.displayName(debugSnapshot.getSkillId())))
+                    .append("</h3>")
                     .append("""
                         <div class="summary-grid compact-grid">
                     """)
@@ -122,7 +125,7 @@ final class CurrentBuildCalculationSectionsRenderer {
                 String fin = entry.getBreakdown() == null ? "-" : Long.toString(entry.getBreakdown().getFinalDamage());
                 html.append("<tr>")
                         .append("<td>").append(escapeHtml(entry.getDelayedHitName())).append("</td>")
-                        .append("<td>").append(escapeHtml(entry.getSourceSkillName())).append("</td>")
+                        .append("<td>").append(escapeHtml(HeroSkillCatalogAdapter.displayName(entry.getSourceSkillName()))).append("</td>")
                         .append("<td>t=").append(entry.getAppliedSecond()).append("</td>")
                         .append("<td>t=").append(entry.getTriggerSecond()).append("</td>")
                         .append("<td>").append(escapeHtml(status)).append("</td>")
@@ -215,14 +218,14 @@ final class CurrentBuildCalculationSectionsRenderer {
         for (SimulationStepTrace step : calculation.getResult().getStepTrace()) {
             html.append("<tr>")
                     .append("<td>").append(step.getSecond()).append("</td>")
-                    .append("<td>").append(escapeHtml(step.getActionName())).append("</td>")
+                    .append("<td>").append(escapeHtml(HeroSkillCatalogAdapter.displayName(step.getActionName()))).append("</td>")
                     .append("<td>").append(step.getDirectDamage()).append("</td>")
                     .append("<td>").append(step.getDelayedDamage()).append("</td>")
                     .append("<td>").append(step.getReactiveDamage()).append("</td>")
                     .append("<td>").append(step.getTotalStepDamage()).append("</td>")
                     .append("<td>").append(step.getCumulativeDamage()).append("</td>")
                     .append("<td>").append(escapeHtml(step.getTickOrderLabel())).append("</td>")
-                    .append("<td>").append(escapeHtml(step.getSelectionReason())).append("</td>")
+                    .append("<td>").append(escapeHtml(HeroSkillCatalogAdapter.replaceRuntimeSkillNames(step.getSelectionReason()))).append("</td>")
                     .append("<td>").append(renderSkillBarStates(step.getSkillBarStates())).append("</td>")
                     .append("</tr>");
         }
@@ -240,7 +243,7 @@ final class CurrentBuildCalculationSectionsRenderer {
         }
         List<String> labels = new ArrayList<>();
         for (SkillId skillId : actionBar) {
-            labels.add(PaladinSkillDefs.get(skillId).getName());
+            labels.add(HeroSkillCatalogAdapter.displayName(skillId));
         }
         return String.join(" -> ", labels);
     }
@@ -264,7 +267,12 @@ final class CurrentBuildCalculationSectionsRenderer {
         StringBuilder html = new StringBuilder("<div class=\"bar-state-list\">");
         for (SkillBarStateTrace barState : barStates) {
             html.append("<div class=\"bar-state-item\">")
-                    .append("<strong>").append(escapeHtml(barState.getSkillName())).append("</strong>")
+                    .append("<strong title=\"").append(escapeHtml(barState.getSkillId().name()))
+                    .append("\" data-skill-id=\"")
+                    .append(escapeHtml(barState.getSkillId().name()))
+                    .append("\">")
+                    .append(escapeHtml(HeroSkillCatalogAdapter.displayName(barState.getSkillId())))
+                    .append("</strong>")
                     .append(" | ranga=").append(barState.getRank())
                     .append(" | legalny=").append(barState.isLegalActive() ? "tak" : "nie")
                     .append(" | odnowienie=").append(barState.isOnCooldown() ? "tak" : "nie")

@@ -296,13 +296,23 @@ class CurrentBuildWebServerTest {
         assertTrue(html.contains(summaryCard("Średnie obrażenia trafienia", "1664")));
         assertTrue(html.contains(summaryCard("Ataki na sekundę", "1,10")));
         assertTrue(html.contains("<h3>Aktywna broń"));
-        assertTrue(html.contains(summaryCard("Runtime: obrażenia broni", "1664")));
-        assertTrue(html.contains(summaryCard("Obrażenia broni do runtime", "1664")));
-        assertTrue(html.contains(summaryCard("Źródło obrażeń broni", "Odłamek Verathiela: średnie obrażenia trafienia")));
-        assertTrue(html.contains(summaryCard("Runtime: siła", "79")));
-        assertTrue(html.contains(summaryCard("Runtime: inteligencja", "76")));
-        assertFalse(html.contains(summaryCard("Runtime: obrażenia broni", "8")));
-        assertFalse(html.contains(summaryCard("Runtime: obrażenia broni", "1830")));
+        String runtimeInput = technicalRuntimeInputSection(html);
+        assertTrue(runtimeInput.contains(runtimeInputCard("Obrażenia broni", "1664", "Aktywna broń: Odłamek Verathiela, średnie obrażenia trafienia")));
+        assertTrue(runtimeInput.contains(runtimeInputCard("Siła", "79", "Baseline Paladyn poziom 70")));
+        assertTrue(runtimeInput.contains(runtimeInputCard("Inteligencja", "76", "Baseline Paladyn poziom 70")));
+        assertTrue(runtimeInput.contains(runtimeInputCard("Kolce", "0", "Brak jawnego wkładu current build")));
+        assertTrue(runtimeInput.contains(runtimeInputCard("Szansa bloku [%]", "0", "Brak jawnego wkładu current build")));
+        assertTrue(runtimeInput.contains(runtimeInputCard("Szansa retribution [%]", "0", "Brak jawnego wkładu current build")));
+        assertFalse(runtimeInput.contains("Manual: obrażenia broni"));
+        assertFalse(runtimeInput.contains("Manual: siła"));
+        assertFalse(runtimeInput.contains("Manual: inteligencja"));
+        assertFalse(runtimeInput.contains("Manual: kolce"));
+        assertFalse(runtimeInput.contains("Manual: szansa bloku"));
+        assertFalse(runtimeInput.contains("Manual: szansa retribution"));
+        assertFalse(runtimeInput.contains("legacy fallback"));
+        assertFalse(runtimeInput.contains("Legacy/manual fallbacki formularza"));
+        assertFalse(runtimeInput.contains(summaryCard("Obrażenia broni", "8")));
+        assertFalse(runtimeInput.contains(summaryCard("Obrażenia broni", "1830")));
         assertTrue(html.contains("+94 obrażeń od broni [94 - 157]"));
         assertTrue(html.contains("+2141 maksymalnego zdrowia [1831 - 2200]"));
         assertTrue(html.contains("+545 zdrowia przy trafieniu [526 - 632]"));
@@ -323,7 +333,7 @@ class CurrentBuildWebServerTest {
         assertTrue(html.contains(summaryCard("Ciernie", "0")));
         assertFalse(html.contains(summaryCardWithTooltipPrefix("Maksimum zdrowia", "4212", "Baseline: 1526; aktywne itemy: +2686; razem: 4212.")));
         assertFalse(html.contains(summaryCard("Średnie obrażenia trafienia", "1758")));
-        assertFalse(html.contains(summaryCard("Runtime: obrażenia broni", "1830")));
+        assertFalse(technicalRuntimeInputSection(html).contains(summaryCard("Obrażenia broni", "1830")));
 
         HttpResponse<String> calculationResponse = sendPost("/policz-aktualny-build", buildAdvanceRankOneLevel70Fields());
         String calculationHtml = calculationResponse.body();
@@ -331,7 +341,8 @@ class CurrentBuildWebServerTest {
         assertTrue(calculationHtml.contains(summaryCard("Efektywne obrażenia broni", "1664")));
         assertTrue(calculationHtml.contains(summaryCard("Efektywna siła", "79")));
         assertTrue(calculationHtml.contains(summaryCard("Efektywna inteligencja", "76")));
-        assertTrue(calculationHtml.contains(summaryCard("Runtime: obrażenia broni", "1664")));
+        assertTrue(technicalRuntimeInputSection(calculationHtml)
+                .contains(runtimeInputCard("Obrażenia broni", "1664", "Aktywna broń: Odłamek Verathiela, średnie obrażenia trafienia")));
         assertTrue(calculationHtml.contains("Łączne obrażenia"));
         assertFalse(calculationHtml.contains(summaryCard("Łączne obrażenia", "0")));
 
@@ -340,8 +351,87 @@ class CurrentBuildWebServerTest {
         clearFields.put("slotAction", "clearActiveSlotItem:MAIN_HAND");
         HttpResponse<String> clearResponse = sendPost("/policz-aktualny-build", clearFields);
         assertEquals(200, clearResponse.statusCode());
+        assertFalse(clearResponse.body().contains("Weapon damage musi być >= 1"));
+        assertTrue(equipmentSlotCard(clearResponse.body(), "MAIN_HAND").contains("Slot jest pusty"));
         assertTrue(clearResponse.body().contains(summaryCardWithTooltipPrefix("Maksimum zdrowia", "1526", "Baseline: 1526; aktywne itemy: +0; razem: 1526.")));
         assertFalse(clearResponse.body().contains(summaryCard("DPS broni", "1830")));
+        String clearRuntimeInput = technicalRuntimeInputSection(clearResponse.body());
+        assertTrue(clearRuntimeInput.contains(runtimeInputCard("Obrażenia broni", "0", "Brak aktywnej broni")));
+        assertFalse(clearRuntimeInput.contains("Odłamek Verathiela"));
+        assertFalse(clearRuntimeInput.contains("1664"));
+        assertFalse(clearResponse.body().contains(summaryCard("Efektywne obrażenia broni", "1664")));
+
+        HttpResponse<String> afterClearGet = sendGet("/policz-aktualny-build");
+        assertEquals(200, afterClearGet.statusCode());
+        assertTrue(equipmentSlotCard(afterClearGet.body(), "MAIN_HAND").contains("Slot jest pusty"));
+        assertTrue(afterClearGet.body().contains(summaryCardWithTooltipPrefix("Maksimum zdrowia", "1526", "Baseline: 1526; aktywne itemy: +0; razem: 1526.")));
+        assertTrue(technicalRuntimeInputSection(afterClearGet.body()).contains(runtimeInputCard("Obrażenia broni", "0", "Brak aktywnej broni")));
+        assertFalse(technicalRuntimeInputSection(afterClearGet.body()).contains("Odłamek Verathiela"));
+
+        Map<String, String> reselectFields = buildAdvanceFlashFields(10);
+        reselectFields.put("level", "70");
+        reselectFields.put("selectedItemId_MAIN_HAND", "1");
+        HttpResponse<String> reselectResponse = sendPost("/policz-aktualny-build", reselectFields);
+        assertEquals(200, reselectResponse.statusCode());
+        assertFalse(reselectResponse.body().contains("Weapon damage musi być >= 1"));
+        assertTrue(equipmentSlotCard(reselectResponse.body(), "MAIN_HAND").contains("class=\"status-badge status-active\">Aktywny</span>"));
+        assertTrue(reselectResponse.body().contains(summaryCardWithTooltipPrefix("Maksimum zdrowia", "3667", "Baseline: 1526; aktywne itemy: +2141; razem: 3667.")));
+        assertTrue(technicalRuntimeInputSection(reselectResponse.body())
+                .contains(runtimeInputCard("Obrażenia broni", "1664", "Aktywna broń: Odłamek Verathiela, średnie obrażenia trafienia")));
+    }
+
+    @Test
+    void shouldShowZeroWeaponDamageWithoutActiveWeaponInCurrentBuildDebug() throws Exception {
+        createHero("Paladyn bez broni", "70");
+
+        HttpResponse<String> response = sendGet("/policz-aktualny-build");
+
+        assertEquals(200, response.statusCode());
+        String runtimeInput = technicalRuntimeInputSection(response.body());
+        assertTrue(runtimeInput.contains(runtimeInputCard("Obrażenia broni", "0", "Brak aktywnej broni")));
+        assertFalse(runtimeInput.contains("Manual: obrażenia broni"));
+        assertFalse(runtimeInput.contains(summaryCard("Obrażenia broni", "8")));
+
+        Map<String, String> fields = buildAdvanceFlashFields(10);
+        fields.put("level", "70");
+        HttpResponse<String> saveResponse = sendPost("/policz-aktualny-build", fields);
+        assertEquals(200, saveResponse.statusCode());
+        assertFalse(saveResponse.body().contains("Weapon damage musi być >= 1"));
+        assertTrue(equipmentSlotCard(saveResponse.body(), "MAIN_HAND").contains("Slot jest pusty"));
+        assertTrue(technicalRuntimeInputSection(saveResponse.body()).contains(runtimeInputCard("Obrażenia broni", "0", "Brak aktywnej broni")));
+    }
+
+    @Test
+    void shouldKeepActiveVerathielWhenGlobalSaveSubmitsEmptySlotSelect() throws Exception {
+        createHero("Pusty select Verathiela", "70");
+        saveAndActivateVerathiel();
+        Map<String, String> fields = buildAdvanceRankOneLevel70Fields();
+        fields.put("selectedItemId_MAIN_HAND", "");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        assertFalse(response.body().contains("Weapon damage musi być >= 1"));
+        assertTrue(equipmentSlotCard(response.body(), "MAIN_HAND").contains("class=\"status-badge status-active\">Aktywny</span>"));
+        assertTrue(technicalRuntimeInputSection(response.body())
+                .contains(runtimeInputCard("Obrażenia broni", "1664", "Aktywna broń: Odłamek Verathiela, średnie obrażenia trafienia")));
+    }
+
+    @Test
+    void shouldExplainEmptyActionBarSimulationWithoutRuntimeError() throws Exception {
+        createHero("Paladyn pusty pasek", "70");
+        assignSkill(krys.skill.SkillId.ADVANCE);
+        saveAndActivateVerathiel();
+        Map<String, String> fields = buildAdvanceRankOneLevel70Fields();
+        for (int slot = 1; slot <= CurrentBuildFormData.ACTION_BAR_SLOT_COUNT; slot++) {
+            fields.put(CurrentBuildFormData.actionBarFieldName(slot), "NONE");
+        }
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        assertFalse(response.body().contains("Action bar może zawierać"));
+        assertTrue(response.body().contains("Symulacja nie wykonała trafień, ponieważ pasek akcji jest pusty."));
     }
 
     @Test
@@ -375,7 +465,7 @@ class CurrentBuildWebServerTest {
         ));
         assertEquals(200, addSkillResponse.statusCode());
         assertFalse(addSkillResponse.body().contains("Wybierz poprawną umiejętność do przypisania bohaterowi."));
-        assertTrue(addSkillResponse.body().contains("Dodano umiejętność Holy Bolt do bohatera."));
+        assertTrue(addSkillResponse.body().contains("Dodano umiejętność Święty Pocisk do bohatera."));
         assertTrue(addSkillResponse.body().contains(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.HOLY_BOLT)));
 
         Map<String, String> invalidBarFields = buildAdvanceFlashFields(10);
@@ -391,7 +481,7 @@ class CurrentBuildWebServerTest {
 
         HttpResponse<String> reloadResponse = sendGet("/policz-aktualny-build");
         assertEquals(200, reloadResponse.statusCode());
-        assertFalse(reloadResponse.body().contains("<option value=\"HOLY_BOLT\" selected>Holy Bolt</option>"));
+        assertFalse(reloadResponse.body().contains("<option value=\"HOLY_BOLT\" selected>Święty Pocisk</option>"));
     }
 
     @Test
@@ -659,6 +749,47 @@ class CurrentBuildWebServerTest {
     }
 
     @Test
+    void shouldRenderCurrentBuildClashNamesInPolishAcrossActionBarResultAndDebug() throws Exception {
+        createHero("Polskie nazwy current build", "13");
+        saveAndActivateReferenceRuntimeItem();
+        assignSkill(krys.skill.SkillId.CLASH);
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", buildClashPunishmentFields(9));
+
+        assertEquals(200, response.statusCode());
+        String html = response.body();
+        String actionBarOption = actionBarOptionForValue(html, "actionBar1", "CLASH");
+        assertTrue(actionBarOption.contains(">Starcie</option>"));
+        assertFalse(actionBarOption.contains(">Clash</option>"));
+        assertTrue(html.contains(summaryCard("Pasek akcji", "Starcie")));
+        assertFalse(html.contains(summaryCard("Pasek akcji", "Clash")));
+
+        String directHitDebug = sectionByHeading(html, "Debug bezpośrednich trafień");
+        assertTrue(directHitDebug.contains("<h3 title=\"CLASH\" data-skill-id=\"CLASH\">Starcie</h3>"));
+        assertFalse(directHitDebug.contains(">Clash</h3>"));
+
+        String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
+        assertTrue(stepTrace.contains("<td>Starcie</td>"));
+        assertTrue(stepTrace.contains("Wybrano Starcie"));
+        assertFalse(stepTrace.contains("<td>Clash</td>"));
+        assertFalse(stepTrace.contains("Wybrano Clash"));
+    }
+
+    @Test
+    void shouldNotRenderRemovedCurrentBuildDebugDescriptions() throws Exception {
+        createHero("Odchudzony debug", "13");
+
+        HttpResponse<String> response = sendGet("/policz-aktualny-build");
+
+        assertEquals(200, response.statusCode());
+        String html = response.body();
+        assertFalse(html.contains("Faktyczne wartości przekazane do runtime po złożeniu aktywnego bohatera"));
+        assertFalse(html.contains("Aktywny bohater + aktywna broń + jawne wkłady current build = wejście runtime"));
+        assertFalse(html.contains("Szczegóły pojedynczych trafień obliczonych przez runtime"));
+        assertFalse(html.contains("foundation manual simulation dla trybu"));
+    }
+
+    @Test
     void shouldRenderEquipmentSectionAndAllowChangingActiveItemPerSlot() throws Exception {
         createHero("Testowy bohater", "13");
         HttpResponse<String> firstSave = sendPost("/biblioteka-itemow", Map.of(
@@ -716,8 +847,83 @@ class CurrentBuildWebServerTest {
     }
 
     @Test
+    void shouldApplySelectedItemFromGlobalSaveForEmptySlot() throws Exception {
+        createHero("Globalny zapis itemu", "13");
+        saveSimpleMainHandItem("sword-global.png", "321", "55");
+
+        HttpResponse<String> initialResponse = sendGet("/policz-aktualny-build");
+        assertEquals(200, initialResponse.statusCode());
+        assertTrue(equipmentSlotCard(initialResponse.body(), "MAIN_HAND").contains("Slot jest pusty"));
+
+        Map<String, String> fields = buildAdvanceFlashFields(10);
+        fields.put("selectedItemId_MAIN_HAND", "1");
+
+        HttpResponse<String> saveResponse = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, saveResponse.statusCode());
+        assertTrue(saveResponse.body().contains("Zmieniono aktywny item dla slotu Broń."));
+        assertTrue(equipmentSlotCard(saveResponse.body(), "MAIN_HAND").contains("class=\"status-badge status-active\">Aktywny</span>"));
+        assertTrue(equipmentSlotCard(saveResponse.body(), "MAIN_HAND").contains("Broń główna / sword-global.png"));
+        assertFalse(equipmentSlotCard(saveResponse.body(), "MAIN_HAND").contains("Slot jest pusty"));
+
+        HttpResponse<String> reloadResponse = sendGet("/policz-aktualny-build");
+        assertEquals(200, reloadResponse.statusCode());
+        assertTrue(equipmentSlotCard(reloadResponse.body(), "MAIN_HAND").contains("class=\"status-badge status-active\">Aktywny</span>"));
+        assertTrue(equipmentSlotCard(reloadResponse.body(), "MAIN_HAND").contains("Broń główna / sword-global.png"));
+        assertFalse(equipmentSlotCard(reloadResponse.body(), "MAIN_HAND").contains("Slot jest pusty"));
+    }
+
+    @Test
+    void shouldKeepActiveItemWhenGlobalSaveSubmitsEmptySlotSelect() throws Exception {
+        createHero("Pusty select nie czyści", "13");
+        saveSimpleMainHandItem("sword-keep.png", "321", "55");
+        HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", "1",
+                "heroSlot", "MAIN_HAND",
+                "currentBuildQuery", buildCurrentBuildQuery()
+        ));
+        assertEquals(200, activateResponse.statusCode());
+
+        Map<String, String> fields = buildAdvanceFlashFields(10);
+        fields.put("selectedItemId_MAIN_HAND", "");
+
+        HttpResponse<String> saveResponse = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, saveResponse.statusCode());
+        assertFalse(saveResponse.body().contains("Błędy formularza"));
+        assertTrue(equipmentSlotCard(saveResponse.body(), "MAIN_HAND").contains("class=\"status-badge status-active\">Aktywny</span>"));
+        assertTrue(equipmentSlotCard(saveResponse.body(), "MAIN_HAND").contains("Broń główna / sword-keep.png"));
+        assertFalse(equipmentSlotCard(saveResponse.body(), "MAIN_HAND").contains("Slot jest pusty"));
+    }
+
+    @Test
+    void shouldStillClearActiveSlotOnlyWithExplicitClearButton() throws Exception {
+        createHero("Jawne czyszczenie slotu", "13");
+        saveSimpleMainHandItem("sword-clear.png", "321", "55");
+        HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", "1",
+                "heroSlot", "MAIN_HAND",
+                "currentBuildQuery", buildCurrentBuildQuery()
+        ));
+        assertEquals(200, activateResponse.statusCode());
+
+        Map<String, String> fields = buildAdvanceFlashFields(10);
+        fields.put("slotAction", "clearActiveSlotItem:MAIN_HAND");
+
+        HttpResponse<String> clearResponse = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, clearResponse.statusCode());
+        assertTrue(clearResponse.body().contains("Wyczyszczono aktywny item dla slotu Broń."));
+        assertTrue(equipmentSlotCard(clearResponse.body(), "MAIN_HAND").contains("Slot jest pusty"));
+        assertFalse(equipmentSlotCard(clearResponse.body(), "MAIN_HAND").contains("class=\"status-badge status-active\">Aktywny</span>"));
+    }
+
+    @Test
     void shouldCalculateCurrentBuildAndRenderRequiredSections() throws Exception {
         createHero("Testowy bohater", "13");
+        saveAndActivateReferenceRuntimeItem();
         assignSkill(krys.skill.SkillId.HOLY_BOLT);
         HttpResponse<String> response = sendPost(
                 "/policz-aktualny-build",
@@ -740,7 +946,7 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains(">40<"));
         assertTrue(response.body().contains("Ślad kroków symulacji"));
         assertTrue(response.body().contains("Judgement"));
-        assertTrue(response.body().contains("Holy Bolt"));
+        assertTrue(response.body().contains("Święty Pocisk"));
     }
 
     @Test
@@ -754,12 +960,13 @@ class CurrentBuildWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Błędy formularza"));
-        assertTrue(response.body().contains("Wybrany dodatkowy modyfikator nie jest dostępny dla skilla Holy Bolt."));
+        assertTrue(response.body().contains("Wybrany dodatkowy modyfikator nie jest dostępny dla skilla Święty Pocisk."));
     }
 
     @Test
     void shouldRenderClashScenarioWithResolveAndReactiveBonuses() throws Exception {
         createHero("Testowy bohater", "13");
+        saveAndActivateReferenceRuntimeItem();
         assignSkill(krys.skill.SkillId.CLASH);
         HttpResponse<String> response = sendPost(
                 "/policz-aktualny-build",
@@ -781,20 +988,21 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains(">39<"));
         assertTrue(response.body().contains(">24<"));
         assertTrue(response.body().contains(">88<"));
-        assertTrue(response.body().contains("Clash"));
+        assertTrue(response.body().contains("Starcie"));
         assertTrue(response.body().contains("Punishment"));
     }
 
     @Test
     void shouldRenderAdvanceScenarioWithCooldownAndWait() throws Exception {
         createHero("Testowy bohater", "13");
+        saveAndActivateReferenceRuntimeItem();
         HttpResponse<String> response = sendPost(
                 "/policz-aktualny-build",
                 buildAdvanceFlashFields(10)
         );
 
         assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("Advance"));
+        assertTrue(response.body().contains("Natarcie"));
         assertTrue(response.body().contains("Flash of the Blade"));
         assertTrue(response.body().contains("Łączne obrażenia"));
         assertTrue(response.body().contains("186"));
@@ -853,7 +1061,9 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains(">321<"));
         assertTrue(response.body().contains("Efektywna siła"));
         assertTrue(response.body().contains(">55<"));
-        assertTrue(response.body().contains("Do runtime trafiają: obrażenia broni=321, siła=55"));
+        String runtimeInput = technicalRuntimeInputSection(response.body());
+        assertTrue(runtimeInput.contains(runtimeInputCard("Obrażenia broni", "321", "Aktywny item: zapisane obrażenia broni")));
+        assertTrue(runtimeInput.contains(runtimeInputCard("Siła", "55", "Aktywne itemy")));
         assertFalse(response.body().contains("Obrażenia broni musi być >= 1."));
     }
 
@@ -888,9 +1098,10 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains(summaryCard("Szansa na blok z aktywnych itemów [%]", "18.25")));
         assertTrue(response.body().contains(summaryCard("Szansa retribution z aktywnych itemów [%]", "7.5")));
         assertFalse(response.body().contains(summaryCard("Szansa na blok [%]", "28.75")));
-        assertTrue(response.body().contains(summaryCard("Runtime: szansa bloku [%]", "28.75")));
-        assertTrue(response.body().contains(summaryCard("Runtime: szansa retribution [%]", "9.75")));
-        assertTrue(response.body().contains("szansa bloku=28.75, szansa retribution=9.75"));
+        String runtimeInput = technicalRuntimeInputSection(response.body());
+        assertTrue(runtimeInput.contains(runtimeInputCard("Szansa bloku [%]", "18.25", "Aktywne itemy")));
+        assertTrue(runtimeInput.contains(runtimeInputCard("Szansa retribution [%]", "7.5", "Aktywne itemy")));
+        assertFalse(response.body().contains("szansa bloku=18.25, szansa retribution=7.5"));
     }
 
     private static Map<String, String> buildHolyBoltJudgementFields() {
@@ -1063,6 +1274,19 @@ class CurrentBuildWebServerTest {
                 + "</article>\n";
     }
 
+    private static String runtimeInputCard(String label, String value, String source) {
+        return """
+                <article class="summary-card runtime-input-card">
+                    <div class="summary-label">""" + label + """
+                </div>
+                    <div class="summary-value">""" + value + """
+                </div>
+                    <div class="summary-source">Źródło: """ + source + """
+                </div>
+                </article>
+                """;
+    }
+
     private static String formatWholeForTest(double value) {
         if (Math.rint(value) == value) {
             return Long.toString(Math.round(value));
@@ -1079,6 +1303,19 @@ class CurrentBuildWebServerTest {
         int end = html.indexOf("</article>", itemIndex);
         if (start < 0 || end < 0) {
             throw new AssertionError("Nie udało się wyciąć karty aktywnego slotu.");
+        }
+        return html.substring(start, end);
+    }
+
+    private static String equipmentSlotCard(String html, String slotName) {
+        String marker = "<article class=\"equipment-slot equipment-slot-" + slotName.toLowerCase(java.util.Locale.ROOT);
+        int start = html.indexOf(marker);
+        if (start < 0) {
+            throw new AssertionError("Brak karty slotu: " + slotName);
+        }
+        int end = html.indexOf("</article>", start);
+        if (end < 0) {
+            throw new AssertionError("Nie udało się wyciąć karty slotu: " + slotName);
         }
         return html.substring(start, end);
     }
@@ -1106,6 +1343,29 @@ class CurrentBuildWebServerTest {
         return selectHtml.substring(start, end);
     }
 
+    private static String actionBarOptionForValue(String html, String fieldName, String value) {
+        String selectMarker = "name=\"" + fieldName + "\"";
+        int selectStart = html.indexOf(selectMarker);
+        if (selectStart < 0) {
+            throw new AssertionError("Brak selecta paska akcji: " + fieldName);
+        }
+        int selectEnd = html.indexOf("</select>", selectStart);
+        if (selectEnd < 0) {
+            throw new AssertionError("Nie udało się wyciąć selecta paska akcji: " + fieldName);
+        }
+        String selectHtml = html.substring(selectStart, selectEnd);
+        String marker = "<option value=\"" + value + "\"";
+        int start = selectHtml.indexOf(marker);
+        if (start < 0) {
+            throw new AssertionError("Brak opcji paska akcji o wartości: " + value);
+        }
+        int end = selectHtml.indexOf("</option>", start);
+        if (end < 0) {
+            throw new AssertionError("Nie udało się wyciąć opcji paska akcji o wartości: " + value);
+        }
+        return selectHtml.substring(start, end + "</option>".length());
+    }
+
     private static String heroStatGroup(String html, String title) {
         String marker = "<h3>" + title;
         int heading = html.indexOf(marker);
@@ -1120,6 +1380,33 @@ class CurrentBuildWebServerTest {
             throw new AssertionError("Nie udało się wyciąć grupy statystyk: " + title);
         }
         return html.substring(start, end);
+    }
+
+    private static String sectionByHeading(String html, String headingText) {
+        String marker = "<h2>" + headingText + "</h2>";
+        int heading = html.indexOf(marker);
+        if (heading < 0) {
+            throw new AssertionError("Brak sekcji: " + headingText);
+        }
+        int start = html.lastIndexOf("<section", heading);
+        int end = html.indexOf("</section>", heading);
+        if (start < 0 || end < 0) {
+            throw new AssertionError("Nie udało się wyciąć sekcji: " + headingText);
+        }
+        return html.substring(start, end + "</section>".length());
+    }
+
+    private static String technicalRuntimeInputSection(String html) {
+        int heading = html.indexOf("<h2>Techniczne wejście runtime</h2>");
+        if (heading < 0) {
+            throw new AssertionError("Brak sekcji technicznego wejścia runtime.");
+        }
+        int start = html.lastIndexOf("<section", heading);
+        int end = html.indexOf("</section>", heading);
+        if (start < 0 || end < 0) {
+            throw new AssertionError("Nie udało się wyciąć sekcji technicznego wejścia runtime.");
+        }
+        return html.substring(start, end + "</section>".length());
     }
 
     private void createHero(String heroName, String heroLevel) throws Exception {
@@ -1140,6 +1427,59 @@ class CurrentBuildWebServerTest {
         ));
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Dodano umiejętność " + HeroSkillCatalogAdapter.displayName(skillId) + " do bohatera."));
+    }
+
+    private void saveAndActivateVerathiel() throws Exception {
+        HttpResponse<String> saveResponse = sendPost("/importuj-item-ze-screena", verathielImportFields());
+        assertEquals(200, saveResponse.statusCode());
+
+        HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", "1",
+                "heroSlot", "MAIN_HAND",
+                "currentBuildQuery", ""
+        ));
+        assertEquals(200, activateResponse.statusCode());
+    }
+
+    private void saveAndActivateReferenceRuntimeItem() throws Exception {
+        HttpResponse<String> saveResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "saveImportedItem",
+                "sourceImageName", "reference-runtime-item.png",
+                "slot", "MAIN_HAND",
+                "weaponDamage", "8",
+                "strength", "18",
+                "intelligence", "0",
+                "thorns", "50",
+                "blockChance", "50",
+                "retributionChance", "50",
+                "currentBuildQuery", buildCurrentBuildQuery()
+        ));
+        assertEquals(200, saveResponse.statusCode());
+
+        HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", "1",
+                "heroSlot", "MAIN_HAND",
+                "currentBuildQuery", ""
+        ));
+        assertEquals(200, activateResponse.statusCode());
+    }
+
+    private void saveSimpleMainHandItem(String sourceImageName, String weaponDamage, String strength) throws Exception {
+        HttpResponse<String> saveResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "saveImportedItem",
+                "sourceImageName", sourceImageName,
+                "slot", "MAIN_HAND",
+                "weaponDamage", weaponDamage,
+                "strength", strength,
+                "intelligence", "0",
+                "thorns", "0",
+                "blockChance", "0",
+                "retributionChance", "0",
+                "currentBuildQuery", buildCurrentBuildQuery()
+        ));
+        assertEquals(200, saveResponse.statusCode());
     }
 
     private static String assignedSkillCard(String html, String skillId) {

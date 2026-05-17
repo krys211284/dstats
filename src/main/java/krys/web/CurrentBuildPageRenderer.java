@@ -897,7 +897,7 @@ public final class CurrentBuildPageRenderer {
                     <details class="current-build-details result-details">
                         <summary>Wynik symulacji</summary>
                         <section class="panel result-panel">
-                        <p>To jest aktualny foundation manual simulation dla trybu „Policz aktualny build”. Ustaw ekwipunek, przypisane umiejętności, pasek akcji i poziom bohatera, a potem uruchom obliczenie.</p>
+                        <p>Ustaw ekwipunek, przypisane umiejętności, pasek akcji i poziom bohatera, a potem uruchom obliczenie.</p>
                         </section>
                     </details>
                 """
@@ -940,6 +940,13 @@ public final class CurrentBuildPageRenderer {
                 """);
         html.append(renderTechnicalRuntimeInput(model));
         if (calculation != null) {
+            if (calculation.getRequest().getActionBar().isEmpty()) {
+                html.append("""
+                        <section class="panel result-panel empty-simulation-panel">
+                            <p class="helper">Symulacja nie wykonała trafień, ponieważ pasek akcji jest pusty.</p>
+                        </section>
+                        """);
+            }
             html.append(CurrentBuildCalculationSectionsRenderer.renderDirectHitDebug(calculation));
             html.append(CurrentBuildCalculationSectionsRenderer.renderDelayedHitDebug(calculation));
             html.append(CurrentBuildCalculationSectionsRenderer.renderReactiveDebug(calculation));
@@ -950,46 +957,20 @@ public final class CurrentBuildPageRenderer {
     }
 
     private static String renderTechnicalRuntimeInput(CurrentBuildPageModel model) {
-        CurrentBuildImportableStats manualBaseStats = resolveManualBaseStats(model);
-        CurrentBuildImportableStats effectiveStats = model.getEffectiveStats();
+        CurrentBuildRuntimeInputPresentation presentation = CurrentBuildRuntimeInputPresentation.from(model);
         StringBuilder html = new StringBuilder("""
                 <section class="panel result-panel technical-runtime-input">
                     <h2>Techniczne wejście runtime</h2>
-                    <p class="helper">Wartości poniżej są wejściem runtime/manual fallback, a nie sekcją statystyk bohatera.</p>
-                    <div class="formula-strip">Bohater + aktywna broń + jawne wkłady itemów + legacy fallback = effective stats runtime</div>
                     <div class="summary-grid compact-grid">
                 """);
-        html.append(renderSummaryCard("Manual: obrażenia broni", Long.toString(manualBaseStats.getWeaponDamage())))
-                .append(renderSummaryCard("Manual: siła", ItemLibraryPresentationSupport.formatWhole(manualBaseStats.getStrength())))
-                .append(renderSummaryCard("Manual: inteligencja", ItemLibraryPresentationSupport.formatWhole(manualBaseStats.getIntelligence())))
-                .append(renderSummaryCard("Manual: kolce", ItemLibraryPresentationSupport.formatWhole(manualBaseStats.getThorns())))
-                .append(renderSummaryCard("Manual: szansa bloku [%]", formatPercentage(manualBaseStats.getBlockChance())))
-                .append(renderSummaryCard("Manual: szansa retribution [%]", formatPercentage(manualBaseStats.getRetributionChance())));
-        if (effectiveStats != null) {
-            html.append(renderSummaryCard("Runtime: obrażenia broni", Long.toString(effectiveStats.getWeaponDamage())))
-                    .append(renderSummaryCard("Obrażenia broni do runtime", Long.toString(effectiveStats.getWeaponDamage())))
-                    .append(renderSummaryCard("Źródło obrażeń broni", runtimeWeaponDamageSource(model, effectiveStats)))
-                    .append(renderSummaryCard("Runtime: siła", ItemLibraryPresentationSupport.formatWhole(effectiveStats.getStrength())))
-                    .append(renderSummaryCard("Runtime: inteligencja", ItemLibraryPresentationSupport.formatWhole(effectiveStats.getIntelligence())))
-                    .append(renderSummaryCard("Runtime: kolce", ItemLibraryPresentationSupport.formatWhole(effectiveStats.getThorns())))
-                    .append(renderSummaryCard("Runtime: szansa bloku [%]", formatPercentage(effectiveStats.getBlockChance())))
-                    .append(renderSummaryCard("Runtime: szansa retribution [%]", formatPercentage(effectiveStats.getRetributionChance())))
-                    .append("</div><p class=\"helper\">Do runtime trafiają: obrażenia broni=")
-                    .append(escapeHtml(Long.toString(effectiveStats.getWeaponDamage())))
-                    .append(", siła=")
-                    .append(escapeHtml(ItemLibraryPresentationSupport.formatWhole(effectiveStats.getStrength())))
-                    .append(", inteligencja=")
-                    .append(escapeHtml(ItemLibraryPresentationSupport.formatWhole(effectiveStats.getIntelligence())))
-                    .append(", kolce=")
-                    .append(escapeHtml(ItemLibraryPresentationSupport.formatWhole(effectiveStats.getThorns())))
-                    .append(", szansa bloku=")
-                    .append(escapeHtml(formatPercentage(effectiveStats.getBlockChance())))
-                    .append(", szansa retribution=")
-                    .append(escapeHtml(formatPercentage(effectiveStats.getRetributionChance())))
-                    .append(".</p></section>");
+        if (!presentation.isEmpty()) {
+            for (CurrentBuildRuntimeInputPresentation.Field field : presentation.getFields()) {
+                html.append(renderRuntimeInputCard(field));
+            }
+            html.append("</div></section>");
             return html.toString();
         }
-        html.append("</div><p class=\"helper\">Effective stats runtime nie są dostępne, bo wejście manual fallback zawiera błędy walidacji.</p></section>");
+        html.append("</div><p class=\"helper\">Wejście runtime current build nie jest dostępne, bo formularz zawiera błędy walidacji.</p></section>");
         return html.toString();
     }
 
@@ -1033,26 +1014,17 @@ public final class CurrentBuildPageRenderer {
                 .replace("{{HORIZON_SECONDS}}", escapeHtml(formData.getHorizonSeconds()));
     }
 
-    private static String runtimeWeaponDamageSource(CurrentBuildPageModel model, CurrentBuildImportableStats effectiveStats) {
-        CurrentHeroActiveItemStats activeItemStats = model.getActiveHeroItemStats();
-        Long averageWeaponDamage = activeItemStats.getAverageWeaponDamage();
-        if (averageWeaponDamage != null && averageWeaponDamage == effectiveStats.getWeaponDamage()) {
-            String itemName = activeWeaponName(model);
-            if (itemName.isBlank()) {
-                return "Aktywna broń: średnie obrażenia trafienia";
-            }
-            return itemName + ": średnie obrażenia trafienia";
-        }
-        return "Legacy fallback current build";
-    }
-
-    private static String activeWeaponName(CurrentBuildPageModel model) {
-        for (HeroSlotItemAssignment assignment : model.getActiveLibraryItems()) {
-            if (assignment.getHeroSlot() == HeroEquipmentSlot.MAIN_HAND) {
-                return assignment.getItem().getDisplayName();
-            }
-        }
-        return "";
+    private static String renderRuntimeInputCard(CurrentBuildRuntimeInputPresentation.Field field) {
+        return """
+                <article class="summary-card runtime-input-card">
+                    <div class="summary-label">""" + escapeHtml(field.getLabel()) + """
+                </div>
+                    <div class="summary-value">""" + escapeHtml(field.getValue()) + """
+                </div>
+                    <div class="summary-source">Źródło: """ + escapeHtml(field.getSource()) + """
+                </div>
+                </article>
+                """;
     }
 
     private static String renderActionBarFields(CurrentBuildPageModel model) {

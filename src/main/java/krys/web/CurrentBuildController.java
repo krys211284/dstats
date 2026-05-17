@@ -113,11 +113,15 @@ public final class CurrentBuildController implements HttpHandler {
         CurrentBuildFormData formData = requestedFormData;
         HeroSkillPointBudget skillPointBudget = HeroSkillPointBudget.from(requestedFormData, updatedSkillLoadout);
         errors.addAll(skillPointBudget.getValidationErrors());
+        if (errors.isEmpty()) {
+            handleEquipmentSelection(fields, errors, messages);
+        }
+
         EffectiveCurrentBuildResolution resolution = buildEffectiveResolution(requestedFormData, errors);
         if (resolution.getEffectiveStats() != null) {
             CurrentBuildFormData effectiveFormData = CurrentBuildFormQuerySupport.withAppliedStats(
                     requestedFormData,
-                    resolution.getEffectiveStats()
+                    statsForPreSaveValidation(resolution.getEffectiveStats())
             );
             CurrentBuildFormMapper.MappingResult preSaveMapping = formMapper.map(effectiveFormData);
             errors.addAll(preSaveMapping.getErrors());
@@ -125,7 +129,6 @@ public final class CurrentBuildController implements HttpHandler {
         if (errors.isEmpty()) {
             formData = updatedSkillLoadout.applyToFormData(requestedFormData);
             heroService.saveActiveHeroState(formData, updatedSkillLoadout);
-            handlePageAction(fields, errors, messages);
             formData = heroService.requireActiveHero().getCurrentBuildFormData();
             resolution = buildEffectiveResolution(formData, errors);
         }
@@ -137,6 +140,9 @@ public final class CurrentBuildController implements HttpHandler {
                                                  EffectiveCurrentBuildResolution resolution,
                                                  List<String> errors) {
         if (!errors.isEmpty() || resolution == null || resolution.getEffectiveStats() == null) {
+            return null;
+        }
+        if (resolution.getEffectiveStats().getWeaponDamage() <= 0L) {
             return null;
         }
 
@@ -300,6 +306,17 @@ public final class CurrentBuildController implements HttpHandler {
         return new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d);
     }
 
+    private static CurrentBuildImportableStats statsForPreSaveValidation(CurrentBuildImportableStats runtimeStats) {
+        return new CurrentBuildImportableStats(
+                Math.max(1L, runtimeStats.getWeaponDamage()),
+                runtimeStats.getStrength(),
+                runtimeStats.getIntelligence(),
+                runtimeStats.getThorns(),
+                runtimeStats.getBlockChance(),
+                runtimeStats.getRetributionChance()
+        );
+    }
+
     private static String buildChoiceHelpText() {
         return "Ręczne nadpisanie statów pozostaje częścią kontekstu bohatera, ale nie buduje osobnego runtime. Aktywne itemy per slot są dodawane deterministycznie przed zbudowaniem finalnych efektywnych statów, CurrentBuildRequest i wejściem do tego samego runtime aktualnego buildu.";
     }
@@ -387,6 +404,52 @@ public final class CurrentBuildController implements HttpHandler {
                 messages.add("Wyczyszczono aktywny item dla slotu " + ItemLibraryPresentationSupport.heroSlotDisplayName(slot) + ".");
             }
             default -> errors.add("Nieobsługiwana akcja sekcji ekwipunku.");
+        }
+    }
+
+    private void handleEquipmentSelection(Map<String, String> fields, List<String> errors, List<String> messages) {
+        String slotAction = fields.getOrDefault("slotAction", "");
+        if (!slotAction.isBlank()) {
+            handlePageAction(fields, errors, messages);
+            return;
+        }
+        applySlotSelectionsFromGlobalSave(fields, errors, messages);
+    }
+
+    private void applySlotSelectionsFromGlobalSave(Map<String, String> fields, List<String> errors, List<String> messages) {
+        for (HeroEquipmentSlot slot : HeroEquipmentSlot.values()) {
+            String fieldName = "selectedItemId_" + slot.name();
+            if (!fields.containsKey(fieldName)) {
+                continue;
+            }
+            String rawItemId = fields.get(fieldName);
+            if (rawItemId == null || rawItemId.isBlank()) {
+                continue;
+            }
+
+            long itemId;
+            try {
+                itemId = Long.parseLong(rawItemId);
+            } catch (NumberFormatException exception) {
+                errors.add("Wybierz poprawny item biblioteki dla slotu " + ItemLibraryPresentationSupport.heroSlotDisplayName(slot) + ".");
+                continue;
+            }
+            if (itemId <= 0L) {
+                errors.add("Wybierz zapisany item dla slotu " + ItemLibraryPresentationSupport.heroSlotDisplayName(slot) + ".");
+                continue;
+            }
+
+            Long currentItemId = heroService.requireActiveHero().getItemSelection().getSelectedItemId(slot);
+            if (currentItemId != null && currentItemId == itemId) {
+                continue;
+            }
+            try {
+                itemLibraryService.requireCompatibleItem(slot, itemId);
+                heroService.setActiveHeroItem(slot, itemId);
+                messages.add("Zmieniono aktywny item dla slotu " + ItemLibraryPresentationSupport.heroSlotDisplayName(slot) + ".");
+            } catch (IllegalArgumentException exception) {
+                errors.add(exception.getMessage());
+            }
         }
     }
 

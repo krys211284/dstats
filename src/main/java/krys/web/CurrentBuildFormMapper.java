@@ -64,7 +64,7 @@ final class CurrentBuildFormMapper {
                                        Map<SkillId, SkillState> learnedSkills,
                                        List<String> errors) {
         CurrentBuildFormData.SkillConfigFormData skillConfig = formData.getSkillConfig(skillId);
-        Integer rank = parseInt(skillConfig.getRank(), "Rank skilla " + PaladinSkillDefs.get(skillId).getName(), 0, errors);
+        Integer rank = parseInt(skillConfig.getRank(), "Rank skilla " + HeroSkillCatalogAdapter.displayName(skillId), 0, errors);
         SkillUpgradeChoice choiceUpgrade = parseChoice(skillConfig.getChoiceUpgrade(), skillId, errors);
         boolean baseUpgrade = skillConfig.isBaseUpgrade();
 
@@ -72,14 +72,14 @@ final class CurrentBuildFormMapper {
             return;
         }
         if (!baseUpgrade && choiceUpgrade != SkillUpgradeChoice.NONE) {
-            errors.add("Dodatkowy modyfikator dla " + PaladinSkillDefs.get(skillId).getName() + " wymaga bazowego rozszerzenia.");
+            errors.add("Dodatkowy modyfikator dla " + HeroSkillCatalogAdapter.displayName(skillId) + " wymaga bazowego rozszerzenia.");
             return;
         }
         LinkedHashSet<SkillUpgradeChoice> validChoices = new LinkedHashSet<>();
         validChoices.add(SkillUpgradeChoice.NONE);
         validChoices.addAll(PaladinSkillDefs.get(skillId).getAvailableChoiceUpgrades());
         if (!validChoices.contains(choiceUpgrade)) {
-            errors.add("Wybrany dodatkowy modyfikator nie jest dostępny dla skilla " + PaladinSkillDefs.get(skillId).getName() + ".");
+            errors.add("Wybrany dodatkowy modyfikator nie jest dostępny dla skilla " + HeroSkillCatalogAdapter.displayName(skillId) + ".");
             return;
         }
         if (rank <= 0) {
@@ -108,11 +108,11 @@ final class CurrentBuildFormMapper {
                 continue;
             }
             if (!learnedSkills.containsKey(skillId)) {
-                errors.add("Action bar slot " + slot + " wskazuje skill bez rank > 0: " + skillId);
+                errors.add("Action bar slot " + slot + " wskazuje skill bez rank > 0: " + HeroSkillCatalogAdapter.displayName(skillId));
                 continue;
             }
             if (!dedupe.add(skillId)) {
-                errors.add("Action bar nie może zawierać duplikatu skilla: " + skillId);
+                errors.add("Action bar nie może zawierać duplikatu skilla: " + HeroSkillCatalogAdapter.displayName(skillId));
                 continue;
             }
             actionBar.add(skillId);
@@ -124,7 +124,7 @@ final class CurrentBuildFormMapper {
         try {
             return SkillUpgradeChoice.valueOf(rawChoiceUpgrade.toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException | NullPointerException exception) {
-            errors.add("Niepoprawny dodatkowy modyfikator dla skilla " + PaladinSkillDefs.get(skillId).getName() + ".");
+            errors.add("Niepoprawny dodatkowy modyfikator dla skilla " + HeroSkillCatalogAdapter.displayName(skillId) + ".");
             return null;
         }
     }

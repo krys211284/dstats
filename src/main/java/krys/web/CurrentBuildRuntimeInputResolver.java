@@ -17,26 +17,15 @@ final class CurrentBuildRuntimeInputResolver {
             return null;
         }
 
-        CurrentBuildImportableStats legacyEffectiveStats = libraryResolution.getEffectiveStats();
         CurrentHeroActiveItemStats activeItemStats = libraryResolution.getActiveHeroItemStats();
         Optional<HeroClassStatBaseline> baseline = HeroClassStatBaselines.find(activeHero.getHeroClass(), parseLevel(formData));
 
-        long weaponDamage = resolveWeaponDamage(legacyEffectiveStats, activeItemStats);
-        double strength = baseline
-                .map(value -> value.getStrength() + libraryResolution.getActiveItemsContribution().getStrength())
-                .orElse(legacyEffectiveStats.getStrength());
-        double intelligence = baseline
-                .map(value -> value.getIntelligence() + libraryResolution.getActiveItemsContribution().getIntelligence())
-                .orElse(legacyEffectiveStats.getIntelligence());
-        double thorns = baseline
-                .map(value -> value.getThorns() + libraryResolution.getActiveItemsContribution().getThorns())
-                .orElse(legacyEffectiveStats.getThorns());
-        double blockChance = baseline
-                .map(value -> libraryResolution.getActiveItemsContribution().getBlockChance())
-                .orElse(legacyEffectiveStats.getBlockChance());
-        double retributionChance = baseline
-                .map(value -> libraryResolution.getActiveItemsContribution().getRetributionChance())
-                .orElse(legacyEffectiveStats.getRetributionChance());
+        long weaponDamage = resolveWeaponDamage(activeItemStats, libraryResolution.getActiveItemsContribution());
+        double strength = baseline.map(HeroClassStatBaseline::getStrength).orElse(0) + libraryResolution.getActiveItemsContribution().getStrength();
+        double intelligence = baseline.map(HeroClassStatBaseline::getIntelligence).orElse(0) + libraryResolution.getActiveItemsContribution().getIntelligence();
+        double thorns = baseline.map(HeroClassStatBaseline::getThorns).orElse(0) + libraryResolution.getActiveItemsContribution().getThorns();
+        double blockChance = libraryResolution.getActiveItemsContribution().getBlockChance();
+        double retributionChance = libraryResolution.getActiveItemsContribution().getRetributionChance();
 
         return new CurrentBuildImportableStats(
                 weaponDamage,
@@ -48,13 +37,16 @@ final class CurrentBuildRuntimeInputResolver {
         );
     }
 
-    private static long resolveWeaponDamage(CurrentBuildImportableStats legacyEffectiveStats,
-                                            CurrentHeroActiveItemStats activeItemStats) {
+    private static long resolveWeaponDamage(CurrentHeroActiveItemStats activeItemStats,
+                                            CurrentBuildImportableStats activeItemsContribution) {
         Long averageWeaponDamage = activeItemStats.getAverageWeaponDamage();
         if (averageWeaponDamage != null && averageWeaponDamage > 0L) {
             return averageWeaponDamage;
         }
-        return legacyEffectiveStats.getWeaponDamage();
+        if (activeItemsContribution.getWeaponDamage() > 0L) {
+            return activeItemsContribution.getWeaponDamage();
+        }
+        return 0L;
     }
 
     private static int parseLevel(CurrentBuildFormData formData) {

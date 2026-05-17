@@ -69,11 +69,46 @@ public final class HeroSkillCatalogAdapter {
         return present(skillId).getDisplayName();
     }
 
+    public static String displayName(String runtimeSkillName) {
+        SkillId skillId = findRuntimeSkillId(runtimeSkillName).orElse(null);
+        if (skillId == null) {
+            return runtimeSkillName;
+        }
+        return displayName(skillId);
+    }
+
+    public static String replaceRuntimeSkillNames(String text) {
+        if (text == null || text.isBlank()) {
+            return text;
+        }
+        String localized = text;
+        for (SkillId skillId : SkillId.values()) {
+            String legacyName = PaladinSkillDefs.get(skillId).getName();
+            localized = localized.replace(legacyName, displayName(skillId));
+        }
+        return localized;
+    }
+
     private static Optional<PaladinTreeSkill> findTreeSkill(SkillId skillId) {
         return switch (skillId) {
+            case BRANDISH -> PaladinSkillTreeRegistry.findSkill("wymach");
+            case HOLY_BOLT -> PaladinSkillTreeRegistry.findSkill("swiety_pocisk");
             case CLASH -> PaladinSkillTreeRegistry.findSkill("starcie");
+            case ADVANCE -> PaladinSkillTreeRegistry.findSkill("natarcie");
             default -> Optional.empty();
         };
+    }
+
+    private static Optional<SkillId> findRuntimeSkillId(String runtimeSkillName) {
+        if (runtimeSkillName == null || runtimeSkillName.isBlank()) {
+            return Optional.empty();
+        }
+        for (SkillId skillId : SkillId.values()) {
+            if (skillId.name().equals(runtimeSkillName) || PaladinSkillDefs.get(skillId).getName().equals(runtimeSkillName)) {
+                return Optional.of(skillId);
+            }
+        }
+        return Optional.empty();
     }
 
     private static List<HeroAssignedSkillPresentation.ModifierPresentation> activeModifiers(SkillId skillId,
