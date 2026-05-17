@@ -90,7 +90,10 @@ class CurrentBuildWebServerTest {
         assertEquals(1, countOccurrences(response.body(), "name=\"level\""));
         assertTrue(response.body().contains("current-build-sticky-actions"));
         assertTrue(response.body().contains("position: sticky"));
+        assertTrue(response.body().contains("Oblicz aktualny build"));
+        assertTrue(response.body().contains("name=\"formAction\" value=\"calculate\""));
         assertTrue(response.body().contains("Zapisz zmiany"));
+        assertTrue(response.body().contains("name=\"formAction\" value=\"save\""));
         assertTrue(response.body().contains("Wycofaj zmiany"));
         assertTrue(response.body().contains("Ekwipunek aktualnego buildu"));
         assertFalse(response.body().contains("Szczegóły użytych itemów"));
@@ -151,6 +154,8 @@ class CurrentBuildWebServerTest {
         assertFalse(response.body().contains("Centrum buildu"));
         assertTrue(response.body().contains("max-width: 1840px;"));
         assertTrue(response.body().indexOf("<div class=\"current-build-sticky-actions\">") < response.body().indexOf("<details class=\"current-build-details skill-point-details\">"));
+        assertTrue(response.body().contains("Brak aktywnej broni. Obliczenia mogą dać 0 obrażeń, dopóki nie wybierzesz broni."));
+        assertFalse(response.body().contains("a potem uruchom obliczenie"));
         assertTrue(response.body().indexOf("Punkty umiejętności") < response.body().indexOf("Umiejętności bohatera"));
         assertTrue(response.body().indexOf("Umiejętności bohatera") < response.body().indexOf("Pasek akcji bohatera"));
         assertTrue(response.body().indexOf("Pasek akcji bohatera") < response.body().indexOf("Statystyki bohatera"));
@@ -406,6 +411,7 @@ class CurrentBuildWebServerTest {
         createHero("Pusty select Verathiela", "70");
         saveAndActivateVerathiel();
         Map<String, String> fields = buildAdvanceRankOneLevel70Fields();
+        fields.put("formAction", "save");
         fields.put("selectedItemId_MAIN_HAND", "");
 
         HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
@@ -418,11 +424,35 @@ class CurrentBuildWebServerTest {
     }
 
     @Test
+    void shouldCalculateCurrentBuildWithSeparateCalculateActionWithoutSavingChanges() throws Exception {
+        createHero("Calculate Verathiel", "70");
+        saveAndActivateVerathiel();
+        Map<String, String> fields = buildAdvanceFlashFields(10);
+        fields.put("level", "70");
+        fields.put("formAction", "calculate");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("Obliczono aktualny build."));
+        assertFalse(response.body().contains("Zapisano konfigurację."));
+        assertFalse(response.body().contains("Błędy formularza"));
+        assertTrue(response.body().contains("Wynik symulacji"));
+        assertTrue(response.body().contains("Debug symulacji"));
+        assertTrue(response.body().contains(summaryCard("Efektywne obrażenia broni", "1664")));
+        assertTrue(technicalRuntimeInputSection(response.body())
+                .contains(runtimeInputCard("Obrażenia broni", "1664", "Aktywna broń: Odłamek Verathiela, średnie obrażenia trafienia")));
+        assertTrue(response.body().contains(summaryCard("Pasek akcji", "Natarcie")));
+        assertTrue(response.body().contains("Debug bezpośrednich trafień"));
+    }
+
+    @Test
     void shouldExplainEmptyActionBarSimulationWithoutRuntimeError() throws Exception {
         createHero("Paladyn pusty pasek", "70");
         assignSkill(krys.skill.SkillId.ADVANCE);
         saveAndActivateVerathiel();
         Map<String, String> fields = buildAdvanceRankOneLevel70Fields();
+        fields.put("formAction", "calculate");
         for (int slot = 1; slot <= CurrentBuildFormData.ACTION_BAR_SLOT_COUNT; slot++) {
             fields.put(CurrentBuildFormData.actionBarFieldName(slot), "NONE");
         }
@@ -856,6 +886,7 @@ class CurrentBuildWebServerTest {
         assertTrue(equipmentSlotCard(initialResponse.body(), "MAIN_HAND").contains("Slot jest pusty"));
 
         Map<String, String> fields = buildAdvanceFlashFields(10);
+        fields.put("formAction", "save");
         fields.put("selectedItemId_MAIN_HAND", "1");
 
         HttpResponse<String> saveResponse = sendPost("/policz-aktualny-build", fields);
@@ -886,6 +917,7 @@ class CurrentBuildWebServerTest {
         assertEquals(200, activateResponse.statusCode());
 
         Map<String, String> fields = buildAdvanceFlashFields(10);
+        fields.put("formAction", "save");
         fields.put("selectedItemId_MAIN_HAND", "");
 
         HttpResponse<String> saveResponse = sendPost("/policz-aktualny-build", fields);
@@ -910,6 +942,7 @@ class CurrentBuildWebServerTest {
         assertEquals(200, activateResponse.statusCode());
 
         Map<String, String> fields = buildAdvanceFlashFields(10);
+        fields.put("formAction", "save");
         fields.put("slotAction", "clearActiveSlotItem:MAIN_HAND");
 
         HttpResponse<String> clearResponse = sendPost("/policz-aktualny-build", fields);

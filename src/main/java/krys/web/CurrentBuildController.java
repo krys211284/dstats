@@ -92,6 +92,7 @@ public final class CurrentBuildController implements HttpHandler {
         Map<String, String> fields = UrlEncodedFormSupport.parseBody(exchange);
         List<String> errors = new ArrayList<>();
         List<String> messages = new ArrayList<>();
+        CurrentBuildFormAction formAction = CurrentBuildFormAction.from(fields.get("formAction"));
 
         if (handleHeroAction(fields, messages, errors)) {
             HeroProfile refreshedHero = heroService.getActiveHero().orElse(null);
@@ -114,7 +115,7 @@ public final class CurrentBuildController implements HttpHandler {
         HeroSkillPointBudget skillPointBudget = HeroSkillPointBudget.from(requestedFormData, updatedSkillLoadout);
         errors.addAll(skillPointBudget.getValidationErrors());
         if (errors.isEmpty()) {
-            handleEquipmentSelection(fields, errors, messages);
+            handleEquipmentSelection(fields, formAction, errors, messages);
         }
 
         EffectiveCurrentBuildResolution resolution = buildEffectiveResolution(requestedFormData, errors);
@@ -128,11 +129,17 @@ public final class CurrentBuildController implements HttpHandler {
         }
         if (errors.isEmpty()) {
             formData = updatedSkillLoadout.applyToFormData(requestedFormData);
-            heroService.saveActiveHeroState(formData, updatedSkillLoadout);
-            formData = heroService.requireActiveHero().getCurrentBuildFormData();
-            resolution = buildEffectiveResolution(formData, errors);
+            if (formAction == CurrentBuildFormAction.SAVE) {
+                heroService.saveActiveHeroState(formData, updatedSkillLoadout);
+                formData = heroService.requireActiveHero().getCurrentBuildFormData();
+                resolution = buildEffectiveResolution(formData, errors);
+                messages.add("Zapisano konfigurację.");
+            }
         }
         CurrentBuildCalculation calculation = tryCalculate(formData, resolution, errors);
+        if (errors.isEmpty() && formAction == CurrentBuildFormAction.CALCULATE) {
+            messages.add("Obliczono aktualny build.");
+        }
         return buildPageModel(formData, messages, errors, calculation, resolution);
     }
 
@@ -407,13 +414,18 @@ public final class CurrentBuildController implements HttpHandler {
         }
     }
 
-    private void handleEquipmentSelection(Map<String, String> fields, List<String> errors, List<String> messages) {
+    private void handleEquipmentSelection(Map<String, String> fields,
+                                          CurrentBuildFormAction formAction,
+                                          List<String> errors,
+                                          List<String> messages) {
         String slotAction = fields.getOrDefault("slotAction", "");
         if (!slotAction.isBlank()) {
             handlePageAction(fields, errors, messages);
             return;
         }
-        applySlotSelectionsFromGlobalSave(fields, errors, messages);
+        if (formAction == CurrentBuildFormAction.SAVE) {
+            applySlotSelectionsFromGlobalSave(fields, errors, messages);
+        }
     }
 
     private void applySlotSelectionsFromGlobalSave(Map<String, String> fields, List<String> errors, List<String> messages) {
@@ -519,6 +531,18 @@ public final class CurrentBuildController implements HttpHandler {
 
         private List<String> getErrors() {
             return errors;
+        }
+    }
+
+    private enum CurrentBuildFormAction {
+        SAVE,
+        CALCULATE;
+
+        private static CurrentBuildFormAction from(String rawValue) {
+            if ("calculate".equals(rawValue)) {
+                return CALCULATE;
+            }
+            return SAVE;
         }
     }
 }

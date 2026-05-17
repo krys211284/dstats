@@ -192,11 +192,12 @@ public final class CurrentBuildPageRenderer {
         return """
                 <div class="current-build-sticky-actions">
                     <div>
-                        <strong>Zapis konfiguracji</strong>
-                        <p>Główne pola aktualnego buildu zapisują się jednym przyciskiem.</p>
+                        <strong>Akcje aktualnego buildu</strong>
+                        <p>Oblicz bieżącą konfigurację albo zapisz zmiany w profilu bohatera.</p>
                     </div>
                     <div class="current-build-sticky-buttons">
-                        <button type="submit">Zapisz zmiany</button>
+                        <button type="submit" name="formAction" value="calculate">Oblicz aktualny build</button>
+                        <button type="submit" name="formAction" value="save">Zapisz zmiany</button>
                         <a class="nav-link secondary-link" href="/policz-aktualny-build">Wycofaj zmiany</a>
                     </div>
                 </div>
@@ -897,7 +898,8 @@ public final class CurrentBuildPageRenderer {
                     <details class="current-build-details result-details">
                         <summary>Wynik symulacji</summary>
                         <section class="panel result-panel">
-                        <p>Ustaw ekwipunek, przypisane umiejętności, pasek akcji i poziom bohatera, a potem uruchom obliczenie.</p>
+                        <p>""" + escapeHtml(resultEmptyStateText(model)) + """
+                </p>
                         </section>
                     </details>
                 """
@@ -931,6 +933,21 @@ public final class CurrentBuildPageRenderer {
                 """);
         html.append(renderSimulationDebugSection(model, calculation));
         return html.toString();
+    }
+
+    private static String resultEmptyStateText(CurrentBuildPageModel model) {
+        if (model.getFormData().getActionBarSlots().stream().noneMatch(CurrentBuildPageRenderer::hasSelectedActionBarSkill)) {
+            return "Brak obliczeń: pasek akcji jest pusty. Dodaj umiejętność do paska albo kliknij Oblicz aktualny build po uzupełnieniu konfiguracji.";
+        }
+        CurrentBuildImportableStats effectiveStats = model.getEffectiveStats();
+        if (effectiveStats == null || effectiveStats.getWeaponDamage() <= 0L) {
+            return "Brak aktywnej broni. Obliczenia mogą dać 0 obrażeń, dopóki nie wybierzesz broni.";
+        }
+        return "Kliknij Oblicz aktualny build, aby uruchomić symulację dla bieżącej konfiguracji.";
+    }
+
+    private static boolean hasSelectedActionBarSkill(String value) {
+        return value != null && !value.isBlank() && !"NONE".equals(value);
     }
 
     private static String renderSimulationDebugSection(CurrentBuildPageModel model, CurrentBuildCalculation calculation) {
