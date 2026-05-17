@@ -25,6 +25,7 @@ public final class CurrentBuildController implements HttpHandler {
     private final CurrentBuildCalculationService calculationService;
     private final CurrentBuildPageRenderer renderer;
     private final CurrentBuildFormMapper formMapper;
+    private final CurrentBuildRuntimeInputResolver runtimeInputResolver;
     private final ItemLibraryService itemLibraryService;
     private final HeroService heroService;
 
@@ -43,6 +44,7 @@ public final class CurrentBuildController implements HttpHandler {
         this.calculationService = calculationService;
         this.renderer = renderer;
         this.formMapper = formMapper;
+        this.runtimeInputResolver = new CurrentBuildRuntimeInputResolver();
         this.itemLibraryService = itemLibraryService;
         this.heroService = heroService;
     }
@@ -214,10 +216,23 @@ public final class CurrentBuildController implements HttpHandler {
                     zeroStats(),
                     zeroBaseResolution.getActiveItems(),
                     zeroBaseResolution.getActiveItemsContribution(),
+                    zeroBaseResolution.getActiveHeroItemStats(),
                     null
             );
         }
-        return itemLibraryService.resolveEffectiveCurrentBuild(manualBaseParseResult.getStats(), heroService.requireActiveHero().getItemSelection());
+        HeroProfile activeHero = heroService.requireActiveHero();
+        EffectiveCurrentBuildResolution libraryResolution = itemLibraryService.resolveEffectiveCurrentBuild(
+                manualBaseParseResult.getStats(),
+                activeHero.getItemSelection()
+        );
+        CurrentBuildImportableStats runtimeInputStats = runtimeInputResolver.resolve(activeHero, formData, libraryResolution);
+        return new EffectiveCurrentBuildResolution(
+                libraryResolution.getManualBaseStats(),
+                libraryResolution.getActiveItems(),
+                libraryResolution.getActiveItemsContribution(),
+                libraryResolution.getActiveHeroItemStats(),
+                runtimeInputStats
+        );
     }
 
     private static ManualBaseStatsParseResult parseManualBaseStats(CurrentBuildFormData formData) {

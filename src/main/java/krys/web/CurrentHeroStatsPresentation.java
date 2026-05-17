@@ -8,6 +8,7 @@ import krys.item.Item;
 import krys.item.ItemStat;
 import krys.item.ItemStatType;
 import krys.itemimport.CurrentBuildImportableStats;
+import krys.itemlibrary.CurrentHeroActiveItemStats;
 import krys.itemlibrary.HeroSlotItemAssignment;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
 import krys.itemlibrary.SavedImportedItem;
@@ -23,6 +24,7 @@ public final class CurrentHeroStatsPresentation {
     private final double strength;
     private final double intelligence;
     private final CurrentBuildImportableStats activeItemStats;
+    private final CurrentHeroActiveItemStats activeHeroItemStats;
     private final Optional<HeroClassStatBaseline> verifiedBaseline;
 
     private CurrentHeroStatsPresentation(String heroClassName,
@@ -30,12 +32,14 @@ public final class CurrentHeroStatsPresentation {
                                          double strength,
                                          double intelligence,
                                          CurrentBuildImportableStats activeItemStats,
+                                         CurrentHeroActiveItemStats activeHeroItemStats,
                                          Optional<HeroClassStatBaseline> verifiedBaseline) {
         this.heroClassName = heroClassName;
         this.level = level;
         this.strength = strength;
         this.intelligence = intelligence;
         this.activeItemStats = activeItemStats;
+        this.activeHeroItemStats = activeHeroItemStats;
         this.verifiedBaseline = verifiedBaseline;
     }
 
@@ -49,6 +53,7 @@ public final class CurrentHeroStatsPresentation {
                 classDef.resolveTotalMainStat(level, equippedItems),
                 classDef.resolveTotalIntelligence(level, equippedItems),
                 model.getActiveLibraryContribution(),
+                model.getActiveHeroItemStats(),
                 HeroClassStatBaselines.find(model.getActiveHero().getHeroClass(), level)
         );
     }
@@ -73,6 +78,10 @@ public final class CurrentHeroStatsPresentation {
         return activeItemStats;
     }
 
+    public CurrentHeroActiveItemStats getActiveHeroItemStats() {
+        return activeHeroItemStats;
+    }
+
     public Optional<HeroClassStatBaseline> getVerifiedBaseline() {
         return verifiedBaseline;
     }
@@ -80,6 +89,15 @@ public final class CurrentHeroStatsPresentation {
     public long getWeaponDamage() {
         return verifiedBaseline.map(HeroClassStatBaseline::getWeaponDamage).orElse(0L)
                 + activeItemStats.getWeaponDamage();
+    }
+
+    public int getMaxHealth() {
+        return verifiedBaseline.map(HeroClassStatBaseline::getMaxHealth).orElse(0)
+                + (int) Math.round(activeHeroItemStats.getMaximumLifeFromItems());
+    }
+
+    public String getMaximumLifeFromItemsDisplay() {
+        return ItemLibraryPresentationSupport.formatWhole(activeHeroItemStats.getMaximumLifeFromItems());
     }
 
     public double getThorns() {

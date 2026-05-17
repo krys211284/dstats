@@ -544,7 +544,7 @@ Minimalny zakres rozpoznawania tekstu OCR dla M13.1:
 - bazowa wartość pancerza itemu, np. `1 131 pkt. pancerza`, nie jest affixem i nie może zasilać pól `strength`, `thorns` ani `block chance`,
 - nieobsługiwane affixy nie mogą być mapowane do statów foundation.
 
-Ten etap importu miecza nie zmienia `DamageEngine`, nie podłącza itemu do liczenia DPS current build i nie implementuje `effectiveRank`.
+Import miecza nie zmienia `DamageEngine` i nie implementuje `effectiveRank`. Po założeniu itemu current build może użyć strukturalnego `averageWeaponDamage` aktywnej broni jako istniejącego `weaponDamage` runtime; efekt unikatowy, Lucky Hit i opisowe affixy pozostają nieaktywne w DPS.
 
 Jawne ograniczenia aktualnego foundation importu:
 - flow nie obiecuje pełnej bezbłędności OCR ani vision,
@@ -600,6 +600,7 @@ Aktualny foundation repo obejmuje minimalną bibliotekę zapisanych itemów jako
 
 Kontrakt biblioteki itemów:
 - `SavedImportedItem` jest trwałą wersją zatwierdzonego itemu z własnym stabilnym `itemId`,
+- `ItemLibraryService` poza runtime'owym wkładem scalar buduje `CurrentHeroActiveItemStats`, czyli użytkową projekcję aktywnych itemów dla `/policz-aktualny-build`; ta projekcja czyta tylko aktywne przypisania `HeroItemSelection`, `SavedImportedItem.details` i `SavedImportedItem.affixes`,
 - biblioteka może przechowywać wiele itemów tego samego slotu,
 - ekran `/biblioteka-itemow` pokazuje zapisane itemy jako kompaktowy indeks tabelaryczny, w którym jeden item zajmuje jeden wiersz,
 - główna tabela biblioteki ma kolumny `Item`, `Slot / typ`, `Aspekt`, `Affixy` i `Akcje`; nie ma osobnych kolumn `GA`, `Status` ani `Źródło`,
@@ -614,6 +615,8 @@ Kontrakt biblioteki itemów:
 - modal szczegółów itemu pokazuje użytkowe dane zapisane w bibliotece: `Dane podstawowe`, `Base stats`, `Implicit / linie bazowe`, `Affixy`, jeden blok `Aspekt / efekt` oraz `Socket / gniazdo`; nie eksponuje statusów runtime, OCR/source/debug ani sekcji `Diagnostyka OCR` jako głównej treści popupu,
 - biblioteka renderuje właściwe affixy z zatwierdzonej listy `SavedImportedItem.getAffixes()`, dzięki czemu ręczne usunięcie albo korekta affixu nie jest cofana przez surowy `FullItemRead`,
 - lista i popup biblioteki używają wspólnego formattera affixów opartego o dane strukturalne (`value`, `displayValue`, `rollRangeMin`, `rollRangeMax`), a nie o surowy `sourceText`; dla Odłamka Verathiela `Zdrowie przy trafieniu` zachowuje zakres `526 - 632`, a Lucky Hit pokazuje stały opis `15%` oraz rollowaną wartość `+3` z zakresem `3 - 4`,
+- aktywny slot w current build pokazuje wkład user-facing jako czytelne sekcje i chipsy/listy z wrapem, a nie jeden długi tekst; dla Odłamka Verathiela karta pokazuje m.in. `DPS 1830`, `1350 - 1978 obrażeń za trafienie`, `1,10 ataku/s`, `+2141 maksymalnego zdrowia`, `+94 obrażeń od broni`, `+545 zdrowia przy trafieniu` i `Lucky Hit 15%: +3 zasobu`,
+- select wyboru itemu w slocie ma krótką etykietę służącą wyłącznie do wyboru, np. `Odłamek Verathiela | DPS 1830 | +2141 zdrowia`; pełne dane broni, affixów i efektów pozostają na karcie aktywnego itemu, a nie w opcji selecta,
 - base staty i implicity nie mogą być renderowane jako `Affix`; `Greater Affix` jest pokazywany wyłącznie prezentacyjną gwiazdką przy affixach z `greaterAffix=true`,
 - biblioteka normalizuje base staty defensywnie: moc przedmiotu pozostaje w `Dane podstawowe`, pancerz pozostaje w `Base stats`, a sklejki OCR typu `800 1 131 pkt. pancerza` nie są renderowane jako osobna wartość,
 - sekcja aspektu w normalnym popupie biblioteki pokazuje finalny `selectedAspectId` przez nazwę z `AspectRegistry` oraz jeden opis efektu; `UNIQUE` i `DESCRIPTIVE_ONLY` pozostają kontraktem modelu, ale nie są widocznym statusem użytkowego popupu,
@@ -1369,11 +1372,20 @@ Kontrakt prezentacji dla tego smoke testu:
 - GUI rozdziela warstwy w domyślnie zwiniętych sekcjach: `Aktywny bohater`, `Punkty umiejętności`, `Umiejętności bohatera`, `Pasek akcji`, `Statystyki bohatera`, `Ekwipunek aktualnego buildu`, `Wynik symulacji` i `Debug symulacji`.
 - GUI nie renderuje osobnej sekcji `Centrum buildu`, dużego hero nagłówka strony, sekcji `Szczegóły użytych itemów` ani sekcji `Zaawansowane ręczne nadpisanie statów`.
 - GUI pokazuje jedną użytkową sekcję `Statystyki bohatera`; jej wartości pochodzą z jawnych źródeł: klasy, poziomu bohatera, aktywnych itemów oraz zweryfikowanych baseline'ów prezentacyjnych. Legacy manual defaults current build nie są statystykami bohatera.
+- `Statystyki bohatera` mają osobną user-facing projekcję aktywnych itemów z biblioteki. Projekcja używa `ItemImportDetails` dla danych broni oraz `ImportedItemAffix` dla jawnych affixów i jest liczona tylko z itemów aktywnie założonych w slotach bohatera, nie z całej biblioteki.
 - W `Statystyki bohatera` atrybuty `Siła`, `Inteligencja`, `Siła woli` i `Zręczność` są prezentowane razem w grupie `Główne`; informacja o baseline Paladyna poziom `70` bez itemów pozostaje kontraktem danych, ale nie jest widocznym akapitem w UI.
 - Zweryfikowany baseline prezentacyjny istnieje obecnie dla `Paladyn`, poziom `70`, bez itemów: siła `79`, inteligencja `76`, siła woli `76`, zręczność `77`, wytrzymałość `1610`, pancerz `158`, maksimum zdrowia `1526`, podstawowe obrażenia od broni `0`, szybkość broni `1,00`, szansa na trafienie krytyczne `5,2%`, obrażenia od trafień krytycznych `50,0%`, obrażenia zadawane odsłoniętym celom `20,0%` i ciernie `0`.
+- Dla aktywnego Odłamka Verathiela `MAXIMUM_LIFE=2141` zwiększa wyłącznie użytkowe `Maksimum zdrowia`: Paladyn poziom `70` ma `1526` bez itemów i `3667` po założeniu itemu. Tooltip kafelka pokazuje rozbicie `Baseline: 1526; aktywne itemy: +2141; razem: 3667.`.
+- `Zdrowie przy trafieniu` nie jest maksimum zdrowia i nie zwiększa tej statystyki. `WEAPON_DAMAGE_FLAT +94` jest osobnym affixem i nie jest sumowane z `averageWeaponDamage`.
+- Dane broni aktywnej z Odłamka Verathiela są pokazywane w osobnej grupie `Aktywna broń`: `weaponDps=1830`, obrażenia za trafienie `1350 - 1978`, `averageWeaponDamage=1664` i `attacksPerSecond=1.10`. Te wartości nie są przepisywane do legacy `weaponDamage`.
+- Wejście runtime `/policz-aktualny-build` używa aktywnej broni z biblioteki jako źródła `weaponDamage`, jeżeli aktywny item ma zapisane strukturalne `averageWeaponDamage > 0`. Dla Odłamka Verathiela runtime dostaje `weaponDamage=1664`, czyli średnie obrażenia trafienia z jawnego zakresu `1350 - 1978`.
+- `weaponDps=1830` nie jest `weaponDamage` i nie jest przekazywany jako obrażenia trafienia. `WEAPON_DAMAGE_FLAT +94` nie jest dodawany do `averageWeaponDamage`, więc Verathiel nie daje `1758` do runtime.
+- Dla zweryfikowanego baseline'u Paladyna poziom `70` runtime current build używa statystyk klasy/poziomu: `strength=79`, `intelligence=76`, `thorns=0`, powiększonych tylko o jawne scalar contribution aktywnych itemów. `blockChance` i `retributionChance` nie mają obecnie zweryfikowanego baseline'u prezentacyjnego, więc dla tego baseline'u bez aktywnego jawnego wkładu itemu trafiają do runtime jako `0`; dla poziomów bez zweryfikowanego baseline'u zachowany jest legacy fallback formularza.
+- Jeżeli grupa `Aktywna broń` jest renderowana, grupa `Ofensywa` nie pokazuje placeholderów aktywnej broni typu `Podstawowe obrażenia od broni = 0` ani `Szybkość broni = 1,00`; pozostają tam parametry bojowe niezależne od aktywnej broni: szansa krytyczna, obrażenia krytyczne, obrażenia odsłoniętym celom i ciernie.
+- `Aktywne affixy itemów` są prezentowane jako listy user-facing: `Wkład statystyczny` oraz `Efekty opisowe`. To nadal warstwa UI/current build, bez odblokowania runtime DPS, Lucky Hit Verathiela ani efektu unikatowego Verathiela.
 - Pancerz w `Statystyki bohatera` jest modelem prezentacyjnym z rozbiciem na `z siły`, `z itemów/głównego wyposażenia`, `z innych źródeł` i `łącznie`. Dla zweryfikowanego Paladyna poziom `70` bez itemów tooltip gry potwierdza `79 * 2 = 158` pancerza z siły, `0` z itemów/głównego wyposażenia, `0` z innych źródeł i `158` łącznie. Obecny model aktywnego itemu nie ma jawnego pola `ARMOR`, więc wkład pancerza z itemów pozostaje `0` i nie jest zgadywany.
 - Szansa na trafienie krytyczne w `Statystyki bohatera` jest modelem prezentacyjnym z rozbiciem baseline: bazowo `5,0%`, `+0,2%` z Inteligencji dla zweryfikowanego baseline'u `76` Inteligencji, `+0,0%` z itemów, `+0,0%` z innych źródeł i `5,2%` łącznie. Pełny wzór kryta z Inteligencji nie jest jeszcze potwierdzony i nie jest implementowany; brak baseline'u nie jest interpolowany. Obecny model itemu nie ma jawnego `CRIT_CHANCE`, a `CRIT_DAMAGE` nie jest `CRIT_CHANCE` i pozostaje osobną statystyką obrażeń krytycznych.
-- Rozbicie pancerza i szansy krytycznej jest dostępne w `title`/`aria-label` kafelków, bez długiego technicznego akapitu w głównym widoku. Ta zmiana nie zmienia `DamageEngine`, nie odblokowuje runtime DPS i nie implementuje `effectiveRank`.
+- Rozbicie pancerza, maksimum zdrowia i szansy krytycznej jest dostępne w `title`/`aria-label` kafelków, bez długiego technicznego akapitu w głównym widoku. Ta zmiana nie zmienia `DamageEngine`, nie odblokowuje runtime DPS i nie implementuje `effectiveRank`.
 - Odporności w sekcji `Statystyki bohatera` są rozdzielone na typy, bez zbiorczego kafelka: fizyczne, ogień, błyskawice, zimno, trucizna i cień. Dla baseline'u Paladyna poziom `70` bez itemów każda z tych odporności wynosi `30`.
 - Brakujące statystyki dla poziomów bez jawnego baseline'u nie są interpolowane z poziomu `70`; UI pokazuje tylko statystyki z jawną formułą albo z aktywnych itemów i komunikuje brak baseline'u.
 - GUI pokazuje pełny stały layout slotów bohatera: `Hełm`, `Zbroja`, `Rękawice`, `Spodnie`, `Buty`, `Broń`, `Amulet`, `Pierścień 1`, `Pierścień 2`, `Tarcza`.
@@ -1385,6 +1397,7 @@ Kontrakt prezentacji dla tego smoke testu:
 - GUI ogranicza sześciomiejscowy pasek akcji do przypisanych i nauczonych umiejętności aktywnego bohatera; nielegalne wpisy blokują zapis profilu.
 - GUI i główne ekrany SSR korzystają z szerszego kontenera layoutu, dzięki czemu lepiej wykorzystują szerokie monitory bez rozwalania mobilnego układu.
 - Techniczne effective stats użyte do obliczeń pozostają częścią końcowego, domyślnie zwiniętego `Debug symulacji` na tym samym pipeline `effective stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`; nie są równorzędną sekcją użytkową obok `Statystyki bohatera`.
+- `averageWeaponDamage` aktywnej broni jest pierwszym kontrolowanym wyjątkiem od czysto prezentacyjnego statusu danych importu: zasila istniejące pole `weaponDamage` w `CurrentBuildRequest`. `weaponDps`, min/max jako osobne pola, attack speed, `lifeOnHit`, Lucky Hit zasobu i efekt unikatowy Verathiela pozostają danymi importu/biblioteki/current build UI i nie zmieniają `DamageEngine`.
 - GUI i CLI przechodzą przez ten sam kontrakt `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> CurrentBuildCalculationService -> runtime`.
 - scenariusze referencyjne są trybem pomocniczym do smoke testów i regresji, a nie główną ścieżką produktu.
 - GUI i CLI pokazują `Łączne obrażenia`, `DPS`, debug bezpośredniego hita dla użytego skilla, debug opóźnionych trafień, debug obrażeń reaktywnych, `Ślad kroków symulacji`, `Resolve aktywny na końcu`, `Końcowa szansa bloku` oraz `Końcowy bonus do kolców`.
@@ -1494,7 +1507,7 @@ Kontrakt prezentacji dla smoke testu importu itemu:
 - `+94 obrażeń od broni` pozostaje affixem opisowym i nie jest sumowane z `averageWeaponDamage`; aspekt unikatowy Odłamka Verathiela pozostaje w `AspectRegistry` jako `UNIQUE`, nie jest affixem i pozostaje nieaktywny w runtime DPS,
 - po zapisie Odłamka Verathiela formularz edycji korzysta z kanonicznego `ItemImportDetails`: pokazuje `Odłamek Verathiela`, dane broni `1830 / 1350 / 1978 / 1664 / 1.10`, aspekt `verathiel_shard` oraz 4 affixy z zakresami `94 - 157`, `1831 - 2200`, `526 - 632` i `3 - 4`; surowa nazwa OCR typu `ODŁAMEK VERATHIEL` nie nadpisuje głównej nazwy,
 - po zapisie Odłamka Verathiela lista i popup biblioteki używają kanonicznej nazwy oraz formattera affixów: `Zdrowie przy trafieniu` pokazuje `526 - 632`, a Lucky Hit pokazuje `15%` jako stały opis i `+3` jako rollowaną wartość z zakresem `3 - 4`, bez `15% / +3` i bez OCR/source/debug,
-- import Odłamka Verathiela nie podłącza itemu do runtime DPS, nie implementuje `effectiveRank` i nie zmienia `DamageEngine`,
+- import Odłamka Verathiela nie implementuje `effectiveRank` i nie zmienia `DamageEngine`; runtime current build używa tylko `averageWeaponDamage` aktywnej broni jako `weaponDamage`, bez efektu unikatowego, Lucky Hit i opisowych affixów,
 - flow nie obiecuje pełnej bezbłędności OCR i wymaga ręcznego potwierdzenia użytkownika przed użyciem danych,
 - poza zakresem pozostają pełny wielo-itemowy workflow i pełny OCR całej postaci.
 

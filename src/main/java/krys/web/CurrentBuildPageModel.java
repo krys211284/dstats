@@ -2,6 +2,7 @@ package krys.web;
 
 import krys.app.CurrentBuildCalculation;
 import krys.itemimport.CurrentBuildImportableStats;
+import krys.itemlibrary.CurrentHeroActiveItemStats;
 import krys.itemlibrary.EffectiveCurrentBuildResolution;
 import krys.itemlibrary.HeroSlotItemAssignment;
 import krys.itemlibrary.SavedImportedItem;
@@ -167,6 +168,13 @@ public final class CurrentBuildPageModel {
             return new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d);
         }
         return effectiveCurrentBuildResolution.getActiveItemsContribution();
+    }
+
+    public CurrentHeroActiveItemStats getActiveHeroItemStats() {
+        if (effectiveCurrentBuildResolution == null) {
+            return CurrentHeroActiveItemStats.empty();
+        }
+        return effectiveCurrentBuildResolution.getActiveHeroItemStats();
     }
 
     public CurrentBuildImportableStats getEffectiveStats() {

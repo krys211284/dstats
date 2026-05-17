@@ -4,8 +4,11 @@ import krys.item.EquipmentSlot;
 import krys.item.HeroEquipmentSlot;
 import krys.itemimport.CurrentBuildImportableStats;
 import krys.itemimport.FullItemRead;
+import krys.itemimport.ImportedItemAffix;
+import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ImportedItemCurrentBuildApplicationService;
 import krys.itemimport.ImportedItemCurrentBuildContribution;
+import krys.itemimport.ItemImportDetails;
 import krys.itemimport.ValidatedImportedItem;
 import krys.web.HeroItemSelection;
 
@@ -120,8 +123,9 @@ public final class ItemLibraryService {
                                                                         HeroItemSelection selection) {
         List<HeroSlotItemAssignment> activeItems = resolveAssignments(selection);
         CurrentBuildImportableStats activeContribution = aggregateContribution(activeItems);
+        CurrentHeroActiveItemStats activeHeroItemStats = aggregateHeroItemStats(activeItems);
         CurrentBuildImportableStats effectiveStats = applyContribution(manualBaseStats, activeContribution);
-        return new EffectiveCurrentBuildResolution(manualBaseStats, activeItems, activeContribution, effectiveStats);
+        return new EffectiveCurrentBuildResolution(manualBaseStats, activeItems, activeContribution, activeHeroItemStats, effectiveStats);
     }
 
     public List<ItemLibrarySearchCombination> generateSearchCombinations() {
@@ -188,6 +192,10 @@ public final class ItemLibraryService {
         return aggregateContribution(resolveAssignments(selection));
     }
 
+    public CurrentHeroActiveItemStats resolveActiveHeroItemStats(HeroItemSelection selection) {
+        return aggregateHeroItemStats(resolveAssignments(selection));
+    }
+
     private CurrentBuildImportableStats aggregateContribution(List<HeroSlotItemAssignment> items) {
         long weaponDamage = 0L;
         double strength = 0.0d;
@@ -212,6 +220,111 @@ public final class ItemLibraryService {
                 blockChance,
                 retributionChance
         );
+    }
+
+    private CurrentHeroActiveItemStats aggregateHeroItemStats(List<HeroSlotItemAssignment> items) {
+        Long weaponDps = null;
+        Long weaponDamageMin = null;
+        Long weaponDamageMax = null;
+        Long averageWeaponDamage = null;
+        Double attacksPerSecond = null;
+        double maximumLifeFromItems = 0.0d;
+        double flatWeaponDamageFromAffixes = 0.0d;
+        double lifeOnHit = 0.0d;
+        double luckyHitPrimaryResourceValue = 0.0d;
+        double strength = 0.0d;
+        double intelligence = 0.0d;
+        double thorns = 0.0d;
+        double blockChance = 0.0d;
+        double retributionChance = 0.0d;
+        List<String> descriptiveAffixes = new ArrayList<>();
+        List<String> statisticalAffixes = new ArrayList<>();
+        List<String> descriptiveEffectAffixes = new ArrayList<>();
+
+        for (HeroSlotItemAssignment assignment : items) {
+            SavedImportedItem item = assignment.getItem();
+            strength += item.getStrength();
+            intelligence += item.getIntelligence();
+            thorns += item.getThorns();
+            blockChance += item.getBlockChance();
+            retributionChance += item.getRetributionChance();
+
+            ItemImportDetails details = item.getDetails();
+            if (assignment.getHeroSlot() == HeroEquipmentSlot.MAIN_HAND
+                    && details != null
+                    && hasWeaponDetails(details)
+                    && weaponDps == null
+                    && weaponDamageMin == null
+                    && weaponDamageMax == null
+                    && averageWeaponDamage == null
+                    && attacksPerSecond == null) {
+                weaponDps = details.getWeaponDps();
+                weaponDamageMin = details.getWeaponDamageMin();
+                weaponDamageMax = details.getWeaponDamageMax();
+                averageWeaponDamage = details.getAverageWeaponDamage();
+                attacksPerSecond = details.getAttacksPerSecond();
+            }
+
+            for (ImportedItemAffix affix : item.getAffixes()) {
+                String formattedAffix = ItemLibraryPresentationSupport.formatAffixForDetails(affix);
+                if (affix.getType() == ImportedItemAffixType.MAXIMUM_LIFE) {
+                    maximumLifeFromItems += affix.getValue();
+                    descriptiveAffixes.add(formattedAffix);
+                    statisticalAffixes.add(formattedAffix);
+                } else if (affix.getType() == ImportedItemAffixType.WEAPON_DAMAGE_FLAT) {
+                    flatWeaponDamageFromAffixes += affix.getValue();
+                    descriptiveAffixes.add(formattedAffix);
+                    statisticalAffixes.add(formattedAffix);
+                } else if (affix.getType() == ImportedItemAffixType.LIFE_ON_HIT) {
+                    lifeOnHit += affix.getValue();
+                    descriptiveAffixes.add(formattedAffix);
+                    descriptiveEffectAffixes.add(formattedAffix);
+                } else if (affix.getType() == ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE) {
+                    luckyHitPrimaryResourceValue += affix.getValue();
+                    descriptiveAffixes.add(formattedAffix);
+                    descriptiveEffectAffixes.add(formattedAffix);
+                } else if (isScalarPresentationAffix(affix.getType())) {
+                    descriptiveAffixes.add(formattedAffix);
+                    statisticalAffixes.add(formattedAffix);
+                }
+            }
+        }
+
+        return new CurrentHeroActiveItemStats(
+                weaponDps,
+                weaponDamageMin,
+                weaponDamageMax,
+                averageWeaponDamage,
+                attacksPerSecond,
+                maximumLifeFromItems,
+                flatWeaponDamageFromAffixes,
+                lifeOnHit,
+                luckyHitPrimaryResourceValue,
+                strength,
+                intelligence,
+                thorns,
+                blockChance,
+                retributionChance,
+                descriptiveAffixes,
+                statisticalAffixes,
+                descriptiveEffectAffixes
+        );
+    }
+
+    private static boolean hasWeaponDetails(ItemImportDetails details) {
+        return details.getWeaponDps() != null
+                || details.getWeaponDamageMin() != null
+                || details.getWeaponDamageMax() != null
+                || details.getAverageWeaponDamage() != null
+                || details.getAttacksPerSecond() != null;
+    }
+
+    private static boolean isScalarPresentationAffix(ImportedItemAffixType type) {
+        return type == ImportedItemAffixType.STRENGTH
+                || type == ImportedItemAffixType.INTELLIGENCE
+                || type == ImportedItemAffixType.THORNS
+                || type == ImportedItemAffixType.BLOCK_CHANCE
+                || type == ImportedItemAffixType.RETRIBUTION_CHANCE;
     }
 
     private CurrentBuildImportableStats applyContribution(CurrentBuildImportableStats manualBaseStats,

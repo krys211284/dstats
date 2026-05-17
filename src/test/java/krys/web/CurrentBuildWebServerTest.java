@@ -220,7 +220,7 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().indexOf(summaryCard("Zręczność", "77")) < response.body().indexOf("<h3>Pancerz i defensywa"));
         assertTrue(response.body().contains(summaryCard("Wytrzymałość", "1610")));
         assertTrue(response.body().contains(summaryCardWithTooltipPrefix("Pancerz", "158", "158 z siły, 0 z itemów/głównego wyposażenia, 0 z innych źródeł, razem 158.")));
-        assertTrue(response.body().contains(summaryCard("Maksimum zdrowia", "1526")));
+        assertTrue(response.body().contains(summaryCardWithTooltipPrefix("Maksimum zdrowia", "1526", "Baseline: 1526; aktywne itemy: +0; razem: 1526.")));
         assertTrue(response.body().contains(summaryCard("Fizyczne", "30")));
         assertTrue(response.body().contains(summaryCard("Ogień", "30")));
         assertTrue(response.body().contains(summaryCard("Błyskawice", "30")));
@@ -242,6 +242,106 @@ class CurrentBuildWebServerTest {
         String visibleStats = stripTooltipAttributes(response.body());
         assertFalse(visibleStats.contains("158 z siły"));
         assertFalse(visibleStats.contains("bazowo 5,0%"));
+        assertFalse(response.body().contains("Odłamek Verathiela"));
+        assertFalse(response.body().contains("DPS broni"));
+    }
+
+    @Test
+    void shouldProjectActiveVerathielIntoCurrentHeroStatsWithoutRuntimeDpsUnlock() throws Exception {
+        createHero("Paladyn z Verathielem", "70");
+        HttpResponse<String> saveResponse = sendPost("/importuj-item-ze-screena", verathielImportFields());
+        assertEquals(200, saveResponse.statusCode());
+        assertTrue(saveResponse.body().contains("Odłamek Verathiela"));
+
+        HttpResponse<String> inactiveResponse = sendGet("/policz-aktualny-build");
+        assertEquals(200, inactiveResponse.statusCode());
+        assertTrue(inactiveResponse.body().contains(summaryCardWithTooltipPrefix("Maksimum zdrowia", "1526", "Baseline: 1526; aktywne itemy: +0; razem: 1526.")));
+        assertFalse(inactiveResponse.body().contains(summaryCard("DPS broni", "1830")));
+
+        HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", "1",
+                "heroSlot", "MAIN_HAND",
+                "currentBuildQuery", ""
+        ));
+        assertEquals(200, activateResponse.statusCode());
+
+        HttpResponse<String> activeResponse = sendGet("/policz-aktualny-build");
+        String html = activeResponse.body();
+        assertEquals(200, activeResponse.statusCode());
+        assertTrue(html.contains("Odłamek Verathiela"));
+        assertTrue(html.contains("class=\"status-badge status-active\">Aktywny</span>"));
+        String slotCard = activeSlotCard(html);
+        assertFalse(slotCard.contains("Brak wkładu"));
+        assertTrue(slotCard.contains("slot-chip"));
+        assertTrue(slotCard.contains("Broń"));
+        assertTrue(slotCard.contains("Wkład w statystyki"));
+        assertTrue(slotCard.contains("Efekty opisowe"));
+        assertTrue(slotCard.contains("DPS 1830"));
+        assertTrue(slotCard.contains("1350 - 1978 obrażeń za trafienie"));
+        assertTrue(slotCard.contains("+2141 maksymalnego zdrowia"));
+        assertTrue(slotCard.contains("+94 obrażeń od broni"));
+        assertTrue(slotCard.contains("+545 zdrowia przy trafieniu"));
+        assertTrue(slotCard.contains("Lucky Hit 15%: +3 zasobu"));
+        assertFalse(slotCard.contains("DPS 1830 • 1350 - 1978"));
+        String verathielOption = itemSelectOptionForValue(html, "MAIN_HAND", "1");
+        assertTrue(verathielOption.contains("Odłamek Verathiela | DPS 1830 | +2141 zdrowia"));
+        assertFalse(verathielOption.contains("Lucky Hit"));
+        assertFalse(verathielOption.contains("+545 zdrowia przy trafieniu"));
+        assertFalse(verathielOption.contains("+94 obrażeń od broni"));
+        assertFalse(verathielOption.contains("1350 - 1978"));
+        assertTrue(html.contains(summaryCardWithTooltipPrefix("Maksimum zdrowia", "3667", "Baseline: 1526; aktywne itemy: +2141; razem: 3667.")));
+        assertTrue(html.contains(summaryCard("DPS broni", "1830")));
+        assertTrue(html.contains(summaryCard("Obrażenia za trafienie", "1350 - 1978")));
+        assertTrue(html.contains(summaryCard("Średnie obrażenia trafienia", "1664")));
+        assertTrue(html.contains(summaryCard("Ataki na sekundę", "1,10")));
+        assertTrue(html.contains("<h3>Aktywna broń"));
+        assertTrue(html.contains(summaryCard("Runtime: obrażenia broni", "1664")));
+        assertTrue(html.contains(summaryCard("Obrażenia broni do runtime", "1664")));
+        assertTrue(html.contains(summaryCard("Źródło obrażeń broni", "Odłamek Verathiela: średnie obrażenia trafienia")));
+        assertTrue(html.contains(summaryCard("Runtime: siła", "79")));
+        assertTrue(html.contains(summaryCard("Runtime: inteligencja", "76")));
+        assertFalse(html.contains(summaryCard("Runtime: obrażenia broni", "8")));
+        assertFalse(html.contains(summaryCard("Runtime: obrażenia broni", "1830")));
+        assertTrue(html.contains("+94 obrażeń od broni [94 - 157]"));
+        assertTrue(html.contains("+2141 maksymalnego zdrowia [1831 - 2200]"));
+        assertTrue(html.contains("+545 zdrowia przy trafieniu [526 - 632]"));
+        assertTrue(html.contains("Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]"));
+        String activeAffixesGroup = heroStatGroup(html, "Aktywne affixy itemów");
+        assertTrue(activeAffixesGroup.contains("Wkład statystyczny"));
+        assertTrue(activeAffixesGroup.contains("Efekty opisowe"));
+        assertEquals(4, countOccurrences(activeAffixesGroup, "<li>"));
+        assertFalse(activeAffixesGroup.contains("OCR"));
+        assertFalse(activeAffixesGroup.contains("source"));
+        assertFalse(activeAffixesGroup.contains("15% / +3"));
+        String offenseGroup = heroStatGroup(html, "Ofensywa");
+        assertFalse(offenseGroup.contains(summaryCard("Podstawowe obrażenia od broni", "0")));
+        assertFalse(offenseGroup.contains(summaryCard("Szybkość broni", "1,00")));
+        assertTrue(offenseGroup.contains(summaryCardWithTooltipPrefix("Szansa na trafienie krytyczne", "5,2%", "bazowo 5,0%, +0,2% z Inteligencji, +0,0% z itemów, +0,0% z innych źródeł, razem 5,2%.")));
+        assertTrue(offenseGroup.contains(summaryCard("Obrażenia od trafień krytycznych", "50,0%")));
+        assertTrue(offenseGroup.contains(summaryCard("Obrażenia zadawane odsłoniętym celom", "20,0%")));
+        assertTrue(html.contains(summaryCard("Ciernie", "0")));
+        assertFalse(html.contains(summaryCardWithTooltipPrefix("Maksimum zdrowia", "4212", "Baseline: 1526; aktywne itemy: +2686; razem: 4212.")));
+        assertFalse(html.contains(summaryCard("Średnie obrażenia trafienia", "1758")));
+        assertFalse(html.contains(summaryCard("Runtime: obrażenia broni", "1830")));
+
+        HttpResponse<String> calculationResponse = sendPost("/policz-aktualny-build", buildAdvanceRankOneLevel70Fields());
+        String calculationHtml = calculationResponse.body();
+        assertEquals(200, calculationResponse.statusCode());
+        assertTrue(calculationHtml.contains(summaryCard("Efektywne obrażenia broni", "1664")));
+        assertTrue(calculationHtml.contains(summaryCard("Efektywna siła", "79")));
+        assertTrue(calculationHtml.contains(summaryCard("Efektywna inteligencja", "76")));
+        assertTrue(calculationHtml.contains(summaryCard("Runtime: obrażenia broni", "1664")));
+        assertTrue(calculationHtml.contains("Łączne obrażenia"));
+        assertFalse(calculationHtml.contains(summaryCard("Łączne obrażenia", "0")));
+
+        Map<String, String> clearFields = buildAdvanceFlashFields(10);
+        clearFields.put("level", "70");
+        clearFields.put("slotAction", "clearActiveSlotItem:MAIN_HAND");
+        HttpResponse<String> clearResponse = sendPost("/policz-aktualny-build", clearFields);
+        assertEquals(200, clearResponse.statusCode());
+        assertTrue(clearResponse.body().contains(summaryCardWithTooltipPrefix("Maksimum zdrowia", "1526", "Baseline: 1526; aktywne itemy: +0; razem: 1526.")));
+        assertFalse(clearResponse.body().contains(summaryCard("DPS broni", "1830")));
     }
 
     @Test
@@ -821,6 +921,22 @@ class CurrentBuildWebServerTest {
         return fields;
     }
 
+    private static Map<String, String> buildAdvanceRankOneLevel70Fields() {
+        Map<String, String> fields = buildBaseReferenceFields("10");
+        fields.put("level", "70");
+        fields.put("weaponDamage", "8");
+        fields.put("strength", "18");
+        fields.put("intelligence", "0");
+        fields.put("thorns", "50");
+        fields.put("blockChance", "50");
+        fields.put("retributionChance", "50");
+        fields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.ADVANCE), "1");
+        fields.put(CurrentBuildFormData.baseUpgradeFieldName(krys.skill.SkillId.ADVANCE), "true");
+        fields.put(CurrentBuildFormData.choiceFieldName(krys.skill.SkillId.ADVANCE), "RIGHT");
+        fields.put(CurrentBuildFormData.actionBarFieldName(1), "ADVANCE");
+        return fields;
+    }
+
     private static Map<String, String> buildAdvanceFlashFields(int horizonSeconds) {
         Map<String, String> fields = buildBaseReferenceFields(Integer.toString(horizonSeconds));
         fields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.ADVANCE), "5");
@@ -869,6 +985,63 @@ class CurrentBuildWebServerTest {
                 + "&actionBar1=ADVANCE&actionBar2=NONE&actionBar3=NONE&actionBar4=NONE&actionBar5=NONE&actionBar6=NONE";
     }
 
+    private static Map<String, String> verathielImportFields() {
+        Map<String, String> fields = new HashMap<>();
+        fields.put("formAction", "confirmItem");
+        fields.put("sourceImageName", "miecz.png");
+        fields.put("slot", "MAIN_HAND");
+        fields.put("weaponDamage", "0");
+        fields.put("strength", "0");
+        fields.put("intelligence", "0");
+        fields.put("thorns", "0");
+        fields.put("blockChance", "0");
+        fields.put("retributionChance", "0");
+        fields.put("itemName", "Odłamek Verathiela");
+        fields.put("itemType", "Miecz");
+        fields.put("itemRarity", "UNIQUE");
+        fields.put("isAncient", "true");
+        fields.put("itemPower", "900");
+        fields.put("weaponDps", "1830");
+        fields.put("weaponDamageMin", "1350");
+        fields.put("weaponDamageMax", "1978");
+        fields.put("averageWeaponDamage", "1664");
+        fields.put("attacksPerSecond", "1.10");
+        fields.put("uniqueEffectText", "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu.");
+        fields.put("selectedAspectId", "verathiel_shard");
+        fields.put("affixCount", "4");
+        putAffix(fields, 0, "WEAPON_DAMAGE_FLAT", "94", "+94 obrażeń od broni [94 - 157]",
+                "verathiel_weapon_damage_flat", "94", "157", "");
+        putAffix(fields, 1, "MAXIMUM_LIFE", "2141", "+2 141 maksymalnego zdrowia [1 831 - 2 200]",
+                "verathiel_maximum_life", "1831", "2200", "");
+        putAffix(fields, 2, "LIFE_ON_HIT", "545", "+545 pkt. zdrowia przy trafieniu [526 - 632]",
+                "verathiel_life_on_hit", "526", "632", "");
+        putAffix(fields, 3, "LUCKY_HIT_PRIMARY_RESOURCE", "3",
+                "Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]",
+                "verathiel_lucky_hit_primary_resource", "3", "4", "+3");
+        return fields;
+    }
+
+    private static void putAffix(Map<String, String> fields,
+                                 int index,
+                                 String type,
+                                 String value,
+                                 String sourceText,
+                                 String definitionId,
+                                 String rangeMin,
+                                 String rangeMax,
+                                 String displayValue) {
+        fields.put("affixType_" + index, type);
+        fields.put("affixValue_" + index, value);
+        fields.put("affixSourceText_" + index, sourceText);
+        fields.put("affixSource_" + index, "CORRECTED");
+        fields.put("affixOriginalType_" + index, type);
+        fields.put("affixOriginalValue_" + index, value);
+        fields.put("affixDefinitionId_" + index, definitionId);
+        fields.put("affixRangeMin_" + index, rangeMin);
+        fields.put("affixRangeMax_" + index, rangeMax);
+        fields.put("affixDisplayValue_" + index, displayValue);
+    }
+
     private static String summaryCard(String label, String value) {
         return """
                 <article class="summary-card">
@@ -895,6 +1068,58 @@ class CurrentBuildWebServerTest {
             return Long.toString(Math.round(value));
         }
         return Double.toString(value);
+    }
+
+    private static String activeSlotCard(String html) {
+        int itemIndex = html.indexOf("Odłamek Verathiela");
+        if (itemIndex < 0) {
+            throw new AssertionError("Brak aktywnej karty Odłamka Verathiela.");
+        }
+        int start = html.lastIndexOf("<article class=\"equipment-slot", itemIndex);
+        int end = html.indexOf("</article>", itemIndex);
+        if (start < 0 || end < 0) {
+            throw new AssertionError("Nie udało się wyciąć karty aktywnego slotu.");
+        }
+        return html.substring(start, end);
+    }
+
+    private static String itemSelectOptionForValue(String html, String slot, String value) {
+        String selectMarker = "name=\"selectedItemId_" + slot + "\"";
+        int selectStart = html.indexOf(selectMarker);
+        if (selectStart < 0) {
+            throw new AssertionError("Brak selecta itemu dla slotu: " + slot);
+        }
+        int selectEnd = html.indexOf("</select>", selectStart);
+        if (selectEnd < 0) {
+            throw new AssertionError("Nie udało się wyciąć selecta itemu dla slotu: " + slot);
+        }
+        String selectHtml = html.substring(selectStart, selectEnd);
+        String marker = "<option value=\"" + value + "\"";
+        int start = selectHtml.indexOf(marker);
+        if (start < 0) {
+            throw new AssertionError("Brak opcji selecta o wartości: " + value);
+        }
+        int end = selectHtml.indexOf("</option>", start);
+        if (end < 0) {
+            throw new AssertionError("Nie udało się wyciąć opcji selecta o wartości: " + value);
+        }
+        return selectHtml.substring(start, end);
+    }
+
+    private static String heroStatGroup(String html, String title) {
+        String marker = "<h3>" + title;
+        int heading = html.indexOf(marker);
+        if (heading < 0) {
+            throw new AssertionError("Brak grupy statystyk: " + title);
+        }
+        int start = html.lastIndexOf("<div class=\"hero-stat-group", heading);
+        int next = html.indexOf("<div class=\"hero-stat-group", heading + marker.length());
+        int detailsEnd = html.indexOf("</section>", heading);
+        int end = next >= 0 ? next : detailsEnd;
+        if (start < 0 || end < 0) {
+            throw new AssertionError("Nie udało się wyciąć grupy statystyk: " + title);
+        }
+        return html.substring(start, end);
     }
 
     private void createHero(String heroName, String heroLevel) throws Exception {

@@ -83,6 +83,12 @@ public final class ItemLibraryPresentationSupport {
 
     public static String shortContributionLabel(SavedImportedItem item) {
         List<String> labels = new ArrayList<>();
+        if (item.getWeaponDps() != null) {
+            labels.add("DPS " + item.getWeaponDps());
+        }
+        if (item.getWeaponDamageMin() != null && item.getWeaponDamageMax() != null) {
+            labels.add(item.getWeaponDamageMin() + " - " + item.getWeaponDamageMax() + " obr.");
+        }
         if (item.getWeaponDamage() > 0L) {
             labels.add("obr. broni +" + item.getWeaponDamage());
         }
@@ -100,6 +106,17 @@ public final class ItemLibraryPresentationSupport {
         }
         if (item.getRetributionChance() > 0.0d) {
             labels.add("retribution +" + formatDecimal(item.getRetributionChance()) + "%");
+        }
+        for (ImportedItemAffix affix : item.getAffixes()) {
+            if (affix.getType() == ImportedItemAffixType.MAXIMUM_LIFE) {
+                labels.add("+" + formatWhole(affix.getValue()) + " zdrowia");
+            } else if (affix.getType() == ImportedItemAffixType.WEAPON_DAMAGE_FLAT) {
+                labels.add("+" + formatWhole(affix.getValue()) + " obr. broni");
+            } else if (affix.getType() == ImportedItemAffixType.LIFE_ON_HIT) {
+                labels.add("+" + formatWhole(affix.getValue()) + " zdrowia przy traf.");
+            } else if (affix.getType() == ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE) {
+                labels.add("Lucky Hit 15%: " + rollValueWithPlus(affix) + " zasobu");
+            }
         }
         return labels.isEmpty() ? "Brak wkładu" : String.join(" • ", labels);
     }

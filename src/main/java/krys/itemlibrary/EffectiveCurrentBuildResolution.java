@@ -11,15 +11,25 @@ public final class EffectiveCurrentBuildResolution {
     private final CurrentBuildImportableStats manualBaseStats;
     private final List<HeroSlotItemAssignment> activeItems;
     private final CurrentBuildImportableStats activeItemsContribution;
+    private final CurrentHeroActiveItemStats activeHeroItemStats;
     private final CurrentBuildImportableStats effectiveStats;
 
     public EffectiveCurrentBuildResolution(CurrentBuildImportableStats manualBaseStats,
                                            List<HeroSlotItemAssignment> activeItems,
                                            CurrentBuildImportableStats activeItemsContribution,
                                            CurrentBuildImportableStats effectiveStats) {
+        this(manualBaseStats, activeItems, activeItemsContribution, CurrentHeroActiveItemStats.empty(), effectiveStats);
+    }
+
+    public EffectiveCurrentBuildResolution(CurrentBuildImportableStats manualBaseStats,
+                                           List<HeroSlotItemAssignment> activeItems,
+                                           CurrentBuildImportableStats activeItemsContribution,
+                                           CurrentHeroActiveItemStats activeHeroItemStats,
+                                           CurrentBuildImportableStats effectiveStats) {
         this.manualBaseStats = manualBaseStats;
         this.activeItems = Collections.unmodifiableList(new ArrayList<>(activeItems));
         this.activeItemsContribution = activeItemsContribution;
+        this.activeHeroItemStats = activeHeroItemStats == null ? CurrentHeroActiveItemStats.empty() : activeHeroItemStats;
         this.effectiveStats = effectiveStats;
     }
 
@@ -33,6 +43,10 @@ public final class EffectiveCurrentBuildResolution {
 
     public CurrentBuildImportableStats getActiveItemsContribution() {
         return activeItemsContribution;
+    }
+
+    public CurrentHeroActiveItemStats getActiveHeroItemStats() {
+        return activeHeroItemStats;
     }
 
     public CurrentBuildImportableStats getEffectiveStats() {

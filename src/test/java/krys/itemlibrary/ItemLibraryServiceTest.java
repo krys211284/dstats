@@ -3,6 +3,10 @@ package krys.itemlibrary;
 import krys.item.EquipmentSlot;
 import krys.item.HeroEquipmentSlot;
 import krys.itemimport.CurrentBuildImportableStats;
+import krys.itemimport.ImportedItemAffix;
+import krys.itemimport.ImportedItemAffixSource;
+import krys.itemimport.ImportedItemAffixType;
+import krys.itemimport.ItemImportDetails;
 import krys.itemimport.ValidatedImportedItem;
 import krys.web.HeroItemSelection;
 import org.junit.jupiter.api.Test;
@@ -13,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /** Testuje serwisy aplikacyjne biblioteki itemów oraz agregację do effective current build. */
 class ItemLibraryServiceTest {
@@ -113,6 +118,69 @@ class ItemLibraryServiceTest {
     }
 
     @Test
+    void shouldProjectActiveVerathielDetailsAndAffixesIntoHeroStatsWithoutRuntimeMixing() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-library-hero-stats");
+        ItemLibraryService service = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+        SavedImportedItem verathiel = service.saveImportedItem(verathielItem());
+
+        CurrentHeroActiveItemStats stats = service.resolveActiveHeroItemStats(
+                HeroItemSelection.empty().withSelectedItem(HeroEquipmentSlot.MAIN_HAND, verathiel.getItemId())
+        );
+
+        assertEquals(1830L, stats.getWeaponDps());
+        assertEquals(1350L, stats.getWeaponDamageMin());
+        assertEquals(1978L, stats.getWeaponDamageMax());
+        assertEquals(1664L, stats.getAverageWeaponDamage());
+        assertEquals(1.10d, stats.getAttacksPerSecond(), 0.0000001d);
+        assertEquals(2141.0d, stats.getMaximumLifeFromItems(), 0.0000001d);
+        assertEquals(94.0d, stats.getFlatWeaponDamageFromAffixes(), 0.0000001d);
+        assertEquals(545.0d, stats.getLifeOnHit(), 0.0000001d);
+        assertEquals(3.0d, stats.getLuckyHitPrimaryResourceValue(), 0.0000001d);
+        assertEquals(1664L, stats.getAverageWeaponDamage());
+        assertEquals(2141.0d, stats.getMaximumLifeFromItems(), 0.0000001d);
+    }
+
+    @Test
+    void shouldUseOnlyActiveCompatibleItemsForHeroStatsProjection() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-library-active-hero-stats");
+        ItemLibraryService service = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+        SavedImportedItem verathiel = service.saveImportedItem(verathielItem());
+        SavedImportedItem shield = service.saveImportedItem(new ValidatedImportedItem(
+                "shield.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                List.of(new ImportedItemAffix(ImportedItemAffixType.MAXIMUM_LIFE, 99.0d))
+        ));
+
+        CurrentHeroActiveItemStats inactiveStats = service.resolveActiveHeroItemStats(HeroItemSelection.empty());
+        assertNull(inactiveStats.getWeaponDps());
+        assertEquals(0.0d, inactiveStats.getMaximumLifeFromItems(), 0.0000001d);
+
+        CurrentHeroActiveItemStats activeStats = service.resolveActiveHeroItemStats(
+                HeroItemSelection.empty().withSelectedItem(HeroEquipmentSlot.MAIN_HAND, verathiel.getItemId())
+        );
+        assertEquals(1830L, activeStats.getWeaponDps());
+        assertEquals(2141.0d, activeStats.getMaximumLifeFromItems(), 0.0000001d);
+
+        CurrentHeroActiveItemStats clearedStats = service.resolveActiveHeroItemStats(
+                HeroItemSelection.empty().withSelectedItem(HeroEquipmentSlot.MAIN_HAND, verathiel.getItemId()).withoutSlot(HeroEquipmentSlot.MAIN_HAND)
+        );
+        assertNull(clearedStats.getWeaponDps());
+        assertEquals(0.0d, clearedStats.getMaximumLifeFromItems(), 0.0000001d);
+
+        CurrentHeroActiveItemStats incompatibleStats = service.resolveActiveHeroItemStats(
+                HeroItemSelection.empty().withSelectedItem(HeroEquipmentSlot.MAIN_HAND, shield.getItemId())
+        );
+        assertNull(incompatibleStats.getWeaponDps());
+        assertEquals(0.0d, incompatibleStats.getMaximumLifeFromItems(), 0.0000001d);
+    }
+
+    @Test
     void shouldGenerateDeterministicSearchCombinationsWithAtMostOneItemPerSlot() throws Exception {
         Path tempDirectory = Files.createTempDirectory("item-library-search-combinations");
         ItemLibraryService service = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
@@ -184,6 +252,48 @@ class ItemLibraryServiceTest {
                                 .distinct()
                                 .count() == combination.getSelectedItems().size())
                         .toList()
+        );
+    }
+
+    private static ValidatedImportedItem verathielItem() {
+        return new ValidatedImportedItem(
+                "miecz.png",
+                EquipmentSlot.MAIN_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                List.of(
+                        new ImportedItemAffix(ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 94.0d, "", false, 0,
+                                "+94 obrażeń od broni [94 - 157]", ImportedItemAffixSource.CORRECTED,
+                                "verathiel_weapon_damage_flat", 94.0d, 157.0d, ""),
+                        new ImportedItemAffix(ImportedItemAffixType.MAXIMUM_LIFE, 2141.0d, "", false, 1,
+                                "+2 141 maksymalnego zdrowia [1 831 - 2 200]", ImportedItemAffixSource.CORRECTED,
+                                "verathiel_maximum_life", 1831.0d, 2200.0d, ""),
+                        new ImportedItemAffix(ImportedItemAffixType.LIFE_ON_HIT, 545.0d, "", false, 2,
+                                "+545 pkt. zdrowia przy trafieniu [526 - 632]", ImportedItemAffixSource.CORRECTED,
+                                "verathiel_life_on_hit", 526.0d, 632.0d, ""),
+                        new ImportedItemAffix(ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE, 3.0d, "", false, 3,
+                                "Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]", ImportedItemAffixSource.CORRECTED,
+                                "verathiel_lucky_hit_primary_resource", 3.0d, 4.0d, "+3")
+                ),
+                "verathiel_shard",
+                new ItemImportDetails(
+                        "Odłamek Verathiela",
+                        "Miecz",
+                        "UNIQUE",
+                        true,
+                        EquipmentSlot.MAIN_HAND,
+                        900L,
+                        1830L,
+                        1350L,
+                        1978L,
+                        1664L,
+                        1.10d,
+                        "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu."
+                )
         );
     }
 }

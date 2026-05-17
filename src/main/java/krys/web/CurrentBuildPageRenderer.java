@@ -7,6 +7,9 @@ import krys.hero.HeroCriticalChanceBreakdown;
 import krys.hero.HeroClassStatBaseline;
 import krys.item.HeroEquipmentSlot;
 import krys.itemimport.CurrentBuildImportableStats;
+import krys.itemimport.ImportedItemAffix;
+import krys.itemimport.ImportedItemAffixType;
+import krys.itemlibrary.CurrentHeroActiveItemStats;
 import krys.itemlibrary.HeroSlotItemAssignment;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
 import krys.itemlibrary.SavedImportedItem;
@@ -270,9 +273,8 @@ public final class CurrentBuildPageRenderer {
                     .append(escapeHtml(activeItem.getItem().getDisplayName()))
                     .append("</p><p class=\"slot-helper\">")
                     .append(escapeHtml(ItemLibraryPresentationSupport.userItemIdentifier(activeItem.getItem())))
-                    .append("</p><p class=\"slot-contribution\">")
-                    .append(escapeHtml(ItemLibraryPresentationSupport.shortContributionLabel(activeItem.getItem())))
-                    .append("</p>");
+                    .append("</p>")
+                    .append(renderActiveSlotContribution(activeItem.getItem()));
         }
 
         if (!slotItems.isEmpty()) {
@@ -592,10 +594,21 @@ public final class CurrentBuildPageRenderer {
         if (baseline != null) {
             HeroArmorBreakdown armor = baseline.getArmorBreakdown();
             HeroCriticalChanceBreakdown criticalChance = baseline.getCriticalChanceBreakdown();
+            boolean hasActiveWeaponDetails = stats.getActiveHeroItemStats().hasActiveWeaponDetails();
+            StringBuilder offenseCards = new StringBuilder();
+            if (!hasActiveWeaponDetails) {
+                offenseCards.append(renderSummaryCard("Podstawowe obrażenia od broni", Long.toString(stats.getWeaponDamage())))
+                        .append(renderSummaryCard("Szybkość broni", formatDecimalComma(baseline.getWeaponSpeed(), 2)));
+            }
+            offenseCards.append(renderSummaryCardWithTooltip("Szansa na trafienie krytyczne", formatPercentComma(criticalChance.getTotalCriticalChancePercent(), 1), buildCriticalChanceBreakdownLabel(criticalChance)))
+                    .append(renderSummaryCard("Obrażenia od trafień krytycznych", formatPercentComma(baseline.getCriticalDamagePercent(), 1)))
+                    .append(renderSummaryCard("Obrażenia zadawane odsłoniętym celom", formatPercentComma(baseline.getVulnerableDamagePercent(), 1)))
+                    .append(renderSummaryCard("Ciernie", ItemLibraryPresentationSupport.formatWhole(stats.getThorns())));
             html.append(renderHeroStatGroup("Pancerz i defensywa",
                             renderSummaryCard("Wytrzymałość", Integer.toString(baseline.getToughness()))
                                     + renderSummaryCardWithTooltip("Pancerz", Integer.toString(armor.getTotalArmor()), buildArmorBreakdownLabel(armor))
-                                    + renderSummaryCard("Maksimum zdrowia", Integer.toString(baseline.getMaxHealth()))))
+                                    + renderSummaryCardWithTooltip("Maksimum zdrowia", Integer.toString(stats.getMaxHealth()), buildMaxHealthBreakdownLabel(baseline, stats))))
+                    .append(renderActiveWeaponGroup(stats.getActiveHeroItemStats()))
                     .append(renderHeroStatGroup("Odporności",
                             renderSummaryCard("Fizyczne", Integer.toString(baseline.getPhysicalResistance()))
                                     + renderSummaryCard("Ogień", Integer.toString(baseline.getFireResistance()))
@@ -603,13 +616,8 @@ public final class CurrentBuildPageRenderer {
                                     + renderSummaryCard("Zimno", Integer.toString(baseline.getColdResistance()))
                                     + renderSummaryCard("Trucizna", Integer.toString(baseline.getPoisonResistance()))
                                     + renderSummaryCard("Cień", Integer.toString(baseline.getShadowResistance()))))
-                    .append(renderHeroStatGroup("Ofensywa",
-                            renderSummaryCard("Podstawowe obrażenia od broni", Long.toString(stats.getWeaponDamage()))
-                                    + renderSummaryCard("Szybkość broni", formatDecimalComma(baseline.getWeaponSpeed(), 2))
-                                    + renderSummaryCardWithTooltip("Szansa na trafienie krytyczne", formatPercentComma(criticalChance.getTotalCriticalChancePercent(), 1), buildCriticalChanceBreakdownLabel(criticalChance))
-                                    + renderSummaryCard("Obrażenia od trafień krytycznych", formatPercentComma(baseline.getCriticalDamagePercent(), 1))
-                                    + renderSummaryCard("Obrażenia zadawane odsłoniętym celom", formatPercentComma(baseline.getVulnerableDamagePercent(), 1))
-                                    + renderSummaryCard("Ciernie", ItemLibraryPresentationSupport.formatWhole(stats.getThorns()))));
+                    .append(renderHeroStatGroup("Ofensywa", offenseCards.toString()))
+                    .append(renderActiveItemAffixesGroup(stats.getActiveHeroItemStats()));
         } else {
             html.append("<p class=\"helper\">Brak jawnego baseline'u gry dla tego poziomu; UI pokazuje tylko statystyki z jawną formułą albo z aktywnych itemów.</p>");
             if (stats.getWeaponDamage() > 0L || stats.getThorns() > 0.0d
@@ -617,6 +625,8 @@ public final class CurrentBuildPageRenderer {
                 html.append(renderHeroStatGroup("Aktywne itemy",
                         renderOptionalActiveItemStats(stats)));
             }
+            html.append(renderActiveWeaponGroup(stats.getActiveHeroItemStats()))
+                    .append(renderActiveItemAffixesGroup(stats.getActiveHeroItemStats()));
         }
         html.append("""
                     </section>
@@ -637,6 +647,19 @@ public final class CurrentBuildPageRenderer {
                 """;
     }
 
+    private static String renderHeroStatListGroup(String title, String content) {
+        if (content.isBlank()) {
+            return "";
+        }
+        return """
+                <div class="hero-stat-group hero-stat-list-group">
+                    <h3>""" + escapeHtml(title) + """
+                </h3>
+                """ + content + """
+                </div>
+                """;
+    }
+
     private static String buildArmorBreakdownLabel(HeroArmorBreakdown armor) {
         return armor.getArmorFromStrength() + " z siły, "
                 + armor.getArmorFromItems() + " z itemów/głównego wyposażenia, "
@@ -650,6 +673,57 @@ public final class CurrentBuildPageRenderer {
                 + ", +" + formatPercentComma(criticalChance.getCriticalChanceFromItemsPercent(), 1) + " z itemów"
                 + ", +" + formatPercentComma(criticalChance.getCriticalChanceFromOtherSourcesPercent(), 1) + " z innych źródeł"
                 + ", razem " + formatPercentComma(criticalChance.getTotalCriticalChancePercent(), 1) + ".";
+    }
+
+    private static String buildMaxHealthBreakdownLabel(HeroClassStatBaseline baseline, CurrentHeroStatsPresentation stats) {
+        return "Baseline: " + baseline.getMaxHealth()
+                + "; aktywne itemy: +" + stats.getMaximumLifeFromItemsDisplay()
+                + "; razem: " + stats.getMaxHealth() + ".";
+    }
+
+    private static String renderActiveWeaponGroup(CurrentHeroActiveItemStats activeItemStats) {
+        if (!activeItemStats.hasActiveWeaponDetails()) {
+            return "";
+        }
+        StringBuilder cards = new StringBuilder();
+        if (activeItemStats.getWeaponDps() != null) {
+            cards.append(renderSummaryCard("DPS broni", Long.toString(activeItemStats.getWeaponDps())));
+        }
+        if (activeItemStats.getWeaponDamageMin() != null && activeItemStats.getWeaponDamageMax() != null) {
+            cards.append(renderSummaryCard("Obrażenia za trafienie",
+                    activeItemStats.getWeaponDamageMin() + " - " + activeItemStats.getWeaponDamageMax()));
+        }
+        if (activeItemStats.getAverageWeaponDamage() != null) {
+            cards.append(renderSummaryCard("Średnie obrażenia trafienia", Long.toString(activeItemStats.getAverageWeaponDamage())));
+        }
+        if (activeItemStats.getAttacksPerSecond() != null) {
+            cards.append(renderSummaryCard("Ataki na sekundę", formatDoubleComma(activeItemStats.getAttacksPerSecond(), 2)));
+        }
+        return renderHeroStatGroup("Aktywna broń", cards.toString());
+    }
+
+    private static String renderActiveItemAffixesGroup(CurrentHeroActiveItemStats activeItemStats) {
+        if (!activeItemStats.hasGroupedAffixes()) {
+            return "";
+        }
+        StringBuilder content = new StringBuilder();
+        content.append(renderAffixListSection("Wkład statystyczny", activeItemStats.getStatisticalAffixes()));
+        content.append(renderAffixListSection("Efekty opisowe", activeItemStats.getDescriptiveEffectAffixes()));
+        return renderHeroStatListGroup("Aktywne affixy itemów", content.toString());
+    }
+
+    private static String renderAffixListSection(String title, List<String> affixes) {
+        if (affixes.isEmpty()) {
+            return "";
+        }
+        StringBuilder html = new StringBuilder("<div class=\"active-affix-section\"><h4>")
+                .append(escapeHtml(title))
+                .append("</h4><ul class=\"active-affix-list\">");
+        for (String affix : affixes) {
+            html.append("<li>").append(escapeHtml(affix)).append("</li>");
+        }
+        html.append("</ul></div>");
+        return html.toString();
     }
 
     private static String renderSummaryCardWithTooltip(String label, String value, String tooltip) {
@@ -682,6 +756,98 @@ public final class CurrentBuildPageRenderer {
 
     private static String formatDecimalComma(BigDecimal value, int scale) {
         return value.setScale(scale).toPlainString().replace('.', ',');
+    }
+
+    private static String formatDoubleComma(double value, int scale) {
+        return String.format(Locale.US, "%." + scale + "f", value).replace('.', ',');
+    }
+
+    private static String renderActiveSlotContribution(SavedImportedItem item) {
+        String weaponSection = renderSlotContributionSection("Broń", buildSlotWeaponChips(item));
+        String statsSection = renderSlotContributionSection("Wkład w statystyki", buildSlotStatChips(item));
+        String effectsSection = renderSlotContributionSection("Efekty opisowe", buildSlotEffectChips(item));
+        String content = weaponSection + statsSection + effectsSection;
+        if (content.isBlank()) {
+            return "<p class=\"slot-contribution\">Brak wkładu</p>";
+        }
+        return "<div class=\"slot-contribution-block\">" + content + "</div>";
+    }
+
+    private static String renderSlotContributionSection(String title, List<String> chips) {
+        if (chips.isEmpty()) {
+            return "";
+        }
+        StringBuilder html = new StringBuilder("<div class=\"slot-contribution-section\"><span class=\"slot-contribution-title\">")
+                .append(escapeHtml(title))
+                .append("</span><div class=\"slot-chip-list\">");
+        for (String chip : chips) {
+            html.append("<span class=\"slot-chip\">").append(escapeHtml(chip)).append("</span>");
+        }
+        html.append("</div></div>");
+        return html.toString();
+    }
+
+    private static List<String> buildSlotWeaponChips(SavedImportedItem item) {
+        List<String> chips = new ArrayList<>();
+        if (item.getWeaponDps() != null) {
+            chips.add("DPS " + item.getWeaponDps());
+        }
+        if (item.getWeaponDamageMin() != null && item.getWeaponDamageMax() != null) {
+            chips.add(item.getWeaponDamageMin() + " - " + item.getWeaponDamageMax() + " obrażeń za trafienie");
+        }
+        if (item.getAttacksPerSecond() != null) {
+            chips.add(formatDoubleComma(item.getAttacksPerSecond(), 2) + " ataku/s");
+        }
+        return chips;
+    }
+
+    private static List<String> buildSlotStatChips(SavedImportedItem item) {
+        List<String> chips = new ArrayList<>();
+        if (item.getWeaponDamage() > 0L) {
+            chips.add("+" + item.getWeaponDamage() + " obrażeń broni");
+        }
+        if (item.getStrength() > 0.0d) {
+            chips.add("+" + ItemLibraryPresentationSupport.formatWhole(item.getStrength()) + " siły");
+        }
+        if (item.getIntelligence() > 0.0d) {
+            chips.add("+" + ItemLibraryPresentationSupport.formatWhole(item.getIntelligence()) + " inteligencji");
+        }
+        if (item.getThorns() > 0.0d) {
+            chips.add("+" + ItemLibraryPresentationSupport.formatWhole(item.getThorns()) + " cierni");
+        }
+        if (item.getBlockChance() > 0.0d) {
+            chips.add("+" + ItemLibraryPresentationSupport.formatDecimal(item.getBlockChance()) + "% bloku");
+        }
+        if (item.getRetributionChance() > 0.0d) {
+            chips.add("+" + ItemLibraryPresentationSupport.formatDecimal(item.getRetributionChance()) + "% retribution");
+        }
+        for (ImportedItemAffix affix : item.getAffixes()) {
+            if (affix.getType() == ImportedItemAffixType.MAXIMUM_LIFE) {
+                chips.add("+" + ItemLibraryPresentationSupport.formatWhole(affix.getValue()) + " maksymalnego zdrowia");
+            } else if (affix.getType() == ImportedItemAffixType.WEAPON_DAMAGE_FLAT) {
+                chips.add("+" + ItemLibraryPresentationSupport.formatWhole(affix.getValue()) + " obrażeń od broni");
+            }
+        }
+        return chips;
+    }
+
+    private static List<String> buildSlotEffectChips(SavedImportedItem item) {
+        List<String> chips = new ArrayList<>();
+        for (ImportedItemAffix affix : item.getAffixes()) {
+            if (affix.getType() == ImportedItemAffixType.LIFE_ON_HIT) {
+                chips.add("+" + ItemLibraryPresentationSupport.formatWhole(affix.getValue()) + " zdrowia przy trafieniu");
+            } else if (affix.getType() == ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE) {
+                chips.add("Lucky Hit 15%: " + luckyHitResourceValue(affix) + " zasobu");
+            }
+        }
+        return chips;
+    }
+
+    private static String luckyHitResourceValue(ImportedItemAffix affix) {
+        if (affix.getDisplayValue() != null && !affix.getDisplayValue().isBlank()) {
+            return affix.getDisplayValue();
+        }
+        return "+" + ItemLibraryPresentationSupport.formatWhole(affix.getValue());
     }
 
     private static String formatPercentComma(BigDecimal value, int scale) {
@@ -790,7 +956,7 @@ public final class CurrentBuildPageRenderer {
                 <section class="panel result-panel technical-runtime-input">
                     <h2>Techniczne wejście runtime</h2>
                     <p class="helper">Wartości poniżej są wejściem runtime/manual fallback, a nie sekcją statystyk bohatera.</p>
-                    <div class="formula-strip">Manual current build + aktywne itemy per slot = effective stats runtime</div>
+                    <div class="formula-strip">Bohater + aktywna broń + jawne wkłady itemów + legacy fallback = effective stats runtime</div>
                     <div class="summary-grid compact-grid">
                 """);
         html.append(renderSummaryCard("Manual: obrażenia broni", Long.toString(manualBaseStats.getWeaponDamage())))
@@ -801,6 +967,8 @@ public final class CurrentBuildPageRenderer {
                 .append(renderSummaryCard("Manual: szansa retribution [%]", formatPercentage(manualBaseStats.getRetributionChance())));
         if (effectiveStats != null) {
             html.append(renderSummaryCard("Runtime: obrażenia broni", Long.toString(effectiveStats.getWeaponDamage())))
+                    .append(renderSummaryCard("Obrażenia broni do runtime", Long.toString(effectiveStats.getWeaponDamage())))
+                    .append(renderSummaryCard("Źródło obrażeń broni", runtimeWeaponDamageSource(model, effectiveStats)))
                     .append(renderSummaryCard("Runtime: siła", ItemLibraryPresentationSupport.formatWhole(effectiveStats.getStrength())))
                     .append(renderSummaryCard("Runtime: inteligencja", ItemLibraryPresentationSupport.formatWhole(effectiveStats.getIntelligence())))
                     .append(renderSummaryCard("Runtime: kolce", ItemLibraryPresentationSupport.formatWhole(effectiveStats.getThorns())))
@@ -863,6 +1031,28 @@ public final class CurrentBuildPageRenderer {
                 .replace("{{BLOCK_CHANCE}}", escapeHtml(formData.getBlockChance()))
                 .replace("{{RETRIBUTION_CHANCE}}", escapeHtml(formData.getRetributionChance()))
                 .replace("{{HORIZON_SECONDS}}", escapeHtml(formData.getHorizonSeconds()));
+    }
+
+    private static String runtimeWeaponDamageSource(CurrentBuildPageModel model, CurrentBuildImportableStats effectiveStats) {
+        CurrentHeroActiveItemStats activeItemStats = model.getActiveHeroItemStats();
+        Long averageWeaponDamage = activeItemStats.getAverageWeaponDamage();
+        if (averageWeaponDamage != null && averageWeaponDamage == effectiveStats.getWeaponDamage()) {
+            String itemName = activeWeaponName(model);
+            if (itemName.isBlank()) {
+                return "Aktywna broń: średnie obrażenia trafienia";
+            }
+            return itemName + ": średnie obrażenia trafienia";
+        }
+        return "Legacy fallback current build";
+    }
+
+    private static String activeWeaponName(CurrentBuildPageModel model) {
+        for (HeroSlotItemAssignment assignment : model.getActiveLibraryItems()) {
+            if (assignment.getHeroSlot() == HeroEquipmentSlot.MAIN_HAND) {
+                return assignment.getItem().getDisplayName();
+            }
+        }
+        return "";
     }
 
     private static String renderActionBarFields(CurrentBuildPageModel model) {
@@ -950,7 +1140,23 @@ public final class CurrentBuildPageRenderer {
     }
 
     private static String buildSlotOptionLabel(SavedImportedItem item) {
-        return item.getDisplayName() + " | " + ItemLibraryPresentationSupport.shortContributionLabel(item);
+        List<String> parts = new ArrayList<>();
+        parts.add(item.getDisplayName());
+        if (item.getWeaponDps() != null) {
+            parts.add("DPS " + item.getWeaponDps());
+        }
+        findAffixValue(item, ImportedItemAffixType.MAXIMUM_LIFE)
+                .ifPresent(value -> parts.add("+" + ItemLibraryPresentationSupport.formatWhole(value) + " zdrowia"));
+        return String.join(" | ", parts);
+    }
+
+    private static java.util.Optional<Double> findAffixValue(SavedImportedItem item, ImportedItemAffixType type) {
+        for (ImportedItemAffix affix : item.getAffixes()) {
+            if (affix.getType() == type) {
+                return java.util.Optional.of(affix.getValue());
+            }
+        }
+        return java.util.Optional.empty();
     }
 
     private static String buildItemImportUrl(String currentBuildQuery) {
