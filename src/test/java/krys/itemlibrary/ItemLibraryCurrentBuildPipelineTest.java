@@ -2,6 +2,8 @@ package krys.itemlibrary;
 
 import krys.app.CurrentBuildRequest;
 import krys.app.CurrentBuildSnapshotFactory;
+import krys.hero.HeroClass;
+import krys.hero.HeroClassDefs;
 import krys.item.Item;
 import krys.item.ItemStatType;
 import krys.item.EquipmentSlot;
@@ -61,8 +63,10 @@ class ItemLibraryCurrentBuildPipelineTest {
         HeroBuildSnapshot snapshot = new CurrentBuildSnapshotFactory().create(request);
 
         assertEquals(200L, snapshot.getAverageWeaponDamage());
-        assertEquals(144.0d, Item.sumStat(snapshot.getEquippedItems(), ItemStatType.STRENGTH), 0.0000001d);
-        assertEquals(24.0d, Item.sumStat(snapshot.getEquippedItems(), ItemStatType.INTELLIGENCE), 0.0000001d);
+        assertEquals(122.0d, Item.sumStat(snapshot.getEquippedItems(), ItemStatType.STRENGTH), 0.0000001d);
+        assertEquals(5.0d, Item.sumStat(snapshot.getEquippedItems(), ItemStatType.INTELLIGENCE), 0.0000001d);
+        assertEquals(144.0d, HeroClassDefs.get(HeroClass.PALADIN).resolveTotalMainStat(13, snapshot.getEquippedItems()), 0.0000001d);
+        assertEquals(24.0d, HeroClassDefs.get(HeroClass.PALADIN).resolveTotalIntelligence(13, snapshot.getEquippedItems()), 0.0000001d);
         assertEquals(564.0d, Item.sumStat(snapshot.getEquippedItems(), ItemStatType.THORNS), 0.0000001d);
         assertEquals(30.0d, Item.sumStat(snapshot.getEquippedItems(), ItemStatType.BLOCK_CHANCE), 0.0000001d);
         assertEquals(40.0d, Item.sumStat(snapshot.getEquippedItems(), ItemStatType.RETRIBUTION_CHANCE), 0.0000001d);
@@ -117,8 +121,10 @@ class ItemLibraryCurrentBuildPipelineTest {
         HeroBuildSnapshot snapshot = new CurrentBuildSnapshotFactory().create(request);
 
         assertEquals(321L, snapshot.getAverageWeaponDamage());
-        assertEquals(169.0d, Item.sumStat(snapshot.getEquippedItems(), ItemStatType.STRENGTH), 0.0000001d);
-        assertEquals(13.0d, Item.sumStat(snapshot.getEquippedItems(), ItemStatType.INTELLIGENCE), 0.0000001d);
+        assertEquals(147.0d, Item.sumStat(snapshot.getEquippedItems(), ItemStatType.STRENGTH), 0.0000001d);
+        assertEquals(0.0d, Item.sumStat(snapshot.getEquippedItems(), ItemStatType.INTELLIGENCE), 0.0000001d);
+        assertEquals(169.0d, HeroClassDefs.get(HeroClass.PALADIN).resolveTotalMainStat(13, snapshot.getEquippedItems()), 0.0000001d);
+        assertEquals(19.0d, HeroClassDefs.get(HeroClass.PALADIN).resolveTotalIntelligence(13, snapshot.getEquippedItems()), 0.0000001d);
         assertEquals(494.0d, Item.sumStat(snapshot.getEquippedItems(), ItemStatType.THORNS), 0.0000001d);
         assertEquals(20.0d, Item.sumStat(snapshot.getEquippedItems(), ItemStatType.BLOCK_CHANCE), 0.0000001d);
         assertEquals(25.0d, Item.sumStat(snapshot.getEquippedItems(), ItemStatType.RETRIBUTION_CHANCE), 0.0000001d);

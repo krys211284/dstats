@@ -1,7 +1,10 @@
 package krys.app;
 
 import krys.combat.DamageEngine;
+import krys.combat.DamageBreakdown;
+import krys.combat.DamageComponentBreakdown;
 import krys.simulation.ManualSimulationService;
+import krys.simulation.SkillHitDebugSnapshot;
 import krys.skill.SkillId;
 import krys.skill.SkillState;
 import krys.skill.SkillUpgradeChoice;
@@ -11,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CurrentBuildCalculationServiceTest {
     private final CurrentBuildCalculationService calculationService = new CurrentBuildCalculationService(
@@ -69,5 +73,33 @@ class CurrentBuildCalculationServiceTest {
         assertEquals(120L, calculation.getResult().getTotalReactiveDamage());
         assertEquals(18.6000d, calculation.getResult().getDps(), 0.0000001d);
         assertEquals(10, calculation.getResult().getStepTrace().size());
+    }
+
+    @Test
+    void current_build_paladyna_70_nie_powinien_dublowac_baseline_sily_w_damage_engine() {
+        CurrentBuildRequest request = new CurrentBuildRequest(
+                70,
+                1664,
+                79.0d,
+                76.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                Map.of(SkillId.CLASH, new SkillState(SkillId.CLASH, 1, false, SkillUpgradeChoice.NONE)),
+                List.of(SkillId.CLASH),
+                10
+        );
+
+        CurrentBuildCalculation calculation = calculationService.calculate(request);
+
+        SkillHitDebugSnapshot debugSnapshot = calculation.getResult().getDirectHitDebugSnapshots().getFirst();
+        DamageBreakdown breakdown = debugSnapshot.getBreakdown();
+        DamageComponentBreakdown mainHit = breakdown.getComponents().getFirst();
+        assertEquals(79.0d, breakdown.getMainStat(), 0.0000001d);
+        assertEquals(76.0d, breakdown.getIntelligence(), 0.0000001d);
+        assertEquals("Główny hit", mainHit.getName());
+        assertEquals(115L, mainHit.getSkillDamagePercent());
+        assertTrue(mainHit.getRawDamage() > 0L);
+        assertTrue(mainHit.getFinalDamage() > 0L);
     }
 }

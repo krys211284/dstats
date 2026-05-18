@@ -23,11 +23,11 @@ class ClashManualSimulationTest {
                 9
         );
 
-        assertEquals(120L, result.getTotalDamage());
+        assertEquals(273L, result.getTotalDamage());
         assertEquals(120L, result.getTotalReactiveDamage());
         assertEquals(3, result.getReactiveHitBreakdowns().size());
         assertEquals("Clash", result.getStepTrace().get(0).getActionName());
-        assertEquals(0L, result.getStepTrace().get(0).getDirectDamage());
+        assertEquals(17L, result.getStepTrace().get(0).getDirectDamage());
         assertFalse(result.isResolveActiveAtEnd());
         assertEquals(0.50d, result.getActiveBlockChanceAtEnd(), 0.0000001d);
         assertEquals(0.0d, result.getActiveThornsBonusAtEnd(), 0.0000001d);
@@ -42,7 +42,7 @@ class ClashManualSimulationTest {
                 9
         );
 
-        assertEquals(132L, result.getTotalDamage());
+        assertEquals(285L, result.getTotalDamage());
         assertEquals(132L, result.getTotalReactiveDamage());
         assertTrue(result.isResolveActiveAtEnd());
         assertEquals(0.75d, result.getActiveBlockChanceAtEnd(), 0.0000001d);
@@ -63,7 +63,7 @@ class ClashManualSimulationTest {
                 9
         );
 
-        assertEquals(264L, result.getTotalDamage());
+        assertEquals(417L, result.getTotalDamage());
         assertEquals(264L, result.getTotalReactiveDamage());
         assertTrue(result.isResolveActiveAtEnd());
         assertEquals(0.75d, result.getActiveBlockChanceAtEnd(), 0.0000001d);

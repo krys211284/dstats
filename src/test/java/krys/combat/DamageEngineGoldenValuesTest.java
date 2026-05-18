@@ -89,7 +89,28 @@ class DamageEngineGoldenValuesTest {
         assertEquals("Komponent nie trafia głównego celu w modelu single target", sideArcs.getExclusionReason());
     }
 
+    @Test
+    void powinien_liczyc_starcie_rank_1_z_bazowym_percentem_z_drzewa_paladyna() {
+        DamageBreakdown breakdown = damageEngine.calculate(
+                snapshot(new SkillState(SkillId.CLASH, 1, false, SkillUpgradeChoice.NONE), 1664L),
+                SkillId.CLASH,
+                EnumSet.noneOf(StatusId.class)
+        );
+
+        DamageComponentBreakdown mainHit = breakdown.getComponents().getFirst();
+        assertEquals("Główny hit", mainHit.getName());
+        assertEquals(115L, mainHit.getSkillDamagePercent());
+        assertTrue(mainHit.getRawDamage() > 0L);
+        assertTrue(mainHit.getFinalDamage() > 0L);
+        assertTrue(breakdown.getRawDamage() > 0L);
+        assertTrue(breakdown.getFinalDamage() > 0L);
+    }
+
     static HeroBuildSnapshot referenceSnapshot(SkillState brandishState) {
+        return snapshot(brandishState, 8L);
+    }
+
+    private static HeroBuildSnapshot snapshot(SkillState skillState, long weaponDamage) {
         Hero hero = new Hero(1, "Krys", 13, HeroClass.PALADIN);
         List<Item> items = List.of(
                 new Item(1, "Short Sword", EquipmentSlot.MAIN_HAND, List.of(
@@ -110,11 +131,11 @@ class DamageEngineGoldenValuesTest {
         return new HeroBuildSnapshot(
                 hero,
                 0,
-                8,
+                weaponDamage,
                 0.0d,
                 items,
-                Map.of(SkillId.BRANDISH, brandishState),
-                List.of(SkillId.BRANDISH)
+                Map.of(skillState.getSkillId(), skillState),
+                List.of(skillState.getSkillId())
         );
     }
 }

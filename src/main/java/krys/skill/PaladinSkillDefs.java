@@ -1,5 +1,8 @@
 package krys.skill;
 
+import krys.paladin.PaladinSkillTreeRegistry;
+import krys.paladin.PaladinTreeSkill;
+
 import java.util.EnumMap;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -45,7 +48,7 @@ public final class PaladinSkillDefs {
             "Clash",
             0,
             0,
-            new long[]{0, 0, 0, 0, 0},
+            createClashDamagePercents(),
             List.of(),
             Map.of(),
             Map.of(),
@@ -126,6 +129,15 @@ public final class PaladinSkillDefs {
         Map<SkillUpgradeChoice, String> labels = new EnumMap<>(SkillUpgradeChoice.class);
         labels.put(SkillUpgradeChoice.LEFT, "Punishment");
         return labels;
+    }
+
+    private static long[] createClashDamagePercents() {
+        PaladinTreeSkill starcie = PaladinSkillTreeRegistry.requireSkill("starcie");
+        long[] ranks = new long[5];
+        for (int rank = 1; rank <= ranks.length; rank++) {
+            ranks[rank - 1] = starcie.damagePercentAtRank(rank);
+        }
+        return ranks;
     }
 
     private static Map<SkillUpgradeChoice, List<SkillRuntimeEffect>> createAdvanceEffects() {

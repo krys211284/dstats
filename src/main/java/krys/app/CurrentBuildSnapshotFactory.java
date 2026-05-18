@@ -2,6 +2,8 @@ package krys.app;
 
 import krys.hero.Hero;
 import krys.hero.HeroClass;
+import krys.hero.HeroClassDef;
+import krys.hero.HeroClassDefs;
 import krys.item.EquipmentSlot;
 import krys.item.Item;
 import krys.item.ItemStat;
@@ -21,12 +23,13 @@ public final class CurrentBuildSnapshotFactory {
 
     public HeroBuildSnapshot create(CurrentBuildRequest request) {
         Hero hero = new Hero(1, "Aktualny build", request.getLevel(), HeroClass.PALADIN);
+        HeroClassDef heroClassDef = HeroClassDefs.get(hero.getHeroClass());
         List<Item> items = List.of(
                 new Item(1, "Konfigurowana broń", EquipmentSlot.MAIN_HAND, List.of(
                         new ItemStat(ItemStatType.CRIT_DAMAGE, FOUNDATION_CRIT_DAMAGE)
                 )),
-                new Item(2, "Konfigurowana tarcza", EquipmentSlot.OFF_HAND, buildShieldStats(request)),
-                new Item(3, "Konfigurowany pancerz", EquipmentSlot.CHEST, buildChestStats(request)),
+                new Item(2, "Konfigurowana tarcza", EquipmentSlot.OFF_HAND, buildShieldStats(request, heroClassDef)),
+                new Item(3, "Konfigurowany pancerz", EquipmentSlot.CHEST, buildChestStats(request, heroClassDef)),
                 new Item(4, "Konfigurowany ring", EquipmentSlot.RING, buildRingStats(request))
         );
 
@@ -41,11 +44,12 @@ public final class CurrentBuildSnapshotFactory {
         );
     }
 
-    private static List<ItemStat> buildShieldStats(CurrentBuildRequest request) {
+    private static List<ItemStat> buildShieldStats(CurrentBuildRequest request, HeroClassDef heroClassDef) {
         List<ItemStat> stats = new ArrayList<>();
         stats.add(new ItemStat(ItemStatType.MAIN_HAND_WEAPON_DAMAGE, FOUNDATION_MAIN_HAND_WEAPON_DAMAGE));
-        if (request.getStrength() > 0.0d) {
-            stats.add(new ItemStat(ItemStatType.STRENGTH, request.getStrength()));
+        double strengthItemContribution = effectiveTotalToItemContribution(request.getStrength(), heroClassDef.resolveTotalMainStat(request.getLevel(), List.of()));
+        if (strengthItemContribution > 0.0d) {
+            stats.add(new ItemStat(ItemStatType.STRENGTH, strengthItemContribution));
         }
         if (request.getThorns() > 0.0d) {
             stats.add(new ItemStat(ItemStatType.THORNS, request.getThorns()));
@@ -56,11 +60,12 @@ public final class CurrentBuildSnapshotFactory {
         return stats;
     }
 
-    private static List<ItemStat> buildChestStats(CurrentBuildRequest request) {
-        if (request.getIntelligence() <= 0.0d) {
+    private static List<ItemStat> buildChestStats(CurrentBuildRequest request, HeroClassDef heroClassDef) {
+        double intelligenceItemContribution = effectiveTotalToItemContribution(request.getIntelligence(), heroClassDef.resolveTotalIntelligence(request.getLevel(), List.of()));
+        if (intelligenceItemContribution <= 0.0d) {
             return List.of();
         }
-        return List.of(new ItemStat(ItemStatType.INTELLIGENCE, request.getIntelligence()));
+        return List.of(new ItemStat(ItemStatType.INTELLIGENCE, intelligenceItemContribution));
     }
 
     private static List<ItemStat> buildRingStats(CurrentBuildRequest request) {
@@ -68,5 +73,9 @@ public final class CurrentBuildSnapshotFactory {
             return List.of();
         }
         return List.of(new ItemStat(ItemStatType.RETRIBUTION_CHANCE, request.getRetributionChance()));
+    }
+
+    private static double effectiveTotalToItemContribution(double effectiveTotal, double baseline) {
+        return Math.max(0.0d, effectiveTotal - baseline);
     }
 }

@@ -218,7 +218,7 @@ class DamageRankingServiceTest {
     }
 
     @Test
-    void legacy_non_damage_nie_trafia_do_legacy_rankingu_obrazen() {
+    void clash_po_podlaczeniu_bazowego_damage_trafia_do_legacy_rankingu_obrazen() {
         HeroBuildSnapshot snapshot = SampleBuildFactory.createReferenceCurrentBuild(List.of(
                 new SkillState(SkillId.CLASH, 5, true, SkillUpgradeChoice.LEFT),
                 new SkillState(SkillId.BRANDISH, 5, false, SkillUpgradeChoice.NONE)
@@ -229,12 +229,12 @@ class DamageRankingServiceTest {
                 .map(PaladinSkillDamageRankingEntry::getSkillId)
                 .collect(Collectors.toSet());
 
-        assertFalse(rankedSkillIds.contains(SkillId.CLASH.name()));
+        assertTrue(rankedSkillIds.contains(SkillId.CLASH.name()));
         PaladinSkillDamageRankingEntry clashDescription = service.describeLegacyConfiguredFoundationSkills(snapshot).stream()
                 .filter(entry -> entry.getSkillId().equals(SkillId.CLASH.name()))
                 .findFirst()
                 .orElseThrow();
-        assertEquals(PaladinSkillDamageVerificationStatus.NON_DAMAGE, clashDescription.getVerificationStatus());
+        assertEquals(PaladinSkillDamageVerificationStatus.SUPPORTED, clashDescription.getVerificationStatus());
     }
 
     @Test

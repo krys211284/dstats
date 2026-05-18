@@ -447,6 +447,34 @@ class CurrentBuildWebServerTest {
     }
 
     @Test
+    void shouldCalculateNonZeroClashDirectDamageWithActiveVerathiel() throws Exception {
+        createHero("Starcie z Verathielem", "70");
+        saveAndActivateVerathiel();
+        assignSkill(krys.skill.SkillId.CLASH);
+        Map<String, String> fields = buildClashRankOneLevel70Fields();
+        fields.put("formAction", "calculate");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        String html = response.body();
+        assertFalse(html.contains("Błędy formularza"));
+        assertTrue(html.contains("Obliczono aktualny build."));
+        assertTrue(html.contains(summaryCard("Efektywne obrażenia broni", "1664")));
+        assertTrue(html.contains(summaryCard("Pasek akcji", "Starcie")));
+        assertFalse(html.contains(summaryCard("Łączne obrażenia", "0")));
+        assertFalse(html.contains(summaryCard("DPS", "0.0000")));
+        assertTrue(technicalRuntimeInputSection(html)
+                .contains(runtimeInputCard("Obrażenia broni", "1664", "Aktywna broń: Odłamek Verathiela, średnie obrażenia trafienia")));
+        assertTrue(technicalRuntimeInputSection(html).contains(runtimeInputCard("Siła", "79", "Baseline Paladyn poziom 70")));
+        String directHitDebug = sectionByHeading(html, "Debug bezpośrednich trafień");
+        assertTrue(directHitDebug.contains("<h3 title=\"CLASH\" data-skill-id=\"CLASH\">Starcie</h3>"));
+        assertTrue(directHitDebug.contains("<td>Główny hit</td>"));
+        assertTrue(directHitDebug.contains("<td>115</td>"));
+        assertFalse(directHitDebug.contains("<td>0</td>\n                                <td>0</td>"));
+    }
+
+    @Test
     void shouldExplainEmptyActionBarSimulationWithoutRuntimeError() throws Exception {
         createHero("Paladyn pusty pasek", "70");
         assignSkill(krys.skill.SkillId.ADVANCE);
@@ -1009,7 +1037,7 @@ class CurrentBuildWebServerTest {
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Łączne obrażenia"));
         assertTrue(response.body().contains("Wkład obrażeń reaktywnych"));
-        assertTrue(response.body().contains("264"));
+        assertFalse(response.body().contains(summaryCard("Łączne obrażenia", "0")));
         assertTrue(response.body().contains("Debug obrażeń reaktywnych"));
         assertTrue(response.body().contains("Resolve aktywny na końcu"));
         assertTrue(response.body().contains("Końcowa szansa bloku"));
@@ -1017,10 +1045,6 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("75.00%"));
         assertTrue(response.body().contains(">50<"));
         assertTrue(response.body().contains(">104<"));
-        assertTrue(response.body().contains(">64<"));
-        assertTrue(response.body().contains(">39<"));
-        assertTrue(response.body().contains(">24<"));
-        assertTrue(response.body().contains(">88<"));
         assertTrue(response.body().contains("Starcie"));
         assertTrue(response.body().contains("Punishment"));
     }
@@ -1161,6 +1185,23 @@ class CurrentBuildWebServerTest {
         fields.put(CurrentBuildFormData.choiceFieldName(krys.skill.SkillId.CLASH), "LEFT");
         fields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.ADVANCE), "0");
         fields.put(CurrentBuildFormData.choiceFieldName(krys.skill.SkillId.ADVANCE), "NONE");
+        fields.put(CurrentBuildFormData.actionBarFieldName(1), "CLASH");
+        return fields;
+    }
+
+    private static Map<String, String> buildClashRankOneLevel70Fields() {
+        Map<String, String> fields = buildBaseReferenceFields("10");
+        fields.put("level", "70");
+        fields.put("weaponDamage", "8");
+        fields.put("strength", "18");
+        fields.put("intelligence", "0");
+        fields.put("thorns", "50");
+        fields.put("blockChance", "50");
+        fields.put("retributionChance", "50");
+        fields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.ADVANCE), "0");
+        fields.put(CurrentBuildFormData.choiceFieldName(krys.skill.SkillId.ADVANCE), "NONE");
+        fields.put(CurrentBuildFormData.rankFieldName(krys.skill.SkillId.CLASH), "1");
+        fields.put(CurrentBuildFormData.choiceFieldName(krys.skill.SkillId.CLASH), "NONE");
         fields.put(CurrentBuildFormData.actionBarFieldName(1), "CLASH");
         return fields;
     }

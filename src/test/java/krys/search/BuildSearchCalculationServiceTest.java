@@ -47,7 +47,7 @@ class BuildSearchCalculationServiceTest {
         assertEquals(3, result.getNormalizedResultCount());
         assertEquals(3, result.getTopResults().size());
         assertEquals("Advance", result.getTopResults().get(0).getCandidate().getActionBarDescription());
-        assertEquals(315L, result.getTopResults().get(0).getSimulationResult().getTotalDamage());
+        assertEquals(306L, result.getTopResults().get(0).getSimulationResult().getTotalDamage());
         assertEquals("Wave Dash", result.getTopResults().get(0).getCandidate().getLearnedSkillsDescription().split("choice=")[1]);
         assertEquals("Advance", result.getTopResults().get(1).getCandidate().getActionBarDescription());
         assertEquals(135L, result.getTopResults().get(1).getSimulationResult().getTotalDamage());
@@ -73,8 +73,8 @@ class BuildSearchCalculationServiceTest {
         assertTrue(result.getNormalizedResultCount() < result.getEvaluatedCandidateCount());
         assertEquals(Math.min(request.getTopResultsLimit(), result.getNormalizedResultCount()), result.getTopResults().size());
         assertEquals("Advance -> Clash", result.getTopResults().get(0).getCandidate().getActionBarDescription());
-        assertEquals(439L, result.getTopResults().get(0).getSimulationResult().getTotalDamage());
-        assertEquals(48.77777777777778d, result.getTopResults().get(0).getSimulationResult().getDps(), 0.0000000001d);
+        assertEquals(499L, result.getTopResults().get(0).getSimulationResult().getTotalDamage());
+        assertEquals(55.44444444444444d, result.getTopResults().get(0).getSimulationResult().getDps(), 0.0000000001d);
     }
 
     @Test
