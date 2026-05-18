@@ -1,16 +1,16 @@
-# Snapshot realnego outputu Windows OCR dla src/test/resources/items/tarcza.png.
-# Fixture opisuje obecny kontrakt importu tarczy po ręcznym teście UI.
+# Snapshot-only regresja OCR dla tarczy Kościanych Łusek.
+# Ten plik nie twierdzi, że pochodzi z src/test/resources/items/tarcza.png.
 ---original---
-MIAZDZACA TARCZA KOSCIANYCH LUSEK
+mŁAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK
 Starożytna legendarna tarcza
 Moc przedmiotu: 900
 1 202 pkt. pancerza
-20,0% szansy na blok [20,0]%
-+100% obrażeń od broni w głównej ręce [100]%
+20,0% szansy na blok
++100% obrażeń od broni w głównej ręce [1001
 * +225 siły
 * +490 do odporności na wszystkie żywioły
 * +787 do odporności na: Ogień
-11,4% redukcji obrażeń [11,0 - 15,0]
+11,4% redukcji obrażeń [11 - 0]
 Gdy masz umocnienie, zadajesz obrażenia zwiększone o 610[x] [45 - 65]%. 70 poziomu
 ---text-crop---
 MIAŻDŻĄCA TARCZA
@@ -18,8 +18,8 @@ KOŚCIANYCH ŁUSEK
 Starożytna legendarna tarcza
 Moc przedmiotu: 900
 Pancerz: 1 202 pkt.
-20,0% szansy na blok [20,0]%
-+100% obrażeń od broni w głównej ręce [100]%
+20,0% szansy na blok
++100% obrażeń od broni w głównej ręce [100
 ---text-crop-gray-x2-contrast---
 * +225 siły
 * +490 do odporności na wszystkie żywioły
@@ -36,8 +36,8 @@ Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61 0[x] [45 - 65]%.
 MIAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK
 ---weapon-stats-crop-x4---
 1 202 pkt. pancerza
-20,0% szansy na blok [20,0]%
-+100% obrażeń od broni w głównej ręce [100]%
+20,0% szansy na blok
++100% obrażeń od broni w głównej ręce [1001
 ---weapon-stats-crop-gray-x4-contrast---
 Pancerz: 1 202 pkt.
 ---weapon-stats-crop-gray-x4-sharpen---

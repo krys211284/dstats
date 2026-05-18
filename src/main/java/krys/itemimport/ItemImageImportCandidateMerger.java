@@ -110,7 +110,7 @@ final class ItemImageImportCandidateMerger {
                         .toList()
         );
         return new FullItemRead(
-                itemName.isBlank() ? mergedRead.getItemName() : itemName,
+                chooseBetterItemName(itemName, mergedRead.getItemName()),
                 itemTypeLine.isBlank() ? mergedRead.getItemTypeLine() : itemTypeLine,
                 rarity.isBlank() ? mergedRead.getRarity() : rarity,
                 itemPower.isBlank() ? mergedRead.getItemPower() : itemPower,
@@ -149,6 +149,13 @@ final class ItemImageImportCandidateMerger {
     }
 
     private static String firstText(List<ItemImportDetails> details, DetailTextField field) {
+        if (field == DetailTextField.ITEM_NAME) {
+            String bestName = "";
+            for (ItemImportDetails detail : details) {
+                bestName = chooseBetterItemName(bestName, detail.getItemName());
+            }
+            return bestName;
+        }
         for (ItemImportDetails detail : details) {
             String value = switch (field) {
                 case ITEM_NAME -> detail.getItemName();
@@ -161,6 +168,54 @@ final class ItemImageImportCandidateMerger {
             }
         }
         return "";
+    }
+
+    private static String chooseBetterItemName(String current, String candidate) {
+        if (candidate == null || candidate.isBlank()) {
+            return current == null ? "" : current;
+        }
+        if (current == null || current.isBlank()) {
+            return candidate;
+        }
+        int candidateScore = itemNameQualityScore(candidate);
+        int currentScore = itemNameQualityScore(current);
+        if (candidateScore != currentScore) {
+            return candidateScore > currentScore ? candidate : current;
+        }
+        return candidate.length() > current.length() ? candidate : current;
+    }
+
+    private static int itemNameQualityScore(String value) {
+        String text = value == null ? "" : value;
+        int score = normalizeForDeduplication(text).replaceAll("[^A-Z0-9]", "").length();
+        if (text.matches(".*[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ].*")) {
+            score += 30;
+        }
+        if (text.equals(text.toUpperCase(Locale.ROOT))) {
+            score += 10;
+        }
+        if (hasSuspiciousMixedTitleCase(text)) {
+            score -= 80;
+        }
+        return score;
+    }
+
+    private static boolean hasSuspiciousMixedTitleCase(String value) {
+        String lettersOnly = value == null ? "" : value.replaceAll("[^\\p{L}]", "");
+        if (lettersOnly.length() < 5) {
+            return false;
+        }
+        int uppercase = 0;
+        int lowercase = 0;
+        for (int index = 0; index < lettersOnly.length(); index++) {
+            char character = lettersOnly.charAt(index);
+            if (Character.isUpperCase(character)) {
+                uppercase++;
+            } else if (Character.isLowerCase(character)) {
+                lowercase++;
+            }
+        }
+        return uppercase >= 4 && lowercase > 0 && uppercase > lowercase * 3;
     }
 
     private static boolean firstBoolean(List<ItemImportDetails> details, boolean fallback) {
@@ -262,8 +317,39 @@ final class ItemImageImportCandidateMerger {
     }
 
     private static int lineQualityScore(FullItemReadLine line) {
-        String text = line.getText();
+        String text = line.getText() == null ? "" : line.getText();
         int score = text.length();
+        String trimmedText = text == null ? "" : text.trim();
+        if (trimmedText.startsWith("*")
+                || trimmedText.startsWith("★")
+                || trimmedText.startsWith("⭐")
+                || trimmedText.startsWith("✦")
+                || trimmedText.startsWith("✧")
+                || trimmedText.startsWith("✱")
+                || trimmedText.startsWith("✳")
+                || trimmedText.startsWith("✴")
+                || trimmedText.startsWith("✵")
+                || trimmedText.startsWith("✶")
+                || trimmedText.startsWith("✷")
+                || trimmedText.startsWith("✸")
+                || trimmedText.startsWith("✹")
+                || trimmedText.startsWith("✺")
+                || trimmedText.startsWith("✻")
+                || trimmedText.startsWith("✼")
+                || trimmedText.startsWith("✽")
+                || trimmedText.startsWith("✾")
+                || trimmedText.startsWith("❋")
+                || trimmedText.startsWith("❂")
+                || trimmedText.startsWith("◆")
+                || trimmedText.startsWith("◇")
+                || trimmedText.startsWith("♦")
+                || trimmedText.startsWith("●")
+                || trimmedText.startsWith("•")) {
+            score += 300;
+        }
+        if (text.matches(".*[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ].*")) {
+            score += 50;
+        }
         if (text.contains("[") && text.contains("]")) {
             score += 20;
         }

@@ -119,23 +119,27 @@ final class ItemImageImportTextParser {
         String baseItemValue = "";
 
         for (String line : fullReadSourceLines) {
-            FullItemReadLineType type = classifyFullReadLine(line);
-            String collapsedLine = collapse(line);
-            readLines.add(new FullItemReadLine(type, line));
-            if (type == FullItemReadLineType.ITEM_NAME && itemName.isBlank()) {
-                itemName = line;
+            if (isLevelRequirementNoiseLine(line)) {
+                continue;
             }
-            if (itemTypeLine.isBlank() && isItemTypeLine(collapsedLine) && !isCrushingBoneScalesShieldNameLine(collapsedLine)) {
-                itemTypeLine = line;
+            FullItemReadLineType type = classifyFullReadLine(line);
+            String readLineText = normalizeFullReadLine(type, line);
+            String collapsedLine = collapse(line);
+            readLines.add(new FullItemReadLine(type, readLineText));
+            if (type == FullItemReadLineType.ITEM_NAME && itemName.isBlank()) {
+                itemName = readLineText;
+            }
+            if (itemTypeLine.isBlank() && isItemTypeLine(collapsedLine)) {
+                itemTypeLine = readLineText;
             }
             if (rarity.isBlank() && isRarityLine(collapsedLine)) {
-                rarity = line;
+                rarity = readLineText;
             }
             if (type == FullItemReadLineType.ITEM_POWER && itemPower.isBlank()) {
-                itemPower = line;
+                itemPower = readLineText;
             }
             if (type == FullItemReadLineType.BASE_STAT && baseItemValue.isBlank()) {
-                baseItemValue = line;
+                baseItemValue = readLineText;
             }
         }
         List<String> detailSourceLines = new ArrayList<>(lines);
@@ -143,7 +147,7 @@ final class ItemImageImportTextParser {
         ItemImportDetails details = detectItemDetails(detailSourceLines, itemName, itemTypeLine, rarity, itemPower, readLines);
         if (!details.getUniqueEffectText().isBlank()
                 && collapse(details.getUniqueEffectText()).contains("GDYMASZUMOCNIENIE")
-                && readLines.stream().map(FullItemReadLine::getText).noneMatch(text -> text.contains("61%[x]"))) {
+                && readLines.stream().map(FullItemReadLine::getText).noneMatch(text -> sameFortifyEffect(text, details.getUniqueEffectText()))) {
             readLines.add(new FullItemReadLine(FullItemReadLineType.ASPECT, details.getUniqueEffectText()));
         }
         return new FullItemRead(itemName, itemTypeLine, rarity, itemPower, baseItemValue, readLines, details);
@@ -188,7 +192,7 @@ final class ItemImageImportTextParser {
         if (!verathielName.equals(fallbackName)) {
             return verathielName;
         }
-        return detectCrushingBoneScalesShieldName(lines, fallbackName);
+        return detectStructuredItemName(lines).orElse(fallbackName);
     }
 
     private static String detectVerathielName(List<String> lines, String fallbackName) {
@@ -202,25 +206,176 @@ final class ItemImageImportTextParser {
         return fallbackName;
     }
 
-    private static String detectCrushingBoneScalesShieldName(List<String> lines, String fallbackName) {
-        String collapsed = collapse(String.join(" ", lines));
-        boolean shieldContext = collapsed.contains("TARCZA") || collapsed.contains("SHIELD");
-        boolean nameContext = collapsed.contains("MIAZDZACA")
-                && collapsed.contains("TARCZA")
-                && collapsed.contains("KOSCIANYCH")
-                && (collapsed.contains("LUSEK") || collapsed.contains("LUSEK"));
-        if (shieldContext && nameContext) {
-            return "Miażdżąca Tarcza Kościanych Łusek";
+    private static Optional<String> detectStructuredItemName(List<String> lines) {
+        StructuredNameCandidate bestCandidate = null;
+        for (int index = 0; index < lines.size(); index++) {
+            if (!isPotentialItemNameLine(lines.get(index))) {
+                continue;
+            }
+            if (isShortTitleFragment(lines.get(index))
+                    && index + 1 < lines.size()
+                    && isLikelyCompleteItemNameLine(lines.get(index + 1))) {
+                continue;
+            }
+            List<String> nameParts = new ArrayList<>();
+            for (int partIndex = index; partIndex < Math.min(lines.size(), index + 4); partIndex++) {
+                String part = lines.get(partIndex);
+                if (!isPotentialItemNameLine(part)) {
+                    break;
+                }
+                nameParts.add(part);
+                String joinedSoFar = String.join(" ", nameParts);
+                if (partIndex + 1 < lines.size()
+                        && (isNameBoundaryLine(lines.get(partIndex + 1)) || isLikelyCompleteItemNameLine(joinedSoFar))) {
+                    break;
+                }
+            }
+            String joined = String.join(" ", nameParts).replaceAll("\\s+", " ").trim();
+            if (joined.isBlank()) {
+                continue;
+            }
+            boolean followedByBoundary = index + nameParts.size() < lines.size() && isNameBoundaryLine(lines.get(index + nameParts.size()));
+            StructuredNameCandidate candidate = new StructuredNameCandidate(toUserFacingItemName(joined), nameCandidateScore(joined, followedByBoundary), index);
+            if (bestCandidate == null
+                    || candidate.score() > bestCandidate.score()
+                    || (candidate.score() == bestCandidate.score() && candidate.firstIndex() < bestCandidate.firstIndex())) {
+                bestCandidate = candidate;
+            }
         }
-        return fallbackName;
+        return bestCandidate == null ? Optional.empty() : Optional.of(bestCandidate.name());
     }
 
-    private static boolean isCrushingBoneScalesShieldNameLine(String collapsedLine) {
-        return collapsedLine != null
-                && collapsedLine.contains("TARCZA")
-                && (collapsedLine.contains("MIAZDZACA")
-                || collapsedLine.contains("KOSCIANYCH")
-                || collapsedLine.contains("LUSEK"));
+    private static boolean isPotentialItemNameLine(String line) {
+        if (line == null || line.isBlank()) {
+            return false;
+        }
+        String trimmed = line.trim();
+        String collapsedLine = collapse(trimmed);
+        if (collapsedLine.length() < 3 || isNameBoundaryLine(trimmed)) {
+            return false;
+        }
+        if (trimmed.startsWith("+")
+                || startsWithGreaterMarker(trimmed)) {
+            return false;
+        }
+        if (trimmed.matches(".*\\d.*")) {
+            return false;
+        }
+        String normalized = normalizeLineForPattern(trimmed);
+        return normalized.matches(".*[A-Z].*");
+    }
+
+    private static boolean isLikelyCompleteItemNameLine(String line) {
+        if (line == null) {
+            return false;
+        }
+        String lettersOnly = line.replaceAll("[^\\p{L}]", "");
+        String[] words = line.trim().split("\\s+");
+        return lettersOnly.length() >= 18 && words.length >= 3;
+    }
+
+    private static boolean isShortTitleFragment(String line) {
+        if (line == null) {
+            return false;
+        }
+        String trimmed = line.trim();
+        return trimmed.matches("\\p{L}+") && trimmed.length() < 12;
+    }
+
+    private static boolean isNameBoundaryLine(String line) {
+        String collapsedLine = collapse(line);
+        return collapsedLine.contains("MOCPRZEDMIOTU")
+                || collapsedLine.contains("MOCYPRZEDMIOTU")
+                || collapsedLine.contains("PANCERZ")
+                || collapsedLine.contains("OBRAZENNASEK")
+                || collapsedLine.contains("OBRAZENZATRAFIENIE")
+                || collapsedLine.contains("ATAKUNASEKUNDE")
+                || collapsedLine.contains("REDUKCJIBLOKOWANYCHOBRAZEN")
+                || collapsedLine.contains("SZANSYNABLOK")
+                || collapsedLine.contains("OBRAZENODBRONIWGLOWNEJRECE")
+                || collapsedLine.contains("ZADAJESZOBRAZENIA")
+                || collapsedLine.contains("GDYMASZUMOCNIENIE")
+                || collapsedLine.contains("GNIAZDO")
+                || isRarityLine(collapsedLine)
+                || isItemTypeLine(collapsedLine);
+    }
+
+    private static int nameCandidateScore(String name, boolean followedByBoundary) {
+        int score = collapse(name).length();
+        if (followedByBoundary) {
+            score += 100;
+        }
+        if (containsPolishDiacritics(name)) {
+            score += 30;
+        }
+        if (name.equals(name.toUpperCase(Locale.ROOT))) {
+            score += 40;
+        }
+        if (hasSuspiciousMixedTitleCase(name)) {
+            score -= 60;
+        }
+        return score;
+    }
+
+    private static boolean hasSuspiciousMixedTitleCase(String name) {
+        String lettersOnly = name == null ? "" : name.replaceAll("[^\\p{L}]", "");
+        if (lettersOnly.length() < 5) {
+            return false;
+        }
+        int uppercase = 0;
+        int lowercase = 0;
+        for (int index = 0; index < lettersOnly.length(); index++) {
+            char character = lettersOnly.charAt(index);
+            if (Character.isUpperCase(character)) {
+                uppercase++;
+            } else if (Character.isLowerCase(character)) {
+                lowercase++;
+            }
+        }
+        return uppercase >= 4 && lowercase > 0 && uppercase > lowercase * 3;
+    }
+
+    private static boolean containsPolishDiacritics(String text) {
+        return text != null && text.matches(".*[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ].*");
+    }
+
+    private static String toUserFacingItemName(String rawName) {
+        String value = repairTitleFirstWordOcr(rawName == null ? "" : rawName.replaceAll("\\s+", " ").trim());
+        if (value.isBlank()) {
+            return "";
+        }
+        String normalizedLetters = value.replaceAll("[^\\p{L}\\s'-]", "");
+        if (!normalizedLetters.isBlank()
+                && (normalizedLetters.equals(normalizedLetters.toUpperCase(Locale.ROOT))
+                || hasSuspiciousMixedTitleCase(value))) {
+            StringBuilder builder = new StringBuilder();
+            for (String word : value.toLowerCase(Locale.forLanguageTag("pl")).split("\\s+")) {
+                if (word.isBlank()) {
+                    continue;
+                }
+                if (!builder.isEmpty()) {
+                    builder.append(' ');
+                }
+                builder.append(word.substring(0, 1).toUpperCase(Locale.forLanguageTag("pl")));
+                if (word.length() > 1) {
+                    builder.append(word.substring(1));
+                }
+            }
+            return builder.toString();
+        }
+        return value;
+    }
+
+    private static String repairTitleFirstWordOcr(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        String[] parts = value.split("\\s+", 2);
+        String firstWordCollapsed = collapse(parts[0]);
+        if (firstWordCollapsed.equals("MLAZDZACA") || firstWordCollapsed.equals("MIAZDZACA")) {
+            return "MIAŻDŻĄCA" + (parts.length > 1 ? " " + parts[1] : "");
+        }
+        return value;
     }
 
     private static boolean isVerathielUniqueSwordContext(List<String> lines) {
@@ -467,6 +622,76 @@ final class ItemImageImportTextParser {
         return Optional.empty();
     }
 
+    private static String normalizeFullReadLine(FullItemReadLineType type, String line) {
+        return switch (type) {
+            case ASPECT -> normalizeFortifyLegendaryEffect(line).orElse(line);
+            case IMPLICIT -> normalizeShieldImplicitLine(line).orElse(line);
+            case AFFIX -> normalizeDamageReductionAffixLine(line).orElse(line);
+            default -> line;
+        };
+    }
+
+    private static boolean isLevelRequirementNoiseLine(String line) {
+        String collapsed = collapse(line);
+        return collapsed.matches("[0-9]+POZIOMU") || collapsed.matches("POZIOM[0-9]+");
+    }
+
+    private static Optional<String> normalizeShieldImplicitLine(String text) {
+        String collapsed = collapse(text);
+        if (collapsed.contains("OBRAZENODBRONIWGLOWNEJRECE")) {
+            Matcher matcher = Pattern.compile("\\+\\s*([0-9]+(?:[,.][0-9]+)?)\\s*%\\s+obrażeń\\s+od\\s+broni\\s+w\\s+głównej\\s+ręce",
+                    Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(text == null ? "" : text);
+            if (matcher.find()) {
+                String value = matcher.group(1).replace('.', ',');
+                return Optional.of("+" + value + "% obrażeń od broni w głównej ręce [" + value + "]%");
+            }
+        }
+        if (collapsed.contains("SZANSYNABLOK") || collapsed.contains("SZANSANABLOK")) {
+            Matcher matcher = Pattern.compile("([0-9]+(?:[,.][0-9]+)?)\\s*%\\s+szans[ay]\\s+na\\s+blok(?:\\s*\\[\\s*([0-9]+(?:[,.][0-9]+)?)\\s*]?\\s*%?)?",
+                    Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(text == null ? "" : text);
+            if (matcher.find()) {
+                String value = matcher.group(1).replace('.', ',');
+                String range = matcher.group(2) == null || matcher.group(2).isBlank()
+                        ? value
+                        : matcher.group(2).replace('.', ',');
+                return Optional.of(value + "% szansy na blok [" + range + "]%");
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<String> normalizeDamageReductionAffixLine(String text) {
+        String collapsed = collapse(text);
+        if (!collapsed.contains("REDUKCJIOBRAZEN")) {
+            return Optional.empty();
+        }
+        Matcher valueMatcher = Pattern.compile("([0-9]+(?:[,.][0-9]+)?)\\s*%\\s+redukcji\\s+obrażeń",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(text == null ? "" : text);
+        Matcher rangeMatcher = Pattern.compile("\\[\\s*([0-9]+[,.][0-9]+)\\s*[-–—−]\\s*([0-9]+[,.][0-9]+)\\s*]?",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(text == null ? "" : text);
+        if (!valueMatcher.find() || !rangeMatcher.find()) {
+            return Optional.empty();
+        }
+        String marker = startsWithGreaterMarker(text) ? text.trim().substring(0, 1) + " " : "";
+        return Optional.of(marker
+                + valueMatcher.group(1).replace('.', ',')
+                + "% redukcji obrażeń ["
+                + rangeMatcher.group(1).replace('.', ',')
+                + " - "
+                + rangeMatcher.group(2).replace('.', ',')
+                + "]");
+    }
+
+    private static boolean startsWithGreaterMarker(String text) {
+        String trimmed = text == null ? "" : text.trim();
+        for (String marker : List.of("*", "★", "⭐", "✦", "✧", "✱", "✳", "✴", "✵", "✶", "✷", "✸", "✹", "✺", "✻", "✼", "✽", "✾", "❋", "❂", "◆", "◇", "♦", "●", "•")) {
+            if (trimmed.startsWith(marker)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static String detectUniqueEffect(List<FullItemReadLine> readLines) {
         List<String> effectParts = new ArrayList<>();
         boolean collectingUniqueEffect = false;
@@ -494,9 +719,72 @@ final class ItemImageImportTextParser {
             return "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu.";
         }
         if (collapsed.contains("GDYMASZUMOCNIENIE") && collapsed.contains("ZADAJESZOBRAZENIAZWIEKSZONE")) {
-            return "Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.";
+            return normalizeFortifyLegendaryEffect(joined).orElse(joined);
         }
         return joined;
+    }
+
+    private static Optional<String> normalizeFortifyLegendaryEffect(String text) {
+        String normalized = normalizeLineForPatternKeepingPlus(text);
+        if (!collapse(normalized).contains("GDYMASZUMOCNIENIE")
+                || !collapse(normalized).contains("ZADAJESZOBRAZENIAZWIEKSZONE")) {
+            return Optional.empty();
+        }
+        Optional<RollRange> range = parseFortifyRollRange(normalized);
+        Optional<Integer> roll = parseFortifyRoll(normalized, range);
+        if (range.isEmpty() || roll.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of("Gdy masz umocnienie, zadajesz obrażenia zwiększone o "
+                + roll.get()
+                + "%[x] ["
+                + range.get().min()
+                + " - "
+                + range.get().max()
+                + "]%.");
+    }
+
+    private static Optional<RollRange> parseFortifyRollRange(String normalizedText) {
+        Matcher matcher = Pattern.compile("\\[\\s*([0-9OISBL]{1,3})\\s*[-–—−]\\s*([0-9OISBL]{1,3})\\s*]?\\s*%?").matcher(normalizedText);
+        while (matcher.find()) {
+            Optional<Long> min = parseLongToken(matcher.group(1));
+            Optional<Long> max = parseLongToken(matcher.group(2));
+            if (min.isPresent() && max.isPresent() && min.get() < max.get()) {
+                return Optional.of(new RollRange(min.get().intValue(), max.get().intValue()));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<Integer> parseFortifyRoll(String normalizedText, Optional<RollRange> range) {
+        Matcher matcher = Pattern.compile("ZWIEKSZONE\\s+O\\s+([0-9OISBL]+(?:\\s+[0-9OISBL]+)?)(?:\\s*%?\\s*\\[?\\s*X\\s*]?|\\s*%\\s*X)",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(normalizedText);
+        if (!matcher.find()) {
+            return Optional.empty();
+        }
+        String compactToken = matcher.group(1).replaceAll("\\s+", "");
+        Optional<Long> parsed = parseLongToken(compactToken);
+        if (parsed.isEmpty()) {
+            return Optional.empty();
+        }
+        int value = parsed.get().intValue();
+        if (range.isPresent() && !range.get().contains(value) && compactToken.length() > 1) {
+            for (int trimmedLength = compactToken.length() - 1; trimmedLength >= 1; trimmedLength--) {
+                Optional<Long> repaired = parseLongToken(compactToken.substring(0, trimmedLength));
+                if (repaired.isPresent() && range.get().contains(repaired.get().intValue())) {
+                    return Optional.of(repaired.get().intValue());
+                }
+            }
+        }
+        return Optional.of(value);
+    }
+
+    private static boolean sameFortifyEffect(String left, String right) {
+        Optional<String> leftNormalized = normalizeFortifyLegendaryEffect(left);
+        Optional<String> rightNormalized = normalizeFortifyLegendaryEffect(right);
+        return leftNormalized.isPresent()
+                && rightNormalized.isPresent()
+                && leftNormalized.get().equals(rightNormalized.get());
     }
 
     private static Optional<Long> parseLongToken(String rawToken) {
@@ -643,7 +931,11 @@ final class ItemImageImportTextParser {
         if (!collapsed.contains("GDYMASZUMOCNIENIE") || !collapsed.contains("ZADAJESZOBRAZENIAZWIEKSZONE")) {
             return;
         }
-        String value = "Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.";
+        Optional<String> normalizedEffect = normalizeFortifyLegendaryEffect(line);
+        if (normalizedEffect.isEmpty()) {
+            return;
+        }
+        String value = normalizedEffect.get();
         if (!target.contains(value)) {
             target.add(value);
         }
@@ -730,11 +1022,25 @@ final class ItemImageImportTextParser {
     }
 
     private static boolean isItemTypeLine(String collapsedLine) {
-        return containsAny(collapsedLine, List.of(
-                "MAINHAND", "OFFHAND", "CHEST", "RING", "BOOTS", "BUTY", "BUCIORY", "OBUWIE",
-                "SHIELD", "TARCZA", "SWORD", "AXE", "MACE", "HAMMER", "DAGGER", "WEAPON", "MIECZ",
-                "FOCUS", "ARMOR", "CHESTPLATE", "BREASTPLATE", "BAND"
-        ));
+        if (collapsedLine == null || collapsedLine.isBlank()) {
+            return false;
+        }
+        if (containsAny(collapsedLine, List.of("MAINHAND", "OFFHAND", "CHEST", "RING", "BOOTS", "BUTY", "BUCIORY", "OBUWIE", "FOCUS", "ARMOR", "CHESTPLATE", "BREASTPLATE", "BAND"))) {
+            return true;
+        }
+        if (containsAny(collapsedLine, List.of("STAROZYTNY", "STAROZYTNA", "UNIKATOWY", "UNIKATOWA", "LEGENDARNY", "LEGENDARNA", "RZADKI", "RZADKA", "MAGICZNY", "MAGICZNA", "ANCESTRAL", "UNIQUE", "LEGENDARY", "RARE", "MAGIC"))
+                && containsAny(collapsedLine, List.of("SHIELD", "TARCZA", "SWORD", "AXE", "MACE", "HAMMER", "DAGGER", "WEAPON", "MIECZ"))) {
+            return true;
+        }
+        return collapsedLine.equals("SHIELD")
+                || collapsedLine.equals("TARCZA")
+                || collapsedLine.equals("SWORD")
+                || collapsedLine.equals("AXE")
+                || collapsedLine.equals("MACE")
+                || collapsedLine.equals("HAMMER")
+                || collapsedLine.equals("DAGGER")
+                || collapsedLine.equals("WEAPON")
+                || collapsedLine.equals("MIECZ");
     }
 
     private static boolean isRarityLine(String collapsedLine) {
@@ -1046,5 +1352,14 @@ final class ItemImageImportTextParser {
     }
 
     private record DamageRange(Long min, Long max) {
+    }
+
+    private record RollRange(int min, int max) {
+        private boolean contains(int value) {
+            return value >= min && value <= max;
+        }
+    }
+
+    private record StructuredNameCandidate(String name, int score, int firstIndex) {
     }
 }

@@ -93,6 +93,126 @@ class ItemImageImportTextParserTest {
     }
 
     @Test
+    void shouldExtractMultilineShieldNameWithoutTreatingNameTarczaAsTypeLine() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                MIAŻDŻĄCA TARCZA
+                KOŚCIANYCH ŁUSEK
+                Starożytna legendarna tarcza
+                Moc przedmiotu: 900
+                Pancerz: 1 202 pkt.
+                """);
+
+        assertEquals("Miażdżąca Tarcza Kościanych Łusek", result.getFullItemRead().getDetails().getItemName());
+        assertEquals("Starożytna legendarna tarcza", result.getFullItemRead().getItemTypeLine());
+        assertEquals("Tarcza", result.getFullItemRead().getDetails().getItemType());
+        assertEquals(1202L, result.getFullItemRead().getDetails().getItemArmor());
+    }
+
+    @Test
+    void shouldPreferCleanerShieldNameCandidateOverSuspiciousMixedOcrTitle() {
+        ItemImageImportCandidateParseResult noisyVariant = parser.parse(metadata, """
+                mŁAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK
+                Starożytna legendarna tarcza
+                """);
+        ItemImageImportCandidateParseResult cleanVariant = parser.parse(metadata, """
+                MIAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK
+                Starożytna legendarna tarcza
+                """);
+
+        ItemImageImportCandidateParseResult merged = new ItemImageImportCandidateMerger().merge(
+                metadata,
+                2,
+                List.of(noisyVariant, cleanVariant)
+        );
+
+        assertEquals("Miażdżąca Tarcza Kościanych Łusek", merged.getFullItemRead().getDetails().getItemName());
+        assertFalse(merged.getFullItemRead().getDetails().getItemName().contains("mŁAŻ"));
+    }
+
+    @Test
+    void shouldNormalizeShieldBaselineLinesForUserFacingForm() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                Generyczna Tarcza
+                Legendarna tarcza
+                20,0% szansy na blok
+                +100% obrażeń od broni w głównej ręce [1001
+                """);
+
+        assertLineText(result, FullItemReadLineType.IMPLICIT, "20,0% szansy na blok [20,0]%");
+        assertLineText(result, FullItemReadLineType.IMPLICIT, "+100% obrażeń od broni w głównej ręce [100]%");
+        assertFalse(result.getFullItemRead().getLines().stream()
+                .map(FullItemReadLine::getText)
+                .anyMatch(line -> line.contains("[1001")));
+    }
+
+    @Test
+    void shouldExtractNestorskaEgidaAsNameNotAspectOrType() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU
+                Starożytna legendarna tarcza
+                Moc przedmiotu: 800
+                1 131 pkt. pancerza
+                Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%.
+                Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek.
+                """);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals("Nestorska Egida Wewnętrznego Spokoju", result.getFullItemRead().getDetails().getItemName());
+        assertEquals("Starożytna legendarna tarcza", result.getFullItemRead().getItemTypeLine());
+        assertEquals("inner-calm", form.getSelectedAspectId());
+        assertFalse(result.getFullItemRead().getLines().stream()
+                .filter(line -> line.getText().contains("NESTORSKA"))
+                .anyMatch(line -> line.getType() == FullItemReadLineType.ASPECT || line.getType() == FullItemReadLineType.TYPE_OR_SLOT));
+    }
+
+    @Test
+    void shouldPreserveGreaterAffixFromAnyOcrVariantWithoutFixtureName() {
+        ItemImageImportCandidateParseResult plainVariant = parser.parse(metadata, """
+                Generyczna Tarcza Testowa
+                Legendarna tarcza
+                +225 siły
+                """);
+        ItemImageImportCandidateParseResult starredVariant = parser.parse(metadata, """
+                Inna Tarcza Testowa
+                Legendarna tarcza
+                * +225 siły
+                """);
+
+        ItemImageImportCandidateParseResult merged = new ItemImageImportCandidateMerger().merge(
+                metadata,
+                2,
+                List.of(plainVariant, starredVariant)
+        );
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(merged);
+
+        assertEquals(1, form.getAffixes().size());
+        assertEquals(ImportedItemAffixType.STRENGTH, form.getAffixes().getFirst().getType());
+        assertTrue(form.getAffixes().getFirst().isGreaterAffix());
+    }
+
+    @Test
+    void shouldNotInferGreaterAffixWhenNoOcrVariantHasStarMarker() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                MIAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK
+                Starożytna legendarna tarcza
+                +225 siły
+                +490 do odporności na wszystkie żywioły
+                +787 do odporności na: Ogień
+                """);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(3, form.getAffixes().size());
+        assertTrue(form.getAffixes().stream().noneMatch(ImportedItemAffix::isGreaterAffix));
+    }
+
+    @Test
+    void shouldParseFortifyAspectRollGenericallyAndNeverSelectInnerCalm() {
+        assertFortifyAspectRoll("Gdy masz umocnienie, zadajesz obrażenia zwiększone o 58%[x] [45 - 65]%.", "58%[x]");
+        assertFortifyAspectRoll("Gdy masz umocnienie, zadajesz obrażenia zwiększone o 610[x] [45 - 65]%. 70 poziomu", "61%[x]");
+        assertFortifyAspectRoll("Gdy masz umocnienie, zadajesz obrażenia zwiększone o 550[x] [45 - 65]%. 70 poziomu", "55%[x]");
+    }
+
+    @Test
     void shouldRecognizeBootSlotWithoutHallucinatingUnsupportedAffixes() {
         String ocrText = """
                 Buty
@@ -358,6 +478,30 @@ class ItemImageImportTextParserTest {
             assertEquals(900L, result.getFullItemRead().getDetails().getItemPower(), text);
             assertFalse(Long.valueOf(1L).equals(result.getFullItemRead().getDetails().getItemPower()), text);
         }
+    }
+
+    private void assertFortifyAspectRoll(String aspectLine, String expectedRoll) {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                Generyczna Tarcza Próbna
+                Legendarna tarcza
+                %s
+                """.formatted(aspectLine));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals("fortify_damage_increased", form.getSelectedAspectId(), aspectLine);
+        assertFalse("inner-calm".equals(form.getSelectedAspectId()), aspectLine);
+        assertTrue(result.getFullItemRead().getDetails().getUniqueEffectText().contains(expectedRoll), aspectLine);
+        assertFalse(result.getFullItemRead().getDetails().getUniqueEffectText().contains("70 poziomu"), aspectLine);
+    }
+
+    private static void assertLineText(ItemImageImportCandidateParseResult result,
+                                       FullItemReadLineType type,
+                                       String expectedText) {
+        assertTrue(result.getFullItemRead().getLines().stream()
+                        .filter(line -> line.getType() == type)
+                        .map(FullItemReadLine::getText)
+                        .anyMatch(expectedText::equals),
+                "Brak znormalizowanej linii: " + expectedText);
     }
 
     static String verathielRawText() {

@@ -20,7 +20,7 @@ public final class ApplicationAspectRegistry {
             new AspectDefinition(
                     "fortify_damage_increased",
                     "Umocnienie: zwiększone obrażenia",
-                    "Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.",
+                    "Gdy masz umocnienie, zadajesz obrażenia zwiększone o X%[x] [45 - 65]%.",
                     AspectType.LEGENDARY,
                     AspectRuntimeStatus.DESCRIPTIVE_ONLY,
                     EnumSet.of(EquipmentSlot.OFF_HAND),

@@ -128,7 +128,7 @@ public final class ImportedItemAffix {
         if (rollRangeMin == null || rollRangeMax == null) {
             return "";
         }
-        return formatValue(rollRangeMin) + " - " + formatValue(rollRangeMax);
+        return formatRangeValue(rollRangeMin, type) + " - " + formatRangeValue(rollRangeMax, type);
     }
 
     public String toDisplayLine() {
@@ -168,5 +168,12 @@ public final class ImportedItemAffix {
             return String.format(java.util.Locale.US, "%.0f", value);
         }
         return String.format(java.util.Locale.US, "%.2f", value).replace('.', ',');
+    }
+
+    private static String formatRangeValue(double value, ImportedItemAffixType type) {
+        if (type == ImportedItemAffixType.DAMAGE_REDUCTION) {
+            return String.format(java.util.Locale.US, "%.1f", value).replace('.', ',');
+        }
+        return formatValue(value);
     }
 }

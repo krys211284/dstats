@@ -62,6 +62,29 @@ class ImportedItemAffixExtractorTest {
     }
 
     @Test
+    void shouldPreferCompleteDamageReductionRangeOverDamagedOcrRange() {
+        List<ImportedItemAffix> affixes = extractor.extractEditableAffixes(new FullItemRead(
+                "Generyczna Tarcza",
+                "Legendarna tarcza",
+                "LEGENDARY",
+                "Moc przedmiotu: 900",
+                "1 202 pkt. pancerza",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "11,4% redukcji obrażeń [11 - 0]"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "11,4% redukcji obrażeń [11,0 - 15,0]")
+                )
+        ));
+
+        assertEquals(1, affixes.size());
+        ImportedItemAffix affix = affixes.getFirst();
+        assertEquals(ImportedItemAffixType.DAMAGE_REDUCTION, affix.getType());
+        assertEquals(11.4d, affix.getValue());
+        assertEquals(11.0d, affix.getRollRangeMin());
+        assertEquals(15.0d, affix.getRollRangeMax());
+        assertEquals("11,0 - 15,0", affix.getRollRangeLabel());
+    }
+
+    @Test
     void shouldRepairVerathielLifeOnHitRangeFromDamagedOcrUsingCatalogContext() {
         for (String sourceLine : List.of(
                 "+545 pkt. zdrowia przy trafieniu [526 - 632]",

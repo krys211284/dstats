@@ -34,14 +34,13 @@ public final class ImportedItemAffixExtractor {
             return List.of();
         }
         boolean verathielContext = isVerathielContext(fullItemRead);
-        boolean crushingShieldContext = isCrushingBoneScalesShieldContext(fullItemRead);
         Map<String, ImportedItemAffix> affixes = new LinkedHashMap<>();
         int displayOrder = 0;
         for (FullItemReadLine line : fullItemRead.getLines()) {
             if (!isEditableAffixLine(line)) {
                 continue;
             }
-            for (ImportedItemAffix affix : extractAffixesFromLine(line, displayOrder, verathielContext, crushingShieldContext)) {
+            for (ImportedItemAffix affix : extractAffixesFromLine(line, displayOrder, verathielContext)) {
                 String key = editableAffixDeduplicationKey(affix);
                 ImportedItemAffix existing = affixes.get(key);
                 if (existing == null || affixQualityScore(affix) > affixQualityScore(existing)) {
@@ -67,12 +66,11 @@ public final class ImportedItemAffixExtractor {
 
     private List<ImportedItemAffix> extractAffixesFromLine(FullItemReadLine line,
                                                            int baseDisplayOrder,
-                                                           boolean verathielContext,
-                                                           boolean crushingShieldContext) {
+                                                           boolean verathielContext) {
         String text = line.getText();
         List<AffixRegistry.AffixTextMatch> matches = affixRegistry.findMatches(text);
         if (matches.isEmpty()) {
-            return fallbackExtract(text, baseDisplayOrder, verathielContext, crushingShieldContext);
+            return fallbackExtract(text, baseDisplayOrder, verathielContext);
         }
 
         List<AffixRegistry.AffixTextMatch> compactMatches = removeContainedMatches(matches);
@@ -84,7 +82,7 @@ public final class ImportedItemAffixExtractor {
                     ? findSegmentStart(text, compactMatches.get(index + 1).start())
                     : text.length();
             String segment = text.substring(Math.max(0, segmentStart), Math.max(segmentStart, segmentEnd)).trim();
-            buildAffix(match.definition(), segment, text, baseDisplayOrder + affixes.size(), verathielContext, crushingShieldContext).ifPresent(affixes::add);
+            buildAffix(match.definition(), segment, text, baseDisplayOrder + affixes.size(), verathielContext).ifPresent(affixes::add);
         }
         return affixes;
     }
@@ -114,8 +112,7 @@ public final class ImportedItemAffixExtractor {
 
     private List<ImportedItemAffix> fallbackExtract(String text,
                                                     int displayOrder,
-                                                    boolean verathielContext,
-                                                    boolean crushingShieldContext) {
+                                                    boolean verathielContext) {
         Optional<ImportedItemAffixType> type = ImportedItemAffixType.detectFromLine(text);
         Optional<Double> value = firstNumber(text);
         if (type.isEmpty() || value.isEmpty()) {
@@ -123,7 +120,7 @@ public final class ImportedItemAffixExtractor {
         }
         AffixDefinition definition = affixRegistry.findByType(type.get()).orElse(null);
         Optional<RollRange> rollRange = repairCatalogRollRange(definition, value.get(), text, parseRollRange(text), verathielContext);
-        boolean greaterAffix = isGreaterAffixLine(text) || isFixtureGreaterAffix(type.get(), value.get(), crushingShieldContext);
+        boolean greaterAffix = isGreaterAffixLine(text);
         return List.of(new ImportedItemAffix(
                 type.get(),
                 value.get(),
@@ -143,8 +140,7 @@ public final class ImportedItemAffixExtractor {
                                                           String segment,
                                                           String sourceLine,
                                                           int displayOrder,
-                                                          boolean verathielContext,
-                                                          boolean crushingShieldContext) {
+                                                          boolean verathielContext) {
         if (definition.getFormType() == ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE) {
             Optional<Double> chance = parseChancePercent(segment);
             Optional<Double> resource = parseResourceAmount(segment);
@@ -176,7 +172,7 @@ public final class ImportedItemAffixExtractor {
             return Optional.empty();
         }
         Optional<RollRange> rollRange = repairCatalogRollRange(definition, value.get(), segment, parseRollRange(segment), verathielContext);
-        boolean greaterAffix = isGreaterAffixLine(segment) || isFixtureGreaterAffix(definition.getFormType(), value.get(), crushingShieldContext);
+        boolean greaterAffix = isGreaterAffixLine(segment);
         return Optional.of(new ImportedItemAffix(
                 definition.getFormType(),
                 value.get(),
@@ -205,7 +201,28 @@ public final class ImportedItemAffixExtractor {
                     || previous == '%'
                     || previous == '★'
                     || previous == '⭐'
-                    || previous == '✦') {
+                    || previous == '✦'
+                    || previous == '✧'
+                    || previous == '✱'
+                    || previous == '✳'
+                    || previous == '✴'
+                    || previous == '✵'
+                    || previous == '✶'
+                    || previous == '✷'
+                    || previous == '✸'
+                    || previous == '✹'
+                    || previous == '✺'
+                    || previous == '✻'
+                    || previous == '✼'
+                    || previous == '✽'
+                    || previous == '✾'
+                    || previous == '❋'
+                    || previous == '❂'
+                    || previous == '◆'
+                    || previous == '◇'
+                    || previous == '♦'
+                    || previous == '●'
+                    || previous == '•') {
                 index--;
                 continue;
             }
@@ -238,7 +255,7 @@ public final class ImportedItemAffixExtractor {
         }
         Optional<Double> min = parseDouble(matcher.group(1));
         Optional<Double> max = parseDouble(matcher.group(2));
-        if (min.isEmpty() || max.isEmpty()) {
+        if (min.isEmpty() || max.isEmpty() || min.get() > max.get()) {
             return Optional.empty();
         }
         return Optional.of(new RollRange(min.get(), max.get()));
@@ -250,7 +267,7 @@ public final class ImportedItemAffixExtractor {
                                                               Optional<RollRange> parsedRange,
                                                               boolean verathielContext) {
         if (!verathielContext || definition == null || definition.getRollRangeMin() == null || definition.getRollRangeMax() == null) {
-            return parsedRange;
+            return repairDamageReductionRollRange(definition, value, sourceText, parsedRange);
         }
         if (definition.getCatalogValue() != null && Math.abs(definition.getCatalogValue() - value) > 0.0001d) {
             return parsedRange;
@@ -266,6 +283,33 @@ public final class ImportedItemAffixExtractor {
         if (parsedRange.isEmpty()
                 || Math.abs(parsedRange.get().min() - definition.getRollRangeMin()) > 0.0001d
                 || Math.abs(parsedRange.get().max() - definition.getRollRangeMax()) > 0.0001d) {
+            return Optional.of(new RollRange(definition.getRollRangeMin(), definition.getRollRangeMax()));
+        }
+        return parsedRange;
+    }
+
+    private static Optional<RollRange> repairDamageReductionRollRange(AffixDefinition definition,
+                                                                      double value,
+                                                                      String sourceText,
+                                                                      Optional<RollRange> parsedRange) {
+        if (definition == null
+                || definition.getFormType() != ImportedItemAffixType.DAMAGE_REDUCTION
+                || definition.getRollRangeMin() == null
+                || definition.getRollRangeMax() == null) {
+            return parsedRange;
+        }
+        if (parsedRange.isPresent()) {
+            return parsedRange;
+        }
+        String normalizedSource = normalize(sourceText);
+        boolean damageReductionLine = normalizedSource.contains("REDUKCJI OBRAZEN")
+                || normalizedSource.contains("REDUKCJA OBRAZEN")
+                || normalizedSource.contains("DAMAGE REDUCTION");
+        boolean damagedRangeFragment = normalizedSource.contains("[")
+                || containsNumber(normalizedSource, formatValue(definition.getRollRangeMin()).replace(",", "."))
+                || containsNumber(normalizedSource, formatValue(definition.getRollRangeMax()).replace(",", "."));
+        boolean valueInsideCatalogRange = value >= definition.getRollRangeMin() && value <= definition.getRollRangeMax();
+        if (damageReductionLine && damagedRangeFragment && valueInsideCatalogRange) {
             return Optional.of(new RollRange(definition.getRollRangeMin(), definition.getRollRangeMax()));
         }
         return parsedRange;
@@ -307,9 +351,7 @@ public final class ImportedItemAffixExtractor {
     private static String editableAffixDeduplicationKey(ImportedItemAffix affix) {
         return affix.getAffixDefinitionId()
                 + "|"
-                + normalizeValueForDeduplication(affix)
-                + "|"
-                + affix.isGreaterAffix();
+                + normalizeValueForDeduplication(affix);
     }
 
     private static String normalizeValueForDeduplication(ImportedItemAffix affix) {
@@ -321,8 +363,14 @@ public final class ImportedItemAffixExtractor {
 
     private int affixQualityScore(ImportedItemAffix affix) {
         int score = affix.getSourceText().length();
+        if (affix.isGreaterAffix()) {
+            score += 300;
+        }
         if (affix.getRollRangeMin() != null && affix.getRollRangeMax() != null) {
             score += 100;
+            if (hasDecimalRollRange(affix.getSourceText())) {
+                score += 40;
+            }
             AffixDefinition definition = affixRegistry.findById(affix.getAffixDefinitionId()).orElse(null);
             if (definition != null
                     && definition.getRollRangeMin() != null
@@ -338,12 +386,25 @@ public final class ImportedItemAffixExtractor {
         return score;
     }
 
+    private static boolean hasDecimalRollRange(String text) {
+        return Pattern.compile("\\[\\s*[0-9]+[,.][0-9]+\\s*[-–—−]\\s*[0-9]+[,.][0-9]+").matcher(text == null ? "" : text).find();
+    }
+
     private static boolean isGreaterAffixLine(String line) {
         String trimmedLine = line == null ? "" : line.trim();
-        return trimmedLine.startsWith("*")
-                || trimmedLine.startsWith("★")
-                || trimmedLine.startsWith("⭐")
-                || trimmedLine.startsWith("✦");
+        return startsWithGreaterMarker(trimmedLine);
+    }
+
+    private static boolean startsWithGreaterMarker(String trimmedLine) {
+        if (trimmedLine == null || trimmedLine.isBlank()) {
+            return false;
+        }
+        for (String marker : List.of("*", "★", "⭐", "✦", "✧", "✱", "✳", "✴", "✵", "✶", "✷", "✸", "✹", "✺", "✻", "✼", "✽", "✾", "❋", "❂", "◆", "◇", "♦", "●", "•")) {
+            if (trimmedLine.startsWith(marker)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static boolean hasRollRangeOrRangeFragment(String line) {
@@ -381,30 +442,6 @@ public final class ImportedItemAffixExtractor {
         return (collapsed.contains("VERATHEL") || collapsed.contains("VERATHIEL"))
                 && (collapsed.contains("MIECZ") || collapsed.contains("SWORD"))
                 && (collapsed.contains("UNIKAT") || collapsed.contains("UNIQUE"));
-    }
-
-    private static boolean isCrushingBoneScalesShieldContext(FullItemRead fullItemRead) {
-        String text = fullItemRead.getItemName() + " "
-                + fullItemRead.getItemTypeLine() + " "
-                + fullItemRead.getDetails().getItemName() + " "
-                + fullItemRead.getDetails().getItemType() + " "
-                + fullItemRead.getLines().stream()
-                .map(FullItemReadLine::getText)
-                .reduce("", (left, right) -> left + " " + right);
-        String collapsed = normalize(text).replaceAll("[^A-Z0-9]", "");
-        return collapsed.contains("MIAZDZACA")
-                && collapsed.contains("TARCZA")
-                && collapsed.contains("KOSCIANYCH")
-                && collapsed.contains("LUSEK");
-    }
-
-    private static boolean isFixtureGreaterAffix(ImportedItemAffixType type, double value, boolean crushingShieldContext) {
-        if (!crushingShieldContext) {
-            return false;
-        }
-        return (type == ImportedItemAffixType.STRENGTH && Math.abs(value - 225.0d) < 0.0001d)
-                || (type == ImportedItemAffixType.ALL_RESISTANCE && Math.abs(value - 490.0d) < 0.0001d)
-                || (type == ImportedItemAffixType.FIRE_RESISTANCE && Math.abs(value - 787.0d) < 0.0001d);
     }
 
     private static String formatValue(double value) {

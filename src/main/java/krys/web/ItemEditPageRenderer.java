@@ -633,7 +633,7 @@ final class ItemEditPageRenderer {
         if (Math.rint(value) == value) {
             return String.format(Locale.US, "%.0f", value);
         }
-        return String.format(Locale.US, "%.2f", value);
+        return String.format(Locale.US, "%.2f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
     }
 
     private static String emptyLabelForRollRange(String value) {

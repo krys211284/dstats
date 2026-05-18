@@ -138,7 +138,7 @@ public final class ItemImportPageRenderer {
                             <div class="manual-confirm-grid">
                 """)
                 .append(renderItemIdentityFields(form))
-                .append(renderSlotSelect(form.getSlot()))
+                .append(renderSlotSelect(form.getSlot(), isShield(form.getDetails())))
                 .append(renderRaritySelect(form.getItemRarity()))
                 .append(renderAncientCheckbox(form.isAncient()))
                 .append(renderNumberField("itemPower", "Moc przedmiotu", form.getItemPower(), "1"))
@@ -224,7 +224,7 @@ public final class ItemImportPageRenderer {
                 .append(renderItemHeaderField("Typ", emptyLabel(firstNonBlank(details.getItemType(), simplifyItemType(fullItemRead.getItemTypeLine())))))
                 .append(renderItemHeaderField("Rzadkość", simplifyRarity(firstNonBlank(details.getItemRarity(), fullItemRead.getRarity()))))
                 .append(renderItemHeaderField("Ancient", details.isAncient() ? "true" : "false"))
-                .append(renderItemHeaderField("Slot", details.getEquipmentSlot() == null ? "Brak pewnego odczytu" : ItemLibraryPresentationSupport.slotDisplayName(details.getEquipmentSlot())))
+                .append(renderItemHeaderField("Slot", slotDisplayName(details)))
                 .append(renderItemHeaderField("Moc przedmiotu", details.getItemPower() == null ? simplifyItemPower(fullItemRead.getItemPower()) : Long.toString(details.getItemPower())))
                 .append(renderItemTypeSummaryFields(details))
                 .append(renderBaseValueHeader(fullItemRead))
@@ -233,7 +233,7 @@ public final class ItemImportPageRenderer {
                     <div class="item-read-groups">
                         <h4>Pełny zapis itemu</h4>
                     """)
-                .append(renderLineGroup("Linie bazowe / implicit", groupedLines(fullItemRead, ItemReadLineGroup.IMPLICIT)))
+                .append(renderLineGroup("Linie bazowe", groupedLines(fullItemRead, ItemReadLineGroup.IMPLICIT)))
                 .append(renderLineGroup("Dodatkowe / sezonowe linie", groupedLines(fullItemRead, ItemReadLineGroup.OTHER)))
                 .append(renderLineGroup("Socket / gniazdo", groupedLines(fullItemRead, ItemReadLineGroup.SOCKET)))
                 .append("</div>")
@@ -256,7 +256,8 @@ public final class ItemImportPageRenderer {
         }
         if (fullItemRead.getDetails().getWeaponDps() != null
                 || fullItemRead.getDetails().getWeaponDamageMin() != null
-                || fullItemRead.getDetails().getWeaponDamageMax() != null) {
+                || fullItemRead.getDetails().getWeaponDamageMax() != null
+                || fullItemRead.getDetails().getItemArmor() != null) {
             return "";
         }
         return renderItemHeaderField(baseValueLabel(fullItemRead.getBaseItemValue()), simplifyBaseValue(fullItemRead.getBaseItemValue()));
@@ -773,7 +774,7 @@ public final class ItemImportPageRenderer {
                     <legend>Dane tarczy</legend>
                     %s
                     <section class="item-line-group">
-                        <h5>Linie bazowe / implicity</h5>
+                        <h5>Linie bazowe</h5>
                         <ul class="item-line-list">%s</ul>
                     </section>
                 </fieldset>
@@ -838,6 +839,16 @@ public final class ItemImportPageRenderer {
                 || details.getAttacksPerSecond() != null;
     }
 
+    private static String slotDisplayName(ItemImportDetails details) {
+        if (details == null || details.getEquipmentSlot() == null) {
+            return "Brak pewnego odczytu";
+        }
+        if (isShield(details)) {
+            return "Tarcza";
+        }
+        return ItemLibraryPresentationSupport.slotDisplayName(details.getEquipmentSlot());
+    }
+
     private static String renderAffixTypeOptions(ImportedItemAffixType selectedType) {
         StringBuilder html = new StringBuilder();
         for (AffixDefinition definition : AFFIX_REGISTRY.all()) {
@@ -869,7 +880,7 @@ public final class ItemImportPageRenderer {
                 + escapeHtml(candidate.getConfidence().getDisplayName()) + "</td><td>" + escapeHtml(note) + "</td></tr>";
     }
 
-    private static String renderSlotSelect(String selectedSlot) {
+    private static String renderSlotSelect(String selectedSlot, boolean shieldContext) {
         StringBuilder html = new StringBuilder("""
                 <label>
                     Slot ekwipunku
@@ -877,7 +888,10 @@ public final class ItemImportPageRenderer {
                 """);
         html.append(renderSlotOption("", "Wybierz slot", selectedSlot == null || selectedSlot.isBlank()));
         for (EquipmentSlot slot : EquipmentSlot.values()) {
-            html.append(renderSlotOption(slot.name(), ItemLibraryPresentationSupport.slotDisplayName(slot), slot.name().equals(selectedSlot)));
+            String label = shieldContext && slot == EquipmentSlot.OFF_HAND
+                    ? "Tarcza"
+                    : ItemLibraryPresentationSupport.slotDisplayName(slot);
+            html.append(renderSlotOption(slot.name(), label, slot.name().equals(selectedSlot)));
         }
         html.append("""
                     </select>
@@ -971,7 +985,7 @@ public final class ItemImportPageRenderer {
         if (Math.rint(value) == value) {
             return String.format(Locale.US, "%.0f", value);
         }
-        return String.format(Locale.US, "%.2f", value);
+        return String.format(Locale.US, "%.2f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
     }
 
     private static String projectedAffixValue(ItemImportEditableForm form, ImportedItemAffixType type, String fallbackValue) {

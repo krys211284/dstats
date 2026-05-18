@@ -320,7 +320,7 @@ public final class ItemLibraryPageRenderer {
         html.append(renderMeta("Identyfikator", item.getDisplayName()))
                 .append("</div></section>")
                 .append(renderTextLineGroup("Base stats", baseStats))
-                .append(renderTextLineGroup("Implicit / linie bazowe", implicitLines))
+                .append(renderTextLineGroup("Linie bazowe", implicitLines))
                 .append(renderTextLineGroup("Affixy", affixLines))
                 .append(renderAspectDetails(item))
                 .append(renderTextLineGroup("Socket / gniazdo", socketLines))

@@ -298,7 +298,7 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("<div class=\"summary-label\">Pancerz</div>"));
         assertTrue(response.body().contains("<div class=\"summary-value\">1 131</div>"));
         assertTrue(response.body().contains("Pełny zapis itemu"));
-        assertTrue(response.body().contains("Linie bazowe / implicit"));
+        assertTrue(response.body().contains("Linie bazowe"));
         assertTrue(response.body().contains("45% redukcji blokowanych obrażeń [45]%"));
         assertTrue(response.body().contains("20,0% szansy na blok [20,01]%"));
         assertTrue(response.body().contains("+100% obrażeń od broni w głównej ręce [100]%"));
@@ -314,7 +314,7 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("Rozjuszenie: +8%"));
         assertTrue(response.body().contains("Socket / gniazdo"));
         assertTrue(response.body().contains("Puste gniazdo"));
-        assertTrue(response.body().indexOf("Linie bazowe / implicit") < response.body().indexOf("Dodatkowe / sezonowe linie"));
+        assertTrue(response.body().indexOf("Linie bazowe") < response.body().indexOf("Dodatkowe / sezonowe linie"));
         assertTrue(response.body().indexOf("Dodatkowe / sezonowe linie") < response.body().indexOf("Socket / gniazdo"));
         assertFalse(response.body().contains("Szczegóły techniczne OCR"));
         assertFalse(response.body().contains("Typ linii"));

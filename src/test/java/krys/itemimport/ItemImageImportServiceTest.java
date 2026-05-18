@@ -43,9 +43,9 @@ class ItemImageImportServiceTest {
             "Pancerz: 1 202 pkt.",
             "20,0% szansy na blok [20,0]%",
             "+100% obrażeń od broni w głównej ręce [100]%",
-            "+225 siły",
-            "+490 do odporności na wszystkie żywioły",
-            "+787 do odporności na: Ogień",
+            "* +225 siły",
+            "* +490 do odporności na wszystkie żywioły",
+            "* +787 do odporności na: Ogień",
             "11,4% redukcji obrażeń [11,0 - 15,0]",
             "61%[x]"
     );
@@ -94,33 +94,36 @@ class ItemImageImportServiceTest {
     }
 
     @Test
-    void shouldMapShieldFixtureFromCapturedRealOcrSnapshotWithoutHeaderNumberLeak() throws Exception {
-        byte[] imageBytes = Files.readAllBytes(Path.of("src/test/resources/items/tarcza.png"));
+    void shouldMapKoscianychLusekShieldFromSnapshotOnlyWithoutClaimingTarczaPngFixture() throws Exception {
+        byte[] imageBytes = buildShieldLikeScreenshot();
         ItemImageImportService service = new ItemImageImportService(
                 new ItemImageOcrPreprocessor(),
-                new CapturedOcrSnapshotReader(Path.of("src/test/resources/items/tarcza-windows-ocr-snapshot.txt")),
+                new CapturedOcrSnapshotReader(Path.of("src/test/resources/items/tarcza-koscianych-lusek-ocr-snapshot.txt")),
                 new ItemImageImportTextParser(),
                 new ItemImageImportCandidateMerger()
         );
 
         ItemImageImportCandidateParseResult result = service.analyze(
-                new ItemImageImportRequest("tarcza.png", "image/png", imageBytes)
+                new ItemImageImportRequest("tarcza-koscianych-lusek-snapshot.png", "image/png", imageBytes)
         );
 
-        assertEquals("tarcza.png", result.getImageMetadata().getOriginalFilename());
+        assertEquals("tarcza-koscianych-lusek-snapshot.png", result.getImageMetadata().getOriginalFilename());
         assertShieldFoundationMapping(result);
         assertNull(result.getWeaponDamageCandidate().getSuggestedValue());
         assertHeaderAndUnrelatedNumbersDoNotLeakToShieldFoundationCandidates(result);
         assertEquals("Miażdżąca Tarcza Kościanych Łusek", result.getFullItemRead().getDetails().getItemName());
         assertEquals(1202L, result.getFullItemRead().getDetails().getItemArmor());
         assertFullReadContains(result, "Moc przedmiotu: 900");
-        assertFullReadContains(result, "20,0% szansy na blok");
-        assertFullReadContains(result, "+100% obrażeń od broni w głównej ręce");
+        assertFullReadContains(result, "20,0% szansy na blok [20,0]%");
+        assertFullReadContains(result, "+100% obrażeń od broni w głównej ręce [100]%");
         assertFullReadContains(result, "+225 siły");
         assertFullReadContains(result, "+490 do odporności na wszystkie żywioły");
         assertFullReadContains(result, "+787 do odporności na: Ogień");
         assertFullReadContains(result, "11,4% redukcji obrażeń");
         assertFullReadContains(result, "61%[x]");
+        assertFullReadDoesNotContain(result, "[1001");
+        assertFullReadDoesNotContain(result, "610[x]");
+        assertFullReadDoesNotContain(result, "70 poziomu");
 
         ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
         assertEquals("fortify_damage_increased", form.getOcrSuggestedAspectId());
@@ -139,9 +142,13 @@ class ItemImageImportServiceTest {
         assertTrue(html.contains("LEGENDARY / Legendarny"));
         assertTrue(html.contains("name=\"itemPower\" value=\"900\""));
         assertTrue(html.contains("name=\"itemArmor\" value=\"1202\""));
+        assertEquals(1, countOccurrences(html, "<div class=\"summary-label\">Pancerz</div>"));
         assertTrue(html.contains("Dane tarczy"));
-        assertTrue(html.contains("20,0% szansy na blok"));
-        assertTrue(html.contains("+100% obrażeń od broni w głównej ręce"));
+        assertTrue(html.contains("Linie bazowe"));
+        assertFalse(html.contains("Linie bazowe / implicit"));
+        assertFalse(html.contains("Linie bazowe / implicity"));
+        assertTrue(html.contains("20,0% szansy na blok [20,0]%"));
+        assertTrue(html.contains("+100% obrażeń od broni w głównej ręce [100]%"));
         assertTrue(html.contains("Odporność na wszystkie żywioły"));
         assertTrue(html.contains("Odporność na Ogień"));
         assertTrue(html.contains("Redukcja obrażeń"));
@@ -149,6 +156,11 @@ class ItemImageImportServiceTest {
         assertTrue(html.contains("Umocnienie: zwiększone obrażenia"));
         assertTrue(html.contains("61%[x]"));
         assertTrue(html.contains("45 - 65"));
+        assertTrue(html.contains("name=\"affixValue_"));
+        assertFalse(html.contains("11 - 0"));
+        assertFalse(html.contains("610[x]"));
+        assertFalse(html.contains("70 poziomu"));
+        assertEquals(3, countCheckedGreaterAffixes(html));
         assertFalse(html.contains("<legend>Dane broni</legend>"));
         assertFalse(html.contains("DPS broni"));
         assertFalse(html.contains("Obrażenia za trafienie min"));
@@ -184,8 +196,10 @@ class ItemImageImportServiceTest {
         ));
         assertTrue(libraryHtml.contains("Pancerz"));
         assertTrue(libraryHtml.contains("1202"));
-        assertTrue(libraryHtml.contains("20,0% szansy na blok"));
-        assertTrue(libraryHtml.contains("+100% obrażeń od broni w głównej ręce"));
+        assertTrue(libraryHtml.contains("Linie bazowe"));
+        assertFalse(libraryHtml.contains("Implicit / linie bazowe"));
+        assertTrue(libraryHtml.contains("20,0% szansy na blok [20,0]%"));
+        assertTrue(libraryHtml.contains("+100% obrażeń od broni w głównej ręce [100]%"));
         assertTrue(libraryHtml.contains("Umocnienie: zwiększone obrażenia"));
 
         assertExactlyOnePerLine(result, List.of(
@@ -206,6 +220,125 @@ class ItemImageImportServiceTest {
         assertAffixGreaterFlag(form, ImportedItemAffixType.ALL_RESISTANCE, true);
         assertAffixGreaterFlag(form, ImportedItemAffixType.FIRE_RESISTANCE, true);
         assertAffixGreaterFlag(form, ImportedItemAffixType.DAMAGE_REDUCTION, false);
+    }
+
+    @Test
+    void shouldRenderFinalShieldHtmlWithNormalizedAspectRangeAndGreaterAffixesFromFullFlow() throws Exception {
+        byte[] imageBytes = buildShieldLikeScreenshot();
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new FakeOcrTextReader(Map.of(
+                        "original", """
+                                MIAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK
+                                Starożytna legendarna tarcza
+                                Moc przedmiotu: 900
+                                1 202 pkt. pancerza
+                                20,0% szansy na blok
+                                +100% obrażeń od broni w głównej ręce [1001
+                                • +225 siły
+                                • +490 do odporności na wszystkie żywioły
+                                • +787 do odporności na: Ogień
+                                11,4% redukcji obrażeń [11 - 0]
+                                Gdy masz umocnienie, zadajesz obrażenia zwiększone o 610[x] [45 - 65]%. 70 poziomu
+                                """,
+                        "text-crop", "MIAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK\nStarożytna legendarna tarcza\nMoc przedmiotu: 900\nPancerz: 1 202 pkt.",
+                        "shield-affix-crop-gray-x4-sharpen", "• +225 siły\n• +490 do odporności na wszystkie żywioły\n• +787 do odporności na: Ogień\n11,4% redukcji obrażeń [11 - 0]",
+                        "shield-aspect-crop-gray-x4-sharpen", "Gdy masz umocnienie, zadajesz obrażenia zwiększone o 610[x] [45 - 65]%. 70 poziomu"
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(
+                new ItemImageImportRequest("tarcza-koscianych-lusek-ui.png", "image/png", imageBytes)
+        );
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                result,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "Import testowy",
+                ""
+        ));
+
+        assertTrue(html.contains("Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%."));
+        assertFalse(html.contains("610[x]"));
+        assertFalse(html.contains("70 poziomu"));
+        assertTrue(html.contains("Dane tarczy"));
+        assertFalse(html.contains("<legend>Dane broni</legend>"));
+        assertFalse(html.contains("DPS broni"));
+        assertFalse(html.contains("Ataki na sekundę"));
+        assertTrue(html.contains("+100% obrażeń od broni w głównej ręce [100]%"));
+        assertTrue(html.contains("20,0% szansy na blok [20,0]%"));
+        assertTrue(html.contains("<option value=\"OFF_HAND\" selected>Tarcza</option>"));
+
+        String strengthRow = affixRow(html, "Siła");
+        assertTrue(strengthRow.contains("value=\"225\""), strengthRow);
+        assertTrue(strengthRow.contains("value=\"true\" checked"), strengthRow);
+
+        String allResistanceRow = affixRow(html, "Odporność na wszystkie żywioły");
+        assertTrue(allResistanceRow.contains("value=\"490\""), allResistanceRow);
+        assertTrue(allResistanceRow.contains("value=\"true\" checked"), allResistanceRow);
+
+        String fireResistanceRow = affixRow(html, "Odporność na Ogień");
+        assertTrue(fireResistanceRow.contains("value=\"787\""), fireResistanceRow);
+        assertTrue(fireResistanceRow.contains("value=\"true\" checked"), fireResistanceRow);
+
+        String damageReductionRow = affixRow(html, "Redukcja obrażeń");
+        assertTrue(damageReductionRow.contains("value=\"11.4\""), damageReductionRow);
+        assertTrue(damageReductionRow.contains("11,0 - 15,0"), damageReductionRow);
+        assertFalse(damageReductionRow.contains("Brak zakresu"), damageReductionRow);
+        assertFalse(damageReductionRow.contains("value=\"true\" checked"), damageReductionRow);
+    }
+
+    @Test
+    void shouldReadNestorskaEgidaShieldTextWithoutMappingItToKoscianychLusek() throws Exception {
+        byte[] imageBytes = Files.readAllBytes(Path.of("src/test/resources/items/tarcza.png"));
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new FakeOcrTextReader(Map.of(
+                        "original", """
+                                NESTORSKA
+                                EGIDA
+                                WEWNĘTRZNEGO
+                                SPOKOJU
+                                Starożytna legendarna
+                                tarcza
+                                Moc przedmiotu: 800
+                                1 131 pkt. pancerza
+                                45% redukcji blokowanych obrażeń [45]%
+                                20,0% szansy na blok [20,0]%
+                                +100% obrażeń od broni w głównej ręce [100]%
+                                +114 siły [107 - 121]
+                                +494 cierni [473 - 506]
+                                +7,0% szansy na szczęśliwy traf [7,0 - 8,0]%
+                                * 13,2% redukcji czasu odnowienia
+                                Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%.
+                                Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek.
+                                Puste gniazdo
+                                """,
+                        "text-crop", "NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU\nStarożytna legendarna tarcza\nMoc przedmiotu: 800\n1 131 pkt. pancerza",
+                        "bottom-effect-x4", "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%. Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(
+                new ItemImageImportRequest("tarcza.png", "image/png", imageBytes)
+        );
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals("tarcza.png", result.getImageMetadata().getOriginalFilename());
+        assertEquals("Nestorska Egida Wewnętrznego Spokoju", result.getFullItemRead().getDetails().getItemName());
+        assertEquals("Tarcza", result.getFullItemRead().getDetails().getItemType());
+        assertEquals(800L, result.getFullItemRead().getDetails().getItemPower());
+        assertEquals(1131L, result.getFullItemRead().getDetails().getItemArmor());
+        assertFalse(result.getFullItemRead().getDetails().getItemName().contains("Kościanych Łusek"));
+        assertEquals("inner-calm", form.getSelectedAspectId());
+        assertFalse("fortify_damage_increased".equals(form.getSelectedAspectId()));
     }
 
     @Test
@@ -280,7 +413,7 @@ class ItemImageImportServiceTest {
                 new FakeOcrTextReader(Map.of(
                         "original", String.join("\n", SHIELD_OCR_LINES_WITH_SEASONAL_NOISE),
                         "text-crop", "MIAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK\nStarożytna legendarna tarcza\nPancerz: 1 202 pkt.",
-                        "text-crop-gray-x2-contrast", "+225 siły\n+490 do odporności na wszystkie żywioły\n+787 do odporności na: Ogień",
+                        "text-crop-gray-x2-contrast", "* +225 siły\n* +490 do odporności na wszystkie żywioły\n* +787 do odporności na: Ogień",
                         "text-crop-gray-x3-threshold", "20,0% szansy na blok [20,0]%\n+100% obrażeń od broni w głównej ręce [100]%",
                         "text-crop-gray-x3-sharpen", "Moc przedmiotu: 900\n11,4% redukcji obrażeń [11,0 - 15,0]\nGdy masz umocnienie, zadajesz obrażenia zwiększone o 610[x] [45 - 65]%. 70 poziomu"
                 )),
@@ -407,6 +540,40 @@ class ItemImageImportServiceTest {
                         .map(FullItemReadLine::getText)
                         .anyMatch(line -> line.contains(forbiddenText)),
                 "Pełny odczyt itemu zawiera zakazany sklejony tekst: " + forbiddenText);
+    }
+
+    private static int countOccurrences(String text, String expectedText) {
+        int count = 0;
+        int index = 0;
+        while ((index = text.indexOf(expectedText, index)) >= 0) {
+            count++;
+            index += expectedText.length();
+        }
+        return count;
+    }
+
+    private static int countCheckedGreaterAffixes(String html) {
+        int checked = 0;
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("name=\\\"affixGreater_[0-9]+\\\" value=\\\"true\\\" checked")
+                .matcher(html);
+        while (matcher.find()) {
+            checked++;
+        }
+        return checked;
+    }
+
+    private static String affixRow(String html, String selectedAffixLabel) {
+        String marker = " selected>" + selectedAffixLabel + "</option>";
+        int markerIndex = html.indexOf(marker);
+        if (markerIndex >= 0) {
+            int rowStart = html.lastIndexOf("<tr", markerIndex);
+            int rowEnd = html.indexOf("</tr>", markerIndex);
+            if (rowStart >= 0 && rowEnd >= rowStart) {
+                return html.substring(rowStart, rowEnd + "</tr>".length());
+            }
+        }
+        throw new AssertionError("Brak wiersza affixu w finalnym HTML: " + selectedAffixLabel);
     }
 
     private static void assertExactlyOnePerLine(ItemImageImportCandidateParseResult result, List<String> expectedTexts) {
@@ -573,7 +740,7 @@ class ItemImageImportServiceTest {
         }
     }
 
-    /** Czytnik snapshotu realnego Windows OCR zebranego z tej samej ścieżki preprocessing co aplikacja. */
+    /** Czytnik zapisanego snapshotu OCR wariantów preprocessingowych. Konkretne testy określają, czy snapshot jest real-image, czy snapshot-only. */
     private static final class CapturedOcrSnapshotReader implements ItemImageOcrTextReader {
         private final Map<String, String> variantTexts;
 

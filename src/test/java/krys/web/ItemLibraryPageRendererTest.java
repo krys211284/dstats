@@ -87,7 +87,8 @@ class ItemLibraryPageRendererTest {
         assertTrue(html.contains("<a class=\"modal-close\" href=\"#biblioteka-lista\" aria-label=\"Zamknij szczegóły itemu\">×</a>"));
         assertTrue(html.contains("Dane podstawowe"));
         assertTrue(html.contains("Base stats"));
-        assertTrue(html.contains("Implicit / linie bazowe"));
+        assertTrue(html.contains("Linie bazowe"));
+        assertFalse(html.contains("Implicit / linie bazowe"));
         assertTrue(html.contains("Affixy"));
         assertTrue(html.contains("Aspekt / efekt"));
         assertFalse(html.contains("Aspekt / efekt legendarny"));
