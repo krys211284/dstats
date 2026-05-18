@@ -16,10 +16,14 @@ import java.util.Map;
 /** Mapuje surowe dane formularza M8 do aplikacyjnego requestu i zbiera błędy walidacji. */
 final class CurrentBuildFormMapper {
     MappingResult map(CurrentBuildFormData formData) {
+        return map(formData, true, true);
+    }
+
+    MappingResult map(CurrentBuildFormData formData, boolean hasActiveWeapon, boolean hasActiveShield) {
         List<String> errors = new ArrayList<>();
 
         Integer level = parseInt(formData.getLevel(), "Level bohatera", 1, errors);
-        Long weaponDamage = parseLong(formData.getWeaponDamage(), "Weapon damage", 1L, errors);
+        Long weaponDamage = parseLong(formData.getWeaponDamage(), "Weapon damage", 0L, errors);
         Double strength = parseDouble(formData.getStrength(), "Strength", 0.0d, errors);
         Double intelligence = parseDouble(formData.getIntelligence(), "Intelligence", 0.0d, errors);
         Double thorns = parseDouble(formData.getThorns(), "Thorns", 0.0d, errors);
@@ -48,6 +52,8 @@ final class CurrentBuildFormMapper {
                     thorns,
                     blockChance,
                     retributionChance,
+                    hasActiveWeapon,
+                    hasActiveShield,
                     learnedSkills,
                     actionBar,
                     horizonSeconds

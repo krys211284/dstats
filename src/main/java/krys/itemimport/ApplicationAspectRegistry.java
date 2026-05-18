@@ -18,6 +18,16 @@ public final class ApplicationAspectRegistry {
                     List.of("legendary", "damage")
             ),
             new AspectDefinition(
+                    "fortify_damage_increased",
+                    "Umocnienie: zwiększone obrażenia",
+                    "Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.",
+                    AspectType.LEGENDARY,
+                    AspectRuntimeStatus.DESCRIPTIVE_ONLY,
+                    EnumSet.of(EquipmentSlot.OFF_HAND),
+                    EnumSet.of(HeroClass.PALADIN),
+                    List.of("legendary", "fortify", "damage", "descriptive-only")
+            ),
+            new AspectDefinition(
                     "verathiel_shard",
                     "Odłamek Verathiela",
                     "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu.",

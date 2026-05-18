@@ -59,6 +59,15 @@ final class ItemImageOcrPreprocessor {
                 cropBox.width(),
                 cropBox.height()
         ));
+        CropBox nameCropBox = topNameCrop(originalImage);
+        variants.add(new ItemImageOcrVariant(
+                "shield-name-crop-gray-x4-sharpen",
+                sharpen(adjustContrast(toGrayscale(upscale(crop(originalImage, nameCropBox), 4.0d)), 1.45f, 12.0f)),
+                nameCropBox.x(),
+                nameCropBox.y(),
+                nameCropBox.width(),
+                nameCropBox.height()
+        ));
         CropBox weaponStatsCropBox = weaponStatsCrop(originalImage);
         BufferedImage weaponStatsCrop = crop(originalImage, weaponStatsCropBox);
         variants.add(new ItemImageOcrVariant(
@@ -94,6 +103,24 @@ final class ItemImageOcrPreprocessor {
                 bottomEffectCropBox.y(),
                 bottomEffectCropBox.width(),
                 bottomEffectCropBox.height()
+        ));
+        CropBox shieldAffixCropBox = shieldAffixCrop(originalImage);
+        variants.add(new ItemImageOcrVariant(
+                "shield-affix-crop-gray-x4-sharpen",
+                sharpen(adjustContrast(toGrayscale(upscale(crop(originalImage, shieldAffixCropBox), 4.0d)), 1.45f, 12.0f)),
+                shieldAffixCropBox.x(),
+                shieldAffixCropBox.y(),
+                shieldAffixCropBox.width(),
+                shieldAffixCropBox.height()
+        ));
+        CropBox shieldAspectCropBox = shieldAspectCrop(originalImage);
+        variants.add(new ItemImageOcrVariant(
+                "shield-aspect-crop-gray-x4-sharpen",
+                sharpen(adjustContrast(toGrayscale(upscale(crop(originalImage, shieldAspectCropBox), 4.0d)), 1.45f, 12.0f)),
+                shieldAspectCropBox.x(),
+                shieldAspectCropBox.y(),
+                shieldAspectCropBox.width(),
+                shieldAspectCropBox.height()
         ));
         return List.copyOf(variants);
     }
@@ -177,6 +204,36 @@ final class ItemImageOcrPreprocessor {
         int right = clamp((int) Math.round(width * 0.96d), x + 1, width);
         int y = clamp((int) Math.round(height * 0.08d), 0, height - 1);
         int bottom = clamp((int) Math.round(height * 0.52d), y + 1, height);
+        return new CropBox(x, y, right - x, bottom - y);
+    }
+
+    private static CropBox topNameCrop(BufferedImage image) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        int x = clamp((int) Math.round(width * 0.03d), 0, width - 1);
+        int right = clamp((int) Math.round(width * 0.97d), x + 1, width);
+        int y = clamp((int) Math.round(height * 0.02d), 0, height - 1);
+        int bottom = clamp((int) Math.round(height * 0.20d), y + 1, height);
+        return new CropBox(x, y, right - x, bottom - y);
+    }
+
+    private static CropBox shieldAffixCrop(BufferedImage image) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        int x = clamp((int) Math.round(width * 0.04d), 0, width - 1);
+        int right = clamp((int) Math.round(width * 0.96d), x + 1, width);
+        int y = clamp((int) Math.round(height * 0.42d), 0, height - 1);
+        int bottom = clamp((int) Math.round(height * 0.78d), y + 1, height);
+        return new CropBox(x, y, right - x, bottom - y);
+    }
+
+    private static CropBox shieldAspectCrop(BufferedImage image) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        int x = clamp((int) Math.round(width * 0.04d), 0, width - 1);
+        int right = clamp((int) Math.round(width * 0.96d), x + 1, width);
+        int y = clamp((int) Math.round(height * 0.68d), 0, height - 1);
+        int bottom = clamp((int) Math.round(height * 0.92d), y + 1, height);
         return new CropBox(x, y, right - x, bottom - y);
     }
 

@@ -149,15 +149,16 @@ public final class CurrentBuildController implements HttpHandler {
         if (!errors.isEmpty() || resolution == null || resolution.getEffectiveStats() == null) {
             return null;
         }
-        if (resolution.getEffectiveStats().getWeaponDamage() <= 0L) {
-            return null;
-        }
 
         CurrentBuildFormData effectiveFormData = CurrentBuildFormQuerySupport.withAppliedStats(
                 formData,
                 resolution.getEffectiveStats()
         );
-        CurrentBuildFormMapper.MappingResult mappingResult = formMapper.map(effectiveFormData);
+        CurrentBuildFormMapper.MappingResult mappingResult = formMapper.map(
+                effectiveFormData,
+                hasActiveItemInSlot(resolution, HeroEquipmentSlot.MAIN_HAND),
+                hasActiveItemInSlot(resolution, HeroEquipmentSlot.OFF_HAND)
+        );
         errors.addAll(mappingResult.getErrors());
         if (!errors.isEmpty() || mappingResult.getRequest() == null) {
             return null;
@@ -322,6 +323,15 @@ public final class CurrentBuildController implements HttpHandler {
                 runtimeStats.getBlockChance(),
                 runtimeStats.getRetributionChance()
         );
+    }
+
+    private static boolean hasActiveItemInSlot(EffectiveCurrentBuildResolution resolution, HeroEquipmentSlot slot) {
+        for (var assignment : resolution.getActiveItems()) {
+            if (assignment.getHeroSlot() == slot) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String buildChoiceHelpText() {

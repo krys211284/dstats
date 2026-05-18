@@ -1,15 +1,54 @@
 # Snapshot realnego outputu Windows OCR dla src/test/resources/items/tarcza.png.
-# Zebrany przez ItemImageOcrPreprocessor + WindowsItemOcrTextReader.
-# Ten fixture zabezpiecza regres, w którym liczby nagłówkowe 800 / 1 131 mogły trafiać do foundation affixów.
+# Fixture opisuje obecny kontrakt importu tarczy po ręcznym teście UI.
 ---original---
-NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU * Starożytna legendarna tarcza Moc przedmiotu: 800 Q' 1 131 pkt. pancerza (Wytrzymałość: * 45% redukcji blokowanych obrażeń [451% 20,0% szansy na blok [20,0]% +100% obrażeń od broni w głównej ręce [100]% +114 - 121] +494 cierni [473 - 506] +7,0% szansy na szczęśliwy traf [7,0 13,2% redukcji czasu odnowienia Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [81% Zadajesz obrażenia zwiększone o [5,0 - Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek. Puste @ Przewiń w dół
+MIAZDZACA TARCZA KOSCIANYCH LUSEK
+Starożytna legendarna tarcza
+Moc przedmiotu: 900
+1 202 pkt. pancerza
+20,0% szansy na blok [20,0]%
++100% obrażeń od broni w głównej ręce [100]%
+* +225 siły
+* +490 do odporności na wszystkie żywioły
+* +787 do odporności na: Ogień
+11,4% redukcji obrażeń [11,0 - 15,0]
+Gdy masz umocnienie, zadajesz obrażenia zwiększone o 610[x] [45 - 65]%. 70 poziomu
 ---text-crop---
-NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU * Starożytna legendarna tarcza Moc przedmiotu: 800 1 131 pkt. pancerza (Wytrzymałoś 45% redukcji blokowanych obrażeń [451% 20,0% szansy na blok [20,0]% +100% obrażeń od broni w głównej ręce [100]% +114 siły +[107 - 121] +494 cierni [473 - 506] +7,0% szansy na szczęśliwy traf [7,0 13,2% redukcji czasu odnowienia Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [8]%
+MIAŻDŻĄCA TARCZA
+KOŚCIANYCH ŁUSEK
+Starożytna legendarna tarcza
+Moc przedmiotu: 900
+Pancerz: 1 202 pkt.
+20,0% szansy na blok [20,0]%
++100% obrażeń od broni w głównej ręce [100]%
 ---text-crop-gray-x2-contrast---
-NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU * Starożytna legendarna tarcza Moc przedmiotu: 800 1 131 pkt. pancerza (Wytrzymałoś 45% redukcji blokowanych obrażeń [45 % 20,0% szansy na blok [20,01% +100% obrażeń od broni w głównej ręce [1001% +114 siły +[107 - 121] +494 cierni [473 - 506] +7,0% szansy na szczęśliwy traf [7,0 13,2% redukcji czasu odnowienia Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [81%
+* +225 siły
+* +490 do odporności na wszystkie żywioły
+* +787 do odporności na: Ogień
+11,4% redukcji obrażeń [11,0 - 15,0]
 ---text-crop-gray-x3-threshold---
-EGIDA WEWNĘTRZNEGO SPOKOJU Starożytna legendarna tarcza Moc przedmiotu: 800 1 131 pkt. pancerza (Wytrzymałoś 45% redukcji blokowanych obrażeń 20,0% szansy na blok [20,01% +100% obrażeń od broni w głównej ręce [1001% +114 siły +[107- 121] +494 cierni [473 - 506] +7,0% szansy na szczęśliwy traf [7,0 13,2% redukcji czasu odnowienia Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [81%
+MIAZDZACA
+TARCZA KOSCIANYCH
+LUSEK
 ---text-crop-gray-x3-sharpen---
-NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU * Starożytna legendarna tarcza Moc przedmiotu: 800 1 131 pkt. pancerza (Wytrzymałoś 45% redukcji blokowanych obrażeń [451% 20,0% szansy na blok [20,01% +100% obrażeń od broni w głównej ręce [1001% +114 siły +1107 - 121] +494 cierni [473 - 5061 +7,0% szansy na szczęśliwy traf [7,0 13,2% redukcji czasu odnowienia Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [81%
+Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61 0[x] [45 - 65]%.
+70 poziomu
+---shield-name-crop-gray-x4-sharpen---
+MIAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK
+---weapon-stats-crop-x4---
+1 202 pkt. pancerza
+20,0% szansy na blok [20,0]%
++100% obrażeń od broni w głównej ręce [100]%
+---weapon-stats-crop-gray-x4-contrast---
+Pancerz: 1 202 pkt.
+---weapon-stats-crop-gray-x4-sharpen---
+20,0% szansy na blok [20,0]%
++100% obrażeń od broni w głównej ręce [100]%
 ---bottom-effect-x4---
-Zadajesz obrażenia zwiększone o 11,00/08 [5,0 - Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek. Puste
+Gdy masz umocnienie, zadajesz obrażenia zwiększone o 610[x] [45 - 65]%. 70 poziomu
+---shield-affix-crop-gray-x4-sharpen---
++225 siły
++490 do odporności na wszystkie żywioły
++787 do odporności na: Ogień
+11,4% redukcji obrażeń [11,0 - 15,0]
+---shield-aspect-crop-gray-x4-sharpen---
+Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.

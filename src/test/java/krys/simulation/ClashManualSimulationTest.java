@@ -2,10 +2,19 @@ package krys.simulation;
 
 import krys.app.SampleBuildFactory;
 import krys.combat.DamageEngine;
+import krys.hero.Hero;
+import krys.hero.HeroClass;
+import krys.item.EquipmentSlot;
+import krys.item.Item;
+import krys.item.ItemStat;
+import krys.item.ItemStatType;
 import krys.skill.SkillId;
 import krys.skill.SkillState;
 import krys.skill.SkillUpgradeChoice;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -13,6 +22,50 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ClashManualSimulationTest {
     private final ManualSimulationService simulationService = new ManualSimulationService(new DamageEngine());
+
+    @Test
+    void starcie_bez_aktywnej_tarczy_nie_powinno_zadawac_obrazen() {
+        SimulationResult result = simulationService.calculateCurrentBuild(
+                clashSnapshot(1664L, true, false),
+                10
+        );
+
+        assertEquals(0L, result.getTotalDamage());
+        assertEquals(0.0d, result.getDps(), 0.0000001d);
+        assertTrue(result.getDirectHitDebugSnapshots().isEmpty());
+        assertEquals("WAIT", result.getStepTrace().getFirst().getActionName());
+        assertTrue(result.getStepTrace().getFirst().getSelectionReason().contains("brak aktywnej tarczy"));
+        assertFalse(result.getStepTrace().getFirst().getSkillBarStates().getFirst().isLegalCandidate());
+    }
+
+    @Test
+    void starcie_bez_aktywnej_broni_nie_powinno_zadawac_obrazen() {
+        SimulationResult result = simulationService.calculateCurrentBuild(
+                clashSnapshot(0L, false, true),
+                10
+        );
+
+        assertEquals(0L, result.getTotalDamage());
+        assertEquals(0.0d, result.getDps(), 0.0000001d);
+        assertTrue(result.getDirectHitDebugSnapshots().isEmpty());
+        assertTrue(result.getStepTrace().getFirst().getSelectionReason().contains("brak aktywnej broni"));
+    }
+
+    @Test
+    void natarcie_bez_aktywnej_tarczy_nadal_jest_legalne() {
+        HeroBuildSnapshot snapshot = snapshot(
+                new SkillState(SkillId.ADVANCE, 1, false, SkillUpgradeChoice.NONE),
+                1664L,
+                true,
+                false
+        );
+
+        SimulationResult result = simulationService.calculateCurrentBuild(snapshot, 10);
+
+        assertTrue(result.getTotalDamage() > 0L);
+        assertFalse(result.getDirectHitDebugSnapshots().isEmpty());
+        assertEquals(SkillId.ADVANCE, result.getDirectHitDebugSnapshots().getFirst().getSkillId());
+    }
 
     @Test
     void powinien_wykonac_podstawowy_use_case_clash_w_manual_simulation() {
@@ -109,5 +162,40 @@ class ClashManualSimulationTest {
         assertTrue(clashWithResolve.getReactiveHitBreakdowns().get(0).isResolveActive());
         assertTrue(clashWithResolveAndPunishment.getReactiveHitBreakdowns().get(0).isResolveActive());
         assertTrue(clashWithResolveAndPunishment.getReactiveHitBreakdowns().get(0).isPunishmentActive());
+    }
+
+    private static HeroBuildSnapshot clashSnapshot(long weaponDamage, boolean hasActiveWeapon, boolean hasActiveShield) {
+        return snapshot(
+                new SkillState(SkillId.CLASH, 1, false, SkillUpgradeChoice.NONE),
+                weaponDamage,
+                hasActiveWeapon,
+                hasActiveShield
+        );
+    }
+
+    private static HeroBuildSnapshot snapshot(SkillState skillState,
+                                              long weaponDamage,
+                                              boolean hasActiveWeapon,
+                                              boolean hasActiveShield) {
+        Hero hero = new Hero(1, "Paladyn", 70, HeroClass.PALADIN);
+        List<Item> items = List.of(
+                new Item(1, "Techniczna broń", EquipmentSlot.MAIN_HAND, List.of(
+                        new ItemStat(ItemStatType.CRIT_DAMAGE, 1.5d)
+                )),
+                new Item(2, "Techniczna tarcza", EquipmentSlot.OFF_HAND, List.of(
+                        new ItemStat(ItemStatType.MAIN_HAND_WEAPON_DAMAGE, 100.0d)
+                ))
+        );
+        return new HeroBuildSnapshot(
+                hero,
+                0,
+                weaponDamage,
+                0.0d,
+                items,
+                hasActiveWeapon,
+                hasActiveShield,
+                Map.of(skillState.getSkillId(), skillState),
+                List.of(skillState.getSkillId())
+        );
     }
 }

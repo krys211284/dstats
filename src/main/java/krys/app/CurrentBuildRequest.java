@@ -19,6 +19,8 @@ public final class CurrentBuildRequest {
     private final double thorns;
     private final double blockChance;
     private final double retributionChance;
+    private final boolean hasActiveWeapon;
+    private final boolean hasActiveShield;
     private final Map<SkillId, SkillState> learnedSkills;
     private final List<SkillId> actionBar;
     private final int horizonSeconds;
@@ -33,11 +35,27 @@ public final class CurrentBuildRequest {
                                Map<SkillId, SkillState> learnedSkills,
                                List<SkillId> actionBar,
                                int horizonSeconds) {
+        this(level, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
+                weaponDamage > 0L, true, learnedSkills, actionBar, horizonSeconds);
+    }
+
+    public CurrentBuildRequest(int level,
+                               long weaponDamage,
+                               double strength,
+                               double intelligence,
+                               double thorns,
+                               double blockChance,
+                               double retributionChance,
+                               boolean hasActiveWeapon,
+                               boolean hasActiveShield,
+                               Map<SkillId, SkillState> learnedSkills,
+                               List<SkillId> actionBar,
+                               int horizonSeconds) {
         if (level <= 0) {
             throw new IllegalArgumentException("Level bohatera musi być dodatni");
         }
-        if (weaponDamage <= 0) {
-            throw new IllegalArgumentException("Weapon damage musi być dodatni");
+        if (weaponDamage < 0) {
+            throw new IllegalArgumentException("Weapon damage nie może być ujemny");
         }
         validateNonNegative("Strength", strength);
         validateNonNegative("Intelligence", intelligence);
@@ -61,6 +79,8 @@ public final class CurrentBuildRequest {
         this.thorns = thorns;
         this.blockChance = blockChance;
         this.retributionChance = retributionChance;
+        this.hasActiveWeapon = hasActiveWeapon;
+        this.hasActiveShield = hasActiveShield;
         this.learnedSkills = Collections.unmodifiableMap(learnedSkillsCopy);
         this.actionBar = Collections.unmodifiableList(new ArrayList<>(new LinkedHashSet<>(actionBar == null ? List.of() : actionBar)));
         this.horizonSeconds = horizonSeconds;
@@ -110,6 +130,14 @@ public final class CurrentBuildRequest {
 
     public double getRetributionChance() {
         return retributionChance;
+    }
+
+    public boolean hasActiveWeapon() {
+        return hasActiveWeapon;
+    }
+
+    public boolean hasActiveShield() {
+        return hasActiveShield;
     }
 
     public Map<SkillId, SkillState> getLearnedSkills() {

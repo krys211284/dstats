@@ -171,7 +171,7 @@ final class ItemEditPageRenderer {
                 renderRaritySelect(form.getItemRarity()),
                 renderAncientCheckbox(form.isAncient()),
                 renderNumberField("itemPower", "Moc przedmiotu", form.getItemPower(), "1"),
-                renderWeaponFieldSet(form),
+                renderItemTypeFieldSet(form),
                 renderAspectSelect(form),
                 renderAffixEditor(form),
                 escapeHtml(ItemLibraryFilterQuerySupport.libraryUrl(model.getFilter()))
@@ -244,6 +244,21 @@ final class ItemEditPageRenderer {
                 """.formatted(ancient ? " checked" : "");
     }
 
+    private static String renderItemTypeFieldSet(ItemImportEditableForm form) {
+        if (isShield(form)) {
+            return """
+                    <fieldset class="inline-fieldset">
+                        <legend>Dane tarczy</legend>
+                        %s
+                    </fieldset>
+                    """.formatted(renderNumberField("itemArmor", "Pancerz", form.getItemArmor(), "1"));
+        }
+        if (!isWeapon(form)) {
+            return "<input type=\"hidden\" name=\"itemArmor\" value=\"" + escapeHtml(form.getItemArmor()) + "\">";
+        }
+        return renderWeaponFieldSet(form);
+    }
+
     private static String renderWeaponFieldSet(ItemImportEditableForm form) {
         String averageValue = form.getAverageWeaponDamage();
         if ((averageValue == null || averageValue.isBlank())
@@ -273,6 +288,33 @@ final class ItemEditPageRenderer {
                 renderNumberField("averageWeaponDamage", "Średnie obrażenia trafienia", averageValue, "1"),
                 renderNumberField("attacksPerSecond", "Ataki na sekundę", form.getAttacksPerSecond(), "0.01")
         );
+    }
+
+    private static boolean isShield(ItemImportEditableForm form) {
+        EquipmentSlot slot = parseSlot(form.getSlot());
+        String normalizedType = java.text.Normalizer.normalize(form.getItemType() == null ? "" : form.getItemType(), java.text.Normalizer.Form.NFD)
+                .replace('Ł', 'L')
+                .replace('ł', 'l')
+                .replaceAll("\\p{M}", "")
+                .toUpperCase(Locale.ROOT);
+        return slot == EquipmentSlot.OFF_HAND && (normalizedType.contains("TARCZA") || !form.getItemArmor().isBlank());
+    }
+
+    private static boolean isWeapon(ItemImportEditableForm form) {
+        EquipmentSlot slot = parseSlot(form.getSlot());
+        String normalizedType = java.text.Normalizer.normalize(form.getItemType() == null ? "" : form.getItemType(), java.text.Normalizer.Form.NFD)
+                .replace('Ł', 'L')
+                .replace('ł', 'l')
+                .replaceAll("\\p{M}", "")
+                .toUpperCase(Locale.ROOT);
+        return slot == EquipmentSlot.MAIN_HAND
+                || normalizedType.contains("MIECZ")
+                || normalizedType.contains("SWORD")
+                || !form.getWeaponDps().isBlank()
+                || !form.getWeaponDamageMin().isBlank()
+                || !form.getWeaponDamageMax().isBlank()
+                || !form.getAverageWeaponDamage().isBlank()
+                || !form.getAttacksPerSecond().isBlank();
     }
 
     private static String renderAspectSelect(ItemImportEditableForm form) {

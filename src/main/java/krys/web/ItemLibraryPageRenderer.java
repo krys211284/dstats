@@ -308,12 +308,16 @@ public final class ItemLibraryPageRenderer {
                 .append(renderMeta("Slot ekwipunku", ItemLibraryPresentationSupport.slotDisplayName(item.getSlot())))
                 .append(renderMeta("Rzadkość", simplifyRarity(firstNonBlank(item.getItemRarity(), fullItemRead.getRarity()))))
                 .append(renderMeta("Ancient", item.isAncient() ? "true" : "false"))
-                .append(renderMeta("Moc przedmiotu", item.getItemPower() == null ? simplifyItemPower(fullItemRead.getItemPower()) : Long.toString(item.getItemPower())))
-                .append(renderMeta("DPS broni", nullableLongLabel(item.getWeaponDps())))
-                .append(renderMeta("Obrażenia min/max", weaponRangeLabel(item)))
-                .append(renderMeta("Średnie obrażenia trafienia", nullableLongLabel(item.getAverageWeaponDamage())))
-                .append(renderMeta("Ataki na sekundę", item.getAttacksPerSecond() == null ? "Brak pewnego odczytu" : String.format(java.util.Locale.US, "%.2f", item.getAttacksPerSecond())))
-                .append(renderMeta("Identyfikator", item.getDisplayName()))
+                .append(renderMeta("Moc przedmiotu", item.getItemPower() == null ? simplifyItemPower(fullItemRead.getItemPower()) : Long.toString(item.getItemPower())));
+        if (isShield(item)) {
+            html.append(renderMeta("Pancerz", nullableLongLabel(item.getItemArmor())));
+        } else if (isWeapon(item)) {
+            html.append(renderMeta("DPS broni", nullableLongLabel(item.getWeaponDps())))
+                    .append(renderMeta("Obrażenia min/max", weaponRangeLabel(item)))
+                    .append(renderMeta("Średnie obrażenia trafienia", nullableLongLabel(item.getAverageWeaponDamage())))
+                    .append(renderMeta("Ataki na sekundę", item.getAttacksPerSecond() == null ? "Brak pewnego odczytu" : String.format(java.util.Locale.US, "%.2f", item.getAttacksPerSecond())));
+        }
+        html.append(renderMeta("Identyfikator", item.getDisplayName()))
                 .append("</div></section>")
                 .append(renderTextLineGroup("Base stats", baseStats))
                 .append(renderTextLineGroup("Implicit / linie bazowe", implicitLines))
@@ -379,6 +383,24 @@ public final class ItemLibraryPageRenderer {
             addUnique(lines, item.getUniqueEffectText());
         }
         return renderTextLineGroup("Aspekt / efekt", lines);
+    }
+
+    private static boolean isShield(SavedImportedItem item) {
+        String normalizedType = normalizeForDisplayRules(item.getItemType());
+        return item.getSlot() == krys.item.EquipmentSlot.OFF_HAND
+                && (normalizedType.contains("TARCZA") || item.getItemArmor() != null);
+    }
+
+    private static boolean isWeapon(SavedImportedItem item) {
+        String normalizedType = normalizeForDisplayRules(item.getItemType());
+        return item.getSlot() == krys.item.EquipmentSlot.MAIN_HAND
+                || normalizedType.contains("MIECZ")
+                || normalizedType.contains("SWORD")
+                || item.getWeaponDps() != null
+                || item.getWeaponDamageMin() != null
+                || item.getWeaponDamageMax() != null
+                || item.getAverageWeaponDamage() != null
+                || item.getAttacksPerSecond() != null;
     }
 
     private static String normalizedBaseStatLine(String line) {

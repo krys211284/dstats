@@ -226,4 +226,8 @@ public final class ItemImportEditableForm {
     public String getUniqueEffectText() {
         return details.getUniqueEffectText();
     }
+
+    public String getItemArmor() {
+        return details.getItemArmor() == null ? "" : Long.toString(details.getItemArmor());
+    }
 }

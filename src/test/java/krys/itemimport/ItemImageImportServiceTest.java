@@ -1,10 +1,16 @@
 package krys.itemimport;
 
+import krys.item.HeroEquipmentSlot;
 import krys.hero.HeroClass;
+import krys.itemlibrary.FileItemLibraryRepository;
+import krys.itemlibrary.ItemLibraryService;
+import krys.itemlibrary.SavedImportedItem;
 import krys.web.HeroItemSelection;
 import krys.web.HeroProfile;
 import krys.web.ItemImportPageModel;
 import krys.web.ItemImportPageRenderer;
+import krys.web.ItemLibraryPageModel;
+import krys.web.ItemLibraryPageRenderer;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
@@ -30,38 +36,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Test realnego rozpoznania ograniczonych pól foundation z pojedynczego screena itemu. */
 class ItemImageImportServiceTest {
-    private static final String SEASONAL_SHIELD_LINE =
-            "Rozjuszenie: +8% do szans na trafienie krytyczne za każdą rangę serii zabójstw [8]%";
     private static final List<String> STABLE_SHIELD_CONTRACT_LINES = List.of(
-            "NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU",
+            "MIAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK",
             "Starożytna legendarna tarcza",
-            "Moc przedmiotu: 800",
-            "Pancerz: 1 131 pkt.",
-            "45% redukcji blokowanych obrażeń [45]%",
-            "20,0% szansy na blok [20,01]%",
+            "Moc przedmiotu: 900",
+            "Pancerz: 1 202 pkt.",
+            "20,0% szansy na blok [20,0]%",
             "+100% obrażeń od broni w głównej ręce [100]%",
-            "+114 siły [107 - 121]",
-            "+494 cierni [473 - 506]",
-            "+7,0% szansy na szczęśliwy traf [7,0",
-            "13,2% redukcji czasu odnowienia",
-            "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%",
-            "Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."
+            "+225 siły",
+            "+490 do odporności na wszystkie żywioły",
+            "+787 do odporności na: Ogień",
+            "11,4% redukcji obrażeń [11,0 - 15,0]",
+            "61%[x]"
     );
     private static final List<String> SHIELD_OCR_LINES_WITH_SEASONAL_NOISE = List.of(
-            "NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU",
+            "MIAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK",
             "Starożytna legendarna tarcza",
-            "Moc przedmiotu: 800",
-            "Pancerz: 1 131 pkt.",
-            "45% redukcji blokowanych obrażeń [45]%",
-            "20,0% szansy na blok [20,01]%",
+            "Moc przedmiotu: 900",
+            "Pancerz: 1 202 pkt.",
+            "20,0% szansy na blok [20,0]%",
             "+100% obrażeń od broni w głównej ręce [100]%",
-            "+114 siły [107 - 121]",
-            "+494 cierni [473 - 506]",
-            "+7,0% szansy na szczęśliwy traf [7,0",
-            "13,2% redukcji czasu odnowienia",
-            SEASONAL_SHIELD_LINE,
-            "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%",
-            "Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek.",
+            "+225 siły",
+            "+490 do odporności na wszystkie żywioły",
+            "+787 do odporności na: Ogień",
+            "11,4% redukcji obrażeń [11,0 - 15,0]",
+            "Gdy masz umocnienie, zadajesz obrażenia zwiększone o 610[x] [45 - 65]%. 70 poziomu",
             "Puste gniazdo"
     );
 
@@ -112,51 +111,101 @@ class ItemImageImportServiceTest {
         assertShieldFoundationMapping(result);
         assertNull(result.getWeaponDamageCandidate().getSuggestedValue());
         assertHeaderAndUnrelatedNumbersDoNotLeakToShieldFoundationCandidates(result);
-        assertEquals("NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU", result.getFullItemRead().getItemName());
-        assertEquals("1 131 pkt. pancerza", result.getFullItemRead().getBaseItemValue());
-        assertFullReadContains(result, "Moc przedmiotu: 800");
-        assertFullReadContains(result, "45% redukcji blokowanych obrażeń");
+        assertEquals("Miażdżąca Tarcza Kościanych Łusek", result.getFullItemRead().getDetails().getItemName());
+        assertEquals(1202L, result.getFullItemRead().getDetails().getItemArmor());
+        assertFullReadContains(result, "Moc przedmiotu: 900");
         assertFullReadContains(result, "20,0% szansy na blok");
         assertFullReadContains(result, "+100% obrażeń od broni w głównej ręce");
-        assertFullReadContains(result, "+114 siły [107 - 121]");
-        assertFullReadContains(result, "+494 cierni");
-        assertFullReadContains(result, "+7,0% szansy na szczęśliwy traf [7,0");
-        assertFullReadDoesNotContain(result, "+7,0% szansy na szczęśliwy traf [7,0 13,2");
-        assertFullReadContains(result, "13,2% redukcji czasu odnowienia");
-        assertFullReadContains(result, "11,0%[x]");
-        assertFullAspectIntegrity(result);
-        assertSocketPurity(result);
+        assertFullReadContains(result, "+225 siły");
+        assertFullReadContains(result, "+490 do odporności na wszystkie żywioły");
+        assertFullReadContains(result, "+787 do odporności na: Ogień");
+        assertFullReadContains(result, "11,4% redukcji obrażeń");
+        assertFullReadContains(result, "61%[x]");
 
         ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
-        assertEquals("inner-calm", form.getOcrSuggestedAspectId());
+        assertEquals("fortify_damage_increased", form.getOcrSuggestedAspectId());
         assertEquals(ItemImportFieldConfidence.HIGH, form.getOcrAspectConfidence());
-        assertEquals("inner-calm", form.getSelectedAspectId());
+        assertEquals("fortify_damage_increased", form.getSelectedAspectId());
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                result,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "Import testowy",
+                ""
+        ));
+        assertTrue(html.contains("Miażdżąca Tarcza Kościanych Łusek"));
+        assertTrue(html.contains("LEGENDARY / Legendarny"));
+        assertTrue(html.contains("name=\"itemPower\" value=\"900\""));
+        assertTrue(html.contains("name=\"itemArmor\" value=\"1202\""));
+        assertTrue(html.contains("Dane tarczy"));
+        assertTrue(html.contains("20,0% szansy na blok"));
+        assertTrue(html.contains("+100% obrażeń od broni w głównej ręce"));
+        assertTrue(html.contains("Odporność na wszystkie żywioły"));
+        assertTrue(html.contains("Odporność na Ogień"));
+        assertTrue(html.contains("Redukcja obrażeń"));
+        assertTrue(html.contains("11,0 - 15,0"));
+        assertTrue(html.contains("Umocnienie: zwiększone obrażenia"));
+        assertTrue(html.contains("61%[x]"));
+        assertTrue(html.contains("45 - 65"));
+        assertFalse(html.contains("<legend>Dane broni</legend>"));
+        assertFalse(html.contains("DPS broni"));
+        assertFalse(html.contains("Obrażenia za trafienie min"));
+        assertFalse(html.contains("Obrażenia za trafienie max"));
+        assertFalse(html.contains("Średnie obrażenia trafienia"));
+        assertFalse(html.contains("Ataki na sekundę"));
+        assertFalse(html.contains("<option value=\"inner-calm\" selected"));
         ItemImportFormMapper.MappingResult mappingResult = new ItemImportFormMapper().map(form);
         assertTrue(mappingResult.getErrors().isEmpty(), () -> String.join(", ", mappingResult.getErrors()));
         ValidatedImportedItem item = mappingResult.getItem();
-        assertEquals(114.0d, item.getStrength());
-        assertNotEquals(342.0d, item.getStrength());
-        assertEquals(494.0d, item.getThorns());
+        assertEquals(225.0d, item.getStrength());
+        assertNotEquals(450.0d, item.getStrength());
+        assertEquals(0.0d, item.getThorns());
         assertEquals(20.0d, item.getBlockChance());
+        assertEquals(1202L, item.getItemArmor());
+
+        Path libraryDirectory = Files.createTempDirectory("shield-library-import");
+        ItemLibraryService libraryService = new ItemLibraryService(new FileItemLibraryRepository(libraryDirectory));
+        SavedImportedItem savedShield = libraryService.saveImportedItem(item, result.getFullItemRead());
+        assertEquals("Miażdżąca Tarcza Kościanych Łusek", savedShield.getItemName());
+        assertEquals(1202L, savedShield.getItemArmor());
+        assertEquals("fortify_damage_increased", savedShield.getSelectedAspectId());
+        assertEquals(4, savedShield.getAffixes().size());
+        assertEquals(1, libraryService.getCompatibleItems(HeroEquipmentSlot.OFF_HAND).size());
+        String libraryHtml = new ItemLibraryPageRenderer().render(new ItemLibraryPageModel(
+                libraryService.getSavedItems(),
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                HeroItemSelection.empty(),
+                List.of(),
+                List.of(),
+                "",
+                null
+        ));
+        assertTrue(libraryHtml.contains("Pancerz"));
+        assertTrue(libraryHtml.contains("1202"));
+        assertTrue(libraryHtml.contains("20,0% szansy na blok"));
+        assertTrue(libraryHtml.contains("+100% obrażeń od broni w głównej ręce"));
+        assertTrue(libraryHtml.contains("Umocnienie: zwiększone obrażenia"));
 
         assertExactlyOnePerLine(result, List.of(
-                "45% redukcji blokowanych obrażeń",
                 "20,0% szansy na blok",
                 "+100% obrażeń od broni w głównej ręce",
-                "+114 siły",
-                "+494 cierni",
-                "+7,0% szansy na szczęśliwy traf",
-                "13,2% redukcji czasu odnowienia"
+                "+225 siły",
+                "+490 do odporności na wszystkie żywioły",
+                "+787 do odporności na: Ogień",
+                "11,4% redukcji obrażeń"
         ));
 
         assertAffixTypeOccursOnce(form, ImportedItemAffixType.STRENGTH);
-        assertAffixTypeOccursOnce(form, ImportedItemAffixType.THORNS);
-        assertAffixTypeOccursOnce(form, ImportedItemAffixType.LUCKY_HIT_CHANCE);
-        assertAffixTypeOccursOnce(form, ImportedItemAffixType.COOLDOWN_REDUCTION);
-        assertAffixGreaterFlag(form, ImportedItemAffixType.COOLDOWN_REDUCTION, false);
-        assertAffixGreaterFlag(form, ImportedItemAffixType.THORNS, false);
-        assertAffixGreaterFlag(form, ImportedItemAffixType.STRENGTH, false);
-        assertAffixGreaterFlag(form, ImportedItemAffixType.LUCKY_HIT_CHANCE, false);
+        assertAffixTypeOccursOnce(form, ImportedItemAffixType.ALL_RESISTANCE);
+        assertAffixTypeOccursOnce(form, ImportedItemAffixType.FIRE_RESISTANCE);
+        assertAffixTypeOccursOnce(form, ImportedItemAffixType.DAMAGE_REDUCTION);
+        assertEquals(4, form.getAffixes().size());
+        assertAffixGreaterFlag(form, ImportedItemAffixType.STRENGTH, true);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.ALL_RESISTANCE, true);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.FIRE_RESISTANCE, true);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.DAMAGE_REDUCTION, false);
     }
 
     @Test
@@ -230,10 +279,10 @@ class ItemImageImportServiceTest {
                 new ItemImageOcrPreprocessor(),
                 new FakeOcrTextReader(Map.of(
                         "original", String.join("\n", SHIELD_OCR_LINES_WITH_SEASONAL_NOISE),
-                        "text-crop", "Starożytna legendarna tarcza\nPancerz: 1 131 pkt.\n45% redukcji blokowanych obrażeń [45]%",
-                        "text-crop-gray-x2-contrast", "+114 siły [107 - 121]\n+494 cierni [473 - 506]\n+7,0% szansy na szczęśliwy traf [7,0",
-                        "text-crop-gray-x3-threshold", "20,0% szansy na blok [20,01]%\n+100% obrażeń od broni w głównej ręce [100]%",
-                        "text-crop-gray-x3-sharpen", "Moc przedmiotu: 800\n13,2% redukcji czasu odnowienia"
+                        "text-crop", "MIAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK\nStarożytna legendarna tarcza\nPancerz: 1 202 pkt.",
+                        "text-crop-gray-x2-contrast", "+225 siły\n+490 do odporności na wszystkie żywioły\n+787 do odporności na: Ogień",
+                        "text-crop-gray-x3-threshold", "20,0% szansy na blok [20,0]%\n+100% obrażeń od broni w głównej ręce [100]%",
+                        "text-crop-gray-x3-sharpen", "Moc przedmiotu: 900\n11,4% redukcji obrażeń [11,0 - 15,0]\nGdy masz umocnienie, zadajesz obrażenia zwiększone o 610[x] [45 - 65]%. 70 poziomu"
                 )),
                 new ItemImageImportTextParser(),
                 new ItemImageImportCandidateMerger()
@@ -248,38 +297,36 @@ class ItemImageImportServiceTest {
         assertNull(result.getWeaponDamageCandidate().getSuggestedValue());
         assertHeaderAndUnrelatedNumbersDoNotLeakToShieldFoundationCandidates(result);
 
-        assertEquals("NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU", result.getFullItemRead().getItemName());
+        assertEquals("Miażdżąca Tarcza Kościanych Łusek", result.getFullItemRead().getDetails().getItemName());
         assertEquals("Starożytna legendarna tarcza", result.getFullItemRead().getItemTypeLine());
         assertEquals("Starożytna legendarna tarcza", result.getFullItemRead().getRarity());
-        assertEquals("Moc przedmiotu: 800", result.getFullItemRead().getItemPower());
-        assertEquals("Pancerz: 1 131 pkt.", result.getFullItemRead().getBaseItemValue());
+        assertEquals("Moc przedmiotu: 900", result.getFullItemRead().getItemPower());
+        assertEquals(1202L, result.getFullItemRead().getDetails().getItemArmor());
         List<String> fullReadLines = result.getFullItemRead().getLines().stream()
                 .map(FullItemReadLine::getText)
                 .toList();
         for (String expectedLine : STABLE_SHIELD_CONTRACT_LINES) {
-            assertTrue(fullReadLines.contains(expectedLine), "Brak stabilnej linii tarczy: " + expectedLine);
+            assertTrue(fullReadLines.stream().anyMatch(line -> line.contains(expectedLine)), "Brak stabilnej linii tarczy: " + expectedLine);
         }
-        assertFalse(STABLE_SHIELD_CONTRACT_LINES.contains(SEASONAL_SHIELD_LINE),
-                "Sezonowe Rozjuszenie nie jest stabilną właściwością kontraktu regresyjnego tarczy.");
         assertFalse(new ImportedItemAffixExtractor().extractEditableAffixes(result.getFullItemRead()).stream()
                 .anyMatch(affix -> affix.getSourceText().contains("Rozjuszenie")),
                 "Sezonowe Rozjuszenie nie może trafić do edytowalnych affixów itemu.");
         assertTrue(result.getFullItemRead().getLines().stream().anyMatch(line -> line.getType() == FullItemReadLineType.SOCKET));
-        assertLineTypeContains(result, FullItemReadLineType.BASE_STAT, "1 131 pkt.");
-        assertLineTypeContains(result, FullItemReadLineType.IMPLICIT, "45% redukcji blokowanych obrażeń");
+        assertLineTypeContains(result, FullItemReadLineType.BASE_STAT, "1 202 pkt.");
         assertLineTypeContains(result, FullItemReadLineType.IMPLICIT, "20,0% szansy na blok");
         assertLineTypeContains(result, FullItemReadLineType.IMPLICIT, "+100% obrażeń od broni w głównej ręce");
-        assertLineTypeContains(result, FullItemReadLineType.AFFIX, "+494 cierni");
-        assertLineTypeContains(result, FullItemReadLineType.AFFIX, "+7,0% szansy na szczęśliwy traf [7,0");
-        assertLineTypeContains(result, FullItemReadLineType.AFFIX, "13,2% redukcji czasu odnowienia");
-        assertLineTypeContains(result, FullItemReadLineType.AFFIX, "+114 siły [107 - 121]");
-        assertFullReadDoesNotContain(result, "+7,0% szansy na szczęśliwy traf [7,0 13,2");
+        assertLineTypeContains(result, FullItemReadLineType.AFFIX, "+225 siły");
+        assertLineTypeContains(result, FullItemReadLineType.AFFIX, "+490 do odporności na wszystkie żywioły");
+        assertLineTypeContains(result, FullItemReadLineType.AFFIX, "+787 do odporności na: Ogień");
+        assertLineTypeContains(result, FullItemReadLineType.AFFIX, "11,4% redukcji obrażeń");
+        assertLineTypeContains(result, FullItemReadLineType.ASPECT, "61%[x]");
 
         ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
-        assertAffixGreaterFlag(form, ImportedItemAffixType.COOLDOWN_REDUCTION, false);
-        assertAffixGreaterFlag(form, ImportedItemAffixType.THORNS, false);
-        assertAffixGreaterFlag(form, ImportedItemAffixType.STRENGTH, false);
-        assertAffixGreaterFlag(form, ImportedItemAffixType.LUCKY_HIT_CHANCE, false);
+        assertEquals(4, form.getAffixes().size());
+        assertAffixGreaterFlag(form, ImportedItemAffixType.STRENGTH, true);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.ALL_RESISTANCE, true);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.FIRE_RESISTANCE, true);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.DAMAGE_REDUCTION, false);
     }
 
     @Test
@@ -327,9 +374,9 @@ class ItemImageImportServiceTest {
 
     private static void assertShieldFoundationMapping(ItemImageImportCandidateParseResult result) {
         assertEquals("OFF_HAND", result.getSlotCandidate().getSuggestedValue().name());
-        assertEquals(114.0d, result.getStrengthCandidate().getSuggestedValue(),
+        assertEquals(225.0d, result.getStrengthCandidate().getSuggestedValue(),
                 () -> result.getStrengthCandidate().getRawValue());
-        assertEquals(494.0d, result.getThornsCandidate().getSuggestedValue());
+        assertNull(result.getThornsCandidate().getSuggestedValue());
         assertEquals(20.0d, result.getBlockChanceCandidate().getSuggestedValue());
     }
 

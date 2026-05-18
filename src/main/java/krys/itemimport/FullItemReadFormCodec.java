@@ -29,6 +29,7 @@ public final class FullItemReadFormCodec {
         payloadLines.add("DETAIL_WEAPON_DAMAGE_MAX|" + encodeNullableLong(safeRead.getDetails().getWeaponDamageMax()));
         payloadLines.add("DETAIL_AVERAGE_WEAPON_DAMAGE|" + encodeNullableLong(safeRead.getDetails().getAverageWeaponDamage()));
         payloadLines.add("DETAIL_ATTACKS_PER_SECOND|" + encodeNullableDouble(safeRead.getDetails().getAttacksPerSecond()));
+        payloadLines.add("DETAIL_ITEM_ARMOR|" + encodeNullableLong(safeRead.getDetails().getItemArmor()));
         payloadLines.add("DETAIL_UNIQUE_EFFECT_TEXT|" + encodeText(safeRead.getDetails().getUniqueEffectText()));
         for (FullItemReadLine line : safeRead.getLines()) {
             payloadLines.add("LINE|" + line.getType().name() + "|" + encodeText(line.getText()));
@@ -57,6 +58,7 @@ public final class FullItemReadFormCodec {
         Long detailWeaponDamageMax = null;
         Long detailAverageWeaponDamage = null;
         Double detailAttacksPerSecond = null;
+        Long detailItemArmor = null;
         String detailUniqueEffectText = "";
         List<FullItemReadLine> lines = new ArrayList<>();
         for (String line : payload.split("\\R")) {
@@ -86,6 +88,7 @@ public final class FullItemReadFormCodec {
                 case "DETAIL_WEAPON_DAMAGE_MAX" -> detailWeaponDamageMax = decodeNullableLong(tokens[1]);
                 case "DETAIL_AVERAGE_WEAPON_DAMAGE" -> detailAverageWeaponDamage = decodeNullableLong(tokens[1]);
                 case "DETAIL_ATTACKS_PER_SECOND" -> detailAttacksPerSecond = decodeNullableDouble(tokens[1]);
+                case "DETAIL_ITEM_ARMOR" -> detailItemArmor = decodeNullableLong(tokens[1]);
                 case "DETAIL_UNIQUE_EFFECT_TEXT" -> detailUniqueEffectText = decodeText(tokens[1]);
                 case "LINE" -> {
                     if (tokens.length >= 3) {
@@ -98,7 +101,7 @@ public final class FullItemReadFormCodec {
         }
         ItemImportDetails details = new ItemImportDetails(detailItemName, detailItemType, detailItemRarity, detailAncient,
                 detailEquipmentSlot, detailItemPower, detailWeaponDps, detailWeaponDamageMin, detailWeaponDamageMax,
-                detailAverageWeaponDamage, detailAttacksPerSecond, detailUniqueEffectText);
+                detailAverageWeaponDamage, detailAttacksPerSecond, detailItemArmor, detailUniqueEffectText);
         return new FullItemRead(itemName, itemTypeLine, rarity, itemPower, baseItemValue, lines, details);
     }
 

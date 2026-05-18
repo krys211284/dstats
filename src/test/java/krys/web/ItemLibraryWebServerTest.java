@@ -222,7 +222,8 @@ class ItemLibraryWebServerTest {
         assertTrue(editForm.body().contains("value=\"inner-calm\""));
         assertTrue(editForm.body().contains("selected>Aspekt Wewnętrznego Spokoju"));
         assertTrue(editForm.body().contains("Ręczna edycja itemu"));
-        assertTrue(editForm.body().contains("Dane broni"));
+        assertTrue(editForm.body().contains("Dane tarczy"));
+        assertFalse(editForm.body().contains("Dane broni"));
         assertTrue(editForm.body().contains("Aspekt / efekt"));
         assertTrue(editForm.body().contains("Zakres rolla"));
         assertTrue(editForm.body().contains("item-affix-add-grid"));

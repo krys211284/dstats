@@ -244,4 +244,8 @@ public final class SavedImportedItem {
     public String getUniqueEffectText() {
         return details.getUniqueEffectText();
     }
+
+    public Long getItemArmor() {
+        return details.getItemArmor();
+    }
 }

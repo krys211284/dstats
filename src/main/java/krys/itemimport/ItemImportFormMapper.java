@@ -68,6 +68,7 @@ public final class ItemImportFormMapper {
         Long weaponDamageMax = parseOptionalLong(form.getWeaponDamageMax(), "Maksymalne obrażenia za trafienie", errors);
         Long averageWeaponDamage = parseOptionalLong(form.getAverageWeaponDamage(), "Średnie obrażenia za trafienie", errors);
         Double attacksPerSecond = parseOptionalDouble(form.getAttacksPerSecond(), "Ataki na sekundę", errors);
+        Long itemArmor = parseOptionalLong(form.getItemArmor(), "Pancerz", errors);
 
         if (weaponDamageMin != null && weaponDamageMax != null) {
             long calculatedAverage = Math.round((weaponDamageMin + weaponDamageMax) / 2.0d);
@@ -89,6 +90,7 @@ public final class ItemImportFormMapper {
                 weaponDamageMax,
                 averageWeaponDamage,
                 attacksPerSecond,
+                itemArmor,
                 form.getUniqueEffectText()
         );
     }

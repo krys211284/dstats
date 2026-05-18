@@ -143,6 +143,7 @@ final class ItemImageImportCandidateMerger {
                 weaponDamageMax,
                 firstLong(details, DetailLongField.AVERAGE_WEAPON_DAMAGE),
                 firstDouble(details),
+                firstLong(details, DetailLongField.ITEM_ARMOR),
                 firstText(details, DetailTextField.UNIQUE_EFFECT_TEXT)
         );
     }
@@ -188,6 +189,7 @@ final class ItemImageImportCandidateMerger {
                 case WEAPON_DAMAGE_MIN -> detail.getWeaponDamageMin();
                 case WEAPON_DAMAGE_MAX -> detail.getWeaponDamageMax();
                 case AVERAGE_WEAPON_DAMAGE -> detail.getAverageWeaponDamage();
+                case ITEM_ARMOR -> detail.getItemArmor();
             };
             if (value != null) {
                 return value;
@@ -226,6 +228,15 @@ final class ItemImageImportCandidateMerger {
         if (normalized.contains(" SILY")) {
             return "AFFIX:STRENGTH:" + firstNumber(normalized);
         }
+        if (normalized.contains("ODPORNOSCI NA WSZYSTKIE ZYWIOLY")) {
+            return "AFFIX:ALL_RESISTANCE:" + firstNumber(normalized);
+        }
+        if (normalized.contains("ODPORNOSCI NA: OGIEN") || normalized.contains("ODPORNOSCI NA OGIEN")) {
+            return "AFFIX:FIRE_RESISTANCE:" + firstNumber(normalized);
+        }
+        if (normalized.contains("REDUKCJI OBRAZEN")) {
+            return "AFFIX:DAMAGE_REDUCTION:" + firstNumber(normalized);
+        }
         if (normalized.contains("CIERNI")) {
             return "AFFIX:THORNS:" + firstNumber(normalized);
         }
@@ -235,8 +246,11 @@ final class ItemImageImportCandidateMerger {
         if (normalized.contains("CZASU ODNOWIENIA")) {
             return "AFFIX:COOLDOWN_REDUCTION:" + firstNumber(normalized);
         }
+        if (normalized.contains("GDY MASZ UMOCNIENIE")) {
+            return "ASPECT:FORTIFY_DAMAGE";
+        }
         if (normalized.contains("ZADAJESZ OBRAZENIA ZWIEKSZONE")) {
-            return "ASPECT:DAMAGE_WHILE_STANDING";
+            return "ASPECT:DAMAGE_INCREASED";
         }
         if (normalized.contains("TA PREMIA JEST TRZY RAZY WIEKSZA")) {
             return "ASPECT:STANDING_STILL_MULTIPLIER";
@@ -420,6 +434,7 @@ final class ItemImageImportCandidateMerger {
         WEAPON_DPS,
         WEAPON_DAMAGE_MIN,
         WEAPON_DAMAGE_MAX,
-        AVERAGE_WEAPON_DAMAGE
+        AVERAGE_WEAPON_DAMAGE,
+        ITEM_ARMOR
     }
 }

@@ -142,7 +142,7 @@ public final class ItemImportPageRenderer {
                 .append(renderRaritySelect(form.getItemRarity()))
                 .append(renderAncientCheckbox(form.isAncient()))
                 .append(renderNumberField("itemPower", "Moc przedmiotu", form.getItemPower(), "1"))
-                .append(renderWeaponFieldSet(form))
+                .append(renderItemTypeFieldSet(form))
                 .append(renderAspectSelect(form))
                 .append("""
                             </div>
@@ -226,7 +226,7 @@ public final class ItemImportPageRenderer {
                 .append(renderItemHeaderField("Ancient", details.isAncient() ? "true" : "false"))
                 .append(renderItemHeaderField("Slot", details.getEquipmentSlot() == null ? "Brak pewnego odczytu" : ItemLibraryPresentationSupport.slotDisplayName(details.getEquipmentSlot())))
                 .append(renderItemHeaderField("Moc przedmiotu", details.getItemPower() == null ? simplifyItemPower(fullItemRead.getItemPower()) : Long.toString(details.getItemPower())))
-                .append(renderWeaponSummaryFields(details))
+                .append(renderItemTypeSummaryFields(details))
                 .append(renderBaseValueHeader(fullItemRead))
                 .append("</div>")
                 .append("""
@@ -262,8 +262,14 @@ public final class ItemImportPageRenderer {
         return renderItemHeaderField(baseValueLabel(fullItemRead.getBaseItemValue()), simplifyBaseValue(fullItemRead.getBaseItemValue()));
     }
 
-    private static String renderWeaponSummaryFields(ItemImportDetails details) {
+    private static String renderItemTypeSummaryFields(ItemImportDetails details) {
         if (details == null || !details.hasAnyData()) {
+            return "";
+        }
+        if (isShield(details)) {
+            return renderItemHeaderField("Pancerz", nullableLongLabel(details.getItemArmor()));
+        }
+        if (!isWeapon(details)) {
             return "";
         }
         StringBuilder html = new StringBuilder();
@@ -745,6 +751,38 @@ public final class ItemImportPageRenderer {
                 """.formatted(ancient ? " checked" : "");
     }
 
+    private static String renderItemTypeFieldSet(ItemImportEditableForm form) {
+        if (isShield(form.getDetails())) {
+            return renderShieldFieldSet(form);
+        }
+        if (!isWeapon(form.getDetails())) {
+            return renderHiddenField("itemArmor", form.getItemArmor());
+        }
+        return renderWeaponFieldSet(form);
+    }
+
+    private static String renderShieldFieldSet(ItemImportEditableForm form) {
+        StringBuilder implicitLines = new StringBuilder();
+        for (FullItemReadLine line : form.getFullItemRead().getLines()) {
+            if (classifyPresentationLine(line) == ItemReadLineGroup.IMPLICIT) {
+                implicitLines.append("<li>").append(escapeHtml(line.getText())).append("</li>");
+            }
+        }
+        return """
+                <fieldset class="inline-fieldset">
+                    <legend>Dane tarczy</legend>
+                    %s
+                    <section class="item-line-group">
+                        <h5>Linie bazowe / implicity</h5>
+                        <ul class="item-line-list">%s</ul>
+                    </section>
+                </fieldset>
+                """.formatted(
+                renderNumberField("itemArmor", "Pancerz", form.getItemArmor(), "1"),
+                implicitLines
+        );
+    }
+
     private static String renderWeaponFieldSet(ItemImportEditableForm form) {
         String averageValue = form.getAverageWeaponDamage();
         if ((averageValue == null || averageValue.isBlank())
@@ -774,6 +812,30 @@ public final class ItemImportPageRenderer {
                 renderNumberField("averageWeaponDamage", "Średnie obrażenia trafienia", averageValue, "1"),
                 renderNumberField("attacksPerSecond", "Ataki na sekundę", form.getAttacksPerSecond(), "0.01")
         );
+    }
+
+    private static boolean isShield(ItemImportDetails details) {
+        if (details == null) {
+            return false;
+        }
+        String normalizedType = normalizeForDisplayRules(details.getItemType());
+        return details.getEquipmentSlot() == EquipmentSlot.OFF_HAND
+                && (normalizedType.contains("TARCZA") || details.getItemArmor() != null);
+    }
+
+    private static boolean isWeapon(ItemImportDetails details) {
+        if (details == null) {
+            return false;
+        }
+        String normalizedType = normalizeForDisplayRules(details.getItemType());
+        return details.getEquipmentSlot() == EquipmentSlot.MAIN_HAND
+                || normalizedType.contains("MIECZ")
+                || normalizedType.contains("SWORD")
+                || details.getWeaponDps() != null
+                || details.getWeaponDamageMin() != null
+                || details.getWeaponDamageMax() != null
+                || details.getAverageWeaponDamage() != null
+                || details.getAttacksPerSecond() != null;
     }
 
     private static String renderAffixTypeOptions(ImportedItemAffixType selectedType) {

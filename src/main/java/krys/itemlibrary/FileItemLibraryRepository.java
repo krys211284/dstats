@@ -305,6 +305,7 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
         payloadLines.add("WEAPON_DAMAGE_MAX|" + encodeLong(safeDetails.getWeaponDamageMax()));
         payloadLines.add("AVERAGE_WEAPON_DAMAGE|" + encodeLong(safeDetails.getAverageWeaponDamage()));
         payloadLines.add("ATTACKS_PER_SECOND|" + encodeDouble(safeDetails.getAttacksPerSecond()));
+        payloadLines.add("ITEM_ARMOR|" + encodeLong(safeDetails.getItemArmor()));
         payloadLines.add("UNIQUE_EFFECT_TEXT|" + encode(safeDetails.getUniqueEffectText()));
         return encode(String.join("\n", payloadLines));
     }
@@ -322,6 +323,7 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
         Long weaponDamageMax = null;
         Long averageWeaponDamage = null;
         Double attacksPerSecond = null;
+        Long itemArmor = null;
         String uniqueEffectText = "";
         for (String line : payload.split("\\R")) {
             String[] tokens = line.split("\\|", -1);
@@ -345,13 +347,14 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                 case "WEAPON_DAMAGE_MAX" -> weaponDamageMax = decodeLong(tokens[1]);
                 case "AVERAGE_WEAPON_DAMAGE" -> averageWeaponDamage = decodeLong(tokens[1]);
                 case "ATTACKS_PER_SECOND" -> attacksPerSecond = decodeDouble(tokens[1]);
+                case "ITEM_ARMOR" -> itemArmor = decodeLong(tokens[1]);
                 case "UNIQUE_EFFECT_TEXT" -> uniqueEffectText = decode(tokens[1]);
                 default -> {
                 }
             }
         }
         return new ItemImportDetails(itemName, itemType, itemRarity, ancient, equipmentSlot, itemPower,
-                weaponDps, weaponDamageMin, weaponDamageMax, averageWeaponDamage, attacksPerSecond, uniqueEffectText);
+                weaponDps, weaponDamageMin, weaponDamageMax, averageWeaponDamage, attacksPerSecond, itemArmor, uniqueEffectText);
     }
 
     private static String encodeLong(Long value) {

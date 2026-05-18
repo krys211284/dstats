@@ -22,6 +22,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Tickowa ręczna symulacja dla M7.
@@ -256,7 +257,8 @@ public final class ManualSimulationService {
             SkillDef skillDef = PaladinSkillDefs.get(skillId);
             SkillState state = snapshot.getSkillState(skillId);
             int rank = state == null ? 0 : state.getRank();
-            boolean legalActive = state != null && rank > 0;
+            Optional<String> equipmentBlockingReason = SkillEquipmentRequirement.blockingReason(skillId, snapshot);
+            boolean legalActive = state != null && rank > 0 && equipmentBlockingReason.isEmpty();
             Integer lastUsedSecond = lastUsedSeconds.get(skillId);
             boolean neverUsed = lastUsedSecond == null;
             boolean hasRequiredResource = skillDef.getResourceCost() <= 0;
@@ -272,7 +274,8 @@ public final class ManualSimulationService {
                     cooldownRemainingSeconds,
                     hasRequiredResource,
                     neverUsed,
-                    lastUsedSecond
+                    lastUsedSecond,
+                    equipmentBlockingReason.orElse(null)
             );
             evaluations.add(evaluation);
 
@@ -302,9 +305,13 @@ public final class ManualSimulationService {
         }
 
         if (selected == null) {
-            String reason = selectedSkillBar.isEmpty()
-                    ? "WAIT: pasek aktywnych skilli jest pusty."
-                    : "WAIT: brak legalnego skilla do użycia w tym ticku.";
+            String reason;
+            if (selectedSkillBar.isEmpty()) {
+                reason = "WAIT: pasek aktywnych skilli jest pusty.";
+            } else {
+                reason = firstEquipmentBlockingReason(evaluations)
+                        .orElse("WAIT: brak legalnego skilla do użycia w tym ticku.");
+            }
             return new SkillSelectionResult(null, "WAIT", skillBarStates, reason);
         }
 
@@ -350,6 +357,15 @@ public final class ManualSimulationService {
             return "Wybrano " + selected.skillName + ": najdawniej użyty legalny skill w LRU, remis rozstrzygnięto kolejnością na pasku.";
         }
         return "Wybrano " + selected.skillName + ": najdawniej użyty legalny skill według LRU.";
+    }
+
+    private static Optional<String> firstEquipmentBlockingReason(List<SkillEvaluation> evaluations) {
+        for (SkillEvaluation evaluation : evaluations) {
+            if (evaluation.equipmentBlockingReason != null && !evaluation.equipmentBlockingReason.isBlank()) {
+                return Optional.of(evaluation.equipmentBlockingReason);
+            }
+        }
+        return Optional.empty();
     }
 
     private static boolean hasActiveDelayedHit(List<PendingDelayedHit> pendingDelayedHits, String delayedHitName) {
@@ -475,7 +491,8 @@ public final class ManualSimulationService {
                                    int cooldownRemainingSeconds,
                                    boolean hasRequiredResource,
                                    boolean neverUsed,
-                                   Integer lastUsedSecond) {
+                                   Integer lastUsedSecond,
+                                   String equipmentBlockingReason) {
         private boolean isLegalCandidate() {
             return legalActive && !onCooldown && hasRequiredResource;
         }

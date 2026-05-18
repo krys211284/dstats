@@ -170,4 +170,8 @@ public final class ValidatedImportedItem {
     public String getUniqueEffectText() {
         return details.getUniqueEffectText();
     }
+
+    public Long getItemArmor() {
+        return details.getItemArmor();
+    }
 }

@@ -62,14 +62,15 @@ public final class AspectRegistry {
             return findById("verathiel_shard")
                     .map(definition -> new AspectMatch(definition.getId(), ItemImportFieldConfidence.HIGH));
         }
+        if (normalized.contains("GDY MASZ UMOCNIENIE")
+                && normalized.contains("ZADAJESZ OBRAZENIA ZWIEKSZONE")) {
+            return findById("fortify_damage_increased")
+                    .map(definition -> new AspectMatch(definition.getId(), ItemImportFieldConfidence.HIGH));
+        }
         if (normalized.contains("ZADAJESZ OBRAZENIA ZWIEKSZONE")
                 && normalized.contains("TA PREMIA JEST TRZY RAZY WIEKSZA")) {
             return findById("inner-calm")
                     .map(definition -> new AspectMatch(definition.getId(), ItemImportFieldConfidence.HIGH));
-        }
-        if (normalized.contains("ZADAJESZ OBRAZENIA ZWIEKSZONE")) {
-            return findById("inner-calm")
-                    .map(definition -> new AspectMatch(definition.getId(), ItemImportFieldConfidence.MEDIUM));
         }
         return Optional.empty();
     }

@@ -39,6 +39,8 @@ public final class CurrentBuildSnapshotFactory {
                 request.getWeaponDamage(),
                 0.0d,
                 items,
+                request.hasActiveWeapon(),
+                request.hasActiveShield(),
                 request.getLearnedSkills(),
                 request.getActionBar()
         );

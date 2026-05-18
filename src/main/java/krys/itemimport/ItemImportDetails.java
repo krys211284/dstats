@@ -17,6 +17,7 @@ public final class ItemImportDetails {
     private final Long weaponDamageMax;
     private final Long averageWeaponDamage;
     private final Double attacksPerSecond;
+    private final Long itemArmor;
     private final String uniqueEffectText;
 
     public ItemImportDetails(String itemName,
@@ -31,6 +32,23 @@ public final class ItemImportDetails {
                              Long averageWeaponDamage,
                              Double attacksPerSecond,
                              String uniqueEffectText) {
+        this(itemName, itemType, itemRarity, ancient, equipmentSlot, itemPower, weaponDps,
+                weaponDamageMin, weaponDamageMax, averageWeaponDamage, attacksPerSecond, null, uniqueEffectText);
+    }
+
+    public ItemImportDetails(String itemName,
+                             String itemType,
+                             String itemRarity,
+                             boolean ancient,
+                             EquipmentSlot equipmentSlot,
+                             Long itemPower,
+                             Long weaponDps,
+                             Long weaponDamageMin,
+                             Long weaponDamageMax,
+                             Long averageWeaponDamage,
+                             Double attacksPerSecond,
+                             Long itemArmor,
+                             String uniqueEffectText) {
         this.itemName = normalize(itemName);
         this.itemType = normalize(itemType);
         this.itemRarity = normalize(itemRarity);
@@ -43,6 +61,7 @@ public final class ItemImportDetails {
         this.averageWeaponDamage = nonNegativeOrNull("Średnie obrażenia broni",
                 averageWeaponDamage == null ? calculateAverage(weaponDamageMin, weaponDamageMax) : averageWeaponDamage);
         this.attacksPerSecond = nonNegativeOrNull("Ataki na sekundę", attacksPerSecond);
+        this.itemArmor = nonNegativeOrNull("Pancerz", itemArmor);
         this.uniqueEffectText = normalize(uniqueEffectText);
     }
 
@@ -119,6 +138,10 @@ public final class ItemImportDetails {
         return uniqueEffectText;
     }
 
+    public Long getItemArmor() {
+        return itemArmor;
+    }
+
     public boolean hasAnyData() {
         return !itemName.isBlank()
                 || !itemType.isBlank()
@@ -131,6 +154,7 @@ public final class ItemImportDetails {
                 || weaponDamageMax != null
                 || averageWeaponDamage != null
                 || attacksPerSecond != null
+                || itemArmor != null
                 || !uniqueEffectText.isBlank();
     }
 

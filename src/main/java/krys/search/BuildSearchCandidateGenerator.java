@@ -1,7 +1,9 @@
 package krys.search;
 
 import krys.app.CurrentBuildRequest;
+import krys.item.HeroEquipmentSlot;
 import krys.itemimport.CurrentBuildImportableStats;
+import krys.itemlibrary.HeroSlotItemAssignment;
 import krys.itemlibrary.ItemLibrarySearchCombination;
 import krys.itemlibrary.ItemLibraryService;
 import krys.skill.SkillId;
@@ -161,6 +163,9 @@ public final class BuildSearchCandidateGenerator {
                                                         Map<SkillId, SkillState> learnedSkills,
                                                         List<SkillId> actionBar,
                                                         ItemLibrarySearchCombination itemLibraryCombination) {
+        if (effectiveStats.getWeaponDamage() <= 0L) {
+            return null;
+        }
         try {
             return new BuildSearchCandidate(
                     new CurrentBuildRequest(
@@ -171,6 +176,8 @@ public final class BuildSearchCandidateGenerator {
                             effectiveStats.getThorns(),
                             effectiveStats.getBlockChance(),
                             effectiveStats.getRetributionChance(),
+                            hasActiveWeapon(request, itemLibraryCombination, effectiveStats),
+                            hasActiveShield(request, itemLibraryCombination),
                             learnedSkills,
                             actionBar,
                             request.getHorizonSeconds()
@@ -181,6 +188,32 @@ public final class BuildSearchCandidateGenerator {
         } catch (IllegalArgumentException exception) {
             return null;
         }
+    }
+
+    private static boolean hasActiveWeapon(BuildSearchRequest request,
+                                           ItemLibrarySearchCombination itemLibraryCombination,
+                                           CurrentBuildImportableStats effectiveStats) {
+        if (!request.isUseItemLibrary()) {
+            return effectiveStats.getWeaponDamage() > 0L;
+        }
+        return hasSelectedSlot(itemLibraryCombination, HeroEquipmentSlot.MAIN_HAND);
+    }
+
+    private static boolean hasActiveShield(BuildSearchRequest request,
+                                           ItemLibrarySearchCombination itemLibraryCombination) {
+        if (!request.isUseItemLibrary()) {
+            return true;
+        }
+        return hasSelectedSlot(itemLibraryCombination, HeroEquipmentSlot.OFF_HAND);
+    }
+
+    private static boolean hasSelectedSlot(ItemLibrarySearchCombination itemLibraryCombination, HeroEquipmentSlot slot) {
+        for (HeroSlotItemAssignment assignment : itemLibraryCombination.getSelectedItems()) {
+            if (assignment.getHeroSlot() == slot) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static long permutations(int itemCount, int selectionSize) {

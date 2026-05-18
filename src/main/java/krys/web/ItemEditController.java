@@ -159,6 +159,7 @@ final class ItemEditController implements HttpHandler {
                 parseLongOrFallback(fields.get("weaponDamageMax"), fallback.getWeaponDamageMax()),
                 parseLongOrFallback(fields.get("averageWeaponDamage"), fallback.getAverageWeaponDamage()),
                 parseDoubleOrFallback(fields.get("attacksPerSecond"), fallback.getAttacksPerSecond()),
+                parseLongOrFallback(fields.get("itemArmor"), fallback.getItemArmor()),
                 valueOrFallback(fields, "uniqueEffectText", fallback.getUniqueEffectText())
         );
     }
@@ -261,9 +262,9 @@ final class ItemEditController implements HttpHandler {
     private static String defaultUnit(ImportedItemAffixType type) {
         return switch (type) {
             case BLOCK_CHANCE, RETRIBUTION_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
-                 MOVEMENT_SPEED, DODGE_CHANCE -> "%";
+                 MOVEMENT_SPEED, DODGE_CHANCE, DAMAGE_REDUCTION -> "%";
             case STRENGTH, INTELLIGENCE, THORNS, WEAPON_DAMAGE_FLAT, MAXIMUM_LIFE, LIFE_ON_HIT,
-                 LUCKY_HIT_PRIMARY_RESOURCE -> "";
+                 LUCKY_HIT_PRIMARY_RESOURCE, ALL_RESISTANCE, FIRE_RESISTANCE -> "";
         };
     }
 

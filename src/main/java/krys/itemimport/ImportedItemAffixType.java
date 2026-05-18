@@ -9,6 +9,9 @@ public enum ImportedItemAffixType {
     STRENGTH("Siła", "+%s siły", RuntimeProjection.STRENGTH),
     INTELLIGENCE("Inteligencja", "+%s inteligencji", RuntimeProjection.INTELLIGENCE),
     THORNS("Ciernie", "+%s cierni", RuntimeProjection.THORNS),
+    ALL_RESISTANCE("Odporność na wszystkie żywioły", "+%s do odporności na wszystkie żywioły", RuntimeProjection.NONE),
+    FIRE_RESISTANCE("Odporność na Ogień", "+%s do odporności na Ogień", RuntimeProjection.NONE),
+    DAMAGE_REDUCTION("Redukcja obrażeń", "%s%% redukcji obrażeń", RuntimeProjection.NONE),
     BLOCK_CHANCE("Szansa na blok", "%s%% szansy na blok", RuntimeProjection.BLOCK_CHANCE),
     RETRIBUTION_CHANCE("Szansa retribution", "%s%% szansy retribution", RuntimeProjection.RETRIBUTION_CHANCE),
     LUCKY_HIT_CHANCE("Szansa na szczęśliwy traf", "+%s%% szansy na szczęśliwy traf", RuntimeProjection.NONE),
@@ -52,6 +55,15 @@ public enum ImportedItemAffixType {
         }
         if (normalized.contains("CIERNI") || normalized.contains("THORNS")) {
             return Optional.of(THORNS);
+        }
+        if (normalized.contains("ODPORNOSCI NA WSZYSTKIE ZYWIOLY") || normalized.contains("RESISTANCE TO ALL ELEMENTS")) {
+            return Optional.of(ALL_RESISTANCE);
+        }
+        if (normalized.contains("ODPORNOSCI NA: OGIEN") || normalized.contains("ODPORNOSCI NA OGIEN") || normalized.contains("FIRE RESISTANCE")) {
+            return Optional.of(FIRE_RESISTANCE);
+        }
+        if (normalized.contains("REDUKCJI OBRAZEN") || normalized.contains("DAMAGE REDUCTION")) {
+            return Optional.of(DAMAGE_REDUCTION);
         }
         if (normalized.contains("SZANSY NA BLOK") || normalized.contains("BLOCK CHANCE")) {
             return Optional.of(BLOCK_CHANCE);

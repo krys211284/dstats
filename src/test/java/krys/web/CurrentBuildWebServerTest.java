@@ -447,9 +447,41 @@ class CurrentBuildWebServerTest {
     }
 
     @Test
-    void shouldCalculateNonZeroClashDirectDamageWithActiveVerathiel() throws Exception {
+    void shouldSkipClashDamageWithActiveVerathielWithoutShield() throws Exception {
         createHero("Starcie z Verathielem", "70");
         saveAndActivateVerathiel();
+        assignSkill(krys.skill.SkillId.CLASH);
+        Map<String, String> fields = buildClashRankOneLevel70Fields();
+        fields.put("formAction", "calculate");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        String html = response.body();
+        assertFalse(html.contains("Błędy formularza"));
+        assertTrue(html.contains("Obliczono aktualny build."));
+        assertTrue(html.contains(summaryCard("Efektywne obrażenia broni", "1664")));
+        assertTrue(html.contains(summaryCard("Pasek akcji", "Starcie")));
+        assertTrue(html.contains(summaryCard("Łączne obrażenia", "0")));
+        assertTrue(html.contains(summaryCard("DPS", "0.0000")));
+        assertTrue(technicalRuntimeInputSection(html)
+                .contains(runtimeInputCard("Obrażenia broni", "1664", "Aktywna broń: Odłamek Verathiela, średnie obrażenia trafienia")));
+        assertTrue(technicalRuntimeInputSection(html).contains(runtimeInputCard("Siła", "79", "Baseline Paladyn poziom 70")));
+        String directHitDebug = sectionByHeading(html, "Debug bezpośrednich trafień");
+        assertTrue(directHitDebug.contains("Brak bezpośrednich hitów w bieżącej symulacji."));
+        assertFalse(directHitDebug.contains("<h3 title=\"CLASH\" data-skill-id=\"CLASH\">Starcie</h3>"));
+        assertFalse(directHitDebug.contains("<td>Główny hit</td>"));
+        assertFalse(directHitDebug.contains("<td>619</td>"));
+        String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
+        assertTrue(stepTrace.contains("Starcie pominięte: brak aktywnej tarczy."));
+        assertTrue(stepTrace.contains("legalny=nie"));
+    }
+
+    @Test
+    void shouldCalculateNonZeroClashDirectDamageWithActiveVerathielAndShield() throws Exception {
+        createHero("Starcie z Verathielem i tarczą", "70");
+        saveAndActivateVerathiel();
+        saveAndActivateEmptyShield("2");
         assignSkill(krys.skill.SkillId.CLASH);
         Map<String, String> fields = buildClashRankOneLevel70Fields();
         fields.put("formAction", "calculate");
@@ -466,12 +498,37 @@ class CurrentBuildWebServerTest {
         assertFalse(html.contains(summaryCard("DPS", "0.0000")));
         assertTrue(technicalRuntimeInputSection(html)
                 .contains(runtimeInputCard("Obrażenia broni", "1664", "Aktywna broń: Odłamek Verathiela, średnie obrażenia trafienia")));
-        assertTrue(technicalRuntimeInputSection(html).contains(runtimeInputCard("Siła", "79", "Baseline Paladyn poziom 70")));
         String directHitDebug = sectionByHeading(html, "Debug bezpośrednich trafień");
         assertTrue(directHitDebug.contains("<h3 title=\"CLASH\" data-skill-id=\"CLASH\">Starcie</h3>"));
         assertTrue(directHitDebug.contains("<td>Główny hit</td>"));
         assertTrue(directHitDebug.contains("<td>115</td>"));
-        assertFalse(directHitDebug.contains("<td>0</td>\n                                <td>0</td>"));
+        assertFalse(directHitDebug.contains("shieldDamage"));
+    }
+
+    @Test
+    void shouldSkipClashDamageWithoutActiveWeaponEvenWhenShieldIsActive() throws Exception {
+        createHero("Starcie bez broni", "70");
+        saveAndActivateEmptyShield("1");
+        assignSkill(krys.skill.SkillId.CLASH);
+        Map<String, String> fields = buildClashRankOneLevel70Fields();
+        fields.put("formAction", "calculate");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        String html = response.body();
+        assertFalse(html.contains("Błędy formularza"));
+        assertTrue(html.contains("Obliczono aktualny build."));
+        assertTrue(html.contains(summaryCard("Efektywne obrażenia broni", "0")));
+        assertTrue(html.contains(summaryCard("Łączne obrażenia", "0")));
+        assertTrue(html.contains(summaryCard("DPS", "0.0000")));
+        assertTrue(technicalRuntimeInputSection(html)
+                .contains(runtimeInputCard("Obrażenia broni", "0", "Brak aktywnej broni")));
+        String directHitDebug = sectionByHeading(html, "Debug bezpośrednich trafień");
+        assertTrue(directHitDebug.contains("Brak bezpośrednich hitów w bieżącej symulacji."));
+        assertFalse(directHitDebug.contains("<td>Główny hit</td>"));
+        String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
+        assertTrue(stepTrace.contains("Starcie pominięte: brak aktywnej broni."));
     }
 
     @Test
@@ -1535,6 +1592,32 @@ class CurrentBuildWebServerTest {
                 "action", "activateItem",
                 "itemId", "1",
                 "heroSlot", "MAIN_HAND",
+                "currentBuildQuery", ""
+        ));
+        assertEquals(200, activateResponse.statusCode());
+
+        saveAndActivateEmptyShield("2");
+    }
+
+    private void saveAndActivateEmptyShield(String shieldItemId) throws Exception {
+        HttpResponse<String> saveResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "saveImportedItem",
+                "sourceImageName", "runtime-shield.png",
+                "slot", "OFF_HAND",
+                "weaponDamage", "0",
+                "strength", "0",
+                "intelligence", "0",
+                "thorns", "0",
+                "blockChance", "0",
+                "retributionChance", "0",
+                "currentBuildQuery", buildCurrentBuildQuery()
+        ));
+        assertEquals(200, saveResponse.statusCode());
+
+        HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", shieldItemId,
+                "heroSlot", "OFF_HAND",
                 "currentBuildQuery", ""
         ));
         assertEquals(200, activateResponse.statusCode());
