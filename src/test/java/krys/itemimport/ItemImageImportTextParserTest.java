@@ -206,10 +206,66 @@ class ItemImageImportTextParserTest {
     }
 
     @Test
+    void shouldUseKoscianychLusekSnapshotContextForStableGreaterAffixesWhenMarkerIsMissing() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                MIAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK
+                Starożytna legendarna tarcza
+                Moc przedmiotu: 900
+                1 202 pkt. pancerza
+                +225 siły
+                +490 do odporności na wszystkie żywioły
+                +787 do odporności na: Ogień
+                11,4% redukcji obrażeń [11,0 - 15,0]
+                Gdy masz umocnienie, zadajesz obrażenia zwiększone 0 610/01x] [45 - 651%. 70 poziomu
+                """);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(4, form.getAffixes().size());
+        assertAffixGreaterFlag(form, ImportedItemAffixType.STRENGTH, true);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.ALL_RESISTANCE, true);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.FIRE_RESISTANCE, true);
+        assertAffixGreaterFlag(form, ImportedItemAffixType.DAMAGE_REDUCTION, false);
+    }
+
+    @Test
     void shouldParseFortifyAspectRollGenericallyAndNeverSelectInnerCalm() {
         assertFortifyAspectRoll("Gdy masz umocnienie, zadajesz obrażenia zwiększone o 58%[x] [45 - 65]%.", "58%[x]");
         assertFortifyAspectRoll("Gdy masz umocnienie, zadajesz obrażenia zwiększone o 610[x] [45 - 65]%. 70 poziomu", "61%[x]");
         assertFortifyAspectRoll("Gdy masz umocnienie, zadajesz obrażenia zwiększone o 550[x] [45 - 65]%. 70 poziomu", "55%[x]");
+    }
+
+    @Test
+    void shouldNormalizeRealBrokenFortifyAspectFromShieldScreenshot() {
+        String brokenAspect = "Gdy masz umocnienie, zadajesz obrażenia zwiększone 0 610/01x] [45 - 651%. 70 poziomu";
+
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                Generyczna Tarcza Próbna
+                Legendarna tarcza
+                %s
+                """.formatted(brokenAspect));
+        String normalized = result.getFullItemRead().getDetails().getUniqueEffectText();
+        ItemImportDetails details = new ItemImportDetails(
+                "Generyczna Tarcza Próbna",
+                "Tarcza",
+                "LEGENDARY",
+                true,
+                EquipmentSlot.OFF_HAND,
+                900L,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1202L,
+                brokenAspect
+        );
+
+        assertTrue(normalized.contains("61%[x]"), normalized);
+        assertTrue(normalized.contains("45 - 65"), normalized);
+        assertFalse(normalized.contains("610"), normalized);
+        assertFalse(normalized.contains("651"), normalized);
+        assertFalse(normalized.contains("70 poziomu"), normalized);
+        assertEquals(normalized, details.getUniqueEffectText());
     }
 
     @Test
@@ -492,6 +548,14 @@ class ItemImageImportTextParserTest {
         assertFalse("inner-calm".equals(form.getSelectedAspectId()), aspectLine);
         assertTrue(result.getFullItemRead().getDetails().getUniqueEffectText().contains(expectedRoll), aspectLine);
         assertFalse(result.getFullItemRead().getDetails().getUniqueEffectText().contains("70 poziomu"), aspectLine);
+    }
+
+    private static void assertAffixGreaterFlag(ItemImportEditableForm form, ImportedItemAffixType expectedType, boolean expectedGreaterAffix) {
+        ImportedItemAffix affix = form.getAffixes().stream()
+                .filter(candidate -> candidate.getType() == expectedType)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Brak affixu: " + expectedType.getDisplayName()));
+        assertEquals(expectedGreaterAffix, affix.isGreaterAffix(), expectedType.getDisplayName());
     }
 
     private static void assertLineText(ItemImageImportCandidateParseResult result,

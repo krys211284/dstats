@@ -239,11 +239,11 @@ class ItemImageImportServiceTest {
                                 • +490 do odporności na wszystkie żywioły
                                 • +787 do odporności na: Ogień
                                 11,4% redukcji obrażeń [11 - 0]
-                                Gdy masz umocnienie, zadajesz obrażenia zwiększone o 610[x] [45 - 65]%. 70 poziomu
+                                Gdy masz umocnienie, zadajesz obrażenia zwiększone 0 610/01x] [45 - 651%. 70 poziomu
                                 """,
                         "text-crop", "MIAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK\nStarożytna legendarna tarcza\nMoc przedmiotu: 900\nPancerz: 1 202 pkt.",
                         "shield-affix-crop-gray-x4-sharpen", "• +225 siły\n• +490 do odporności na wszystkie żywioły\n• +787 do odporności na: Ogień\n11,4% redukcji obrażeń [11 - 0]",
-                        "shield-aspect-crop-gray-x4-sharpen", "Gdy masz umocnienie, zadajesz obrażenia zwiększone o 610[x] [45 - 65]%. 70 poziomu"
+                        "shield-aspect-crop-gray-x4-sharpen", "Gdy masz umocnienie, zadajesz obrażenia zwiększone 0 610/01x] [45 - 651%. 70 poziomu"
                 )),
                 new ItemImageImportTextParser(),
                 new ItemImageImportCandidateMerger()
@@ -264,7 +264,10 @@ class ItemImageImportServiceTest {
         ));
 
         assertTrue(html.contains("Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%."));
+        assertTrue(html.contains("<option value=\"fortify_damage_increased\" data-allowed-slots=\"OFF_HAND\" selected>Umocnienie: zwiększone obrażenia</option>"));
+        assertFalse(html.contains("610/01x"));
         assertFalse(html.contains("610[x]"));
+        assertFalse(html.contains("651"));
         assertFalse(html.contains("70 poziomu"));
         assertTrue(html.contains("Dane tarczy"));
         assertFalse(html.contains("<legend>Dane broni</legend>"));
@@ -277,20 +280,32 @@ class ItemImageImportServiceTest {
         String strengthRow = affixRow(html, "Siła");
         assertTrue(strengthRow.contains("value=\"225\""), strengthRow);
         assertTrue(strengthRow.contains("value=\"true\" checked"), strengthRow);
+        assertTrue(strengthRow.contains("Bez zakresu (Greater Affix)"), strengthRow);
+        assertFalse(strengthRow.contains("Brak zakresu"), strengthRow);
 
         String allResistanceRow = affixRow(html, "Odporność na wszystkie żywioły");
         assertTrue(allResistanceRow.contains("value=\"490\""), allResistanceRow);
         assertTrue(allResistanceRow.contains("value=\"true\" checked"), allResistanceRow);
+        assertTrue(allResistanceRow.contains("Bez zakresu (Greater Affix)"), allResistanceRow);
 
         String fireResistanceRow = affixRow(html, "Odporność na Ogień");
         assertTrue(fireResistanceRow.contains("value=\"787\""), fireResistanceRow);
         assertTrue(fireResistanceRow.contains("value=\"true\" checked"), fireResistanceRow);
+        assertTrue(fireResistanceRow.contains("Bez zakresu (Greater Affix)"), fireResistanceRow);
 
         String damageReductionRow = affixRow(html, "Redukcja obrażeń");
         assertTrue(damageReductionRow.contains("value=\"11.4\""), damageReductionRow);
         assertTrue(damageReductionRow.contains("11,0 - 15,0"), damageReductionRow);
         assertFalse(damageReductionRow.contains("Brak zakresu"), damageReductionRow);
         assertFalse(damageReductionRow.contains("value=\"true\" checked"), damageReductionRow);
+
+        assertGreaterAffixWithoutRollRange(form, ImportedItemAffixType.STRENGTH);
+        assertGreaterAffixWithoutRollRange(form, ImportedItemAffixType.ALL_RESISTANCE);
+        assertGreaterAffixWithoutRollRange(form, ImportedItemAffixType.FIRE_RESISTANCE);
+        ImportedItemAffix damageReduction = affix(form, ImportedItemAffixType.DAMAGE_REDUCTION);
+        assertFalse(damageReduction.isGreaterAffix());
+        assertEquals(11.0d, damageReduction.getRollRangeMin());
+        assertEquals(15.0d, damageReduction.getRollRangeMax());
     }
 
     @Test
@@ -598,11 +613,22 @@ class ItemImageImportServiceTest {
     }
 
     private static void assertAffixGreaterFlag(ItemImportEditableForm form, ImportedItemAffixType expectedType, boolean expectedGreaterAffix) {
-        ImportedItemAffix affix = form.getAffixes().stream()
+        ImportedItemAffix affix = affix(form, expectedType);
+        assertEquals(expectedGreaterAffix, affix.isGreaterAffix(), expectedType.getDisplayName());
+    }
+
+    private static void assertGreaterAffixWithoutRollRange(ItemImportEditableForm form, ImportedItemAffixType expectedType) {
+        ImportedItemAffix affix = affix(form, expectedType);
+        assertTrue(affix.isGreaterAffix(), expectedType.getDisplayName());
+        assertNull(affix.getRollRangeMin(), expectedType.getDisplayName());
+        assertNull(affix.getRollRangeMax(), expectedType.getDisplayName());
+    }
+
+    private static ImportedItemAffix affix(ItemImportEditableForm form, ImportedItemAffixType expectedType) {
+        return form.getAffixes().stream()
                 .filter(candidate -> candidate.getType() == expectedType)
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Brak affixu: " + expectedType.getDisplayName()));
-        assertEquals(expectedGreaterAffix, affix.isGreaterAffix(), expectedType.getDisplayName());
     }
 
     private static void assertLineTypeContains(

@@ -725,58 +725,7 @@ final class ItemImageImportTextParser {
     }
 
     private static Optional<String> normalizeFortifyLegendaryEffect(String text) {
-        String normalized = normalizeLineForPatternKeepingPlus(text);
-        if (!collapse(normalized).contains("GDYMASZUMOCNIENIE")
-                || !collapse(normalized).contains("ZADAJESZOBRAZENIAZWIEKSZONE")) {
-            return Optional.empty();
-        }
-        Optional<RollRange> range = parseFortifyRollRange(normalized);
-        Optional<Integer> roll = parseFortifyRoll(normalized, range);
-        if (range.isEmpty() || roll.isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of("Gdy masz umocnienie, zadajesz obrażenia zwiększone o "
-                + roll.get()
-                + "%[x] ["
-                + range.get().min()
-                + " - "
-                + range.get().max()
-                + "]%.");
-    }
-
-    private static Optional<RollRange> parseFortifyRollRange(String normalizedText) {
-        Matcher matcher = Pattern.compile("\\[\\s*([0-9OISBL]{1,3})\\s*[-–—−]\\s*([0-9OISBL]{1,3})\\s*]?\\s*%?").matcher(normalizedText);
-        while (matcher.find()) {
-            Optional<Long> min = parseLongToken(matcher.group(1));
-            Optional<Long> max = parseLongToken(matcher.group(2));
-            if (min.isPresent() && max.isPresent() && min.get() < max.get()) {
-                return Optional.of(new RollRange(min.get().intValue(), max.get().intValue()));
-            }
-        }
-        return Optional.empty();
-    }
-
-    private static Optional<Integer> parseFortifyRoll(String normalizedText, Optional<RollRange> range) {
-        Matcher matcher = Pattern.compile("ZWIEKSZONE\\s+O\\s+([0-9OISBL]+(?:\\s+[0-9OISBL]+)?)(?:\\s*%?\\s*\\[?\\s*X\\s*]?|\\s*%\\s*X)",
-                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(normalizedText);
-        if (!matcher.find()) {
-            return Optional.empty();
-        }
-        String compactToken = matcher.group(1).replaceAll("\\s+", "");
-        Optional<Long> parsed = parseLongToken(compactToken);
-        if (parsed.isEmpty()) {
-            return Optional.empty();
-        }
-        int value = parsed.get().intValue();
-        if (range.isPresent() && !range.get().contains(value) && compactToken.length() > 1) {
-            for (int trimmedLength = compactToken.length() - 1; trimmedLength >= 1; trimmedLength--) {
-                Optional<Long> repaired = parseLongToken(compactToken.substring(0, trimmedLength));
-                if (repaired.isPresent() && range.get().contains(repaired.get().intValue())) {
-                    return Optional.of(repaired.get().intValue());
-                }
-            }
-        }
-        return Optional.of(value);
+        return FortifyLegendaryEffectNormalizer.normalize(text);
     }
 
     private static boolean sameFortifyEffect(String left, String right) {
@@ -1352,12 +1301,6 @@ final class ItemImageImportTextParser {
     }
 
     private record DamageRange(Long min, Long max) {
-    }
-
-    private record RollRange(int min, int max) {
-        private boolean contains(int value) {
-            return value >= min && value <= max;
-        }
     }
 
     private record StructuredNameCandidate(String name, int score, int firstIndex) {

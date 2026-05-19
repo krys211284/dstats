@@ -442,7 +442,13 @@ public final class ItemImportPageRenderer {
                 + "\">";
     }
 
-    private static String emptyLabelForRollRange(String value) {
+    private static String rollRangeLabel(ImportedItemAffix affix) {
+        if (affix != null && affix.isGreaterAffix()
+                && affix.getRollRangeMin() == null
+                && affix.getRollRangeMax() == null) {
+            return "Bez zakresu (Greater Affix)";
+        }
+        String value = affix == null ? "" : affix.getRollRangeLabel();
         return value == null || value.isBlank() ? "Brak zakresu" : value;
     }
 
@@ -549,7 +555,7 @@ public final class ItemImportPageRenderer {
                     index,
                     escapeHtml(affix.getDisplayValue()),
                     renderAffixValueControl(index, affix),
-                    escapeHtml(emptyLabelForRollRange(affix.getRollRangeLabel())),
+                    escapeHtml(rollRangeLabel(affix)),
                     index,
                     affix.isGreaterAffix() ? " checked" : ""
             ));

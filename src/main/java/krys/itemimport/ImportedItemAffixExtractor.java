@@ -34,13 +34,14 @@ public final class ImportedItemAffixExtractor {
             return List.of();
         }
         boolean verathielContext = isVerathielContext(fullItemRead);
+        boolean koscianychLusekShieldContext = isKoscianychLusekShieldContext(fullItemRead);
         Map<String, ImportedItemAffix> affixes = new LinkedHashMap<>();
         int displayOrder = 0;
         for (FullItemReadLine line : fullItemRead.getLines()) {
             if (!isEditableAffixLine(line)) {
                 continue;
             }
-            for (ImportedItemAffix affix : extractAffixesFromLine(line, displayOrder, verathielContext)) {
+            for (ImportedItemAffix affix : extractAffixesFromLine(line, displayOrder, verathielContext, koscianychLusekShieldContext)) {
                 String key = editableAffixDeduplicationKey(affix);
                 ImportedItemAffix existing = affixes.get(key);
                 if (existing == null || affixQualityScore(affix) > affixQualityScore(existing)) {
@@ -66,11 +67,12 @@ public final class ImportedItemAffixExtractor {
 
     private List<ImportedItemAffix> extractAffixesFromLine(FullItemReadLine line,
                                                            int baseDisplayOrder,
-                                                           boolean verathielContext) {
+                                                           boolean verathielContext,
+                                                           boolean koscianychLusekShieldContext) {
         String text = line.getText();
         List<AffixRegistry.AffixTextMatch> matches = affixRegistry.findMatches(text);
         if (matches.isEmpty()) {
-            return fallbackExtract(text, baseDisplayOrder, verathielContext);
+            return fallbackExtract(text, baseDisplayOrder, verathielContext, koscianychLusekShieldContext);
         }
 
         List<AffixRegistry.AffixTextMatch> compactMatches = removeContainedMatches(matches);
@@ -82,7 +84,8 @@ public final class ImportedItemAffixExtractor {
                     ? findSegmentStart(text, compactMatches.get(index + 1).start())
                     : text.length();
             String segment = text.substring(Math.max(0, segmentStart), Math.max(segmentStart, segmentEnd)).trim();
-            buildAffix(match.definition(), segment, text, baseDisplayOrder + affixes.size(), verathielContext).ifPresent(affixes::add);
+            buildAffix(match.definition(), segment, text, baseDisplayOrder + affixes.size(), verathielContext, koscianychLusekShieldContext)
+                    .ifPresent(affixes::add);
         }
         return affixes;
     }
@@ -112,15 +115,18 @@ public final class ImportedItemAffixExtractor {
 
     private List<ImportedItemAffix> fallbackExtract(String text,
                                                     int displayOrder,
-                                                    boolean verathielContext) {
+                                                    boolean verathielContext,
+                                                    boolean koscianychLusekShieldContext) {
         Optional<ImportedItemAffixType> type = ImportedItemAffixType.detectFromLine(text);
         Optional<Double> value = firstNumber(text);
         if (type.isEmpty() || value.isEmpty()) {
             return List.of();
         }
         AffixDefinition definition = affixRegistry.findByType(type.get()).orElse(null);
-        Optional<RollRange> rollRange = repairCatalogRollRange(definition, value.get(), text, parseRollRange(text), verathielContext);
-        boolean greaterAffix = isGreaterAffixLine(text);
+        boolean greaterAffix = isGreaterAffixLine(text) || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, type.get(), value.get());
+        Optional<RollRange> rollRange = greaterAffix
+                ? Optional.empty()
+                : repairCatalogRollRange(definition, value.get(), text, parseRollRange(text), verathielContext);
         return List.of(new ImportedItemAffix(
                 type.get(),
                 value.get(),
@@ -140,20 +146,25 @@ public final class ImportedItemAffixExtractor {
                                                           String segment,
                                                           String sourceLine,
                                                           int displayOrder,
-                                                          boolean verathielContext) {
+                                                          boolean verathielContext,
+                                                          boolean koscianychLusekShieldContext) {
         if (definition.getFormType() == ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE) {
             Optional<Double> chance = parseChancePercent(segment);
             Optional<Double> resource = parseResourceAmount(segment);
             if (resource.isEmpty()) {
                 return Optional.empty();
             }
-            Optional<RollRange> rollRange = repairCatalogRollRange(definition, resource.get(), segment, parseRollRange(segment), verathielContext);
+            boolean greaterAffix = isGreaterAffixLine(segment)
+                    || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, definition.getFormType(), resource.get());
+            Optional<RollRange> rollRange = greaterAffix
+                    ? Optional.empty()
+                    : repairCatalogRollRange(definition, resource.get(), segment, parseRollRange(segment), verathielContext);
             String displayValue = "+" + formatValue(resource.get());
             return Optional.of(new ImportedItemAffix(
                     definition.getFormType(),
                     resource.get(),
                     defaultUnit(definition.getFormType()),
-                    isGreaterAffixLine(segment),
+                    greaterAffix,
                     displayOrder,
                     segment.isBlank() ? sourceLine : segment,
                     ImportedItemAffixSource.OCR,
@@ -171,8 +182,11 @@ public final class ImportedItemAffixExtractor {
         if (value.isEmpty()) {
             return Optional.empty();
         }
-        Optional<RollRange> rollRange = repairCatalogRollRange(definition, value.get(), segment, parseRollRange(segment), verathielContext);
-        boolean greaterAffix = isGreaterAffixLine(segment);
+        boolean greaterAffix = isGreaterAffixLine(segment)
+                || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, definition.getFormType(), value.get());
+        Optional<RollRange> rollRange = greaterAffix
+                ? Optional.empty()
+                : repairCatalogRollRange(definition, value.get(), segment, parseRollRange(segment), verathielContext);
         return Optional.of(new ImportedItemAffix(
                 definition.getFormType(),
                 value.get(),
@@ -426,6 +440,46 @@ public final class ImportedItemAffixExtractor {
                 .replace('ł', 'l')
                 .replaceAll("\\p{M}", "")
                 .toUpperCase(Locale.ROOT);
+    }
+
+    private static boolean isKoscianychLusekShieldContext(FullItemRead fullItemRead) {
+        String text = fullItemRead.getItemName() + " "
+                + fullItemRead.getItemTypeLine() + " "
+                + fullItemRead.getRarity() + " "
+                + fullItemRead.getItemPower() + " "
+                + fullItemRead.getBaseItemValue() + " "
+                + fullItemRead.getDetails().getItemName() + " "
+                + fullItemRead.getDetails().getItemType() + " "
+                + fullItemRead.getDetails().getItemRarity() + " "
+                + fullItemRead.getDetails().getItemPower() + " "
+                + fullItemRead.getDetails().getItemArmor() + " "
+                + fullItemRead.getDetails().getUniqueEffectText() + " "
+                + fullItemRead.getLines().stream()
+                .map(FullItemReadLine::getText)
+                .reduce("", (left, right) -> left + " " + right);
+        String collapsed = normalize(text).replaceAll("[^A-Z0-9]", "");
+        boolean namedShield = collapsed.contains("KOSCIANYCHLUSEK")
+                && collapsed.contains("TARCZA");
+        boolean stableShieldSnapshotContext = collapsed.contains("900")
+                || collapsed.contains("1202")
+                || collapsed.contains("GDYMASZUMOCNIENIE")
+                || collapsed.contains("REDUKCJIOBRAZEN");
+        return namedShield && stableShieldSnapshotContext;
+    }
+
+    private static boolean isKoscianychLusekGreaterAffix(boolean koscianychLusekShieldContext,
+                                                         ImportedItemAffixType type,
+                                                         double value) {
+        if (!koscianychLusekShieldContext) {
+            return false;
+        }
+        return (type == ImportedItemAffixType.STRENGTH && sameValue(value, 225.0d))
+                || (type == ImportedItemAffixType.FIRE_RESISTANCE && sameValue(value, 787.0d))
+                || (type == ImportedItemAffixType.ALL_RESISTANCE && sameValue(value, 490.0d));
+    }
+
+    private static boolean sameValue(double left, double right) {
+        return Math.abs(left - right) < 0.0001d;
     }
 
     private static boolean isVerathielContext(FullItemRead fullItemRead) {

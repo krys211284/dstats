@@ -4,8 +4,6 @@ import krys.item.EquipmentSlot;
 
 import java.util.Locale;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /** Strukturalne dane itemu odczytane z OCR albo poprawione ręcznie przed zapisem. */
 public final class ItemImportDetails {
@@ -170,91 +168,6 @@ public final class ItemImportDetails {
     }
 
     private static Optional<String> normalizeFortifyLegendaryEffect(String text) {
-        String normalized = normalizeLineForPatternKeepingPlus(text);
-        String collapsed = normalized.replaceAll("[^A-Z0-9]", "");
-        if (!collapsed.contains("GDYMASZUMOCNIENIE")
-                || !collapsed.contains("ZADAJESZOBRAZENIAZWIEKSZONE")) {
-            return Optional.empty();
-        }
-        Optional<RollRange> range = parseFortifyRollRange(normalized);
-        Optional<Integer> roll = parseFortifyRoll(normalized, range);
-        if (range.isEmpty() || roll.isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of("Gdy masz umocnienie, zadajesz obrażenia zwiększone o "
-                + roll.get()
-                + "%[x] ["
-                + range.get().min()
-                + " - "
-                + range.get().max()
-                + "]%.");
-    }
-
-    private static Optional<RollRange> parseFortifyRollRange(String normalizedText) {
-        Matcher matcher = Pattern.compile("\\[\\s*([0-9OISBL]{1,3})\\s*[-–—−]\\s*([0-9OISBL]{1,3})\\s*]?\\s*%?").matcher(normalizedText);
-        while (matcher.find()) {
-            Optional<Integer> min = parseFortifyInteger(matcher.group(1));
-            Optional<Integer> max = parseFortifyInteger(matcher.group(2));
-            if (min.isPresent() && max.isPresent() && min.get() < max.get()) {
-                return Optional.of(new RollRange(min.get(), max.get()));
-            }
-        }
-        return Optional.empty();
-    }
-
-    private static Optional<Integer> parseFortifyRoll(String normalizedText, Optional<RollRange> range) {
-        Matcher matcher = Pattern.compile("ZWIEKSZONE\\s+O\\s+([0-9OISBL]+(?:\\s+[0-9OISBL]+)?)(?:\\s*%?\\s*\\[?\\s*X\\s*]?|\\s*%\\s*X)",
-                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(normalizedText);
-        if (!matcher.find()) {
-            return Optional.empty();
-        }
-        String compactToken = matcher.group(1).replaceAll("\\s+", "");
-        Optional<Integer> parsed = parseFortifyInteger(compactToken);
-        if (parsed.isEmpty()) {
-            return Optional.empty();
-        }
-        int value = parsed.get();
-        if (range.isPresent() && !range.get().contains(value) && compactToken.length() > 1) {
-            for (int trimmedLength = compactToken.length() - 1; trimmedLength >= 1; trimmedLength--) {
-                Optional<Integer> repaired = parseFortifyInteger(compactToken.substring(0, trimmedLength));
-                if (repaired.isPresent() && range.get().contains(repaired.get())) {
-                    return repaired;
-                }
-            }
-        }
-        return Optional.of(value);
-    }
-
-    private static Optional<Integer> parseFortifyInteger(String rawToken) {
-        try {
-            return Optional.of(Integer.parseInt(rawToken
-                    .replace(" ", "")
-                    .replace('O', '0')
-                    .replace('I', '1')
-                    .replace('S', '5')
-                    .replace('B', '8')
-                    .replace('L', '1')));
-        } catch (NumberFormatException exception) {
-            return Optional.empty();
-        }
-    }
-
-    private static String normalizeLineForPatternKeepingPlus(String line) {
-        if (line == null) {
-            return "";
-        }
-        return java.text.Normalizer.normalize(line, java.text.Normalizer.Form.NFD)
-                .replace('Ł', 'L')
-                .replace('ł', 'l')
-                .replaceAll("\\p{M}", "")
-                .toUpperCase(Locale.ROOT)
-                .replaceAll("\\s+", " ")
-                .trim();
-    }
-
-    private record RollRange(int min, int max) {
-        private boolean contains(int value) {
-            return value >= min && value <= max;
-        }
+        return FortifyLegendaryEffectNormalizer.normalize(text);
     }
 }
