@@ -17,6 +17,8 @@ public final class DamageBreakdown {
     private final double additivePercent;
     private final double additiveMultiplier;
     private final double vulnerableMultiplier;
+    private final double verathielBasicSkillMultiplier;
+    private final double itemMultiplicativeMultiplier;
     private final double critMultiplier;
     private final double critDamageBonusTotal;
     private final double critDamageBonusFromItems;
@@ -37,6 +39,8 @@ public final class DamageBreakdown {
                            double additivePercent,
                            double additiveMultiplier,
                            double vulnerableMultiplier,
+                           double verathielBasicSkillMultiplier,
+                           double itemMultiplicativeMultiplier,
                            double critMultiplier,
                            double critDamageBonusTotal,
                            double critDamageBonusFromItems,
@@ -56,6 +60,8 @@ public final class DamageBreakdown {
         this.additivePercent = additivePercent;
         this.additiveMultiplier = additiveMultiplier;
         this.vulnerableMultiplier = vulnerableMultiplier;
+        this.verathielBasicSkillMultiplier = verathielBasicSkillMultiplier;
+        this.itemMultiplicativeMultiplier = itemMultiplicativeMultiplier;
         this.critMultiplier = critMultiplier;
         this.critDamageBonusTotal = critDamageBonusTotal;
         this.critDamageBonusFromItems = critDamageBonusFromItems;
@@ -108,6 +114,18 @@ public final class DamageBreakdown {
 
     public double getVulnerableMultiplier() {
         return vulnerableMultiplier;
+    }
+
+    public double getVerathielBasicSkillMultiplier() {
+        return verathielBasicSkillMultiplier;
+    }
+
+    public double getItemMultiplicativeMultiplier() {
+        return itemMultiplicativeMultiplier;
+    }
+
+    public double getDamageTakenAfterLevelReductionMultiplier() {
+        return 1.0d - levelDamageReduction;
     }
 
     public double getCritMultiplier() {

@@ -453,7 +453,7 @@ Kontrakt domenowy importu itemu:
 - opis efektu w `AspectRegistry` jest ogólnym opisem znanego aspektu, a nie raw OCR z konkretnego itemu; dla `inner-calm` opis mówi o zwiększaniu zadawanych obrażeń podczas stania w bezruchu i trzykrotnie większej premii po co najmniej 3 sekundach bez ruchu,
 - nie zgadujemy wartości rolli liczbowych w registry; procenty i zakresy rolla mogą pochodzić wyłącznie z pomocniczego OCR effect konkretnego itemu albo z przyszłej ręcznej korekty itemu,
 - aspekt na finalnym itemie jest zapisywany jako `selectedAspectId`; surowy tekst OCR aspektu może istnieć w `FullItemRead` tylko jako zachowany odczyt diagnostyczno-prezentacyjny,
-- unikatowy efekt itemu jest zapisywany osobno jako `uniqueEffectText`, a rozpoznany aspekt unikatowy może być równolegle finalnym `selectedAspectId` z katalogu aspektów; nie jest zwykłym affixem ani zwykłym aspektem legendarnym i w tym etapie pozostaje opisowy oraz nieaktywny w runtime DPS,
+- unikatowy efekt itemu jest zapisywany osobno jako `uniqueEffectText`, a rozpoznany aspekt unikatowy może być równolegle finalnym `selectedAspectId` z katalogu aspektów; nie jest zwykłym affixem ani zwykłym aspektem legendarnym. Runtime używa obecnie tylko stabilnego `selectedAspectId=verathiel_shard` do mnożnika obrażeniowego Odłamka Verathiela dla umiejętności `Podstawowe`; pozostała treść unikatowego efektu pozostaje opisowa,
 - OCR może zaproponować wyłącznie `ocrSuggestedAspectId` i poziom pewności sugestii, a nie dowolny finalny tekst aspektu,
 - wybrany aspekt musi istnieć w `AspectRegistry` i jego `allowedItemSlots` musi zawierać slot importowanego itemu; aspekt spoza slotu jest błędem walidacji i nie może zostać zapisany,
 - jeśli OCR wykryje tekst aspektu, ale katalog nie zna dopasowania, `ocrSuggestedAspectId` i `selectedAspectId` pozostają puste, UI pokazuje komunikat o braku dopasowania w katalogu, a surowy tekst może zostać zachowany wyłącznie w `FullItemRead` jako diagnostyka; dla Odłamka Verathiela dopasowanie do `verathiel_shard` usuwa ten komunikat i prefilluje select aspektu bez pokazywania technicznych metadanych typu/statusu runtime w głównym formularzu,
@@ -1397,16 +1397,20 @@ Kontrakt prezentacji dla tego smoke testu:
 - `weaponDps=1830` nie jest `weaponDamage` i nie jest przekazywany jako obrażenia trafienia. `WEAPON_DAMAGE_FLAT +94` nie jest dodawany do `averageWeaponDamage`, więc Verathiel nie daje `1758` do runtime.
 - Dla zweryfikowanego baseline'u Paladyna poziom `70` runtime current build używa statystyk klasy/poziomu: `strength=79`, `intelligence=76`, `thorns=0`, powiększonych tylko o jawne scalar contribution aktywnych itemów. `blockChance` i `retributionChance` nie mają obecnie zweryfikowanego baseline'u prezentacyjnego, więc dla tego baseline'u bez aktywnego jawnego wkładu itemu trafiają do runtime jako `0`. Dla poziomów bez zweryfikowanego baseline'u current build nie wraca do manualnych placeholderów formularza; używa jawnych wkładów aktywnych itemów albo `0`.
 - `CurrentBuildSnapshotFactory` nie przekazuje baseline'u siły i inteligencji jako pełnego item statu. Gdy `CurrentBuildRequest` ma effective `strength=79` dla Paladyna poziom `70`, snapshot dodaje `0` siły z itemów, a `DamageEngine` dochodzi do `DamageBreakdown.mainStat=79` przez własny baseline klasy/poziomu.
+- Mnożnik obrażeń z głównej statystyki Paladyna używa dzielnika `800`, bo lokalny screen gry dla poziomu `70` pokazuje `304 siły = +38,0%`: `mainStatMultiplier = 1 + strength / 800`. Inne klasy zachowują dotychczasowe ustawienia, dopóki nie mają osobno zweryfikowanych danych.
+- Dla obecnego sanity checku poziomu `70` runtime używa redukcji poziomu `80%`, czyli po redukcji zostaje `20%` obrażeń (`×0,20`). Nie rozszerza to tabeli innych poziomów bez danych z gry.
 - `/policz-aktualny-build -> Debug symulacji -> Techniczne wejście runtime` pokazuje wyłącznie faktyczne current build runtime input oraz źródło każdej wartości. Stare manual/default placeholdery formularza nie są renderowane jako debug current build, nie ma tam sekcji `Legacy/manual fallbacki formularza` ani etykiet `Manual:*` / `Legacy:*`.
 - `/policz-aktualny-build` używa polskich nazw domenowych umiejętności w selectach paska akcji, wyniku symulacji, debugach i śladzie kroków. Techniczne ID i legacy enumy, np. `CLASH`, mogą pozostać w `value`, `data-*` albo `title`, ale nie są główną widoczną etykietą użytkową; `SkillId.CLASH` jest prezentowany jako `Starcie`.
-- `Debug symulacji` został odchudzony z długich opisów technicznych: zostają krótkie sekcje `Techniczne wejście runtime`, `Debug bezpośrednich trafień`, `Debug opóźnionych trafień`, `Debug obrażeń reaktywnych` i `Ślad kroków symulacji` oraz konkretne wartości. Ta zmiana nie modyfikuje runtime DPS ani `DamageEngine`.
+- `Debug symulacji` został odchudzony z długich opisów technicznych: zostają krótkie sekcje `Techniczne wejście runtime`, `Debug bezpośrednich trafień`, `Debug opóźnionych trafień`, `Debug obrażeń reaktywnych` i `Ślad kroków symulacji` oraz konkretne wartości.
+- W `Debug bezpośrednich trafień` finalne wartości `Trafienie końcowe` i `Trafienie krytyczne` są wyróżnione wizualnie względem surowych wartości. To jest wyłącznie prezentacja UI; nie zmienia runtime, wzorów ani `DamageEngine`.
+- Kafelki HTML current build formatują `DPS` bez zbędnych zer po przecinku, wartości Wiary używają polskiego formatu liczbowego, a debug Odłamka Verathiela rozdziela mnożnik `+100%[x]` od kosztu `+25 Wiary`. To jest wyłącznie prezentacja UI; nie zmienia runtime, modelu Wiary ani `DamageEngine`.
 - Dla aktywnego Odłamka Verathiela debug pokazuje `Obrażenia broni = 1664` ze źródłem `Aktywna broń: Odłamek Verathiela, średnie obrażenia trafienia`, `Siła = 79` i `Inteligencja = 76` ze źródłem `Baseline Paladyn poziom 70`, a brak jawnego wkładu dla kolców, bloku i retribution jako `0`.
 - Brak aktywnej broni w current build nie wraca do placeholdera `8`; debug pokazuje `Obrażenia broni = 0` ze źródłem `Brak aktywnej broni`. Aktywny item ze starszym jawnym polem `weaponDamage` nadal może być źródłem obrażeń jako wkład aktywnego itemu, ale sam formularz current build nie jest źródłem fallbacku obrażeń.
 - Czyszczenie slotu broni w `/policz-aktualny-build` jest legalną akcją użytkownika. Brak aktywnej broni nie wywołuje błędu `weaponDamage >= 1`; resolver current build ustawia wtedy `weaponDamage=0`, debug pokazuje `Brak aktywnej broni`, a wynik nie jest liczony ze starej zdjętej broni.
 - Po każdej akcji slotu, w tym `clearActiveSlotItem:<SLOT>` i `setActiveSlotItem:<SLOT>`, `EffectiveCurrentBuildResolution`, wynik i debug są budowane ze świeżego `HeroItemSelection`. Stare ukryte pola formularza ani wcześniejszy wybór itemu nie mogą utrzymać w debug UI zdjętego Odłamka Verathiela.
 - Jeżeli pasek akcji jest pusty, UI debug pokazuje informację `Symulacja nie wykonała trafień, ponieważ pasek akcji jest pusty.` zamiast traktować pusty wynik jako awarię runtime.
 - Jeżeli grupa `Aktywna broń` jest renderowana, grupa `Ofensywa` nie pokazuje placeholderów aktywnej broni typu `Podstawowe obrażenia od broni = 0` ani `Szybkość broni = 1,00`; pozostają tam parametry bojowe niezależne od aktywnej broni: szansa krytyczna, obrażenia krytyczne, obrażenia odsłoniętym celom i ciernie.
-- `Aktywne affixy itemów` są prezentowane jako listy user-facing: `Wkład statystyczny` oraz `Efekty opisowe`. To nadal warstwa UI/current build, bez odblokowania runtime DPS, Lucky Hit Verathiela ani efektu unikatowego Verathiela.
+- `Aktywne affixy itemów` są prezentowane jako listy user-facing: `Wkład statystyczny` oraz `Efekty opisowe`. To nadal warstwa UI/current build; Lucky Hit Verathiela i efekt tarczy `Umocnienie` pozostają nieaktywne w runtime.
 - Pancerz w `Statystyki bohatera` jest modelem prezentacyjnym z rozbiciem na `z siły`, `z itemów/głównego wyposażenia`, `z innych źródeł` i `łącznie`. Dla zweryfikowanego Paladyna poziom `70` bez itemów tooltip gry potwierdza `79 * 2 = 158` pancerza z siły, `0` z itemów/głównego wyposażenia, `0` z innych źródeł i `158` łącznie. Obecny model aktywnego itemu nie ma jawnego pola `ARMOR`, więc wkład pancerza z itemów pozostaje `0` i nie jest zgadywany.
 - Szansa na trafienie krytyczne w `Statystyki bohatera` jest modelem prezentacyjnym z rozbiciem baseline: bazowo `5,0%`, `+0,2%` z Inteligencji dla zweryfikowanego baseline'u `76` Inteligencji, `+0,0%` z itemów, `+0,0%` z innych źródeł i `5,2%` łącznie. Pełny wzór kryta z Inteligencji nie jest jeszcze potwierdzony i nie jest implementowany; brak baseline'u nie jest interpolowany. Obecny model itemu nie ma jawnego `CRIT_CHANCE`, a `CRIT_DAMAGE` nie jest `CRIT_CHANCE` i pozostaje osobną statystyką obrażeń krytycznych.
 - Rozbicie pancerza, maksimum zdrowia i szansy krytycznej jest dostępne w `title`/`aria-label` kafelków, bez długiego technicznego akapitu w głównym widoku. Ta zmiana nie zmienia `DamageEngine`, nie odblokowuje runtime DPS i nie implementuje `effectiveRank`.
@@ -1421,16 +1425,24 @@ Kontrakt prezentacji dla tego smoke testu:
 - `Starcie` / legacy `CLASH` wymaga aktywnej broni i aktywnej tarczy. Bez tarczy albo bez broni skill jest pomijany jako nielegalny kandydat runtime, nie generuje debugowego bezpośredniego hita i nie zadaje obrażeń.
 - Przy aktywnej broni i aktywnej tarczy `Starcie` nadal używa dotychczasowego bazowego direct damage z aktywnej broni: rank `1` używa `115%`, a ranki `2..5` używają `126%`, `138%`, `149%`, `167%`.
 - Tarcza jest w tym etapie wyłącznie wymaganiem legalności Starcia. Nie jest jeszcze liczbowym źródłem obrażeń, bo repo nie ma zakontraktowanego modelu `shieldDamage`.
-- Ta zmiana nie modyfikuje wzorów `DamageEngine` i nie podłącza efektu unikatowego Odłamka Verathiela, Lucky Hit Verathiela, upgrade'ów Starcia ani `effectiveRank`.
+- Linia bazowa tarczy `+100% obrażeń od broni w głównej ręce` jest modelowana jako mnożnik aktywnej broni głównej `×2,00`; tarcza nadal nie dodaje własnego `shieldDamage`.
+- Część obrażeniowa Odłamka Verathiela jest aktywna w runtime tylko po założeniu itemu z `selectedAspectId=verathiel_shard` i tylko dla umiejętności kategorii `Podstawowe`: `Basic Skills +100%[x]`, czyli mnożnik `×2,00`. `Starcie` jest umiejętnością `Podstawową`, więc dostaje ten mnożnik.
+- Runtime current build ma kontrolowany model podstawowego zasobu Paladyna jako `Wiara`. Formularz `/policz-aktualny-build` ma jawne pola `Początkowa Wiara`, `Maksymalna Wiara` i `Regeneracja Wiary/s`; wartości użyte w sanity screenie testowej postaci to `100`, `100` i `1,50/s`, bez deklarowania ich jako uniwersalnego baseline'u wszystkich Paladynów.
+- Skill może zostać użyty tylko przy wystarczającym zasobie. Kolejność w ticku runtime: sprawdzenie kosztu przed castem, odjęcie kosztu, hit, generacja zasobu po cast, pasywna regeneracja za tick i cap do maksymalnej Wiary.
+- `Starcie` bierze bazową generację Wiary z danych skilla; obecny wpis `starcie` ma `Bazowe generowanie Wiary = 20`.
+- Dodatkowy koszt zasobu Odłamka Verathiela `+25` jest aktywny tylko dla umiejętności kategorii `Podstawowe` i tylko po założeniu itemu z `selectedAspectId=verathiel_shard`. Dla `Starcia` z Verathielem efektywny koszt castu to `25`, generacja po cast to `20`, a netto przed pasywną regeneracją to `-5`.
+- Lucky Hit Verathiela `+3` pozostaje nieaktywny w runtime. Aspekt tarczy `Umocnienie: zwiększone obrażenia` pozostaje nieaktywny w runtime, bo wymaga stanu Umocnienia.
+- Sanity check dla konfiguracji Paladyn `70` + Odłamek Verathiela + Kościane Łuski + `Starcie` rank `1`: `1664 × 2,00 × 1,15 × 1,38 × 2,00 × 0,20 ≈ 2112`. Engine zaokrągla aktualny normalny hit do `2113`; przy `100/100` Wiary, regeneracji `1,50/s` i horyzoncie `10 s` wszystkie `10` użyć są legalne, wynik to `21130` obrażeń, UI pokazuje `DPS = 2113`, a końcowa Wiara według obecnej kolejności ticków wynosi `65`.
+- Dla `0/100` Wiary, aktywnego Verathiela, regeneracji `1,50/s` i horyzontu `10 s` `Starcie` czeka na zasób; próg `25` Wiary nie zostaje osiągnięty w tym horyzoncie, więc wynik to `0` obrażeń i `DPS = 0`.
 - GUI pokazuje sekcję `Punkty umiejętności`, w której można edytować poziom bohatera `1..70`, dodatkowe punkty z zadań `0..14` oraz zobaczyć punkty dostępne, wydane i pozostałe; ranga kupowana punktami przy przypisanej umiejętności ma zakres `0..15`, itemowe bonusy do poziomu/rangi umiejętności są osobną przyszłą warstwą, a błędny zakres albo przekroczenie budżetu blokuje zapis profilu bez automatycznego usuwania wyborów.
 - GUI current build ma szeroki layout i sticky pasek akcji formularza; `Oblicz aktualny build` uruchamia symulację dla bieżącej konfiguracji formularza, `Zapisz zmiany` zapisuje główne pola edycji aktualnego buildu, a `Wycofaj zmiany` wraca do ostatniego zapisanego stanu bez usuwania profilu i przypisanych umiejętności.
 - GUI ogranicza sześciomiejscowy pasek akcji do przypisanych i nauczonych umiejętności aktywnego bohatera; nielegalne wpisy blokują zapis profilu.
 - GUI i główne ekrany SSR korzystają z szerszego kontenera layoutu, dzięki czemu lepiej wykorzystują szerokie monitory bez rozwalania mobilnego układu.
 - Techniczne effective stats użyte do obliczeń pozostają częścią końcowego, domyślnie zwiniętego `Debug symulacji` na tym samym pipeline `effective stats -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime`; nie są równorzędną sekcją użytkową obok `Statystyki bohatera`.
-- `averageWeaponDamage` aktywnej broni jest pierwszym kontrolowanym wyjątkiem od czysto prezentacyjnego statusu danych importu: zasila istniejące pole `weaponDamage` w `CurrentBuildRequest`. `weaponDps`, min/max jako osobne pola, attack speed, `lifeOnHit`, Lucky Hit zasobu i efekt unikatowy Verathiela pozostają danymi importu/biblioteki/current build UI i nie zmieniają `DamageEngine`.
+- `averageWeaponDamage` aktywnej broni zasila istniejące pole `weaponDamage` w `CurrentBuildRequest`. `weaponDps`, min/max jako osobne pola, attack speed, `lifeOnHit` i Lucky Hit zasobu pozostają danymi importu/biblioteki/current build UI i nie zmieniają runtime; koszt `+25` Odłamka Verathiela działa osobno w modelu Wiary.
 - GUI i CLI przechodzą przez ten sam kontrakt `CurrentBuildRequest -> CurrentBuildSnapshotFactory -> CurrentBuildCalculationService -> runtime`.
 - scenariusze referencyjne są trybem pomocniczym do smoke testów i regresji, a nie główną ścieżką produktu.
-- GUI i CLI pokazują `Łączne obrażenia`, `DPS`, debug bezpośredniego hita dla użytego skilla, debug opóźnionych trafień, debug obrażeń reaktywnych, `Ślad kroków symulacji`, `Resolve aktywny na końcu`, `Końcowa szansa bloku` oraz `Końcowy bonus do kolców`.
+- GUI i CLI pokazują `Łączne obrażenia`, `DPS`, stan Wiary, debug bezpośredniego hita dla użytego skilla, debug opóźnionych trafień, debug obrażeń reaktywnych, `Ślad kroków symulacji`, `Resolve aktywny na końcu`, `Końcowa szansa bloku` oraz `Końcowy bonus do kolców`.
 - GUI i CLI pokazują `Kolce surowe`, `Kolce końcowe`, `Retribution oczekiwane surowe`, `Retribution oczekiwane końcowe`, `Końcowe reaktywne` oraz `Wkład obrażeń reaktywnych`.
 - GUI i CLI pokazują naturalne `WAIT`, `odnowienie=tak/nie` oraz `pozostałe odnowienie` dla scenariusza `Advance + Flash of the Blade`.
 - CLI pokazuje użytkową nazwę skilla, a nie techniczny enum.
@@ -1499,7 +1511,7 @@ Kontrakt prezentacji dla smoke testu searcha:
 - search CLI wypisuje top `N` wyników po normalizacji z opisem buildu, skillami na action barze, action barem, stanem trybu biblioteki itemów, wybranymi itemami biblioteki i ich łącznym wkładem,
 - search CLI wypisuje `total damage` oraz `DPS`,
 - search CLI przechodzi przez kontrakt `BuildSearchRequest -> BuildSearchCandidateGenerator -> CurrentBuildRequest -> CurrentBuildSnapshotFactory -> BuildSearchEvaluationService -> ManualSimulationService -> BuildSearchPresentationNormalizer`,
-- dla referencyjnego smoke testu `FOUNDATION_M9 --top 5` search CLI daje `Ocenieni kandydaci = 2949`, `Wyniki po normalizacji = 137` oraz top 1 `total damage = 439`, `DPS = 48.7778`, `Action bar = Advance -> Clash`.
+- dla referencyjnego smoke testu `FOUNDATION_M9 --top 5` search CLI daje `Ocenieni kandydaci = 2949`, `Wyniki po normalizacji = 137` oraz top 1 `total damage = 502`, `DPS = 55.7778`, `Action bar = Advance -> Clash`.
 
 Smoke test GUI importu itemu:
 
@@ -1534,10 +1546,10 @@ Kontrakt prezentacji dla smoke testu importu itemu:
 - affix `Zdrowie przy trafieniu` dla Odłamka Verathiela musi zachować zakres `526 - 632`, także gdy wariant OCR uszkodzi zakres do niepełnej postaci, o ile katalogowy kontekst itemu i liczba `545` pozwalają bezpiecznie odtworzyć zakres z katalogu,
 - affix `Szczęśliwy traf: zasób podstawowy` jest złożony: `15%` pozostaje stałą częścią opisową definicji/tooltipu, widoczna edytowalna wartość rolla w tabeli to zwykły input `3`, a zakres rolla to `3 - 4`; złożone affixy typu Lucky Hit używają tego samego układu edycji co zwykłe affixy i nie wracają do formatu `15% / +3`,
 - affixy Odłamka Verathiela są deduplikowane po dopasowaniu katalogowym, wartości i fladze `Greater Affix`; gdy warianty OCR różnią się jakością zakresu, zachowywany jest pełniejszy wpis zgodny z katalogowym zakresem,
-- `+94 obrażeń od broni` pozostaje affixem opisowym i nie jest sumowane z `averageWeaponDamage`; aspekt unikatowy Odłamka Verathiela pozostaje w `AspectRegistry` jako `UNIQUE`, nie jest affixem i pozostaje nieaktywny w runtime DPS,
+- `+94 obrażeń od broni` pozostaje affixem opisowym i nie jest sumowane z `averageWeaponDamage`; aspekt unikatowy Odłamka Verathiela pozostaje w `AspectRegistry` jako `UNIQUE`, nie jest affixem, a w runtime aktywna jest tylko jego część obrażeniowa dla umiejętności `Podstawowe`,
 - po zapisie Odłamka Verathiela formularz edycji korzysta z kanonicznego `ItemImportDetails`: pokazuje `Odłamek Verathiela`, dane broni `1830 / 1350 / 1978 / 1664 / 1.10`, aspekt `verathiel_shard` oraz 4 affixy z zakresami `94 - 157`, `1831 - 2200`, `526 - 632` i `3 - 4`; surowa nazwa OCR typu `ODŁAMEK VERATHIEL` nie nadpisuje głównej nazwy,
 - po zapisie Odłamka Verathiela lista i popup biblioteki używają kanonicznej nazwy oraz formattera affixów: `Zdrowie przy trafieniu` pokazuje `526 - 632`, a Lucky Hit pokazuje `15%` jako stały opis i `+3` jako rollowaną wartość z zakresem `3 - 4`, bez `15% / +3` i bez OCR/source/debug,
-- import Odłamka Verathiela nie implementuje `effectiveRank` i nie zmienia `DamageEngine`; runtime current build używa tylko `averageWeaponDamage` aktywnej broni jako `weaponDamage`, bez efektu unikatowego, Lucky Hit i opisowych affixów,
+- import Odłamka Verathiela nie implementuje `effectiveRank`; runtime current build używa `averageWeaponDamage` aktywnej broni jako `weaponDamage`, aktywuje mnożnik obrażeniowy `verathiel_shard` dla umiejętności `Podstawowe` oraz koszt `+25` Wiary w modelu zasobu, bez Lucky Hit i bez opisowych affixów,
 - flow nie obiecuje pełnej bezbłędności OCR i wymaga ręcznego potwierdzenia użytkownika przed użyciem danych,
 - poza zakresem pozostają pełny wielo-itemowy workflow i pełny OCR całej postaci.
 
@@ -1808,34 +1820,34 @@ Zamrożone wartości:
 
 | Scenariusz | Base damage | Raw hit | Single hit | Raw crit hit | Critical hit |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| `Brandish rank 1` | 6 | 12 | 8 | 19 | 12 |
-| `Brandish rank 5` | 8 | 17 | 11 | 27 | 16 |
-| `Brandish rank 5 + Powrót światłości` | - | 24 | 15 | 37 | 23 |
-| `Advance rank 5` | 12 | 24 | 15 | 37 | 23 |
-| `Advance rank 5 + Wave Dash` | 12 | 56 | 35 | 86 | 53 |
-| `Advance rank 5 + Flash of the Blade` | 26 | 54 | 33 | 82 | 51 |
+| `Brandish rank 1` | 6 | 13 | 8 | 19 | 12 |
+| `Brandish rank 5` | 8 | 18 | 11 | 27 | 17 |
+| `Brandish rank 5 + Powrót światłości` | - | 25 | 15 | 37 | 23 |
+| `Advance rank 5` | 12 | 25 | 15 | 38 | 23 |
+| `Advance rank 5 + Wave Dash` | 12 | 57 | 35 | 86 | 54 |
+| `Advance rank 5 + Flash of the Blade` | 26 | 54 | 34 | 82 | 51 |
 
 Dodatkowe aktualne referencje kontraktowe:
-- `Brandish rank 5 + Powrót światłości` składa się z dwóch komponentów `73%`, każdy `raw = 12`, `final = 8`.
-- `Advance rank 5` dla referencyjnego buildu daje `raw = 24`, `final = 15`, `raw crit = 37`, `crit = 23`.
-- `Advance rank 5 + Wave Dash` składa się z dwóch komponentów `147%` oraz `191%`; odpowiednio `raw = 24/final = 15` oraz `raw = 32/final = 20`.
-- `Advance rank 5 + Flash of the Blade` daje `raw = 54`, `final = 33`, `raw crit = 82`, `crit = 51`.
+- `Brandish rank 5 + Powrót światłości` składa się z dwóch komponentów `73%`, każdy `raw = 12`, `final = 8`, a suma dokładna daje `raw = 25`.
+- `Advance rank 5` dla referencyjnego buildu daje `raw = 25`, `final = 15`, `raw crit = 38`, `crit = 23`.
+- `Advance rank 5 + Wave Dash` składa się z dwóch komponentów `147%` oraz `191%`; odpowiednio `raw = 25/final = 15` oraz `raw = 32/final = 20`.
+- `Advance rank 5 + Flash of the Blade` daje `raw = 54`, `final = 34`, `raw crit = 82`, `crit = 51`.
 - Manual simulation dla niereaktywnego scenariusza `Advance rank 5 + Flash of the Blade` w horyzoncie `9 s` daje dwa casty `Advance`, `7` naturalnych `WAIT` i `total damage = 66`.
 - Manual simulation dla niereaktywnego scenariusza `Advance rank 5 + Flash of the Blade` z `Brandish` na pasku w horyzoncie `9 s` daje `total damage = 147`; `Brandish` korzysta z `Vulnerable` po `Flash of the Blade` w `t=2` i `t=3`, a następnie `Advance` wraca po cooldownie w `t=9`.
 - `Holy Bolt rank 5` dla referencyjnego buildu daje `raw = 21`, `final = 13`, `raw crit = 32`, `crit = 20`.
 - `Judgement` dla referencyjnego buildu daje `raw = 13`, `final = 8`, `raw crit = 20`, `crit = 13`.
 - Manual simulation dla niereaktywnego regresyjnego scenariusza `Holy Bolt rank 5 + Judgement` w horyzoncie `60 s` daje `total damage = 932`, `DPS = 932 / 60`, `19` detonacji `Judgement` w horyzoncie i `1` aktywny `Judgement` pozostały na końcu.
 - Manual simulation dla niereaktywnego regresyjnego scenariusza `Brandish rank 5` w horyzoncie `60 s` daje `total damage = 660`, `DPS = 660 / 60` i brak delayed hitów.
-- Dla sample buildu pojedynczy enemy hit reactive bez buffów `Clash` daje `Thorns raw = 52`, `Thorns final = 32`, `Retribution expected raw = 13`, `Retribution expected final = 8` oraz `Reactive final = 40`.
-- Dla scenariusza `Clash rank 5 + Crusader's March` pojedynczy enemy hit reactive daje `active block chance = 75%`, `Thorns raw = 52`, `Thorns final = 32`, `Retribution expected raw = 20`, `Retribution expected final = 12` oraz `Reactive final = 44`.
-- Dla scenariusza `Clash rank 5 + Crusader's March + Punishment` pojedynczy enemy hit reactive daje `active block chance = 75%`, `active thorns bonus = 50`, `Thorns raw = 104`, `Thorns final = 64`, `Retribution expected raw = 39`, `Retribution expected final = 24` oraz `Reactive final = 88`.
+- Dla sample buildu pojedynczy enemy hit reactive bez buffów `Clash` daje `Thorns raw = 53`, `Thorns final = 33`, `Retribution expected raw = 13`, `Retribution expected final = 8` oraz `Reactive final = 41`.
+- Dla scenariusza `Clash rank 5 + Crusader's March` pojedynczy enemy hit reactive daje `active block chance = 75%`, `Thorns raw = 53`, `Thorns final = 33`, `Retribution expected raw = 20`, `Retribution expected final = 12` oraz `Reactive final = 45`.
+- Dla scenariusza `Clash rank 5 + Crusader's March + Punishment` pojedynczy enemy hit reactive daje `active block chance = 75%`, `active thorns bonus = 50`, `Thorns raw = 105`, `Thorns final = 65`, `Retribution expected raw = 39`, `Retribution expected final = 24` oraz `Reactive final = 89`.
 - Enemy hit schedule w horyzoncie `60 s` daje `20` reactive ticków.
 - Manual simulation dla scenariusza GUI/CLI `Advance rank 5 + Flash of the Blade` na sample buildzie w horyzoncie `10 s` daje `total damage = 186`, `DPS = 18.6000`, `total reactive damage = 120`, dwa casty `Advance`, naturalne `WAIT` oraz stan cooldownu widoczny w trace.
-- Manual simulation dla scenariusza GUI/CLI `Clash rank 5 + Crusader's March + Punishment` na sample buildzie w horyzoncie `60 s` daje `total damage = 1760`, `DPS = 1760 / 60`, `total reactive damage = 1760`, `Resolve aktywny na końcu = tak`, `Active block chance na końcu = 75%` oraz `Active thorns bonus na końcu = 50`.
+- Manual simulation dla scenariusza GUI/CLI `Clash rank 5 + Crusader's March + Punishment` na sample buildzie w horyzoncie `60 s` daje `total damage = 1780`, `DPS = 1780 / 60`, `total reactive damage = 1780`, `Resolve aktywny na końcu = tak`, `Active block chance na końcu = 75%` oraz `Active thorns bonus na końcu = 50`.
 - Manual simulation dla scenariusza regresyjnego `Holy Bolt rank 5 + Judgement` na sample buildzie M5a w horyzoncie `60 s` daje `total damage = 1732`, `DPS = 1732 / 60`, `total reactive damage = 800`, `19` detonacji `Judgement` i `1` aktywny `Judgement` pozostały na końcu.
-- Backendowy search dla scenariusza `Advance rank 5` z choice range `NONE, LEFT, RIGHT`, `bar size = 1` i `horyzont = 9 s` daje deterministyczny ranking: `Wave Dash = 315`, `bazowy Advance = 135`, `Flash of the Blade = 66`.
-- Backendowy search dla smoke testu `FOUNDATION_M9 --top 5` daje `2949` ocenionych kandydatów, `137` wyników po normalizacji oraz top 1 `Advance -> Clash` z `Wave Dash + Punishment`, `total damage = 439`, `DPS = 48.7778`.
-- GUI searcha dla smoke testu `FOUNDATION_M9` pokazuje `Ocenieni kandydaci = 2949`, `Wyniki po normalizacji = 137` oraz top 1 `Advance -> Clash` z `total damage = 439`, `DPS = 48.7778`.
+- Backendowy search dla scenariusza `Advance rank 5` z choice range `NONE, LEFT, RIGHT`, `bar size = 1` i `horyzont = 9 s` daje deterministyczny ranking: `Wave Dash = 306`, `bazowy Advance = 135`, `Flash of the Blade = 66`.
+- Backendowy search dla smoke testu `FOUNDATION_M9 --top 5` daje `2949` ocenionych kandydatów, `137` wyników po normalizacji oraz top 1 `Advance -> Clash` z `Wave Dash + Punishment`, `total damage = 502`, `DPS = 55.7778`.
+- GUI searcha dla smoke testu `FOUNDATION_M9` pokazuje `Ocenieni kandydaci = 2949`, `Wyniki po normalizacji = 137` oraz top 1 `Advance -> Clash` z `total damage = 502`, `DPS = 55.7778`.
 - `Brandish rank 5 + Krzyżowe uderzenie (Vulnerable)` w modelu single target liczy wyłącznie główny hit `168%`; dla referencyjnego przypadku z aktywnym `Vulnerable` przed trafieniem wynik ST pozostaje `raw hit = 34`, `single hit = 21`, `raw crit hit = 52`, `critical hit = 32`.
 - Dla powyższego scenariusza `Brandish + Krzyżowe uderzenie (Vulnerable)` referencyjny `raw crit hit = 52` wynika z reguły: najpierw `raw hit` głównego trafienia jest zaokrąglany do `34`, a dopiero potem liczony jest `raw crit hit = round(34 * critMultiplier) = 52`.
 

@@ -38,6 +38,9 @@ final class CurrentBuildFormQuerySupport {
         append(query, "blockChance", formData.getBlockChance());
         append(query, "retributionChance", formData.getRetributionChance());
         append(query, "horizonSeconds", formData.getHorizonSeconds());
+        append(query, "initialPrimaryResource", formData.getInitialPrimaryResource());
+        append(query, "maxPrimaryResource", formData.getMaxPrimaryResource());
+        append(query, "primaryResourceRegenPerSecond", formData.getPrimaryResourceRegenPerSecond());
 
         for (SkillId skillId : SkillId.values()) {
             CurrentBuildFormData.SkillConfigFormData skillConfig = formData.getSkillConfig(skillId);
@@ -91,6 +94,9 @@ final class CurrentBuildFormQuerySupport {
                 formatWhole(appliedStats.getBlockChance()),
                 formatWhole(appliedStats.getRetributionChance()),
                 baseFormData.getHorizonSeconds(),
+                baseFormData.getInitialPrimaryResource(),
+                baseFormData.getMaxPrimaryResource(),
+                baseFormData.getPrimaryResourceRegenPerSecond(),
                 copiedSkillConfigs,
                 actionBarSlots
         );
@@ -116,6 +122,9 @@ final class CurrentBuildFormQuerySupport {
                 baseFormData.getBlockChance(),
                 baseFormData.getRetributionChance(),
                 baseFormData.getHorizonSeconds(),
+                baseFormData.getInitialPrimaryResource(),
+                baseFormData.getMaxPrimaryResource(),
+                baseFormData.getPrimaryResourceRegenPerSecond(),
                 copiedSkillConfigs,
                 baseFormData.getActionBarSlots()
         );
@@ -142,6 +151,9 @@ final class CurrentBuildFormQuerySupport {
                 "0",
                 "0",
                 defaults.getHorizonSeconds(),
+                defaults.getInitialPrimaryResource(),
+                defaults.getMaxPrimaryResource(),
+                defaults.getPrimaryResourceRegenPerSecond(),
                 copiedSkillConfigs,
                 defaults.getActionBarSlots()
         );

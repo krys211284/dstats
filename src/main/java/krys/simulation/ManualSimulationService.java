@@ -6,6 +6,9 @@ import krys.combat.DelayedHitBreakdown;
 import krys.combat.ReactiveHitBreakdown;
 import krys.item.Item;
 import krys.item.ItemStatType;
+import krys.paladin.PaladinSkillTreeRegistry;
+import krys.paladin.PaladinTreeSkill;
+import krys.paladin.SkillCategory;
 import krys.skill.EffectType;
 import krys.skill.PaladinSkillDefs;
 import krys.skill.ReactiveSelfBuffProfile;
@@ -30,6 +33,9 @@ import java.util.Optional;
  */
 public final class ManualSimulationService {
     private static final String TICK_ORDER_LABEL = "delayed -> reactive -> active cast";
+    private static final String VERATHIEL_SHARD_ASPECT_ID = "verathiel_shard";
+    private static final double VERATHIEL_BASIC_SKILL_RESOURCE_COST = 25.0d;
+    private static final double RESOURCE_EPSILON = 0.0000001d;
     private final DamageEngine damageEngine;
 
     public ManualSimulationService(DamageEngine damageEngine) {
@@ -48,8 +54,13 @@ public final class ManualSimulationService {
         ReactiveBuffState reactiveBuffState = new ReactiveBuffState();
         CooldownState cooldownState = new CooldownState();
         TargetStatusState targetStatusState = new TargetStatusState();
+        double currentPrimaryResource = clampResource(snapshot.getInitialPrimaryResource(), snapshot.getMaxPrimaryResource());
+        double totalPrimaryResourceCost = 0.0d;
+        double totalPrimaryResourceGenerated = 0.0d;
+        double totalPrimaryResourceRegenerated = 0.0d;
 
         for (int second = 1; second <= horizonSeconds; second++) {
+            double primaryResourceBefore = currentPrimaryResource;
             EnumSet<StatusId> activeTargetStatuses = targetStatusState.getActiveStatuses(second);
             long delayedDamage = 0L;
             Iterator<PendingDelayedHit> delayedIterator = pendingDelayedHits.iterator();
@@ -97,14 +108,19 @@ public final class ManualSimulationService {
                 reactiveHitBreakdowns.add(reactiveHitBreakdown);
             }
 
-            SkillSelectionResult selectionResult = selectSkillForTick(snapshot, second, lastUsedSeconds, cooldownState);
+            SkillSelectionResult selectionResult = selectSkillForTick(snapshot, second, lastUsedSeconds, cooldownState, primaryResourceBefore);
             long directDamage = 0L;
             SimulationActionType actionType = SimulationActionType.WAIT;
             String actionName = "WAIT";
+            double primaryResourceCost = 0.0d;
+            double primaryResourceGenerated = 0.0d;
 
             if (selectionResult.selectedSkillId != null) {
                 actionType = SimulationActionType.SKILL;
                 actionName = selectionResult.selectedSkillName;
+                primaryResourceCost = selectionResult.primaryResourceCost;
+                currentPrimaryResource = Math.max(0.0d, currentPrimaryResource - primaryResourceCost);
+                totalPrimaryResourceCost += primaryResourceCost;
 
                 DamageBreakdown directHitBreakdown = damageEngine.calculate(snapshot, selectionResult.selectedSkillId, activeTargetStatuses);
                 directDamage = directHitBreakdown.getFinalDamage();
@@ -112,7 +128,12 @@ public final class ManualSimulationService {
                 lastUsedSeconds.put(selectionResult.selectedSkillId, second);
                 directHitDebugBySkill.putIfAbsent(
                         selectionResult.selectedSkillId,
-                        new SkillHitDebugSnapshot(selectionResult.selectedSkillId, selectionResult.selectedSkillName, directHitBreakdown)
+                        new SkillHitDebugSnapshot(
+                                selectionResult.selectedSkillId,
+                                selectionResult.selectedSkillName,
+                                snapshot.getSkillState(selectionResult.selectedSkillId).getRank(),
+                                directHitBreakdown
+                        )
                 );
 
                 SkillState state = snapshot.getSkillState(selectionResult.selectedSkillId);
@@ -140,7 +161,14 @@ public final class ManualSimulationService {
                     applyReactiveBuffProfile(skillDef.getBaseReactiveBuffProfile(), second, reactiveBuffState);
                     applyReactiveBuffProfile(skillDef.getChoiceReactiveBuffProfile(state.getChoiceUpgrade()), second, reactiveBuffState);
                 }
+                primaryResourceGenerated = resolvePrimaryResourceGeneration(selectionResult.selectedSkillId);
+                currentPrimaryResource = clampResource(currentPrimaryResource + primaryResourceGenerated, snapshot.getMaxPrimaryResource());
+                totalPrimaryResourceGenerated += primaryResourceGenerated;
             }
+            double primaryResourceBeforeRegen = currentPrimaryResource;
+            currentPrimaryResource = clampResource(currentPrimaryResource + snapshot.getPrimaryResourceRegenPerSecond(), snapshot.getMaxPrimaryResource());
+            double primaryResourceRegenerated = currentPrimaryResource - primaryResourceBeforeRegen;
+            totalPrimaryResourceRegenerated += primaryResourceRegenerated;
 
             long totalStepDamage = delayedDamage + reactiveDamage + directDamage;
             stepTrace.add(new SimulationStepTrace(
@@ -154,7 +182,12 @@ public final class ManualSimulationService {
                     totalDamage,
                     selectionResult.skillBarStates,
                     selectionResult.selectionReason,
-                    TICK_ORDER_LABEL
+                    TICK_ORDER_LABEL,
+                    primaryResourceBefore,
+                    primaryResourceCost,
+                    primaryResourceGenerated,
+                    primaryResourceRegenerated,
+                    currentPrimaryResource
             ));
         }
 
@@ -183,7 +216,14 @@ public final class ManualSimulationService {
                 resolveActiveBlockChanceAtEnd(snapshot, reactiveBuffState, horizonSeconds),
                 reactiveBuffState.getActiveThornsBonus(horizonSeconds),
                 stepTrace,
-                hasActiveDelayedHit(pendingDelayedHits, "Judgement")
+                hasActiveDelayedHit(pendingDelayedHits, "Judgement"),
+                snapshot.getInitialPrimaryResource(),
+                currentPrimaryResource,
+                snapshot.getMaxPrimaryResource(),
+                snapshot.getPrimaryResourceRegenPerSecond(),
+                totalPrimaryResourceCost,
+                totalPrimaryResourceGenerated,
+                totalPrimaryResourceRegenerated
         );
     }
 
@@ -247,7 +287,8 @@ public final class ManualSimulationService {
     private static SkillSelectionResult selectSkillForTick(HeroBuildSnapshot snapshot,
                                                            int second,
                                                            Map<SkillId, Integer> lastUsedSeconds,
-                                                           CooldownState cooldownState) {
+                                                           CooldownState cooldownState,
+                                                           double currentPrimaryResource) {
         List<SkillEvaluation> evaluations = new ArrayList<>();
         SkillEvaluation selected = null;
 
@@ -261,7 +302,8 @@ public final class ManualSimulationService {
             boolean legalActive = state != null && rank > 0 && equipmentBlockingReason.isEmpty();
             Integer lastUsedSecond = lastUsedSeconds.get(skillId);
             boolean neverUsed = lastUsedSecond == null;
-            boolean hasRequiredResource = skillDef.getResourceCost() <= 0;
+            double effectivePrimaryResourceCost = resolveEffectivePrimaryResourceCost(snapshot, skillId, skillDef);
+            boolean hasRequiredResource = currentPrimaryResource + RESOURCE_EPSILON >= effectivePrimaryResourceCost;
             boolean onCooldown = cooldownState.isOnCooldown(skillId, second);
             int cooldownRemainingSeconds = cooldownState.getRemainingSeconds(skillId, second);
             SkillEvaluation evaluation = new SkillEvaluation(
@@ -273,6 +315,8 @@ public final class ManualSimulationService {
                     onCooldown,
                     cooldownRemainingSeconds,
                     hasRequiredResource,
+                    currentPrimaryResource,
+                    effectivePrimaryResourceCost,
                     neverUsed,
                     lastUsedSecond,
                     equipmentBlockingReason.orElse(null)
@@ -298,6 +342,8 @@ public final class ManualSimulationService {
                     evaluation.onCooldown,
                     evaluation.cooldownRemainingSeconds,
                     evaluation.hasRequiredResource,
+                    evaluation.currentPrimaryResource,
+                    evaluation.effectivePrimaryResourceCost,
                     evaluation.neverUsed,
                     evaluation.lastUsedSecond,
                     selected != null && selected.skillId == evaluation.skillId
@@ -310,17 +356,53 @@ public final class ManualSimulationService {
                 reason = "WAIT: pasek aktywnych skilli jest pusty.";
             } else {
                 reason = firstEquipmentBlockingReason(evaluations)
+                        .or(() -> firstResourceBlockingReason(evaluations))
                         .orElse("WAIT: brak legalnego skilla do użycia w tym ticku.");
             }
-            return new SkillSelectionResult(null, "WAIT", skillBarStates, reason);
+            return new SkillSelectionResult(null, "WAIT", 0.0d, skillBarStates, reason);
         }
 
         return new SkillSelectionResult(
                 selected.skillId,
                 selected.skillName,
+                selected.effectivePrimaryResourceCost,
                 skillBarStates,
                 buildSelectionReason(evaluations, selected)
         );
+    }
+
+    private static double resolveEffectivePrimaryResourceCost(HeroBuildSnapshot snapshot, SkillId skillId, SkillDef skillDef) {
+        double baseCost = skillDef.getResourceCost();
+        if (snapshot.hasActiveAspect(VERATHIEL_SHARD_ASPECT_ID) && isBasicSkill(skillId)) {
+            return baseCost + VERATHIEL_BASIC_SKILL_RESOURCE_COST;
+        }
+        return baseCost;
+    }
+
+    private static double resolvePrimaryResourceGeneration(SkillId skillId) {
+        return findTreeSkill(skillId)
+                .map(PaladinTreeSkill::getFaithGenerationBase)
+                .map(Integer::doubleValue)
+                .orElse(0.0d);
+    }
+
+    private static boolean isBasicSkill(SkillId skillId) {
+        return findTreeSkill(skillId)
+                .map(skill -> skill.hasSkillCategory(SkillCategory.PODSTAWOWE))
+                .orElse(false);
+    }
+
+    private static Optional<PaladinTreeSkill> findTreeSkill(SkillId skillId) {
+        return switch (skillId) {
+            case BRANDISH -> PaladinSkillTreeRegistry.findSkill("wymach");
+            case HOLY_BOLT -> PaladinSkillTreeRegistry.findSkill("swiety_pocisk");
+            case CLASH -> PaladinSkillTreeRegistry.findSkill("starcie");
+            case ADVANCE -> PaladinSkillTreeRegistry.findSkill("natarcie");
+        };
+    }
+
+    private static double clampResource(double value, double maxPrimaryResource) {
+        return Math.max(0.0d, Math.min(value, maxPrimaryResource));
     }
 
     private static boolean isBetterLruCandidate(SkillEvaluation candidate, SkillEvaluation currentBest) {
@@ -366,6 +448,21 @@ public final class ManualSimulationService {
             }
         }
         return Optional.empty();
+    }
+
+    private static Optional<String> firstResourceBlockingReason(List<SkillEvaluation> evaluations) {
+        for (SkillEvaluation evaluation : evaluations) {
+            if (evaluation.legalActive && !evaluation.onCooldown && !evaluation.hasRequiredResource) {
+                return Optional.of("WAIT: brak zasobu dla " + evaluation.skillName
+                        + " (Wiara " + formatResource(evaluation.currentPrimaryResource)
+                        + " / koszt " + formatResource(evaluation.effectivePrimaryResourceCost) + ").");
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static String formatResource(double value) {
+        return String.format(java.util.Locale.US, "%.2f", value);
     }
 
     private static boolean hasActiveDelayedHit(List<PendingDelayedHit> pendingDelayedHits, String delayedHitName) {
@@ -478,6 +575,7 @@ public final class ManualSimulationService {
 
     private record SkillSelectionResult(SkillId selectedSkillId,
                                         String selectedSkillName,
+                                        double primaryResourceCost,
                                         List<SkillBarStateTrace> skillBarStates,
                                         String selectionReason) {
     }
@@ -490,6 +588,8 @@ public final class ManualSimulationService {
                                    boolean onCooldown,
                                    int cooldownRemainingSeconds,
                                    boolean hasRequiredResource,
+                                   double currentPrimaryResource,
+                                   double effectivePrimaryResourceCost,
                                    boolean neverUsed,
                                    Integer lastUsedSecond,
                                    String equipmentBlockingReason) {

@@ -7,6 +7,7 @@ import krys.skill.StatusId;
 import org.junit.jupiter.api.Test;
 
 import java.util.EnumSet;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -22,12 +23,56 @@ class DamageEngineFormulaRegressionTest {
         );
 
         assertEquals(40.0d, breakdown.getMainStat(), 0.0000001d);
-        assertEquals(1.04d, breakdown.getMainStatMultiplier(), 0.0000001d);
+        assertEquals(1.05d, breakdown.getMainStatMultiplier(), 0.0000001d);
         assertEquals(19.0d, breakdown.getIntelligence(), 0.0000001d);
         assertEquals(0.015d, breakdown.getCritDamageBonusFromItems(), 0.0000001d);
         assertEquals(0.0076d, breakdown.getCritDamageBonusFromIntelligence(), 0.0000001d);
         assertEquals(0.5226d, breakdown.getCritDamageBonusTotal(), 0.0000001d);
         assertEquals(1.5226d, breakdown.getCritMultiplier(), 0.0000001d);
+    }
+
+    @Test
+    void powinien_liczyc_main_stat_paladyna_przez_dzielnik_800() {
+        DamageBreakdown breakdown = damageEngine.calculate(
+                DamageEngineGoldenValuesTest.level70ClashSnapshot(304.0d, List.of()),
+                SkillId.CLASH,
+                EnumSet.noneOf(StatusId.class)
+        );
+
+        assertEquals(304.0d, breakdown.getMainStat(), 0.0000001d);
+        assertEquals(1.38d, breakdown.getMainStatMultiplier(), 0.0000001d);
+    }
+
+    @Test
+    void powinien_dla_poziomu_70_zostawiac_20_procent_obrazen_po_redukcji() {
+        DamageBreakdown breakdown = damageEngine.calculate(
+                DamageEngineGoldenValuesTest.level70ClashSnapshot(304.0d, List.of()),
+                SkillId.CLASH,
+                EnumSet.noneOf(StatusId.class)
+        );
+
+        assertEquals(0.80d, breakdown.getLevelDamageReduction(), 0.0000001d);
+        assertEquals(0.20d, breakdown.getDamageTakenAfterLevelReductionMultiplier(), 0.0000001d);
+        assertEquals(Math.round(breakdown.getRawDamage() * 0.20d), breakdown.getFinalDamage());
+    }
+
+    @Test
+    void powinien_wlaczac_obrazeniowy_efekt_verathiela_tylko_gdy_aspekt_jest_aktywny() {
+        DamageBreakdown withoutVerathiel = damageEngine.calculate(
+                DamageEngineGoldenValuesTest.level70ClashSnapshot(304.0d, List.of()),
+                SkillId.CLASH,
+                EnumSet.noneOf(StatusId.class)
+        );
+        DamageBreakdown withVerathiel = damageEngine.calculate(
+                DamageEngineGoldenValuesTest.level70ClashSnapshot(304.0d, List.of("verathiel_shard")),
+                SkillId.CLASH,
+                EnumSet.noneOf(StatusId.class)
+        );
+
+        assertEquals(1.0d, withoutVerathiel.getVerathielBasicSkillMultiplier(), 0.0000001d);
+        assertEquals(2.0d, withVerathiel.getVerathielBasicSkillMultiplier(), 0.0000001d);
+        assertEquals(10563L, withVerathiel.getRawDamage());
+        assertEquals(2113L, withVerathiel.getFinalDamage());
     }
 
     @Test

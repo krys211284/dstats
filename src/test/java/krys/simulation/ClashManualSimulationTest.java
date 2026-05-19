@@ -76,8 +76,8 @@ class ClashManualSimulationTest {
                 9
         );
 
-        assertEquals(273L, result.getTotalDamage());
-        assertEquals(120L, result.getTotalReactiveDamage());
+        assertEquals(276L, result.getTotalDamage());
+        assertEquals(123L, result.getTotalReactiveDamage());
         assertEquals(3, result.getReactiveHitBreakdowns().size());
         assertEquals("Clash", result.getStepTrace().get(0).getActionName());
         assertEquals(17L, result.getStepTrace().get(0).getDirectDamage());
@@ -95,12 +95,12 @@ class ClashManualSimulationTest {
                 9
         );
 
-        assertEquals(285L, result.getTotalDamage());
-        assertEquals(132L, result.getTotalReactiveDamage());
+        assertEquals(288L, result.getTotalDamage());
+        assertEquals(135L, result.getTotalReactiveDamage());
         assertTrue(result.isResolveActiveAtEnd());
         assertEquals(0.75d, result.getActiveBlockChanceAtEnd(), 0.0000001d);
         assertEquals(0.0d, result.getActiveThornsBonusAtEnd(), 0.0000001d);
-        assertEquals(44L, result.getReactiveHitBreakdowns().get(0).getReactiveFinalDamage());
+        assertEquals(45L, result.getReactiveHitBreakdowns().get(0).getReactiveFinalDamage());
         assertEquals(20L, result.getReactiveHitBreakdowns().get(0).getRetributionExpectedRawDamage());
         assertEquals(12L, result.getReactiveHitBreakdowns().get(0).getRetributionExpectedFinalDamage());
         assertTrue(result.getReactiveHitBreakdowns().get(0).isResolveActive());
@@ -116,16 +116,16 @@ class ClashManualSimulationTest {
                 9
         );
 
-        assertEquals(417L, result.getTotalDamage());
-        assertEquals(264L, result.getTotalReactiveDamage());
+        assertEquals(420L, result.getTotalDamage());
+        assertEquals(267L, result.getTotalReactiveDamage());
         assertTrue(result.isResolveActiveAtEnd());
         assertEquals(0.75d, result.getActiveBlockChanceAtEnd(), 0.0000001d);
         assertEquals(50.0d, result.getActiveThornsBonusAtEnd(), 0.0000001d);
-        assertEquals(104L, result.getReactiveHitBreakdowns().get(0).getThornsRawDamage());
-        assertEquals(64L, result.getReactiveHitBreakdowns().get(0).getThornsFinalDamage());
+        assertEquals(105L, result.getReactiveHitBreakdowns().get(0).getThornsRawDamage());
+        assertEquals(65L, result.getReactiveHitBreakdowns().get(0).getThornsFinalDamage());
         assertEquals(39L, result.getReactiveHitBreakdowns().get(0).getRetributionExpectedRawDamage());
         assertEquals(24L, result.getReactiveHitBreakdowns().get(0).getRetributionExpectedFinalDamage());
-        assertEquals(88L, result.getReactiveHitBreakdowns().get(0).getReactiveFinalDamage());
+        assertEquals(89L, result.getReactiveHitBreakdowns().get(0).getReactiveFinalDamage());
         assertTrue(result.getReactiveHitBreakdowns().get(0).isPunishmentActive());
     }
 
@@ -150,13 +150,13 @@ class ClashManualSimulationTest {
                 9
         );
 
-        assertEquals(40L, baseClash.getReactiveHitBreakdowns().get(0).getReactiveFinalDamage());
-        assertEquals(44L, clashWithResolve.getReactiveHitBreakdowns().get(0).getReactiveFinalDamage());
-        assertEquals(88L, clashWithResolveAndPunishment.getReactiveHitBreakdowns().get(0).getReactiveFinalDamage());
+        assertEquals(41L, baseClash.getReactiveHitBreakdowns().get(0).getReactiveFinalDamage());
+        assertEquals(45L, clashWithResolve.getReactiveHitBreakdowns().get(0).getReactiveFinalDamage());
+        assertEquals(89L, clashWithResolveAndPunishment.getReactiveHitBreakdowns().get(0).getReactiveFinalDamage());
 
-        assertEquals(120L, baseClash.getTotalReactiveDamage());
-        assertEquals(132L, clashWithResolve.getTotalReactiveDamage());
-        assertEquals(264L, clashWithResolveAndPunishment.getTotalReactiveDamage());
+        assertEquals(123L, baseClash.getTotalReactiveDamage());
+        assertEquals(135L, clashWithResolve.getTotalReactiveDamage());
+        assertEquals(267L, clashWithResolveAndPunishment.getTotalReactiveDamage());
 
         assertFalse(baseClash.getReactiveHitBreakdowns().get(0).isResolveActive());
         assertTrue(clashWithResolve.getReactiveHitBreakdowns().get(0).isResolveActive());

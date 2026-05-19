@@ -6,6 +6,8 @@ import krys.hero.HeroClassDef;
 import krys.hero.HeroClassDefs;
 import krys.item.Item;
 import krys.item.ItemStatType;
+import krys.paladin.PaladinSkillTreeRegistry;
+import krys.paladin.SkillCategory;
 import krys.simulation.HeroBuildSnapshot;
 import krys.skill.EffectType;
 import krys.skill.PaladinSkillDefs;
@@ -27,6 +29,8 @@ public final class DamageEngine {
     private static final double BASE_CRIT_DAMAGE_BONUS = 0.50d;
     private static final double CRIT_DAMAGE_FROM_INTELLIGENCE_FACTOR = 0.0004d;
     private static final double VULNERABLE_MULTIPLIER = 1.20d;
+    private static final String VERATHIEL_SHARD_ASPECT_ID = "verathiel_shard";
+    private static final double VERATHIEL_BASIC_SKILL_MULTIPLIER = 2.0d;
 
     public ReactiveHitBreakdown calculateReactiveHit(HeroBuildSnapshot snapshot,
                                                      int triggeredSecond,
@@ -45,7 +49,7 @@ public final class DamageEngine {
         double blockChanceFromBuild = Item.sumStat(equippedItems, ItemStatType.BLOCK_CHANCE) / 100.0d;
         double activeBlockChance = blockChanceFromBuild + (activeBlockChanceBonusPercent / 100.0d);
         double retributionChance = Item.sumStat(equippedItems, ItemStatType.RETRIBUTION_CHANCE) / 100.0d;
-        double levelDamageReduction = Math.min(85.0d, hero.getLevel() + 25.0d) / 100.0d;
+        double levelDamageReduction = resolveLevelDamageReduction(hero.getLevel());
 
         double thornsRawExact = effectiveThorns * mainStatMultiplier;
         double retributionRawExact = thornsRawExact * activeBlockChance * retributionChance;
@@ -104,7 +108,9 @@ public final class DamageEngine {
         double additivePercent = snapshot.getTotalPercentDamageBonus();
         double additiveMultiplier = 1.0d + (additivePercent / 100.0d);
         double vulnerableMultiplier = targetStatuses.contains(StatusId.VULNERABLE) ? VULNERABLE_MULTIPLIER : 1.0d;
-        double levelDamageReduction = Math.min(85.0d, hero.getLevel() + 25.0d) / 100.0d;
+        double levelDamageReduction = resolveLevelDamageReduction(hero.getLevel());
+        double verathielBasicSkillMultiplier = resolveVerathielBasicSkillMultiplier(snapshot, skillId);
+        double itemMultiplicativeMultiplier = verathielBasicSkillMultiplier;
 
         long baseSkillDamagePercent = resolveBaseSkillDamagePercent(skillDef, state, targetStatuses);
         long baseDamage = Math.round(snapshot.getAverageWeaponDamage() * (baseSkillDamagePercent / 100.0d));
@@ -127,6 +133,7 @@ public final class DamageEngine {
                 mainStatMultiplier,
                 additiveMultiplier,
                 vulnerableMultiplier,
+                itemMultiplicativeMultiplier,
                 critMultiplier,
                 levelDamageReduction
         );
@@ -139,6 +146,7 @@ public final class DamageEngine {
                 mainStatMultiplier,
                 additiveMultiplier,
                 vulnerableMultiplier,
+                itemMultiplicativeMultiplier,
                 1.0d
         );
         totalRawCrit += exactRawDamage(
@@ -149,6 +157,7 @@ public final class DamageEngine {
                 mainStatMultiplier,
                 additiveMultiplier,
                 vulnerableMultiplier,
+                itemMultiplicativeMultiplier,
                 critMultiplier
         );
 
@@ -174,6 +183,7 @@ public final class DamageEngine {
                     mainStatMultiplier,
                     additiveMultiplier,
                     vulnerableMultiplier,
+                    itemMultiplicativeMultiplier,
                     critMultiplier,
                     levelDamageReduction
             );
@@ -187,6 +197,7 @@ public final class DamageEngine {
                         mainStatMultiplier,
                         additiveMultiplier,
                         vulnerableMultiplier,
+                        itemMultiplicativeMultiplier,
                         1.0d
                 );
                 totalRawCrit += exactRawDamage(
@@ -197,6 +208,7 @@ public final class DamageEngine {
                         mainStatMultiplier,
                         additiveMultiplier,
                         vulnerableMultiplier,
+                        itemMultiplicativeMultiplier,
                         critMultiplier
                 );
             }
@@ -218,6 +230,8 @@ public final class DamageEngine {
                 additivePercent,
                 additiveMultiplier,
                 vulnerableMultiplier,
+                verathielBasicSkillMultiplier,
+                itemMultiplicativeMultiplier,
                 critMultiplier,
                 critDamageBonusTotal,
                 critDamageBonusFromItems,
@@ -249,7 +263,8 @@ public final class DamageEngine {
         double additivePercent = snapshot.getTotalPercentDamageBonus();
         double additiveMultiplier = 1.0d + (additivePercent / 100.0d);
         double vulnerableMultiplier = targetStatuses.contains(StatusId.VULNERABLE) ? VULNERABLE_MULTIPLIER : 1.0d;
-        double levelDamageReduction = Math.min(85.0d, hero.getLevel() + 25.0d) / 100.0d;
+        double levelDamageReduction = resolveLevelDamageReduction(hero.getLevel());
+        double itemMultiplicativeMultiplier = 1.0d;
 
         long baseDamage = Math.round(snapshot.getAverageWeaponDamage() * (skillDamagePercent / 100.0d));
         DamageComponentBreakdown component = createComponent(
@@ -266,6 +281,7 @@ public final class DamageEngine {
                 mainStatMultiplier,
                 additiveMultiplier,
                 vulnerableMultiplier,
+                itemMultiplicativeMultiplier,
                 critMultiplier,
                 levelDamageReduction
         );
@@ -278,6 +294,7 @@ public final class DamageEngine {
                 mainStatMultiplier,
                 additiveMultiplier,
                 vulnerableMultiplier,
+                itemMultiplicativeMultiplier,
                 1.0d
         );
         double rawCritExact = exactRawDamage(
@@ -288,6 +305,7 @@ public final class DamageEngine {
                 mainStatMultiplier,
                 additiveMultiplier,
                 vulnerableMultiplier,
+                itemMultiplicativeMultiplier,
                 critMultiplier
         );
 
@@ -303,6 +321,8 @@ public final class DamageEngine {
                 additivePercent,
                 additiveMultiplier,
                 vulnerableMultiplier,
+                1.0d,
+                itemMultiplicativeMultiplier,
                 critMultiplier,
                 critDamageBonusTotal,
                 critDamageBonusFromItems,
@@ -364,13 +384,14 @@ public final class DamageEngine {
                                                             double mainStatMultiplier,
                                                             double additiveMultiplier,
                                                             double vulnerableMultiplier,
+                                                            double itemMultiplicativeMultiplier,
                                                             double critMultiplier,
                                                             double levelDamageReduction) {
         double rawNormalExact = active
-                ? exactRawDamage(weaponDamage, skillDamagePercent, hitCount, weaponMultiplier, mainStatMultiplier, additiveMultiplier, vulnerableMultiplier, 1.0d)
+                ? exactRawDamage(weaponDamage, skillDamagePercent, hitCount, weaponMultiplier, mainStatMultiplier, additiveMultiplier, vulnerableMultiplier, itemMultiplicativeMultiplier, 1.0d)
                 : 0.0d;
         double rawCritExact = active
-                ? exactRawDamage(weaponDamage, skillDamagePercent, hitCount, weaponMultiplier, mainStatMultiplier, additiveMultiplier, vulnerableMultiplier, critMultiplier)
+                ? exactRawDamage(weaponDamage, skillDamagePercent, hitCount, weaponMultiplier, mainStatMultiplier, additiveMultiplier, vulnerableMultiplier, itemMultiplicativeMultiplier, critMultiplier)
                 : 0.0d;
         return new DamageComponentBreakdown(
                 name,
@@ -395,6 +416,7 @@ public final class DamageEngine {
                                          double mainStatMultiplier,
                                          double additiveMultiplier,
                                          double vulnerableMultiplier,
+                                         double itemMultiplicativeMultiplier,
                                          double critMultiplier) {
         return weaponDamage
                 * (skillDamagePercent / 100.0d)
@@ -402,8 +424,33 @@ public final class DamageEngine {
                 * mainStatMultiplier
                 * additiveMultiplier
                 * vulnerableMultiplier
+                * itemMultiplicativeMultiplier
                 * critMultiplier
                 * Math.max(1, hitCount);
+    }
+
+    private static double resolveLevelDamageReduction(int heroLevel) {
+        if (heroLevel == 70) {
+            return 0.80d;
+        }
+        return Math.min(85.0d, heroLevel + 25.0d) / 100.0d;
+    }
+
+    private static double resolveVerathielBasicSkillMultiplier(HeroBuildSnapshot snapshot, SkillId skillId) {
+        if (!snapshot.hasActiveAspect(VERATHIEL_SHARD_ASPECT_ID) || !isBasicSkill(skillId)) {
+            return 1.0d;
+        }
+        return VERATHIEL_BASIC_SKILL_MULTIPLIER;
+    }
+
+    private static boolean isBasicSkill(SkillId skillId) {
+        String treeSkillId = switch (skillId) {
+            case BRANDISH -> "wymach";
+            case HOLY_BOLT -> "swiety_pocisk";
+            case CLASH -> "starcie";
+            case ADVANCE -> "natarcie";
+        };
+        return PaladinSkillTreeRegistry.requireSkill(treeSkillId).hasSkillCategory(SkillCategory.PODSTAWOWE);
     }
 
     private record CriticalDamageResult(long rawCriticalDamage, long criticalDamage) {

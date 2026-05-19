@@ -61,7 +61,7 @@ class AdvanceManualSimulationTest {
         SimulationResult result = simulationService.calculateCurrentBuild(snapshot, 3);
 
         assertEquals("Advance", result.getStepTrace().get(0).getActionName());
-        assertEquals(33L, result.getStepTrace().get(0).getDirectDamage());
+        assertEquals(34L, result.getStepTrace().get(0).getDirectDamage());
 
         assertEquals("Brandish", result.getStepTrace().get(1).getActionName());
         assertEquals(13L, result.getStepTrace().get(1).getDirectDamage());
@@ -86,7 +86,7 @@ class AdvanceManualSimulationTest {
         assertEquals("WAIT", result.getStepTrace().get(7).getActionName());
         assertEquals(1, result.getStepTrace().get(7).getSkillBarStates().get(0).getCooldownRemainingSeconds());
         assertEquals("Advance", result.getStepTrace().get(8).getActionName());
-        assertEquals(66L, result.getTotalDamage());
+        assertEquals(68L, result.getTotalDamage());
     }
 
     @Test
@@ -127,6 +127,6 @@ class AdvanceManualSimulationTest {
         assertTrue(result.getStepTrace().get(1).getSkillBarStates().get(0).isOnCooldown());
         assertEquals(7, result.getStepTrace().get(1).getSkillBarStates().get(0).getCooldownRemainingSeconds());
         assertTrue(result.getStepTrace().get(8).getSelectionReason().contains("według LRU"));
-        assertEquals(147L, result.getTotalDamage());
+        assertEquals(149L, result.getTotalDamage());
     }
 }

@@ -46,6 +46,12 @@ final class CurrentBuildRuntimeInputPresentation {
                 contributionSource(activeItemContribution.getBlockChance())));
         fields.add(new Field("Szansa retribution [%]", formatNumber(runtimeStats.getRetributionChance()),
                 contributionSource(activeItemContribution.getRetributionChance())));
+        fields.add(new Field("Początkowa Wiara", CurrentBuildNumberFormatter.resource(parseDouble(model.getFormData().getInitialPrimaryResource())),
+                "Jawne pole current build"));
+        fields.add(new Field("Maksymalna Wiara", CurrentBuildNumberFormatter.resource(parseDouble(model.getFormData().getMaxPrimaryResource())),
+                "Jawne pole current build"));
+        fields.add(new Field("Regeneracja Wiary/s", CurrentBuildNumberFormatter.resourceRegenPerSecond(parseDouble(model.getFormData().getPrimaryResourceRegenPerSecond())),
+                "Jawne pole current build"));
         return new CurrentBuildRuntimeInputPresentation(fields);
     }
 
@@ -119,6 +125,14 @@ final class CurrentBuildRuntimeInputPresentation {
 
     private static String formatNumber(double value) {
         return BigDecimal.valueOf(value).stripTrailingZeros().toPlainString();
+    }
+
+    private static double parseDouble(String value) {
+        try {
+            return Double.parseDouble(value);
+        } catch (NumberFormatException exception) {
+            return 0.0d;
+        }
     }
 
     static final class Field {

@@ -109,9 +109,9 @@ class SearchBuildWebServerTest {
         assertTrue(response.body().contains("duża"));
         assertTrue(response.body().contains("Najlepsze wyniki po normalizacji"));
         assertTrue(response.body().contains("Łączne obrażenia"));
-        assertTrue(response.body().contains(">499<"));
+        assertTrue(response.body().contains(">502<"));
         assertTrue(response.body().contains("DPS"));
-        assertTrue(response.body().contains("55.4444"));
+        assertTrue(response.body().contains("55.7778"));
         assertTrue(response.body().contains("Wejście buildu"));
         assertTrue(response.body().contains("Skille na pasku"));
         assertTrue(response.body().contains("Advance -&gt; Clash"));

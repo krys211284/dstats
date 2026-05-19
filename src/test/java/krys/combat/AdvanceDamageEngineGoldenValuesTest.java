@@ -24,9 +24,9 @@ class AdvanceDamageEngineGoldenValuesTest {
         DamageBreakdown breakdown = damageEngine.calculate(snapshot, SkillId.ADVANCE, EnumSet.noneOf(StatusId.class));
 
         assertEquals(12L, breakdown.getBaseDamage());
-        assertEquals(24L, breakdown.getRawDamage());
+        assertEquals(25L, breakdown.getRawDamage());
         assertEquals(15L, breakdown.getFinalDamage());
-        assertEquals(37L, breakdown.getRawCriticalDamage());
+        assertEquals(38L, breakdown.getRawCriticalDamage());
         assertEquals(23L, breakdown.getCriticalDamage());
     }
 
@@ -39,13 +39,13 @@ class AdvanceDamageEngineGoldenValuesTest {
         DamageBreakdown breakdown = damageEngine.calculate(snapshot, SkillId.ADVANCE, EnumSet.noneOf(StatusId.class));
 
         assertEquals(12L, breakdown.getBaseDamage());
-        assertEquals(56L, breakdown.getRawDamage());
+        assertEquals(57L, breakdown.getRawDamage());
         assertEquals(35L, breakdown.getFinalDamage());
         assertEquals(86L, breakdown.getRawCriticalDamage());
-        assertEquals(53L, breakdown.getCriticalDamage());
+        assertEquals(54L, breakdown.getCriticalDamage());
         assertEquals(2, breakdown.getComponents().size());
         assertEquals("Główny hit", breakdown.getComponents().get(0).getName());
-        assertEquals(24L, breakdown.getComponents().get(0).getRawDamage());
+        assertEquals(25L, breakdown.getComponents().get(0).getRawDamage());
         assertEquals(15L, breakdown.getComponents().get(0).getFinalDamage());
         assertEquals("Wave Dash", breakdown.getComponents().get(1).getName());
         assertEquals(32L, breakdown.getComponents().get(1).getRawDamage());
@@ -62,7 +62,7 @@ class AdvanceDamageEngineGoldenValuesTest {
 
         assertEquals(26L, breakdown.getBaseDamage());
         assertEquals(54L, breakdown.getRawDamage());
-        assertEquals(33L, breakdown.getFinalDamage());
+        assertEquals(34L, breakdown.getFinalDamage());
         assertEquals(82L, breakdown.getRawCriticalDamage());
         assertEquals(51L, breakdown.getCriticalDamage());
         assertEquals(1, breakdown.getComponents().size());

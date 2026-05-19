@@ -344,10 +344,37 @@ public final class AppShellRendererSupport {
                     background: var(--surface-panel-strong);
                 }
 
+                .damage-result-card {
+                    border-color: var(--accent);
+                    background: linear-gradient(180deg, var(--accent-soft) 0%, var(--surface-panel-strong) 100%);
+                    box-shadow: inset 0 0 0 1px rgba(33, 88, 216, 0.08), 0 10px 22px rgba(19, 34, 53, 0.08);
+                }
+
+                .damage-final-card .summary-label,
+                .damage-critical-card .summary-label {
+                    color: var(--accent-strong);
+                    font-weight: 800;
+                }
+
+                .damage-final-card .summary-value,
+                .damage-critical-card .summary-value {
+                    font-size: 1.28rem;
+                    font-weight: 900;
+                    line-height: 1.15;
+                }
+
                 .summary-value {
                     font-size: 1.05rem;
                     font-weight: 800;
                     color: var(--text-primary);
+                }
+
+                .summary-subvalue {
+                    display: inline-block;
+                    margin-top: 3px;
+                    font-size: 0.9rem;
+                    font-weight: 700;
+                    color: var(--text-secondary);
                 }
 
                 .status-badge,

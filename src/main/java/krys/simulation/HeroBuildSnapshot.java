@@ -18,6 +18,10 @@ import java.util.Map;
  * Na tym etapie zawiera wyłącznie pola potrzebne do foundation Damage Engine.
  */
 public final class HeroBuildSnapshot {
+    public static final double DEFAULT_INITIAL_PRIMARY_RESOURCE = 100.0d;
+    public static final double DEFAULT_MAX_PRIMARY_RESOURCE = 100.0d;
+    public static final double DEFAULT_PRIMARY_RESOURCE_REGEN_PER_SECOND = 1.50d;
+
     private final Hero hero;
     private final int bonusSkillPoints;
     private final long averageWeaponDamage;
@@ -27,6 +31,10 @@ public final class HeroBuildSnapshot {
     private final boolean hasActiveShield;
     private final Map<SkillId, SkillState> learnedSkills;
     private final List<SkillId> selectedSkillBar;
+    private final double initialPrimaryResource;
+    private final double maxPrimaryResource;
+    private final double primaryResourceRegenPerSecond;
+    private final List<String> activeAspectIds;
 
     public HeroBuildSnapshot(Hero hero,
                              int bonusSkillPoints,
@@ -38,7 +46,7 @@ public final class HeroBuildSnapshot {
         this(hero, bonusSkillPoints, averageWeaponDamage, totalPercentDamageBonus, equippedItems,
                 hasEquippedSlot(equippedItems, EquipmentSlot.MAIN_HAND),
                 hasEquippedSlot(equippedItems, EquipmentSlot.OFF_HAND),
-                learnedSkills, selectedSkillBar);
+                learnedSkills, selectedSkillBar, List.of());
     }
 
     public HeroBuildSnapshot(Hero hero,
@@ -50,6 +58,39 @@ public final class HeroBuildSnapshot {
                              boolean hasActiveShield,
                              Map<SkillId, SkillState> learnedSkills,
                              List<SkillId> selectedSkillBar) {
+        this(hero, bonusSkillPoints, averageWeaponDamage, totalPercentDamageBonus, equippedItems,
+                hasActiveWeapon, hasActiveShield, learnedSkills, selectedSkillBar, List.of());
+    }
+
+    public HeroBuildSnapshot(Hero hero,
+                             int bonusSkillPoints,
+                             long averageWeaponDamage,
+                             double totalPercentDamageBonus,
+                             List<Item> equippedItems,
+                             boolean hasActiveWeapon,
+                             boolean hasActiveShield,
+                             Map<SkillId, SkillState> learnedSkills,
+                             List<SkillId> selectedSkillBar,
+                             List<String> activeAspectIds) {
+        this(hero, bonusSkillPoints, averageWeaponDamage, totalPercentDamageBonus, equippedItems,
+                hasActiveWeapon, hasActiveShield, learnedSkills, selectedSkillBar,
+                DEFAULT_INITIAL_PRIMARY_RESOURCE, DEFAULT_MAX_PRIMARY_RESOURCE,
+                DEFAULT_PRIMARY_RESOURCE_REGEN_PER_SECOND, activeAspectIds);
+    }
+
+    public HeroBuildSnapshot(Hero hero,
+                             int bonusSkillPoints,
+                             long averageWeaponDamage,
+                             double totalPercentDamageBonus,
+                             List<Item> equippedItems,
+                             boolean hasActiveWeapon,
+                             boolean hasActiveShield,
+                             Map<SkillId, SkillState> learnedSkills,
+                             List<SkillId> selectedSkillBar,
+                             double initialPrimaryResource,
+                             double maxPrimaryResource,
+                             double primaryResourceRegenPerSecond,
+                             List<String> activeAspectIds) {
         this.hero = hero;
         this.bonusSkillPoints = bonusSkillPoints;
         this.averageWeaponDamage = averageWeaponDamage;
@@ -66,6 +107,10 @@ public final class HeroBuildSnapshot {
 
         List<SkillId> selectedBar = selectedSkillBar == null ? List.of() : selectedSkillBar;
         this.selectedSkillBar = Collections.unmodifiableList(new ArrayList<>(new LinkedHashSet<>(selectedBar)));
+        this.initialPrimaryResource = initialPrimaryResource;
+        this.maxPrimaryResource = maxPrimaryResource;
+        this.primaryResourceRegenPerSecond = primaryResourceRegenPerSecond;
+        this.activeAspectIds = Collections.unmodifiableList(new ArrayList<>(new LinkedHashSet<>(activeAspectIds == null ? List.of() : activeAspectIds)));
     }
 
     public Hero getHero() {
@@ -106,6 +151,26 @@ public final class HeroBuildSnapshot {
 
     public SkillState getSkillState(SkillId skillId) {
         return learnedSkills.get(skillId);
+    }
+
+    public List<String> getActiveAspectIds() {
+        return activeAspectIds;
+    }
+
+    public double getInitialPrimaryResource() {
+        return initialPrimaryResource;
+    }
+
+    public double getMaxPrimaryResource() {
+        return maxPrimaryResource;
+    }
+
+    public double getPrimaryResourceRegenPerSecond() {
+        return primaryResourceRegenPerSecond;
+    }
+
+    public boolean hasActiveAspect(String aspectId) {
+        return activeAspectIds.contains(aspectId);
     }
 
     private static boolean hasEquippedSlot(List<Item> equippedItems, EquipmentSlot slot) {

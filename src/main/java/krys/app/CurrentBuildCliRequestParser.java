@@ -25,7 +25,12 @@ final class CurrentBuildCliRequestParser {
         double thorns = referenceRequest.getThorns();
         double blockChance = referenceRequest.getBlockChance();
         double retributionChance = referenceRequest.getRetributionChance();
+        boolean hasActiveWeapon = referenceRequest.hasActiveWeapon();
+        boolean hasActiveShield = referenceRequest.hasActiveShield();
         int horizonSeconds = referenceRequest.getHorizonSeconds();
+        double initialPrimaryResource = referenceRequest.getInitialPrimaryResource();
+        double maxPrimaryResource = referenceRequest.getMaxPrimaryResource();
+        double primaryResourceRegenPerSecond = referenceRequest.getPrimaryResourceRegenPerSecond();
 
         Map<SkillId, SkillConfigBuilder> skillBuilders = createSkillBuilders(referenceRequest.getLearnedSkills());
         List<SkillId> actionBar = new ArrayList<>(referenceRequest.getActionBar());
@@ -43,7 +48,12 @@ final class CurrentBuildCliRequestParser {
                 thorns = preset.getThorns();
                 blockChance = preset.getBlockChance();
                 retributionChance = preset.getRetributionChance();
+                hasActiveWeapon = preset.hasActiveWeapon();
+                hasActiveShield = preset.hasActiveShield();
                 horizonSeconds = preset.getHorizonSeconds();
+                initialPrimaryResource = preset.getInitialPrimaryResource();
+                maxPrimaryResource = preset.getMaxPrimaryResource();
+                primaryResourceRegenPerSecond = preset.getPrimaryResourceRegenPerSecond();
                 skillBuilders = createSkillBuilders(preset.getLearnedSkills());
                 actionBar = new ArrayList<>(preset.getActionBar());
             } else if ("--level".equals(arg) && index + 1 < args.length) {
@@ -62,6 +72,12 @@ final class CurrentBuildCliRequestParser {
                 retributionChance = Double.parseDouble(args[++index]);
             } else if ("--seconds".equals(arg) && index + 1 < args.length) {
                 horizonSeconds = Integer.parseInt(args[++index]);
+            } else if ("--initial-faith".equals(arg) && index + 1 < args.length) {
+                initialPrimaryResource = Double.parseDouble(args[++index]);
+            } else if ("--max-faith".equals(arg) && index + 1 < args.length) {
+                maxPrimaryResource = Double.parseDouble(args[++index]);
+            } else if ("--faith-regen".equals(arg) && index + 1 < args.length) {
+                primaryResourceRegenPerSecond = Double.parseDouble(args[++index]);
             } else if ("--action-bar".equals(arg) && index + 1 < args.length) {
                 actionBar = parseActionBar(args[++index]);
             } else {
@@ -77,9 +93,15 @@ final class CurrentBuildCliRequestParser {
                 thorns,
                 blockChance,
                 retributionChance,
+                hasActiveWeapon,
+                hasActiveShield,
                 buildLearnedSkills(skillBuilders),
                 actionBar,
-                horizonSeconds
+                horizonSeconds,
+                initialPrimaryResource,
+                maxPrimaryResource,
+                primaryResourceRegenPerSecond,
+                List.of()
         );
     }
 

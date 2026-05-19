@@ -30,6 +30,20 @@ final class CurrentBuildCalculationSectionsRenderer {
                 """;
     }
 
+    private static String renderSummaryCardWithClasses(String label, String value, String extraClasses) {
+        return "<article class=\"summary-card " + escapeHtml(extraClasses) + "\">\n"
+                + "    <div class=\"summary-label\">" + escapeHtml(label) + "</div>\n"
+                + "    <div class=\"summary-value\">" + escapeHtml(value) + "</div>\n"
+                + "</article>\n";
+    }
+
+    private static String renderSummaryCardWithHtmlValue(String label, String valueHtml) {
+        return "<article class=\"summary-card\">\n"
+                + "    <div class=\"summary-label\">" + escapeHtml(label) + "</div>\n"
+                + "    <div class=\"summary-value\">" + valueHtml + "</div>\n"
+                + "</article>\n";
+    }
+
     static String renderDirectHitDebug(CurrentBuildCalculation calculation) {
         StringBuilder html = new StringBuilder("""
                 <section class="panel result-panel">
@@ -53,10 +67,24 @@ final class CurrentBuildCalculationSectionsRenderer {
                     .append("""
                         <div class="summary-grid compact-grid">
                     """)
+                    .append(renderSummaryCard("Obrażenia broni", Long.toString(calculation.getSnapshot().getAverageWeaponDamage())))
+                    .append(renderSummaryCard("Bonus tarczy do obrażeń broni głównej", formatMultiplierWithPercent(breakdown.getWeaponMultiplier())))
+                    .append(renderSummaryCard(HeroSkillCatalogAdapter.displayName(debugSnapshot.getSkillId()) + " rank " + debugSnapshot.getSkillRank(),
+                            firstComponentPercentLabel(breakdown)))
+                    .append(renderSummaryCard("Siła",
+                            CurrentBuildNumberFormatter.resource(breakdown.getMainStat())
+                                    + " -> +" + CurrentBuildNumberFormatter.percentOneDecimal((breakdown.getMainStatMultiplier() - 1.0d) * 100.0d)
+                                    + "% / ×" + CurrentBuildNumberFormatter.multiplier(breakdown.getMainStatMultiplier())))
+                    .append(renderVerathielSummaryCard(breakdown))
+                    .append(renderSummaryCard("Redukcja poziomu",
+                            CurrentBuildNumberFormatter.percentWhole(breakdown.getLevelDamageReduction() * 100.0d)
+                                    + "% / zostaje ×" + CurrentBuildNumberFormatter.multiplier(breakdown.getDamageTakenAfterLevelReductionMultiplier())))
                     .append(renderSummaryCard("Surowe trafienie", Long.toString(breakdown.getRawDamage())))
-                    .append(renderSummaryCard("Trafienie końcowe", Long.toString(breakdown.getFinalDamage())))
+                    .append(renderSummaryCardWithClasses("Trafienie końcowe", Long.toString(breakdown.getFinalDamage()),
+                            "damage-result-card damage-final-card"))
                     .append(renderSummaryCard("Surowe trafienie krytyczne", Long.toString(breakdown.getRawCriticalDamage())))
-                    .append(renderSummaryCard("Trafienie krytyczne", Long.toString(breakdown.getCriticalDamage())))
+                    .append(renderSummaryCardWithClasses("Trafienie krytyczne", Long.toString(breakdown.getCriticalDamage()),
+                            "damage-result-card damage-critical-card"))
                     .append("""
                         </div>
                         <table class="data-table">
@@ -209,6 +237,11 @@ final class CurrentBuildCalculationSectionsRenderer {
                                 <th>Krok</th>
                                 <th>Narastająco</th>
                                 <th>Kolejność ticków</th>
+                                <th>Wiara przed</th>
+                                <th>Koszt Wiary</th>
+                                <th>Generacja Wiary</th>
+                                <th>Regeneracja Wiary</th>
+                                <th>Wiara po</th>
                                 <th>Powód wyboru</th>
                                 <th>Stan paska</th>
                             </tr>
@@ -225,6 +258,11 @@ final class CurrentBuildCalculationSectionsRenderer {
                     .append("<td>").append(step.getTotalStepDamage()).append("</td>")
                     .append("<td>").append(step.getCumulativeDamage()).append("</td>")
                     .append("<td>").append(escapeHtml(step.getTickOrderLabel())).append("</td>")
+                    .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getPrimaryResourceBefore())).append("</td>")
+                    .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getPrimaryResourceCost())).append("</td>")
+                    .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getPrimaryResourceGenerated())).append("</td>")
+                    .append("<td>").append(CurrentBuildNumberFormatter.signedResource(step.getPrimaryResourceRegenerated())).append("</td>")
+                    .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getPrimaryResourceAfter())).append("</td>")
                     .append("<td>").append(escapeHtml(HeroSkillCatalogAdapter.replaceRuntimeSkillNames(step.getSelectionReason()))).append("</td>")
                     .append("<td>").append(renderSkillBarStates(step.getSkillBarStates())).append("</td>")
                     .append("</tr>");
@@ -246,6 +284,30 @@ final class CurrentBuildCalculationSectionsRenderer {
             labels.add(HeroSkillCatalogAdapter.displayName(skillId));
         }
         return String.join(" -> ", labels);
+    }
+
+    private static String firstComponentPercentLabel(DamageBreakdown breakdown) {
+        if (breakdown.getComponents().isEmpty()) {
+            return "-";
+        }
+        return breakdown.getComponents().getFirst().getSkillDamagePercent() + "%";
+    }
+
+    private static String formatMultiplierWithPercent(double multiplier) {
+        double percentBonus = (multiplier - 1.0d) * 100.0d;
+        return "+" + CurrentBuildNumberFormatter.percentWhole(percentBonus)
+                + "% / ×" + CurrentBuildNumberFormatter.multiplier(multiplier);
+    }
+
+    private static String renderVerathielSummaryCard(DamageBreakdown breakdown) {
+        if (breakdown.getVerathielBasicSkillMultiplier() <= 1.0d) {
+            return renderSummaryCard("Odłamek Verathiela", "Nieaktywny / ×1,00");
+        }
+        return renderSummaryCardWithHtmlValue(
+                "Odłamek Verathiela",
+                "+100%[x] / ×" + CurrentBuildNumberFormatter.multiplier(breakdown.getVerathielBasicSkillMultiplier())
+                        + "<br><span class=\"summary-subvalue\">Koszt: +25 Wiary</span>"
+        );
     }
 
     static String escapeHtml(String value) {
@@ -278,6 +340,8 @@ final class CurrentBuildCalculationSectionsRenderer {
                     .append(" | odnowienie=").append(barState.isOnCooldown() ? "tak" : "nie")
                     .append(" | pozostałe odnowienie=").append(barState.getCooldownRemainingSeconds())
                     .append(" | zasób=").append(barState.hasRequiredResource() ? "tak" : "nie")
+                    .append(" | wiara=").append(CurrentBuildNumberFormatter.resource(barState.getCurrentPrimaryResource()))
+                    .append(" | koszt wiary=").append(CurrentBuildNumberFormatter.resource(barState.getEffectivePrimaryResourceCost()))
                     .append(" | nieużyty=").append(barState.isNeverUsed() ? "tak" : "nie")
                     .append(" | ostatnio użyty=").append(barState.getLastUsedSecond() == null ? "-" : barState.getLastUsedSecond())
                     .append(" | wybrany=").append(barState.isSelected() ? "tak" : "nie")

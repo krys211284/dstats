@@ -12,6 +12,10 @@ import java.util.Map;
 
 /** Wejście aplikacyjne dla flow „Policz aktualny build” używanego przez CLI i GUI. */
 public final class CurrentBuildRequest {
+    public static final double DEFAULT_INITIAL_PRIMARY_RESOURCE = 100.0d;
+    public static final double DEFAULT_MAX_PRIMARY_RESOURCE = 100.0d;
+    public static final double DEFAULT_PRIMARY_RESOURCE_REGEN_PER_SECOND = 1.50d;
+
     private final int level;
     private final long weaponDamage;
     private final double strength;
@@ -24,6 +28,10 @@ public final class CurrentBuildRequest {
     private final Map<SkillId, SkillState> learnedSkills;
     private final List<SkillId> actionBar;
     private final int horizonSeconds;
+    private final double initialPrimaryResource;
+    private final double maxPrimaryResource;
+    private final double primaryResourceRegenPerSecond;
+    private final List<String> activeAspectIds;
 
     public CurrentBuildRequest(int level,
                                long weaponDamage,
@@ -46,11 +54,65 @@ public final class CurrentBuildRequest {
                                double thorns,
                                double blockChance,
                                double retributionChance,
+                               Map<SkillId, SkillState> learnedSkills,
+                               List<SkillId> actionBar,
+                               int horizonSeconds,
+                               List<String> activeAspectIds) {
+        this(level, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
+                weaponDamage > 0L, true, learnedSkills, actionBar, horizonSeconds, activeAspectIds);
+    }
+
+    public CurrentBuildRequest(int level,
+                               long weaponDamage,
+                               double strength,
+                               double intelligence,
+                               double thorns,
+                               double blockChance,
+                               double retributionChance,
                                boolean hasActiveWeapon,
                                boolean hasActiveShield,
                                Map<SkillId, SkillState> learnedSkills,
                                List<SkillId> actionBar,
                                int horizonSeconds) {
+        this(level, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
+                hasActiveWeapon, hasActiveShield, learnedSkills, actionBar, horizonSeconds, List.of());
+    }
+
+    public CurrentBuildRequest(int level,
+                               long weaponDamage,
+                               double strength,
+                               double intelligence,
+                               double thorns,
+                               double blockChance,
+                               double retributionChance,
+                               boolean hasActiveWeapon,
+                               boolean hasActiveShield,
+                               Map<SkillId, SkillState> learnedSkills,
+                               List<SkillId> actionBar,
+                               int horizonSeconds,
+                               List<String> activeAspectIds) {
+        this(level, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
+                hasActiveWeapon, hasActiveShield, learnedSkills, actionBar, horizonSeconds,
+                DEFAULT_INITIAL_PRIMARY_RESOURCE, DEFAULT_MAX_PRIMARY_RESOURCE,
+                DEFAULT_PRIMARY_RESOURCE_REGEN_PER_SECOND, activeAspectIds);
+    }
+
+    public CurrentBuildRequest(int level,
+                               long weaponDamage,
+                               double strength,
+                               double intelligence,
+                               double thorns,
+                               double blockChance,
+                               double retributionChance,
+                               boolean hasActiveWeapon,
+                               boolean hasActiveShield,
+                               Map<SkillId, SkillState> learnedSkills,
+                               List<SkillId> actionBar,
+                               int horizonSeconds,
+                               double initialPrimaryResource,
+                               double maxPrimaryResource,
+                               double primaryResourceRegenPerSecond,
+                               List<String> activeAspectIds) {
         if (level <= 0) {
             throw new IllegalArgumentException("Level bohatera musi być dodatni");
         }
@@ -64,6 +126,12 @@ public final class CurrentBuildRequest {
         validateNonNegative("Retribution chance", retributionChance);
         if (horizonSeconds <= 0) {
             throw new IllegalArgumentException("Horyzont symulacji musi być dodatni");
+        }
+        validateNonNegative("Początkowa Wiara", initialPrimaryResource);
+        validateNonNegative("Maksymalna Wiara", maxPrimaryResource);
+        validateNonNegative("Regeneracja Wiary/s", primaryResourceRegenPerSecond);
+        if (initialPrimaryResource > maxPrimaryResource) {
+            throw new IllegalArgumentException("Początkowa Wiara nie może być większa niż Maksymalna Wiara.");
         }
 
         EnumMap<SkillId, SkillState> learnedSkillsCopy = new EnumMap<>(SkillId.class);
@@ -84,6 +152,10 @@ public final class CurrentBuildRequest {
         this.learnedSkills = Collections.unmodifiableMap(learnedSkillsCopy);
         this.actionBar = Collections.unmodifiableList(new ArrayList<>(new LinkedHashSet<>(actionBar == null ? List.of() : actionBar)));
         this.horizonSeconds = horizonSeconds;
+        this.initialPrimaryResource = initialPrimaryResource;
+        this.maxPrimaryResource = maxPrimaryResource;
+        this.primaryResourceRegenPerSecond = primaryResourceRegenPerSecond;
+        this.activeAspectIds = Collections.unmodifiableList(new ArrayList<>(new LinkedHashSet<>(activeAspectIds == null ? List.of() : activeAspectIds)));
     }
 
     private static void validateNonNegative(String label, double value) {
@@ -150,5 +222,42 @@ public final class CurrentBuildRequest {
 
     public int getHorizonSeconds() {
         return horizonSeconds;
+    }
+
+    public double getInitialPrimaryResource() {
+        return initialPrimaryResource;
+    }
+
+    public double getMaxPrimaryResource() {
+        return maxPrimaryResource;
+    }
+
+    public double getPrimaryResourceRegenPerSecond() {
+        return primaryResourceRegenPerSecond;
+    }
+
+    public List<String> getActiveAspectIds() {
+        return activeAspectIds;
+    }
+
+    public CurrentBuildRequest withActiveAspectIds(List<String> activeAspectIds) {
+        return new CurrentBuildRequest(
+                level,
+                weaponDamage,
+                strength,
+                intelligence,
+                thorns,
+                blockChance,
+                retributionChance,
+                hasActiveWeapon,
+                hasActiveShield,
+                learnedSkills,
+                actionBar,
+                horizonSeconds,
+                initialPrimaryResource,
+                maxPrimaryResource,
+                primaryResourceRegenPerSecond,
+                activeAspectIds
+        );
     }
 }

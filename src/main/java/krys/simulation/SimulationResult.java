@@ -21,6 +21,13 @@ public final class SimulationResult {
     private final double activeThornsBonusAtEnd;
     private final List<SimulationStepTrace> stepTrace;
     private final boolean judgementActiveAtEnd;
+    private final double initialPrimaryResource;
+    private final double finalPrimaryResource;
+    private final double maxPrimaryResource;
+    private final double primaryResourceRegenPerSecond;
+    private final double totalPrimaryResourceCost;
+    private final double totalPrimaryResourceGenerated;
+    private final double totalPrimaryResourceRegenerated;
 
     public SimulationResult(long totalDamage,
                             double dps,
@@ -34,6 +41,30 @@ public final class SimulationResult {
                             double activeThornsBonusAtEnd,
                             List<SimulationStepTrace> stepTrace,
                             boolean judgementActiveAtEnd) {
+        this(totalDamage, dps, horizonSeconds, directHitDebugSnapshots, delayedHitBreakdowns, reactiveHitBreakdowns,
+                totalReactiveDamage, resolveActiveAtEnd, activeBlockChanceAtEnd, activeThornsBonusAtEnd, stepTrace,
+                judgementActiveAtEnd, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d);
+    }
+
+    public SimulationResult(long totalDamage,
+                            double dps,
+                            int horizonSeconds,
+                            List<SkillHitDebugSnapshot> directHitDebugSnapshots,
+                            List<DelayedHitBreakdown> delayedHitBreakdowns,
+                            List<ReactiveHitBreakdown> reactiveHitBreakdowns,
+                            long totalReactiveDamage,
+                            boolean resolveActiveAtEnd,
+                            double activeBlockChanceAtEnd,
+                            double activeThornsBonusAtEnd,
+                            List<SimulationStepTrace> stepTrace,
+                            boolean judgementActiveAtEnd,
+                            double initialPrimaryResource,
+                            double finalPrimaryResource,
+                            double maxPrimaryResource,
+                            double primaryResourceRegenPerSecond,
+                            double totalPrimaryResourceCost,
+                            double totalPrimaryResourceGenerated,
+                            double totalPrimaryResourceRegenerated) {
         this.totalDamage = totalDamage;
         this.dps = dps;
         this.horizonSeconds = horizonSeconds;
@@ -46,6 +77,13 @@ public final class SimulationResult {
         this.activeThornsBonusAtEnd = activeThornsBonusAtEnd;
         this.stepTrace = Collections.unmodifiableList(new ArrayList<>(stepTrace));
         this.judgementActiveAtEnd = judgementActiveAtEnd;
+        this.initialPrimaryResource = initialPrimaryResource;
+        this.finalPrimaryResource = finalPrimaryResource;
+        this.maxPrimaryResource = maxPrimaryResource;
+        this.primaryResourceRegenPerSecond = primaryResourceRegenPerSecond;
+        this.totalPrimaryResourceCost = totalPrimaryResourceCost;
+        this.totalPrimaryResourceGenerated = totalPrimaryResourceGenerated;
+        this.totalPrimaryResourceRegenerated = totalPrimaryResourceRegenerated;
     }
 
     public long getTotalDamage() {
@@ -94,5 +132,33 @@ public final class SimulationResult {
 
     public boolean isJudgementActiveAtEnd() {
         return judgementActiveAtEnd;
+    }
+
+    public double getInitialPrimaryResource() {
+        return initialPrimaryResource;
+    }
+
+    public double getFinalPrimaryResource() {
+        return finalPrimaryResource;
+    }
+
+    public double getMaxPrimaryResource() {
+        return maxPrimaryResource;
+    }
+
+    public double getPrimaryResourceRegenPerSecond() {
+        return primaryResourceRegenPerSecond;
+    }
+
+    public double getTotalPrimaryResourceCost() {
+        return totalPrimaryResourceCost;
+    }
+
+    public double getTotalPrimaryResourceGenerated() {
+        return totalPrimaryResourceGenerated;
+    }
+
+    public double getTotalPrimaryResourceRegenerated() {
+        return totalPrimaryResourceRegenerated;
     }
 }

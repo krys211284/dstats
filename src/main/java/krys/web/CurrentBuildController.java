@@ -165,11 +165,25 @@ public final class CurrentBuildController implements HttpHandler {
         }
 
         try {
-            return calculationService.calculate(mappingResult.getRequest());
+            return calculationService.calculate(mappingResult.getRequest().withActiveAspectIds(activeAspectIds(resolution)));
         } catch (IllegalArgumentException exception) {
             errors.add(exception.getMessage());
             return null;
         }
+    }
+
+    private static List<String> activeAspectIds(EffectiveCurrentBuildResolution resolution) {
+        List<String> aspectIds = new ArrayList<>();
+        if (resolution == null) {
+            return aspectIds;
+        }
+        for (var assignment : resolution.getActiveItems()) {
+            String aspectId = assignment.getItem().getSelectedAspectId();
+            if (aspectId != null && !aspectId.isBlank() && !aspectIds.contains(aspectId)) {
+                aspectIds.add(aspectId);
+            }
+        }
+        return aspectIds;
     }
 
     private CurrentBuildPageModel buildPageModel(CurrentBuildFormData formData,

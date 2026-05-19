@@ -568,11 +568,16 @@ public final class CurrentBuildPageRenderer {
                     <section class="subpanel">
                 """);
         if (model.getActionBarEligibleSkillIds().isEmpty()) {
-            html.append("<div class=\"empty-state\"><h4>Brak umiejętności gotowych do paska akcji</h4><p>Podnieś rangę co najmniej jednej przypisanej umiejętności powyżej 0, aby dodać ją do paska akcji.</p></div></section></details>");
+            html.append("<div class=\"empty-state\"><h4>Brak umiejętności gotowych do paska akcji</h4><p>Podnieś rangę co najmniej jednej przypisanej umiejętności powyżej 0, aby dodać ją do paska akcji.</p></div>")
+                    .append("<div class=\"form-grid primary-resource-fields\">")
+                    .append(renderPrimaryResourceFields(model.getFormData()))
+                    .append("</div></section></details>");
             return html.toString();
         }
         html.append("<div class=\"form-grid\">")
                 .append(renderActionBarFields(model))
+                .append("</div><div class=\"form-grid primary-resource-fields\">")
+                .append(renderPrimaryResourceFields(model.getFormData()))
                 .append("</div></section></details>");
         return html.toString();
     }
@@ -920,7 +925,14 @@ public final class CurrentBuildPageRenderer {
         html.append(renderSummaryCard("Horyzont symulacji", calculation.getRequest().getHorizonSeconds() + " s"));
         html.append(renderSummaryCard("Pasek akcji", CurrentBuildCalculationSectionsRenderer.buildActionBarLabel(calculation.getRequest().getActionBar())));
         html.append(renderSummaryCard("Łączne obrażenia", Long.toString(calculation.getResult().getTotalDamage())));
-        html.append(renderSummaryCard("DPS", String.format(Locale.US, "%.4f", calculation.getResult().getDps())));
+        html.append(renderSummaryCard("DPS", CurrentBuildNumberFormatter.dps(calculation.getResult().getDps())));
+        html.append(renderSummaryCard("Początkowa Wiara", CurrentBuildNumberFormatter.resource(calculation.getResult().getInitialPrimaryResource())));
+        html.append(renderSummaryCard("Końcowa Wiara", CurrentBuildNumberFormatter.resource(calculation.getResult().getFinalPrimaryResource())));
+        html.append(renderSummaryCard("Maksymalna Wiara", CurrentBuildNumberFormatter.resource(calculation.getResult().getMaxPrimaryResource())));
+        html.append(renderSummaryCard("Regeneracja Wiary/s", CurrentBuildNumberFormatter.resourceRegenPerSecond(calculation.getResult().getPrimaryResourceRegenPerSecond())));
+        html.append(renderSummaryCard("Łączny koszt Wiary", CurrentBuildNumberFormatter.resource(calculation.getResult().getTotalPrimaryResourceCost())));
+        html.append(renderSummaryCard("Łączna generacja Wiary", CurrentBuildNumberFormatter.resource(calculation.getResult().getTotalPrimaryResourceGenerated())));
+        html.append(renderSummaryCard("Łączna regeneracja Wiary", CurrentBuildNumberFormatter.resource(calculation.getResult().getTotalPrimaryResourceRegenerated())));
         html.append(renderSummaryCard("Wkład obrażeń reaktywnych", Long.toString(calculation.getResult().getTotalReactiveDamage())));
         html.append(renderSummaryCard("Judgement aktywny na końcu", calculation.getResult().isJudgementActiveAtEnd() ? "Tak" : "Nie"));
         html.append(renderSummaryCard("Resolve aktywny na końcu", calculation.getResult().isResolveActiveAtEnd() ? "Tak" : "Nie"));
@@ -1029,6 +1041,26 @@ public final class CurrentBuildPageRenderer {
                 .replace("{{BLOCK_CHANCE}}", escapeHtml(formData.getBlockChance()))
                 .replace("{{RETRIBUTION_CHANCE}}", escapeHtml(formData.getRetributionChance()))
                 .replace("{{HORIZON_SECONDS}}", escapeHtml(formData.getHorizonSeconds()));
+    }
+
+    private static String renderPrimaryResourceFields(CurrentBuildFormData formData) {
+        return """
+                <label>
+                    Początkowa Wiara
+                    <input type="number" min="0" step="0.01" name="initialPrimaryResource" value="{{INITIAL_PRIMARY_RESOURCE}}">
+                </label>
+                <label>
+                    Maksymalna Wiara
+                    <input type="number" min="0" step="0.01" name="maxPrimaryResource" value="{{MAX_PRIMARY_RESOURCE}}">
+                </label>
+                <label>
+                    Regeneracja Wiary/s
+                    <input type="number" min="0" step="0.01" name="primaryResourceRegenPerSecond" value="{{PRIMARY_RESOURCE_REGEN_PER_SECOND}}">
+                </label>
+                """
+                .replace("{{INITIAL_PRIMARY_RESOURCE}}", escapeHtml(formData.getInitialPrimaryResource()))
+                .replace("{{MAX_PRIMARY_RESOURCE}}", escapeHtml(formData.getMaxPrimaryResource()))
+                .replace("{{PRIMARY_RESOURCE_REGEN_PER_SECOND}}", escapeHtml(formData.getPrimaryResourceRegenPerSecond()));
     }
 
     private static String renderRuntimeInputCard(CurrentBuildRuntimeInputPresentation.Field field) {

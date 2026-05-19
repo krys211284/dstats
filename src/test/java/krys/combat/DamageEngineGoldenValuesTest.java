@@ -31,7 +31,7 @@ class DamageEngineGoldenValuesTest {
                 EnumSet.noneOf(StatusId.class));
 
         assertEquals(6L, breakdown.getBaseDamage());
-        assertEquals(12L, breakdown.getRawDamage());
+        assertEquals(13L, breakdown.getRawDamage());
         assertEquals(8L, breakdown.getFinalDamage());
         assertEquals(19L, breakdown.getRawCriticalDamage());
         assertEquals(12L, breakdown.getCriticalDamage());
@@ -44,10 +44,10 @@ class DamageEngineGoldenValuesTest {
                 EnumSet.noneOf(StatusId.class));
 
         assertEquals(8L, breakdown.getBaseDamage());
-        assertEquals(17L, breakdown.getRawDamage());
+        assertEquals(18L, breakdown.getRawDamage());
         assertEquals(11L, breakdown.getFinalDamage());
         assertEquals(27L, breakdown.getRawCriticalDamage());
-        assertEquals(16L, breakdown.getCriticalDamage());
+        assertEquals(17L, breakdown.getCriticalDamage());
     }
 
     @Test
@@ -57,7 +57,7 @@ class DamageEngineGoldenValuesTest {
                 EnumSet.noneOf(StatusId.class));
 
         assertEquals(6L, breakdown.getBaseDamage());
-        assertEquals(24L, breakdown.getRawDamage());
+        assertEquals(25L, breakdown.getRawDamage());
         assertEquals(15L, breakdown.getFinalDamage());
         assertEquals(37L, breakdown.getRawCriticalDamage());
         assertEquals(23L, breakdown.getCriticalDamage());
@@ -108,6 +108,33 @@ class DamageEngineGoldenValuesTest {
 
     static HeroBuildSnapshot referenceSnapshot(SkillState brandishState) {
         return snapshot(brandishState, 8L);
+    }
+
+    static HeroBuildSnapshot level70ClashSnapshot(double totalStrength, List<String> activeAspectIds) {
+        Hero hero = new Hero(1, "Paladyn 70", 70, HeroClass.PALADIN);
+        List<Item> items = List.of(
+                new Item(1, "Odłamek Verathiela", EquipmentSlot.MAIN_HAND, List.of(
+                        new ItemStat(ItemStatType.CRIT_DAMAGE, 0.0d)
+                )),
+                new Item(2, "Miażdżąca Tarcza Kościanych Łusek", EquipmentSlot.OFF_HAND, List.of(
+                        new ItemStat(ItemStatType.MAIN_HAND_WEAPON_DAMAGE, 100.0d),
+                        new ItemStat(ItemStatType.STRENGTH, Math.max(0.0d, totalStrength - 79.0d)),
+                        new ItemStat(ItemStatType.BLOCK_CHANCE, 20.0d)
+                ))
+        );
+        SkillState clash = new SkillState(SkillId.CLASH, 1, false, SkillUpgradeChoice.NONE);
+        return new HeroBuildSnapshot(
+                hero,
+                0,
+                1664L,
+                0.0d,
+                items,
+                true,
+                true,
+                Map.of(SkillId.CLASH, clash),
+                List.of(SkillId.CLASH),
+                activeAspectIds
+        );
     }
 
     private static HeroBuildSnapshot snapshot(SkillState skillState, long weaponDamage) {

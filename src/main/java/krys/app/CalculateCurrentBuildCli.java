@@ -58,9 +58,16 @@ public final class CalculateCurrentBuildCli {
         System.out.println("Nauczone skille: " + buildLearnedSkillsLabel(request.getLearnedSkills()));
         System.out.println("Action bar: " + buildActionBarLabel(request.getActionBar()));
         System.out.println("Horyzont: " + result.getHorizonSeconds() + " s");
+        System.out.println("Początkowa Wiara: " + formatResource(result.getInitialPrimaryResource()));
+        System.out.println("Maksymalna Wiara: " + formatResource(result.getMaxPrimaryResource()));
+        System.out.println("Regeneracja Wiary/s: " + formatResource(result.getPrimaryResourceRegenPerSecond()));
         System.out.println();
         System.out.println("Total damage: " + result.getTotalDamage());
         System.out.println("DPS: " + String.format(Locale.US, "%.4f", result.getDps()));
+        System.out.println("Końcowa Wiara: " + formatResource(result.getFinalPrimaryResource()));
+        System.out.println("Łączny koszt Wiary: " + formatResource(result.getTotalPrimaryResourceCost()));
+        System.out.println("Łączna generacja Wiary: " + formatResource(result.getTotalPrimaryResourceGenerated()));
+        System.out.println("Łączna regeneracja Wiary: " + formatResource(result.getTotalPrimaryResourceRegenerated()));
         System.out.println("Reactive contribution: " + result.getTotalReactiveDamage());
         System.out.println("Judgement aktywny na koniec: " + (result.isJudgementActiveAtEnd() ? "tak" : "nie"));
         System.out.println("Resolve aktywny na koniec: " + (result.isResolveActiveAtEnd() ? "tak" : "nie"));
@@ -142,7 +149,12 @@ public final class CalculateCurrentBuildCli {
                         + " | delayed=" + step.getDelayedDamage()
                         + " | reactive=" + step.getReactiveDamage()
                         + " | step=" + step.getTotalStepDamage()
-                        + " | cumulative=" + step.getCumulativeDamage());
+                        + " | cumulative=" + step.getCumulativeDamage()
+                        + " | faithBefore=" + formatResource(step.getPrimaryResourceBefore())
+                        + " | faithCost=" + formatResource(step.getPrimaryResourceCost())
+                        + " | faithGenerated=" + formatResource(step.getPrimaryResourceGenerated())
+                        + " | faithRegen=" + formatResource(step.getPrimaryResourceRegenerated())
+                        + " | faithAfter=" + formatResource(step.getPrimaryResourceAfter()));
                 System.out.println("  tickOrder=" + step.getTickOrderLabel());
                 System.out.println("  reason=" + step.getSelectionReason());
                 for (SkillBarStateTrace barState : step.getSkillBarStates()) {
@@ -153,6 +165,8 @@ public final class CalculateCurrentBuildCli {
                             + " | cooldown=" + barState.isOnCooldown()
                             + " | cooldownRemaining=" + barState.getCooldownRemainingSeconds()
                             + " | resource=" + barState.hasRequiredResource()
+                            + " | faith=" + formatResource(barState.getCurrentPrimaryResource())
+                            + " | faithCost=" + formatResource(barState.getEffectivePrimaryResourceCost())
                             + " | neverUsed=" + barState.isNeverUsed()
                             + " | lastUsed=" + barState.getLastUsedSecond()
                             + " | selected=" + barState.isSelected());
@@ -199,5 +213,12 @@ public final class CalculateCurrentBuildCli {
             }
         }
         return showTrace;
+    }
+
+    private static String formatResource(double value) {
+        return java.math.BigDecimal.valueOf(value)
+                .setScale(2, java.math.RoundingMode.HALF_UP)
+                .stripTrailingZeros()
+                .toPlainString();
     }
 }

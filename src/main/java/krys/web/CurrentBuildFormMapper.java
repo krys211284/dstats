@@ -30,6 +30,12 @@ final class CurrentBuildFormMapper {
         Double blockChance = parseDouble(formData.getBlockChance(), "Block chance", 0.0d, errors);
         Double retributionChance = parseDouble(formData.getRetributionChance(), "Retribution chance", 0.0d, errors);
         Integer horizonSeconds = parseInt(formData.getHorizonSeconds(), "Horyzont symulacji", 1, errors);
+        Double initialPrimaryResource = parseDouble(formData.getInitialPrimaryResource(), "Początkowa Wiara", 0.0d, errors);
+        Double maxPrimaryResource = parseDouble(formData.getMaxPrimaryResource(), "Maksymalna Wiara", 0.0d, errors);
+        Double primaryResourceRegenPerSecond = parseDouble(formData.getPrimaryResourceRegenPerSecond(), "Regeneracja Wiary/s", 0.0d, errors);
+        if (initialPrimaryResource != null && maxPrimaryResource != null && initialPrimaryResource > maxPrimaryResource) {
+            errors.add("Początkowa Wiara nie może być większa niż Maksymalna Wiara.");
+        }
 
         Map<SkillId, SkillState> learnedSkills = new EnumMap<>(SkillId.class);
         for (SkillId skillId : SkillId.values()) {
@@ -39,6 +45,7 @@ final class CurrentBuildFormMapper {
         List<SkillId> actionBar = mapActionBar(formData, learnedSkills, errors);
         if (level == null || weaponDamage == null || strength == null || intelligence == null
                 || thorns == null || blockChance == null || retributionChance == null || horizonSeconds == null
+                || initialPrimaryResource == null || maxPrimaryResource == null || primaryResourceRegenPerSecond == null
                 || !errors.isEmpty()) {
             return new MappingResult(null, errors);
         }
@@ -56,7 +63,11 @@ final class CurrentBuildFormMapper {
                     hasActiveShield,
                     learnedSkills,
                     actionBar,
-                    horizonSeconds
+                    horizonSeconds,
+                    initialPrimaryResource,
+                    maxPrimaryResource,
+                    primaryResourceRegenPerSecond,
+                    List.of()
             );
             return new MappingResult(request, errors);
         } catch (IllegalArgumentException exception) {

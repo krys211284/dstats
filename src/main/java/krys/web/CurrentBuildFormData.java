@@ -22,6 +22,9 @@ public final class CurrentBuildFormData {
     private final String blockChance;
     private final String retributionChance;
     private final String horizonSeconds;
+    private final String initialPrimaryResource;
+    private final String maxPrimaryResource;
+    private final String primaryResourceRegenPerSecond;
     private final Map<SkillId, SkillConfigFormData> skillConfigs;
     private final List<String> actionBarSlots;
 
@@ -36,6 +39,24 @@ public final class CurrentBuildFormData {
                                 String horizonSeconds,
                                 Map<SkillId, SkillConfigFormData> skillConfigs,
                                 List<String> actionBarSlots) {
+        this(level, questSkillPoints, weaponDamage, strength, intelligence, thorns, blockChance,
+                retributionChance, horizonSeconds, "100", "100", "1.50", skillConfigs, actionBarSlots);
+    }
+
+    public CurrentBuildFormData(String level,
+                                String questSkillPoints,
+                                String weaponDamage,
+                                String strength,
+                                String intelligence,
+                                String thorns,
+                                String blockChance,
+                                String retributionChance,
+                                String horizonSeconds,
+                                String initialPrimaryResource,
+                                String maxPrimaryResource,
+                                String primaryResourceRegenPerSecond,
+                                Map<SkillId, SkillConfigFormData> skillConfigs,
+                                List<String> actionBarSlots) {
         this.level = level;
         this.questSkillPoints = questSkillPoints;
         this.weaponDamage = weaponDamage;
@@ -45,6 +66,9 @@ public final class CurrentBuildFormData {
         this.blockChance = blockChance;
         this.retributionChance = retributionChance;
         this.horizonSeconds = horizonSeconds;
+        this.initialPrimaryResource = initialPrimaryResource;
+        this.maxPrimaryResource = maxPrimaryResource;
+        this.primaryResourceRegenPerSecond = primaryResourceRegenPerSecond;
         this.skillConfigs = Collections.unmodifiableMap(new EnumMap<>(skillConfigs));
         this.actionBarSlots = Collections.unmodifiableList(normalizeActionBarSlots(actionBarSlots));
     }
@@ -52,7 +76,7 @@ public final class CurrentBuildFormData {
     public static CurrentBuildFormData defaultValues() {
         Map<SkillId, SkillConfigFormData> skillConfigs = createEmptySkillConfigs();
         skillConfigs.put(SkillId.ADVANCE, new SkillConfigFormData("5", true, SkillUpgradeChoice.RIGHT.name()));
-        return new CurrentBuildFormData("13", "0", "8", "18", "0", "50", "50", "50", "10",
+        return new CurrentBuildFormData("13", "0", "8", "18", "0", "50", "50", "50", "10", "100", "100", "1.50",
                 skillConfigs,
                 List.of(SkillId.ADVANCE.name(), "NONE", "NONE", "NONE", "NONE", "NONE"));
     }
@@ -87,6 +111,9 @@ public final class CurrentBuildFormData {
                 fields.getOrDefault("blockChance", defaults.getBlockChance()),
                 fields.getOrDefault("retributionChance", defaults.getRetributionChance()),
                 fields.getOrDefault("horizonSeconds", defaults.getHorizonSeconds()),
+                fields.getOrDefault("initialPrimaryResource", defaults.getInitialPrimaryResource()),
+                fields.getOrDefault("maxPrimaryResource", defaults.getMaxPrimaryResource()),
+                fields.getOrDefault("primaryResourceRegenPerSecond", defaults.getPrimaryResourceRegenPerSecond()),
                 skillConfigs,
                 actionBarSlots
         );
@@ -150,6 +177,18 @@ public final class CurrentBuildFormData {
 
     public String getHorizonSeconds() {
         return horizonSeconds;
+    }
+
+    public String getInitialPrimaryResource() {
+        return initialPrimaryResource;
+    }
+
+    public String getMaxPrimaryResource() {
+        return maxPrimaryResource;
+    }
+
+    public String getPrimaryResourceRegenPerSecond() {
+        return primaryResourceRegenPerSecond;
     }
 
     public SkillConfigFormData getSkillConfig(SkillId skillId) {

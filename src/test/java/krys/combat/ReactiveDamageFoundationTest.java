@@ -23,17 +23,17 @@ class ReactiveDamageFoundationTest {
 
         assertTrue(damageEngine.hasReactiveFoundation(snapshot));
         assertEquals(50.0d, breakdown.getBaseThornsFromBuild());
-        assertEquals(1.04d, breakdown.getMainStatMultiplier(), 0.0000001d);
+        assertEquals(1.05d, breakdown.getMainStatMultiplier(), 0.0000001d);
         assertEquals(0.50d, breakdown.getBlockChanceFromBuild(), 0.0000001d);
         assertEquals(0.50d, breakdown.getActiveBlockChance(), 0.0000001d);
         assertEquals(0.0d, breakdown.getActiveThornsBonus(), 0.0000001d);
         assertEquals(0.50d, breakdown.getRetributionChance(), 0.0000001d);
         assertEquals(false, breakdown.isResolveActive());
         assertEquals(0, breakdown.getResolveRemainingSeconds());
-        assertEquals(52L, breakdown.getThornsRawDamage());
-        assertEquals(32L, breakdown.getThornsFinalDamage());
+        assertEquals(53L, breakdown.getThornsRawDamage());
+        assertEquals(33L, breakdown.getThornsFinalDamage());
         assertEquals(13L, breakdown.getRetributionExpectedRawDamage());
         assertEquals(8L, breakdown.getRetributionExpectedFinalDamage());
-        assertEquals(40L, breakdown.getReactiveFinalDamage());
+        assertEquals(41L, breakdown.getReactiveFinalDamage());
     }
 }

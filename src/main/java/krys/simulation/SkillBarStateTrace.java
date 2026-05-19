@@ -12,6 +12,8 @@ public final class SkillBarStateTrace {
     private final boolean onCooldown;
     private final int cooldownRemainingSeconds;
     private final boolean hasRequiredResource;
+    private final double currentPrimaryResource;
+    private final double effectivePrimaryResourceCost;
     private final boolean neverUsed;
     private final Integer lastUsedSecond;
     private final boolean selected;
@@ -27,6 +29,23 @@ public final class SkillBarStateTrace {
                               boolean neverUsed,
                               Integer lastUsedSecond,
                               boolean selected) {
+        this(skillId, skillName, barIndex, rank, legalActive, onCooldown, cooldownRemainingSeconds,
+                hasRequiredResource, 0.0d, 0.0d, neverUsed, lastUsedSecond, selected);
+    }
+
+    public SkillBarStateTrace(SkillId skillId,
+                              String skillName,
+                              int barIndex,
+                              int rank,
+                              boolean legalActive,
+                              boolean onCooldown,
+                              int cooldownRemainingSeconds,
+                              boolean hasRequiredResource,
+                              double currentPrimaryResource,
+                              double effectivePrimaryResourceCost,
+                              boolean neverUsed,
+                              Integer lastUsedSecond,
+                              boolean selected) {
         this.skillId = skillId;
         this.skillName = skillName;
         this.barIndex = barIndex;
@@ -35,6 +54,8 @@ public final class SkillBarStateTrace {
         this.onCooldown = onCooldown;
         this.cooldownRemainingSeconds = cooldownRemainingSeconds;
         this.hasRequiredResource = hasRequiredResource;
+        this.currentPrimaryResource = currentPrimaryResource;
+        this.effectivePrimaryResourceCost = effectivePrimaryResourceCost;
         this.neverUsed = neverUsed;
         this.lastUsedSecond = lastUsedSecond;
         this.selected = selected;
@@ -70,6 +91,14 @@ public final class SkillBarStateTrace {
 
     public boolean hasRequiredResource() {
         return hasRequiredResource;
+    }
+
+    public double getCurrentPrimaryResource() {
+        return currentPrimaryResource;
+    }
+
+    public double getEffectivePrimaryResourceCost() {
+        return effectivePrimaryResourceCost;
     }
 
     public boolean isNeverUsed() {

@@ -4,6 +4,7 @@ import krys.combat.DamageEngine;
 import krys.combat.DamageBreakdown;
 import krys.combat.DamageComponentBreakdown;
 import krys.simulation.ManualSimulationService;
+import krys.simulation.SimulationStepTrace;
 import krys.simulation.SkillHitDebugSnapshot;
 import krys.skill.SkillId;
 import krys.skill.SkillState;
@@ -101,5 +102,117 @@ class CurrentBuildCalculationServiceTest {
         assertEquals(115L, mainHit.getSkillDamagePercent());
         assertTrue(mainHit.getRawDamage() > 0L);
         assertTrue(mainHit.getFinalDamage() > 0L);
+    }
+
+    @Test
+    void current_build_starcia_z_verathielem_i_tarcza_powinien_byc_blisko_screena_gry() {
+        CurrentBuildRequest request = new CurrentBuildRequest(
+                70,
+                1664,
+                304.0d,
+                76.0d,
+                0.0d,
+                20.0d,
+                0.0d,
+                Map.of(SkillId.CLASH, new SkillState(SkillId.CLASH, 1, false, SkillUpgradeChoice.NONE)),
+                List.of(SkillId.CLASH),
+                10,
+                List.of("verathiel_shard")
+        );
+
+        CurrentBuildCalculation calculation = calculationService.calculate(request);
+
+        SkillHitDebugSnapshot debugSnapshot = calculation.getResult().getDirectHitDebugSnapshots().getFirst();
+        DamageBreakdown breakdown = debugSnapshot.getBreakdown();
+        DamageComponentBreakdown mainHit = breakdown.getComponents().getFirst();
+        assertEquals(1664L, calculation.getSnapshot().getAverageWeaponDamage());
+        assertEquals(2.0d, breakdown.getWeaponMultiplier(), 0.0000001d);
+        assertEquals(304.0d, breakdown.getMainStat(), 0.0000001d);
+        assertEquals(1.38d, breakdown.getMainStatMultiplier(), 0.0000001d);
+        assertEquals(115L, mainHit.getSkillDamagePercent());
+        assertEquals(2.0d, breakdown.getVerathielBasicSkillMultiplier(), 0.0000001d);
+        assertEquals(0.80d, breakdown.getLevelDamageReduction(), 0.0000001d);
+        assertEquals(0.20d, breakdown.getDamageTakenAfterLevelReductionMultiplier(), 0.0000001d);
+        assertEquals(10563L, breakdown.getRawDamage());
+        assertEquals(2113L, breakdown.getFinalDamage());
+        assertEquals(21130L, calculation.getResult().getTotalDamage());
+        assertEquals(2113.0d, calculation.getResult().getDps(), 0.0000001d);
+        assertEquals(65.0d, calculation.getResult().getFinalPrimaryResource(), 0.0000001d);
+        assertEquals(250.0d, calculation.getResult().getTotalPrimaryResourceCost(), 0.0000001d);
+        assertEquals(200.0d, calculation.getResult().getTotalPrimaryResourceGenerated(), 0.0000001d);
+        assertEquals(15.0d, calculation.getResult().getTotalPrimaryResourceRegenerated(), 0.0000001d);
+        SimulationStepTrace firstStep = calculation.getResult().getStepTrace().getFirst();
+        assertEquals(100.0d, firstStep.getPrimaryResourceBefore(), 0.0000001d);
+        assertEquals(25.0d, firstStep.getPrimaryResourceCost(), 0.0000001d);
+        assertEquals(20.0d, firstStep.getPrimaryResourceGenerated(), 0.0000001d);
+        assertEquals(1.5d, firstStep.getPrimaryResourceRegenerated(), 0.0000001d);
+        assertEquals(96.5d, firstStep.getPrimaryResourceAfter(), 0.0000001d);
+    }
+
+    @Test
+    void current_build_z_verathielem_i_zerowa_wiara_czeka_bez_obrazen_przez_10s() {
+        CurrentBuildRequest request = new CurrentBuildRequest(
+                70,
+                1664,
+                304.0d,
+                76.0d,
+                0.0d,
+                20.0d,
+                0.0d,
+                true,
+                true,
+                Map.of(SkillId.CLASH, new SkillState(SkillId.CLASH, 1, false, SkillUpgradeChoice.NONE)),
+                List.of(SkillId.CLASH),
+                10,
+                0.0d,
+                100.0d,
+                1.50d,
+                List.of("verathiel_shard")
+        );
+
+        CurrentBuildCalculation calculation = calculationService.calculate(request);
+
+        assertEquals(0L, calculation.getResult().getTotalDamage());
+        assertEquals(0.0d, calculation.getResult().getDps(), 0.0000001d);
+        assertEquals(15.0d, calculation.getResult().getFinalPrimaryResource(), 0.0000001d);
+        assertTrue(calculation.getResult().getDirectHitDebugSnapshots().isEmpty());
+        assertTrue(calculation.getResult().getStepTrace().getFirst().getSelectionReason().contains("brak zasobu"));
+        assertEquals(0.0d, calculation.getResult().getStepTrace().getFirst().getPrimaryResourceBefore(), 0.0000001d);
+        assertEquals(1.5d, calculation.getResult().getStepTrace().getFirst().getPrimaryResourceAfter(), 0.0000001d);
+    }
+
+    @Test
+    void starcie_bez_verathiela_nie_ma_kosztu_25_i_generuje_wiare() {
+        CurrentBuildRequest request = new CurrentBuildRequest(
+                70,
+                1664,
+                304.0d,
+                76.0d,
+                0.0d,
+                20.0d,
+                0.0d,
+                true,
+                true,
+                Map.of(SkillId.CLASH, new SkillState(SkillId.CLASH, 1, false, SkillUpgradeChoice.NONE)),
+                List.of(SkillId.CLASH),
+                10,
+                0.0d,
+                100.0d,
+                1.50d,
+                List.of()
+        );
+
+        CurrentBuildCalculation calculation = calculationService.calculate(request);
+
+        assertTrue(calculation.getResult().getTotalDamage() > 0L);
+        assertEquals(1.0d, calculation.getResult().getDirectHitDebugSnapshots().getFirst()
+                .getBreakdown().getVerathielBasicSkillMultiplier(), 0.0000001d);
+        SimulationStepTrace firstStep = calculation.getResult().getStepTrace().getFirst();
+        assertEquals(0.0d, firstStep.getPrimaryResourceBefore(), 0.0000001d);
+        assertEquals(0.0d, firstStep.getPrimaryResourceCost(), 0.0000001d);
+        assertEquals(20.0d, firstStep.getPrimaryResourceGenerated(), 0.0000001d);
+        assertEquals(1.5d, firstStep.getPrimaryResourceRegenerated(), 0.0000001d);
+        assertEquals(21.5d, firstStep.getPrimaryResourceAfter(), 0.0000001d);
+        assertEquals(100.0d, calculation.getResult().getFinalPrimaryResource(), 0.0000001d);
     }
 }

@@ -42,7 +42,11 @@ public final class CurrentBuildSnapshotFactory {
                 request.hasActiveWeapon(),
                 request.hasActiveShield(),
                 request.getLearnedSkills(),
-                request.getActionBar()
+                request.getActionBar(),
+                request.getInitialPrimaryResource(),
+                request.getMaxPrimaryResource(),
+                request.getPrimaryResourceRegenPerSecond(),
+                request.getActiveAspectIds()
         );
     }
 

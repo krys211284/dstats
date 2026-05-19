@@ -73,8 +73,8 @@ class BuildSearchCalculationServiceTest {
         assertTrue(result.getNormalizedResultCount() < result.getEvaluatedCandidateCount());
         assertEquals(Math.min(request.getTopResultsLimit(), result.getNormalizedResultCount()), result.getTopResults().size());
         assertEquals("Advance -> Clash", result.getTopResults().get(0).getCandidate().getActionBarDescription());
-        assertEquals(499L, result.getTopResults().get(0).getSimulationResult().getTotalDamage());
-        assertEquals(55.44444444444444d, result.getTopResults().get(0).getSimulationResult().getDps(), 0.0000000001d);
+        assertEquals(502L, result.getTopResults().get(0).getSimulationResult().getTotalDamage());
+        assertEquals(55.77777777777778d, result.getTopResults().get(0).getSimulationResult().getDps(), 0.0000000001d);
     }
 
     @Test

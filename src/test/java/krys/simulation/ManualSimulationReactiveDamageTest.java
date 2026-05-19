@@ -41,11 +41,11 @@ class ManualSimulationReactiveDamageTest {
                 3
         );
 
-        assertEquals(40L, result.getTotalReactiveDamage());
-        assertEquals(73L, result.getTotalDamage());
-        assertEquals(40L, result.getStepTrace().get(2).getReactiveDamage());
-        assertEquals(51L, result.getStepTrace().get(2).getTotalStepDamage());
-        assertEquals(73L, result.getStepTrace().get(2).getCumulativeDamage());
+        assertEquals(41L, result.getTotalReactiveDamage());
+        assertEquals(74L, result.getTotalDamage());
+        assertEquals(41L, result.getStepTrace().get(2).getReactiveDamage());
+        assertEquals(52L, result.getStepTrace().get(2).getTotalStepDamage());
+        assertEquals(74L, result.getStepTrace().get(2).getCumulativeDamage());
     }
 
     @Test
@@ -58,7 +58,7 @@ class ManualSimulationReactiveDamageTest {
         );
 
         assertEquals("delayed -> reactive -> active cast", result.getStepTrace().get(2).getTickOrderLabel());
-        assertEquals(40L, result.getStepTrace().get(2).getReactiveDamage());
+        assertEquals(41L, result.getStepTrace().get(2).getReactiveDamage());
         assertEquals(13L, result.getStepTrace().get(2).getDirectDamage());
         assertEquals(0L, result.getStepTrace().get(2).getDelayedDamage());
 
@@ -83,9 +83,9 @@ class ManualSimulationReactiveDamageTest {
             assertEquals(cumulative, step.getCumulativeDamage());
         }
 
-        assertEquals(800L, result.getTotalReactiveDamage());
-        assertEquals(1732L, result.getTotalDamage());
+        assertEquals(820L, result.getTotalReactiveDamage());
+        assertEquals(1752L, result.getTotalDamage());
         assertEquals(cumulative, result.getTotalDamage());
-        assertTrue(result.getReactiveHitBreakdowns().stream().allMatch(entry -> entry.getReactiveFinalDamage() == 40L));
+        assertTrue(result.getReactiveHitBreakdowns().stream().allMatch(entry -> entry.getReactiveFinalDamage() == 41L));
     }
 }

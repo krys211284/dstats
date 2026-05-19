@@ -148,6 +148,9 @@ class CurrentBuildWebServerTest {
         assertFalse(response.body().contains("name=\"horizonSeconds\""));
         assertTrue(response.body().contains("name=\"actionBar1\""));
         assertTrue(response.body().contains("name=\"actionBar6\""));
+        assertTrue(response.body().contains("name=\"initialPrimaryResource\""));
+        assertTrue(response.body().contains("name=\"maxPrimaryResource\""));
+        assertTrue(response.body().contains("name=\"primaryResourceRegenPerSecond\""));
         assertTrue(response.body().contains("Otwórz bibliotekę itemów"));
         assertTrue(response.body().contains("Importuj nowy item"));
         assertTrue(response.body().contains("Wybierz z biblioteki"));
@@ -463,7 +466,8 @@ class CurrentBuildWebServerTest {
         assertTrue(html.contains(summaryCard("Efektywne obrażenia broni", "1664")));
         assertTrue(html.contains(summaryCard("Pasek akcji", "Starcie")));
         assertTrue(html.contains(summaryCard("Łączne obrażenia", "0")));
-        assertTrue(html.contains(summaryCard("DPS", "0.0000")));
+        assertTrue(html.contains(summaryCard("DPS", "0")));
+        assertFalse(html.contains(summaryCard("DPS", "0.0000")));
         assertTrue(technicalRuntimeInputSection(html)
                 .contains(runtimeInputCard("Obrażenia broni", "1664", "Aktywna broń: Odłamek Verathiela, średnie obrażenia trafienia")));
         assertTrue(technicalRuntimeInputSection(html).contains(runtimeInputCard("Siła", "79", "Baseline Paladyn poziom 70")));
@@ -506,6 +510,135 @@ class CurrentBuildWebServerTest {
     }
 
     @Test
+    void shouldCalculateClashGameSanityWithVerathielAndKoscianychLusekShield() throws Exception {
+        createHero("Starcie sanity", "70");
+        saveAndActivateVerathiel();
+        saveAndActivateKoscianychLusekShield("2");
+        assignSkill(krys.skill.SkillId.CLASH);
+        Map<String, String> fields = buildClashRankOneLevel70Fields();
+        fields.put("formAction", "calculate");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        String html = response.body();
+        assertFalse(html.contains("Błędy formularza"));
+        assertTrue(html.contains(summaryCard("Efektywne obrażenia broni", "1664")));
+        assertTrue(html.contains(summaryCard("Efektywna siła", "304")));
+        assertTrue(html.contains(summaryCard("Łączne obrażenia", "21130")));
+        assertTrue(html.contains(summaryCard("DPS", "2113")));
+        assertFalse(html.contains(summaryCard("DPS", "2113.0000")));
+        assertTrue(html.contains(summaryCard("Początkowa Wiara", "100")));
+        assertTrue(html.contains(summaryCard("Końcowa Wiara", "65")));
+        assertTrue(html.contains(summaryCard("Maksymalna Wiara", "100")));
+        assertTrue(html.contains(summaryCard("Regeneracja Wiary/s", "1,50")));
+        assertTrue(html.contains(summaryCard("Łączny koszt Wiary", "250")));
+        assertTrue(html.contains(summaryCard("Łączna generacja Wiary", "200")));
+        assertTrue(html.contains(summaryCard("Łączna regeneracja Wiary", "15")));
+        assertTrue(technicalRuntimeInputSection(html)
+                .contains(runtimeInputCard("Obrażenia broni", "1664", "Aktywna broń: Odłamek Verathiela, średnie obrażenia trafienia")));
+        assertTrue(technicalRuntimeInputSection(html)
+                .contains(runtimeInputCard("Siła", "304", "Baseline Paladyn poziom 70 + aktywne itemy")));
+        assertTrue(technicalRuntimeInputSection(html)
+                .contains(runtimeInputCard("Początkowa Wiara", "100", "Jawne pole current build")));
+        assertTrue(technicalRuntimeInputSection(html)
+                .contains(runtimeInputCard("Maksymalna Wiara", "100", "Jawne pole current build")));
+        assertTrue(technicalRuntimeInputSection(html)
+                .contains(runtimeInputCard("Regeneracja Wiary/s", "1,50", "Jawne pole current build")));
+        String directHitDebug = sectionByHeading(html, "Debug bezpośrednich trafień");
+        assertTrue(directHitDebug.contains("Obrażenia broni"));
+        assertTrue(directHitDebug.contains("1664"));
+        assertTrue(directHitDebug.contains("Bonus tarczy do obrażeń broni głównej"));
+        assertTrue(directHitDebug.contains("+100% / ×2,00"));
+        assertTrue(directHitDebug.contains("Starcie rank 1"));
+        assertTrue(directHitDebug.contains("115%"));
+        assertTrue(directHitDebug.contains("304 -&gt; +38,0% / ×1,38"));
+        assertTrue(directHitDebug.contains("Odłamek Verathiela"));
+        assertTrue(directHitDebug.contains("+100%[x] / ×2,00"));
+        assertTrue(directHitDebug.contains("Koszt: +25 Wiary"));
+        assertFalse(directHitDebug.contains("koszt +25 zasobu aktywny"));
+        assertFalse(directHitDebug.contains("koszt +25 Wiary aktywny"));
+        assertTrue(directHitDebug.contains("80% / zostaje ×0,20"));
+        assertTrue(directHitDebug.contains(summaryCard("Surowe trafienie", "10563")));
+        assertTrue(directHitDebug.contains(damageResultCard("Trafienie końcowe", "2113",
+                "damage-result-card damage-final-card")));
+        assertTrue(directHitDebug.contains("Surowe trafienie krytyczne"));
+        assertTrue(directHitDebug.contains(damageResultCard("Trafienie krytyczne", "3265",
+                "damage-result-card damage-critical-card")));
+        assertFalse(directHitDebug.contains(damageResultCard("Surowe trafienie", "10563",
+                "damage-result-card damage-final-card")));
+        assertFalse(directHitDebug.contains("<article class=\"summary-card damage-result-card damage-critical-card\">\n"
+                + "    <div class=\"summary-label\">Surowe trafienie krytyczne</div>\n"));
+        assertFalse(directHitDebug.contains("Lucky Hit"));
+        assertFalse(directHitDebug.contains("Umocnienie: zwiększone obrażenia"));
+        String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
+        assertTrue(stepTrace.contains("<th>Wiara przed</th>"));
+        assertTrue(stepTrace.contains("<th>Koszt Wiary</th>"));
+        assertTrue(stepTrace.contains("<th>Generacja Wiary</th>"));
+        assertTrue(stepTrace.contains("<th>Regeneracja Wiary</th>"));
+        assertTrue(stepTrace.contains("<th>Wiara po</th>"));
+        assertTrue(stepTrace.contains("<td>100</td><td>25</td><td>20</td><td>+1,5</td><td>96,5</td>"));
+        assertTrue(stepTrace.contains("wiara=100"));
+        assertTrue(stepTrace.contains("koszt wiary=25"));
+    }
+
+    @Test
+    void shouldBlockClashWithVerathielWhenFaithStartsAtZero() throws Exception {
+        createHero("Starcie bez wiary", "70");
+        saveAndActivateVerathiel();
+        saveAndActivateKoscianychLusekShield("2");
+        assignSkill(krys.skill.SkillId.CLASH);
+        Map<String, String> fields = buildClashRankOneLevel70Fields();
+        fields.put("formAction", "calculate");
+        fields.put("initialPrimaryResource", "0");
+        fields.put("maxPrimaryResource", "100");
+        fields.put("primaryResourceRegenPerSecond", "1.50");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        String html = response.body();
+        assertFalse(html.contains("Błędy formularza"));
+        assertTrue(html.contains(summaryCard("Łączne obrażenia", "0")));
+        assertTrue(html.contains(summaryCard("DPS", "0")));
+        assertFalse(html.contains(summaryCard("DPS", "0.0000")));
+        assertTrue(html.contains(summaryCard("Końcowa Wiara", "15")));
+        String directHitDebug = sectionByHeading(html, "Debug bezpośrednich trafień");
+        assertTrue(directHitDebug.contains("Brak bezpośrednich hitów w bieżącej symulacji."));
+        String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
+        assertTrue(stepTrace.contains("brak zasobu dla Starcie"));
+        assertTrue(stepTrace.contains("<td>0</td><td>0</td><td>0</td><td>+1,5</td><td>1,5</td>"));
+        assertTrue(stepTrace.contains("koszt wiary=25"));
+    }
+
+    @Test
+    void shouldValidateFaithFieldsInCurrentBuildForm() throws Exception {
+        createHero("Walidacja Wiary", "70");
+        assignSkill(krys.skill.SkillId.CLASH);
+        Map<String, String> fields = buildClashRankOneLevel70Fields();
+        fields.put("formAction", "calculate");
+        fields.put("initialPrimaryResource", "-1");
+        fields.put("maxPrimaryResource", "-100");
+        fields.put("primaryResourceRegenPerSecond", "-1");
+
+        HttpResponse<String> negativeResponse = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, negativeResponse.statusCode());
+        assertTrue(negativeResponse.body().contains("Błędy formularza"));
+        assertTrue(negativeResponse.body().contains("Początkowa Wiara nie może być mniejszy niż 0."));
+        assertTrue(negativeResponse.body().contains("Maksymalna Wiara nie może być mniejszy niż 0."));
+        assertTrue(negativeResponse.body().contains("Regeneracja Wiary/s nie może być mniejszy niż 0."));
+
+        fields.put("initialPrimaryResource", "101");
+        fields.put("maxPrimaryResource", "100");
+        fields.put("primaryResourceRegenPerSecond", "1.50");
+        HttpResponse<String> overMaxResponse = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, overMaxResponse.statusCode());
+        assertTrue(overMaxResponse.body().contains("Początkowa Wiara nie może być większa niż Maksymalna Wiara."));
+    }
+
+    @Test
     void shouldSkipClashDamageWithoutActiveWeaponEvenWhenShieldIsActive() throws Exception {
         createHero("Starcie bez broni", "70");
         saveAndActivateEmptyShield("1");
@@ -521,7 +654,7 @@ class CurrentBuildWebServerTest {
         assertTrue(html.contains("Obliczono aktualny build."));
         assertTrue(html.contains(summaryCard("Efektywne obrażenia broni", "0")));
         assertTrue(html.contains(summaryCard("Łączne obrażenia", "0")));
-        assertTrue(html.contains(summaryCard("DPS", "0.0000")));
+        assertTrue(html.contains(summaryCard("DPS", "0")));
         assertTrue(technicalRuntimeInputSection(html)
                 .contains(runtimeInputCard("Obrażenia broni", "0", "Brak aktywnej broni")));
         String directHitDebug = sectionByHeading(html, "Debug bezpośrednich trafień");
@@ -1101,7 +1234,7 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("Końcowy bonus do kolców"));
         assertTrue(response.body().contains("75.00%"));
         assertTrue(response.body().contains(">50<"));
-        assertTrue(response.body().contains(">104<"));
+        assertTrue(response.body().contains(">105<"));
         assertTrue(response.body().contains("Starcie"));
         assertTrue(response.body().contains("Punishment"));
     }
@@ -1299,6 +1432,9 @@ class CurrentBuildWebServerTest {
         fields.put("blockChance", "50");
         fields.put("retributionChance", "50");
         fields.put("horizonSeconds", horizonSeconds);
+        fields.put("initialPrimaryResource", "100");
+        fields.put("maxPrimaryResource", "100");
+        fields.put("primaryResourceRegenPerSecond", "1.50");
         for (krys.skill.SkillId skillId : krys.skill.SkillId.values()) {
             fields.put(CurrentBuildFormData.rankFieldName(skillId), "0");
             fields.put(CurrentBuildFormData.choiceFieldName(skillId), "NONE");
@@ -1311,6 +1447,7 @@ class CurrentBuildWebServerTest {
 
     private static String buildCurrentBuildQuery() {
         return "level=13&questSkillPoints=0&weaponDamage=8&strength=18&intelligence=0&thorns=50&blockChance=50&retributionChance=50&horizonSeconds=10"
+                + "&initialPrimaryResource=100&maxPrimaryResource=100&primaryResourceRegenPerSecond=1.50"
                 + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
                 + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
                 + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
@@ -1320,6 +1457,7 @@ class CurrentBuildWebServerTest {
 
     private static String buildCurrentBuildQueryWithStats(String blockChance, String retributionChance) {
         return "level=13&questSkillPoints=0&weaponDamage=8&strength=18&intelligence=0&thorns=50&blockChance=" + blockChance + "&retributionChance=" + retributionChance + "&horizonSeconds=10"
+                + "&initialPrimaryResource=100&maxPrimaryResource=100&primaryResourceRegenPerSecond=1.50"
                 + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
                 + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
                 + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
@@ -1393,6 +1531,13 @@ class CurrentBuildWebServerTest {
                 </div>
                 </article>
                 """;
+    }
+
+    private static String damageResultCard(String label, String value, String extraClasses) {
+        return "<article class=\"summary-card " + extraClasses + "\">\n"
+                + "    <div class=\"summary-label\">" + label + "</div>\n"
+                + "    <div class=\"summary-value\">" + value + "</div>\n"
+                + "</article>\n";
     }
 
     private static String summaryCardWithTooltipPrefix(String label, String value, String tooltip) {
@@ -1621,6 +1766,53 @@ class CurrentBuildWebServerTest {
                 "currentBuildQuery", ""
         ));
         assertEquals(200, activateResponse.statusCode());
+    }
+
+    private void saveAndActivateKoscianychLusekShield(String shieldItemId) throws Exception {
+        HttpResponse<String> saveResponse = sendPost("/importuj-item-ze-screena", koscianychLusekShieldImportFields());
+        assertEquals(200, saveResponse.statusCode());
+
+        HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", shieldItemId,
+                "heroSlot", "OFF_HAND",
+                "currentBuildQuery", ""
+        ));
+        assertEquals(200, activateResponse.statusCode());
+    }
+
+    private static Map<String, String> koscianychLusekShieldImportFields() {
+        Map<String, String> fields = new HashMap<>();
+        fields.put("formAction", "confirmItem");
+        fields.put("sourceImageName", "tarcza-koscianych-lusek.png");
+        fields.put("slot", "OFF_HAND");
+        fields.put("weaponDamage", "0");
+        fields.put("strength", "0");
+        fields.put("intelligence", "0");
+        fields.put("thorns", "0");
+        fields.put("blockChance", "20");
+        fields.put("retributionChance", "0");
+        fields.put("itemName", "Miażdżąca Tarcza Kościanych Łusek");
+        fields.put("itemType", "Tarcza");
+        fields.put("itemRarity", "LEGENDARY");
+        fields.put("isAncient", "true");
+        fields.put("itemPower", "900");
+        fields.put("itemArmor", "1202");
+        fields.put("uniqueEffectText", "Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.");
+        fields.put("selectedAspectId", "fortify_damage_increased");
+        fields.put("affixCount", "4");
+        putAffix(fields, 0, "STRENGTH", "225", "+225 siły",
+                "strength", "", "", "");
+        fields.put("affixGreater_0", "true");
+        putAffix(fields, 1, "FIRE_RESISTANCE", "787", "+787 do odporności na: Ogień",
+                "fire_resistance", "", "", "");
+        fields.put("affixGreater_1", "true");
+        putAffix(fields, 2, "DAMAGE_REDUCTION", "11.4", "11,4% redukcji obrażeń [11,0 - 15,0]",
+                "damage_reduction", "11", "15", "");
+        putAffix(fields, 3, "ALL_RESISTANCE", "490", "+490 do odporności na wszystkie żywioły",
+                "all_resistance", "", "", "");
+        fields.put("affixGreater_3", "true");
+        return fields;
     }
 
     private void saveSimpleMainHandItem(String sourceImageName, String weaponDamage, String strength) throws Exception {

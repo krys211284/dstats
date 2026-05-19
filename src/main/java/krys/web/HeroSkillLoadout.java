@@ -121,6 +121,9 @@ public final class HeroSkillLoadout {
                 baseFormData.getBlockChance(),
                 baseFormData.getRetributionChance(),
                 baseFormData.getHorizonSeconds(),
+                baseFormData.getInitialPrimaryResource(),
+                baseFormData.getMaxPrimaryResource(),
+                baseFormData.getPrimaryResourceRegenPerSecond(),
                 skillConfigs,
                 actionBarSlots
         );

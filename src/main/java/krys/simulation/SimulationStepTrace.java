@@ -17,6 +17,11 @@ public final class SimulationStepTrace {
     private final List<SkillBarStateTrace> skillBarStates;
     private final String selectionReason;
     private final String tickOrderLabel;
+    private final double primaryResourceBefore;
+    private final double primaryResourceCost;
+    private final double primaryResourceGenerated;
+    private final double primaryResourceRegenerated;
+    private final double primaryResourceAfter;
 
     public SimulationStepTrace(int second,
                                SimulationActionType actionType,
@@ -29,6 +34,27 @@ public final class SimulationStepTrace {
                                List<SkillBarStateTrace> skillBarStates,
                                String selectionReason,
                                String tickOrderLabel) {
+        this(second, actionType, actionName, directDamage, delayedDamage, reactiveDamage, totalStepDamage,
+                cumulativeDamage, skillBarStates, selectionReason, tickOrderLabel,
+                0.0d, 0.0d, 0.0d, 0.0d, 0.0d);
+    }
+
+    public SimulationStepTrace(int second,
+                               SimulationActionType actionType,
+                               String actionName,
+                               long directDamage,
+                               long delayedDamage,
+                               long reactiveDamage,
+                               long totalStepDamage,
+                               long cumulativeDamage,
+                               List<SkillBarStateTrace> skillBarStates,
+                               String selectionReason,
+                               String tickOrderLabel,
+                               double primaryResourceBefore,
+                               double primaryResourceCost,
+                               double primaryResourceGenerated,
+                               double primaryResourceRegenerated,
+                               double primaryResourceAfter) {
         this.second = second;
         this.actionType = actionType;
         this.actionName = actionName;
@@ -40,6 +66,11 @@ public final class SimulationStepTrace {
         this.skillBarStates = Collections.unmodifiableList(new ArrayList<>(skillBarStates));
         this.selectionReason = selectionReason;
         this.tickOrderLabel = tickOrderLabel;
+        this.primaryResourceBefore = primaryResourceBefore;
+        this.primaryResourceCost = primaryResourceCost;
+        this.primaryResourceGenerated = primaryResourceGenerated;
+        this.primaryResourceRegenerated = primaryResourceRegenerated;
+        this.primaryResourceAfter = primaryResourceAfter;
     }
 
     public int getSecond() {
@@ -84,5 +115,25 @@ public final class SimulationStepTrace {
 
     public String getTickOrderLabel() {
         return tickOrderLabel;
+    }
+
+    public double getPrimaryResourceBefore() {
+        return primaryResourceBefore;
+    }
+
+    public double getPrimaryResourceCost() {
+        return primaryResourceCost;
+    }
+
+    public double getPrimaryResourceGenerated() {
+        return primaryResourceGenerated;
+    }
+
+    public double getPrimaryResourceRegenerated() {
+        return primaryResourceRegenerated;
+    }
+
+    public double getPrimaryResourceAfter() {
+        return primaryResourceAfter;
     }
 }
