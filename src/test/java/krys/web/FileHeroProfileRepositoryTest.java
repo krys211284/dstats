@@ -3,6 +3,7 @@ package krys.web;
 import krys.hero.HeroClass;
 import krys.item.HeroEquipmentSlot;
 import krys.skill.SkillId;
+import krys.skill.SkillRuntimeModifierChoice;
 import krys.skill.SkillUpgradeChoice;
 import org.junit.jupiter.api.Test;
 
@@ -24,7 +25,13 @@ class FileHeroProfileRepositoryTest {
 
         EnumMap<SkillId, HeroAssignedSkill> assignedSkills = new EnumMap<>(SkillId.class);
         assignedSkills.put(SkillId.ADVANCE, new HeroAssignedSkill(SkillId.ADVANCE, 5, true, SkillUpgradeChoice.RIGHT));
-        assignedSkills.put(SkillId.CLASH, new HeroAssignedSkill(SkillId.CLASH, 3, true, SkillUpgradeChoice.LEFT));
+        assignedSkills.put(SkillId.CLASH, new HeroAssignedSkill(
+                SkillId.CLASH,
+                3,
+                true,
+                SkillUpgradeChoice.LEFT,
+                SkillRuntimeModifierChoice.ANIMUS
+        ));
         HeroSkillLoadout loadout = new HeroSkillLoadout(assignedSkills, List.of(SkillId.ADVANCE, SkillId.CLASH));
         CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(
                 java.util.Map.of("level", "70", "questSkillPoints", "14"),
@@ -58,6 +65,9 @@ class FileHeroProfileRepositoryTest {
         assertEquals(SkillUpgradeChoice.RIGHT, restoredHero.getSkillLoadout().getAssignedSkill(SkillId.ADVANCE).getChoiceUpgrade());
         assertEquals(3, restoredHero.getSkillLoadout().getAssignedSkill(SkillId.CLASH).getRank());
         assertEquals(SkillUpgradeChoice.LEFT, restoredHero.getSkillLoadout().getAssignedSkill(SkillId.CLASH).getChoiceUpgrade());
+        assertEquals(SkillRuntimeModifierChoice.ANIMUS, restoredHero.getSkillLoadout().getAssignedSkill(SkillId.CLASH).getRuntimeModifierChoice());
+        assertEquals("animusz", restoredHero.getSkillLoadout().getAssignedSkill(SkillId.CLASH).getChoiceGroup1());
+        assertEquals("kara", restoredHero.getSkillLoadout().getAssignedSkill(SkillId.CLASH).getChoiceGroup3());
         assertEquals(List.of(SkillId.ADVANCE, SkillId.CLASH), restoredHero.getSkillLoadout().getActionBarSkills());
         assertEquals(hero.getHeroId(), repository.loadActiveHeroId().orElseThrow());
     }

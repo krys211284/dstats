@@ -196,7 +196,11 @@ public final class FileHeroProfileRepository implements HeroProfileRepository {
                     assignedSkill.getSkillId().name(),
                     Integer.toString(assignedSkill.getRank()),
                     Boolean.toString(assignedSkill.isBaseUpgrade()),
-                    assignedSkill.getChoiceUpgrade().name()
+                    assignedSkill.getChoiceUpgrade().name(),
+                    assignedSkill.getRuntimeModifierChoice().name(),
+                    assignedSkill.getChoiceGroup1(),
+                    assignedSkill.getChoiceGroup2(),
+                    assignedSkill.getChoiceGroup3()
             ));
         }
         String actionBar = skillLoadout.getActionBarSkills().stream()
@@ -219,15 +223,38 @@ public final class FileHeroProfileRepository implements HeroProfileRepository {
                     continue;
                 }
                 String[] skillParts = token.split(":", -1);
-                if (skillParts.length != 4) {
+                if (skillParts.length != 4 && skillParts.length != 5 && skillParts.length != 8) {
                     continue;
                 }
                 krys.skill.SkillId skillId = krys.skill.SkillId.valueOf(skillParts[0]);
+                krys.skill.SkillRuntimeModifierChoice runtimeModifierChoice = skillParts.length == 5
+                        ? krys.skill.SkillRuntimeModifierChoice.valueOf(skillParts[4])
+                        : krys.skill.SkillRuntimeModifierChoice.NONE;
+                String choiceGroup1 = krys.skill.SkillState.NO_TREE_CHOICE;
+                String choiceGroup2 = krys.skill.SkillState.NO_TREE_CHOICE;
+                String choiceGroup3 = krys.skill.SkillState.NO_TREE_CHOICE;
+                if (skillParts.length == 8) {
+                    runtimeModifierChoice = krys.skill.SkillRuntimeModifierChoice.valueOf(skillParts[4]);
+                    choiceGroup1 = skillParts[5];
+                    choiceGroup2 = skillParts[6];
+                    choiceGroup3 = skillParts[7];
+                } else if (skillId == krys.skill.SkillId.CLASH) {
+                    if (runtimeModifierChoice == krys.skill.SkillRuntimeModifierChoice.ANIMUS) {
+                        choiceGroup1 = krys.skill.SkillState.CLASH_ANIMUS_CHOICE;
+                    }
+                    if (krys.skill.SkillUpgradeChoice.LEFT.name().equals(skillParts[3])) {
+                        choiceGroup3 = krys.skill.SkillState.CLASH_PUNISHMENT_CHOICE;
+                    }
+                }
                 assignedSkills.put(skillId, new HeroAssignedSkill(
                         skillId,
                         Integer.parseInt(skillParts[1]),
                         Boolean.parseBoolean(skillParts[2]),
-                        krys.skill.SkillUpgradeChoice.valueOf(skillParts[3])
+                        krys.skill.SkillUpgradeChoice.valueOf(skillParts[3]),
+                        runtimeModifierChoice,
+                        choiceGroup1,
+                        choiceGroup2,
+                        choiceGroup3
                 ));
             }
         }

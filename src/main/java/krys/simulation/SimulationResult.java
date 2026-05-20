@@ -34,6 +34,7 @@ public final class SimulationResult {
     private final double maxAnimus;
     private final double minAnimus;
     private final int molochBuffActivationCount;
+    private final double totalClashAnimusGenerated;
 
     public SimulationResult(long totalDamage,
                             double dps,
@@ -50,7 +51,7 @@ public final class SimulationResult {
         this(totalDamage, dps, horizonSeconds, directHitDebugSnapshots, delayedHitBreakdowns, reactiveHitBreakdowns,
                 totalReactiveDamage, resolveActiveAtEnd, activeBlockChanceAtEnd, activeThornsBonusAtEnd, stepTrace,
                 judgementActiveAtEnd, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d,
-                false, 0.0d, 0.0d, 0.0d, 0.0d, 0);
+                false, 0.0d, 0.0d, 0.0d, 0.0d, 0, 0.0d);
     }
 
     public SimulationResult(long totalDamage,
@@ -76,7 +77,7 @@ public final class SimulationResult {
                 totalReactiveDamage, resolveActiveAtEnd, activeBlockChanceAtEnd, activeThornsBonusAtEnd, stepTrace,
                 judgementActiveAtEnd, initialPrimaryResource, finalPrimaryResource, maxPrimaryResource,
                 primaryResourceRegenPerSecond, totalPrimaryResourceCost, totalPrimaryResourceGenerated,
-                totalPrimaryResourceRegenerated, false, 0.0d, 0.0d, 0.0d, 0.0d, 0);
+                totalPrimaryResourceRegenerated, false, 0.0d, 0.0d, 0.0d, 0.0d, 0, 0.0d);
     }
 
     public SimulationResult(long totalDamage,
@@ -103,7 +104,8 @@ public final class SimulationResult {
                             double finalAnimus,
                             double maxAnimus,
                             double minAnimus,
-                            int molochBuffActivationCount) {
+                            int molochBuffActivationCount,
+                            double totalClashAnimusGenerated) {
         this.totalDamage = totalDamage;
         this.dps = dps;
         this.horizonSeconds = horizonSeconds;
@@ -129,6 +131,7 @@ public final class SimulationResult {
         this.maxAnimus = maxAnimus;
         this.minAnimus = minAnimus;
         this.molochBuffActivationCount = molochBuffActivationCount;
+        this.totalClashAnimusGenerated = totalClashAnimusGenerated;
     }
 
     public long getTotalDamage() {
@@ -229,5 +232,9 @@ public final class SimulationResult {
 
     public int getMolochBuffActivationCount() {
         return molochBuffActivationCount;
+    }
+
+    public double getTotalClashAnimusGenerated() {
+        return totalClashAnimusGenerated;
     }
 }

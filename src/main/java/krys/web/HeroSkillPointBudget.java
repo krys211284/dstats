@@ -1,6 +1,9 @@
 package krys.web;
 
 import krys.skill.SkillUpgradeChoice;
+import krys.skill.SkillRuntimeModifierChoice;
+import krys.skill.SkillId;
+import krys.skill.SkillState;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -101,8 +104,23 @@ public final class HeroSkillPointBudget {
             if (assignedSkill.isBaseUpgrade()) {
                 spent += 1;
             }
-            if (assignedSkill.getChoiceUpgrade() != SkillUpgradeChoice.NONE) {
-                spent += 1;
+            if (assignedSkill.getSkillId() == SkillId.CLASH) {
+                if (!SkillState.NO_TREE_CHOICE.equals(assignedSkill.getChoiceGroup1())) {
+                    spent += 1;
+                }
+                if (!SkillState.NO_TREE_CHOICE.equals(assignedSkill.getChoiceGroup2())) {
+                    spent += 1;
+                }
+                if (!SkillState.NO_TREE_CHOICE.equals(assignedSkill.getChoiceGroup3())) {
+                    spent += 1;
+                }
+            } else {
+                if (assignedSkill.getChoiceUpgrade() != SkillUpgradeChoice.NONE) {
+                    spent += 1;
+                }
+                if (assignedSkill.getRuntimeModifierChoice() != SkillRuntimeModifierChoice.NONE) {
+                    spent += 1;
+                }
             }
         }
         return spent;

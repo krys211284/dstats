@@ -35,12 +35,7 @@ public final class HeroSkillLoadout {
             int rank = parseRank(skillConfig.getRank());
             boolean isReferencedOnActionBar = formData.getActionBarSlots().stream().anyMatch(skillId.name()::equals);
             if (rank > 0 || isReferencedOnActionBar) {
-                assigned.put(skillId, new HeroAssignedSkill(
-                        skillId,
-                        rank,
-                        skillConfig.isBaseUpgrade(),
-                        SkillUpgradeChoice.valueOf(skillConfig.getChoiceUpgrade())
-                ));
+                assigned.put(skillId, HeroAssignedSkill.fromFormData(skillId, skillConfig));
             }
         }
         if (assigned.isEmpty()) {

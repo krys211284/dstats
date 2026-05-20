@@ -8,6 +8,9 @@ import krys.itemimport.CurrentBuildImportableStats;
 import krys.itemlibrary.CurrentHeroActiveItemStats;
 import krys.itemlibrary.HeroSlotItemAssignment;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
+import krys.skill.SkillId;
+import krys.skill.SkillRuntimeModifierChoice;
+import krys.skill.SkillState;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -56,6 +59,11 @@ final class CurrentBuildRuntimeInputPresentation {
                 "Jawne pole current build"));
         fields.add(new Field("Maksymalny Animusz", CurrentBuildNumberFormatter.resource(parseDouble(model.getFormData().getMaxAnimus())),
                 "Jawne pole current build"));
+        CurrentBuildFormData.SkillConfigFormData clashConfig = model.getFormData().getSkillConfig(SkillId.CLASH);
+        if (clashConfig != null && (SkillRuntimeModifierChoice.ANIMUS.name().equals(clashConfig.getRuntimeModifierChoice())
+                || SkillState.CLASH_ANIMUS_CHOICE.equals(clashConfig.getChoiceGroup1()))) {
+            fields.add(new Field("Starcie: Animusz", "aktywny", "choiceGroup1_CLASH=animusz; +2 Animuszu po legalnym trafieniu"));
+        }
         return new CurrentBuildRuntimeInputPresentation(fields);
     }
 

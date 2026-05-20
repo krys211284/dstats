@@ -1,6 +1,8 @@
 package krys.web;
 
 import krys.skill.SkillId;
+import krys.skill.SkillRuntimeModifierChoice;
+import krys.skill.SkillState;
 import krys.skill.SkillUpgradeChoice;
 
 import java.util.ArrayList;
@@ -98,10 +100,36 @@ public final class CurrentBuildFormData {
         Map<SkillId, SkillConfigFormData> skillConfigs = createEmptySkillConfigs();
         for (SkillId skillId : SkillId.values()) {
             SkillConfigFormData defaultSkillConfig = defaults.getSkillConfig(skillId);
+            String rawChoiceUpgrade = fields.getOrDefault(choiceFieldName(skillId), defaultSkillConfig.getChoiceUpgrade());
+            String choiceGroup1 = fields.getOrDefault(choiceGroupFieldName(skillId, 1), defaultSkillConfig.getChoiceGroup1());
+            String choiceGroup2 = fields.getOrDefault(choiceGroupFieldName(skillId, 2), defaultSkillConfig.getChoiceGroup2());
+            String choiceGroup3 = fields.getOrDefault(choiceGroupFieldName(skillId, 3), defaultSkillConfig.getChoiceGroup3());
+            String runtimeModifierChoice = fields.getOrDefault(runtimeModifierFieldName(skillId), defaultSkillConfig.getRuntimeModifierChoice());
+            if (skillId == SkillId.CLASH) {
+                if (isNoTreeChoice(choiceGroup1) && SkillRuntimeModifierChoice.ANIMUS.name().equalsIgnoreCase(runtimeModifierChoice)) {
+                    choiceGroup1 = SkillState.CLASH_ANIMUS_CHOICE;
+                }
+                if (isNoTreeChoice(choiceGroup3) && SkillUpgradeChoice.LEFT.name().equalsIgnoreCase(rawChoiceUpgrade)
+                        && !fields.containsKey(choiceGroupFieldName(skillId, 3))) {
+                    choiceGroup3 = SkillState.CLASH_PUNISHMENT_CHOICE;
+                }
+                runtimeModifierChoice = SkillState.CLASH_ANIMUS_CHOICE.equals(choiceGroup1)
+                        ? SkillRuntimeModifierChoice.ANIMUS.name()
+                        : SkillRuntimeModifierChoice.NONE.name();
+                if (fields.containsKey(choiceGroupFieldName(skillId, 3))) {
+                    rawChoiceUpgrade = SkillState.CLASH_PUNISHMENT_CHOICE.equals(choiceGroup3)
+                            ? SkillUpgradeChoice.LEFT.name()
+                            : SkillUpgradeChoice.NONE.name();
+                }
+            }
             skillConfigs.put(skillId, new SkillConfigFormData(
                     fields.getOrDefault(rankFieldName(skillId), defaultSkillConfig.getRank()),
                     fields.containsKey(baseUpgradeFieldName(skillId)),
-                    fields.getOrDefault(choiceFieldName(skillId), defaultSkillConfig.getChoiceUpgrade())
+                    rawChoiceUpgrade,
+                    runtimeModifierChoice,
+                    choiceGroup1,
+                    choiceGroup2,
+                    choiceGroup3
             ));
         }
 
@@ -149,6 +177,14 @@ public final class CurrentBuildFormData {
 
     public static String choiceFieldName(SkillId skillId) {
         return "choiceUpgrade_" + skillId.name();
+    }
+
+    public static String runtimeModifierFieldName(SkillId skillId) {
+        return "choiceModifier_" + skillId.name();
+    }
+
+    public static String choiceGroupFieldName(SkillId skillId, int groupIndex) {
+        return "choiceGroup" + groupIndex + "_" + skillId.name();
     }
 
     public static String actionBarFieldName(int slot) {
@@ -247,11 +283,41 @@ public final class CurrentBuildFormData {
         private final String rank;
         private final boolean baseUpgrade;
         private final String choiceUpgrade;
+        private final String runtimeModifierChoice;
+        private final String choiceGroup1;
+        private final String choiceGroup2;
+        private final String choiceGroup3;
 
         public SkillConfigFormData(String rank, boolean baseUpgrade, String choiceUpgrade) {
+            this(rank, baseUpgrade, choiceUpgrade, SkillRuntimeModifierChoice.NONE.name());
+        }
+
+        public SkillConfigFormData(String rank,
+                                   boolean baseUpgrade,
+                                   String choiceUpgrade,
+                                   String runtimeModifierChoice) {
+            this(rank, baseUpgrade, choiceUpgrade, runtimeModifierChoice,
+                    SkillState.NO_TREE_CHOICE,
+                    SkillState.NO_TREE_CHOICE,
+                    SkillState.NO_TREE_CHOICE);
+        }
+
+        public SkillConfigFormData(String rank,
+                                   boolean baseUpgrade,
+                                   String choiceUpgrade,
+                                   String runtimeModifierChoice,
+                                   String choiceGroup1,
+                                   String choiceGroup2,
+                                   String choiceGroup3) {
             this.rank = rank;
             this.baseUpgrade = baseUpgrade;
             this.choiceUpgrade = choiceUpgrade;
+            this.runtimeModifierChoice = runtimeModifierChoice == null || runtimeModifierChoice.isBlank()
+                    ? SkillRuntimeModifierChoice.NONE.name()
+                    : runtimeModifierChoice;
+            this.choiceGroup1 = normalizeTreeChoice(choiceGroup1);
+            this.choiceGroup2 = normalizeTreeChoice(choiceGroup2);
+            this.choiceGroup3 = normalizeTreeChoice(choiceGroup3);
         }
 
         public String getRank() {
@@ -265,5 +331,38 @@ public final class CurrentBuildFormData {
         public String getChoiceUpgrade() {
             return choiceUpgrade;
         }
+
+        public String getRuntimeModifierChoice() {
+            return runtimeModifierChoice;
+        }
+
+        public String getChoiceGroup1() {
+            return choiceGroup1;
+        }
+
+        public String getChoiceGroup2() {
+            return choiceGroup2;
+        }
+
+        public String getChoiceGroup3() {
+            return choiceGroup3;
+        }
+
+        public String getChoiceGroup(int groupIndex) {
+            return switch (groupIndex) {
+                case 1 -> choiceGroup1;
+                case 2 -> choiceGroup2;
+                case 3 -> choiceGroup3;
+                default -> SkillState.NO_TREE_CHOICE;
+            };
+        }
+    }
+
+    private static boolean isNoTreeChoice(String value) {
+        return value == null || value.isBlank() || SkillState.NO_TREE_CHOICE.equalsIgnoreCase(value);
+    }
+
+    private static String normalizeTreeChoice(String value) {
+        return isNoTreeChoice(value) ? SkillState.NO_TREE_CHOICE : value;
     }
 }

@@ -24,6 +24,7 @@ public final class SimulationStepTrace {
     private final double primaryResourceAfter;
     private final double animusBefore;
     private final double animusSpent;
+    private final double animusGenerated;
     private final double animusAfter;
     private final boolean molochBuffActivated;
     private final boolean molochBuffActive;
@@ -43,7 +44,7 @@ public final class SimulationStepTrace {
         this(second, actionType, actionName, directDamage, delayedDamage, reactiveDamage, totalStepDamage,
                 cumulativeDamage, skillBarStates, selectionReason, tickOrderLabel,
                 0.0d, 0.0d, 0.0d, 0.0d, 0.0d,
-                0.0d, 0.0d, 0.0d, false, false, 0);
+                0.0d, 0.0d, 0.0d, 0.0d, false, false, 0);
     }
 
     public SimulationStepTrace(int second,
@@ -65,7 +66,7 @@ public final class SimulationStepTrace {
         this(second, actionType, actionName, directDamage, delayedDamage, reactiveDamage, totalStepDamage,
                 cumulativeDamage, skillBarStates, selectionReason, tickOrderLabel,
                 primaryResourceBefore, primaryResourceCost, primaryResourceGenerated, primaryResourceRegenerated,
-                primaryResourceAfter, 0.0d, 0.0d, 0.0d, false, false, 0);
+                primaryResourceAfter, 0.0d, 0.0d, 0.0d, 0.0d, false, false, 0);
     }
 
     public SimulationStepTrace(int second,
@@ -86,6 +87,7 @@ public final class SimulationStepTrace {
                                double primaryResourceAfter,
                                double animusBefore,
                                double animusSpent,
+                               double animusGenerated,
                                double animusAfter,
                                boolean molochBuffActivated,
                                boolean molochBuffActive,
@@ -108,6 +110,7 @@ public final class SimulationStepTrace {
         this.primaryResourceAfter = primaryResourceAfter;
         this.animusBefore = animusBefore;
         this.animusSpent = animusSpent;
+        this.animusGenerated = animusGenerated;
         this.animusAfter = animusAfter;
         this.molochBuffActivated = molochBuffActivated;
         this.molochBuffActive = molochBuffActive;
@@ -184,6 +187,10 @@ public final class SimulationStepTrace {
 
     public double getAnimusSpent() {
         return animusSpent;
+    }
+
+    public double getAnimusGenerated() {
+        return animusGenerated;
     }
 
     public double getAnimusAfter() {

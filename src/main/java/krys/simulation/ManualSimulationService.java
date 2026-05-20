@@ -15,6 +15,7 @@ import krys.skill.PaladinSkillDefs;
 import krys.skill.ReactiveSelfBuffProfile;
 import krys.skill.SkillDef;
 import krys.skill.SkillId;
+import krys.skill.SkillRuntimeModifierChoice;
 import krys.skill.SkillRuntimeEffect;
 import krys.skill.SkillState;
 import krys.skill.StatusId;
@@ -39,6 +40,7 @@ public final class ManualSimulationService {
     private static final double MOLOCH_ANIMUS_COST = 8.0d;
     private static final double MOLOCH_MIN_ANIMUS = 1.0d;
     private static final double MOLOCH_MAX_ANIMUS = 8.0d;
+    private static final double CLASH_ANIMUS_GENERATION = 2.0d;
     private static final int MOLOCH_BUFF_DURATION_SECONDS = 5;
     private static final double MOLOCH_DAMAGE_MULTIPLIER = 1.60d;
     private static final double RESOURCE_EPSILON = 0.0000001d;
@@ -75,6 +77,7 @@ public final class ManualSimulationService {
         double initialAnimus = currentAnimus;
         int molochBuffExpiresAtSecond = 0;
         int molochBuffActivationCount = 0;
+        double totalClashAnimusGenerated = 0.0d;
 
         for (int second = 1; second <= horizonSeconds; second++) {
             double primaryResourceBefore = currentPrimaryResource;
@@ -132,6 +135,7 @@ public final class ManualSimulationService {
             String actionName = "WAIT";
             double primaryResourceCost = 0.0d;
             double primaryResourceGenerated = 0.0d;
+            double animusGenerated = 0.0d;
             double animusSpent = 0.0d;
             boolean molochBuffActivated = false;
             boolean molochBuffActiveForDamage = false;
@@ -208,6 +212,12 @@ public final class ManualSimulationService {
             currentPrimaryResource = clampResource(currentPrimaryResource + snapshot.getPrimaryResourceRegenPerSecond(), snapshot.getMaxPrimaryResource());
             double primaryResourceRegenerated = currentPrimaryResource - primaryResourceBeforeRegen;
             totalPrimaryResourceRegenerated += primaryResourceRegenerated;
+            if (selectionResult.selectedSkillId != null && hasClashAnimusModifier(snapshot, selectionResult.selectedSkillId)) {
+                double animusBeforeGeneration = currentAnimus;
+                currentAnimus = clampAnimus(currentAnimus + CLASH_ANIMUS_GENERATION, maxAnimus, minAnimus);
+                animusGenerated = currentAnimus - animusBeforeGeneration;
+                totalClashAnimusGenerated += animusGenerated;
+            }
 
             long totalStepDamage = delayedDamage + reactiveDamage + directDamage;
             stepTrace.add(new SimulationStepTrace(
@@ -229,6 +239,7 @@ public final class ManualSimulationService {
                     currentPrimaryResource,
                     animusBefore,
                     animusSpent,
+                    animusGenerated,
                     currentAnimus,
                     molochBuffActivated,
                     molochBuffActiveForDamage,
@@ -274,7 +285,8 @@ public final class ManualSimulationService {
                 currentAnimus,
                 maxAnimus,
                 minAnimus,
-                molochBuffActivationCount
+                molochBuffActivationCount,
+                totalClashAnimusGenerated
         );
     }
 
@@ -451,6 +463,15 @@ public final class ManualSimulationService {
         return findTreeSkill(skillId)
                 .map(skill -> skill.hasSkillCategory(SkillCategory.MOLOCH))
                 .orElse(false);
+    }
+
+    private static boolean hasClashAnimusModifier(HeroBuildSnapshot snapshot, SkillId skillId) {
+        if (skillId != SkillId.CLASH) {
+            return false;
+        }
+        SkillState state = snapshot.getSkillState(skillId);
+        return state != null && (state.getRuntimeModifierChoice() == SkillRuntimeModifierChoice.ANIMUS
+                || SkillState.CLASH_ANIMUS_CHOICE.equals(state.getChoiceGroup1()));
     }
 
     private static Optional<PaladinTreeSkill> findTreeSkill(SkillId skillId) {

@@ -16,8 +16,14 @@ import krys.itemlibrary.SavedImportedItem;
 import krys.paladin.PaladinOathDefinition;
 import krys.paladin.PaladinOathRegistry;
 import krys.paladin.PaladinOathRuntimeStatus;
+import krys.paladin.PaladinSkillTreeRegistry;
+import krys.paladin.PaladinSkillUpgrade;
+import krys.paladin.PaladinSkillUpgradeGroup;
+import krys.paladin.PaladinTreeSkill;
+import krys.paladin.UpgradeDamageModifier;
 import krys.skill.PaladinSkillDefs;
 import krys.skill.SkillId;
+import krys.skill.SkillState;
 import krys.skill.SkillUpgradeChoice;
 
 import java.io.IOException;
@@ -442,9 +448,31 @@ public final class CurrentBuildPageRenderer {
                 .append(skillId.name())
                 .append("\" class=\"secondary-button\">Usuń umiejętność</button></div>")
                 .append(renderPaladinTreeData(presentation))
-                .append("<div class=\"runtime-config-label\">Konfiguracja runtime legacy</div><div class=\"form-grid\">")
+                .append("<div class=\"runtime-config-label\">")
+                .append(skillId == SkillId.CLASH ? "Ulepszenia Starcia" : "Konfiguracja runtime legacy")
+                .append("</div>")
+                .append(skillId == SkillId.CLASH
+                        ? renderClashRuntimeConfiguration(skillConfig)
+                        : renderDefaultRuntimeConfiguration(skillId, skillConfig))
                 .append("""
-                        <label>
+                </article>
+                """)
+                .toString();
+    }
+
+    private static String renderDefaultRuntimeConfiguration(SkillId skillId, CurrentBuildFormData.SkillConfigFormData skillConfig) {
+        return new StringBuilder("<div class=\"form-grid\">")
+                .append(renderRankControl(skillId, skillConfig, ""))
+                .append(renderLegacyRuntimeConfiguration(skillId, skillConfig))
+                .append("</div>")
+                .toString();
+    }
+
+    private static String renderRankControl(SkillId skillId, CurrentBuildFormData.SkillConfigFormData skillConfig, String cssClass) {
+        return new StringBuilder("<label")
+                .append(cssClass == null || cssClass.isBlank() ? "" : " class=\"" + escapeHtml(cssClass) + "\"")
+                .append("""
+                        >
                             Ranga z punktów
                             <select name=\"""")
                 .append(CurrentBuildFormData.rankFieldName(skillId))
@@ -453,6 +481,12 @@ public final class CurrentBuildPageRenderer {
                 .append("""
                             </select>
                         </label>
+                """)
+                .toString();
+    }
+
+    private static String renderLegacyRuntimeConfiguration(SkillId skillId, CurrentBuildFormData.SkillConfigFormData skillConfig) {
+        return new StringBuilder("""
                         <label>
                             Bazowe ulepszenie
                             <span class="checkbox-row">
@@ -474,10 +508,178 @@ public final class CurrentBuildPageRenderer {
                 .append("""
                             </select>
                         </label>
-                    </div>
-                </article>
                 """)
                 .toString();
+    }
+
+    private static String renderClashRuntimeConfiguration(CurrentBuildFormData.SkillConfigFormData skillConfig) {
+        PaladinTreeSkill clash = PaladinSkillTreeRegistry.requireSkill("starcie");
+        StringBuilder html = new StringBuilder();
+        html.append("<input type=\"hidden\" name=\"")
+                .append(CurrentBuildFormData.choiceFieldName(SkillId.CLASH))
+                .append("\" value=\"NONE\">");
+        html.append("<div class=\"skill-upgrade-controls-row\">");
+        html.append(renderRankControl(SkillId.CLASH, skillConfig, "skill-upgrade-control"));
+        html.append(renderClashBaseEffectControl());
+        for (PaladinSkillUpgradeGroup group : clash.getUpgradeGroups()) {
+            int groupIndex = parseGroupIndex(group);
+            if (groupIndex <= 0) {
+                continue;
+            }
+            String selectedChoice = skillConfig.getChoiceGroup(groupIndex);
+            html.append(renderClashGroupControl(group, groupIndex, selectedChoice));
+        }
+        html.append("</div>");
+        html.append("<div class=\"skill-upgrade-descriptions-row\">");
+        html.append(renderClashBaseEffectDescriptionCard());
+        for (PaladinSkillUpgradeGroup group : clash.getUpgradeGroups()) {
+            int groupIndex = parseGroupIndex(group);
+            if (groupIndex <= 0) {
+                continue;
+            }
+            html.append(renderSelectedClashGroupStatus(group, skillConfig.getChoiceGroup(groupIndex)));
+        }
+        html.append("</div>");
+        return html.toString();
+    }
+
+    private static String renderClashBaseEffectControl() {
+        return """
+                        <div class="skill-upgrade-control readonly-upgrade-control">
+                            <span class="control-label">Efekt bazowy</span>
+                            <span class="readonly-upgrade-value">Marsz Krzyżowca</span>
+                        </div>
+                """;
+    }
+
+    private static String renderClashBaseEffectDescriptionCard() {
+        return renderSelectedClashEffectStatus(
+                "Efekt bazowy umiejętności",
+                "Marsz Krzyżowca",
+                "Stały efekt przypisanej umiejętności Starcie. Nie jest wyborem użytkownika.",
+                "Aktywne w runtime",
+                true
+        );
+    }
+
+    private static String renderClashGroupControl(PaladinSkillUpgradeGroup group, int groupIndex, String selectedChoice) {
+        StringBuilder html = new StringBuilder("""
+                        <label class="skill-upgrade-control">
+                            """)
+                .append(escapeHtml(shortGroupDisplayLabel(groupIndex)))
+                .append("""
+                            <select name=\"""")
+                .append(CurrentBuildFormData.choiceGroupFieldName(SkillId.CLASH, groupIndex))
+                .append("\">")
+                .append(renderClashGroupOptions(group, selectedChoice))
+                .append("""
+                            </select>
+                        </label>
+                """);
+        return html.toString();
+    }
+
+    private static String renderClashGroupOptions(PaladinSkillUpgradeGroup group, String selectedChoice) {
+        List<CurrentBuildPageModel.SelectOption> options = new ArrayList<>();
+        options.add(new CurrentBuildPageModel.SelectOption(SkillState.NO_TREE_CHOICE, "Brak", SkillState.NO_TREE_CHOICE.equals(selectedChoice)));
+        for (PaladinSkillUpgrade upgrade : group.getUpgrades()) {
+            options.add(new CurrentBuildPageModel.SelectOption(upgrade.getId(), upgrade.getName(), upgrade.getId().equals(selectedChoice)));
+        }
+        return renderOptions(options);
+    }
+
+    private static String renderSelectedClashGroupStatus(PaladinSkillUpgradeGroup group, String selectedChoice) {
+        int groupIndex = parseGroupIndex(group);
+        if (selectedChoice == null || selectedChoice.isBlank() || SkillState.NO_TREE_CHOICE.equals(selectedChoice)) {
+            return renderSelectedClashEffectStatus(
+                    shortGroupDisplayLabel(groupIndex),
+                    "Brak",
+                    "Brak wybranego modyfikatora w tej grupie.",
+                    "Opisowe / runtime nieaktywne",
+                    true
+            );
+        }
+        PaladinSkillUpgrade selectedUpgrade = group.getUpgrades().stream()
+                .filter(upgrade -> upgrade.getId().equals(selectedChoice))
+                .findFirst()
+                .orElse(null);
+        if (selectedUpgrade == null) {
+            return "";
+        }
+        UpgradeDamageModifier modifier = UpgradeDamageModifier.fromUpgrade("starcie", group.getId(), selectedUpgrade);
+        return renderSelectedClashEffectStatus(
+                shortGroupDisplayLabel(groupIndex),
+                selectedUpgrade.getName(),
+                clashRuntimeDescription(selectedUpgrade, modifier),
+                clashRuntimeStatus(selectedUpgrade),
+                true
+        );
+    }
+
+    private static String renderSelectedClashEffectStatus(String groupLabel,
+                                                          String name,
+                                                          String description,
+                                                          String status,
+                                                          boolean visible) {
+        if (!visible) {
+            return "";
+        }
+        return """
+                        <div class="summary-card runtime-input-card clash-upgrade-description-card">
+                            <div class="summary-label">""" + escapeHtml(groupLabel) + ": " + escapeHtml(name) + """
+                </div>
+                            <div class="summary-value">""" + escapeHtml(description) + """
+                </div>
+                            <div class="summary-source"><span class=\"""" + statusBadgeClass(status) + "\">" + escapeHtml(status) + """
+                </span></div>
+                        </div>
+                """;
+    }
+
+    private static String statusBadgeClass(String status) {
+        if (status == null) {
+            return "status-chip";
+        }
+        if (status.startsWith("Aktywne")) {
+            return "status-chip runtime-active-chip";
+        }
+        return "status-chip descriptive-chip";
+    }
+
+    private static String clashRuntimeStatus(PaladinSkillUpgrade upgrade) {
+        return switch (upgrade.getId()) {
+            case "animusz" -> "Aktywne w runtime Molocha";
+            case "kara" -> "Aktywne w runtime";
+            default -> "Opisowe / runtime nieaktywne";
+        };
+    }
+
+    private static String clashRuntimeDescription(PaladinSkillUpgrade upgrade, UpgradeDamageModifier modifier) {
+        if ("animusz".equals(upgrade.getId())) {
+            return "Trafienie Starciem zapewnia +2 Animuszu.";
+        }
+        if ("kara".equals(upgrade.getId())) {
+            return "Legacy runtime reaktywny Starcia pozostaje podłączony do wyboru Kary.";
+        }
+        return modifier.getRankingTooltipDescription();
+    }
+
+    private static int parseGroupIndex(PaladinSkillUpgradeGroup group) {
+        return switch (group.getId()) {
+            case "grupa_1" -> 1;
+            case "grupa_2" -> 2;
+            case "grupa_3" -> 3;
+            default -> -1;
+        };
+    }
+
+    private static String shortGroupDisplayLabel(int groupIndex) {
+        return switch (groupIndex) {
+            case 1 -> "Grupa 1";
+            case 2 -> "Grupa 2";
+            case 3 -> "Grupa 3";
+            default -> "Grupa";
+        };
     }
 
     private static String renderPaladinTreeData(HeroAssignedSkillPresentation presentation) {
@@ -489,7 +691,7 @@ public final class CurrentBuildPageRenderer {
                 <div class="tree-skill-data">
                     <div class="tree-skill-data-head">
                         <span class="section-kicker">Aktualne dane umiejętności</span>
-                        <p class="runtime-warning">Opisowe modyfikatory z drzewa Paladyna nie są jeszcze aktywne w runtime DPS.</p>
+                        <p class="runtime-warning">Efekty oznaczone jako aktywne w runtime wpływają na symulację; pozostałe modyfikatory są obecnie opisowe.</p>
                     </div>
                     <div class="summary-grid compact-grid">
                 """);
@@ -944,6 +1146,7 @@ public final class CurrentBuildPageRenderer {
             html.append(renderSummaryCard("Maksymalny Animusz", CurrentBuildNumberFormatter.resource(calculation.getResult().getMaxAnimus())));
             html.append(renderSummaryCard("Buff Molocha aktywowany", calculation.getResult().getMolochBuffActivationCount() > 0 ? "Tak" : "Nie"));
             html.append(renderSummaryCard("Aktywacje Molocha", Integer.toString(calculation.getResult().getMolochBuffActivationCount())));
+            html.append(renderSummaryCard("Animusz ze Starcia", CurrentBuildNumberFormatter.signedResource(calculation.getResult().getTotalClashAnimusGenerated())));
         }
         html.append(renderSummaryCard("Wkład obrażeń reaktywnych", Long.toString(calculation.getResult().getTotalReactiveDamage())));
         html.append(renderSummaryCard("Judgement aktywny na końcu", calculation.getResult().isJudgementActiveAtEnd() ? "Tak" : "Nie"));

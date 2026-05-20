@@ -52,6 +52,10 @@ final class CurrentBuildFormQuerySupport {
                 append(query, CurrentBuildFormData.baseUpgradeFieldName(skillId), "true");
             }
             append(query, CurrentBuildFormData.choiceFieldName(skillId), skillConfig.getChoiceUpgrade());
+            append(query, CurrentBuildFormData.runtimeModifierFieldName(skillId), skillConfig.getRuntimeModifierChoice());
+            append(query, CurrentBuildFormData.choiceGroupFieldName(skillId, 1), skillConfig.getChoiceGroup1());
+            append(query, CurrentBuildFormData.choiceGroupFieldName(skillId, 2), skillConfig.getChoiceGroup2());
+            append(query, CurrentBuildFormData.choiceGroupFieldName(skillId, 3), skillConfig.getChoiceGroup3());
         }
         for (int slot = 1; slot <= CurrentBuildFormData.ACTION_BAR_SLOT_COUNT; slot++) {
             append(query, CurrentBuildFormData.actionBarFieldName(slot), formData.getActionBarSlot(slot));
@@ -78,7 +82,11 @@ final class CurrentBuildFormQuerySupport {
             copiedSkillConfigs.put(skillId, new CurrentBuildFormData.SkillConfigFormData(
                     skillConfig.getRank(),
                     skillConfig.isBaseUpgrade(),
-                    skillConfig.getChoiceUpgrade()
+                    skillConfig.getChoiceUpgrade(),
+                    skillConfig.getRuntimeModifierChoice(),
+                    skillConfig.getChoiceGroup1(),
+                    skillConfig.getChoiceGroup2(),
+                    skillConfig.getChoiceGroup3()
             ));
         }
 
@@ -115,7 +123,11 @@ final class CurrentBuildFormQuerySupport {
             copiedSkillConfigs.put(skillId, new CurrentBuildFormData.SkillConfigFormData(
                     skillConfig.getRank(),
                     skillConfig.isBaseUpgrade(),
-                    skillConfig.getChoiceUpgrade()
+                    skillConfig.getChoiceUpgrade(),
+                    skillConfig.getRuntimeModifierChoice(),
+                    skillConfig.getChoiceGroup1(),
+                    skillConfig.getChoiceGroup2(),
+                    skillConfig.getChoiceGroup3()
             ));
         }
         return new CurrentBuildFormData(
@@ -147,7 +159,11 @@ final class CurrentBuildFormQuerySupport {
             copiedSkillConfigs.put(skillId, new CurrentBuildFormData.SkillConfigFormData(
                     skillConfig.getRank(),
                     skillConfig.isBaseUpgrade(),
-                    skillConfig.getChoiceUpgrade()
+                    skillConfig.getChoiceUpgrade(),
+                    skillConfig.getRuntimeModifierChoice(),
+                    skillConfig.getChoiceGroup1(),
+                    skillConfig.getChoiceGroup2(),
+                    skillConfig.getChoiceGroup3()
             ));
         }
         return new CurrentBuildFormData(

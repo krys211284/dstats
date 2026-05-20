@@ -9,6 +9,8 @@ import krys.simulation.SimulationStepTrace;
 import krys.simulation.SkillBarStateTrace;
 import krys.simulation.SkillHitDebugSnapshot;
 import krys.skill.SkillId;
+import krys.skill.SkillRuntimeModifierChoice;
+import krys.skill.SkillState;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -77,6 +79,7 @@ final class CurrentBuildCalculationSectionsRenderer {
                                     + "% / ×" + CurrentBuildNumberFormatter.multiplier(breakdown.getMainStatMultiplier())))
                     .append(renderVerathielSummaryCard(breakdown))
                     .append(renderMolochSummaryCard(breakdown))
+                    .append(renderClashAnimusSummaryCard(calculation, debugSnapshot.getSkillId()))
                     .append(renderSummaryCard("Redukcja poziomu",
                             CurrentBuildNumberFormatter.percentWhole(breakdown.getLevelDamageReduction() * 100.0d)
                                     + "% / zostaje ×" + CurrentBuildNumberFormatter.multiplier(breakdown.getDamageTakenAfterLevelReductionMultiplier())))
@@ -245,6 +248,7 @@ final class CurrentBuildCalculationSectionsRenderer {
                                 <th>Wiara po</th>
                                 <th>Animusz przed</th>
                                 <th>Zużycie Animuszu</th>
+                                <th>Generacja Animuszu</th>
                                 <th>Animusz po</th>
                                 <th>Buff Molocha</th>
                                 <th>Pozostało buffa</th>
@@ -271,6 +275,7 @@ final class CurrentBuildCalculationSectionsRenderer {
                     .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getPrimaryResourceAfter())).append("</td>")
                     .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getAnimusBefore())).append("</td>")
                     .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getAnimusSpent())).append("</td>")
+                    .append("<td>").append(CurrentBuildNumberFormatter.signedResource(step.getAnimusGenerated())).append("</td>")
                     .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getAnimusAfter())).append("</td>")
                     .append("<td>").append(step.isMolochBuffActivated() ? "Aktywacja" : (step.isMolochBuffActive() ? "Aktywny" : "Nie")).append("</td>")
                     .append("<td>").append(step.getMolochBuffRemainingSeconds()).append(" s</td>")
@@ -329,6 +334,21 @@ final class CurrentBuildCalculationSectionsRenderer {
                 "Moloch",
                 "+60%[x] / ×" + CurrentBuildNumberFormatter.multiplier(breakdown.getMolochOathMultiplier())
                         + "<br><span class=\"summary-subvalue\">Buff aktywny</span>"
+        );
+    }
+
+    private static String renderClashAnimusSummaryCard(CurrentBuildCalculation calculation, SkillId skillId) {
+        if (skillId != SkillId.CLASH) {
+            return "";
+        }
+        SkillState state = calculation.getSnapshot().getSkillState(skillId);
+        if (state == null || (state.getRuntimeModifierChoice() != SkillRuntimeModifierChoice.ANIMUS
+                && !SkillState.CLASH_ANIMUS_CHOICE.equals(state.getChoiceGroup1()))) {
+            return "";
+        }
+        return renderSummaryCardWithHtmlValue(
+                "Starcie: Animusz",
+                "+2 Animuszu po trafieniu<br><span class=\"summary-subvalue\">Nie jest mnożnikiem obrażeń</span>"
         );
     }
 

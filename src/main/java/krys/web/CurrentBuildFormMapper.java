@@ -1,9 +1,14 @@
 package krys.web;
 
 import krys.app.CurrentBuildRequest;
+import krys.paladin.PaladinSkillTreeRegistry;
 import krys.paladin.PaladinOathRegistry;
+import krys.paladin.PaladinSkillUpgrade;
+import krys.paladin.PaladinSkillUpgradeGroup;
+import krys.paladin.PaladinTreeSkill;
 import krys.skill.PaladinSkillDefs;
 import krys.skill.SkillId;
+import krys.skill.SkillRuntimeModifierChoice;
 import krys.skill.SkillState;
 import krys.skill.SkillUpgradeChoice;
 
@@ -94,10 +99,26 @@ final class CurrentBuildFormMapper {
         CurrentBuildFormData.SkillConfigFormData skillConfig = formData.getSkillConfig(skillId);
         Integer rank = parseInt(skillConfig.getRank(), "Rank skilla " + HeroSkillCatalogAdapter.displayName(skillId), 0, errors);
         SkillUpgradeChoice choiceUpgrade = parseChoice(skillConfig.getChoiceUpgrade(), skillId, errors);
+        SkillRuntimeModifierChoice runtimeModifierChoice = parseRuntimeModifier(skillConfig.getRuntimeModifierChoice(), skillId, errors);
+        String choiceGroup1 = skillConfig.getChoiceGroup1();
+        String choiceGroup2 = skillConfig.getChoiceGroup2();
+        String choiceGroup3 = skillConfig.getChoiceGroup3();
+        validateSkillTreeGroupChoice(skillId, 1, choiceGroup1, errors);
+        validateSkillTreeGroupChoice(skillId, 2, choiceGroup2, errors);
+        validateSkillTreeGroupChoice(skillId, 3, choiceGroup3, errors);
         boolean baseUpgrade = skillConfig.isBaseUpgrade();
 
-        if (rank == null || choiceUpgrade == null) {
+        if (rank == null || choiceUpgrade == null || runtimeModifierChoice == null) {
             return;
+        }
+        if (skillId == SkillId.CLASH) {
+            baseUpgrade = rank > 0;
+            if (SkillState.CLASH_ANIMUS_CHOICE.equals(choiceGroup1)) {
+                runtimeModifierChoice = SkillRuntimeModifierChoice.ANIMUS;
+            }
+            choiceUpgrade = SkillState.CLASH_PUNISHMENT_CHOICE.equals(choiceGroup3)
+                    ? SkillUpgradeChoice.LEFT
+                    : SkillUpgradeChoice.NONE;
         }
         if (!baseUpgrade && choiceUpgrade != SkillUpgradeChoice.NONE) {
             errors.add("Dodatkowy modyfikator dla " + HeroSkillCatalogAdapter.displayName(skillId) + " wymaga bazowego rozszerzenia.");
@@ -110,12 +131,25 @@ final class CurrentBuildFormMapper {
             errors.add("Wybrany dodatkowy modyfikator nie jest dostępny dla skilla " + HeroSkillCatalogAdapter.displayName(skillId) + ".");
             return;
         }
+        if (runtimeModifierChoice != SkillRuntimeModifierChoice.NONE && skillId != SkillId.CLASH) {
+            errors.add("Modyfikator runtime Animusz jest dostępny tylko dla skilla Starcie.");
+            return;
+        }
         if (rank <= 0) {
             return;
         }
 
         try {
-            learnedSkills.put(skillId, new SkillState(skillId, rank, baseUpgrade, choiceUpgrade));
+            learnedSkills.put(skillId, new SkillState(
+                    skillId,
+                    rank,
+                    baseUpgrade,
+                    choiceUpgrade,
+                    runtimeModifierChoice,
+                    choiceGroup1,
+                    choiceGroup2,
+                    choiceGroup3
+            ));
         } catch (IllegalArgumentException exception) {
             errors.add(exception.getMessage());
         }
@@ -155,6 +189,41 @@ final class CurrentBuildFormMapper {
             errors.add("Niepoprawny dodatkowy modyfikator dla skilla " + HeroSkillCatalogAdapter.displayName(skillId) + ".");
             return null;
         }
+    }
+
+    private static SkillRuntimeModifierChoice parseRuntimeModifier(String rawModifier, SkillId skillId, List<String> errors) {
+        try {
+            return SkillRuntimeModifierChoice.valueOf(rawModifier.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            errors.add("Niepoprawny modyfikator runtime dla skilla " + HeroSkillCatalogAdapter.displayName(skillId) + ".");
+            return null;
+        }
+    }
+
+    private static void validateSkillTreeGroupChoice(SkillId skillId,
+                                                     int groupIndex,
+                                                     String rawChoice,
+                                                     List<String> errors) {
+        if (rawChoice == null || rawChoice.isBlank() || SkillState.NO_TREE_CHOICE.equals(rawChoice)) {
+            return;
+        }
+        if (skillId != SkillId.CLASH) {
+            errors.add("Wybory grupowe są dostępne tylko dla skilla Starcie.");
+            return;
+        }
+        PaladinTreeSkill clash = PaladinSkillTreeRegistry.requireSkill("starcie");
+        String expectedGroupId = "grupa_" + groupIndex;
+        for (PaladinSkillUpgradeGroup group : clash.getUpgradeGroups()) {
+            if (!expectedGroupId.equals(group.getId())) {
+                continue;
+            }
+            for (PaladinSkillUpgrade upgrade : group.getUpgrades()) {
+                if (upgrade.getId().equals(rawChoice)) {
+                    return;
+                }
+            }
+        }
+        errors.add("Wybrany modyfikator grupy " + groupIndex + " nie jest dostępny dla Starcia.");
     }
 
     private static SkillId parseSkillId(String rawSkillId, String label, List<String> errors) {

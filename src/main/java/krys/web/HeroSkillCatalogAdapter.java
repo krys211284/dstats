@@ -6,6 +6,8 @@ import krys.paladin.UpgradeDamageModifier;
 import krys.paladin.UpgradeDamageModifierType;
 import krys.skill.PaladinSkillDefs;
 import krys.skill.SkillId;
+import krys.skill.SkillRuntimeModifierChoice;
+import krys.skill.SkillState;
 import krys.skill.SkillUpgradeChoice;
 
 import java.util.List;
@@ -122,14 +124,56 @@ public final class HeroSkillCatalogAdapter {
 
     private static List<HeroAssignedSkillPresentation.ModifierPresentation> activeClashModifiers(CurrentBuildFormData.SkillConfigFormData skillConfig,
                                                                                                   List<UpgradeDamageModifier> modifiers) {
+        List<HeroAssignedSkillPresentation.ModifierPresentation> active = new java.util.ArrayList<>();
         SkillUpgradeChoice choiceUpgrade = parseChoice(skillConfig);
-        if (choiceUpgrade == SkillUpgradeChoice.LEFT) {
-            return modifiers.stream()
+        String choiceGroup3 = skillConfig.getChoiceGroup3();
+        if (choiceUpgrade == SkillUpgradeChoice.LEFT || SkillState.CLASH_PUNISHMENT_CHOICE.equals(choiceGroup3)) {
+            active.addAll(modifiers.stream()
                     .filter(modifier -> modifier.getUpgradeName().equals("Kara"))
                     .map(HeroAssignedSkillPresentation.ModifierPresentation::new)
-                    .toList();
+                    .toList());
         }
-        return List.of();
+        addSelectedGroupModifier(active, modifiers, skillConfig.getChoiceGroup1());
+        addSelectedGroupModifier(active, modifiers, skillConfig.getChoiceGroup2());
+        addSelectedGroupModifier(active, modifiers, choiceGroup3);
+        if (parseRuntimeModifier(skillConfig) == SkillRuntimeModifierChoice.ANIMUS
+                && !SkillState.CLASH_ANIMUS_CHOICE.equals(skillConfig.getChoiceGroup1())) {
+            addSelectedGroupModifier(active, modifiers, SkillState.CLASH_ANIMUS_CHOICE);
+        }
+        return List.copyOf(active);
+    }
+
+    private static void addSelectedGroupModifier(List<HeroAssignedSkillPresentation.ModifierPresentation> active,
+                                                 List<UpgradeDamageModifier> modifiers,
+                                                 String selectedUpgradeId) {
+        if (selectedUpgradeId == null || selectedUpgradeId.isBlank() || SkillState.NO_TREE_CHOICE.equals(selectedUpgradeId)) {
+            return;
+        }
+        modifiers.stream()
+                .filter(modifier -> modifierId(modifier).equals(selectedUpgradeId))
+                .findFirst()
+                .map(HeroAssignedSkillPresentation.ModifierPresentation::new)
+                .ifPresent(candidate -> {
+                    boolean alreadyPresent = active.stream().anyMatch(existing -> existing.getName().equals(candidate.getName()));
+                    if (!alreadyPresent) {
+                        active.add(candidate);
+                    }
+                });
+    }
+
+    private static String modifierId(UpgradeDamageModifier modifier) {
+        return modifier.getUpgradeName()
+                .toLowerCase(java.util.Locale.ROOT)
+                .replace("ą", "a")
+                .replace("ć", "c")
+                .replace("ę", "e")
+                .replace("ł", "l")
+                .replace("ń", "n")
+                .replace("ó", "o")
+                .replace("ś", "s")
+                .replace("ż", "z")
+                .replace("ź", "z")
+                .replace(" ", "_");
     }
 
     private static Integer damagePercentAtCurrentRank(PaladinTreeSkill skill, int currentRank) {
@@ -159,6 +203,14 @@ public final class HeroSkillCatalogAdapter {
             return SkillUpgradeChoice.valueOf(skillConfig.getChoiceUpgrade());
         } catch (IllegalArgumentException | NullPointerException exception) {
             return SkillUpgradeChoice.NONE;
+        }
+    }
+
+    private static SkillRuntimeModifierChoice parseRuntimeModifier(CurrentBuildFormData.SkillConfigFormData skillConfig) {
+        try {
+            return SkillRuntimeModifierChoice.valueOf(skillConfig.getRuntimeModifierChoice());
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            return SkillRuntimeModifierChoice.NONE;
         }
     }
 }
