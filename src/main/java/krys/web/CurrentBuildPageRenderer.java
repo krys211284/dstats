@@ -20,7 +20,6 @@ import krys.paladin.PaladinSkillTreeRegistry;
 import krys.paladin.PaladinSkillUpgrade;
 import krys.paladin.PaladinSkillUpgradeGroup;
 import krys.paladin.PaladinTreeSkill;
-import krys.paladin.UpgradeDamageModifier;
 import krys.skill.PaladinSkillDefs;
 import krys.skill.SkillId;
 import krys.skill.SkillState;
@@ -530,16 +529,6 @@ public final class CurrentBuildPageRenderer {
             html.append(renderClashGroupControl(group, groupIndex, selectedChoice));
         }
         html.append("</div>");
-        html.append("<div class=\"skill-upgrade-descriptions-row\">");
-        html.append(renderClashBaseEffectDescriptionCard());
-        for (PaladinSkillUpgradeGroup group : clash.getUpgradeGroups()) {
-            int groupIndex = parseGroupIndex(group);
-            if (groupIndex <= 0) {
-                continue;
-            }
-            html.append(renderSelectedClashGroupStatus(group, skillConfig.getChoiceGroup(groupIndex)));
-        }
-        html.append("</div>");
         return html.toString();
     }
 
@@ -550,16 +539,6 @@ public final class CurrentBuildPageRenderer {
                             <span class="readonly-upgrade-value">Marsz Krzyżowca</span>
                         </div>
                 """;
-    }
-
-    private static String renderClashBaseEffectDescriptionCard() {
-        return renderSelectedClashEffectStatus(
-                "Efekt bazowy umiejętności",
-                "Marsz Krzyżowca",
-                "Stały efekt przypisanej umiejętności Starcie. Nie jest wyborem użytkownika.",
-                "Aktywne w runtime",
-                true
-        );
     }
 
     private static String renderClashGroupControl(PaladinSkillUpgradeGroup group, int groupIndex, String selectedChoice) {
@@ -586,82 +565,6 @@ public final class CurrentBuildPageRenderer {
             options.add(new CurrentBuildPageModel.SelectOption(upgrade.getId(), upgrade.getName(), upgrade.getId().equals(selectedChoice)));
         }
         return renderOptions(options);
-    }
-
-    private static String renderSelectedClashGroupStatus(PaladinSkillUpgradeGroup group, String selectedChoice) {
-        int groupIndex = parseGroupIndex(group);
-        if (selectedChoice == null || selectedChoice.isBlank() || SkillState.NO_TREE_CHOICE.equals(selectedChoice)) {
-            return renderSelectedClashEffectStatus(
-                    shortGroupDisplayLabel(groupIndex),
-                    "Brak",
-                    "Brak wybranego modyfikatora w tej grupie.",
-                    "Opisowe / runtime nieaktywne",
-                    true
-            );
-        }
-        PaladinSkillUpgrade selectedUpgrade = group.getUpgrades().stream()
-                .filter(upgrade -> upgrade.getId().equals(selectedChoice))
-                .findFirst()
-                .orElse(null);
-        if (selectedUpgrade == null) {
-            return "";
-        }
-        UpgradeDamageModifier modifier = UpgradeDamageModifier.fromUpgrade("starcie", group.getId(), selectedUpgrade);
-        return renderSelectedClashEffectStatus(
-                shortGroupDisplayLabel(groupIndex),
-                selectedUpgrade.getName(),
-                clashRuntimeDescription(selectedUpgrade, modifier),
-                clashRuntimeStatus(selectedUpgrade),
-                true
-        );
-    }
-
-    private static String renderSelectedClashEffectStatus(String groupLabel,
-                                                          String name,
-                                                          String description,
-                                                          String status,
-                                                          boolean visible) {
-        if (!visible) {
-            return "";
-        }
-        return """
-                        <div class="summary-card runtime-input-card clash-upgrade-description-card">
-                            <div class="summary-label">""" + escapeHtml(groupLabel) + ": " + escapeHtml(name) + """
-                </div>
-                            <div class="summary-value">""" + escapeHtml(description) + """
-                </div>
-                            <div class="summary-source"><span class=\"""" + statusBadgeClass(status) + "\">" + escapeHtml(status) + """
-                </span></div>
-                        </div>
-                """;
-    }
-
-    private static String statusBadgeClass(String status) {
-        if (status == null) {
-            return "status-chip";
-        }
-        if (status.startsWith("Aktywne")) {
-            return "status-chip runtime-active-chip";
-        }
-        return "status-chip descriptive-chip";
-    }
-
-    private static String clashRuntimeStatus(PaladinSkillUpgrade upgrade) {
-        return switch (upgrade.getId()) {
-            case "animusz" -> "Aktywne w runtime Molocha";
-            case "kara" -> "Aktywne w runtime";
-            default -> "Opisowe / runtime nieaktywne";
-        };
-    }
-
-    private static String clashRuntimeDescription(PaladinSkillUpgrade upgrade, UpgradeDamageModifier modifier) {
-        if ("animusz".equals(upgrade.getId())) {
-            return "Trafienie Starciem zapewnia +2 Animuszu.";
-        }
-        if ("kara".equals(upgrade.getId())) {
-            return "Legacy runtime reaktywny Starcia pozostaje podłączony do wyboru Kary.";
-        }
-        return modifier.getRankingTooltipDescription();
     }
 
     private static int parseGroupIndex(PaladinSkillUpgradeGroup group) {

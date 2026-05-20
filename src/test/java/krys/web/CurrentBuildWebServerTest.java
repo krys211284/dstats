@@ -900,19 +900,24 @@ class CurrentBuildWebServerTest {
         assertTrue(clashCard.contains("Ulepszenia Starcia"));
         assertFalse(clashCard.contains("Włącz bazowe ulepszenie"));
         assertFalse(clashCard.contains("type=\"checkbox\" name=\"" + CurrentBuildFormData.baseUpgradeFieldName(krys.skill.SkillId.CLASH) + "\""));
-        assertTrue(clashCard.contains("Efekt bazowy umiejętności"));
+        assertTrue(clashCard.contains("Efekt bazowy"));
         assertTrue(clashCard.contains("Marsz Krzyżowca"));
-        assertTrue(clashCard.contains("Stały efekt przypisanej umiejętności Starcie. Nie jest wyborem użytkownika."));
         assertTrue(clashCard.contains("Efekty oznaczone jako aktywne w runtime wpływają na symulację; pozostałe modyfikatory są obecnie opisowe."));
         String upgradeControlsRow = clashUpgradeControlsRow(clashCard);
-        String upgradeDescriptionsRow = clashUpgradeDescriptionsRow(clashCard);
+        String clashUpgradeSection = clashUpgradeSection(clashCard);
         assertTrue(upgradeControlsRow.contains("Ranga z punktów"));
         assertTrue(upgradeControlsRow.contains("Efekt bazowy"));
+        assertTrue(upgradeControlsRow.contains("Marsz Krzyżowca"));
         assertTrue(upgradeControlsRow.contains("name=\"" + CurrentBuildFormData.choiceGroupFieldName(krys.skill.SkillId.CLASH, 1) + "\""));
         assertTrue(upgradeControlsRow.contains("name=\"" + CurrentBuildFormData.choiceGroupFieldName(krys.skill.SkillId.CLASH, 2) + "\""));
         assertTrue(upgradeControlsRow.contains("name=\"" + CurrentBuildFormData.choiceGroupFieldName(krys.skill.SkillId.CLASH, 3) + "\""));
-        assertTrue(upgradeDescriptionsRow.contains("Efekt bazowy umiejętności: Marsz Krzyżowca"));
-        assertTrue(upgradeDescriptionsRow.contains("Brak wybranego modyfikatora w tej grupie."));
+        assertFalse(clashCard.contains("skill-upgrade-descriptions-row"));
+        assertFalse(clashCard.contains("clash-upgrade-description-card"));
+        assertFalse(clashUpgradeSection.contains("Efekt bazowy umiejętności: Marsz Krzyżowca"));
+        assertFalse(clashUpgradeSection.contains("Grupa 1:"));
+        assertFalse(clashUpgradeSection.contains("Grupa 2:"));
+        assertFalse(clashUpgradeSection.contains("Grupa 3:"));
+        assertFalse(clashUpgradeSection.contains("Brak wybranego modyfikatora w tej grupie."));
         assertTrue(clashCard.contains("name=\"" + CurrentBuildFormData.choiceGroupFieldName(krys.skill.SkillId.CLASH, 1) + "\""));
         assertTrue(clashCard.contains("name=\"" + CurrentBuildFormData.choiceGroupFieldName(krys.skill.SkillId.CLASH, 2) + "\""));
         assertTrue(clashCard.contains("name=\"" + CurrentBuildFormData.choiceGroupFieldName(krys.skill.SkillId.CLASH, 3) + "\""));
@@ -1012,9 +1017,8 @@ class CurrentBuildWebServerTest {
         HttpResponse<String> reloadResponse = sendGet("/policz-aktualny-build");
         assertEquals(200, reloadResponse.statusCode());
         String clashCard = assignedSkillCard(reloadResponse.body(), "CLASH");
-        assertTrue(clashCard.contains("Efekt bazowy umiejętności"));
+        assertTrue(clashCard.contains("Efekt bazowy"));
         assertTrue(clashCard.contains("Marsz Krzyżowca"));
-        assertTrue(clashCard.contains("Stały efekt przypisanej umiejętności Starcie. Nie jest wyborem użytkownika."));
         assertFalse(clashCard.contains("Włącz bazowe ulepszenie"));
         assertFalse(clashCard.contains("type=\"checkbox\" name=\"" + CurrentBuildFormData.baseUpgradeFieldName(krys.skill.SkillId.CLASH) + "\""));
     }
@@ -1042,13 +1046,10 @@ class CurrentBuildWebServerTest {
         String savedCard = assignedSkillCard(saveResponse.body(), "CLASH");
         assertTrue(savedCard.contains("<option value=\"animusz\" selected>Animusz</option>"));
         assertTrue(savedCard.contains("<option value=\"zwiekszenie_obrazen\" selected>Zwiększenie Obrażeń</option>"));
-        assertTrue(savedCard.contains("Grupa 1: Animusz"));
-        assertTrue(savedCard.contains("Grupa 2: Zwiększenie Obrażeń"));
         assertFalse(clashUpgradeControlsRow(savedCard).contains("Trafienie Starciem zapewnia +2 Animuszu."));
-        assertTrue(clashUpgradeDescriptionsRow(savedCard).contains("Trafienie Starciem zapewnia +2 Animuszu."));
-        assertTrue(savedCard.contains("Trafienie Starciem zapewnia +2 Animuszu."));
-        assertTrue(savedCard.contains("Aktywne w runtime Molocha"));
-        assertTrue(savedCard.contains("Opisowe / runtime nieaktywne"));
+        assertFalse(clashUpgradeSection(savedCard).contains("Grupa 1: Animusz"));
+        assertFalse(clashUpgradeSection(savedCard).contains("Grupa 2: Zwiększenie Obrażeń"));
+        assertFalse(clashUpgradeSection(savedCard).contains("Trafienie Starciem zapewnia +2 Animuszu."));
 
         HttpResponse<String> reloadResponse = sendGet("/policz-aktualny-build");
         assertEquals(200, reloadResponse.statusCode());
@@ -2128,31 +2129,19 @@ class CurrentBuildWebServerTest {
     }
 
     private static String clashUpgradeControlsRow(String clashCard) {
-        return between(clashCard, "<div class=\"skill-upgrade-controls-row\">", "<div class=\"skill-upgrade-descriptions-row\">");
+        int start = clashCard.indexOf("<div class=\"skill-upgrade-controls-row\">");
+        if (start < 0) {
+            throw new AssertionError("Brak rzędu pól konfiguracji Starcia.");
+        }
+        return clashCard.substring(start);
     }
 
-    private static String clashUpgradeDescriptionsRow(String clashCard) {
-        int start = clashCard.indexOf("<div class=\"skill-upgrade-descriptions-row\">");
+    private static String clashUpgradeSection(String clashCard) {
+        int start = clashCard.indexOf("<div class=\"runtime-config-label\">Ulepszenia Starcia</div>");
         if (start < 0) {
-            throw new AssertionError("Brak rzędu opisów ulepszeń Starcia.");
+            throw new AssertionError("Brak sekcji Ulepszenia Starcia.");
         }
-        int end = clashCard.indexOf("</article>", start);
-        if (end < 0) {
-            end = clashCard.length();
-        }
-        return clashCard.substring(start, end);
-    }
-
-    private static String between(String html, String startMarker, String endMarker) {
-        int start = html.indexOf(startMarker);
-        if (start < 0) {
-            throw new AssertionError("Brak znacznika początku: " + startMarker);
-        }
-        int end = html.indexOf(endMarker, start + startMarker.length());
-        if (end < 0) {
-            throw new AssertionError("Brak znacznika końca: " + endMarker);
-        }
-        return html.substring(start, end);
+        return clashCard.substring(start);
     }
 
     private static String stripTooltipAttributes(String html) {

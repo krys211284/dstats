@@ -488,13 +488,6 @@ public final class AppShellRendererSupport {
                     margin-top: 0;
                 }
 
-                .skill-upgrade-descriptions-row {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-                    gap: 12px;
-                    margin-top: 12px;
-                }
-
                 .skill-upgrade-control {
                     min-height: 78px;
                     display: flex;
@@ -526,32 +519,6 @@ public final class AppShellRendererSupport {
                 .readonly-upgrade-value {
                     font-size: 0.98rem;
                     font-weight: 800;
-                }
-
-                .clash-upgrade-description-card {
-                    min-height: 0;
-                    box-shadow: none;
-                }
-
-                .status-chip {
-                    display: inline-flex;
-                    width: fit-content;
-                    padding: 3px 8px;
-                    border-radius: 999px;
-                    font-size: 0.78rem;
-                    font-weight: 800;
-                }
-
-                .runtime-active-chip {
-                    color: #164b2a;
-                    background: rgba(39, 174, 96, 0.16);
-                    border: 1px solid rgba(39, 174, 96, 0.25);
-                }
-
-                .descriptive-chip {
-                    color: #4f5f73;
-                    background: rgba(85, 104, 127, 0.12);
-                    border: 1px solid rgba(85, 104, 127, 0.18);
                 }
 
                 .subpanel {
