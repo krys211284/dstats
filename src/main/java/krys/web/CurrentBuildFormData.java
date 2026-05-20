@@ -25,6 +25,9 @@ public final class CurrentBuildFormData {
     private final String initialPrimaryResource;
     private final String maxPrimaryResource;
     private final String primaryResourceRegenPerSecond;
+    private final String selectedPaladinOathId;
+    private final String initialAnimus;
+    private final String maxAnimus;
     private final Map<SkillId, SkillConfigFormData> skillConfigs;
     private final List<String> actionBarSlots;
 
@@ -40,7 +43,7 @@ public final class CurrentBuildFormData {
                                 Map<SkillId, SkillConfigFormData> skillConfigs,
                                 List<String> actionBarSlots) {
         this(level, questSkillPoints, weaponDamage, strength, intelligence, thorns, blockChance,
-                retributionChance, horizonSeconds, "100", "100", "1.50", skillConfigs, actionBarSlots);
+                retributionChance, horizonSeconds, "100", "100", "1.50", "NONE", "8", "8", skillConfigs, actionBarSlots);
     }
 
     public CurrentBuildFormData(String level,
@@ -55,6 +58,9 @@ public final class CurrentBuildFormData {
                                 String initialPrimaryResource,
                                 String maxPrimaryResource,
                                 String primaryResourceRegenPerSecond,
+                                String selectedPaladinOathId,
+                                String initialAnimus,
+                                String maxAnimus,
                                 Map<SkillId, SkillConfigFormData> skillConfigs,
                                 List<String> actionBarSlots) {
         this.level = level;
@@ -69,6 +75,9 @@ public final class CurrentBuildFormData {
         this.initialPrimaryResource = initialPrimaryResource;
         this.maxPrimaryResource = maxPrimaryResource;
         this.primaryResourceRegenPerSecond = primaryResourceRegenPerSecond;
+        this.selectedPaladinOathId = selectedPaladinOathId == null || selectedPaladinOathId.isBlank() ? "NONE" : selectedPaladinOathId;
+        this.initialAnimus = initialAnimus == null || initialAnimus.isBlank() ? "8" : initialAnimus;
+        this.maxAnimus = maxAnimus == null || maxAnimus.isBlank() ? "8" : maxAnimus;
         this.skillConfigs = Collections.unmodifiableMap(new EnumMap<>(skillConfigs));
         this.actionBarSlots = Collections.unmodifiableList(normalizeActionBarSlots(actionBarSlots));
     }
@@ -76,7 +85,7 @@ public final class CurrentBuildFormData {
     public static CurrentBuildFormData defaultValues() {
         Map<SkillId, SkillConfigFormData> skillConfigs = createEmptySkillConfigs();
         skillConfigs.put(SkillId.ADVANCE, new SkillConfigFormData("5", true, SkillUpgradeChoice.RIGHT.name()));
-        return new CurrentBuildFormData("13", "0", "8", "18", "0", "50", "50", "50", "10", "100", "100", "1.50",
+        return new CurrentBuildFormData("13", "0", "8", "18", "0", "50", "50", "50", "10", "100", "100", "1.50", "NONE", "8", "8",
                 skillConfigs,
                 List.of(SkillId.ADVANCE.name(), "NONE", "NONE", "NONE", "NONE", "NONE"));
     }
@@ -114,6 +123,9 @@ public final class CurrentBuildFormData {
                 fields.getOrDefault("initialPrimaryResource", defaults.getInitialPrimaryResource()),
                 fields.getOrDefault("maxPrimaryResource", defaults.getMaxPrimaryResource()),
                 fields.getOrDefault("primaryResourceRegenPerSecond", defaults.getPrimaryResourceRegenPerSecond()),
+                fields.getOrDefault("selectedPaladinOathId", defaults.getSelectedPaladinOathId()),
+                fields.getOrDefault("initialAnimus", defaults.getInitialAnimus()),
+                fields.getOrDefault("maxAnimus", defaults.getMaxAnimus()),
                 skillConfigs,
                 actionBarSlots
         );
@@ -189,6 +201,18 @@ public final class CurrentBuildFormData {
 
     public String getPrimaryResourceRegenPerSecond() {
         return primaryResourceRegenPerSecond;
+    }
+
+    public String getSelectedPaladinOathId() {
+        return selectedPaladinOathId;
+    }
+
+    public String getInitialAnimus() {
+        return initialAnimus;
+    }
+
+    public String getMaxAnimus() {
+        return maxAnimus;
     }
 
     public SkillConfigFormData getSkillConfig(SkillId skillId) {

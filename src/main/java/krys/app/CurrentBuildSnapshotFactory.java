@@ -46,6 +46,9 @@ public final class CurrentBuildSnapshotFactory {
                 request.getInitialPrimaryResource(),
                 request.getMaxPrimaryResource(),
                 request.getPrimaryResourceRegenPerSecond(),
+                request.getSelectedPaladinOathId(),
+                request.getInitialAnimus(),
+                request.getMaxAnimus(),
                 request.getActiveAspectIds()
         );
     }

@@ -87,6 +87,13 @@ public final class DamageEngine {
     }
 
     public DamageBreakdown calculate(HeroBuildSnapshot snapshot, SkillId skillId, EnumSet<StatusId> targetStatuses) {
+        return calculate(snapshot, skillId, targetStatuses, 1.0d);
+    }
+
+    public DamageBreakdown calculate(HeroBuildSnapshot snapshot,
+                                     SkillId skillId,
+                                     EnumSet<StatusId> targetStatuses,
+                                     double molochOathMultiplier) {
         SkillState state = snapshot.getSkillState(skillId);
         if (state == null || state.getRank() <= 0) {
             throw new IllegalArgumentException("Snapshot nie zawiera aktywnego stanu dla skilla " + skillId);
@@ -110,7 +117,8 @@ public final class DamageEngine {
         double vulnerableMultiplier = targetStatuses.contains(StatusId.VULNERABLE) ? VULNERABLE_MULTIPLIER : 1.0d;
         double levelDamageReduction = resolveLevelDamageReduction(hero.getLevel());
         double verathielBasicSkillMultiplier = resolveVerathielBasicSkillMultiplier(snapshot, skillId);
-        double itemMultiplicativeMultiplier = verathielBasicSkillMultiplier;
+        double normalizedMolochOathMultiplier = Math.max(1.0d, molochOathMultiplier);
+        double itemMultiplicativeMultiplier = verathielBasicSkillMultiplier * normalizedMolochOathMultiplier;
 
         long baseSkillDamagePercent = resolveBaseSkillDamagePercent(skillDef, state, targetStatuses);
         long baseDamage = Math.round(snapshot.getAverageWeaponDamage() * (baseSkillDamagePercent / 100.0d));
@@ -231,6 +239,7 @@ public final class DamageEngine {
                 additiveMultiplier,
                 vulnerableMultiplier,
                 verathielBasicSkillMultiplier,
+                normalizedMolochOathMultiplier,
                 itemMultiplicativeMultiplier,
                 critMultiplier,
                 critDamageBonusTotal,
@@ -321,6 +330,7 @@ public final class DamageEngine {
                 additivePercent,
                 additiveMultiplier,
                 vulnerableMultiplier,
+                1.0d,
                 1.0d,
                 itemMultiplicativeMultiplier,
                 critMultiplier,

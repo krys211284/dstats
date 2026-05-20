@@ -28,6 +28,12 @@ public final class SimulationResult {
     private final double totalPrimaryResourceCost;
     private final double totalPrimaryResourceGenerated;
     private final double totalPrimaryResourceRegenerated;
+    private final boolean animusRuntimeData;
+    private final double initialAnimus;
+    private final double finalAnimus;
+    private final double maxAnimus;
+    private final double minAnimus;
+    private final int molochBuffActivationCount;
 
     public SimulationResult(long totalDamage,
                             double dps,
@@ -43,7 +49,8 @@ public final class SimulationResult {
                             boolean judgementActiveAtEnd) {
         this(totalDamage, dps, horizonSeconds, directHitDebugSnapshots, delayedHitBreakdowns, reactiveHitBreakdowns,
                 totalReactiveDamage, resolveActiveAtEnd, activeBlockChanceAtEnd, activeThornsBonusAtEnd, stepTrace,
-                judgementActiveAtEnd, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d);
+                judgementActiveAtEnd, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d,
+                false, 0.0d, 0.0d, 0.0d, 0.0d, 0);
     }
 
     public SimulationResult(long totalDamage,
@@ -65,6 +72,38 @@ public final class SimulationResult {
                             double totalPrimaryResourceCost,
                             double totalPrimaryResourceGenerated,
                             double totalPrimaryResourceRegenerated) {
+        this(totalDamage, dps, horizonSeconds, directHitDebugSnapshots, delayedHitBreakdowns, reactiveHitBreakdowns,
+                totalReactiveDamage, resolveActiveAtEnd, activeBlockChanceAtEnd, activeThornsBonusAtEnd, stepTrace,
+                judgementActiveAtEnd, initialPrimaryResource, finalPrimaryResource, maxPrimaryResource,
+                primaryResourceRegenPerSecond, totalPrimaryResourceCost, totalPrimaryResourceGenerated,
+                totalPrimaryResourceRegenerated, false, 0.0d, 0.0d, 0.0d, 0.0d, 0);
+    }
+
+    public SimulationResult(long totalDamage,
+                            double dps,
+                            int horizonSeconds,
+                            List<SkillHitDebugSnapshot> directHitDebugSnapshots,
+                            List<DelayedHitBreakdown> delayedHitBreakdowns,
+                            List<ReactiveHitBreakdown> reactiveHitBreakdowns,
+                            long totalReactiveDamage,
+                            boolean resolveActiveAtEnd,
+                            double activeBlockChanceAtEnd,
+                            double activeThornsBonusAtEnd,
+                            List<SimulationStepTrace> stepTrace,
+                            boolean judgementActiveAtEnd,
+                            double initialPrimaryResource,
+                            double finalPrimaryResource,
+                            double maxPrimaryResource,
+                            double primaryResourceRegenPerSecond,
+                            double totalPrimaryResourceCost,
+                            double totalPrimaryResourceGenerated,
+                            double totalPrimaryResourceRegenerated,
+                            boolean animusRuntimeData,
+                            double initialAnimus,
+                            double finalAnimus,
+                            double maxAnimus,
+                            double minAnimus,
+                            int molochBuffActivationCount) {
         this.totalDamage = totalDamage;
         this.dps = dps;
         this.horizonSeconds = horizonSeconds;
@@ -84,6 +123,12 @@ public final class SimulationResult {
         this.totalPrimaryResourceCost = totalPrimaryResourceCost;
         this.totalPrimaryResourceGenerated = totalPrimaryResourceGenerated;
         this.totalPrimaryResourceRegenerated = totalPrimaryResourceRegenerated;
+        this.animusRuntimeData = animusRuntimeData;
+        this.initialAnimus = initialAnimus;
+        this.finalAnimus = finalAnimus;
+        this.maxAnimus = maxAnimus;
+        this.minAnimus = minAnimus;
+        this.molochBuffActivationCount = molochBuffActivationCount;
     }
 
     public long getTotalDamage() {
@@ -160,5 +205,29 @@ public final class SimulationResult {
 
     public double getTotalPrimaryResourceRegenerated() {
         return totalPrimaryResourceRegenerated;
+    }
+
+    public boolean hasAnimusRuntimeData() {
+        return animusRuntimeData;
+    }
+
+    public double getInitialAnimus() {
+        return initialAnimus;
+    }
+
+    public double getFinalAnimus() {
+        return finalAnimus;
+    }
+
+    public double getMaxAnimus() {
+        return maxAnimus;
+    }
+
+    public double getMinAnimus() {
+        return minAnimus;
+    }
+
+    public int getMolochBuffActivationCount() {
+        return molochBuffActivationCount;
     }
 }

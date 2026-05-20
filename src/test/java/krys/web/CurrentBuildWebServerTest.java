@@ -3,6 +3,7 @@ package krys.web;
 import krys.hero.HeroClass;
 import krys.hero.HeroClassDef;
 import krys.hero.HeroClassDefs;
+import krys.paladin.PaladinOathId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -74,6 +75,7 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains("<details class=\"current-build-details skill-point-details\">"));
         assertTrue(response.body().contains("<details class=\"current-build-details assigned-skills-details\">"));
         assertTrue(response.body().contains("<details class=\"current-build-details action-bar-details\">"));
+        assertTrue(response.body().contains("<details class=\"current-build-details paladin-oath-details\">"));
         assertTrue(response.body().contains("<details class=\"current-build-details hero-stats-details\">"));
         assertTrue(response.body().contains("<details class=\"current-build-details equipment-details\">"));
         assertTrue(response.body().contains("<details class=\"current-build-details simulation-debug-details\">"));
@@ -148,6 +150,17 @@ class CurrentBuildWebServerTest {
         assertFalse(response.body().contains("name=\"horizonSeconds\""));
         assertTrue(response.body().contains("name=\"actionBar1\""));
         assertTrue(response.body().contains("name=\"actionBar6\""));
+        assertTrue(response.body().contains("name=\"selectedPaladinOathId\""));
+        assertTrue(response.body().contains("<option value=\"NONE\" selected>Brak wybranej Przysięgi</option>"));
+        assertTrue(response.body().contains("<option value=\"ADEPT\">Adept</option>"));
+        assertTrue(response.body().contains("<option value=\"JUDGE\">Sędzia</option>"));
+        assertTrue(response.body().contains("<option value=\"JUGGERNAUT\">Moloch</option>"));
+        assertTrue(response.body().contains("<option value=\"ZEALOT\">Zelota</option>"));
+        String actionBarSelect = selectHtml(response.body(), CurrentBuildFormData.actionBarFieldName(1));
+        assertFalse(actionBarSelect.contains("Adept"));
+        assertFalse(actionBarSelect.contains("Sędzia"));
+        assertFalse(actionBarSelect.contains("Moloch"));
+        assertFalse(actionBarSelect.contains("Zelota"));
         assertTrue(response.body().contains("name=\"initialPrimaryResource\""));
         assertTrue(response.body().contains("name=\"maxPrimaryResource\""));
         assertTrue(response.body().contains("name=\"primaryResourceRegenPerSecond\""));
@@ -161,7 +174,8 @@ class CurrentBuildWebServerTest {
         assertFalse(response.body().contains("a potem uruchom obliczenie"));
         assertTrue(response.body().indexOf("Punkty umiejętności") < response.body().indexOf("Umiejętności bohatera"));
         assertTrue(response.body().indexOf("Umiejętności bohatera") < response.body().indexOf("Pasek akcji bohatera"));
-        assertTrue(response.body().indexOf("Pasek akcji bohatera") < response.body().indexOf("Statystyki bohatera"));
+        assertTrue(response.body().indexOf("Pasek akcji bohatera") < response.body().indexOf("Przysięga Paladyna"));
+        assertTrue(response.body().indexOf("Przysięga Paladyna") < response.body().indexOf("Statystyki bohatera"));
         assertTrue(response.body().indexOf("Statystyki bohatera") < response.body().indexOf("Ekwipunek aktualnego buildu"));
         assertTrue(response.body().indexOf("Ekwipunek aktualnego buildu") < response.body().indexOf("Wynik symulacji"));
         assertTrue(response.body().indexOf("Wynik symulacji") < response.body().indexOf("Debug symulacji"));
@@ -201,6 +215,26 @@ class CurrentBuildWebServerTest {
         assertTrue(levelResponse.body().contains(summaryCard("Punkty z poziomu", "49")));
         assertEquals(1, countOccurrences(levelResponse.body(), "name=\"level\""));
         assertFalse(levelResponse.body().contains("name=\"heroLevelEdit\""));
+    }
+
+    @Test
+    void shouldSaveSelectedPaladinOathAsClassConfigurationOnly() throws Exception {
+        createHero("Paladyn z Przysięgą", "70");
+        assignSkill(krys.skill.SkillId.CLASH);
+        Map<String, String> fields = buildClashRankOneLevel70Fields();
+        fields.put("formAction", "save");
+        fields.put("selectedPaladinOathId", PaladinOathId.JUDGE.name());
+
+        HttpResponse<String> saveResponse = sendPost("/policz-aktualny-build", fields);
+        HttpResponse<String> getResponse = sendGet("/policz-aktualny-build");
+
+        assertEquals(200, saveResponse.statusCode());
+        assertTrue(saveResponse.body().contains("Zapisano konfigurację."));
+        assertEquals(200, getResponse.statusCode());
+        assertTrue(getResponse.body().contains("<option value=\"JUDGE\" selected>Sędzia</option>"));
+        assertTrue(getResponse.body().contains("Efekty Przysięgi są opisowe"));
+        assertTrue(getResponse.body().contains("Opisowe / runtime DPS nieaktywny"));
+        assertTrue(getResponse.body().contains("Twoje umiejętności Podstawowe mogą teraz nakładać Osąd."));
     }
 
     @Test
@@ -583,6 +617,109 @@ class CurrentBuildWebServerTest {
     }
 
     @Test
+    void shouldKeepSanityDamageUnchangedForInactivePaladinOaths() throws Exception {
+        createHero("Starcie sanity Przysięgi", "70");
+        saveAndActivateVerathiel();
+        saveAndActivateKoscianychLusekShield("2");
+        assignSkill(krys.skill.SkillId.CLASH);
+
+        for (String oathId : List.of("NONE", "ADEPT", "JUDGE", "ZEALOT")) {
+            Map<String, String> fields = buildClashRankOneLevel70Fields();
+            fields.put("formAction", "calculate");
+            fields.put("selectedPaladinOathId", oathId);
+
+            HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+            assertEquals(200, response.statusCode());
+            String html = response.body();
+            assertFalse(html.contains("Błędy formularza"));
+            assertTrue(html.contains(summaryCard("Łączne obrażenia", "21130")));
+            assertTrue(html.contains(summaryCard("DPS", "2113")));
+            assertTrue(html.contains(summaryCard("Końcowa Wiara", "65")));
+            assertTrue(html.contains(summaryCard("Łączny koszt Wiary", "250")));
+            assertTrue(html.contains(summaryCard("Łączna generacja Wiary", "200")));
+            assertTrue(html.contains(summaryCard("Łączna regeneracja Wiary", "15")));
+            assertTrue(html.contains(damageResultCard("Trafienie końcowe", "2113",
+                    "damage-result-card damage-final-card")));
+            assertTrue(html.contains(damageResultCard("Trafienie krytyczne", "3265",
+                    "damage-result-card damage-critical-card")));
+        }
+    }
+
+    @Test
+    void shouldKeepSanityDamageUnchangedForMolochWithoutEightAnimus() throws Exception {
+        createHero("Starcie Moloch 0 Animuszu", "70");
+        saveAndActivateVerathiel();
+        saveAndActivateKoscianychLusekShield("2");
+        assignSkill(krys.skill.SkillId.CLASH);
+        Map<String, String> fields = buildClashRankOneLevel70Fields();
+        fields.put("formAction", "calculate");
+        fields.put("selectedPaladinOathId", PaladinOathId.JUGGERNAUT.name());
+        fields.put("initialAnimus", "0");
+        fields.put("maxAnimus", "8");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        String html = response.body();
+        assertFalse(html.contains("Błędy formularza"));
+        assertTrue(html.contains("<option value=\"JUGGERNAUT\" selected>Moloch</option>"));
+        assertTrue(html.contains("name=\"initialAnimus\" value=\"0\""));
+        assertTrue(html.contains("Runtime Molocha aktywny częściowo"));
+        assertTrue(html.contains(summaryCard("Łączne obrażenia", "21130")));
+        assertTrue(html.contains(summaryCard("DPS", "2113")));
+        assertTrue(html.contains(summaryCard("Początkowy Animusz", "1")));
+        assertTrue(html.contains(summaryCard("Końcowy Animusz", "1")));
+        assertTrue(html.contains(summaryCard("Buff Molocha aktywowany", "Nie")));
+        assertTrue(html.contains(summaryCard("Aktywacje Molocha", "0")));
+        String directHitDebug = sectionByHeading(html, "Debug bezpośrednich trafień");
+        assertTrue(directHitDebug.contains(summaryCard("Moloch", "Nieaktywny / ×1,00")));
+        assertTrue(directHitDebug.contains(damageResultCard("Trafienie końcowe", "2113",
+                "damage-result-card damage-final-card")));
+    }
+
+    @Test
+    void shouldActivateMolochRuntimeForClashWithEightAnimus() throws Exception {
+        createHero("Starcie Moloch 8 Animuszu", "70");
+        saveAndActivateVerathiel();
+        saveAndActivateKoscianychLusekShield("2");
+        assignSkill(krys.skill.SkillId.CLASH);
+        Map<String, String> fields = buildClashRankOneLevel70Fields();
+        fields.put("formAction", "calculate");
+        fields.put("selectedPaladinOathId", PaladinOathId.JUGGERNAUT.name());
+        fields.put("initialAnimus", "8");
+        fields.put("maxAnimus", "8");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        String html = response.body();
+        assertFalse(html.contains("Błędy formularza"));
+        assertTrue(html.contains(summaryCard("Aktywna Przysięga", "Moloch — Częściowo aktywne w runtime")));
+        assertTrue(html.contains(summaryCard("Łączne obrażenia", "27465")));
+        assertTrue(html.contains(summaryCard("DPS", "2746,5")));
+        assertTrue(html.contains(summaryCard("Końcowa Wiara", "65")));
+        assertTrue(html.contains(summaryCard("Początkowy Animusz", "8")));
+        assertTrue(html.contains(summaryCard("Końcowy Animusz", "1")));
+        assertTrue(html.contains(summaryCard("Buff Molocha aktywowany", "Tak")));
+        assertTrue(html.contains(summaryCard("Aktywacje Molocha", "1")));
+        String directHitDebug = sectionByHeading(html, "Debug bezpośrednich trafień");
+        assertTrue(directHitDebug.contains("Moloch"));
+        assertTrue(directHitDebug.contains("+60%[x] / ×1,60"));
+        assertTrue(directHitDebug.contains("Buff aktywny"));
+        assertTrue(directHitDebug.contains(damageResultCard("Trafienie końcowe", "3380",
+                "damage-result-card damage-final-card")));
+        assertTrue(directHitDebug.contains(damageResultCard("Trafienie krytyczne", "5224",
+                "damage-result-card damage-critical-card")));
+        String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
+        assertTrue(stepTrace.contains("<th>Animusz przed</th>"));
+        assertTrue(stepTrace.contains("<th>Zużycie Animuszu</th>"));
+        assertTrue(stepTrace.contains("<th>Animusz po</th>"));
+        assertTrue(stepTrace.contains("<th>Buff Molocha</th>"));
+        assertTrue(stepTrace.contains("<td>100</td><td>25</td><td>20</td><td>+1,5</td><td>96,5</td><td>8</td><td>8</td><td>1</td><td>Aktywacja</td><td>5 s</td>"));
+    }
+
+    @Test
     void shouldBlockClashWithVerathielWhenFaithStartsAtZero() throws Exception {
         createHero("Starcie bez wiary", "70");
         saveAndActivateVerathiel();
@@ -620,6 +757,8 @@ class CurrentBuildWebServerTest {
         fields.put("initialPrimaryResource", "-1");
         fields.put("maxPrimaryResource", "-100");
         fields.put("primaryResourceRegenPerSecond", "-1");
+        fields.put("initialAnimus", "-1");
+        fields.put("maxAnimus", "-8");
 
         HttpResponse<String> negativeResponse = sendPost("/policz-aktualny-build", fields);
 
@@ -628,14 +767,19 @@ class CurrentBuildWebServerTest {
         assertTrue(negativeResponse.body().contains("Początkowa Wiara nie może być mniejszy niż 0."));
         assertTrue(negativeResponse.body().contains("Maksymalna Wiara nie może być mniejszy niż 0."));
         assertTrue(negativeResponse.body().contains("Regeneracja Wiary/s nie może być mniejszy niż 0."));
+        assertTrue(negativeResponse.body().contains("Początkowy Animusz nie może być mniejszy niż 0."));
+        assertTrue(negativeResponse.body().contains("Maksymalny Animusz nie może być mniejszy niż 0."));
 
         fields.put("initialPrimaryResource", "101");
         fields.put("maxPrimaryResource", "100");
         fields.put("primaryResourceRegenPerSecond", "1.50");
+        fields.put("initialAnimus", "9");
+        fields.put("maxAnimus", "8");
         HttpResponse<String> overMaxResponse = sendPost("/policz-aktualny-build", fields);
 
         assertEquals(200, overMaxResponse.statusCode());
         assertTrue(overMaxResponse.body().contains("Początkowa Wiara nie może być większa niż Maksymalna Wiara."));
+        assertTrue(overMaxResponse.body().contains("Początkowy Animusz nie może być większy niż Maksymalny Animusz."));
     }
 
     @Test
@@ -1435,6 +1579,9 @@ class CurrentBuildWebServerTest {
         fields.put("initialPrimaryResource", "100");
         fields.put("maxPrimaryResource", "100");
         fields.put("primaryResourceRegenPerSecond", "1.50");
+        fields.put("selectedPaladinOathId", "NONE");
+        fields.put("initialAnimus", "8");
+        fields.put("maxAnimus", "8");
         for (krys.skill.SkillId skillId : krys.skill.SkillId.values()) {
             fields.put(CurrentBuildFormData.rankFieldName(skillId), "0");
             fields.put(CurrentBuildFormData.choiceFieldName(skillId), "NONE");
@@ -1448,6 +1595,8 @@ class CurrentBuildWebServerTest {
     private static String buildCurrentBuildQuery() {
         return "level=13&questSkillPoints=0&weaponDamage=8&strength=18&intelligence=0&thorns=50&blockChance=50&retributionChance=50&horizonSeconds=10"
                 + "&initialPrimaryResource=100&maxPrimaryResource=100&primaryResourceRegenPerSecond=1.50"
+                + "&selectedPaladinOathId=NONE"
+                + "&initialAnimus=8&maxAnimus=8"
                 + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
                 + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
                 + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
@@ -1458,6 +1607,8 @@ class CurrentBuildWebServerTest {
     private static String buildCurrentBuildQueryWithStats(String blockChance, String retributionChance) {
         return "level=13&questSkillPoints=0&weaponDamage=8&strength=18&intelligence=0&thorns=50&blockChance=" + blockChance + "&retributionChance=" + retributionChance + "&horizonSeconds=10"
                 + "&initialPrimaryResource=100&maxPrimaryResource=100&primaryResourceRegenPerSecond=1.50"
+                + "&selectedPaladinOathId=NONE"
+                + "&initialAnimus=8&maxAnimus=8"
                 + "&rank_BRANDISH=0&choiceUpgrade_BRANDISH=NONE"
                 + "&rank_HOLY_BOLT=0&choiceUpgrade_HOLY_BOLT=NONE"
                 + "&rank_CLASH=0&choiceUpgrade_CLASH=NONE"
@@ -1620,16 +1771,7 @@ class CurrentBuildWebServerTest {
     }
 
     private static String actionBarOptionForValue(String html, String fieldName, String value) {
-        String selectMarker = "name=\"" + fieldName + "\"";
-        int selectStart = html.indexOf(selectMarker);
-        if (selectStart < 0) {
-            throw new AssertionError("Brak selecta paska akcji: " + fieldName);
-        }
-        int selectEnd = html.indexOf("</select>", selectStart);
-        if (selectEnd < 0) {
-            throw new AssertionError("Nie udało się wyciąć selecta paska akcji: " + fieldName);
-        }
-        String selectHtml = html.substring(selectStart, selectEnd);
+        String selectHtml = selectHtml(html, fieldName);
         String marker = "<option value=\"" + value + "\"";
         int start = selectHtml.indexOf(marker);
         if (start < 0) {
@@ -1640,6 +1782,19 @@ class CurrentBuildWebServerTest {
             throw new AssertionError("Nie udało się wyciąć opcji paska akcji o wartości: " + value);
         }
         return selectHtml.substring(start, end + "</option>".length());
+    }
+
+    private static String selectHtml(String html, String fieldName) {
+        String selectMarker = "name=\"" + fieldName + "\"";
+        int selectStart = html.indexOf(selectMarker);
+        if (selectStart < 0) {
+            throw new AssertionError("Brak selecta: " + fieldName);
+        }
+        int selectEnd = html.indexOf("</select>", selectStart);
+        if (selectEnd < 0) {
+            throw new AssertionError("Nie udało się wyciąć selecta: " + fieldName);
+        }
+        return html.substring(selectStart, selectEnd);
     }
 
     private static String heroStatGroup(String html, String title) {

@@ -7,6 +7,7 @@ import krys.combat.ReactiveHitBreakdown;
 import krys.item.Item;
 import krys.item.ItemStatType;
 import krys.paladin.PaladinSkillTreeRegistry;
+import krys.paladin.PaladinOathId;
 import krys.paladin.PaladinTreeSkill;
 import krys.paladin.SkillCategory;
 import krys.skill.EffectType;
@@ -35,6 +36,11 @@ public final class ManualSimulationService {
     private static final String TICK_ORDER_LABEL = "delayed -> reactive -> active cast";
     private static final String VERATHIEL_SHARD_ASPECT_ID = "verathiel_shard";
     private static final double VERATHIEL_BASIC_SKILL_RESOURCE_COST = 25.0d;
+    private static final double MOLOCH_ANIMUS_COST = 8.0d;
+    private static final double MOLOCH_MIN_ANIMUS = 1.0d;
+    private static final double MOLOCH_MAX_ANIMUS = 8.0d;
+    private static final int MOLOCH_BUFF_DURATION_SECONDS = 5;
+    private static final double MOLOCH_DAMAGE_MULTIPLIER = 1.60d;
     private static final double RESOURCE_EPSILON = 0.0000001d;
     private final DamageEngine damageEngine;
 
@@ -58,9 +64,21 @@ public final class ManualSimulationService {
         double totalPrimaryResourceCost = 0.0d;
         double totalPrimaryResourceGenerated = 0.0d;
         double totalPrimaryResourceRegenerated = 0.0d;
+        boolean molochRuntimeActive = isMolochOathActive(snapshot);
+        double maxAnimus = molochRuntimeActive
+                ? Math.min(MOLOCH_MAX_ANIMUS, Math.max(MOLOCH_MIN_ANIMUS, snapshot.getMaxAnimus()))
+                : Math.max(0.0d, snapshot.getMaxAnimus());
+        double minAnimus = molochRuntimeActive ? MOLOCH_MIN_ANIMUS : 0.0d;
+        double currentAnimus = molochRuntimeActive
+                ? clampAnimus(snapshot.getInitialAnimus(), maxAnimus, minAnimus)
+                : clampAnimus(snapshot.getInitialAnimus(), maxAnimus, minAnimus);
+        double initialAnimus = currentAnimus;
+        int molochBuffExpiresAtSecond = 0;
+        int molochBuffActivationCount = 0;
 
         for (int second = 1; second <= horizonSeconds; second++) {
             double primaryResourceBefore = currentPrimaryResource;
+            double animusBefore = currentAnimus;
             EnumSet<StatusId> activeTargetStatuses = targetStatusState.getActiveStatuses(second);
             long delayedDamage = 0L;
             Iterator<PendingDelayedHit> delayedIterator = pendingDelayedHits.iterator();
@@ -114,6 +132,9 @@ public final class ManualSimulationService {
             String actionName = "WAIT";
             double primaryResourceCost = 0.0d;
             double primaryResourceGenerated = 0.0d;
+            double animusSpent = 0.0d;
+            boolean molochBuffActivated = false;
+            boolean molochBuffActiveForDamage = false;
 
             if (selectionResult.selectedSkillId != null) {
                 actionType = SimulationActionType.SKILL;
@@ -122,7 +143,25 @@ public final class ManualSimulationService {
                 currentPrimaryResource = Math.max(0.0d, currentPrimaryResource - primaryResourceCost);
                 totalPrimaryResourceCost += primaryResourceCost;
 
-                DamageBreakdown directHitBreakdown = damageEngine.calculate(snapshot, selectionResult.selectedSkillId, activeTargetStatuses);
+                if (molochRuntimeActive && isMolochSkill(selectionResult.selectedSkillId)
+                        && currentAnimus + RESOURCE_EPSILON >= MOLOCH_ANIMUS_COST) {
+                    animusSpent = MOLOCH_ANIMUS_COST;
+                    currentAnimus = clampAnimus(currentAnimus - MOLOCH_ANIMUS_COST, maxAnimus, minAnimus);
+                    molochBuffExpiresAtSecond = second + MOLOCH_BUFF_DURATION_SECONDS - 1;
+                    molochBuffActivationCount++;
+                    molochBuffActivated = true;
+                }
+                molochBuffActiveForDamage = molochRuntimeActive
+                        && isMolochSkill(selectionResult.selectedSkillId)
+                        && second <= molochBuffExpiresAtSecond;
+                double molochMultiplier = molochBuffActiveForDamage ? MOLOCH_DAMAGE_MULTIPLIER : 1.0d;
+
+                DamageBreakdown directHitBreakdown = damageEngine.calculate(
+                        snapshot,
+                        selectionResult.selectedSkillId,
+                        activeTargetStatuses,
+                        molochMultiplier
+                );
                 directDamage = directHitBreakdown.getFinalDamage();
                 totalDamage += directDamage;
                 lastUsedSeconds.put(selectionResult.selectedSkillId, second);
@@ -187,7 +226,13 @@ public final class ManualSimulationService {
                     primaryResourceCost,
                     primaryResourceGenerated,
                     primaryResourceRegenerated,
-                    currentPrimaryResource
+                    currentPrimaryResource,
+                    animusBefore,
+                    animusSpent,
+                    currentAnimus,
+                    molochBuffActivated,
+                    molochBuffActiveForDamage,
+                    molochBuffRemainingSeconds(second, molochBuffExpiresAtSecond)
             ));
         }
 
@@ -223,7 +268,13 @@ public final class ManualSimulationService {
                 snapshot.getPrimaryResourceRegenPerSecond(),
                 totalPrimaryResourceCost,
                 totalPrimaryResourceGenerated,
-                totalPrimaryResourceRegenerated
+                totalPrimaryResourceRegenerated,
+                molochRuntimeActive,
+                initialAnimus,
+                currentAnimus,
+                maxAnimus,
+                minAnimus,
+                molochBuffActivationCount
         );
     }
 
@@ -392,6 +443,16 @@ public final class ManualSimulationService {
                 .orElse(false);
     }
 
+    private static boolean isMolochOathActive(HeroBuildSnapshot snapshot) {
+        return PaladinOathId.JUGGERNAUT.name().equals(snapshot.getSelectedPaladinOathId());
+    }
+
+    static boolean isMolochSkill(SkillId skillId) {
+        return findTreeSkill(skillId)
+                .map(skill -> skill.hasSkillCategory(SkillCategory.MOLOCH))
+                .orElse(false);
+    }
+
     private static Optional<PaladinTreeSkill> findTreeSkill(SkillId skillId) {
         return switch (skillId) {
             case BRANDISH -> PaladinSkillTreeRegistry.findSkill("wymach");
@@ -403,6 +464,17 @@ public final class ManualSimulationService {
 
     private static double clampResource(double value, double maxPrimaryResource) {
         return Math.max(0.0d, Math.min(value, maxPrimaryResource));
+    }
+
+    private static double clampAnimus(double value, double maxAnimus, double minAnimus) {
+        return Math.max(minAnimus, Math.min(value, maxAnimus));
+    }
+
+    private static int molochBuffRemainingSeconds(int second, int molochBuffExpiresAtSecond) {
+        if (second <= 0 || second > molochBuffExpiresAtSecond) {
+            return 0;
+        }
+        return molochBuffExpiresAtSecond - second + 1;
     }
 
     private static boolean isBetterLruCandidate(SkillEvaluation candidate, SkillEvaluation currentBest) {

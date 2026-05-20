@@ -41,6 +41,9 @@ final class CurrentBuildFormQuerySupport {
         append(query, "initialPrimaryResource", formData.getInitialPrimaryResource());
         append(query, "maxPrimaryResource", formData.getMaxPrimaryResource());
         append(query, "primaryResourceRegenPerSecond", formData.getPrimaryResourceRegenPerSecond());
+        append(query, "selectedPaladinOathId", formData.getSelectedPaladinOathId());
+        append(query, "initialAnimus", formData.getInitialAnimus());
+        append(query, "maxAnimus", formData.getMaxAnimus());
 
         for (SkillId skillId : SkillId.values()) {
             CurrentBuildFormData.SkillConfigFormData skillConfig = formData.getSkillConfig(skillId);
@@ -97,6 +100,9 @@ final class CurrentBuildFormQuerySupport {
                 baseFormData.getInitialPrimaryResource(),
                 baseFormData.getMaxPrimaryResource(),
                 baseFormData.getPrimaryResourceRegenPerSecond(),
+                baseFormData.getSelectedPaladinOathId(),
+                baseFormData.getInitialAnimus(),
+                baseFormData.getMaxAnimus(),
                 copiedSkillConfigs,
                 actionBarSlots
         );
@@ -125,6 +131,9 @@ final class CurrentBuildFormQuerySupport {
                 baseFormData.getInitialPrimaryResource(),
                 baseFormData.getMaxPrimaryResource(),
                 baseFormData.getPrimaryResourceRegenPerSecond(),
+                baseFormData.getSelectedPaladinOathId(),
+                baseFormData.getInitialAnimus(),
+                baseFormData.getMaxAnimus(),
                 copiedSkillConfigs,
                 baseFormData.getActionBarSlots()
         );
@@ -154,6 +163,9 @@ final class CurrentBuildFormQuerySupport {
                 defaults.getInitialPrimaryResource(),
                 defaults.getMaxPrimaryResource(),
                 defaults.getPrimaryResourceRegenPerSecond(),
+                defaults.getSelectedPaladinOathId(),
+                defaults.getInitialAnimus(),
+                defaults.getMaxAnimus(),
                 copiedSkillConfigs,
                 defaults.getActionBarSlots()
         );

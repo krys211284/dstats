@@ -22,6 +22,12 @@ public final class SimulationStepTrace {
     private final double primaryResourceGenerated;
     private final double primaryResourceRegenerated;
     private final double primaryResourceAfter;
+    private final double animusBefore;
+    private final double animusSpent;
+    private final double animusAfter;
+    private final boolean molochBuffActivated;
+    private final boolean molochBuffActive;
+    private final int molochBuffRemainingSeconds;
 
     public SimulationStepTrace(int second,
                                SimulationActionType actionType,
@@ -36,7 +42,8 @@ public final class SimulationStepTrace {
                                String tickOrderLabel) {
         this(second, actionType, actionName, directDamage, delayedDamage, reactiveDamage, totalStepDamage,
                 cumulativeDamage, skillBarStates, selectionReason, tickOrderLabel,
-                0.0d, 0.0d, 0.0d, 0.0d, 0.0d);
+                0.0d, 0.0d, 0.0d, 0.0d, 0.0d,
+                0.0d, 0.0d, 0.0d, false, false, 0);
     }
 
     public SimulationStepTrace(int second,
@@ -55,6 +62,34 @@ public final class SimulationStepTrace {
                                double primaryResourceGenerated,
                                double primaryResourceRegenerated,
                                double primaryResourceAfter) {
+        this(second, actionType, actionName, directDamage, delayedDamage, reactiveDamage, totalStepDamage,
+                cumulativeDamage, skillBarStates, selectionReason, tickOrderLabel,
+                primaryResourceBefore, primaryResourceCost, primaryResourceGenerated, primaryResourceRegenerated,
+                primaryResourceAfter, 0.0d, 0.0d, 0.0d, false, false, 0);
+    }
+
+    public SimulationStepTrace(int second,
+                               SimulationActionType actionType,
+                               String actionName,
+                               long directDamage,
+                               long delayedDamage,
+                               long reactiveDamage,
+                               long totalStepDamage,
+                               long cumulativeDamage,
+                               List<SkillBarStateTrace> skillBarStates,
+                               String selectionReason,
+                               String tickOrderLabel,
+                               double primaryResourceBefore,
+                               double primaryResourceCost,
+                               double primaryResourceGenerated,
+                               double primaryResourceRegenerated,
+                               double primaryResourceAfter,
+                               double animusBefore,
+                               double animusSpent,
+                               double animusAfter,
+                               boolean molochBuffActivated,
+                               boolean molochBuffActive,
+                               int molochBuffRemainingSeconds) {
         this.second = second;
         this.actionType = actionType;
         this.actionName = actionName;
@@ -71,6 +106,12 @@ public final class SimulationStepTrace {
         this.primaryResourceGenerated = primaryResourceGenerated;
         this.primaryResourceRegenerated = primaryResourceRegenerated;
         this.primaryResourceAfter = primaryResourceAfter;
+        this.animusBefore = animusBefore;
+        this.animusSpent = animusSpent;
+        this.animusAfter = animusAfter;
+        this.molochBuffActivated = molochBuffActivated;
+        this.molochBuffActive = molochBuffActive;
+        this.molochBuffRemainingSeconds = molochBuffRemainingSeconds;
     }
 
     public int getSecond() {
@@ -135,5 +176,29 @@ public final class SimulationStepTrace {
 
     public double getPrimaryResourceAfter() {
         return primaryResourceAfter;
+    }
+
+    public double getAnimusBefore() {
+        return animusBefore;
+    }
+
+    public double getAnimusSpent() {
+        return animusSpent;
+    }
+
+    public double getAnimusAfter() {
+        return animusAfter;
+    }
+
+    public boolean isMolochBuffActivated() {
+        return molochBuffActivated;
+    }
+
+    public boolean isMolochBuffActive() {
+        return molochBuffActive;
+    }
+
+    public int getMolochBuffRemainingSeconds() {
+        return molochBuffRemainingSeconds;
     }
 }

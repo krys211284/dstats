@@ -18,6 +18,7 @@ public final class DamageBreakdown {
     private final double additiveMultiplier;
     private final double vulnerableMultiplier;
     private final double verathielBasicSkillMultiplier;
+    private final double molochOathMultiplier;
     private final double itemMultiplicativeMultiplier;
     private final double critMultiplier;
     private final double critDamageBonusTotal;
@@ -40,6 +41,7 @@ public final class DamageBreakdown {
                            double additiveMultiplier,
                            double vulnerableMultiplier,
                            double verathielBasicSkillMultiplier,
+                           double molochOathMultiplier,
                            double itemMultiplicativeMultiplier,
                            double critMultiplier,
                            double critDamageBonusTotal,
@@ -61,6 +63,7 @@ public final class DamageBreakdown {
         this.additiveMultiplier = additiveMultiplier;
         this.vulnerableMultiplier = vulnerableMultiplier;
         this.verathielBasicSkillMultiplier = verathielBasicSkillMultiplier;
+        this.molochOathMultiplier = molochOathMultiplier;
         this.itemMultiplicativeMultiplier = itemMultiplicativeMultiplier;
         this.critMultiplier = critMultiplier;
         this.critDamageBonusTotal = critDamageBonusTotal;
@@ -118,6 +121,10 @@ public final class DamageBreakdown {
 
     public double getVerathielBasicSkillMultiplier() {
         return verathielBasicSkillMultiplier;
+    }
+
+    public double getMolochOathMultiplier() {
+        return molochOathMultiplier;
     }
 
     public double getItemMultiplicativeMultiplier() {

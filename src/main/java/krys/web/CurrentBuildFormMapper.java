@@ -1,6 +1,7 @@
 package krys.web;
 
 import krys.app.CurrentBuildRequest;
+import krys.paladin.PaladinOathRegistry;
 import krys.skill.PaladinSkillDefs;
 import krys.skill.SkillId;
 import krys.skill.SkillState;
@@ -33,8 +34,14 @@ final class CurrentBuildFormMapper {
         Double initialPrimaryResource = parseDouble(formData.getInitialPrimaryResource(), "Początkowa Wiara", 0.0d, errors);
         Double maxPrimaryResource = parseDouble(formData.getMaxPrimaryResource(), "Maksymalna Wiara", 0.0d, errors);
         Double primaryResourceRegenPerSecond = parseDouble(formData.getPrimaryResourceRegenPerSecond(), "Regeneracja Wiary/s", 0.0d, errors);
+        Double initialAnimus = parseDouble(formData.getInitialAnimus(), "Początkowy Animusz", 0.0d, errors);
+        Double maxAnimus = parseDouble(formData.getMaxAnimus(), "Maksymalny Animusz", 0.0d, errors);
+        validatePaladinOath(formData.getSelectedPaladinOathId(), errors);
         if (initialPrimaryResource != null && maxPrimaryResource != null && initialPrimaryResource > maxPrimaryResource) {
             errors.add("Początkowa Wiara nie może być większa niż Maksymalna Wiara.");
+        }
+        if (initialAnimus != null && maxAnimus != null && initialAnimus > maxAnimus) {
+            errors.add("Początkowy Animusz nie może być większy niż Maksymalny Animusz.");
         }
 
         Map<SkillId, SkillState> learnedSkills = new EnumMap<>(SkillId.class);
@@ -46,6 +53,7 @@ final class CurrentBuildFormMapper {
         if (level == null || weaponDamage == null || strength == null || intelligence == null
                 || thorns == null || blockChance == null || retributionChance == null || horizonSeconds == null
                 || initialPrimaryResource == null || maxPrimaryResource == null || primaryResourceRegenPerSecond == null
+                || initialAnimus == null || maxAnimus == null
                 || !errors.isEmpty()) {
             return new MappingResult(null, errors);
         }
@@ -67,6 +75,9 @@ final class CurrentBuildFormMapper {
                     initialPrimaryResource,
                     maxPrimaryResource,
                     primaryResourceRegenPerSecond,
+                    formData.getSelectedPaladinOathId(),
+                    initialAnimus,
+                    maxAnimus,
                     List.of()
             );
             return new MappingResult(request, errors);
@@ -152,6 +163,15 @@ final class CurrentBuildFormMapper {
         } catch (IllegalArgumentException | NullPointerException exception) {
             errors.add(label + " zawiera niepoprawny skill.");
             return null;
+        }
+    }
+
+    private static void validatePaladinOath(String rawOathId, List<String> errors) {
+        if (rawOathId == null || rawOathId.isBlank() || "NONE".equals(rawOathId)) {
+            return;
+        }
+        if (PaladinOathRegistry.findByRawId(rawOathId).isEmpty()) {
+            errors.add("Wybrano niepoprawną Przysięgę Paladyna.");
         }
     }
 

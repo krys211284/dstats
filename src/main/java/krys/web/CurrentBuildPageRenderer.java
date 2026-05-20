@@ -13,6 +13,9 @@ import krys.itemlibrary.CurrentHeroActiveItemStats;
 import krys.itemlibrary.HeroSlotItemAssignment;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
 import krys.itemlibrary.SavedImportedItem;
+import krys.paladin.PaladinOathDefinition;
+import krys.paladin.PaladinOathRegistry;
+import krys.paladin.PaladinOathRuntimeStatus;
 import krys.skill.PaladinSkillDefs;
 import krys.skill.SkillId;
 import krys.skill.SkillUpgradeChoice;
@@ -180,6 +183,7 @@ public final class CurrentBuildPageRenderer {
                 + renderSkillPointSection(model)
                 + renderAssignedSkillsSection(model)
                 + renderActionBarSection(model)
+                + renderPaladinOathSection(model)
                 + renderBasicHeroStatsSection(model)
                 + renderEquipmentSection(model)
                 + """
@@ -924,6 +928,7 @@ public final class CurrentBuildPageRenderer {
         html.append(renderSummaryCard("Efektywna inteligencja", String.format(Locale.US, "%.0f", calculation.getRequest().getIntelligence())));
         html.append(renderSummaryCard("Horyzont symulacji", calculation.getRequest().getHorizonSeconds() + " s"));
         html.append(renderSummaryCard("Pasek akcji", CurrentBuildCalculationSectionsRenderer.buildActionBarLabel(calculation.getRequest().getActionBar())));
+        html.append(renderSummaryCard("Aktywna Przysięga", activePaladinOathSummary(model.getFormData())));
         html.append(renderSummaryCard("Łączne obrażenia", Long.toString(calculation.getResult().getTotalDamage())));
         html.append(renderSummaryCard("DPS", CurrentBuildNumberFormatter.dps(calculation.getResult().getDps())));
         html.append(renderSummaryCard("Początkowa Wiara", CurrentBuildNumberFormatter.resource(calculation.getResult().getInitialPrimaryResource())));
@@ -933,6 +938,13 @@ public final class CurrentBuildPageRenderer {
         html.append(renderSummaryCard("Łączny koszt Wiary", CurrentBuildNumberFormatter.resource(calculation.getResult().getTotalPrimaryResourceCost())));
         html.append(renderSummaryCard("Łączna generacja Wiary", CurrentBuildNumberFormatter.resource(calculation.getResult().getTotalPrimaryResourceGenerated())));
         html.append(renderSummaryCard("Łączna regeneracja Wiary", CurrentBuildNumberFormatter.resource(calculation.getResult().getTotalPrimaryResourceRegenerated())));
+        if (calculation.getResult().hasAnimusRuntimeData()) {
+            html.append(renderSummaryCard("Początkowy Animusz", CurrentBuildNumberFormatter.resource(calculation.getResult().getInitialAnimus())));
+            html.append(renderSummaryCard("Końcowy Animusz", CurrentBuildNumberFormatter.resource(calculation.getResult().getFinalAnimus())));
+            html.append(renderSummaryCard("Maksymalny Animusz", CurrentBuildNumberFormatter.resource(calculation.getResult().getMaxAnimus())));
+            html.append(renderSummaryCard("Buff Molocha aktywowany", calculation.getResult().getMolochBuffActivationCount() > 0 ? "Tak" : "Nie"));
+            html.append(renderSummaryCard("Aktywacje Molocha", Integer.toString(calculation.getResult().getMolochBuffActivationCount())));
+        }
         html.append(renderSummaryCard("Wkład obrażeń reaktywnych", Long.toString(calculation.getResult().getTotalReactiveDamage())));
         html.append(renderSummaryCard("Judgement aktywny na końcu", calculation.getResult().isJudgementActiveAtEnd() ? "Tak" : "Nie"));
         html.append(renderSummaryCard("Resolve aktywny na końcu", calculation.getResult().isResolveActiveAtEnd() ? "Tak" : "Nie"));
@@ -1090,6 +1102,113 @@ public final class CurrentBuildPageRenderer {
                     """);
         }
         return html.toString();
+    }
+
+    private static String renderPaladinOathSection(CurrentBuildPageModel model) {
+        String selectedOathId = model.getFormData().getSelectedPaladinOathId();
+        StringBuilder html = new StringBuilder("""
+                <details class="current-build-details paladin-oath-details">
+                    <summary>Przysięga Paladyna</summary>
+                    <section class="subpanel">
+                    <div class="form-grid">
+                        <label>
+                            Aktywna Przysięga
+                            <select name="selectedPaladinOathId">
+                """);
+        html.append(renderOptions(buildPaladinOathOptions(selectedOathId)));
+        html.append("""
+                            </select>
+                        </label>
+                    </div>
+                """);
+        PaladinOathRegistry.findByRawId(selectedOathId)
+                .ifPresentOrElse(
+                        oath -> {
+                            html.append(renderPaladinOathDescription(oath));
+                            if ("JUGGERNAUT".equals(oath.getId().name())) {
+                                html.append(renderAnimusFields(model.getFormData()));
+                            }
+                        },
+                        () -> html.append("<p class=\"helper\">Brak wybranej Przysięgi Paladyna. Przysięgi są mechaniką klasową poza paskiem akcji i poza zwykłym drzewem umiejętności.</p>")
+                );
+        html.append("""
+                    </section>
+                </details>
+                """);
+        return html.toString();
+    }
+
+    private static List<CurrentBuildPageModel.SelectOption> buildPaladinOathOptions(String selectedOathId) {
+        List<CurrentBuildPageModel.SelectOption> options = new ArrayList<>();
+        options.add(new CurrentBuildPageModel.SelectOption("NONE", "Brak wybranej Przysięgi", selectedOathId == null || selectedOathId.isBlank() || "NONE".equals(selectedOathId)));
+        for (PaladinOathDefinition oath : PaladinOathRegistry.all()) {
+            String value = oath.getId().name();
+            options.add(new CurrentBuildPageModel.SelectOption(value, oath.getDisplayName(), value.equals(selectedOathId)));
+        }
+        return options;
+    }
+
+    private static String renderPaladinOathDescription(PaladinOathDefinition oath) {
+        StringBuilder html = new StringBuilder("<article class=\"summary-card paladin-oath-card\"><div class=\"summary-label\">")
+                .append(escapeHtml(oath.getDisplayName()))
+                .append("</div><div class=\"summary-value\">")
+                .append(escapeHtml(oath.getSubtitle()))
+                .append("</div><p class=\"helper\">")
+                .append(escapeHtml(oathRuntimeSummary(oath)))
+                .append("</p><ul class=\"message-list\">");
+        for (String line : oath.getDescriptionLines()) {
+            html.append("<li>").append(escapeHtml(line)).append("</li>");
+        }
+        html.append("</ul><ul class=\"message-list muted-list\">");
+        for (String line : oath.getSecondaryDescriptionLines()) {
+            html.append("<li>").append(escapeHtml(line)).append("</li>");
+        }
+        html.append("</ul><p class=\"helper\">Status runtime: ")
+                .append(escapeHtml(oathRuntimeStatusLabel(oath.getRuntimeStatus())))
+                .append("</p></article>");
+        return html.toString();
+    }
+
+    private static String renderAnimusFields(CurrentBuildFormData formData) {
+        return """
+                <div class="form-grid animus-fields">
+                    <label>
+                        Początkowy Animusz
+                        <input type="number" min="0" step="1" name="initialAnimus" value="{{INITIAL_ANIMUS}}">
+                    </label>
+                    <label>
+                        Maksymalny Animusz
+                        <input type="number" min="0" step="1" name="maxAnimus" value="{{MAX_ANIMUS}}">
+                    </label>
+                    <label>
+                        Minimalny Animusz
+                        <input type="number" value="1" disabled>
+                    </label>
+                </div>
+                <p class="helper">Runtime Molocha aktywny częściowo: buff obrażeń +60%[x] dla umiejętności Molocha. Początkowy Animusz 8 jest ustawieniem testowym formularza.</p>
+                """
+                .replace("{{INITIAL_ANIMUS}}", escapeHtml(formData.getInitialAnimus()))
+                .replace("{{MAX_ANIMUS}}", escapeHtml(formData.getMaxAnimus()));
+    }
+
+    private static String activePaladinOathSummary(CurrentBuildFormData formData) {
+        return PaladinOathRegistry.findByRawId(formData.getSelectedPaladinOathId())
+                .map(oath -> oath.getDisplayName() + " — " + oathRuntimeStatusLabel(oath.getRuntimeStatus()))
+                .orElse("Brak");
+    }
+
+    private static String oathRuntimeStatusLabel(PaladinOathRuntimeStatus runtimeStatus) {
+        return switch (runtimeStatus) {
+            case NOT_RUNTIME_ENABLED -> "Opisowe / runtime DPS nieaktywny";
+            case PARTIALLY_RUNTIME_ENABLED -> "Częściowo aktywne w runtime";
+        };
+    }
+
+    private static String oathRuntimeSummary(PaladinOathDefinition oath) {
+        if (oath.getRuntimeStatus() == PaladinOathRuntimeStatus.PARTIALLY_RUNTIME_ENABLED) {
+            return "Runtime Molocha aktywny częściowo: koszt 8 Animuszu i buff obrażeń +60%[x] dla umiejętności Molocha.";
+        }
+        return "Efekty Przysięgi są opisowe — runtime DPS nieaktywny w tym etapie.";
     }
 
     private static String renderRankOptions(String selectedRank) {

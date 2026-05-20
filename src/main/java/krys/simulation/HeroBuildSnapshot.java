@@ -21,6 +21,9 @@ public final class HeroBuildSnapshot {
     public static final double DEFAULT_INITIAL_PRIMARY_RESOURCE = 100.0d;
     public static final double DEFAULT_MAX_PRIMARY_RESOURCE = 100.0d;
     public static final double DEFAULT_PRIMARY_RESOURCE_REGEN_PER_SECOND = 1.50d;
+    public static final double DEFAULT_INITIAL_ANIMUS = 8.0d;
+    public static final double DEFAULT_MAX_ANIMUS = 8.0d;
+    public static final String DEFAULT_SELECTED_PALADIN_OATH_ID = "NONE";
 
     private final Hero hero;
     private final int bonusSkillPoints;
@@ -34,6 +37,9 @@ public final class HeroBuildSnapshot {
     private final double initialPrimaryResource;
     private final double maxPrimaryResource;
     private final double primaryResourceRegenPerSecond;
+    private final String selectedPaladinOathId;
+    private final double initialAnimus;
+    private final double maxAnimus;
     private final List<String> activeAspectIds;
 
     public HeroBuildSnapshot(Hero hero,
@@ -75,7 +81,8 @@ public final class HeroBuildSnapshot {
         this(hero, bonusSkillPoints, averageWeaponDamage, totalPercentDamageBonus, equippedItems,
                 hasActiveWeapon, hasActiveShield, learnedSkills, selectedSkillBar,
                 DEFAULT_INITIAL_PRIMARY_RESOURCE, DEFAULT_MAX_PRIMARY_RESOURCE,
-                DEFAULT_PRIMARY_RESOURCE_REGEN_PER_SECOND, activeAspectIds);
+                DEFAULT_PRIMARY_RESOURCE_REGEN_PER_SECOND, DEFAULT_SELECTED_PALADIN_OATH_ID,
+                DEFAULT_INITIAL_ANIMUS, DEFAULT_MAX_ANIMUS, activeAspectIds);
     }
 
     public HeroBuildSnapshot(Hero hero,
@@ -90,6 +97,28 @@ public final class HeroBuildSnapshot {
                              double initialPrimaryResource,
                              double maxPrimaryResource,
                              double primaryResourceRegenPerSecond,
+                             List<String> activeAspectIds) {
+        this(hero, bonusSkillPoints, averageWeaponDamage, totalPercentDamageBonus, equippedItems,
+                hasActiveWeapon, hasActiveShield, learnedSkills, selectedSkillBar,
+                initialPrimaryResource, maxPrimaryResource, primaryResourceRegenPerSecond,
+                DEFAULT_SELECTED_PALADIN_OATH_ID, DEFAULT_INITIAL_ANIMUS, DEFAULT_MAX_ANIMUS, activeAspectIds);
+    }
+
+    public HeroBuildSnapshot(Hero hero,
+                             int bonusSkillPoints,
+                             long averageWeaponDamage,
+                             double totalPercentDamageBonus,
+                             List<Item> equippedItems,
+                             boolean hasActiveWeapon,
+                             boolean hasActiveShield,
+                             Map<SkillId, SkillState> learnedSkills,
+                             List<SkillId> selectedSkillBar,
+                             double initialPrimaryResource,
+                             double maxPrimaryResource,
+                             double primaryResourceRegenPerSecond,
+                             String selectedPaladinOathId,
+                             double initialAnimus,
+                             double maxAnimus,
                              List<String> activeAspectIds) {
         this.hero = hero;
         this.bonusSkillPoints = bonusSkillPoints;
@@ -110,6 +139,11 @@ public final class HeroBuildSnapshot {
         this.initialPrimaryResource = initialPrimaryResource;
         this.maxPrimaryResource = maxPrimaryResource;
         this.primaryResourceRegenPerSecond = primaryResourceRegenPerSecond;
+        this.selectedPaladinOathId = selectedPaladinOathId == null || selectedPaladinOathId.isBlank()
+                ? DEFAULT_SELECTED_PALADIN_OATH_ID
+                : selectedPaladinOathId;
+        this.initialAnimus = initialAnimus;
+        this.maxAnimus = maxAnimus;
         this.activeAspectIds = Collections.unmodifiableList(new ArrayList<>(new LinkedHashSet<>(activeAspectIds == null ? List.of() : activeAspectIds)));
     }
 
@@ -167,6 +201,18 @@ public final class HeroBuildSnapshot {
 
     public double getPrimaryResourceRegenPerSecond() {
         return primaryResourceRegenPerSecond;
+    }
+
+    public String getSelectedPaladinOathId() {
+        return selectedPaladinOathId;
+    }
+
+    public double getInitialAnimus() {
+        return initialAnimus;
+    }
+
+    public double getMaxAnimus() {
+        return maxAnimus;
     }
 
     public boolean hasActiveAspect(String aspectId) {

@@ -124,6 +124,9 @@ public final class HeroSkillLoadout {
                 baseFormData.getInitialPrimaryResource(),
                 baseFormData.getMaxPrimaryResource(),
                 baseFormData.getPrimaryResourceRegenPerSecond(),
+                baseFormData.getSelectedPaladinOathId(),
+                baseFormData.getInitialAnimus(),
+                baseFormData.getMaxAnimus(),
                 skillConfigs,
                 actionBarSlots
         );

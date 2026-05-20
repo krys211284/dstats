@@ -164,6 +164,13 @@ class ClashManualSimulationTest {
         assertTrue(clashWithResolveAndPunishment.getReactiveHitBreakdowns().get(0).isPunishmentActive());
     }
 
+    @Test
+    void starcie_powinno_byc_rozpoznane_jako_umiejetnosc_rodziny_molocha() {
+        assertTrue(ManualSimulationService.isMolochSkill(SkillId.CLASH));
+        assertFalse(ManualSimulationService.isMolochSkill(SkillId.HOLY_BOLT));
+        assertFalse(ManualSimulationService.isMolochSkill(SkillId.ADVANCE));
+    }
+
     private static HeroBuildSnapshot clashSnapshot(long weaponDamage, boolean hasActiveWeapon, boolean hasActiveShield) {
         return snapshot(
                 new SkillState(SkillId.CLASH, 1, false, SkillUpgradeChoice.NONE),

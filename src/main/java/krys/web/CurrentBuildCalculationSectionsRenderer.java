@@ -76,6 +76,7 @@ final class CurrentBuildCalculationSectionsRenderer {
                                     + " -> +" + CurrentBuildNumberFormatter.percentOneDecimal((breakdown.getMainStatMultiplier() - 1.0d) * 100.0d)
                                     + "% / ×" + CurrentBuildNumberFormatter.multiplier(breakdown.getMainStatMultiplier())))
                     .append(renderVerathielSummaryCard(breakdown))
+                    .append(renderMolochSummaryCard(breakdown))
                     .append(renderSummaryCard("Redukcja poziomu",
                             CurrentBuildNumberFormatter.percentWhole(breakdown.getLevelDamageReduction() * 100.0d)
                                     + "% / zostaje ×" + CurrentBuildNumberFormatter.multiplier(breakdown.getDamageTakenAfterLevelReductionMultiplier())))
@@ -242,6 +243,11 @@ final class CurrentBuildCalculationSectionsRenderer {
                                 <th>Generacja Wiary</th>
                                 <th>Regeneracja Wiary</th>
                                 <th>Wiara po</th>
+                                <th>Animusz przed</th>
+                                <th>Zużycie Animuszu</th>
+                                <th>Animusz po</th>
+                                <th>Buff Molocha</th>
+                                <th>Pozostało buffa</th>
                                 <th>Powód wyboru</th>
                                 <th>Stan paska</th>
                             </tr>
@@ -263,6 +269,11 @@ final class CurrentBuildCalculationSectionsRenderer {
                     .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getPrimaryResourceGenerated())).append("</td>")
                     .append("<td>").append(CurrentBuildNumberFormatter.signedResource(step.getPrimaryResourceRegenerated())).append("</td>")
                     .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getPrimaryResourceAfter())).append("</td>")
+                    .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getAnimusBefore())).append("</td>")
+                    .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getAnimusSpent())).append("</td>")
+                    .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getAnimusAfter())).append("</td>")
+                    .append("<td>").append(step.isMolochBuffActivated() ? "Aktywacja" : (step.isMolochBuffActive() ? "Aktywny" : "Nie")).append("</td>")
+                    .append("<td>").append(step.getMolochBuffRemainingSeconds()).append(" s</td>")
                     .append("<td>").append(escapeHtml(HeroSkillCatalogAdapter.replaceRuntimeSkillNames(step.getSelectionReason()))).append("</td>")
                     .append("<td>").append(renderSkillBarStates(step.getSkillBarStates())).append("</td>")
                     .append("</tr>");
@@ -307,6 +318,17 @@ final class CurrentBuildCalculationSectionsRenderer {
                 "Odłamek Verathiela",
                 "+100%[x] / ×" + CurrentBuildNumberFormatter.multiplier(breakdown.getVerathielBasicSkillMultiplier())
                         + "<br><span class=\"summary-subvalue\">Koszt: +25 Wiary</span>"
+        );
+    }
+
+    private static String renderMolochSummaryCard(DamageBreakdown breakdown) {
+        if (breakdown.getMolochOathMultiplier() <= 1.0d) {
+            return renderSummaryCard("Moloch", "Nieaktywny / ×1,00");
+        }
+        return renderSummaryCardWithHtmlValue(
+                "Moloch",
+                "+60%[x] / ×" + CurrentBuildNumberFormatter.multiplier(breakdown.getMolochOathMultiplier())
+                        + "<br><span class=\"summary-subvalue\">Buff aktywny</span>"
         );
     }
 

@@ -3,6 +3,7 @@ package krys.app;
 import krys.combat.DamageEngine;
 import krys.combat.DamageBreakdown;
 import krys.combat.DamageComponentBreakdown;
+import krys.paladin.PaladinOathId;
 import krys.simulation.ManualSimulationService;
 import krys.simulation.SimulationStepTrace;
 import krys.simulation.SkillHitDebugSnapshot;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CurrentBuildCalculationServiceTest {
@@ -214,5 +216,93 @@ class CurrentBuildCalculationServiceTest {
         assertEquals(1.5d, firstStep.getPrimaryResourceRegenerated(), 0.0000001d);
         assertEquals(21.5d, firstStep.getPrimaryResourceAfter(), 0.0000001d);
         assertEquals(100.0d, calculation.getResult().getFinalPrimaryResource(), 0.0000001d);
+    }
+
+    @Test
+    void moloch_z_zerowym_animuszem_nie_zmienia_sanity_damage_i_clampuje_minimum() {
+        CurrentBuildRequest request = clashVerathielRequest(PaladinOathId.JUGGERNAUT.name(), 0.0d);
+
+        CurrentBuildCalculation calculation = calculationService.calculate(request);
+
+        assertEquals(21130L, calculation.getResult().getTotalDamage());
+        assertEquals(2113.0d, calculation.getResult().getDps(), 0.0000001d);
+        assertEquals(65.0d, calculation.getResult().getFinalPrimaryResource(), 0.0000001d);
+        assertEquals(1.0d, calculation.getResult().getInitialAnimus(), 0.0000001d);
+        assertEquals(1.0d, calculation.getResult().getFinalAnimus(), 0.0000001d);
+        assertEquals(0, calculation.getResult().getMolochBuffActivationCount());
+        DamageBreakdown breakdown = calculation.getResult().getDirectHitDebugSnapshots().getFirst().getBreakdown();
+        assertEquals(1.0d, breakdown.getMolochOathMultiplier(), 0.0000001d);
+        assertEquals(2113L, breakdown.getFinalDamage());
+    }
+
+    @Test
+    void moloch_z_osem_animuszu_aktywuje_buff_na_piec_castow_i_nie_zmienia_wiary() {
+        CurrentBuildRequest request = clashVerathielRequest(PaladinOathId.JUGGERNAUT.name(), 8.0d);
+
+        CurrentBuildCalculation calculation = calculationService.calculate(request);
+
+        DamageBreakdown buffedBreakdown = calculation.getResult().getDirectHitDebugSnapshots().getFirst().getBreakdown();
+        assertEquals(1.60d, buffedBreakdown.getMolochOathMultiplier(), 0.0000001d);
+        assertEquals(16901L, buffedBreakdown.getRawDamage());
+        assertEquals(3380L, buffedBreakdown.getFinalDamage());
+        assertEquals(5224L, buffedBreakdown.getCriticalDamage());
+        assertEquals(27465L, calculation.getResult().getTotalDamage());
+        assertEquals(2746.5d, calculation.getResult().getDps(), 0.0000001d);
+        assertEquals(65.0d, calculation.getResult().getFinalPrimaryResource(), 0.0000001d);
+        assertEquals(250.0d, calculation.getResult().getTotalPrimaryResourceCost(), 0.0000001d);
+        assertEquals(200.0d, calculation.getResult().getTotalPrimaryResourceGenerated(), 0.0000001d);
+        assertEquals(15.0d, calculation.getResult().getTotalPrimaryResourceRegenerated(), 0.0000001d);
+        assertEquals(8.0d, calculation.getResult().getInitialAnimus(), 0.0000001d);
+        assertEquals(1.0d, calculation.getResult().getFinalAnimus(), 0.0000001d);
+        assertEquals(1, calculation.getResult().getMolochBuffActivationCount());
+
+        SimulationStepTrace firstStep = calculation.getResult().getStepTrace().getFirst();
+        assertEquals(8.0d, firstStep.getAnimusBefore(), 0.0000001d);
+        assertEquals(8.0d, firstStep.getAnimusSpent(), 0.0000001d);
+        assertEquals(1.0d, firstStep.getAnimusAfter(), 0.0000001d);
+        assertTrue(firstStep.isMolochBuffActivated());
+        assertTrue(firstStep.isMolochBuffActive());
+        assertEquals(5, firstStep.getMolochBuffRemainingSeconds());
+        assertEquals(3380L, firstStep.getDirectDamage());
+        assertEquals(3380L, calculation.getResult().getStepTrace().get(4).getDirectDamage());
+        assertEquals(2113L, calculation.getResult().getStepTrace().get(5).getDirectDamage());
+    }
+
+    @Test
+    void inne_przysiegi_nie_zmieniaja_sanity_damage() {
+        for (String oathId : List.of(PaladinOathId.ADEPT.name(), PaladinOathId.JUDGE.name(), PaladinOathId.ZEALOT.name())) {
+            CurrentBuildCalculation calculation = calculationService.calculate(clashVerathielRequest(oathId, 8.0d));
+
+            assertEquals(21130L, calculation.getResult().getTotalDamage());
+            assertEquals(2113.0d, calculation.getResult().getDps(), 0.0000001d);
+            assertEquals(65.0d, calculation.getResult().getFinalPrimaryResource(), 0.0000001d);
+            assertFalse(calculation.getResult().hasAnimusRuntimeData());
+            assertEquals(1.0d, calculation.getResult().getDirectHitDebugSnapshots().getFirst()
+                    .getBreakdown().getMolochOathMultiplier(), 0.0000001d);
+        }
+    }
+
+    private static CurrentBuildRequest clashVerathielRequest(String selectedOathId, double initialAnimus) {
+        return new CurrentBuildRequest(
+                70,
+                1664,
+                304.0d,
+                76.0d,
+                0.0d,
+                20.0d,
+                0.0d,
+                true,
+                true,
+                Map.of(SkillId.CLASH, new SkillState(SkillId.CLASH, 1, false, SkillUpgradeChoice.NONE)),
+                List.of(SkillId.CLASH),
+                10,
+                100.0d,
+                100.0d,
+                1.50d,
+                selectedOathId,
+                initialAnimus,
+                8.0d,
+                List.of("verathiel_shard")
+        );
     }
 }

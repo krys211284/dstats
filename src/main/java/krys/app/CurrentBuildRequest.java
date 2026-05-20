@@ -15,6 +15,9 @@ public final class CurrentBuildRequest {
     public static final double DEFAULT_INITIAL_PRIMARY_RESOURCE = 100.0d;
     public static final double DEFAULT_MAX_PRIMARY_RESOURCE = 100.0d;
     public static final double DEFAULT_PRIMARY_RESOURCE_REGEN_PER_SECOND = 1.50d;
+    public static final double DEFAULT_INITIAL_ANIMUS = 8.0d;
+    public static final double DEFAULT_MAX_ANIMUS = 8.0d;
+    public static final String DEFAULT_SELECTED_PALADIN_OATH_ID = "NONE";
 
     private final int level;
     private final long weaponDamage;
@@ -31,6 +34,9 @@ public final class CurrentBuildRequest {
     private final double initialPrimaryResource;
     private final double maxPrimaryResource;
     private final double primaryResourceRegenPerSecond;
+    private final String selectedPaladinOathId;
+    private final double initialAnimus;
+    private final double maxAnimus;
     private final List<String> activeAspectIds;
 
     public CurrentBuildRequest(int level,
@@ -94,7 +100,8 @@ public final class CurrentBuildRequest {
         this(level, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
                 hasActiveWeapon, hasActiveShield, learnedSkills, actionBar, horizonSeconds,
                 DEFAULT_INITIAL_PRIMARY_RESOURCE, DEFAULT_MAX_PRIMARY_RESOURCE,
-                DEFAULT_PRIMARY_RESOURCE_REGEN_PER_SECOND, activeAspectIds);
+                DEFAULT_PRIMARY_RESOURCE_REGEN_PER_SECOND, DEFAULT_SELECTED_PALADIN_OATH_ID,
+                DEFAULT_INITIAL_ANIMUS, DEFAULT_MAX_ANIMUS, activeAspectIds);
     }
 
     public CurrentBuildRequest(int level,
@@ -112,6 +119,31 @@ public final class CurrentBuildRequest {
                                double initialPrimaryResource,
                                double maxPrimaryResource,
                                double primaryResourceRegenPerSecond,
+                               List<String> activeAspectIds) {
+        this(level, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
+                hasActiveWeapon, hasActiveShield, learnedSkills, actionBar, horizonSeconds,
+                initialPrimaryResource, maxPrimaryResource, primaryResourceRegenPerSecond,
+                DEFAULT_SELECTED_PALADIN_OATH_ID, DEFAULT_INITIAL_ANIMUS, DEFAULT_MAX_ANIMUS, activeAspectIds);
+    }
+
+    public CurrentBuildRequest(int level,
+                               long weaponDamage,
+                               double strength,
+                               double intelligence,
+                               double thorns,
+                               double blockChance,
+                               double retributionChance,
+                               boolean hasActiveWeapon,
+                               boolean hasActiveShield,
+                               Map<SkillId, SkillState> learnedSkills,
+                               List<SkillId> actionBar,
+                               int horizonSeconds,
+                               double initialPrimaryResource,
+                               double maxPrimaryResource,
+                               double primaryResourceRegenPerSecond,
+                               String selectedPaladinOathId,
+                               double initialAnimus,
+                               double maxAnimus,
                                List<String> activeAspectIds) {
         if (level <= 0) {
             throw new IllegalArgumentException("Level bohatera musi być dodatni");
@@ -132,6 +164,11 @@ public final class CurrentBuildRequest {
         validateNonNegative("Regeneracja Wiary/s", primaryResourceRegenPerSecond);
         if (initialPrimaryResource > maxPrimaryResource) {
             throw new IllegalArgumentException("Początkowa Wiara nie może być większa niż Maksymalna Wiara.");
+        }
+        validateNonNegative("Początkowy Animusz", initialAnimus);
+        validateNonNegative("Maksymalny Animusz", maxAnimus);
+        if (initialAnimus > maxAnimus) {
+            throw new IllegalArgumentException("Początkowy Animusz nie może być większy niż Maksymalny Animusz.");
         }
 
         EnumMap<SkillId, SkillState> learnedSkillsCopy = new EnumMap<>(SkillId.class);
@@ -155,6 +192,11 @@ public final class CurrentBuildRequest {
         this.initialPrimaryResource = initialPrimaryResource;
         this.maxPrimaryResource = maxPrimaryResource;
         this.primaryResourceRegenPerSecond = primaryResourceRegenPerSecond;
+        this.selectedPaladinOathId = selectedPaladinOathId == null || selectedPaladinOathId.isBlank()
+                ? DEFAULT_SELECTED_PALADIN_OATH_ID
+                : selectedPaladinOathId;
+        this.initialAnimus = initialAnimus;
+        this.maxAnimus = maxAnimus;
         this.activeAspectIds = Collections.unmodifiableList(new ArrayList<>(new LinkedHashSet<>(activeAspectIds == null ? List.of() : activeAspectIds)));
     }
 
@@ -236,6 +278,18 @@ public final class CurrentBuildRequest {
         return primaryResourceRegenPerSecond;
     }
 
+    public String getSelectedPaladinOathId() {
+        return selectedPaladinOathId;
+    }
+
+    public double getInitialAnimus() {
+        return initialAnimus;
+    }
+
+    public double getMaxAnimus() {
+        return maxAnimus;
+    }
+
     public List<String> getActiveAspectIds() {
         return activeAspectIds;
     }
@@ -257,6 +311,9 @@ public final class CurrentBuildRequest {
                 initialPrimaryResource,
                 maxPrimaryResource,
                 primaryResourceRegenPerSecond,
+                selectedPaladinOathId,
+                initialAnimus,
+                maxAnimus,
                 activeAspectIds
         );
     }
