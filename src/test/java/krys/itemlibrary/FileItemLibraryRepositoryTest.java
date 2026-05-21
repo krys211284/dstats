@@ -16,6 +16,9 @@ import krys.itemimport.ItemImportFormMapper;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
+import krys.tempering.ItemTemperingAffix;
+import krys.tempering.TemperingCategory;
+import krys.tempering.TemperingRuntimeStatus;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -57,7 +60,15 @@ class FileItemLibraryRepositoryTest {
                         new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 114.0d, "", true, 0, "* +114 do siły [107 - 121]", ImportedItemAffixSource.OCR),
                         new ImportedItemAffix(ImportedItemAffixType.THORNS, 494.0d, "+494 cierni [473 - 506]")
                 ),
-                "inner-calm"
+                "inner-calm",
+                ItemImportDetails.empty(),
+                List.of(new ItemTemperingAffix(
+                        "defense_maximum_life",
+                        TemperingCategory.DEFENSE,
+                        1500.0d,
+                        "+1500 maksymalnego zdrowia",
+                        TemperingRuntimeStatus.DATA_ONLY
+                ))
         ));
         SavedImportedItem secondItem = repository.save(new SavedImportedItem(
                 0L,
@@ -89,6 +100,10 @@ class FileItemLibraryRepositoryTest {
         assertEquals("* +114 do siły [107 - 121]", savedItems.get(0).getAffixes().getFirst().getSourceText());
         assertTrue(savedItems.get(0).getAffixes().getFirst().isGreaterAffix());
         assertEquals("inner-calm", savedItems.get(0).getSelectedAspectId());
+        assertEquals(1, savedItems.get(0).getTemperingAffixes().size());
+        assertEquals("defense_maximum_life", savedItems.get(0).getTemperingAffixes().getFirst().getDefinitionId());
+        assertEquals(1500.0d, savedItems.get(0).getTemperingAffixes().getFirst().getValue(), 0.0000001d);
+        assertEquals(TemperingRuntimeStatus.DATA_ONLY, savedItems.get(0).getTemperingAffixes().getFirst().getRuntimeStatus());
         assertTrue(reloadedRepository.findById(secondItem.getItemId()).isPresent());
         assertEquals(secondItem.getItemId(), reloadedRepository.loadSelection().getSelectedItemId(EquipmentSlot.OFF_HAND));
     }

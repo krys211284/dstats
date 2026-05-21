@@ -222,6 +222,12 @@ class ItemLibraryWebServerTest {
         assertTrue(editForm.body().contains("value=\"inner-calm\""));
         assertTrue(editForm.body().contains("selected>Aspekt Wewnętrznego Spokoju"));
         assertTrue(editForm.body().contains("Ręczna edycja itemu"));
+        assertTrue(editForm.body().contains("Hartowanie"));
+        assertTrue(editForm.body().contains(">Broń</option>"));
+        assertTrue(editForm.body().contains(">Ofensywa</option>"));
+        assertTrue(editForm.body().contains(">Defensywa</option>"));
+        assertTrue(editForm.body().contains(">Funkcjonalność</option>"));
+        assertTrue(editForm.body().contains("value=\"defense_maximum_life\""));
         assertTrue(editForm.body().contains("Dane tarczy"));
         assertFalse(editForm.body().contains("Dane broni"));
         assertTrue(editForm.body().contains("Aspekt / efekt"));
@@ -267,6 +273,84 @@ class ItemLibraryWebServerTest {
         assertFalse(afterRemove.body().contains("+120 siły"));
         assertTrue(afterRemove.body().contains("Aspekt Wewnętrznego Spokoju"));
         assertFalse(afterRemove.body().contains("Wybrany aspekt: Aspekt Wewnętrznego Spokoju"));
+    }
+
+    @Test
+    void shouldValidateTemperingCategoryAndRollRange() throws Exception {
+        createHero("Hartownik", "13");
+        Map<String, String> swordFields = verathielImportFields();
+        swordFields.put("temperingCount", "1");
+        swordFields.put("temperingCategory_0", "DEFENSE");
+        swordFields.put("temperingDefinitionId_0", "defense_maximum_life");
+        swordFields.put("temperingValue_0", "1500");
+
+        HttpResponse<String> swordResponse = sendUrlEncodedPost("/importuj-item-ze-screena", swordFields);
+
+        assertEquals(200, swordResponse.statusCode());
+        assertTrue(swordResponse.body().contains("Błędy formularza"));
+        assertTrue(swordResponse.body().contains("kategoria Defensywa nie jest dostępna dla tego typu itemu"));
+        HttpResponse<String> libraryAfterSword = sendGet("/biblioteka-itemow");
+        assertFalse(libraryAfterSword.body().contains("item-details-1"));
+        assertFalse(libraryAfterSword.body().contains("miecz.png"));
+
+        Map<String, String> lowRollFields = shieldImportFields("tarcza-low.png", "Tarcza Hartowania", "STRENGTH", "114", false, false);
+        addMaximumLifeTempering(lowRollFields, "999");
+        HttpResponse<String> lowRollResponse = sendUrlEncodedPost("/importuj-item-ze-screena", lowRollFields);
+
+        assertEquals(200, lowRollResponse.statusCode());
+        assertTrue(lowRollResponse.body().contains("Błędy formularza"));
+        assertTrue(lowRollResponse.body().contains("wartość musi być w zakresie 1000 - 1500"));
+        HttpResponse<String> libraryAfterLowRoll = sendGet("/biblioteka-itemow");
+        assertFalse(libraryAfterLowRoll.body().contains("Tarcza Hartowania"));
+
+        Map<String, String> validFields = shieldImportFields("tarcza-ok.png", "Tarcza Hartowania", "STRENGTH", "114", false, false);
+        addMaximumLifeTempering(validFields, "1500");
+        HttpResponse<String> validResponse = sendUrlEncodedPost("/importuj-item-ze-screena", validFields);
+
+        assertEquals(200, validResponse.statusCode());
+        assertFalse(validResponse.body().contains("Błędy formularza"));
+        assertTrue(validResponse.body().contains("Zatwierdzony item zapisany do biblioteki"));
+        HttpResponse<String> libraryAfterValid = sendGet("/biblioteka-itemow");
+        assertTrue(libraryAfterValid.body().contains("Hartowanie"));
+        assertTrue(libraryAfterValid.body().contains("Defensywa: +1500 maksymalnego zdrowia"));
+        assertTrue(libraryAfterValid.body().contains("Status: Dane itemu / runtime nieaktywny"));
+    }
+
+    @Test
+    void shouldPresentTemperingInLibraryAndCurrentBuildWithoutChangingRuntimeInput() throws Exception {
+        createHero("Hartowanie UI", "70");
+        primeHeroBuildQuery(buildCurrentBuildQuery());
+        Map<String, String> fields = shieldImportFields("tarcza-tempering.png", "Tarcza Hartowana", "STRENGTH", "114", false, false);
+        addMaximumLifeTempering(fields, "1500");
+        HttpResponse<String> importResponse = sendUrlEncodedPost("/importuj-item-ze-screena", fields);
+        assertEquals(200, importResponse.statusCode());
+
+        HttpResponse<String> libraryResponse = sendGet("/biblioteka-itemow");
+        assertEquals(200, libraryResponse.statusCode());
+        String details = itemDetailsFragment(libraryResponse.body(), "1");
+        assertTrue(details.contains("Hartowanie"));
+        assertTrue(details.contains("Defensywa: +1500 maksymalnego zdrowia"));
+        assertTrue(details.contains("Status: Dane itemu / runtime nieaktywny"));
+        assertTrue(details.indexOf("Affixy") < details.indexOf("Hartowanie"));
+        assertTrue(details.indexOf("Hartowanie") < details.indexOf("Aspekt / efekt"));
+
+        HttpResponse<String> activateResponse = sendUrlEncodedPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", "1",
+                "heroSlot", "OFF_HAND",
+                "currentBuildQuery", buildCurrentBuildQuery()
+        ));
+        assertEquals(200, activateResponse.statusCode());
+
+        HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build?" + buildCurrentBuildQuery());
+        assertEquals(200, currentBuildResponse.statusCode());
+        assertTrue(currentBuildResponse.body().contains("Hartowanie"));
+        assertTrue(currentBuildResponse.body().contains("Defensywa: +1500 maksymalnego zdrowia | Dane itemu / runtime nieaktywny"));
+        String runtimeInput = sectionByHeading(currentBuildResponse.body(), "Techniczne wejście runtime");
+        assertFalse(runtimeInput.contains("1500"));
+        assertFalse(runtimeInput.contains("maksymalnego zdrowia"));
+        assertTrue(runtimeInput.contains(runtimeInputCard("Obrażenia broni", "0", "Brak aktywnej broni")));
+        assertTrue(runtimeInput.contains(runtimeInputCard("Siła", "114", "Aktywne itemy")));
     }
 
     @Test
@@ -319,6 +403,11 @@ class ItemLibraryWebServerTest {
         assertFalse(editForm.body().contains("Opis aspektu:"));
         assertFalse(editForm.body().contains("Odczyt OCR efektu"));
         assertFalse(editForm.body().contains("Dane itemu zapisane w bibliotece"));
+        assertTrue(editForm.body().contains("Hartowanie"));
+        assertTrue(editForm.body().contains(">Broń</option>"));
+        assertTrue(editForm.body().contains(">Ofensywa</option>"));
+        assertFalse(editForm.body().contains(">Defensywa</option>"));
+        assertFalse(editForm.body().contains("value=\"defense_maximum_life\""));
         assertTrue(editForm.body().contains("affix-table"));
         assertTrue(editForm.body().contains("Zakres rolla"));
         assertFalse(editForm.body().contains("Odczyt OCR / źródło"));
@@ -628,6 +717,13 @@ class ItemLibraryWebServerTest {
         fields.put("affixDisplayValue_" + index, displayValue);
     }
 
+    private static void addMaximumLifeTempering(Map<String, String> fields, String value) {
+        fields.put("temperingCount", "1");
+        fields.put("temperingCategory_0", "DEFENSE");
+        fields.put("temperingDefinitionId_0", "defense_maximum_life");
+        fields.put("temperingValue_0", value);
+    }
+
     private static String verathielEffectText() {
         return "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu.";
     }
@@ -701,5 +797,19 @@ class ItemLibraryWebServerTest {
         }
         int next = html.indexOf("<section id=\"item-details-", start + marker.length());
         return next < 0 ? html.substring(start) : html.substring(start, next);
+    }
+
+    private static String sectionByHeading(String html, String headingText) {
+        String marker = "<h2>" + headingText + "</h2>";
+        int heading = html.indexOf(marker);
+        if (heading < 0) {
+            throw new AssertionError("Brak sekcji: " + headingText);
+        }
+        int start = html.lastIndexOf("<section", heading);
+        int end = html.indexOf("</section>", heading);
+        if (start < 0 || end < 0) {
+            throw new AssertionError("Nie udało się wyciąć sekcji: " + headingText);
+        }
+        return html.substring(start, end + "</section>".length());
     }
 }

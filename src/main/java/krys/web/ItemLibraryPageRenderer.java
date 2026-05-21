@@ -13,6 +13,9 @@ import krys.itemimport.ImportedItemAffixType;
 import krys.itemlibrary.ItemLibraryFilter;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
 import krys.itemlibrary.SavedImportedItem;
+import krys.tempering.ApplicationTemperingAffixRegistry;
+import krys.tempering.ItemTemperingAffix;
+import krys.tempering.TemperingPresentationSupport;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -288,7 +291,8 @@ public final class ItemLibraryPageRenderer {
     private static String renderFullItemPreview(SavedImportedItem item) {
         FullItemRead fullItemRead = item.getFullItemRead();
         if (fullItemRead == null || !fullItemRead.hasAnyData()) {
-            return "<div class=\"status-note\">Brak zapisanego pełnego odczytu OCR dla tego itemu.</div>";
+            return "<div class=\"status-note\">Brak zapisanego pełnego odczytu OCR dla tego itemu.</div>"
+                    + renderTemperingDetails(item);
         }
         List<String> baseStats = collectBaseStats(fullItemRead);
         List<String> implicitLines = collectLines(fullItemRead, ItemReadLineGroup.IMPLICIT);
@@ -322,10 +326,26 @@ public final class ItemLibraryPageRenderer {
                 .append(renderTextLineGroup("Base stats", baseStats))
                 .append(renderTextLineGroup("Linie bazowe", implicitLines))
                 .append(renderTextLineGroup("Affixy", affixLines))
+                .append(renderTemperingDetails(item))
                 .append(renderAspectDetails(item))
                 .append(renderTextLineGroup("Socket / gniazdo", socketLines))
                 .append("</div>");
         return html.toString();
+    }
+
+    private static String renderTemperingDetails(SavedImportedItem item) {
+        if (item.getTemperingAffixes().isEmpty()) {
+            return "";
+        }
+        List<String> lines = new ArrayList<>();
+        for (ItemTemperingAffix affix : item.getTemperingAffixes()) {
+            lines.add(affix.getCategory().getDisplayName()
+                    + ": "
+                    + TemperingPresentationSupport.formatAffix(affix, ApplicationTemperingAffixRegistry.get())
+                    + " | Status: "
+                    + affix.getRuntimeStatus().getDisplayName());
+        }
+        return renderTextLineGroup("Hartowanie", lines);
     }
 
     private static String renderTextLineGroup(String heading, List<String> lines) {

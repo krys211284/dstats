@@ -67,6 +67,8 @@ final class ItemEditPageRenderer {
                         .affix-range-cell { white-space: nowrap; }
                         .affix-action-cell { text-align: right; white-space: nowrap; }
                         .affix-greater-cell .checkbox-label { min-height: 40px; }
+                        .tempering-section .item-affix-add-grid { grid-template-columns: minmax(180px, 0.6fr) minmax(260px, 1.2fr) minmax(120px, 0.4fr) auto; }
+                        .tempering-category-notes { margin-top: 10px; }
                         @media (max-width: 900px) {
                             .manual-confirm-grid, .aspect-effect-fieldset, .item-affix-add-grid { grid-template-columns: 1fr; }
                             .item-affix-add-actions { justify-content: flex-start; }
@@ -149,6 +151,7 @@ final class ItemEditPageRenderer {
                             %s
                         </div>
                         %s
+                        %s
                         <div class="submit-row">
                             <button type="submit">Zapisz zmiany</button>
                             <a class="nav-link secondary-link" href="%s">Anuluj</a>
@@ -174,6 +177,7 @@ final class ItemEditPageRenderer {
                 renderItemTypeFieldSet(form),
                 renderAspectSelect(form),
                 renderAffixEditor(form),
+                TemperingSectionRenderer.renderEditor(form),
                 escapeHtml(ItemLibraryFilterQuerySupport.libraryUrl(model.getFilter()))
         );
     }
@@ -519,6 +523,7 @@ final class ItemEditPageRenderer {
                     const form = rows.closest('form');
                     if (form) form.addEventListener('submit', renumberRows);
                 })();
+                %s
                 (() => {
                     const slotSelect = document.getElementById('itemSlotSelect');
                     const aspectSelect = document.getElementById('aspectSelect');
@@ -541,7 +546,7 @@ final class ItemEditPageRenderer {
                     refreshAspectOptions();
                 })();
                 </script>
-                """;
+                """.formatted(TemperingSectionRenderer.renderScript());
     }
 
     private static String renderAffixTypeOptions(ImportedItemAffixType selectedType) {

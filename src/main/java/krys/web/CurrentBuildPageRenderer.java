@@ -24,6 +24,9 @@ import krys.skill.PaladinSkillDefs;
 import krys.skill.SkillId;
 import krys.skill.SkillState;
 import krys.skill.SkillUpgradeChoice;
+import krys.tempering.ApplicationTemperingAffixRegistry;
+import krys.tempering.ItemTemperingAffix;
+import krys.tempering.TemperingPresentationSupport;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -880,8 +883,9 @@ public final class CurrentBuildPageRenderer {
     private static String renderActiveSlotContribution(SavedImportedItem item) {
         String weaponSection = renderSlotContributionSection("Broń", buildSlotWeaponChips(item));
         String statsSection = renderSlotContributionSection("Wkład w statystyki", buildSlotStatChips(item));
+        String temperingSection = renderSlotContributionSection("Hartowanie", buildSlotTemperingChips(item));
         String effectsSection = renderSlotContributionSection("Efekty opisowe", buildSlotEffectChips(item));
-        String content = weaponSection + statsSection + effectsSection;
+        String content = weaponSection + statsSection + temperingSection + effectsSection;
         if (content.isBlank()) {
             return "<p class=\"slot-contribution\">Brak wkładu</p>";
         }
@@ -954,6 +958,18 @@ public final class CurrentBuildPageRenderer {
             } else if (affix.getType() == ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE) {
                 chips.add("Lucky Hit 15%: " + luckyHitResourceValue(affix) + " zasobu");
             }
+        }
+        return chips;
+    }
+
+    private static List<String> buildSlotTemperingChips(SavedImportedItem item) {
+        List<String> chips = new ArrayList<>();
+        for (ItemTemperingAffix affix : item.getTemperingAffixes()) {
+            chips.add(affix.getCategory().getDisplayName()
+                    + ": "
+                    + TemperingPresentationSupport.formatAffix(affix, ApplicationTemperingAffixRegistry.get())
+                    + " | "
+                    + affix.getRuntimeStatus().getDisplayName());
         }
         return chips;
     }

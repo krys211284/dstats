@@ -1,6 +1,12 @@
 package krys.itemimport;
 
 import krys.item.EquipmentSlot;
+import krys.tempering.ApplicationTemperingAffixRegistry;
+import krys.tempering.ItemTemperingAffix;
+import krys.tempering.TemperingAffixDefinition;
+import krys.tempering.TemperingAffixRegistry;
+import krys.tempering.TemperingEligibilityRegistry;
+import krys.tempering.TemperingPresentationSupport;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,13 +15,19 @@ import java.util.Locale;
 /** Waliduje ręcznie poprawiony formularz itemu i buduje zatwierdzony model domenowy. */
 public final class ItemImportFormMapper {
     private final AspectRegistry aspectRegistry;
+    private final TemperingAffixRegistry temperingAffixRegistry;
 
     public ItemImportFormMapper() {
-        this(ApplicationAspectRegistry.get());
+        this(ApplicationAspectRegistry.get(), ApplicationTemperingAffixRegistry.get());
     }
 
     ItemImportFormMapper(AspectRegistry aspectRegistry) {
+        this(aspectRegistry, ApplicationTemperingAffixRegistry.get());
+    }
+
+    ItemImportFormMapper(AspectRegistry aspectRegistry, TemperingAffixRegistry temperingAffixRegistry) {
         this.aspectRegistry = aspectRegistry;
+        this.temperingAffixRegistry = temperingAffixRegistry;
     }
 
     public MappingResult map(ItemImportEditableForm form) {
@@ -39,6 +51,7 @@ public final class ItemImportFormMapper {
         }
         String selectedAspectId = validateAspect(form.getSelectedAspectId(), slot, errors);
         ItemImportDetails details = buildDetails(form, slot, errors);
+        List<ItemTemperingAffix> temperingAffixes = validateTempering(form.getTemperingAffixes(), slot, details.getItemType(), errors);
 
         if (!errors.isEmpty()) {
             return new MappingResult(null, errors);
@@ -55,8 +68,50 @@ public final class ItemImportFormMapper {
                 retributionChance,
                 form.getAffixes(),
                 selectedAspectId,
-                details
+                details,
+                temperingAffixes
         ), errors);
+    }
+
+    private List<ItemTemperingAffix> validateTempering(List<ItemTemperingAffix> affixes,
+                                                       EquipmentSlot slot,
+                                                       String itemType,
+                                                       List<String> errors) {
+        List<ItemTemperingAffix> validated = new ArrayList<>();
+        int index = 0;
+        for (ItemTemperingAffix affix : affixes) {
+            index++;
+            if (!TemperingEligibilityRegistry.isCategoryAvailable(slot, itemType, affix.getCategory())) {
+                errors.add("Hartowanie #" + index + ": kategoria " + affix.getCategory().getDisplayName()
+                        + " nie jest dostępna dla tego typu itemu.");
+                continue;
+            }
+            TemperingAffixDefinition definition = temperingAffixRegistry.findById(affix.getDefinitionId()).orElse(null);
+            if (definition == null) {
+                errors.add("Hartowanie #" + index + ": wybrany affix nie istnieje w katalogu hartowania.");
+                continue;
+            }
+            if (definition.getCategory() != affix.getCategory()) {
+                errors.add("Hartowanie #" + index + ": affix nie należy do wybranej kategorii.");
+                continue;
+            }
+            if (!definition.accepts(affix.getValue())) {
+                errors.add("Hartowanie #" + index + ": wartość musi być w zakresie "
+                        + TemperingPresentationSupport.formatRange(definition) + ".");
+                continue;
+            }
+            String displayText = affix.getDisplayText().isBlank()
+                    ? TemperingPresentationSupport.formatAffix(affix, temperingAffixRegistry)
+                    : affix.getDisplayText();
+            validated.add(new ItemTemperingAffix(
+                    affix.getDefinitionId(),
+                    affix.getCategory(),
+                    affix.getValue(),
+                    displayText,
+                    definition.getRuntimeStatus()
+            ));
+        }
+        return List.copyOf(validated);
     }
 
     private static ItemImportDetails buildDetails(ItemImportEditableForm form,

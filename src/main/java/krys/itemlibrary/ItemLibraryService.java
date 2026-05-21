@@ -61,7 +61,8 @@ public final class ItemLibraryService {
                 fullItemRead,
                 importedItem.getAffixes(),
                 importedItem.getSelectedAspectId(),
-                importedItem.getDetails()
+                importedItem.getDetails(),
+                importedItem.getTemperingAffixes()
         );
         return repository.save(itemToSave);
     }
@@ -83,7 +84,8 @@ public final class ItemLibraryService {
                 fullItemRead,
                 importedItem.getAffixes(),
                 importedItem.getSelectedAspectId(),
-                importedItem.getDetails()
+                importedItem.getDetails(),
+                importedItem.getTemperingAffixes()
         );
         return repository.save(itemToSave);
     }

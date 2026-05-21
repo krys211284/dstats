@@ -578,6 +578,39 @@ Jawne ograniczenia aktualnego foundation importu:
 - flow nie buduje jeszcze pełnego wielo-itemowego workflow ani sesji inventory,
 - flow nie omija obecnego modelu current build i nie buduje bocznego modelu runtime.
 
+### 4.5.1. Hartowanie itemów
+Hartowanie itemów jest na tym etapie modelem danych, walidacją formularza i prezentacją UI. Hartowane affixy są zapisywane przy itemie osobno od affixów zwykłych, Greater Affix, linii bazowych, aspektu i efektu unikatowego. Nie wpływają jeszcze na runtime DPS, effective stats, `CurrentBuildSnapshotFactory`, kolejność ticków ani `DamageEngine`; podłączenie konkretnych hartowanych affixów do runtime będzie osobnym etapem.
+
+Globalny katalog kategorii hartowania zawiera dokładnie:
+- `Broń`,
+- `Ofensywa`,
+- `Defensywa`,
+- `Funkcjonalność`,
+- `Mobilność`,
+- `Zasoby`.
+
+Dostępność kategorii zależy od typu / slotu itemu. Repo ma wpisaną tylko potwierdzoną macierz:
+- miecz / broń jednoręczna / main hand weapon: `Broń`, `Ofensywa`,
+- tarcza / offhand shield: `Broń`, `Ofensywa`, `Defensywa`, `Funkcjonalność`.
+
+Dla innych slotów i typów itemów UI pokazuje brak danych dostępności hartowania zamiast zgadywać wszystkie kategorie. Kategorie bez katalogu affixów pokazują komunikat `Katalog affixów tej kategorii nie został jeszcze uzupełniony.`.
+
+Katalog affixów jest na razie uzupełniony tylko dla kategorii `Defensywa` i zawiera 12 pozycji:
+- `+[1000 - 1500] maksymalnego zdrowia`,
+- `+[1250 - 2000] pancerza`,
+- `+[60 - 70] do odporności na wszystkie żywioły`,
+- `+[2 - 3] do maksymalnej liczby kumulacji Animuszu`,
+- `+[440 - 490] do odporności na: Ogień`,
+- `+[440 - 490] do odporności na: Błyskawice`,
+- `+[440 - 490] do odporności na: Zimno`,
+- `+[440 - 490] do odporności na: Trucizny`,
+- `+[440 - 490] do odporności na: Cień`,
+- `+[440 - 490] do odporności na: Fizyczne`,
+- `+[2,5 - 5,0]% szansy na blok`,
+- `+[7,0 - 10,0]% pancerza pod postacią Arbitra`.
+
+Każdy affix Defensywy ma status danych itemu / runtime nieaktywny. Affix maksymalnych kumulacji Animuszu nie zmienia jeszcze capu Animuszu, a affix pancerza pod postacią Arbitra pozostaje opisowy i nie aktywuje mechanik Przysięgi / Adepta / Arbitra.
+
 ### 4.6. Baza wiedzy o itemach
 Aktualny foundation repo obejmuje osobną bazę wiedzy o itemach jako warstwę obserwacji i przyszłych sugestii. Nie jest to biblioteka konkretnych itemów użytkownika i nie jest to runtime.
 
@@ -1402,6 +1435,7 @@ Kontrakt prezentacji dla tego smoke testu:
 - `/policz-aktualny-build -> Debug symulacji -> Techniczne wejście runtime` pokazuje wyłącznie faktyczne current build runtime input oraz źródło każdej wartości. Stare manual/default placeholdery formularza nie są renderowane jako debug current build, nie ma tam sekcji `Legacy/manual fallbacki formularza` ani etykiet `Manual:*` / `Legacy:*`.
 - `/policz-aktualny-build` używa polskich nazw domenowych umiejętności w selectach paska akcji, wyniku symulacji, debugach i śladzie kroków. Techniczne ID i legacy enumy, np. `CLASH`, mogą pozostać w `value`, `data-*` albo `title`, ale nie są główną widoczną etykietą użytkową; `SkillId.CLASH` jest prezentowany jako `Starcie`.
 - `Debug symulacji` został odchudzony z długich opisów technicznych: zostają krótkie sekcje `Techniczne wejście runtime`, `Debug bezpośrednich trafień`, `Debug opóźnionych trafień`, `Debug obrażeń reaktywnych` i `Ślad kroków symulacji` oraz konkretne wartości.
+- `Ślad kroków symulacji` scala szczegóły Wiary i Animuszu w dwie zbiorcze kolumny prezentacyjne. Wiara pokazuje w jednej komórce `przed`, `koszt`, `gen.`, `regen.` i `po`, a Animusz pokazuje `przed`, `zużycie`, `gen.` i `po`; `Stan paska` pozostaje w DOM jako zwijany szczegół. To jest wyłącznie zmiana UI/debug trace, bez zmian runtime, kolejności ticków i golden values.
 - W `Debug bezpośrednich trafień` finalne wartości `Trafienie końcowe` i `Trafienie krytyczne` są wyróżnione wizualnie względem surowych wartości. To jest wyłącznie prezentacja UI; nie zmienia runtime, wzorów ani `DamageEngine`.
 - Kafelki HTML current build formatują `DPS` bez zbędnych zer po przecinku, wartości Wiary używają polskiego formatu liczbowego, a debug Odłamka Verathiela rozdziela mnożnik `+100%[x]` od kosztu `+25 Wiary`. To jest wyłącznie prezentacja UI; nie zmienia runtime, modelu Wiary ani `DamageEngine`.
 - Dla aktywnego Odłamka Verathiela debug pokazuje `Obrażenia broni = 1664` ze źródłem `Aktywna broń: Odłamek Verathiela, średnie obrażenia trafienia`, `Siła = 79` i `Inteligencja = 76` ze źródłem `Baseline Paladyn poziom 70`, a brak jawnego wkładu dla kolców, bloku i retribution jako `0`.

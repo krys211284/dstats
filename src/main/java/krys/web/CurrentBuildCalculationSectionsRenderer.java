@@ -241,15 +241,8 @@ final class CurrentBuildCalculationSectionsRenderer {
                                 <th>Krok</th>
                                 <th>Narastająco</th>
                                 <th>Kolejność ticków</th>
-                                <th>Wiara przed</th>
-                                <th>Koszt Wiary</th>
-                                <th>Generacja Wiary</th>
-                                <th>Regeneracja Wiary</th>
-                                <th>Wiara po</th>
-                                <th>Animusz przed</th>
-                                <th>Zużycie Animuszu</th>
-                                <th>Generacja Animuszu</th>
-                                <th>Animusz po</th>
+                                <th>Wiara</th>
+                                <th>Animusz</th>
                                 <th>Buff Molocha</th>
                                 <th>Pozostało buffa</th>
                                 <th>Powód wyboru</th>
@@ -268,19 +261,12 @@ final class CurrentBuildCalculationSectionsRenderer {
                     .append("<td>").append(step.getTotalStepDamage()).append("</td>")
                     .append("<td>").append(step.getCumulativeDamage()).append("</td>")
                     .append("<td>").append(escapeHtml(step.getTickOrderLabel())).append("</td>")
-                    .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getPrimaryResourceBefore())).append("</td>")
-                    .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getPrimaryResourceCost())).append("</td>")
-                    .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getPrimaryResourceGenerated())).append("</td>")
-                    .append("<td>").append(CurrentBuildNumberFormatter.signedResource(step.getPrimaryResourceRegenerated())).append("</td>")
-                    .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getPrimaryResourceAfter())).append("</td>")
-                    .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getAnimusBefore())).append("</td>")
-                    .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getAnimusSpent())).append("</td>")
-                    .append("<td>").append(CurrentBuildNumberFormatter.signedResource(step.getAnimusGenerated())).append("</td>")
-                    .append("<td>").append(CurrentBuildNumberFormatter.resource(step.getAnimusAfter())).append("</td>")
+                    .append("<td>").append(renderFaithResourceCell(step)).append("</td>")
+                    .append("<td>").append(renderAnimusResourceCell(step)).append("</td>")
                     .append("<td>").append(step.isMolochBuffActivated() ? "Aktywacja" : (step.isMolochBuffActive() ? "Aktywny" : "Nie")).append("</td>")
                     .append("<td>").append(step.getMolochBuffRemainingSeconds()).append(" s</td>")
                     .append("<td>").append(escapeHtml(HeroSkillCatalogAdapter.replaceRuntimeSkillNames(step.getSelectionReason()))).append("</td>")
-                    .append("<td>").append(renderSkillBarStates(step.getSkillBarStates())).append("</td>")
+                    .append("<td>").append(renderSkillBarStateDetails(step.getSkillBarStates())).append("</td>")
                     .append("</tr>");
         }
         html.append("""
@@ -289,6 +275,50 @@ final class CurrentBuildCalculationSectionsRenderer {
                 </section>
                 """);
         return html.toString();
+    }
+
+    private static String renderFaithResourceCell(SimulationStepTrace step) {
+        return "<div class=\"trace-resource-cell\">"
+                + renderResourceLine("przed", CurrentBuildNumberFormatter.resource(step.getPrimaryResourceBefore()), "")
+                + renderResourceLine("koszt", formatNegativeResource(step.getPrimaryResourceCost()), resourceToneClass(-step.getPrimaryResourceCost()))
+                + renderResourceLine("gen.", CurrentBuildNumberFormatter.signedResource(step.getPrimaryResourceGenerated()), resourceToneClass(step.getPrimaryResourceGenerated()))
+                + renderResourceLine("regen.", CurrentBuildNumberFormatter.signedResource(step.getPrimaryResourceRegenerated()), resourceToneClass(step.getPrimaryResourceRegenerated()))
+                + renderResourceLine("po", CurrentBuildNumberFormatter.resource(step.getPrimaryResourceAfter()), "")
+                + "</div>";
+    }
+
+    private static String renderAnimusResourceCell(SimulationStepTrace step) {
+        return "<div class=\"trace-resource-cell\">"
+                + renderResourceLine("przed", CurrentBuildNumberFormatter.resource(step.getAnimusBefore()), "")
+                + renderResourceLine("zużycie", formatNegativeResource(step.getAnimusSpent()), resourceToneClass(-step.getAnimusSpent()))
+                + renderResourceLine("gen.", CurrentBuildNumberFormatter.signedResource(step.getAnimusGenerated()), resourceToneClass(step.getAnimusGenerated()))
+                + renderResourceLine("po", CurrentBuildNumberFormatter.resource(step.getAnimusAfter()), "")
+                + "</div>";
+    }
+
+    private static String renderResourceLine(String label, String value, String valueClass) {
+        String classes = "trace-resource-value" + (valueClass.isBlank() ? "" : " " + valueClass);
+        return "<div class=\"trace-resource-line\">"
+                + "<span class=\"trace-resource-label\">" + escapeHtml(label) + "</span>"
+                + "<strong class=\"" + classes + "\">" + escapeHtml(value) + "</strong>"
+                + "</div>";
+    }
+
+    private static String formatNegativeResource(double value) {
+        if (value > 0.0d) {
+            return "-" + CurrentBuildNumberFormatter.resource(value);
+        }
+        return CurrentBuildNumberFormatter.resource(value);
+    }
+
+    private static String resourceToneClass(double signedValue) {
+        if (signedValue > 0.0d) {
+            return "trace-resource-positive";
+        }
+        if (signedValue < 0.0d) {
+            return "trace-resource-negative";
+        }
+        return "";
     }
 
     static String buildActionBarLabel(List<SkillId> actionBar) {
@@ -361,6 +391,12 @@ final class CurrentBuildCalculationSectionsRenderer {
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;");
+    }
+
+    private static String renderSkillBarStateDetails(List<SkillBarStateTrace> barStates) {
+        return "<details class=\"trace-bar-state-details\"><summary>Stan</summary>"
+                + renderSkillBarStates(barStates)
+                + "</details>";
     }
 
     private static String renderSkillBarStates(List<SkillBarStateTrace> barStates) {

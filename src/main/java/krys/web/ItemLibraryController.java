@@ -86,6 +86,7 @@ public final class ItemLibraryController implements HttpHandler {
     }
 
     private ItemLibraryPageModel handleSaveImportedItem(Map<String, String> fields, String currentBuildQuery) {
+        TemperingFormSupport.ParseResult temperingParseResult = TemperingFormSupport.parse(fields);
         ItemImportEditableForm form = new ItemImportEditableForm(
                 fields.getOrDefault("sourceImageName", ""),
                 fields.getOrDefault("slot", ""),
@@ -96,11 +97,18 @@ public final class ItemLibraryController implements HttpHandler {
                 fields.getOrDefault("blockChance", ""),
                 fields.getOrDefault("retributionChance", ""),
                 krys.itemimport.FullItemRead.empty(),
-                legacyAffixes(fields)
+                legacyAffixes(fields),
+                "",
+                krys.itemimport.ItemImportFieldConfidence.UNKNOWN,
+                "",
+                krys.itemimport.ItemImportDetails.empty(),
+                temperingParseResult.affixes()
         );
         ItemImportFormMapper.MappingResult mappingResult = itemImportFormMapper.map(form);
-        if (!mappingResult.getErrors().isEmpty() || mappingResult.getItem() == null) {
-            return buildPageModel(mappingResult.getErrors(), List.of(), currentBuildQuery, null);
+        List<String> errors = new ArrayList<>(temperingParseResult.errors());
+        errors.addAll(mappingResult.getErrors());
+        if (!errors.isEmpty() || mappingResult.getItem() == null) {
+            return buildPageModel(errors, List.of(), currentBuildQuery, null);
         }
 
         SavedImportedItem savedItem = itemLibraryService.saveImportedItem(mappingResult.getItem());

@@ -166,11 +166,12 @@ public final class ItemImportController implements HttpHandler {
         FullItemRead decodedFullItemRead = FullItemReadFormCodec.decode(fields.getOrDefault("fullItemRead", ""));
         String formAction = fields.getOrDefault("formAction", "confirmItem");
         AffixParseResult affixParseResult = parseExistingAffixes(fields);
+        TemperingFormSupport.ParseResult temperingParseResult = TemperingFormSupport.parse(fields);
         List<ImportedItemAffix> affixes = affixParseResult.affixes();
         if ("addAffix".equals(formAction)) {
             java.util.ArrayList<ImportedItemAffix> updatedAffixes = new java.util.ArrayList<>(affixes);
             parseNewAffix(fields, affixParseResult.errors()).ifPresent(updatedAffixes::add);
-            ItemImportEditableForm form = buildEditableForm(fields, decodedFullItemRead, updatedAffixes);
+            ItemImportEditableForm form = buildEditableForm(fields, decodedFullItemRead, updatedAffixes, temperingParseResult.affixes());
             return new ItemImportPageModel(
                     form,
                     null,
@@ -182,10 +183,11 @@ public final class ItemImportController implements HttpHandler {
             );
         }
 
-        ItemImportEditableForm form = buildEditableForm(fields, decodedFullItemRead, affixes);
+        ItemImportEditableForm form = buildEditableForm(fields, decodedFullItemRead, affixes, temperingParseResult.affixes());
 
         ItemImportFormMapper.MappingResult mappingResult = formMapper.map(form);
         java.util.ArrayList<String> allErrors = new java.util.ArrayList<>(affixParseResult.errors());
+        allErrors.addAll(temperingParseResult.errors());
         allErrors.addAll(mappingResult.getErrors());
         if (!allErrors.isEmpty() || mappingResult.getItem() == null) {
             return buildErrorPageModel(
@@ -234,6 +236,13 @@ public final class ItemImportController implements HttpHandler {
     private static ItemImportEditableForm buildEditableForm(Map<String, String> fields,
                                                             FullItemRead decodedFullItemRead,
                                                             List<ImportedItemAffix> affixes) {
+        return buildEditableForm(fields, decodedFullItemRead, affixes, List.of());
+    }
+
+    private static ItemImportEditableForm buildEditableForm(Map<String, String> fields,
+                                                            FullItemRead decodedFullItemRead,
+                                                            List<ImportedItemAffix> affixes,
+                                                            List<krys.tempering.ItemTemperingAffix> temperingAffixes) {
         return new ItemImportEditableForm(
                 fields.getOrDefault("sourceImageName", "nieznany-item"),
                 fields.getOrDefault("slot", ""),
@@ -248,7 +257,8 @@ public final class ItemImportController implements HttpHandler {
                 fields.getOrDefault("ocrSuggestedAspectId", ""),
                 parseConfidence(fields.getOrDefault("ocrAspectConfidence", "")),
                 fields.getOrDefault("selectedAspectId", ""),
-                parseItemDetails(fields)
+                parseItemDetails(fields),
+                temperingAffixes
         );
     }
 

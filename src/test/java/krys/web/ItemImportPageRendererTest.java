@@ -405,6 +405,90 @@ class ItemImportPageRendererTest {
         assertFalse(html.contains("<h5>Affixy</h5>"));
     }
 
+    @Test
+    void shouldRenderOnlyWeaponAndOffenseTemperingCategoriesForSword() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "miecz.png",
+                "MAIN_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Miecz testowy", "Miecz", "LEGENDARY", true, EquipmentSlot.MAIN_HAND,
+                        900L, 1830L, 1350L, 1978L, 1664L, 1.10d, "")
+        );
+        HeroProfile activeHero = new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty());
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                null,
+                List.of(),
+                null,
+                activeHero,
+                "Import testowy",
+                ""
+        ));
+        String tempering = sectionByHeading(html, "Hartowanie");
+
+        assertTrue(tempering.contains(">Broń</option>"));
+        assertTrue(tempering.contains(">Ofensywa</option>"));
+        assertFalse(tempering.contains("Defensywa"));
+        assertFalse(tempering.contains("Funkcjonalność"));
+        assertFalse(tempering.contains("Mobilność"));
+        assertFalse(tempering.contains("Zasoby"));
+        assertTrue(tempering.contains("Katalog affixów tej kategorii nie został jeszcze uzupełniony."));
+    }
+
+    @Test
+    void shouldRenderShieldTemperingCategoriesAndDefenseCatalog() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Tarcza testowa", "Tarcza", "LEGENDARY", true, EquipmentSlot.OFF_HAND,
+                        900L, null, null, null, null, null, 1202L, "")
+        );
+        HeroProfile activeHero = new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty());
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                null,
+                List.of(),
+                null,
+                activeHero,
+                "Import testowy",
+                ""
+        ));
+        String tempering = sectionByHeading(html, "Hartowanie");
+
+        assertTrue(tempering.contains(">Broń</option>"));
+        assertTrue(tempering.contains(">Ofensywa</option>"));
+        assertTrue(tempering.contains(">Defensywa</option>"));
+        assertTrue(tempering.contains(">Funkcjonalność</option>"));
+        assertFalse(tempering.contains("Mobilność"));
+        assertFalse(tempering.contains("Zasoby"));
+        assertTrue(tempering.contains("value=\"defense_maximum_life\""));
+        assertTrue(tempering.contains("Defensywa: maksymalnego zdrowia"));
+        assertTrue(tempering.contains("1000 - 1500"));
+    }
+
     private static int countOccurrences(String value, String needle) {
         int count = 0;
         int index = value.indexOf(needle);
@@ -413,5 +497,18 @@ class ItemImportPageRendererTest {
             index = value.indexOf(needle, index + needle.length());
         }
         return count;
+    }
+
+    private static String sectionByHeading(String html, String heading) {
+        int headingIndex = html.indexOf("<h3>" + heading + "</h3>");
+        if (headingIndex < 0) {
+            throw new AssertionError("Brak sekcji: " + heading);
+        }
+        int start = html.lastIndexOf("<section", headingIndex);
+        int end = html.indexOf("</section>", headingIndex);
+        if (start < 0 || end < 0) {
+            throw new AssertionError("Nie udało się wyciąć sekcji: " + heading);
+        }
+        return html.substring(start, end + "</section>".length());
     }
 }

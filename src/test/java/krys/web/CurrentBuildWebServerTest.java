@@ -606,12 +606,18 @@ class CurrentBuildWebServerTest {
         assertFalse(directHitDebug.contains("Lucky Hit"));
         assertFalse(directHitDebug.contains("Umocnienie: zwiększone obrażenia"));
         String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
-        assertTrue(stepTrace.contains("<th>Wiara przed</th>"));
-        assertTrue(stepTrace.contains("<th>Koszt Wiary</th>"));
-        assertTrue(stepTrace.contains("<th>Generacja Wiary</th>"));
-        assertTrue(stepTrace.contains("<th>Regeneracja Wiary</th>"));
-        assertTrue(stepTrace.contains("<th>Wiara po</th>"));
-        assertTrue(stepTrace.contains("<td>100</td><td>25</td><td>20</td><td>+1,5</td><td>96,5</td>"));
+        assertTrue(stepTrace.contains("<th>Wiara</th>"));
+        assertFalse(stepTrace.contains("<th>Wiara przed</th>"));
+        assertFalse(stepTrace.contains("<th>Koszt Wiary</th>"));
+        assertFalse(stepTrace.contains("<th>Generacja Wiary</th>"));
+        assertFalse(stepTrace.contains("<th>Regeneracja Wiary</th>"));
+        assertFalse(stepTrace.contains("<th>Wiara po</th>"));
+        assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">przed</span><strong class=\"trace-resource-value\">100</strong>"));
+        assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">koszt</span><strong class=\"trace-resource-value trace-resource-negative\">-25</strong>"));
+        assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">gen.</span><strong class=\"trace-resource-value trace-resource-positive\">+20</strong>"));
+        assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">regen.</span><strong class=\"trace-resource-value trace-resource-positive\">+1,5</strong>"));
+        assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">po</span><strong class=\"trace-resource-value\">96,5</strong>"));
+        assertTrue(stepTrace.contains("<details class=\"trace-bar-state-details\"><summary>Stan</summary>"));
         assertTrue(stepTrace.contains("wiara=100"));
         assertTrue(stepTrace.contains("koszt wiary=25"));
     }
@@ -712,12 +718,17 @@ class CurrentBuildWebServerTest {
         assertTrue(directHitDebug.contains(damageResultCard("Trafienie krytyczne", "5224",
                 "damage-result-card damage-critical-card")));
         String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
-        assertTrue(stepTrace.contains("<th>Animusz przed</th>"));
-        assertTrue(stepTrace.contains("<th>Zużycie Animuszu</th>"));
-        assertTrue(stepTrace.contains("<th>Generacja Animuszu</th>"));
-        assertTrue(stepTrace.contains("<th>Animusz po</th>"));
+        assertTrue(stepTrace.contains("<th>Animusz</th>"));
+        assertFalse(stepTrace.contains("<th>Animusz przed</th>"));
+        assertFalse(stepTrace.contains("<th>Zużycie Animuszu</th>"));
+        assertFalse(stepTrace.contains("<th>Generacja Animuszu</th>"));
+        assertFalse(stepTrace.contains("<th>Animusz po</th>"));
         assertTrue(stepTrace.contains("<th>Buff Molocha</th>"));
-        assertTrue(stepTrace.contains("<td>100</td><td>25</td><td>20</td><td>+1,5</td><td>96,5</td><td>8</td><td>8</td><td>0</td><td>1</td><td>Aktywacja</td><td>5 s</td>"));
+        assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">przed</span><strong class=\"trace-resource-value\">8</strong>"));
+        assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">zużycie</span><strong class=\"trace-resource-value trace-resource-negative\">-8</strong>"));
+        assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">gen.</span><strong class=\"trace-resource-value\">0</strong>"));
+        assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">po</span><strong class=\"trace-resource-value\">1</strong>"));
+        assertTrue(stepTrace.contains("<td>Aktywacja</td><td>5 s</td>"));
     }
 
     @Test
@@ -745,7 +756,11 @@ class CurrentBuildWebServerTest {
         assertTrue(directHitDebug.contains("Brak bezpośrednich hitów w bieżącej symulacji."));
         String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
         assertTrue(stepTrace.contains("brak zasobu dla Starcie"));
-        assertTrue(stepTrace.contains("<td>0</td><td>0</td><td>0</td><td>+1,5</td><td>1,5</td>"));
+        assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">przed</span><strong class=\"trace-resource-value\">0</strong>"));
+        assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">koszt</span><strong class=\"trace-resource-value\">0</strong>"));
+        assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">gen.</span><strong class=\"trace-resource-value\">0</strong>"));
+        assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">regen.</span><strong class=\"trace-resource-value trace-resource-positive\">+1,5</strong>"));
+        assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">po</span><strong class=\"trace-resource-value\">1,5</strong>"));
         assertTrue(stepTrace.contains("koszt wiary=25"));
     }
 
@@ -1078,6 +1093,18 @@ class CurrentBuildWebServerTest {
         assertTrue(response.body().contains(summaryCard("DPS", "2873,2")));
         assertTrue(response.body().contains(summaryCard("Aktywacje Molocha", "2")));
         assertTrue(assignedSkillCard(response.body(), "CLASH").contains("<option value=\"animusz\" selected>Animusz</option>"));
+        String stepTrace = sectionByHeading(response.body(), "Ślad kroków symulacji");
+        assertTrue(stepTrace.contains("<th>Animusz</th>"));
+        assertFalse(stepTrace.contains("<th>Animusz przed</th>"));
+        assertFalse(stepTrace.contains("<th>Zużycie Animuszu</th>"));
+        assertFalse(stepTrace.contains("<th>Generacja Animuszu</th>"));
+        assertFalse(stepTrace.contains("<th>Animusz po</th>"));
+        String animusOneToThree = animusCell("1", "0", "+2", "3");
+        String animusThreeToFive = animusCell("3", "0", "+2", "5");
+        String animusFiveToSeven = animusCell("5", "0", "+2", "7");
+        String animusSevenToEight = animusCell("7", "0", "+1", "8");
+        String molochActivation = animusCell("8", "-8", "+2", "3") + "</td><td>Aktywacja</td>";
+        assertInOrder(stepTrace, animusOneToThree, animusThreeToFive, animusFiveToSeven, animusSevenToEight, molochActivation);
 
         HttpResponse<String> reloadResponse = sendGet("/policz-aktualny-build");
         assertEquals(200, reloadResponse.statusCode());
@@ -1811,6 +1838,30 @@ class CurrentBuildWebServerTest {
                 """;
     }
 
+    private static String animusCell(String before, String spent, String generated, String after) {
+        return "<div class=\"trace-resource-cell\">"
+                + traceResourceLine("przed", before, "")
+                + traceResourceLine("zużycie", spent, resourceClass(spent))
+                + traceResourceLine("gen.", generated, resourceClass(generated))
+                + traceResourceLine("po", after, "")
+                + "</div>";
+    }
+
+    private static String traceResourceLine(String label, String value, String valueClass) {
+        return "<div class=\"trace-resource-line\"><span class=\"trace-resource-label\">" + label
+                + "</span><strong class=\"trace-resource-value" + valueClass + "\">" + value + "</strong></div>";
+    }
+
+    private static String resourceClass(String value) {
+        if (value.startsWith("+")) {
+            return " trace-resource-positive";
+        }
+        if (value.startsWith("-")) {
+            return " trace-resource-negative";
+        }
+        return "";
+    }
+
     private static String damageResultCard(String label, String value, String extraClasses) {
         return "<article class=\"summary-card " + extraClasses + "\">\n"
                 + "    <div class=\"summary-label\">" + label + "</div>\n"
@@ -2158,6 +2209,20 @@ class CurrentBuildWebServerTest {
             index += needle.length();
         }
         return count;
+    }
+
+    private static void assertInOrder(String text, String... needles) {
+        int previousIndex = -1;
+        for (String needle : needles) {
+            int index = text.indexOf(needle, previousIndex + 1);
+            if (index < 0) {
+                throw new AssertionError("Brak tekstu: " + needle);
+            }
+            if (index <= previousIndex) {
+                throw new AssertionError("Tekst nie jest w oczekiwanej kolejności: " + needle);
+            }
+            previousIndex = index;
+        }
     }
 
     private HttpResponse<String> sendGet(String path) throws Exception {

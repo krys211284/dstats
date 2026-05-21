@@ -4,6 +4,7 @@ import krys.item.EquipmentSlot;
 import krys.itemimport.FullItemRead;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ItemImportDetails;
+import krys.tempering.ItemTemperingAffix;
 
 import java.util.List;
 
@@ -23,6 +24,7 @@ public final class SavedImportedItem {
     private final List<ImportedItemAffix> affixes;
     private final String selectedAspectId;
     private final ItemImportDetails details;
+    private final List<ItemTemperingAffix> temperingAffixes;
 
     public SavedImportedItem(long itemId,
                              String displayName,
@@ -98,6 +100,25 @@ public final class SavedImportedItem {
                              List<ImportedItemAffix> affixes,
                              String selectedAspectId,
                              ItemImportDetails details) {
+        this(itemId, displayName, sourceImageName, slot, weaponDamage, strength, intelligence, thorns,
+                blockChance, retributionChance, fullItemRead, affixes, selectedAspectId, details, List.of());
+    }
+
+    public SavedImportedItem(long itemId,
+                             String displayName,
+                             String sourceImageName,
+                             EquipmentSlot slot,
+                             long weaponDamage,
+                             double strength,
+                             double intelligence,
+                             double thorns,
+                             double blockChance,
+                             double retributionChance,
+                             FullItemRead fullItemRead,
+                             List<ImportedItemAffix> affixes,
+                             String selectedAspectId,
+                             ItemImportDetails details,
+                             List<ItemTemperingAffix> temperingAffixes) {
         if (itemId < 0L) {
             throw new IllegalArgumentException("Id itemu nie może być ujemne.");
         }
@@ -133,6 +154,7 @@ public final class SavedImportedItem {
         this.affixes = affixes == null ? List.of() : List.copyOf(affixes);
         this.selectedAspectId = selectedAspectId == null ? "" : selectedAspectId;
         this.details = details == null ? ItemImportDetails.empty() : details;
+        this.temperingAffixes = temperingAffixes == null ? List.of() : List.copyOf(temperingAffixes);
     }
 
     private static void validateNonNegative(String label, double value) {
@@ -195,6 +217,10 @@ public final class SavedImportedItem {
 
     public ItemImportDetails getDetails() {
         return details;
+    }
+
+    public List<ItemTemperingAffix> getTemperingAffixes() {
+        return temperingAffixes;
     }
 
     public String getItemName() {

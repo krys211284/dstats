@@ -1,6 +1,7 @@
 package krys.itemimport;
 
 import krys.item.EquipmentSlot;
+import krys.tempering.ItemTemperingAffix;
 
 import java.util.List;
 
@@ -17,6 +18,7 @@ public final class ValidatedImportedItem {
     private final List<ImportedItemAffix> affixes;
     private final String selectedAspectId;
     private final ItemImportDetails details;
+    private final List<ItemTemperingAffix> temperingAffixes;
 
     public ValidatedImportedItem(String sourceImageName,
                                  EquipmentSlot slot,
@@ -66,6 +68,22 @@ public final class ValidatedImportedItem {
                                  List<ImportedItemAffix> affixes,
                                  String selectedAspectId,
                                  ItemImportDetails details) {
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
+                affixes, selectedAspectId, details, List.of());
+    }
+
+    public ValidatedImportedItem(String sourceImageName,
+                                 EquipmentSlot slot,
+                                 long weaponDamage,
+                                 double strength,
+                                 double intelligence,
+                                 double thorns,
+                                 double blockChance,
+                                 double retributionChance,
+                                 List<ImportedItemAffix> affixes,
+                                 String selectedAspectId,
+                                 ItemImportDetails details,
+                                 List<ItemTemperingAffix> temperingAffixes) {
         this.sourceImageName = sourceImageName == null || sourceImageName.isBlank() ? "item" : sourceImageName;
         this.slot = slot;
         this.weaponDamage = weaponDamage;
@@ -77,6 +95,7 @@ public final class ValidatedImportedItem {
         this.affixes = affixes == null ? List.of() : List.copyOf(affixes);
         this.selectedAspectId = selectedAspectId == null ? "" : selectedAspectId;
         this.details = details == null ? ItemImportDetails.empty() : details;
+        this.temperingAffixes = temperingAffixes == null ? List.of() : List.copyOf(temperingAffixes);
     }
 
     public String getSourceImageName() {
@@ -121,6 +140,10 @@ public final class ValidatedImportedItem {
 
     public ItemImportDetails getDetails() {
         return details;
+    }
+
+    public List<ItemTemperingAffix> getTemperingAffixes() {
+        return temperingAffixes;
     }
 
     public String getItemName() {

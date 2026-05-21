@@ -117,7 +117,32 @@
             vertical-align: top;
         }
         .data-table thead th { color: var(--muted); font-weight: 700; }
-        .trace-table td:last-child { min-width: 320px; }
+        .trace-table td:last-child {
+            width: 220px;
+            min-width: 220px;
+        }
+        .trace-resource-cell {
+            display: grid;
+            gap: 3px;
+            min-width: 112px;
+        }
+        .trace-resource-line {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            line-height: 1.25;
+        }
+        .trace-resource-label { color: var(--muted); font-size: 0.82rem; }
+        .trace-resource-value { font-weight: 800; white-space: nowrap; }
+        .trace-resource-positive { color: var(--accent); }
+        .trace-resource-negative { color: var(--error); }
+        .trace-bar-state-details { max-width: 360px; }
+        .trace-bar-state-details > summary {
+            cursor: pointer;
+            color: var(--accent);
+            font-weight: 800;
+        }
+        .trace-bar-state-details[open] > summary { margin-bottom: 8px; }
         .bar-state-list { display: grid; gap: 6px; }
         .bar-state-item {
             padding: 8px 10px;

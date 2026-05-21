@@ -400,6 +400,63 @@
 })();
 
 (() => {
+    const rows = document.getElementById('temperingRows');
+    const count = document.getElementById('temperingCount');
+    const template = document.getElementById('temperingRowTemplate');
+    const addButton = document.getElementById('addTemperingButton');
+    const newCategory = document.querySelector('[name="newTemperingCategory"]');
+    const newDefinition = document.querySelector('[name="newTemperingDefinitionId"]');
+    const newValue = document.querySelector('[name="newTemperingValue"]');
+    if (!rows || !count || !template || !addButton || !newCategory || !newDefinition || !newValue) {
+        return;
+    }
+
+    const renumberRows = () => {
+        Array.from(rows.querySelectorAll('tr')).forEach((row, index) => {
+            row.querySelectorAll('select[name^="temperingCategory_"], select[name^="temperingDefinitionId_"], input[name^="temperingValue_"]').forEach(control => {
+                const base = control.name.substring(0, control.name.lastIndexOf('_'));
+                control.name = `${base}_${index}`;
+            });
+        });
+        count.value = rows.querySelectorAll('tr').length.toString();
+    };
+
+    rows.addEventListener('click', event => {
+        const button = event.target.closest('.remove-tempering-button');
+        if (!button) {
+            return;
+        }
+        const row = button.closest('tr');
+        if (row) {
+            row.remove();
+            renumberRows();
+        }
+    });
+
+    addButton.addEventListener('click', () => {
+        const index = rows.querySelectorAll('tr').length;
+        const wrapper = document.createElement('tbody');
+        wrapper.innerHTML = template.innerHTML.replaceAll('__INDEX__', index).replaceAll('__VALUE__', newValue.value);
+        const row = wrapper.querySelector('tr');
+        if (!row) {
+            return;
+        }
+        const category = row.querySelector(`select[name="temperingCategory_${index}"]`);
+        const definition = row.querySelector(`select[name="temperingDefinitionId_${index}"]`);
+        if (category) category.value = newCategory.value;
+        if (definition) definition.value = newDefinition.value;
+        rows.appendChild(row);
+        newValue.value = '';
+        renumberRows();
+    });
+
+    const form = rows.closest('form');
+    if (form) {
+        form.addEventListener('submit', renumberRows);
+    }
+})();
+
+(() => {
     const slotSelect = document.getElementById('itemSlotSelect');
     const aspectSelect = document.getElementById('aspectSelect');
     if (!slotSelect || !aspectSelect) {

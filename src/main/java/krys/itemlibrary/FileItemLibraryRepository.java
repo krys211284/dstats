@@ -8,6 +8,9 @@ import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ItemImportDetails;
+import krys.tempering.ItemTemperingAffix;
+import krys.tempering.TemperingCategory;
+import krys.tempering.TemperingRuntimeStatus;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -58,7 +61,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     item.getFullItemRead(),
                     item.getAffixes(),
                     item.getSelectedAspectId(),
-                    item.getDetails()
+                    item.getDetails(),
+                    item.getTemperingAffixes()
             );
         }
 
@@ -171,7 +175,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                 tokens.length >= 12 ? decodeFullItemRead(tokens[11]) : FullItemRead.empty(),
                 tokens.length >= 13 ? decodeAffixes(tokens[12]) : List.of(),
                 tokens.length >= 14 ? decode(tokens[13]) : "",
-                tokens.length >= 15 ? decodeDetails(tokens[14]) : ItemImportDetails.empty()
+                tokens.length >= 15 ? decodeDetails(tokens[14]) : ItemImportDetails.empty(),
+                tokens.length >= 16 ? decodeTemperingAffixes(tokens[15]) : List.of()
         );
     }
 
@@ -194,7 +199,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     encodeFullItemRead(item.getFullItemRead()),
                     encodeAffixes(item.getAffixes()),
                     encode(item.getSelectedAspectId()),
-                    encodeDetails(item.getDetails())
+                    encodeDetails(item.getDetails()),
+                    encodeTemperingAffixes(item.getTemperingAffixes())
             ));
         }
         try {
@@ -286,6 +292,20 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     encodeDouble(affix.getRollRangeMin()),
                     encodeDouble(affix.getRollRangeMax()),
                     encode(affix.getDisplayValue())
+            ));
+        }
+        return encode(String.join("\n", payloadLines));
+    }
+
+    private static String encodeTemperingAffixes(List<ItemTemperingAffix> affixes) {
+        List<String> payloadLines = new ArrayList<>();
+        for (ItemTemperingAffix affix : affixes) {
+            payloadLines.add(String.join("|",
+                    encode(affix.getDefinitionId()),
+                    affix.getCategory().name(),
+                    formatDouble(affix.getValue()),
+                    encode(affix.getDisplayText()),
+                    affix.getRuntimeStatus().name()
             ));
         }
         return encode(String.join("\n", payloadLines));
@@ -403,6 +423,28 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
             } else {
                 affixes.add(new ImportedItemAffix(type, value, tokens.length >= 3 ? decode(tokens[2]) : ""));
             }
+        }
+        return affixes;
+    }
+
+    private static List<ItemTemperingAffix> decodeTemperingAffixes(String encodedPayload) {
+        String payload = decode(encodedPayload);
+        List<ItemTemperingAffix> affixes = new ArrayList<>();
+        for (String line : payload.split("\\R")) {
+            if (line.isBlank()) {
+                continue;
+            }
+            String[] tokens = line.split("\\|", -1);
+            if (tokens.length < 5) {
+                continue;
+            }
+            affixes.add(new ItemTemperingAffix(
+                    decode(tokens[0]),
+                    TemperingCategory.valueOf(tokens[1]),
+                    Double.parseDouble(tokens[2]),
+                    decode(tokens[3]),
+                    TemperingRuntimeStatus.valueOf(tokens[4])
+            ));
         }
         return affixes;
     }

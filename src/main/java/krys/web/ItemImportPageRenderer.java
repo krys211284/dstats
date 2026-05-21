@@ -148,6 +148,7 @@ public final class ItemImportPageRenderer {
                             </div>
                 """)
                 .append(renderAffixEditor(form))
+                .append(TemperingSectionRenderer.renderEditor(form))
                 .append("""
                             <div class="submit-row">
                                 <button type="submit" name="formAction" value="confirmItem">Zatwierdź item</button>
@@ -196,6 +197,7 @@ public final class ItemImportPageRenderer {
                 .append("""
                         </div>
                     """)
+                .append(renderSavedTemperingSummary(savedItem))
                 .append("""
                     </section>
                 </section>
@@ -603,6 +605,22 @@ public final class ItemImportPageRenderer {
                 renderAffixTypeOptions(null),
                 renderAffixTypeOptions(null)
         ));
+        return html.toString();
+    }
+
+    private static String renderSavedTemperingSummary(SavedImportedItem item) {
+        if (item.getTemperingAffixes().isEmpty()) {
+            return "";
+        }
+        StringBuilder html = new StringBuilder("<section class=\"subpanel\"><h3>Hartowanie</h3><ul class=\"item-line-list\">");
+        for (krys.tempering.ItemTemperingAffix affix : item.getTemperingAffixes()) {
+            html.append("<li>")
+                    .append(escapeHtml(krys.tempering.TemperingPresentationSupport.formatAffix(affix, krys.tempering.ApplicationTemperingAffixRegistry.get())))
+                    .append(" — Status: ")
+                    .append(escapeHtml(affix.getRuntimeStatus().getDisplayName()))
+                    .append("</li>");
+        }
+        html.append("</ul></section>");
         return html.toString();
     }
 
