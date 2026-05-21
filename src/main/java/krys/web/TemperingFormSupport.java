@@ -35,6 +35,7 @@ final class TemperingFormSupport {
         String rawCategory = fields.getOrDefault("temperingCategory_" + index, "");
         String definitionId = fields.getOrDefault("temperingDefinitionId_" + index, "");
         String rawValue = fields.getOrDefault("temperingValue_" + index, "");
+        boolean greaterAffix = "true".equals(fields.getOrDefault("temperingGreaterAffix_" + index, ""));
         boolean empty = rawCategory.isBlank() && definitionId.isBlank() && rawValue.isBlank();
         if (empty) {
             return java.util.Optional.empty();
@@ -53,7 +54,7 @@ final class TemperingFormSupport {
             TemperingRuntimeStatus status = REGISTRY.findById(definitionId)
                     .map(TemperingAffixDefinition::getRuntimeStatus)
                     .orElse(TemperingRuntimeStatus.DATA_ONLY);
-            return java.util.Optional.of(new ItemTemperingAffix(definitionId, category, value, "", status));
+            return java.util.Optional.of(new ItemTemperingAffix(definitionId, category, value, "", status, greaterAffix));
         } catch (IllegalArgumentException exception) {
             errors.add("Hartowanie #" + (index + 1) + ": niepoprawna kategoria albo wartość.");
             return java.util.Optional.empty();

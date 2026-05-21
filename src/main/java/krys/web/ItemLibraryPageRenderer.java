@@ -292,7 +292,8 @@ public final class ItemLibraryPageRenderer {
         FullItemRead fullItemRead = item.getFullItemRead();
         if (fullItemRead == null || !fullItemRead.hasAnyData()) {
             return "<div class=\"status-note\">Brak zapisanego pełnego odczytu OCR dla tego itemu.</div>"
-                    + renderTemperingDetails(item);
+                    + renderTemperingDetails(item)
+                    + MasterworkingSectionRenderer.renderReadonlySummary(item.getMasterworking());
         }
         List<String> baseStats = collectBaseStats(fullItemRead);
         List<String> implicitLines = collectLines(fullItemRead, ItemReadLineGroup.IMPLICIT);
@@ -327,6 +328,7 @@ public final class ItemLibraryPageRenderer {
                 .append(renderTextLineGroup("Linie bazowe", implicitLines))
                 .append(renderTextLineGroup("Affixy", affixLines))
                 .append(renderTemperingDetails(item))
+                .append(MasterworkingSectionRenderer.renderReadonlySummary(item.getMasterworking()))
                 .append(renderAspectDetails(item))
                 .append(renderTextLineGroup("Socket / gniazdo", socketLines))
                 .append("</div>");
@@ -342,6 +344,7 @@ public final class ItemLibraryPageRenderer {
             lines.add(affix.getCategory().getDisplayName()
                     + ": "
                     + TemperingPresentationSupport.formatAffix(affix, ApplicationTemperingAffixRegistry.get())
+                    + (affix.isGreaterAffix() ? " | Greater Affix / Gwiazdka" : "")
                     + " | Status: "
                     + affix.getRuntimeStatus().getDisplayName());
         }
@@ -804,6 +807,9 @@ public final class ItemLibraryPageRenderer {
         }
         if (line.getType() == FullItemReadLineType.SOCKET) {
             return ItemReadLineGroup.SOCKET;
+        }
+        if (line.getType() == FullItemReadLineType.TEMPERING) {
+            return ItemReadLineGroup.AFFIX;
         }
         if (line.getType() == FullItemReadLineType.AFFIX && !normalized.contains("ROZJUSZENIE")) {
             return ItemReadLineGroup.AFFIX;

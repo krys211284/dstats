@@ -27,6 +27,7 @@ import krys.skill.SkillUpgradeChoice;
 import krys.tempering.ApplicationTemperingAffixRegistry;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingPresentationSupport;
+import krys.tempering.TemperingRuntimeSupport;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -884,8 +885,9 @@ public final class CurrentBuildPageRenderer {
         String weaponSection = renderSlotContributionSection("Broń", buildSlotWeaponChips(item));
         String statsSection = renderSlotContributionSection("Wkład w statystyki", buildSlotStatChips(item));
         String temperingSection = renderSlotContributionSection("Hartowanie", buildSlotTemperingChips(item));
+        String masterworkingSection = renderSlotContributionSection("Doskonalenie", buildSlotMasterworkingChips(item));
         String effectsSection = renderSlotContributionSection("Efekty opisowe", buildSlotEffectChips(item));
-        String content = weaponSection + statsSection + temperingSection + effectsSection;
+        String content = weaponSection + statsSection + temperingSection + masterworkingSection + effectsSection;
         if (content.isBlank()) {
             return "<p class=\"slot-contribution\">Brak wkładu</p>";
         }
@@ -967,11 +969,25 @@ public final class CurrentBuildPageRenderer {
         for (ItemTemperingAffix affix : item.getTemperingAffixes()) {
             chips.add(affix.getCategory().getDisplayName()
                     + ": "
-                    + TemperingPresentationSupport.formatAffix(affix, ApplicationTemperingAffixRegistry.get())
+                    + (affix.isGreaterAffix() ? "★ " : "")
+                    + TemperingPresentationSupport.formatSavedAffixEffect(affix, ApplicationTemperingAffixRegistry.get())
+                    + (affix.isGreaterAffix() ? " | Greater Affix / Gwiazdka" : "")
                     + " | "
-                    + affix.getRuntimeStatus().getDisplayName());
+                    + activeSlotTemperingRuntimeStatus(affix));
         }
         return chips;
+    }
+
+    private static List<String> buildSlotMasterworkingChips(SavedImportedItem item) {
+        String chip = MasterworkingSectionRenderer.compactChip(item.getMasterworking());
+        return chip.isBlank() ? List.of() : List.of(chip);
+    }
+
+    private static String activeSlotTemperingRuntimeStatus(ItemTemperingAffix affix) {
+        if (TemperingRuntimeSupport.affectsMaximumAnimus(affix)) {
+            return "Runtime aktywny: +" + ItemLibraryPresentationSupport.formatWhole(affix.getValue()) + " max Animusz";
+        }
+        return TemperingPresentationSupport.compactRuntimeStatus(affix.getRuntimeStatus());
     }
 
     private static String luckyHitResourceValue(ImportedItemAffix affix) {

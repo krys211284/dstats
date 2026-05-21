@@ -76,6 +76,12 @@ final class CurrentBuildFormQuerySupport {
 
     static CurrentBuildFormData withAppliedStats(CurrentBuildFormData baseFormData,
                                                  CurrentBuildImportableStats appliedStats) {
+        return withAppliedStatsAndMaxAnimus(baseFormData, appliedStats, baseFormData.getMaxAnimus());
+    }
+
+    static CurrentBuildFormData withAppliedStatsAndMaxAnimus(CurrentBuildFormData baseFormData,
+                                                             CurrentBuildImportableStats appliedStats,
+                                                             String maxAnimus) {
         Map<SkillId, CurrentBuildFormData.SkillConfigFormData> copiedSkillConfigs = new EnumMap<>(SkillId.class);
         for (SkillId skillId : SkillId.values()) {
             CurrentBuildFormData.SkillConfigFormData skillConfig = baseFormData.getSkillConfig(skillId);
@@ -110,10 +116,22 @@ final class CurrentBuildFormQuerySupport {
                 baseFormData.getPrimaryResourceRegenPerSecond(),
                 baseFormData.getSelectedPaladinOathId(),
                 baseFormData.getInitialAnimus(),
-                baseFormData.getMaxAnimus(),
+                maxAnimus,
                 copiedSkillConfigs,
                 actionBarSlots
         );
+    }
+
+    static CurrentBuildFormData withMaxAnimus(CurrentBuildFormData baseFormData, String maxAnimus) {
+        CurrentBuildImportableStats currentStats = new CurrentBuildImportableStats(
+                Long.parseLong(baseFormData.getWeaponDamage()),
+                Double.parseDouble(baseFormData.getStrength()),
+                Double.parseDouble(baseFormData.getIntelligence()),
+                Double.parseDouble(baseFormData.getThorns()),
+                Double.parseDouble(baseFormData.getBlockChance()),
+                Double.parseDouble(baseFormData.getRetributionChance())
+        );
+        return withAppliedStatsAndMaxAnimus(baseFormData, currentStats, maxAnimus);
     }
 
     static CurrentBuildFormData withHeroLevel(CurrentBuildFormData baseFormData, int heroLevel) {

@@ -37,6 +37,23 @@ final class CurrentBuildRuntimeInputResolver {
         );
     }
 
+    CurrentBuildFormData applyRuntimeResourceBonuses(CurrentBuildFormData formData,
+                                                     EffectiveCurrentBuildResolution libraryResolution) {
+        return CurrentBuildFormQuerySupport.withMaxAnimus(
+                formData,
+                formatMaxAnimus(resolveMaximumAnimus(formData, libraryResolution))
+        );
+    }
+
+    static double resolveMaximumAnimus(CurrentBuildFormData formData,
+                                       EffectiveCurrentBuildResolution libraryResolution) {
+        double baseMaxAnimus = parseDouble(formData == null ? null : formData.getMaxAnimus());
+        if (libraryResolution == null || libraryResolution.getActiveHeroItemStats() == null) {
+            return baseMaxAnimus;
+        }
+        return baseMaxAnimus + libraryResolution.getActiveHeroItemStats().getMaxAnimusFromTempering();
+    }
+
     private static long resolveWeaponDamage(CurrentHeroActiveItemStats activeItemStats,
                                             CurrentBuildImportableStats activeItemsContribution) {
         Long averageWeaponDamage = activeItemStats.getAverageWeaponDamage();
@@ -55,5 +72,20 @@ final class CurrentBuildRuntimeInputResolver {
         } catch (NumberFormatException exception) {
             return 1;
         }
+    }
+
+    private static double parseDouble(String value) {
+        try {
+            return Double.parseDouble(value);
+        } catch (NumberFormatException | NullPointerException exception) {
+            return 0.0d;
+        }
+    }
+
+    private static String formatMaxAnimus(double value) {
+        if (Math.rint(value) == value) {
+            return Long.toString(Math.round(value));
+        }
+        return Double.toString(value);
     }
 }

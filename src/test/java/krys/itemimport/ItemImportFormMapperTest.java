@@ -4,6 +4,7 @@ import krys.item.EquipmentSlot;
 import krys.itemlibrary.FileItemLibraryRepository;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
+import krys.masterworking.ItemMasterworking;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -166,6 +167,56 @@ class ItemImportFormMapperTest {
 
         assertNull(result.getItem());
         assertTrue(result.getErrors().contains("Wybrany aspekt nie pasuje do slotu itemu."));
+    }
+
+    @Test
+    void shouldValidateMasterworkingQualityRange() {
+        assertMasterworkingAccepted(new ItemMasterworking(true, 0, 25));
+        assertMasterworkingAccepted(new ItemMasterworking(true, 25, 25));
+
+        assertMasterworkingRejected(new ItemMasterworking(true, -1, 25), "Jakość aktualna musi mieścić się w zakresie 0 - 25");
+        assertMasterworkingRejected(new ItemMasterworking(true, 26, 25), "Jakość aktualna musi mieścić się w zakresie 0 - 25");
+        assertMasterworkingRejected(new ItemMasterworking(true, 0, 0), "Jakość maksymalna musi wynosić 25");
+        assertMasterworkingRejected(new ItemMasterworking(true, 0, 24), "Jakość maksymalna musi wynosić 25");
+    }
+
+    private static void assertMasterworkingAccepted(ItemMasterworking masterworking) {
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(formWithMasterworking(masterworking));
+
+        assertTrue(result.getErrors().isEmpty(), () -> String.join(", ", result.getErrors()));
+        assertEquals(masterworking.isEnabled(), result.getItem().getMasterworking().isEnabled());
+        assertEquals(masterworking.getQualityCurrent(), result.getItem().getMasterworking().getQualityCurrent());
+        assertEquals(25, result.getItem().getMasterworking().getQualityMax());
+    }
+
+    private static void assertMasterworkingRejected(ItemMasterworking masterworking, String expectedErrorFragment) {
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(formWithMasterworking(masterworking));
+
+        assertNull(result.getItem());
+        assertTrue(result.getErrors().stream().anyMatch(error -> error.contains(expectedErrorFragment)),
+                () -> String.join(", ", result.getErrors()));
+    }
+
+    private static ItemImportEditableForm formWithMasterworking(ItemMasterworking masterworking) {
+        return new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "20",
+                "0",
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Tarcza", "Tarcza", "LEGENDARY", true, EquipmentSlot.OFF_HAND,
+                        900L, null, null, null, null, null, 1202L, ""),
+                List.of(),
+                masterworking
+        );
     }
 
     @Test

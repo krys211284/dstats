@@ -14,6 +14,10 @@ public final class TemperingPresentationSupport {
                 + formatValue(definition.getRangeMax(), definition.getUnit());
     }
 
+    public static String formatGreaterAffixValue(TemperingAffixDefinition definition) {
+        return formatFlexibleValue(definition.greaterAffixValue());
+    }
+
     public static String formatAffix(ItemTemperingAffix affix, TemperingAffixRegistry registry) {
         if (affix == null) {
             return "";
@@ -22,10 +26,29 @@ public final class TemperingPresentationSupport {
             return affix.getDisplayText();
         }
         return registry.findById(affix.getDefinitionId())
-                .map(definition -> "+" + formatValue(affix.getValue(), definition.getUnit())
+                .map(definition -> "+" + formatAffixValue(affix, definition)
                         + (definition.getUnit() == TemperingValueUnit.PERCENT ? "% " : " ")
                         + definition.getDisplayName())
-                .orElse("+" + formatValue(affix.getValue(), TemperingValueUnit.FLAT) + " " + affix.getDefinitionId());
+                .orElse("+" + formatFlexibleValue(affix.getValue()) + " " + affix.getDefinitionId());
+    }
+
+    public static String formatSavedAffixEffect(ItemTemperingAffix affix, TemperingAffixRegistry registry) {
+        if (affix == null) {
+            return "";
+        }
+        String label = formatAffix(affix, registry);
+        String categoryPrefix = affix.getCategory().getDisplayName() + ": ";
+        if (label.startsWith(categoryPrefix)) {
+            return label.substring(categoryPrefix.length());
+        }
+        return label;
+    }
+
+    public static String compactRuntimeStatus(TemperingRuntimeStatus status) {
+        if (status == TemperingRuntimeStatus.DATA_ONLY || status == TemperingRuntimeStatus.NOT_RUNTIME_ENABLED) {
+            return "Runtime nieaktywny";
+        }
+        return status.getDisplayName();
     }
 
     public static String formatValue(double value, TemperingValueUnit unit) {
@@ -34,5 +57,20 @@ public final class TemperingPresentationSupport {
                 .setScale(scale, RoundingMode.HALF_UP)
                 .toPlainString()
                 .replace('.', ',');
+    }
+
+    private static String formatFlexibleValue(double value) {
+        return BigDecimal.valueOf(value)
+                .setScale(2, RoundingMode.HALF_UP)
+                .stripTrailingZeros()
+                .toPlainString()
+                .replace('.', ',');
+    }
+
+    private static String formatAffixValue(ItemTemperingAffix affix, TemperingAffixDefinition definition) {
+        if (affix.isGreaterAffix()) {
+            return formatFlexibleValue(affix.getValue());
+        }
+        return formatValue(affix.getValue(), definition.getUnit());
     }
 }

@@ -11,6 +11,7 @@ public final class TemperingAffixDefinition {
     private final TemperingValueUnit unit;
     private final TemperingRuntimeStatus runtimeStatus;
     private final String notes;
+    private final Double greaterAffixValueOverride;
 
     public TemperingAffixDefinition(String id,
                                     TemperingCategory category,
@@ -21,6 +22,19 @@ public final class TemperingAffixDefinition {
                                     TemperingValueUnit unit,
                                     TemperingRuntimeStatus runtimeStatus,
                                     String notes) {
+        this(id, category, displayName, descriptionTemplate, rangeMin, rangeMax, unit, runtimeStatus, notes, null);
+    }
+
+    public TemperingAffixDefinition(String id,
+                                    TemperingCategory category,
+                                    String displayName,
+                                    String descriptionTemplate,
+                                    double rangeMin,
+                                    double rangeMax,
+                                    TemperingValueUnit unit,
+                                    TemperingRuntimeStatus runtimeStatus,
+                                    String notes,
+                                    Double greaterAffixValueOverride) {
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("Id hartowania jest wymagane.");
         }
@@ -42,6 +56,7 @@ public final class TemperingAffixDefinition {
         this.unit = unit == null ? TemperingValueUnit.FLAT : unit;
         this.runtimeStatus = runtimeStatus == null ? TemperingRuntimeStatus.DATA_ONLY : runtimeStatus;
         this.notes = notes == null ? "" : notes;
+        this.greaterAffixValueOverride = greaterAffixValueOverride;
     }
 
     public String getId() {
@@ -78,6 +93,17 @@ public final class TemperingAffixDefinition {
 
     public String getNotes() {
         return notes;
+    }
+
+    public Double getGreaterAffixValueOverride() {
+        return greaterAffixValueOverride;
+    }
+
+    public double greaterAffixValue() {
+        if (greaterAffixValueOverride != null) {
+            return greaterAffixValueOverride;
+        }
+        return rangeMax * 1.25d;
     }
 
     public boolean accepts(double value) {

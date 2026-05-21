@@ -26,6 +26,7 @@
                 linear-gradient(180deg, #faf7f2 0%, var(--bg) 100%);
         }
         .layout { max-width: 1160px; margin: 0 auto; padding: 28px 16px 48px; }
+        .layout.wide-item-page { max-width: 1500px; }
         .app-nav {
             display: flex;
             flex-wrap: wrap;
@@ -221,6 +222,126 @@
             justify-content: flex-end;
             gap: 8px;
         }
+        .tempering-readonly-list {
+            display: grid;
+            gap: 12px;
+            margin-top: 12px;
+        }
+        .tempering-readonly-card {
+            display: grid;
+            grid-template-columns: minmax(120px, 0.45fr) minmax(320px, 1.4fr) minmax(120px, 0.4fr) minmax(180px, 0.55fr) minmax(220px, 0.75fr) minmax(180px, 0.6fr) auto;
+            gap: 12px;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid rgba(109, 102, 92, 0.18);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.84);
+        }
+        .tempering-readonly-field {
+            display: grid;
+            gap: 4px;
+            min-width: 0;
+        }
+        .tempering-readonly-label {
+            color: var(--muted);
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+        .tempering-readonly-value {
+            overflow-wrap: anywhere;
+        }
+        .tempering-readonly-actions {
+            display: flex;
+            justify-content: flex-end;
+        }
+        .tempering-existing-card {
+            display: grid;
+            grid-template-columns: minmax(110px, 0.5fr) minmax(320px, 1.8fr) minmax(150px, 0.55fr) auto;
+            gap: 12px;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid rgba(109, 102, 92, 0.18);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.84);
+        }
+        .tempering-existing-header {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            min-width: 0;
+        }
+        .tempering-existing-category {
+            font-weight: 800;
+        }
+        .tempering-existing-affix {
+            overflow-wrap: anywhere;
+        }
+        .tempering-greater-badge,
+        .tempering-runtime-status {
+            display: inline-flex;
+            width: fit-content;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(30, 85, 102, 0.18);
+            background: #f8fbfc;
+            color: var(--accent);
+            font-size: 0.84rem;
+            font-weight: 700;
+        }
+        .tempering-runtime-status {
+            color: var(--muted);
+            border-color: rgba(109, 102, 92, 0.18);
+            background: #fff;
+        }
+        .tempering-existing-actions {
+            display: flex;
+            justify-content: flex-end;
+        }
+        .tempering-add-card {
+            margin-top: 14px;
+            padding: 14px;
+            border: 1px solid rgba(109, 102, 92, 0.18);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.72);
+        }
+        .tempering-add-grid {
+            display: grid;
+            grid-template-columns: minmax(140px, 0.55fr) minmax(360px, 1.8fr) minmax(150px, 0.5fr) minmax(220px, 0.75fr) auto;
+            gap: 12px;
+            align-items: start;
+        }
+        .tempering-add-field-affix {
+            min-width: 0;
+        }
+        .tempering-add-field-action {
+            align-self: end;
+        }
+        .tempering-validation-message {
+            grid-column: 1 / -1;
+        }
+        .tempering-validation-message .helper {
+            color: var(--error);
+        }
+        .masterworking-grid {
+            display: grid;
+            grid-template-columns: minmax(160px, 0.55fr) minmax(160px, 0.55fr) minmax(220px, 1fr);
+            gap: 12px;
+            align-items: end;
+        }
+        .masterworking-runtime-status {
+            display: inline-flex;
+            width: fit-content;
+            align-items: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(109, 102, 92, 0.18);
+            background: #fff;
+            color: var(--muted);
+            font-weight: 700;
+        }
         .empty-state {
             padding: 18px;
             border: 1px dashed rgba(109, 102, 92, 0.22);
@@ -267,10 +388,16 @@
         @media (max-width: 900px) {
             .manual-confirm-grid { grid-template-columns: 1fr; }
             .aspect-effect-fieldset,
-            .item-affix-add-grid {
+            .item-affix-add-grid,
+            .tempering-add-grid,
+            .tempering-readonly-card,
+            .tempering-existing-card,
+            .masterworking-grid {
                 grid-template-columns: 1fr;
             }
-            .item-affix-add-actions {
+            .item-affix-add-actions,
+            .tempering-readonly-actions,
+            .tempering-existing-actions {
                 justify-content: flex-start;
             }
             .data-table, .data-table thead, .data-table tbody, .data-table tr, .data-table th, .data-table td { display: block; }
@@ -289,7 +416,7 @@
     </style>
 </head>
 <body>
-<main class="layout">
+<main class="layout wide-item-page">
     {{GLOBAL_NAV}}
 
     <header class="hero">
@@ -399,62 +526,7 @@
     }
 })();
 
-(() => {
-    const rows = document.getElementById('temperingRows');
-    const count = document.getElementById('temperingCount');
-    const template = document.getElementById('temperingRowTemplate');
-    const addButton = document.getElementById('addTemperingButton');
-    const newCategory = document.querySelector('[name="newTemperingCategory"]');
-    const newDefinition = document.querySelector('[name="newTemperingDefinitionId"]');
-    const newValue = document.querySelector('[name="newTemperingValue"]');
-    if (!rows || !count || !template || !addButton || !newCategory || !newDefinition || !newValue) {
-        return;
-    }
-
-    const renumberRows = () => {
-        Array.from(rows.querySelectorAll('tr')).forEach((row, index) => {
-            row.querySelectorAll('select[name^="temperingCategory_"], select[name^="temperingDefinitionId_"], input[name^="temperingValue_"]').forEach(control => {
-                const base = control.name.substring(0, control.name.lastIndexOf('_'));
-                control.name = `${base}_${index}`;
-            });
-        });
-        count.value = rows.querySelectorAll('tr').length.toString();
-    };
-
-    rows.addEventListener('click', event => {
-        const button = event.target.closest('.remove-tempering-button');
-        if (!button) {
-            return;
-        }
-        const row = button.closest('tr');
-        if (row) {
-            row.remove();
-            renumberRows();
-        }
-    });
-
-    addButton.addEventListener('click', () => {
-        const index = rows.querySelectorAll('tr').length;
-        const wrapper = document.createElement('tbody');
-        wrapper.innerHTML = template.innerHTML.replaceAll('__INDEX__', index).replaceAll('__VALUE__', newValue.value);
-        const row = wrapper.querySelector('tr');
-        if (!row) {
-            return;
-        }
-        const category = row.querySelector(`select[name="temperingCategory_${index}"]`);
-        const definition = row.querySelector(`select[name="temperingDefinitionId_${index}"]`);
-        if (category) category.value = newCategory.value;
-        if (definition) definition.value = newDefinition.value;
-        rows.appendChild(row);
-        newValue.value = '';
-        renumberRows();
-    });
-
-    const form = rows.closest('form');
-    if (form) {
-        form.addEventListener('submit', renumberRows);
-    }
-})();
+{{TEMPERING_SCRIPT}}
 
 (() => {
     const slotSelect = document.getElementById('itemSlotSelect');

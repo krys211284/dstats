@@ -24,6 +24,7 @@ public final class SimulationStepTrace {
     private final double primaryResourceAfter;
     private final double animusBefore;
     private final double animusSpent;
+    private final double animusMinimum;
     private final double animusGenerated;
     private final double animusAfter;
     private final boolean molochBuffActivated;
@@ -66,7 +67,7 @@ public final class SimulationStepTrace {
         this(second, actionType, actionName, directDamage, delayedDamage, reactiveDamage, totalStepDamage,
                 cumulativeDamage, skillBarStates, selectionReason, tickOrderLabel,
                 primaryResourceBefore, primaryResourceCost, primaryResourceGenerated, primaryResourceRegenerated,
-                primaryResourceAfter, 0.0d, 0.0d, 0.0d, 0.0d, false, false, 0);
+                primaryResourceAfter, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d, false, false, 0);
     }
 
     public SimulationStepTrace(int second,
@@ -92,6 +93,37 @@ public final class SimulationStepTrace {
                                boolean molochBuffActivated,
                                boolean molochBuffActive,
                                int molochBuffRemainingSeconds) {
+        this(second, actionType, actionName, directDamage, delayedDamage, reactiveDamage, totalStepDamage,
+                cumulativeDamage, skillBarStates, selectionReason, tickOrderLabel,
+                primaryResourceBefore, primaryResourceCost, primaryResourceGenerated, primaryResourceRegenerated,
+                primaryResourceAfter, animusBefore, animusSpent, 0.0d, animusGenerated, animusAfter,
+                molochBuffActivated, molochBuffActive, molochBuffRemainingSeconds);
+    }
+
+    public SimulationStepTrace(int second,
+                               SimulationActionType actionType,
+                               String actionName,
+                               long directDamage,
+                               long delayedDamage,
+                               long reactiveDamage,
+                               long totalStepDamage,
+                               long cumulativeDamage,
+                               List<SkillBarStateTrace> skillBarStates,
+                               String selectionReason,
+                               String tickOrderLabel,
+                               double primaryResourceBefore,
+                               double primaryResourceCost,
+                               double primaryResourceGenerated,
+                               double primaryResourceRegenerated,
+                               double primaryResourceAfter,
+                               double animusBefore,
+                               double animusSpent,
+                               double animusMinimum,
+                               double animusGenerated,
+                               double animusAfter,
+                               boolean molochBuffActivated,
+                               boolean molochBuffActive,
+                               int molochBuffRemainingSeconds) {
         this.second = second;
         this.actionType = actionType;
         this.actionName = actionName;
@@ -110,6 +142,7 @@ public final class SimulationStepTrace {
         this.primaryResourceAfter = primaryResourceAfter;
         this.animusBefore = animusBefore;
         this.animusSpent = animusSpent;
+        this.animusMinimum = animusMinimum;
         this.animusGenerated = animusGenerated;
         this.animusAfter = animusAfter;
         this.molochBuffActivated = molochBuffActivated;
@@ -187,6 +220,10 @@ public final class SimulationStepTrace {
 
     public double getAnimusSpent() {
         return animusSpent;
+    }
+
+    public double getAnimusMinimum() {
+        return animusMinimum;
     }
 
     public double getAnimusGenerated() {

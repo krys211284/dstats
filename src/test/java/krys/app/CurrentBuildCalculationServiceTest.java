@@ -283,6 +283,7 @@ class CurrentBuildCalculationServiceTest {
         SimulationStepTrace secondStep = calculation.getResult().getStepTrace().get(1);
         assertEquals(8.0d, secondStep.getAnimusBefore(), 0.0000001d);
         assertEquals(8.0d, secondStep.getAnimusSpent(), 0.0000001d);
+        assertEquals(1.0d, secondStep.getAnimusMinimum(), 0.0000001d);
         assertEquals(2.0d, secondStep.getAnimusGenerated(), 0.0000001d);
         assertEquals(3.0d, secondStep.getAnimusAfter(), 0.0000001d);
         assertEquals(3380L, secondStep.getDirectDamage());
@@ -313,6 +314,7 @@ class CurrentBuildCalculationServiceTest {
         SimulationStepTrace firstStep = calculation.getResult().getStepTrace().getFirst();
         assertEquals(8.0d, firstStep.getAnimusBefore(), 0.0000001d);
         assertEquals(8.0d, firstStep.getAnimusSpent(), 0.0000001d);
+        assertEquals(1.0d, firstStep.getAnimusMinimum(), 0.0000001d);
         assertEquals(1.0d, firstStep.getAnimusAfter(), 0.0000001d);
         assertTrue(firstStep.isMolochBuffActivated());
         assertTrue(firstStep.isMolochBuffActive());
@@ -331,15 +333,16 @@ class CurrentBuildCalculationServiceTest {
         assertEquals(28732L, calculation.getResult().getTotalDamage());
         assertEquals(2873.2d, calculation.getResult().getDps(), 0.0000001d);
         assertEquals(65.0d, calculation.getResult().getFinalPrimaryResource(), 0.0000001d);
-        assertEquals(5.0d, calculation.getResult().getFinalAnimus(), 0.0000001d);
+        assertEquals(3.0d, calculation.getResult().getFinalAnimus(), 0.0000001d);
         assertEquals(2, calculation.getResult().getMolochBuffActivationCount());
-        assertEquals(18.0d, calculation.getResult().getTotalClashAnimusGenerated(), 0.0000001d);
+        assertEquals(16.0d, calculation.getResult().getTotalClashAnimusGenerated(), 0.0000001d);
         assertEquals(6, calculation.getResult().getStepTrace().stream()
                 .filter(step -> step.getDirectDamage() == 3380L)
                 .count());
         assertEquals(2113L, calculation.getResult().getStepTrace().get(3).getDirectDamage());
         assertEquals(3380L, calculation.getResult().getStepTrace().get(4).getDirectDamage());
-        assertTrue(calculation.getResult().getStepTrace().get(8).isMolochBuffActivated());
+        assertFalse(calculation.getResult().getStepTrace().get(8).isMolochBuffActivated());
+        assertTrue(calculation.getResult().getStepTrace().get(9).isMolochBuffActivated());
     }
 
     @Test
@@ -351,12 +354,72 @@ class CurrentBuildCalculationServiceTest {
         assertEquals(33800L, calculation.getResult().getTotalDamage());
         assertEquals(3380.0d, calculation.getResult().getDps(), 0.0000001d);
         assertEquals(65.0d, calculation.getResult().getFinalPrimaryResource(), 0.0000001d);
-        assertEquals(5.0d, calculation.getResult().getFinalAnimus(), 0.0000001d);
-        assertEquals(3, calculation.getResult().getMolochBuffActivationCount());
-        assertEquals(18.0d, calculation.getResult().getTotalClashAnimusGenerated(), 0.0000001d);
+        assertEquals(8.0d, calculation.getResult().getFinalAnimus(), 0.0000001d);
+        assertEquals(2, calculation.getResult().getMolochBuffActivationCount());
+        assertEquals(14.0d, calculation.getResult().getTotalClashAnimusGenerated(), 0.0000001d);
         assertEquals(10, calculation.getResult().getStepTrace().stream()
                 .filter(step -> step.getDirectDamage() == 3380L)
                 .count());
+        SimulationStepTrace secondStep = calculation.getResult().getStepTrace().get(1);
+        assertTrue(secondStep.isMolochBuffActive());
+        assertFalse(secondStep.isMolochBuffActivated());
+        assertEquals(0.0d, secondStep.getAnimusSpent(), 0.0000001d);
+        assertEquals(4, secondStep.getMolochBuffRemainingSeconds());
+    }
+
+    @Test
+    void moloch_z_max_animus_13_po_aktywacji_zostawia_7_i_nie_reaktywuje_buffa_w_trakcie() {
+        CurrentBuildRequest request = clashVerathielRequest(PaladinOathId.JUGGERNAUT.name(), 13.0d, true, 10, 13.0d);
+
+        CurrentBuildCalculation calculation = calculationService.calculate(request);
+
+        assertEquals(33800L, calculation.getResult().getTotalDamage());
+        assertEquals(3380.0d, calculation.getResult().getDps(), 0.0000001d);
+        assertEquals(13.0d, calculation.getResult().getMaxAnimus(), 0.0000001d);
+        assertEquals(13.0d, calculation.getResult().getFinalAnimus(), 0.0000001d);
+        assertEquals(2, calculation.getResult().getMolochBuffActivationCount());
+        assertEquals(10, calculation.getResult().getStepTrace().stream()
+                .filter(step -> step.getDirectDamage() == 3380L)
+                .count());
+
+        SimulationStepTrace firstStep = calculation.getResult().getStepTrace().getFirst();
+        assertEquals(13.0d, firstStep.getAnimusBefore(), 0.0000001d);
+        assertEquals(8.0d, firstStep.getAnimusSpent(), 0.0000001d);
+        assertEquals(1.0d, firstStep.getAnimusMinimum(), 0.0000001d);
+        assertEquals(2.0d, firstStep.getAnimusGenerated(), 0.0000001d);
+        assertEquals(7.0d, firstStep.getAnimusAfter(), 0.0000001d);
+        assertTrue(firstStep.isMolochBuffActivated());
+        assertTrue(firstStep.isMolochBuffActive());
+
+        SimulationStepTrace secondStep = calculation.getResult().getStepTrace().get(1);
+        assertTrue(secondStep.isMolochBuffActive());
+        assertFalse(secondStep.isMolochBuffActivated());
+        assertEquals(0.0d, secondStep.getAnimusSpent(), 0.0000001d);
+        assertEquals(9.0d, secondStep.getAnimusAfter(), 0.0000001d);
+
+        SimulationStepTrace sixthStep = calculation.getResult().getStepTrace().get(5);
+        assertTrue(sixthStep.isMolochBuffActivated());
+        assertEquals(13.0d, sixthStep.getAnimusBefore(), 0.0000001d);
+        assertEquals(7.0d, sixthStep.getAnimusAfter(), 0.0000001d);
+    }
+
+    @Test
+    void moloch_z_max_animus_13_i_initial_1_buduje_animusz_do_aktywacji() {
+        CurrentBuildRequest request = clashVerathielRequest(PaladinOathId.JUGGERNAUT.name(), 1.0d, true, 10, 13.0d);
+
+        CurrentBuildCalculation calculation = calculationService.calculate(request);
+
+        assertEquals(28732L, calculation.getResult().getTotalDamage());
+        assertEquals(2873.2d, calculation.getResult().getDps(), 0.0000001d);
+        assertEquals(13.0d, calculation.getResult().getMaxAnimus(), 0.0000001d);
+        assertEquals(5.0d, calculation.getResult().getFinalAnimus(), 0.0000001d);
+        assertEquals(2, calculation.getResult().getMolochBuffActivationCount());
+        assertEquals(6, calculation.getResult().getStepTrace().stream()
+                .filter(step -> step.getDirectDamage() == 3380L)
+                .count());
+        assertFalse(calculation.getResult().getStepTrace().get(3).isMolochBuffActivated());
+        assertEquals(9.0d, calculation.getResult().getStepTrace().get(3).getAnimusAfter(), 0.0000001d);
+        assertTrue(calculation.getResult().getStepTrace().get(4).isMolochBuffActivated());
     }
 
     @Test
@@ -439,6 +502,14 @@ class CurrentBuildCalculationServiceTest {
                                                              double initialAnimus,
                                                              boolean clashAnimus,
                                                              int horizonSeconds) {
+        return clashVerathielRequest(selectedOathId, initialAnimus, clashAnimus, horizonSeconds, 8.0d);
+    }
+
+    private static CurrentBuildRequest clashVerathielRequest(String selectedOathId,
+                                                             double initialAnimus,
+                                                             boolean clashAnimus,
+                                                             int horizonSeconds,
+                                                             double maxAnimus) {
         return new CurrentBuildRequest(
                 70,
                 1664,
@@ -463,7 +534,7 @@ class CurrentBuildCalculationServiceTest {
                 1.50d,
                 selectedOathId,
                 initialAnimus,
-                8.0d,
+                maxAnimus,
                 List.of("verathiel_shard")
         );
     }

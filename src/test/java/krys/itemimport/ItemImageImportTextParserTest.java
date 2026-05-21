@@ -2,12 +2,19 @@ package krys.itemimport;
 
 import krys.hero.HeroClass;
 import krys.item.EquipmentSlot;
+import krys.itemlibrary.FileItemLibraryRepository;
+import krys.itemlibrary.ItemLibraryService;
+import krys.itemlibrary.SavedImportedItem;
+import krys.tempering.ItemTemperingAffix;
+import krys.tempering.TemperingCategory;
 import krys.web.HeroItemSelection;
 import krys.web.HeroProfile;
 import krys.web.ItemImportPageModel;
 import krys.web.ItemImportPageRenderer;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -266,6 +273,144 @@ class ItemImageImportTextParserTest {
         assertFalse(normalized.contains("651"), normalized);
         assertFalse(normalized.contains("70 poziomu"), normalized);
         assertEquals(normalized, details.getUniqueEffectText());
+    }
+
+    @Test
+    void shouldNormalizeKnownKoscianychLusekShieldNameOcrVariants() {
+        for (String nameLine : List.of(
+                "MIAŻDŻĄCA TARCZA KOŚCIANYCH L U Sek *",
+                "MIAŻDŻĄCA TARCZA KOŚCIANYCH LUSEK"
+        )) {
+            ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                    %s
+                    Starożytna legendarna tarcza
+                    Moc przedmiotu: 900
+                    """.formatted(nameLine));
+
+            assertEquals("Miażdżąca Tarcza Kościanych Łusek",
+                    result.getFullItemRead().getDetails().getItemName(), nameLine);
+        }
+    }
+
+    @Test
+    void shouldRemoveKnownOcrUiNoiseFromFortifyAspectRange() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                Generyczna Tarcza Próbna
+                Legendarna tarcza
+                Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - Przewiń w dół 65]%.
+                """);
+
+        assertEquals("Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.",
+                result.getFullItemRead().getDetails().getUniqueEffectText());
+    }
+
+    @Test
+    void shouldImportTemperedMaxAnimusFromHardenedShieldScreenshot() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, hardenedShieldRawText());
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals("Miażdżąca Tarcza Kościanych Łusek", form.getItemName());
+        assertEquals(1202L, result.getFullItemRead().getDetails().getItemArmor());
+        assertEquals(900L, result.getFullItemRead().getDetails().getItemPower());
+        assertEquals(1, form.getTemperingAffixes().size());
+        ItemTemperingAffix tempering = form.getTemperingAffixes().getFirst();
+        assertEquals(TemperingCategory.DEFENSE, tempering.getCategory());
+        assertEquals("defense_max_animus", tempering.getDefinitionId());
+        assertEquals(5.0d, tempering.getValue());
+        assertTrue(tempering.isGreaterAffix());
+        assertLineText(result, FullItemReadLineType.TEMPERING, "★ +5 do maksymalnej liczby kumulacji Animuszu");
+
+        String effectText = result.getFullItemRead().getDetails().getUniqueEffectText();
+        assertEquals("Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.", effectText);
+        assertFalse(effectText.contains("maksymalnej liczby kumulacji Animuszu"));
+        assertFalse(effectText.contains("+5"));
+        assertFalse(effectText.contains("★"));
+
+        assertEquals(4, form.getAffixes().size());
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.STRENGTH, 225.0d, true);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.ALL_RESISTANCE, 490.0d, true);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.FIRE_RESISTANCE, 787.0d, true);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.DAMAGE_REDUCTION, 11.4d, false);
+        assertTrue(form.getAffixes().stream()
+                .noneMatch(affix -> affix.getSourceText().contains("maksymalnej liczby kumulacji Animuszu")));
+    }
+
+    @Test
+    void shouldSplitTemperingAndAspectWhenOcrJoinsThemInOneLine() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, hardenedShieldRawText().replace(
+                "★ +5 do maksymalnej liczby kumulacji Animuszu\n\nGdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.",
+                "* +5 do maksymalnej liczby kumulacji Animuszu * Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%."
+        ));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(1, form.getTemperingAffixes().size());
+        assertEquals("defense_max_animus", form.getTemperingAffixes().getFirst().getDefinitionId());
+        assertTrue(form.getTemperingAffixes().getFirst().isGreaterAffix());
+        assertEquals("Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.",
+                result.getFullItemRead().getDetails().getUniqueEffectText());
+        assertEquals(1, result.getFullItemRead().getLines().stream()
+                .filter(line -> line.getType() == FullItemReadLineType.TEMPERING)
+                .count());
+    }
+
+    @Test
+    void shouldRenderImportedTemperingAsCompactCardAndHideAdditionalTemperingLines() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, hardenedShieldRawText());
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+        HeroProfile activeHero = new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty());
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                result,
+                List.of(),
+                null,
+                activeHero,
+                "Import testowy",
+                ""
+        ));
+        String temperingSection = sectionByHeading(html, "Hartowanie");
+
+        assertTrue(temperingSection.contains("tempering-existing-card"));
+        assertTrue(temperingSection.contains("Defensywa"));
+        assertTrue(temperingSection.contains("★ +5 do maksymalnej liczby kumulacji Animuszu"));
+        assertTrue(temperingSection.contains("Greater Affix"));
+        assertTrue(temperingSection.contains("Runtime nieaktywny"));
+        assertTrue(temperingSection.contains("Limit hartowania dla tego przedmiotu został wykorzystany."));
+        assertTrue(temperingSection.contains("id=\"temperingAddControls\" hidden"));
+        assertTrue(temperingSection.contains("id=\"addTemperingButton\" disabled"));
+        assertFalse(temperingSection.contains("<h4>Dodaj hartowanie</h4>"));
+        assertFalse(form.getUniqueEffectText().contains("maksymalnej liczby kumulacji Animuszu"));
+
+        String readSection = sectionByHeading(html, "Pełny odczyt widocznego itemu");
+        String additionalLines = optionalLineGroupByHeading(readSection, "Dodatkowe / sezonowe linie");
+        assertFalse(additionalLines.contains("maksymalnej liczby kumulacji Animuszu"));
+        assertFalse(additionalLines.contains("+5"));
+        assertFalse(additionalLines.contains("★ +5"));
+    }
+
+    @Test
+    void shouldPersistImportedHardenedShieldNameAndTemperingInLibrary() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("hardened-shield-import");
+        ItemLibraryService libraryService = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, hardenedShieldRawText());
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        ItemImportFormMapper.MappingResult mapped = new ItemImportFormMapper().map(form);
+        assertTrue(mapped.getErrors().isEmpty(), mapped.getErrors().toString());
+        libraryService.saveImportedItem(mapped.getItem(), form.getFullItemRead());
+
+        SavedImportedItem savedItem = new FileItemLibraryRepository(tempDirectory).findAll().getFirst();
+
+        assertEquals("Miażdżąca Tarcza Kościanych Łusek", savedItem.getItemName());
+        assertEquals(1, savedItem.getTemperingAffixes().size());
+        ItemTemperingAffix persisted = savedItem.getTemperingAffixes().getFirst();
+        assertEquals(TemperingCategory.DEFENSE, persisted.getCategory());
+        assertEquals("defense_max_animus", persisted.getDefinitionId());
+        assertEquals(5.0d, persisted.getValue());
+        assertTrue(persisted.isGreaterAffix());
+        assertFalse(savedItem.getFullItemRead().getLines().stream()
+                .filter(line -> line.getType() != FullItemReadLineType.TEMPERING)
+                .anyMatch(line -> line.getText().contains("maksymalnej liczby kumulacji Animuszu")));
     }
 
     @Test
@@ -558,6 +703,18 @@ class ItemImageImportTextParserTest {
         assertEquals(expectedGreaterAffix, affix.isGreaterAffix(), expectedType.getDisplayName());
     }
 
+    private static void assertAffixValueAndGreaterFlag(ItemImportEditableForm form,
+                                                       ImportedItemAffixType expectedType,
+                                                       double expectedValue,
+                                                       boolean expectedGreaterAffix) {
+        ImportedItemAffix affix = form.getAffixes().stream()
+                .filter(candidate -> candidate.getType() == expectedType)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Brak affixu: " + expectedType.getDisplayName()));
+        assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
+        assertEquals(expectedGreaterAffix, affix.isGreaterAffix(), expectedType.getDisplayName());
+    }
+
     private static void assertLineText(ItemImageImportCandidateParseResult result,
                                        FullItemReadLineType type,
                                        String expectedText) {
@@ -602,6 +759,55 @@ class ItemImageImportTextParserTest {
                 Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100],
                 ale dodatkowo zużywają 25 pkt. podstawowego zasobu.
                 """;
+    }
+
+    static String hardenedShieldRawText() {
+        return """
+                MIAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK
+                Starożytna legendarna tarcza
+                Moc przedmiotu: 900
+
+                1 202 pkt. pancerza
+                (Wytrzymałość: -1,7%)
+
+                20,0% szansy na blok [20,0]%
+                +100% obrażeń od broni w głównej ręce [100]%
+
+                ★ +225 siły
+                ★ +490 do odporności na wszystkie żywioły
+                ★ +787 do odporności na: Ogień
+                11,4% redukcji obrażeń [11,0 - 15,0]%
+
+                ★ +5 do maksymalnej liczby kumulacji Animuszu
+
+                Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.
+                """;
+    }
+
+    private static String sectionByHeading(String html, String heading) {
+        int headingIndex = html.indexOf("<h3>" + heading + "</h3>");
+        if (headingIndex < 0) {
+            throw new AssertionError("Brak sekcji: " + heading);
+        }
+        int start = html.lastIndexOf("<section", headingIndex);
+        int end = html.indexOf("</section>", headingIndex);
+        if (start < 0 || end < 0) {
+            throw new AssertionError("Nie udało się wyciąć sekcji: " + heading);
+        }
+        return html.substring(start, end + "</section>".length());
+    }
+
+    private static String optionalLineGroupByHeading(String html, String heading) {
+        int headingIndex = html.indexOf("<h5>" + heading + "</h5>");
+        if (headingIndex < 0) {
+            return "";
+        }
+        int start = html.lastIndexOf("<section", headingIndex);
+        int end = html.indexOf("</section>", headingIndex);
+        if (start < 0 || end < 0) {
+            throw new AssertionError("Nie udało się wyciąć grupy linii: " + heading);
+        }
+        return html.substring(start, end + "</section>".length());
     }
 
 }

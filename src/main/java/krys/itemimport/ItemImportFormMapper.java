@@ -1,6 +1,7 @@
 package krys.itemimport;
 
 import krys.item.EquipmentSlot;
+import krys.masterworking.ItemMasterworking;
 import krys.tempering.ApplicationTemperingAffixRegistry;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingAffixDefinition;
@@ -51,7 +52,8 @@ public final class ItemImportFormMapper {
         }
         String selectedAspectId = validateAspect(form.getSelectedAspectId(), slot, errors);
         ItemImportDetails details = buildDetails(form, slot, errors);
-        List<ItemTemperingAffix> temperingAffixes = validateTempering(form.getTemperingAffixes(), slot, details.getItemType(), errors);
+        List<ItemTemperingAffix> temperingAffixes = validateTempering(form.getTemperingAffixes(), slot, details.getItemType(), details.getItemPower(), errors);
+        ItemMasterworking masterworking = validateMasterworking(form.getMasterworking(), errors);
 
         if (!errors.isEmpty()) {
             return new MappingResult(null, errors);
@@ -69,15 +71,32 @@ public final class ItemImportFormMapper {
                 form.getAffixes(),
                 selectedAspectId,
                 details,
-                temperingAffixes
+                temperingAffixes,
+                masterworking
         ), errors);
+    }
+
+    private static ItemMasterworking validateMasterworking(ItemMasterworking masterworking, List<String> errors) {
+        ItemMasterworking safe = masterworking == null ? ItemMasterworking.defaultState() : masterworking;
+        if (safe.getQualityCurrent() < 0 || safe.getQualityCurrent() > ItemMasterworking.DEFAULT_QUALITY_MAX) {
+            errors.add("Doskonalenie: Jakość aktualna musi mieścić się w zakresie 0 - 25.");
+        }
+        if (safe.getQualityMax() != ItemMasterworking.DEFAULT_QUALITY_MAX) {
+            errors.add("Doskonalenie: Jakość maksymalna musi wynosić 25.");
+        }
+        return safe;
     }
 
     private List<ItemTemperingAffix> validateTempering(List<ItemTemperingAffix> affixes,
                                                        EquipmentSlot slot,
                                                        String itemType,
+                                                       Long itemPower,
                                                        List<String> errors) {
         List<ItemTemperingAffix> validated = new ArrayList<>();
+        if (affixes.size() > 1) {
+            errors.add("Hartowanie: limit hartowania dla tego przedmiotu wynosi 1.");
+            return List.of();
+        }
         int index = 0;
         for (ItemTemperingAffix affix : affixes) {
             index++;
@@ -95,7 +114,17 @@ public final class ItemImportFormMapper {
                 errors.add("Hartowanie #" + index + ": affix nie należy do wybranej kategorii.");
                 continue;
             }
-            if (!definition.accepts(affix.getValue())) {
+            if (affix.isGreaterAffix()) {
+                if (itemPower == null || itemPower != 900L) {
+                    errors.add("Hartowanie #" + index + ": Greater Affix przy hartowaniu jest dostępny tylko dla przedmiotów o mocy 900.");
+                    continue;
+                }
+                if (!sameValue(affix.getValue(), definition.greaterAffixValue())) {
+                    errors.add("Hartowanie #" + index + ": wartość Greater Affix musi wynosić "
+                            + TemperingPresentationSupport.formatGreaterAffixValue(definition) + ".");
+                    continue;
+                }
+            } else if (!definition.accepts(affix.getValue())) {
                 errors.add("Hartowanie #" + index + ": wartość musi być w zakresie "
                         + TemperingPresentationSupport.formatRange(definition) + ".");
                 continue;
@@ -108,10 +137,15 @@ public final class ItemImportFormMapper {
                     affix.getCategory(),
                     affix.getValue(),
                     displayText,
-                    definition.getRuntimeStatus()
+                    definition.getRuntimeStatus(),
+                    affix.isGreaterAffix()
             ));
         }
         return List.copyOf(validated);
+    }
+
+    private static boolean sameValue(double left, double right) {
+        return Math.abs(left - right) < 0.0000001d;
     }
 
     private static ItemImportDetails buildDetails(ItemImportEditableForm form,

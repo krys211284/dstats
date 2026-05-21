@@ -10,6 +10,7 @@ import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
 import krys.itemlibrary.SavedImportedItem;
+import krys.masterworking.ItemMasterworking;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -167,6 +168,34 @@ class ItemLibraryPageRendererTest {
         assertFalse(html.contains("Opis aspektu: Zwiększa zadawane obrażenia podczas stania w bezruchu"));
         assertFalse(html.contains("Odczyt efektu OCR niepełny / wymaga ręcznej weryfikacji."));
         assertFalse(html.contains("<li>Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek.</li>"));
+    }
+
+    @Test
+    void shouldRenderMasterworkingDetailsWhenEnabled() {
+        SavedImportedItem shield = new SavedImportedItem(
+                1L,
+                "Ręka dodatkowa / tarcza.png",
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                new FullItemRead("Tarcza testowa", "Tarcza", "Legendarny", "Moc przedmiotu: 900", "1 202 pkt. pancerza", List.of()),
+                List.of(),
+                "",
+                krys.itemimport.ItemImportDetails.empty(),
+                List.of(),
+                ItemMasterworking.enabled(0)
+        );
+
+        String html = render(List.of(shield));
+
+        assertTrue(html.contains("Doskonalenie"));
+        assertTrue(html.contains("Jakość 0/25"));
+        assertTrue(html.contains("Dane itemu / runtime nieaktywny"));
     }
 
     @Test

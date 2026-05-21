@@ -50,7 +50,8 @@ public final class ItemImportPageRenderer {
                 .replace("{{HELP_TEXT}}", escapeHtml(model.getHelpText()))
                 .replace("{{UPLOAD_ACTION}}", escapeHtml(buildUploadAction(model.getCurrentBuildQuery())))
                 .replace("{{PARSE_SECTION}}", renderParseSection(model))
-                .replace("{{CONFIRM_SECTION}}", renderConfirmSection(model));
+                .replace("{{CONFIRM_SECTION}}", renderConfirmSection(model))
+                .replace("{{TEMPERING_SCRIPT}}", TemperingSectionRenderer.renderScript());
     }
 
     private static String renderErrors(List<String> errors) {
@@ -149,6 +150,7 @@ public final class ItemImportPageRenderer {
                 """)
                 .append(renderAffixEditor(form))
                 .append(TemperingSectionRenderer.renderEditor(form))
+                .append(MasterworkingSectionRenderer.renderEditor(form))
                 .append("""
                             <div class="submit-row">
                                 <button type="submit" name="formAction" value="confirmItem">Zatwierdź item</button>
@@ -198,6 +200,7 @@ public final class ItemImportPageRenderer {
                         </div>
                     """)
                 .append(renderSavedTemperingSummary(savedItem))
+                .append(MasterworkingSectionRenderer.renderReadonlySummary(savedItem.getMasterworking()))
                 .append("""
                     </section>
                 </section>
@@ -339,6 +342,9 @@ public final class ItemImportPageRenderer {
         }
         if (line.getType() == FullItemReadLineType.SOCKET) {
             return ItemReadLineGroup.SOCKET;
+        }
+        if (line.getType() == FullItemReadLineType.TEMPERING) {
+            return ItemReadLineGroup.AFFIX;
         }
         if (line.getType() == FullItemReadLineType.AFFIX && !normalized.contains("ROZJUSZENIE")) {
             return ItemReadLineGroup.AFFIX;
@@ -616,6 +622,7 @@ public final class ItemImportPageRenderer {
         for (krys.tempering.ItemTemperingAffix affix : item.getTemperingAffixes()) {
             html.append("<li>")
                     .append(escapeHtml(krys.tempering.TemperingPresentationSupport.formatAffix(affix, krys.tempering.ApplicationTemperingAffixRegistry.get())))
+                    .append(affix.isGreaterAffix() ? " — Greater Affix / Gwiazdka" : "")
                     .append(" — Status: ")
                     .append(escapeHtml(affix.getRuntimeStatus().getDisplayName()))
                     .append("</li>");

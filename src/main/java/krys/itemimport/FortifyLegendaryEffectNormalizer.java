@@ -12,7 +12,7 @@ final class FortifyLegendaryEffectNormalizer {
     }
 
     static Optional<String> normalize(String text) {
-        String normalized = normalizeLineForPatternKeepingPlus(text);
+        String normalized = removeKnownOcrUiNoise(normalizeLineForPatternKeepingPlus(text));
         String collapsed = normalized.replaceAll("[^A-Z0-9]", "");
         if (!collapsed.contains("GDYMASZUMOCNIENIE")
                 || !collapsed.contains("ZADAJESZOBRAZENIAZWIEKSZONE")) {
@@ -113,6 +113,13 @@ final class FortifyLegendaryEffectNormalizer {
                 .replace('ł', 'l')
                 .replaceAll("\\p{M}", "")
                 .toUpperCase(Locale.ROOT)
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private static String removeKnownOcrUiNoise(String normalizedLine) {
+        return (normalizedLine == null ? "" : normalizedLine)
+                .replaceAll("PRZEWIN\\s*W\\s*DOL", "")
                 .replaceAll("\\s+", " ")
                 .trim();
     }

@@ -9,6 +9,7 @@ public enum FullItemReadLineType {
     BASE_STAT("Bazowa wartość"),
     IMPLICIT("Implicit / linia bazowa"),
     AFFIX("Affix"),
+    TEMPERING("Hartowanie"),
     ASPECT("Aspekt / moc"),
     SOCKET("Gniazdo"),
     OTHER("Inna linia");

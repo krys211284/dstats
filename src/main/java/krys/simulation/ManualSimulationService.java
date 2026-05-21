@@ -39,7 +39,6 @@ public final class ManualSimulationService {
     private static final double VERATHIEL_BASIC_SKILL_RESOURCE_COST = 25.0d;
     private static final double MOLOCH_ANIMUS_COST = 8.0d;
     private static final double MOLOCH_MIN_ANIMUS = 1.0d;
-    private static final double MOLOCH_MAX_ANIMUS = 8.0d;
     private static final double CLASH_ANIMUS_GENERATION = 2.0d;
     private static final int MOLOCH_BUFF_DURATION_SECONDS = 5;
     private static final double MOLOCH_DAMAGE_MULTIPLIER = 1.60d;
@@ -68,7 +67,7 @@ public final class ManualSimulationService {
         double totalPrimaryResourceRegenerated = 0.0d;
         boolean molochRuntimeActive = isMolochOathActive(snapshot);
         double maxAnimus = molochRuntimeActive
-                ? Math.min(MOLOCH_MAX_ANIMUS, Math.max(MOLOCH_MIN_ANIMUS, snapshot.getMaxAnimus()))
+                ? Math.max(MOLOCH_MIN_ANIMUS, snapshot.getMaxAnimus())
                 : Math.max(0.0d, snapshot.getMaxAnimus());
         double minAnimus = molochRuntimeActive ? MOLOCH_MIN_ANIMUS : 0.0d;
         double currentAnimus = molochRuntimeActive
@@ -139,6 +138,7 @@ public final class ManualSimulationService {
             double animusSpent = 0.0d;
             boolean molochBuffActivated = false;
             boolean molochBuffActiveForDamage = false;
+            boolean molochBuffActiveBeforeHit = false;
 
             if (selectionResult.selectedSkillId != null) {
                 actionType = SimulationActionType.SKILL;
@@ -147,17 +147,20 @@ public final class ManualSimulationService {
                 currentPrimaryResource = Math.max(0.0d, currentPrimaryResource - primaryResourceCost);
                 totalPrimaryResourceCost += primaryResourceCost;
 
-                if (molochRuntimeActive && isMolochSkill(selectionResult.selectedSkillId)
+                molochBuffActiveBeforeHit = molochRuntimeActive
+                        && isMolochSkill(selectionResult.selectedSkillId)
+                        && second <= molochBuffExpiresAtSecond;
+                if (molochBuffActiveBeforeHit) {
+                    molochBuffActiveForDamage = true;
+                } else if (molochRuntimeActive && isMolochSkill(selectionResult.selectedSkillId)
                         && currentAnimus + RESOURCE_EPSILON >= MOLOCH_ANIMUS_COST) {
                     animusSpent = MOLOCH_ANIMUS_COST;
                     currentAnimus = clampAnimus(currentAnimus - MOLOCH_ANIMUS_COST, maxAnimus, minAnimus);
                     molochBuffExpiresAtSecond = second + MOLOCH_BUFF_DURATION_SECONDS - 1;
                     molochBuffActivationCount++;
                     molochBuffActivated = true;
+                    molochBuffActiveForDamage = true;
                 }
-                molochBuffActiveForDamage = molochRuntimeActive
-                        && isMolochSkill(selectionResult.selectedSkillId)
-                        && second <= molochBuffExpiresAtSecond;
                 double molochMultiplier = molochBuffActiveForDamage ? MOLOCH_DAMAGE_MULTIPLIER : 1.0d;
 
                 DamageBreakdown directHitBreakdown = damageEngine.calculate(
@@ -239,6 +242,7 @@ public final class ManualSimulationService {
                     currentPrimaryResource,
                     animusBefore,
                     animusSpent,
+                    animusSpent > 0.0d ? minAnimus : 0.0d,
                     animusGenerated,
                     currentAnimus,
                     molochBuffActivated,

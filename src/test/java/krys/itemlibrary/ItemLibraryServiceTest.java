@@ -8,6 +8,9 @@ import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ItemImportDetails;
 import krys.itemimport.ValidatedImportedItem;
+import krys.tempering.ItemTemperingAffix;
+import krys.tempering.TemperingCategory;
+import krys.tempering.TemperingRuntimeStatus;
 import krys.web.HeroItemSelection;
 import org.junit.jupiter.api.Test;
 
@@ -18,6 +21,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Testuje serwisy aplikacyjne biblioteki itemów oraz agregację do effective current build. */
 class ItemLibraryServiceTest {
@@ -178,6 +182,42 @@ class ItemLibraryServiceTest {
         );
         assertNull(incompatibleStats.getWeaponDps());
         assertEquals(0.0d, incompatibleStats.getMaximumLifeFromItems(), 0.0000001d);
+    }
+
+    @Test
+    void shouldApplyOnlyActiveMaxAnimusTemperingToHeroStatsProjection() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-library-active-tempering");
+        ItemLibraryService service = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+        SavedImportedItem shield = service.saveImportedItem(new ValidatedImportedItem(
+                "tempered-shield.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                List.of(),
+                "",
+                ItemImportDetails.empty(),
+                List.of(new ItemTemperingAffix(
+                        "defense_max_animus",
+                        TemperingCategory.DEFENSE,
+                        5.0d,
+                        "",
+                        TemperingRuntimeStatus.DATA_ONLY,
+                        true
+                ))
+        ));
+
+        CurrentHeroActiveItemStats inactiveStats = service.resolveActiveHeroItemStats(HeroItemSelection.empty());
+        assertEquals(0.0d, inactiveStats.getMaxAnimusFromTempering(), 0.0000001d);
+
+        CurrentHeroActiveItemStats activeStats = service.resolveActiveHeroItemStats(
+                HeroItemSelection.empty().withSelectedItem(HeroEquipmentSlot.OFF_HAND, shield.getItemId())
+        );
+        assertEquals(5.0d, activeStats.getMaxAnimusFromTempering(), 0.0000001d);
+        assertTrue(activeStats.getMaxAnimusTemperingSources().contains("hartowanie aktywnej tarczy: +5"));
     }
 
     @Test

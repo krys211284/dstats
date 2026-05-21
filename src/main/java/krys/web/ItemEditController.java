@@ -17,6 +17,7 @@ import krys.itemimport.ValidatedImportedItem;
 import krys.itemlibrary.ItemLibraryFilter;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
+import krys.masterworking.ItemMasterworking;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -86,9 +87,10 @@ final class ItemEditController implements HttpHandler {
         FullItemRead decodedFullItemRead = FullItemReadFormCodec.decode(fields.getOrDefault("fullItemRead", ""));
         AffixParseResult affixParseResult = parseExistingAffixes(fields);
         TemperingFormSupport.ParseResult temperingParseResult = TemperingFormSupport.parse(fields);
+        ItemMasterworking masterworking = parseMasterworking(fields);
         ArrayList<ImportedItemAffix> affixes = new ArrayList<>(affixParseResult.affixes());
         parseNewAffix(fields, affixParseResult.errors()).ifPresent(affixes::add);
-        ItemImportEditableForm form = buildEditableForm(fields, existingItem, decodedFullItemRead, affixes, temperingParseResult.affixes());
+        ItemImportEditableForm form = buildEditableForm(fields, existingItem, decodedFullItemRead, affixes, temperingParseResult.affixes(), masterworking);
 
         ItemImportFormMapper.MappingResult mappingResult = formMapper.map(form);
         ArrayList<String> errors = new ArrayList<>(affixParseResult.errors());
@@ -120,7 +122,8 @@ final class ItemEditController implements HttpHandler {
                 ItemImportFieldConfidence.UNKNOWN,
                 item.getSelectedAspectId(),
                 item.getDetails(),
-                item.getTemperingAffixes()
+                item.getTemperingAffixes(),
+                item.getMasterworking()
         );
     }
 
@@ -136,6 +139,15 @@ final class ItemEditController implements HttpHandler {
                                                             FullItemRead decodedFullItemRead,
                                                             List<ImportedItemAffix> affixes,
                                                             List<krys.tempering.ItemTemperingAffix> temperingAffixes) {
+        return buildEditableForm(fields, existingItem, decodedFullItemRead, affixes, temperingAffixes, parseMasterworking(fields));
+    }
+
+    private static ItemImportEditableForm buildEditableForm(Map<String, String> fields,
+                                                            SavedImportedItem existingItem,
+                                                            FullItemRead decodedFullItemRead,
+                                                            List<ImportedItemAffix> affixes,
+                                                            List<krys.tempering.ItemTemperingAffix> temperingAffixes,
+                                                            ItemMasterworking masterworking) {
         return new ItemImportEditableForm(
                 existingItem.getSourceImageName(),
                 fields.getOrDefault("slot", ""),
@@ -151,8 +163,28 @@ final class ItemEditController implements HttpHandler {
                 ItemImportFieldConfidence.UNKNOWN,
                 fields.getOrDefault("selectedAspectId", ""),
                 parseItemDetails(fields, existingItem),
-                temperingAffixes
+                temperingAffixes,
+                masterworking
         );
+    }
+
+    private static ItemMasterworking parseMasterworking(Map<String, String> fields) {
+        return new ItemMasterworking(
+                "true".equals(fields.get("masterworkingEnabled")),
+                parseIntOrDefault(fields.get("masterworkingQualityCurrent"), ItemMasterworking.DEFAULT_QUALITY_CURRENT),
+                parseIntOrDefault(fields.get("masterworkingQualityMax"), ItemMasterworking.DEFAULT_QUALITY_MAX)
+        );
+    }
+
+    private static int parseIntOrDefault(String rawValue, int fallback) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return fallback;
+        }
+        try {
+            return Integer.parseInt(rawValue.replace(" ", ""));
+        } catch (NumberFormatException exception) {
+            return -1;
+        }
     }
 
     private static ItemImportDetails parseItemDetails(Map<String, String> fields, SavedImportedItem existingItem) {

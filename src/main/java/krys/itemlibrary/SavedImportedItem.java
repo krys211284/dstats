@@ -4,6 +4,7 @@ import krys.item.EquipmentSlot;
 import krys.itemimport.FullItemRead;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ItemImportDetails;
+import krys.masterworking.ItemMasterworking;
 import krys.tempering.ItemTemperingAffix;
 
 import java.util.List;
@@ -25,6 +26,7 @@ public final class SavedImportedItem {
     private final String selectedAspectId;
     private final ItemImportDetails details;
     private final List<ItemTemperingAffix> temperingAffixes;
+    private final ItemMasterworking masterworking;
 
     public SavedImportedItem(long itemId,
                              String displayName,
@@ -119,6 +121,27 @@ public final class SavedImportedItem {
                              String selectedAspectId,
                              ItemImportDetails details,
                              List<ItemTemperingAffix> temperingAffixes) {
+        this(itemId, displayName, sourceImageName, slot, weaponDamage, strength, intelligence, thorns,
+                blockChance, retributionChance, fullItemRead, affixes, selectedAspectId, details, temperingAffixes,
+                ItemMasterworking.defaultState());
+    }
+
+    public SavedImportedItem(long itemId,
+                             String displayName,
+                             String sourceImageName,
+                             EquipmentSlot slot,
+                             long weaponDamage,
+                             double strength,
+                             double intelligence,
+                             double thorns,
+                             double blockChance,
+                             double retributionChance,
+                             FullItemRead fullItemRead,
+                             List<ImportedItemAffix> affixes,
+                             String selectedAspectId,
+                             ItemImportDetails details,
+                             List<ItemTemperingAffix> temperingAffixes,
+                             ItemMasterworking masterworking) {
         if (itemId < 0L) {
             throw new IllegalArgumentException("Id itemu nie może być ujemne.");
         }
@@ -155,6 +178,7 @@ public final class SavedImportedItem {
         this.selectedAspectId = selectedAspectId == null ? "" : selectedAspectId;
         this.details = details == null ? ItemImportDetails.empty() : details;
         this.temperingAffixes = temperingAffixes == null ? List.of() : List.copyOf(temperingAffixes);
+        this.masterworking = masterworking == null ? ItemMasterworking.defaultState() : masterworking;
     }
 
     private static void validateNonNegative(String label, double value) {
@@ -221,6 +245,10 @@ public final class SavedImportedItem {
 
     public List<ItemTemperingAffix> getTemperingAffixes() {
         return temperingAffixes;
+    }
+
+    public ItemMasterworking getMasterworking() {
+        return masterworking;
     }
 
     public String getItemName() {

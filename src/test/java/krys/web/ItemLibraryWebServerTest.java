@@ -153,6 +153,45 @@ class ItemLibraryWebServerTest {
     }
 
     @Test
+    void shouldShowMasterworkingOnActiveItemWithoutRuntimeInput() throws Exception {
+        createHero("Doskonalacz", "13");
+        primeHeroBuildQuery(buildCurrentBuildQuery());
+        Map<String, String> saveFields = new LinkedHashMap<>();
+        saveFields.put("action", "saveImportedItem");
+        saveFields.put("sourceImageName", "masterworking-shield.png");
+        saveFields.put("slot", "OFF_HAND");
+        saveFields.put("weaponDamage", "0");
+        saveFields.put("strength", "0");
+        saveFields.put("intelligence", "0");
+        saveFields.put("thorns", "0");
+        saveFields.put("blockChance", "20");
+        saveFields.put("retributionChance", "0");
+        saveFields.put("masterworkingEnabled", "true");
+        saveFields.put("masterworkingQualityCurrent", "0");
+        saveFields.put("masterworkingQualityMax", "25");
+        saveFields.put("currentBuildQuery", buildCurrentBuildQuery());
+        HttpResponse<String> saveResponse = sendUrlEncodedPost("/biblioteka-itemow", saveFields);
+        assertEquals(200, saveResponse.statusCode());
+
+        HttpResponse<String> activateResponse = sendUrlEncodedPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", "1",
+                "heroSlot", "OFF_HAND",
+                "currentBuildQuery", buildCurrentBuildQuery()
+        ));
+        assertEquals(200, activateResponse.statusCode());
+
+        HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build?" + buildCurrentBuildQuery());
+
+        assertEquals(200, currentBuildResponse.statusCode());
+        assertTrue(currentBuildResponse.body().contains("Doskonalenie"));
+        assertTrue(currentBuildResponse.body().contains("Jakość 0/25"));
+        assertTrue(currentBuildResponse.body().contains("Runtime nieaktywny"));
+        assertFalse(technicalRuntimeInputSection(currentBuildResponse.body()).contains("Doskonalenie"));
+        assertFalse(technicalRuntimeInputSection(currentBuildResponse.body()).contains("Jakość 0/25"));
+    }
+
+    @Test
     void shouldRenderEmptyStateWithImportLinkAndDeleteMessage() throws Exception {
         createHero("Bibliotekarz", "13");
         primeHeroBuildQuery(buildCurrentBuildQuery());
@@ -222,17 +261,24 @@ class ItemLibraryWebServerTest {
         assertTrue(editForm.body().contains("value=\"inner-calm\""));
         assertTrue(editForm.body().contains("selected>Aspekt Wewnętrznego Spokoju"));
         assertTrue(editForm.body().contains("Ręczna edycja itemu"));
+        assertTrue(editForm.body().contains("<main class=\"layout wide-item-page\">"));
+        assertTrue(editForm.body().contains(".layout.wide-item-page"));
         assertTrue(editForm.body().contains("Hartowanie"));
         assertTrue(editForm.body().contains(">Broń</option>"));
         assertTrue(editForm.body().contains(">Ofensywa</option>"));
         assertTrue(editForm.body().contains(">Defensywa</option>"));
         assertTrue(editForm.body().contains(">Funkcjonalność</option>"));
-        assertTrue(editForm.body().contains("value=\"defense_maximum_life\""));
+        assertTrue(editForm.body().contains("Katalog affixów tej kategorii nie został jeszcze uzupełniony."));
+        assertTrue(editForm.body().contains("\"DEFENSE\""));
+        assertTrue(editForm.body().contains("\"id\":\"defense_maximum_life\""));
+        assertFalse(editForm.body().contains("<option value=\"defense_maximum_life\""));
         assertTrue(editForm.body().contains("Dane tarczy"));
         assertFalse(editForm.body().contains("Dane broni"));
         assertTrue(editForm.body().contains("Aspekt / efekt"));
         assertTrue(editForm.body().contains("Zakres rolla"));
         assertTrue(editForm.body().contains("item-affix-add-grid"));
+        assertTrue(editForm.body().contains("tempering-add-card"));
+        assertTrue(editForm.body().contains("tempering-add-grid"));
         assertFalse(editForm.body().contains("Odczyt OCR / źródło"));
         assertFalse(editForm.body().contains("Odczyt OCR efektu"));
         assertFalse(editForm.body().contains("Dane itemu zapisane w bibliotece"));
@@ -293,6 +339,21 @@ class ItemLibraryWebServerTest {
         assertFalse(libraryAfterSword.body().contains("item-details-1"));
         assertFalse(libraryAfterSword.body().contains("miecz.png"));
 
+        Map<String, String> manipulatedUtilityFields = shieldImportFields("tarcza-utility.png", "Tarcza Utility", "STRENGTH", "114", false, false);
+        manipulatedUtilityFields.put("temperingCount", "1");
+        manipulatedUtilityFields.put("temperingCategory_0", "UTILITY");
+        manipulatedUtilityFields.put("temperingDefinitionId_0", "defense_max_animus");
+        manipulatedUtilityFields.put("temperingValue_0", "5");
+        manipulatedUtilityFields.put("temperingGreaterAffix_0", "true");
+        manipulatedUtilityFields.put("itemPower", "900");
+        HttpResponse<String> utilityResponse = sendUrlEncodedPost("/importuj-item-ze-screena", manipulatedUtilityFields);
+
+        assertEquals(200, utilityResponse.statusCode());
+        assertTrue(utilityResponse.body().contains("Błędy formularza"));
+        assertTrue(utilityResponse.body().contains("affix nie należy do wybranej kategorii"));
+        HttpResponse<String> libraryAfterUtility = sendGet("/biblioteka-itemow");
+        assertFalse(libraryAfterUtility.body().contains("Tarcza Utility"));
+
         Map<String, String> lowRollFields = shieldImportFields("tarcza-low.png", "Tarcza Hartowania", "STRENGTH", "114", false, false);
         addMaximumLifeTempering(lowRollFields, "999");
         HttpResponse<String> lowRollResponse = sendUrlEncodedPost("/importuj-item-ze-screena", lowRollFields);
@@ -317,11 +378,141 @@ class ItemLibraryWebServerTest {
     }
 
     @Test
-    void shouldPresentTemperingInLibraryAndCurrentBuildWithoutChangingRuntimeInput() throws Exception {
+    void shouldValidateTemperingGreaterAffixRules() throws Exception {
+        createHero("Hartownik GA", "70");
+
+        for (String validValue : List.of("2", "3")) {
+            Map<String, String> normalAnimus = shieldImportFields("tarcza-normal-animus-" + validValue + ".png", "Tarcza Normal Animusz " + validValue, "STRENGTH", "114", false, false);
+            normalAnimus.put("itemPower", "900");
+            addMaxAnimusTempering(normalAnimus, validValue, false);
+            HttpResponse<String> normalAnimusResponse = sendUrlEncodedPost("/importuj-item-ze-screena", normalAnimus);
+            assertEquals(200, normalAnimusResponse.statusCode());
+            assertFalse(normalAnimusResponse.body().contains("Błędy formularza"));
+        }
+
+        for (String invalidValue : List.of("4", "5", "10")) {
+            Map<String, String> normalAnimusTooHigh = shieldImportFields("tarcza-normal-animus-high-" + invalidValue + ".png", "Tarcza Normal Animusz High " + invalidValue, "STRENGTH", "114", false, false);
+            normalAnimusTooHigh.put("itemPower", "900");
+            addMaxAnimusTempering(normalAnimusTooHigh, invalidValue, false);
+            HttpResponse<String> normalAnimusTooHighResponse = sendUrlEncodedPost("/importuj-item-ze-screena", normalAnimusTooHigh);
+            assertTrue(normalAnimusTooHighResponse.body().contains("wartość musi być w zakresie 2 - 3"));
+        }
+
+        for (String invalidValue : List.of("3", "4", "3.75", "10")) {
+            Map<String, String> invalidGreater = shieldImportFields("tarcza-ga-" + invalidValue + ".png", "Tarcza GA " + invalidValue, "STRENGTH", "114", false, false);
+            invalidGreater.put("itemPower", "900");
+            addMaxAnimusTempering(invalidGreater, invalidValue, true);
+            HttpResponse<String> invalidGreaterResponse = sendUrlEncodedPost("/importuj-item-ze-screena", invalidGreater);
+            assertTrue(invalidGreaterResponse.body().contains("wartość Greater Affix musi wynosić 5"));
+        }
+
+        Map<String, String> validGreater = shieldImportFields("tarcza-ga-animus.png", "Tarcza GA Animusz", "STRENGTH", "114", false, false);
+        validGreater.put("itemPower", "900");
+        addMaxAnimusTempering(validGreater, "5", true);
+        HttpResponse<String> validGreaterResponse = sendUrlEncodedPost("/importuj-item-ze-screena", validGreater);
+        assertFalse(validGreaterResponse.body().contains("Błędy formularza"));
+
+        Map<String, String> lowPowerGreater = shieldImportFields("tarcza-ga-low-power.png", "Tarcza GA Low Power", "STRENGTH", "114", false, false);
+        lowPowerGreater.put("itemPower", "899");
+        addMaxAnimusTempering(lowPowerGreater, "5", true);
+        HttpResponse<String> lowPowerGreaterResponse = sendUrlEncodedPost("/importuj-item-ze-screena", lowPowerGreater);
+        assertTrue(lowPowerGreaterResponse.body().contains("Greater Affix przy hartowaniu jest dostępny tylko dla przedmiotów o mocy 900"));
+
+        Map<String, String> validLifeGreater = shieldImportFields("tarcza-ga-life.png", "Tarcza GA Życie", "STRENGTH", "114", false, false);
+        validLifeGreater.put("itemPower", "900");
+        addMaximumLifeTempering(validLifeGreater, "1875", true);
+        HttpResponse<String> validLifeGreaterResponse = sendUrlEncodedPost("/importuj-item-ze-screena", validLifeGreater);
+        assertFalse(validLifeGreaterResponse.body().contains("Błędy formularza"));
+
+        Map<String, String> invalidLifeGreater = shieldImportFields("tarcza-ga-life-invalid.png", "Tarcza GA Życie Invalid", "STRENGTH", "114", false, false);
+        invalidLifeGreater.put("itemPower", "900");
+        addMaximumLifeTempering(invalidLifeGreater, "1500", true);
+        HttpResponse<String> invalidLifeGreaterResponse = sendUrlEncodedPost("/importuj-item-ze-screena", invalidLifeGreater);
+        assertTrue(invalidLifeGreaterResponse.body().contains("wartość Greater Affix musi wynosić 1875"));
+
+        Map<String, String> invalidLifeGreaterTen = shieldImportFields("tarcza-ga-life-ten.png", "Tarcza GA Życie Ten", "STRENGTH", "114", false, false);
+        invalidLifeGreaterTen.put("itemPower", "900");
+        addMaximumLifeTempering(invalidLifeGreaterTen, "10", true);
+        HttpResponse<String> invalidLifeGreaterTenResponse = sendUrlEncodedPost("/importuj-item-ze-screena", invalidLifeGreaterTen);
+        assertTrue(invalidLifeGreaterTenResponse.body().contains("wartość Greater Affix musi wynosić 1875"));
+
+        Map<String, String> normalLife = shieldImportFields("tarcza-normal-life.png", "Tarcza Normal Życie", "STRENGTH", "114", false, false);
+        normalLife.put("itemPower", "900");
+        addMaximumLifeTempering(normalLife, "1500", false);
+        HttpResponse<String> normalLifeResponse = sendUrlEncodedPost("/importuj-item-ze-screena", normalLife);
+        assertFalse(normalLifeResponse.body().contains("Błędy formularza"));
+
+        Map<String, String> normalLifeTooHigh = shieldImportFields("tarcza-normal-life-high.png", "Tarcza Normal Życie High", "STRENGTH", "114", false, false);
+        normalLifeTooHigh.put("itemPower", "900");
+        addMaximumLifeTempering(normalLifeTooHigh, "1875", false);
+        HttpResponse<String> normalLifeTooHighResponse = sendUrlEncodedPost("/importuj-item-ze-screena", normalLifeTooHigh);
+        assertTrue(normalLifeTooHighResponse.body().contains("wartość musi być w zakresie 1000 - 1500"));
+
+        HttpResponse<String> library = sendGet("/biblioteka-itemow");
+        assertTrue(library.body().contains("Defensywa: +5 do maksymalnej liczby kumulacji Animuszu | Greater Affix / Gwiazdka | Status: Dane itemu / runtime nieaktywny"));
+        assertTrue(library.body().contains("Defensywa: +1875 maksymalnego zdrowia | Greater Affix / Gwiazdka | Status: Dane itemu / runtime nieaktywny"));
+    }
+
+    @Test
+    void shouldRejectMoreThanOneTemperingAndAllowRemoveThenAddAgain() throws Exception {
+        createHero("Limit Hartowania", "70");
+
+        Map<String, String> twoTempering = shieldImportFields("tarcza-two-tempering.png", "Tarcza Dwa Hartowania", "STRENGTH", "114", false, false);
+        twoTempering.put("itemPower", "900");
+        twoTempering.put("temperingCount", "2");
+        twoTempering.put("temperingCategory_0", "DEFENSE");
+        twoTempering.put("temperingDefinitionId_0", "defense_max_animus");
+        twoTempering.put("temperingValue_0", "3");
+        twoTempering.put("temperingCategory_1", "DEFENSE");
+        twoTempering.put("temperingDefinitionId_1", "defense_maximum_life");
+        twoTempering.put("temperingValue_1", "1500");
+
+        HttpResponse<String> twoTemperingResponse = sendUrlEncodedPost("/importuj-item-ze-screena", twoTempering);
+
+        assertEquals(200, twoTemperingResponse.statusCode());
+        assertTrue(twoTemperingResponse.body().contains("limit hartowania dla tego przedmiotu wynosi 1"));
+        HttpResponse<String> libraryAfterRejected = sendGet("/biblioteka-itemow");
+        assertFalse(libraryAfterRejected.body().contains("Tarcza Dwa Hartowania"));
+
+        Map<String, String> valid = shieldImportFields("tarcza-limit.png", "Tarcza Limit", "STRENGTH", "114", false, false);
+        valid.put("itemPower", "900");
+        addMaxAnimusTempering(valid, "3", false);
+        HttpResponse<String> validResponse = sendUrlEncodedPost("/importuj-item-ze-screena", valid);
+        assertFalse(validResponse.body().contains("Błędy formularza"));
+
+        HttpResponse<String> editWithLimit = sendGet("/biblioteka-itemow/edytuj?itemId=1");
+        assertTrue(editWithLimit.body().contains("Limit hartowania dla tego przedmiotu został wykorzystany."));
+        assertTrue(editWithLimit.body().contains("id=\"temperingAddControls\" hidden"));
+
+        Map<String, String> removeTempering = shieldUpdateFields("1", "tarcza-limit.png", "Tarcza Limit", "114", false, "");
+        removeTempering.put("itemPower", "900");
+        removeTempering.put("temperingCount", "0");
+        HttpResponse<String> removeResponse = sendUrlEncodedPost("/biblioteka-itemow/edytuj", removeTempering);
+        assertEquals(200, removeResponse.statusCode());
+
+        HttpResponse<String> editAfterRemove = sendGet("/biblioteka-itemow/edytuj?itemId=1");
+        assertFalse(editAfterRemove.body().contains("id=\"temperingAddControls\" hidden"));
+
+        Map<String, String> addAgain = shieldUpdateFields("1", "tarcza-limit.png", "Tarcza Limit", "114", false, "");
+        addAgain.put("itemPower", "900");
+        addMaximumLifeTempering(addAgain, "1500", false);
+        HttpResponse<String> addAgainResponse = sendUrlEncodedPost("/biblioteka-itemow/edytuj", addAgain);
+        assertEquals(200, addAgainResponse.statusCode());
+        assertFalse(addAgainResponse.body().contains("Błędy formularza"));
+
+        HttpResponse<String> library = sendGet("/biblioteka-itemow");
+        String details = itemDetailsFragment(library.body(), "1");
+        assertTrue(details.contains("Defensywa: +1500 maksymalnego zdrowia"));
+        assertEquals(1, countOccurrences(details, "Defensywa:"));
+    }
+
+    @Test
+    void shouldPresentMaxAnimusTemperingInLibraryAndCurrentBuildRuntimeInput() throws Exception {
         createHero("Hartowanie UI", "70");
         primeHeroBuildQuery(buildCurrentBuildQuery());
         Map<String, String> fields = shieldImportFields("tarcza-tempering.png", "Tarcza Hartowana", "STRENGTH", "114", false, false);
-        addMaximumLifeTempering(fields, "1500");
+        fields.put("itemPower", "900");
+        addMaxAnimusTempering(fields, "5", true);
         HttpResponse<String> importResponse = sendUrlEncodedPost("/importuj-item-ze-screena", fields);
         assertEquals(200, importResponse.statusCode());
 
@@ -329,7 +520,8 @@ class ItemLibraryWebServerTest {
         assertEquals(200, libraryResponse.statusCode());
         String details = itemDetailsFragment(libraryResponse.body(), "1");
         assertTrue(details.contains("Hartowanie"));
-        assertTrue(details.contains("Defensywa: +1500 maksymalnego zdrowia"));
+        assertTrue(details.contains("Defensywa: +5 do maksymalnej liczby kumulacji Animuszu"));
+        assertTrue(details.contains("Greater Affix / Gwiazdka"));
         assertTrue(details.contains("Status: Dane itemu / runtime nieaktywny"));
         assertTrue(details.indexOf("Affixy") < details.indexOf("Hartowanie"));
         assertTrue(details.indexOf("Hartowanie") < details.indexOf("Aspekt / efekt"));
@@ -345,12 +537,37 @@ class ItemLibraryWebServerTest {
         HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build?" + buildCurrentBuildQuery());
         assertEquals(200, currentBuildResponse.statusCode());
         assertTrue(currentBuildResponse.body().contains("Hartowanie"));
-        assertTrue(currentBuildResponse.body().contains("Defensywa: +1500 maksymalnego zdrowia | Dane itemu / runtime nieaktywny"));
+        assertTrue(currentBuildResponse.body().contains("Defensywa: ★ +5 do maksymalnej liczby kumulacji Animuszu | Greater Affix / Gwiazdka | Runtime aktywny: +5 max Animusz"));
         String runtimeInput = sectionByHeading(currentBuildResponse.body(), "Techniczne wejście runtime");
-        assertFalse(runtimeInput.contains("1500"));
-        assertFalse(runtimeInput.contains("maksymalnego zdrowia"));
+        assertTrue(runtimeInput.contains(runtimeInputCard("Maksymalny Animusz", "13", "bazowe: 8 + hartowanie aktywnej tarczy: +5")));
         assertTrue(runtimeInput.contains(runtimeInputCard("Obrażenia broni", "0", "Brak aktywnej broni")));
         assertTrue(runtimeInput.contains(runtimeInputCard("Siła", "114", "Aktywne itemy")));
+    }
+
+    @Test
+    void shouldKeepOtherDefenseTemperingInactiveInCurrentBuildRuntime() throws Exception {
+        createHero("Hartowanie opisowe UI", "70");
+        primeHeroBuildQuery(buildCurrentBuildQuery());
+        Map<String, String> fields = shieldImportFields("tarcza-life-tempering.png", "Tarcza ze zdrowiem", "STRENGTH", "114", false, false);
+        fields.put("itemPower", "900");
+        addMaximumLifeTempering(fields, "1500");
+        HttpResponse<String> importResponse = sendUrlEncodedPost("/importuj-item-ze-screena", fields);
+        assertEquals(200, importResponse.statusCode());
+
+        HttpResponse<String> activateResponse = sendUrlEncodedPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", "1",
+                "heroSlot", "OFF_HAND",
+                "currentBuildQuery", buildCurrentBuildQuery()
+        ));
+        assertEquals(200, activateResponse.statusCode());
+
+        HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build?" + buildCurrentBuildQuery());
+        assertEquals(200, currentBuildResponse.statusCode());
+        assertTrue(currentBuildResponse.body().contains("Defensywa: +1500 maksymalnego zdrowia | Runtime nieaktywny"));
+        String runtimeInput = sectionByHeading(currentBuildResponse.body(), "Techniczne wejście runtime");
+        assertTrue(runtimeInput.contains(runtimeInputCard("Maksymalny Animusz", "8", "bazowe: 8")));
+        assertFalse(runtimeInput.contains("1500 maksymalnego zdrowia"));
     }
 
     @Test
@@ -718,10 +935,27 @@ class ItemLibraryWebServerTest {
     }
 
     private static void addMaximumLifeTempering(Map<String, String> fields, String value) {
+        addMaximumLifeTempering(fields, value, false);
+    }
+
+    private static void addMaximumLifeTempering(Map<String, String> fields, String value, boolean greaterAffix) {
         fields.put("temperingCount", "1");
         fields.put("temperingCategory_0", "DEFENSE");
         fields.put("temperingDefinitionId_0", "defense_maximum_life");
         fields.put("temperingValue_0", value);
+        if (greaterAffix) {
+            fields.put("temperingGreaterAffix_0", "true");
+        }
+    }
+
+    private static void addMaxAnimusTempering(Map<String, String> fields, String value, boolean greaterAffix) {
+        fields.put("temperingCount", "1");
+        fields.put("temperingCategory_0", "DEFENSE");
+        fields.put("temperingDefinitionId_0", "defense_max_animus");
+        fields.put("temperingValue_0", value);
+        if (greaterAffix) {
+            fields.put("temperingGreaterAffix_0", "true");
+        }
     }
 
     private static String verathielEffectText() {
@@ -739,6 +973,19 @@ class ItemLibraryWebServerTest {
                 </div>
                 </article>
                 """;
+    }
+
+    private static String technicalRuntimeInputSection(String html) {
+        int heading = html.indexOf("<h2>Techniczne wejście runtime</h2>");
+        if (heading < 0) {
+            throw new AssertionError("Brak sekcji technicznego wejścia runtime.");
+        }
+        int start = html.lastIndexOf("<section", heading);
+        int end = html.indexOf("</section>", heading);
+        if (start < 0 || end < 0) {
+            throw new AssertionError("Nie udało się wyciąć sekcji technicznego wejścia runtime.");
+        }
+        return html.substring(start, end + "</section>".length());
     }
 
     private static String buildCurrentBuildQuery() {

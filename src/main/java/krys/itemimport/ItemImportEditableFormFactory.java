@@ -7,6 +7,7 @@ import java.util.Locale;
 /** Buduje formularz ręcznego potwierdzenia z wstępnie rozpoznanych pól. */
 public final class ItemImportEditableFormFactory {
     private final ImportedItemAffixExtractor affixExtractor = new ImportedItemAffixExtractor();
+    private final ImportedItemTemperingExtractor temperingExtractor = new ImportedItemTemperingExtractor();
     private final AspectRegistry aspectRegistry;
 
     public ItemImportEditableFormFactory() {
@@ -35,7 +36,8 @@ public final class ItemImportEditableFormFactory {
                 draft.getOcrSuggestedAspectId(),
                 draft.getOcrAspectConfidence(),
                 draft.getOcrSuggestedAspectId(),
-                parseResult.getFullItemRead().getDetails()
+                parseResult.getFullItemRead().getDetails(),
+                draft.getTemperingAffixes()
         );
     }
 
@@ -55,7 +57,8 @@ public final class ItemImportEditableFormFactory {
                 parseResult,
                 aspectMatch.aspectId(),
                 aspectMatch.confidence(),
-                affixExtractor.extractEditableAffixes(parseResult.getFullItemRead())
+                affixExtractor.extractEditableAffixes(parseResult.getFullItemRead()),
+                temperingExtractor.extractTemperingAffixes(parseResult.getFullItemRead())
         );
     }
 

@@ -16,6 +16,7 @@ import krys.itemimport.ItemImportFormMapper;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
+import krys.masterworking.ItemMasterworking;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
@@ -68,7 +69,8 @@ class FileItemLibraryRepositoryTest {
                         1500.0d,
                         "+1500 maksymalnego zdrowia",
                         TemperingRuntimeStatus.DATA_ONLY
-                ))
+                )),
+                ItemMasterworking.enabled(0)
         ));
         SavedImportedItem secondItem = repository.save(new SavedImportedItem(
                 0L,
@@ -104,6 +106,13 @@ class FileItemLibraryRepositoryTest {
         assertEquals("defense_maximum_life", savedItems.get(0).getTemperingAffixes().getFirst().getDefinitionId());
         assertEquals(1500.0d, savedItems.get(0).getTemperingAffixes().getFirst().getValue(), 0.0000001d);
         assertEquals(TemperingRuntimeStatus.DATA_ONLY, savedItems.get(0).getTemperingAffixes().getFirst().getRuntimeStatus());
+        assertFalse(savedItems.get(0).getTemperingAffixes().getFirst().isGreaterAffix());
+        assertTrue(savedItems.get(0).getMasterworking().isEnabled());
+        assertEquals(0, savedItems.get(0).getMasterworking().getQualityCurrent());
+        assertEquals(25, savedItems.get(0).getMasterworking().getQualityMax());
+        assertFalse(savedItems.get(1).getMasterworking().isEnabled());
+        assertEquals(0, savedItems.get(1).getMasterworking().getQualityCurrent());
+        assertEquals(25, savedItems.get(1).getMasterworking().getQualityMax());
         assertTrue(reloadedRepository.findById(secondItem.getItemId()).isPresent());
         assertEquals(secondItem.getItemId(), reloadedRepository.loadSelection().getSelectedItemId(EquipmentSlot.OFF_HAND));
     }

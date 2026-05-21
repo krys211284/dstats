@@ -20,9 +20,11 @@ public final class CurrentHeroActiveItemStats {
     private final double thorns;
     private final double blockChance;
     private final double retributionChance;
+    private final double maxAnimusFromTempering;
     private final List<String> descriptiveAffixes;
     private final List<String> statisticalAffixes;
     private final List<String> descriptiveEffectAffixes;
+    private final List<String> maxAnimusTemperingSources;
 
     public CurrentHeroActiveItemStats(Long weaponDps,
                                       Long weaponDamageMin,
@@ -41,7 +43,8 @@ public final class CurrentHeroActiveItemStats {
                                       List<String> descriptiveAffixes) {
         this(weaponDps, weaponDamageMin, weaponDamageMax, averageWeaponDamage, attacksPerSecond,
                 maximumLifeFromItems, flatWeaponDamageFromAffixes, lifeOnHit, luckyHitPrimaryResourceValue,
-                strength, intelligence, thorns, blockChance, retributionChance, descriptiveAffixes, List.of(), List.of());
+                strength, intelligence, thorns, blockChance, retributionChance, 0.0d,
+                descriptiveAffixes, List.of(), List.of(), List.of());
     }
 
     public CurrentHeroActiveItemStats(Long weaponDps,
@@ -58,9 +61,11 @@ public final class CurrentHeroActiveItemStats {
                                       double thorns,
                                       double blockChance,
                                       double retributionChance,
+                                      double maxAnimusFromTempering,
                                       List<String> descriptiveAffixes,
                                       List<String> statisticalAffixes,
-                                      List<String> descriptiveEffectAffixes) {
+                                      List<String> descriptiveEffectAffixes,
+                                      List<String> maxAnimusTemperingSources) {
         this.weaponDps = weaponDps;
         this.weaponDamageMin = weaponDamageMin;
         this.weaponDamageMax = weaponDamageMax;
@@ -75,9 +80,11 @@ public final class CurrentHeroActiveItemStats {
         this.thorns = thorns;
         this.blockChance = blockChance;
         this.retributionChance = retributionChance;
+        this.maxAnimusFromTempering = maxAnimusFromTempering;
         this.descriptiveAffixes = Collections.unmodifiableList(new ArrayList<>(descriptiveAffixes == null ? List.of() : descriptiveAffixes));
         this.statisticalAffixes = Collections.unmodifiableList(new ArrayList<>(statisticalAffixes == null ? List.of() : statisticalAffixes));
         this.descriptiveEffectAffixes = Collections.unmodifiableList(new ArrayList<>(descriptiveEffectAffixes == null ? List.of() : descriptiveEffectAffixes));
+        this.maxAnimusTemperingSources = Collections.unmodifiableList(new ArrayList<>(maxAnimusTemperingSources == null ? List.of() : maxAnimusTemperingSources));
     }
 
     public static CurrentHeroActiveItemStats empty() {
@@ -141,6 +148,10 @@ public final class CurrentHeroActiveItemStats {
         return retributionChance;
     }
 
+    public double getMaxAnimusFromTempering() {
+        return maxAnimusFromTempering;
+    }
+
     public List<String> getDescriptiveAffixes() {
         return descriptiveAffixes;
     }
@@ -151,6 +162,10 @@ public final class CurrentHeroActiveItemStats {
 
     public List<String> getDescriptiveEffectAffixes() {
         return descriptiveEffectAffixes;
+    }
+
+    public List<String> getMaxAnimusTemperingSources() {
+        return maxAnimusTemperingSources;
     }
 
     public boolean hasActiveWeaponDetails() {

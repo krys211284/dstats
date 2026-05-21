@@ -718,17 +718,57 @@ class CurrentBuildWebServerTest {
         assertTrue(directHitDebug.contains(damageResultCard("Trafienie krytyczne", "5224",
                 "damage-result-card damage-critical-card")));
         String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
+        assertTrue(stepTrace.contains("<th>Sekunda</th>"));
+        assertTrue(stepTrace.contains("<th>Akcja</th>"));
+        assertTrue(stepTrace.contains("<th>Bezpośrednie</th>"));
+        assertTrue(stepTrace.contains("<th>Opóźnione</th>"));
+        assertTrue(stepTrace.contains("<th>Reaktywne</th>"));
+        assertTrue(stepTrace.contains("<th>Krok</th>"));
+        assertFalse(stepTrace.contains("<th>Narastająco</th>"));
+        assertTrue(stepTrace.contains("<th>Wiara</th>"));
         assertTrue(stepTrace.contains("<th>Animusz</th>"));
+        assertTrue(stepTrace.contains("<th>Buff Molocha</th>"));
+        assertTrue(stepTrace.contains("<th>Stan paska</th>"));
         assertFalse(stepTrace.contains("<th>Animusz przed</th>"));
         assertFalse(stepTrace.contains("<th>Zużycie Animuszu</th>"));
         assertFalse(stepTrace.contains("<th>Generacja Animuszu</th>"));
         assertFalse(stepTrace.contains("<th>Animusz po</th>"));
-        assertTrue(stepTrace.contains("<th>Buff Molocha</th>"));
         assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">przed</span><strong class=\"trace-resource-value\">8</strong>"));
-        assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">zużycie</span><strong class=\"trace-resource-value trace-resource-negative\">-8</strong>"));
+        assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">koszt</span><strong class=\"trace-resource-value trace-resource-negative\">-8</strong>"));
+        assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">minimum</span><strong class=\"trace-resource-value\">1</strong>"));
         assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">gen.</span><strong class=\"trace-resource-value\">0</strong>"));
         assertTrue(stepTrace.contains("<span class=\"trace-resource-label\">po</span><strong class=\"trace-resource-value\">1</strong>"));
         assertTrue(stepTrace.contains("<td>Aktywacja</td><td>5 s</td>"));
+    }
+
+    @Test
+    void shouldApplyActiveMaxAnimusTemperingInCurrentBuildRuntime() throws Exception {
+        createHero("Starcie Moloch hartowanie Animuszu", "70");
+        saveAndActivateVerathiel();
+        saveAndActivateKoscianychLusekShieldWithMaxAnimusTempering("2");
+        assignSkill(krys.skill.SkillId.CLASH);
+        Map<String, String> fields = buildClashRankOneLevel70Fields();
+        fields.put("formAction", "calculate");
+        fields.put("selectedPaladinOathId", PaladinOathId.JUGGERNAUT.name());
+        fields.put("initialAnimus", "13");
+        fields.put("maxAnimus", "8");
+        fields.put(CurrentBuildFormData.choiceGroupFieldName(krys.skill.SkillId.CLASH, 1), "animusz");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        String html = response.body();
+        assertFalse(html.contains("Błędy formularza"));
+        assertTrue(html.contains(summaryCard("Łączne obrażenia", "33800")));
+        assertTrue(html.contains(summaryCard("DPS", "3380")));
+        assertTrue(html.contains(summaryCard("Końcowy Animusz", "13")));
+        assertTrue(html.contains(summaryCard("Aktywacje Molocha", "2")));
+        assertTrue(technicalRuntimeInputSection(html)
+                .contains(runtimeInputCard("Maksymalny Animusz", "13", "bazowe: 8 + hartowanie aktywnej tarczy: +5")));
+        assertTrue(html.contains("★ +5 do maksymalnej liczby kumulacji Animuszu"));
+        assertTrue(html.contains("Runtime aktywny: +5 max Animusz"));
+        String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
+        assertTrue(stepTrace.contains(animusCell("13", "-8", "1", "+2", "7")));
     }
 
     @Test
@@ -1103,7 +1143,7 @@ class CurrentBuildWebServerTest {
         String animusThreeToFive = animusCell("3", "0", "+2", "5");
         String animusFiveToSeven = animusCell("5", "0", "+2", "7");
         String animusSevenToEight = animusCell("7", "0", "+1", "8");
-        String molochActivation = animusCell("8", "-8", "+2", "3") + "</td><td>Aktywacja</td>";
+        String molochActivation = animusCell("8", "-8", "1", "+2", "3") + "</td><td>Aktywacja</td>";
         assertInOrder(stepTrace, animusOneToThree, animusThreeToFive, animusFiveToSeven, animusSevenToEight, molochActivation);
 
         HttpResponse<String> reloadResponse = sendGet("/policz-aktualny-build");
@@ -1839,9 +1879,14 @@ class CurrentBuildWebServerTest {
     }
 
     private static String animusCell(String before, String spent, String generated, String after) {
+        return animusCell(before, spent, null, generated, after);
+    }
+
+    private static String animusCell(String before, String spent, String minimum, String generated, String after) {
         return "<div class=\"trace-resource-cell\">"
                 + traceResourceLine("przed", before, "")
-                + traceResourceLine("zużycie", spent, resourceClass(spent))
+                + traceResourceLine("koszt", spent, resourceClass(spent))
+                + (minimum == null ? "" : traceResourceLine("minimum", minimum, ""))
                 + traceResourceLine("gen.", generated, resourceClass(generated))
                 + traceResourceLine("po", after, "")
                 + "</div>";
@@ -2103,6 +2148,25 @@ class CurrentBuildWebServerTest {
 
     private void saveAndActivateKoscianychLusekShield(String shieldItemId) throws Exception {
         HttpResponse<String> saveResponse = sendPost("/importuj-item-ze-screena", koscianychLusekShieldImportFields());
+        assertEquals(200, saveResponse.statusCode());
+
+        HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", shieldItemId,
+                "heroSlot", "OFF_HAND",
+                "currentBuildQuery", ""
+        ));
+        assertEquals(200, activateResponse.statusCode());
+    }
+
+    private void saveAndActivateKoscianychLusekShieldWithMaxAnimusTempering(String shieldItemId) throws Exception {
+        Map<String, String> fields = koscianychLusekShieldImportFields();
+        fields.put("temperingCount", "1");
+        fields.put("temperingCategory_0", "DEFENSE");
+        fields.put("temperingDefinitionId_0", "defense_max_animus");
+        fields.put("temperingValue_0", "5");
+        fields.put("temperingGreaterAffix_0", "true");
+        HttpResponse<String> saveResponse = sendPost("/importuj-item-ze-screena", fields);
         assertEquals(200, saveResponse.statusCode());
 
         HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(

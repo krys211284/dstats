@@ -7,12 +7,22 @@ public final class ItemTemperingAffix {
     private final double value;
     private final String displayText;
     private final TemperingRuntimeStatus runtimeStatus;
+    private final boolean greaterAffix;
 
     public ItemTemperingAffix(String definitionId,
                               TemperingCategory category,
                               double value,
                               String displayText,
                               TemperingRuntimeStatus runtimeStatus) {
+        this(definitionId, category, value, displayText, runtimeStatus, false);
+    }
+
+    public ItemTemperingAffix(String definitionId,
+                              TemperingCategory category,
+                              double value,
+                              String displayText,
+                              TemperingRuntimeStatus runtimeStatus,
+                              boolean greaterAffix) {
         if (definitionId == null || definitionId.isBlank()) {
             throw new IllegalArgumentException("Id definicji hartowania jest wymagane.");
         }
@@ -27,6 +37,7 @@ public final class ItemTemperingAffix {
         this.value = value;
         this.displayText = displayText == null ? "" : displayText;
         this.runtimeStatus = runtimeStatus == null ? TemperingRuntimeStatus.DATA_ONLY : runtimeStatus;
+        this.greaterAffix = greaterAffix;
     }
 
     public String getDefinitionId() {
@@ -47,5 +58,9 @@ public final class ItemTemperingAffix {
 
     public TemperingRuntimeStatus getRuntimeStatus() {
         return runtimeStatus;
+    }
+
+    public boolean isGreaterAffix() {
+        return greaterAffix;
     }
 }

@@ -32,6 +32,7 @@ final class ItemEditPageRenderer {
                     <style>
                         %s
                         .layout { max-width: 1160px; margin: 0 auto; padding: 28px 16px 48px; }
+                        .layout.wide-item-page { max-width: 1500px; }
                         .panel { margin-bottom: 18px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255, 250, 242, 0.96); box-shadow: 0 12px 24px rgba(36, 33, 29, 0.05); }
                         .panel-error { border-color: rgba(141, 27, 27, 0.28); background: var(--error-bg); }
                         .panel-success { border-color: rgba(44, 122, 84, 0.28); background: rgba(239, 249, 241, 0.96); }
@@ -52,6 +53,25 @@ final class ItemEditPageRenderer {
                         .add-affix-row { margin-top: 14px; padding: 12px; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 10px; background: rgba(255, 255, 255, 0.72); }
                         .item-affix-add-grid { display: grid; grid-template-columns: minmax(280px, 1.4fr) minmax(120px, 0.55fr) minmax(150px, 0.45fr) auto; gap: 12px; align-items: end; }
                         .item-affix-add-actions { display: flex; align-items: end; justify-content: flex-end; gap: 8px; }
+                        .tempering-readonly-list { display: grid; gap: 12px; margin-top: 12px; }
+                        .tempering-readonly-card { display: grid; grid-template-columns: minmax(120px, 0.45fr) minmax(320px, 1.4fr) minmax(120px, 0.4fr) minmax(180px, 0.55fr) minmax(220px, 0.75fr) minmax(180px, 0.6fr) auto; gap: 12px; align-items: center; padding: 12px; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 10px; background: rgba(255, 255, 255, 0.84); }
+                        .tempering-readonly-field { display: grid; gap: 4px; min-width: 0; }
+                        .tempering-readonly-label { color: var(--muted); font-size: 0.82rem; font-weight: 700; }
+                        .tempering-readonly-value { overflow-wrap: anywhere; }
+                        .tempering-readonly-actions { display: flex; justify-content: flex-end; }
+                        .tempering-existing-card { display: grid; grid-template-columns: minmax(110px, 0.5fr) minmax(320px, 1.8fr) minmax(150px, 0.55fr) auto; gap: 12px; align-items: center; padding: 12px; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 10px; background: rgba(255, 255, 255, 0.84); }
+                        .tempering-existing-header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-width: 0; }
+                        .tempering-existing-category { font-weight: 800; }
+                        .tempering-existing-affix { overflow-wrap: anywhere; }
+                        .tempering-greater-badge, .tempering-runtime-status { display: inline-flex; width: fit-content; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 999px; border: 1px solid rgba(30, 85, 102, 0.18); background: #f8fbfc; color: var(--accent); font-size: 0.84rem; font-weight: 700; }
+                        .tempering-runtime-status { color: var(--muted); border-color: rgba(109, 102, 92, 0.18); background: #fff; }
+                        .tempering-existing-actions { display: flex; justify-content: flex-end; }
+                        .tempering-add-card { margin-top: 14px; padding: 14px; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 10px; background: rgba(255, 255, 255, 0.72); }
+                        .tempering-add-grid { display: grid; grid-template-columns: minmax(140px, 0.55fr) minmax(360px, 1.8fr) minmax(150px, 0.5fr) minmax(220px, 0.75fr) auto; gap: 12px; align-items: start; }
+                        .tempering-add-field-affix { min-width: 0; }
+                        .tempering-add-field-action { align-self: end; }
+                        .tempering-validation-message { grid-column: 1 / -1; }
+                        .tempering-validation-message .helper { color: var(--error); }
                         .affix-table-wrap { width: 100%%; overflow-x: auto; padding-bottom: 4px; }
                         .data-table { width: 100%%; border-collapse: collapse; font-size: 0.94rem; }
                         .affix-table { min-width: 820px; table-layout: fixed; }
@@ -67,11 +87,12 @@ final class ItemEditPageRenderer {
                         .affix-range-cell { white-space: nowrap; }
                         .affix-action-cell { text-align: right; white-space: nowrap; }
                         .affix-greater-cell .checkbox-label { min-height: 40px; }
-                        .tempering-section .item-affix-add-grid { grid-template-columns: minmax(180px, 0.6fr) minmax(260px, 1.2fr) minmax(120px, 0.4fr) auto; }
                         .tempering-category-notes { margin-top: 10px; }
+                        .masterworking-grid { display: grid; grid-template-columns: minmax(160px, 0.55fr) minmax(160px, 0.55fr) minmax(220px, 1fr); gap: 12px; align-items: end; }
+                        .masterworking-runtime-status { display: inline-flex; width: fit-content; align-items: center; padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(109, 102, 92, 0.18); background: #fff; color: var(--muted); font-weight: 700; }
                         @media (max-width: 900px) {
-                            .manual-confirm-grid, .aspect-effect-fieldset, .item-affix-add-grid { grid-template-columns: 1fr; }
-                            .item-affix-add-actions { justify-content: flex-start; }
+                            .manual-confirm-grid, .aspect-effect-fieldset, .item-affix-add-grid, .tempering-add-grid, .tempering-readonly-card, .tempering-existing-card, .masterworking-grid { grid-template-columns: 1fr; }
+                            .item-affix-add-actions, .tempering-readonly-actions, .tempering-existing-actions { justify-content: flex-start; }
                             .data-table, .data-table thead, .data-table tbody, .data-table tr, .data-table th, .data-table td { display: block; }
                             .data-table thead { display: none; }
                             .affix-table { min-width: 0; }
@@ -81,7 +102,7 @@ final class ItemEditPageRenderer {
                     </style>
                 </head>
                 <body>
-                <main class="layout">
+                <main class="layout wide-item-page">
                     %s
                     <section class="panel">
                         <span class="section-kicker">Biblioteka itemów</span>
@@ -152,6 +173,7 @@ final class ItemEditPageRenderer {
                         </div>
                         %s
                         %s
+                        %s
                         <div class="submit-row">
                             <button type="submit">Zapisz zmiany</button>
                             <a class="nav-link secondary-link" href="%s">Anuluj</a>
@@ -178,6 +200,7 @@ final class ItemEditPageRenderer {
                 renderAspectSelect(form),
                 renderAffixEditor(form),
                 TemperingSectionRenderer.renderEditor(form),
+                MasterworkingSectionRenderer.renderEditor(form),
                 escapeHtml(ItemLibraryFilterQuerySupport.libraryUrl(model.getFilter()))
         );
     }

@@ -153,6 +153,10 @@ class SearchBuildWebServerTest {
         assertTrue(detailResponse.body().contains("Debug opóźnionych trafień"));
         assertTrue(detailResponse.body().contains("Debug obrażeń reaktywnych"));
         assertTrue(detailResponse.body().contains("Ślad kroków symulacji"));
+        assertFalse(detailResponse.body().contains("<th>Narastająco</th>"));
+        assertTrue(detailResponse.body().contains("<th>Krok</th>"));
+        assertTrue(detailResponse.body().contains("<th>Wiara</th>"));
+        assertTrue(detailResponse.body().contains("<th>Animusz</th>"));
         assertTrue(detailResponse.body().contains("Judgement aktywny na końcu"));
         assertTrue(detailResponse.body().contains("Resolve aktywny na końcu"));
         assertTrue(detailResponse.body().contains("Końcowa szansa bloku"));

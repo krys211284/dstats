@@ -62,9 +62,24 @@ class TemperingRegistryTest {
         assertTrue(defense.stream().allMatch(definition -> definition.getRuntimeStatus() == TemperingRuntimeStatus.DATA_ONLY));
     }
 
+    @Test
+    void resolver_greater_affix_uzywa_mnoznika_125_i_override_dla_animuszu() {
+        assertGreaterValue("defense_maximum_life", 1875.0d);
+        assertGreaterValue("defense_armor", 2500.0d);
+        assertGreaterValue("defense_all_resistance", 87.5d);
+        assertGreaterValue("defense_max_animus", 5.0d);
+        assertGreaterValue("defense_block_chance", 6.25d);
+        assertGreaterValue("defense_arbiter_armor_percent", 12.5d);
+    }
+
     private void assertRange(String id, double min, double max) {
         TemperingAffixDefinition definition = registry.findById(id).orElseThrow();
         assertEquals(min, definition.getRangeMin(), 0.0000001d);
         assertEquals(max, definition.getRangeMax(), 0.0000001d);
+    }
+
+    private void assertGreaterValue(String id, double expected) {
+        TemperingAffixDefinition definition = registry.findById(id).orElseThrow();
+        assertEquals(expected, definition.greaterAffixValue(), 0.0000001d);
     }
 }

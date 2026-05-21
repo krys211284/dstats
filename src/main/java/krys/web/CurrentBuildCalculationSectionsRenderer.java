@@ -239,7 +239,6 @@ final class CurrentBuildCalculationSectionsRenderer {
                                 <th>Opóźnione</th>
                                 <th>Reaktywne</th>
                                 <th>Krok</th>
-                                <th>Narastająco</th>
                                 <th>Kolejność ticków</th>
                                 <th>Wiara</th>
                                 <th>Animusz</th>
@@ -259,7 +258,6 @@ final class CurrentBuildCalculationSectionsRenderer {
                     .append("<td>").append(step.getDelayedDamage()).append("</td>")
                     .append("<td>").append(step.getReactiveDamage()).append("</td>")
                     .append("<td>").append(step.getTotalStepDamage()).append("</td>")
-                    .append("<td>").append(step.getCumulativeDamage()).append("</td>")
                     .append("<td>").append(escapeHtml(step.getTickOrderLabel())).append("</td>")
                     .append("<td>").append(renderFaithResourceCell(step)).append("</td>")
                     .append("<td>").append(renderAnimusResourceCell(step)).append("</td>")
@@ -288,9 +286,13 @@ final class CurrentBuildCalculationSectionsRenderer {
     }
 
     private static String renderAnimusResourceCell(SimulationStepTrace step) {
+        String minimumLine = step.getAnimusSpent() > 0.0d
+                ? renderResourceLine("minimum", CurrentBuildNumberFormatter.resource(step.getAnimusMinimum()), "")
+                : "";
         return "<div class=\"trace-resource-cell\">"
                 + renderResourceLine("przed", CurrentBuildNumberFormatter.resource(step.getAnimusBefore()), "")
-                + renderResourceLine("zużycie", formatNegativeResource(step.getAnimusSpent()), resourceToneClass(-step.getAnimusSpent()))
+                + renderResourceLine("koszt", formatNegativeResource(step.getAnimusSpent()), resourceToneClass(-step.getAnimusSpent()))
+                + minimumLine
                 + renderResourceLine("gen.", CurrentBuildNumberFormatter.signedResource(step.getAnimusGenerated()), resourceToneClass(step.getAnimusGenerated()))
                 + renderResourceLine("po", CurrentBuildNumberFormatter.resource(step.getAnimusAfter()), "")
                 + "</div>";

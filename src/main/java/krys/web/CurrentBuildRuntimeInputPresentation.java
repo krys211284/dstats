@@ -57,8 +57,9 @@ final class CurrentBuildRuntimeInputPresentation {
                 "Jawne pole current build"));
         fields.add(new Field("Początkowy Animusz", CurrentBuildNumberFormatter.resource(parseDouble(model.getFormData().getInitialAnimus())),
                 "Jawne pole current build"));
-        fields.add(new Field("Maksymalny Animusz", CurrentBuildNumberFormatter.resource(parseDouble(model.getFormData().getMaxAnimus())),
-                "Jawne pole current build"));
+        fields.add(new Field("Maksymalny Animusz",
+                CurrentBuildNumberFormatter.resource(CurrentBuildRuntimeInputResolver.resolveMaximumAnimus(model.getFormData(), model.getEffectiveCurrentBuildResolution())),
+                maxAnimusSource(model)));
         CurrentBuildFormData.SkillConfigFormData clashConfig = model.getFormData().getSkillConfig(SkillId.CLASH);
         if (clashConfig != null && (SkillRuntimeModifierChoice.ANIMUS.name().equals(clashConfig.getRuntimeModifierChoice())
                 || SkillState.CLASH_ANIMUS_CHOICE.equals(clashConfig.getChoiceGroup1()))) {
@@ -116,6 +117,18 @@ final class CurrentBuildRuntimeInputPresentation {
             return "Aktywne itemy";
         }
         return "Brak jawnego wkładu current build";
+    }
+
+    private static String maxAnimusSource(CurrentBuildPageModel model) {
+        double baseMaxAnimus = parseDouble(model.getFormData().getMaxAnimus());
+        CurrentHeroActiveItemStats activeItemStats = model.getActiveHeroItemStats();
+        if (activeItemStats.getMaxAnimusFromTempering() <= 0.0d) {
+            return "bazowe: " + CurrentBuildNumberFormatter.resource(baseMaxAnimus);
+        }
+        List<String> parts = new ArrayList<>();
+        parts.add("bazowe: " + CurrentBuildNumberFormatter.resource(baseMaxAnimus));
+        parts.addAll(activeItemStats.getMaxAnimusTemperingSources());
+        return String.join(" + ", parts);
     }
 
     private static String activeWeaponName(CurrentBuildPageModel model) {

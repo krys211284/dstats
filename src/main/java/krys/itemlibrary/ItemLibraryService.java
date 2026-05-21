@@ -10,6 +10,8 @@ import krys.itemimport.ImportedItemCurrentBuildApplicationService;
 import krys.itemimport.ImportedItemCurrentBuildContribution;
 import krys.itemimport.ItemImportDetails;
 import krys.itemimport.ValidatedImportedItem;
+import krys.tempering.ItemTemperingAffix;
+import krys.tempering.TemperingRuntimeSupport;
 import krys.web.HeroItemSelection;
 
 import java.util.ArrayList;
@@ -62,7 +64,8 @@ public final class ItemLibraryService {
                 importedItem.getAffixes(),
                 importedItem.getSelectedAspectId(),
                 importedItem.getDetails(),
-                importedItem.getTemperingAffixes()
+                importedItem.getTemperingAffixes(),
+                importedItem.getMasterworking()
         );
         return repository.save(itemToSave);
     }
@@ -85,7 +88,8 @@ public final class ItemLibraryService {
                 importedItem.getAffixes(),
                 importedItem.getSelectedAspectId(),
                 importedItem.getDetails(),
-                importedItem.getTemperingAffixes()
+                importedItem.getTemperingAffixes(),
+                importedItem.getMasterworking()
         );
         return repository.save(itemToSave);
     }
@@ -239,9 +243,11 @@ public final class ItemLibraryService {
         double thorns = 0.0d;
         double blockChance = 0.0d;
         double retributionChance = 0.0d;
+        double maxAnimusFromTempering = 0.0d;
         List<String> descriptiveAffixes = new ArrayList<>();
         List<String> statisticalAffixes = new ArrayList<>();
         List<String> descriptiveEffectAffixes = new ArrayList<>();
+        List<String> maxAnimusTemperingSources = new ArrayList<>();
 
         for (HeroSlotItemAssignment assignment : items) {
             SavedImportedItem item = assignment.getItem();
@@ -290,6 +296,13 @@ public final class ItemLibraryService {
                     statisticalAffixes.add(formattedAffix);
                 }
             }
+            for (ItemTemperingAffix affix : item.getTemperingAffixes()) {
+                if (!TemperingRuntimeSupport.affectsMaximumAnimus(affix)) {
+                    continue;
+                }
+                maxAnimusFromTempering += affix.getValue();
+                maxAnimusTemperingSources.add(sourceLabelForMaxAnimus(assignment.getHeroSlot(), affix.getValue()));
+            }
         }
 
         return new CurrentHeroActiveItemStats(
@@ -307,10 +320,17 @@ public final class ItemLibraryService {
                 thorns,
                 blockChance,
                 retributionChance,
+                maxAnimusFromTempering,
                 descriptiveAffixes,
                 statisticalAffixes,
-                descriptiveEffectAffixes
+                descriptiveEffectAffixes,
+                maxAnimusTemperingSources
         );
+    }
+
+    private static String sourceLabelForMaxAnimus(HeroEquipmentSlot slot, double value) {
+        String slotLabel = slot == HeroEquipmentSlot.OFF_HAND ? "aktywnej tarczy" : "aktywnego itemu";
+        return "hartowanie " + slotLabel + ": +" + ItemLibraryPresentationSupport.formatWhole(value);
     }
 
     private static boolean hasWeaponDetails(ItemImportDetails details) {

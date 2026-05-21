@@ -13,6 +13,9 @@ import krys.itemlibrary.EffectiveCurrentBuildResolution;
 import krys.itemlibrary.FileItemLibraryRepository;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
+import krys.tempering.ItemTemperingAffix;
+import krys.tempering.TemperingCategory;
+import krys.tempering.TemperingRuntimeStatus;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -65,6 +68,32 @@ class CurrentBuildRuntimeInputResolverTest {
         assertEquals(0.0d, runtimeStats.getThorns(), 0.0000001d);
         assertEquals(0.0d, runtimeStats.getBlockChance(), 0.0000001d);
         assertEquals(0.0d, runtimeStats.getRetributionChance(), 0.0000001d);
+    }
+
+    @Test
+    void shouldResolveMaximumAnimusFromOnlyActiveTempering() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("runtime-input-tempering");
+        ItemLibraryService service = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+        SavedImportedItem shield = service.saveImportedItem(temperedShield());
+        CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(java.util.Map.of(
+                "level", "70",
+                "maxAnimus", "8",
+                "initialAnimus", "13"
+        ));
+
+        EffectiveCurrentBuildResolution inactiveResolution = service.resolveEffectiveCurrentBuild(
+                legacyStats(),
+                HeroItemSelection.empty()
+        );
+        assertEquals(8.0d, CurrentBuildRuntimeInputResolver.resolveMaximumAnimus(formData, inactiveResolution), 0.0000001d);
+
+        EffectiveCurrentBuildResolution activeResolution = service.resolveEffectiveCurrentBuild(
+                legacyStats(),
+                HeroItemSelection.empty().withSelectedItem(HeroEquipmentSlot.OFF_HAND, shield.getItemId())
+        );
+        assertEquals(13.0d, CurrentBuildRuntimeInputResolver.resolveMaximumAnimus(formData, activeResolution), 0.0000001d);
+        CurrentBuildFormData effectiveFormData = resolver.applyRuntimeResourceBonuses(formData, activeResolution);
+        assertEquals("13", effectiveFormData.getMaxAnimus());
     }
 
     private static HeroProfile hero(HeroItemSelection selection, CurrentBuildFormData formData) {
@@ -132,6 +161,30 @@ class CurrentBuildRuntimeInputResolverTest {
                         1.10d,
                         "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu."
                 )
+        );
+    }
+
+    private static ValidatedImportedItem temperedShield() {
+        return new ValidatedImportedItem(
+                "tempered-shield.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                List.of(),
+                "",
+                ItemImportDetails.empty(),
+                List.of(new ItemTemperingAffix(
+                        "defense_max_animus",
+                        TemperingCategory.DEFENSE,
+                        5.0d,
+                        "",
+                        TemperingRuntimeStatus.DATA_ONLY,
+                        true
+                ))
         );
     }
 }

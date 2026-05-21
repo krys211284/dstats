@@ -12,6 +12,7 @@ import krys.itemimport.ItemImportFormMapper;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
+import krys.masterworking.ItemMasterworking;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -102,7 +103,8 @@ public final class ItemLibraryController implements HttpHandler {
                 krys.itemimport.ItemImportFieldConfidence.UNKNOWN,
                 "",
                 krys.itemimport.ItemImportDetails.empty(),
-                temperingParseResult.affixes()
+                temperingParseResult.affixes(),
+                parseMasterworking(fields)
         );
         ItemImportFormMapper.MappingResult mappingResult = itemImportFormMapper.map(form);
         List<String> errors = new ArrayList<>(temperingParseResult.errors());
@@ -208,6 +210,25 @@ public final class ItemLibraryController implements HttpHandler {
             return itemId;
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException("Niepoprawne id itemu biblioteki.");
+        }
+    }
+
+    private static ItemMasterworking parseMasterworking(Map<String, String> fields) {
+        return new ItemMasterworking(
+                "true".equals(fields.get("masterworkingEnabled")),
+                parseIntOrDefault(fields.get("masterworkingQualityCurrent"), ItemMasterworking.DEFAULT_QUALITY_CURRENT),
+                parseIntOrDefault(fields.get("masterworkingQualityMax"), ItemMasterworking.DEFAULT_QUALITY_MAX)
+        );
+    }
+
+    private static int parseIntOrDefault(String rawValue, int fallback) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return fallback;
+        }
+        try {
+            return Integer.parseInt(rawValue.replace(" ", ""));
+        } catch (NumberFormatException exception) {
+            return -1;
         }
     }
 

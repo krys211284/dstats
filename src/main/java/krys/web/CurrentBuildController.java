@@ -124,6 +124,7 @@ public final class CurrentBuildController implements HttpHandler {
                     requestedFormData,
                     statsForPreSaveValidation(resolution.getEffectiveStats())
             );
+            effectiveFormData = runtimeInputResolver.applyRuntimeResourceBonuses(effectiveFormData, resolution);
             CurrentBuildFormMapper.MappingResult preSaveMapping = formMapper.map(effectiveFormData);
             errors.addAll(preSaveMapping.getErrors());
         }
@@ -154,6 +155,7 @@ public final class CurrentBuildController implements HttpHandler {
                 formData,
                 resolution.getEffectiveStats()
         );
+        effectiveFormData = runtimeInputResolver.applyRuntimeResourceBonuses(effectiveFormData, resolution);
         CurrentBuildFormMapper.MappingResult mappingResult = formMapper.map(
                 effectiveFormData,
                 hasActiveItemInSlot(resolution, HeroEquipmentSlot.MAIN_HAND),

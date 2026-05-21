@@ -14,6 +14,10 @@ import krys.itemimport.ItemImportFieldConfidence;
 import krys.itemimport.ItemImportEditableForm;
 import krys.itemimport.ItemImportEditableFormFactory;
 import krys.itemimport.ItemImportFieldCandidate;
+import krys.masterworking.ItemMasterworking;
+import krys.tempering.ItemTemperingAffix;
+import krys.tempering.TemperingCategory;
+import krys.tempering.TemperingRuntimeStatus;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -94,6 +98,8 @@ class ItemImportPageRendererTest {
         assertTrue(html.contains("data-table affix-table"));
         assertTrue(html.contains("item-affix-add-grid"));
         assertTrue(html.contains("item-affix-add-actions"));
+        assertTrue(html.contains("<main class=\"layout wide-item-page\">"));
+        assertTrue(html.contains(".layout.wide-item-page"));
         assertFalse(html.contains("Projekcja do aktualnego runtime"));
         assertFalse(html.contains("Mapowanie do aktualnego modelu buildu"));
     }
@@ -484,9 +490,200 @@ class ItemImportPageRendererTest {
         assertTrue(tempering.contains(">Funkcjonalność</option>"));
         assertFalse(tempering.contains("Mobilność"));
         assertFalse(tempering.contains("Zasoby"));
-        assertTrue(tempering.contains("value=\"defense_maximum_life\""));
-        assertTrue(tempering.contains("Defensywa: maksymalnego zdrowia"));
-        assertTrue(tempering.contains("1000 - 1500"));
+        String newAffixSelect = selectByName(tempering, "newTemperingDefinitionId");
+        assertTrue(newAffixSelect.contains("disabled"));
+        assertFalse(newAffixSelect.contains("value=\"defense_maximum_life\""));
+        assertTrue(tempering.contains("Katalog affixów tej kategorii nie został jeszcze uzupełniony."));
+        assertTrue(tempering.contains("\"DEFENSE\""));
+        assertTrue(tempering.contains("\"UTILITY\":[]"));
+        assertTrue(tempering.contains("\"OFFENSE\":[]"));
+        assertTrue(tempering.contains("\"id\":\"defense_maximum_life\""));
+        assertTrue(tempering.contains("\"rangeMin\":\"1000\""));
+        assertTrue(tempering.contains("\"rangeMax\":\"1500\""));
+        assertTrue(tempering.contains("\"greaterValue\":\"1875\""));
+        assertTrue(tempering.contains("\"greaterLabel\":\"1875\""));
+        assertTrue(tempering.contains("\"id\":\"defense_max_animus\""));
+        assertTrue(tempering.contains("\"greaterValue\":\"5\""));
+        assertTrue(tempering.contains("\"greaterLabel\":\"5\""));
+        assertTrue(tempering.contains("Greater Affix / Gwiazdka"));
+        assertEquals(12, countOccurrences(tempering, "\"id\":\"defense_"));
+        assertTrue(tempering.contains("data-tempering-affix-select"));
+        assertTrue(tempering.contains("data-limit=\"1\""));
+        assertTrue(tempering.contains("id=\"temperingAddControls\""));
+        assertTrue(tempering.contains("id=\"temperingLimitMessage\" hidden"));
+        assertTrue(tempering.contains("id=\"newTemperingCatalogMessage\""));
+        assertTrue(tempering.contains("tempering-add-card"));
+        assertTrue(tempering.contains("tempering-add-grid"));
+        assertTrue(tempering.contains("tempering-add-field-category"));
+        assertTrue(tempering.contains("tempering-add-field-affix"));
+        assertTrue(tempering.contains("tempering-add-field-value"));
+        assertTrue(tempering.contains("tempering-add-field-greater"));
+        assertTrue(tempering.contains("tempering-add-field-action"));
+        assertTrue(tempering.contains("tempering-validation-message"));
+    }
+
+    @Test
+    void shouldRenderMasterworkingEditorForImportedItem() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Tarcza testowa", "Tarcza", "LEGENDARY", true, EquipmentSlot.OFF_HAND,
+                        900L, null, null, null, null, null, 1202L, ""),
+                List.of(),
+                ItemMasterworking.enabled(0)
+        );
+        HeroProfile activeHero = new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty());
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                null,
+                List.of(),
+                null,
+                activeHero,
+                "Import testowy",
+                ""
+        ));
+        String masterworking = sectionByHeading(html, "Doskonalenie");
+
+        assertTrue(masterworking.contains("Doskonalenie aktywne / Item doskonalony"));
+        assertTrue(masterworking.contains("name=\"masterworkingEnabled\" value=\"true\" checked"));
+        assertTrue(masterworking.contains("Jakość aktualna"));
+        assertTrue(masterworking.contains("name=\"masterworkingQualityCurrent\" value=\"0\""));
+        assertTrue(masterworking.contains("Jakość maksymalna"));
+        assertTrue(masterworking.contains("name=\"masterworkingQualityMax\" value=\"25\" readonly"));
+        assertTrue(masterworking.contains("Dane itemu / runtime nieaktywny"));
+    }
+
+    @Test
+    void shouldRenderOnlyDefenseAffixesForSelectedDefenseTemperingCategory() {
+        ItemImportEditableForm form = shieldFormWithTempering(new ItemTemperingAffix(
+                "defense_maximum_life",
+                TemperingCategory.DEFENSE,
+                1500.0d,
+                "+1500 maksymalnego zdrowia",
+                TemperingRuntimeStatus.DATA_ONLY
+        ));
+
+        String tempering = renderTemperingSection(form);
+
+        assertTrue(tempering.contains("name=\"temperingDefinitionId_0\" value=\"defense_maximum_life\""));
+        assertTrue(tempering.contains("Defensywa: maksymalnego zdrowia [1000 - 1500]"));
+        assertTrue(tempering.contains("Defensywa: do maksymalnej liczby kumulacji Animuszu [2 - 3]"));
+        assertEquals(12, countOccurrences(tempering, "\"id\":\"defense_"));
+        assertTrue(tempering.contains("Limit hartowania dla tego przedmiotu został wykorzystany."));
+        assertTrue(tempering.contains("id=\"temperingAddControls\" hidden"));
+        assertFalse(tempering.contains("<select name=\"temperingDefinitionId_0\""));
+        assertTrue(tempering.contains("tempering-existing-card"));
+        assertTrue(tempering.contains("Usuń"));
+        assertFalse(tempering.contains("<input type=\"number\" name=\"temperingValue_0\""));
+        String card = existingTemperingCard(tempering);
+        assertTrue(card.contains("+1500 maksymalnego zdrowia"));
+        assertTrue(card.contains("Runtime nieaktywny"));
+        assertFalse(card.contains("Wartość rolla"));
+        assertFalse(card.contains("Greater Affix"));
+        assertFalse(card.contains("Zakres / GA"));
+        assertFalse(card.contains("Wartość GA:"));
+        assertFalse(card.contains("Zakres:"));
+        assertFalse(card.contains("[1000 - 1500]"));
+    }
+
+    @Test
+    void shouldNotRenderDefenseAffixOptionsForSelectedUtilityTemperingCategory() {
+        ItemImportEditableForm form = shieldFormWithTempering(new ItemTemperingAffix(
+                "defense_maximum_life",
+                TemperingCategory.UTILITY,
+                1500.0d,
+                "",
+                TemperingRuntimeStatus.DATA_ONLY
+        ));
+
+        String tempering = renderTemperingSection(form);
+
+        assertTrue(tempering.contains("Katalog affixów tej kategorii nie został jeszcze uzupełniony."));
+        assertFalse(tempering.contains("<option value=\"defense_maximum_life\""));
+        assertFalse(tempering.contains("<td>Defensywa: maksymalnego zdrowia"));
+        assertFalse(tempering.contains("<td>Defensywa: pancerza"));
+        assertFalse(tempering.contains("<td>Defensywa: do maksymalnej liczby kumulacji Animuszu"));
+    }
+
+    @Test
+    void shouldRenderCompactSavedGreaterAffixTempering() {
+        ItemImportEditableForm form = shieldFormWithTempering(new ItemTemperingAffix(
+                "defense_max_animus",
+                TemperingCategory.DEFENSE,
+                5.0d,
+                "+5 do maksymalnej liczby kumulacji Animuszu",
+                TemperingRuntimeStatus.DATA_ONLY,
+                true
+        ));
+
+        String tempering = renderTemperingSection(form);
+        String card = existingTemperingCard(tempering);
+
+        assertFalse(tempering.contains("undefined"));
+        assertTrue(card.contains("Defensywa"));
+        assertTrue(card.contains("★ +5 do maksymalnej liczby kumulacji Animuszu"));
+        assertTrue(card.contains("Greater Affix"));
+        assertTrue(card.contains("Runtime nieaktywny"));
+        assertTrue(card.contains("Usuń"));
+        assertFalse(card.contains("[2 - 3]"));
+        assertFalse(card.contains("Zakres: 2 - 3"));
+        assertFalse(card.contains("Wartość GA: 5"));
+        assertFalse(card.contains("Wartość rolla"));
+        assertFalse(card.contains("Zakres / GA"));
+    }
+
+    @Test
+    void shouldRenderCompactSavedNormalTemperingWithoutGreaterAffixBadge() {
+        ItemImportEditableForm form = shieldFormWithTempering(new ItemTemperingAffix(
+                "defense_max_animus",
+                TemperingCategory.DEFENSE,
+                3.0d,
+                "+3 do maksymalnej liczby kumulacji Animuszu",
+                TemperingRuntimeStatus.DATA_ONLY
+        ));
+
+        String card = existingTemperingCard(renderTemperingSection(form));
+
+        assertTrue(card.contains("+3 do maksymalnej liczby kumulacji Animuszu"));
+        assertFalse(card.contains("Greater Affix"));
+        assertFalse(card.contains("Zakres / GA"));
+    }
+
+    @Test
+    void shouldKeepRangeAndGreaterAffixHelpInAddTemperingForm() {
+        ItemImportEditableForm form = shieldForm(900L, List.of());
+
+        String html = renderFullPage(form);
+
+        assertTrue(html.contains("id=\"temperingAddControls\""));
+        assertTrue(html.contains("Zakres: ${rangeLabel}"));
+        assertTrue(html.contains("Wartość GA: ${greaterLabel}"));
+        assertTrue(html.contains("\"id\":\"defense_max_animus\""));
+        assertTrue(html.contains("\"rangeLabel\":\"2 - 3\""));
+        assertTrue(html.contains("\"greaterLabel\":\"5\""));
+    }
+
+    @Test
+    void shouldDisableTemperingGreaterAffixForItemPowerBelow900() {
+        ItemImportEditableForm form = shieldForm(899L, List.of());
+
+        String tempering = renderTemperingSection(form);
+
+        assertTrue(tempering.contains("Greater Affix przy hartowaniu jest dostępny tylko dla przedmiotów o mocy 900."));
+        assertTrue(tempering.contains("name=\"newTemperingGreaterAffix\" value=\"true\" disabled"));
+        assertTrue(tempering.contains("data-greater-available=\"false\""));
     }
 
     private static int countOccurrences(String value, String needle) {
@@ -497,6 +694,62 @@ class ItemImportPageRendererTest {
             index = value.indexOf(needle, index + needle.length());
         }
         return count;
+    }
+
+    private static ItemImportEditableForm shieldFormWithTempering(ItemTemperingAffix temperingAffix) {
+        return shieldForm(900L, List.of(temperingAffix));
+    }
+
+    private static ItemImportEditableForm shieldForm(Long itemPower, List<ItemTemperingAffix> temperingAffixes) {
+        return new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Tarcza testowa", "Tarcza", "LEGENDARY", true, EquipmentSlot.OFF_HAND,
+                        itemPower, null, null, null, null, null, 1202L, ""),
+                temperingAffixes
+        );
+    }
+
+    private static String renderTemperingSection(ItemImportEditableForm form) {
+        return sectionByHeading(renderFullPage(form), "Hartowanie");
+    }
+
+    private static String renderFullPage(ItemImportEditableForm form) {
+        HeroProfile activeHero = new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty());
+        return new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                null,
+                List.of(),
+                null,
+                activeHero,
+                "Import testowy",
+                ""
+        ));
+    }
+
+    private static String selectByName(String html, String name) {
+        String marker = "name=\"" + name + "\"";
+        int nameIndex = html.indexOf(marker);
+        if (nameIndex < 0) {
+            throw new AssertionError("Brak selecta: " + name);
+        }
+        int start = html.lastIndexOf("<select", nameIndex);
+        int end = html.indexOf("</select>", nameIndex);
+        if (start < 0 || end < 0) {
+            throw new AssertionError("Nie udało się wyciąć selecta: " + name);
+        }
+        return html.substring(start, end + "</select>".length());
     }
 
     private static String sectionByHeading(String html, String heading) {
@@ -510,5 +763,18 @@ class ItemImportPageRendererTest {
             throw new AssertionError("Nie udało się wyciąć sekcji: " + heading);
         }
         return html.substring(start, end + "</section>".length());
+    }
+
+    private static String existingTemperingCard(String html) {
+        String marker = "<article class=\"tempering-existing-card\"";
+        int start = html.indexOf(marker);
+        if (start < 0) {
+            throw new AssertionError("Brak kompaktowej karty hartowania");
+        }
+        int end = html.indexOf("</article>", start);
+        if (end < 0) {
+            throw new AssertionError("Nie udało się wyciąć karty hartowania");
+        }
+        return html.substring(start, end + "</article>".length());
     }
 }

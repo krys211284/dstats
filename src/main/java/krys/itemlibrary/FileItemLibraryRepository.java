@@ -8,6 +8,7 @@ import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ItemImportDetails;
+import krys.masterworking.ItemMasterworking;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
@@ -62,7 +63,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     item.getAffixes(),
                     item.getSelectedAspectId(),
                     item.getDetails(),
-                    item.getTemperingAffixes()
+                    item.getTemperingAffixes(),
+                    item.getMasterworking()
             );
         }
 
@@ -176,7 +178,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                 tokens.length >= 13 ? decodeAffixes(tokens[12]) : List.of(),
                 tokens.length >= 14 ? decode(tokens[13]) : "",
                 tokens.length >= 15 ? decodeDetails(tokens[14]) : ItemImportDetails.empty(),
-                tokens.length >= 16 ? decodeTemperingAffixes(tokens[15]) : List.of()
+                tokens.length >= 16 ? decodeTemperingAffixes(tokens[15]) : List.of(),
+                tokens.length >= 17 ? decodeMasterworking(tokens[16]) : ItemMasterworking.defaultState()
         );
     }
 
@@ -200,7 +203,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     encodeAffixes(item.getAffixes()),
                     encode(item.getSelectedAspectId()),
                     encodeDetails(item.getDetails()),
-                    encodeTemperingAffixes(item.getTemperingAffixes())
+                    encodeTemperingAffixes(item.getTemperingAffixes()),
+                    encodeMasterworking(item.getMasterworking())
             ));
         }
         try {
@@ -305,10 +309,20 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     affix.getCategory().name(),
                     formatDouble(affix.getValue()),
                     encode(affix.getDisplayText()),
-                    affix.getRuntimeStatus().name()
+                    affix.getRuntimeStatus().name(),
+                    Boolean.toString(affix.isGreaterAffix())
             ));
         }
         return encode(String.join("\n", payloadLines));
+    }
+
+    private static String encodeMasterworking(ItemMasterworking masterworking) {
+        ItemMasterworking safe = masterworking == null ? ItemMasterworking.defaultState() : masterworking;
+        return encode(String.join("|",
+                Boolean.toString(safe.isEnabled()),
+                Integer.toString(safe.getQualityCurrent()),
+                Integer.toString(safe.getQualityMax())
+        ));
     }
 
     private static String encodeDetails(ItemImportDetails details) {
@@ -443,9 +457,23 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     TemperingCategory.valueOf(tokens[1]),
                     Double.parseDouble(tokens[2]),
                     decode(tokens[3]),
-                    TemperingRuntimeStatus.valueOf(tokens[4])
+                    TemperingRuntimeStatus.valueOf(tokens[4]),
+                    tokens.length >= 6 && Boolean.parseBoolean(tokens[5])
             ));
         }
         return affixes;
+    }
+
+    private static ItemMasterworking decodeMasterworking(String encodedPayload) {
+        String payload = decode(encodedPayload);
+        String[] tokens = payload.split("\\|", -1);
+        if (tokens.length < 3) {
+            return ItemMasterworking.defaultState();
+        }
+        return new ItemMasterworking(
+                Boolean.parseBoolean(tokens[0]),
+                Integer.parseInt(tokens[1]),
+                Integer.parseInt(tokens[2])
+        );
     }
 }

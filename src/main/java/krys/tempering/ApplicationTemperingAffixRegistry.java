@@ -15,7 +15,7 @@ public final class ApplicationTemperingAffixRegistry implements TemperingAffixRe
                 defense("defense_maximum_life", "maksymalnego zdrowia", "+[%s - %s] maksymalnego zdrowia", 1000, 1500, TemperingValueUnit.FLAT, ""),
                 defense("defense_armor", "pancerza", "+[%s - %s] pancerza", 1250, 2000, TemperingValueUnit.FLAT, ""),
                 defense("defense_all_resistance", "do odporności na wszystkie żywioły", "+[%s - %s] do odporności na wszystkie żywioły", 60, 70, TemperingValueUnit.FLAT, ""),
-                defense("defense_max_animus", "do maksymalnej liczby kumulacji Animuszu", "+[%s - %s] do maksymalnej liczby kumulacji Animuszu", 2, 3, TemperingValueUnit.FLAT, "Dane przyszłego etapu; nie zmienia capu Animuszu w runtime."),
+                defense("defense_max_animus", "do maksymalnej liczby kumulacji Animuszu", "+[%s - %s] do maksymalnej liczby kumulacji Animuszu", 2, 3, TemperingValueUnit.FLAT, "Dane przyszłego etapu; nie zmienia capu Animuszu w runtime.", 5.0d),
                 defense("defense_fire_resistance", "do odporności na: Ogień", "+[%s - %s] do odporności na: Ogień", 440, 490, TemperingValueUnit.FLAT, ""),
                 defense("defense_lightning_resistance", "do odporności na: Błyskawice", "+[%s - %s] do odporności na: Błyskawice", 440, 490, TemperingValueUnit.FLAT, ""),
                 defense("defense_cold_resistance", "do odporności na: Zimno", "+[%s - %s] do odporności na: Zimno", 440, 490, TemperingValueUnit.FLAT, ""),
@@ -38,6 +38,17 @@ public final class ApplicationTemperingAffixRegistry implements TemperingAffixRe
                                                     double rangeMax,
                                                     TemperingValueUnit unit,
                                                     String notes) {
+        return defense(id, displayName, descriptionTemplate, rangeMin, rangeMax, unit, notes, null);
+    }
+
+    private static TemperingAffixDefinition defense(String id,
+                                                    String displayName,
+                                                    String descriptionTemplate,
+                                                    double rangeMin,
+                                                    double rangeMax,
+                                                    TemperingValueUnit unit,
+                                                    String notes,
+                                                    Double greaterAffixValueOverride) {
         return new TemperingAffixDefinition(
                 id,
                 TemperingCategory.DEFENSE,
@@ -47,7 +58,8 @@ public final class ApplicationTemperingAffixRegistry implements TemperingAffixRe
                 rangeMax,
                 unit,
                 TemperingRuntimeStatus.DATA_ONLY,
-                notes
+                notes,
+                greaterAffixValueOverride
         );
     }
 

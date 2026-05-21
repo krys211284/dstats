@@ -340,7 +340,7 @@ final class ItemImageImportTextParser {
     }
 
     private static String toUserFacingItemName(String rawName) {
-        String value = repairTitleFirstWordOcr(rawName == null ? "" : rawName.replaceAll("\\s+", " ").trim());
+        String value = repairKnownItemNameOcr(repairTitleFirstWordOcr(rawName == null ? "" : rawName.replaceAll("\\s+", " ").trim()));
         if (value.isBlank()) {
             return "";
         }
@@ -364,6 +364,25 @@ final class ItemImageImportTextParser {
             return builder.toString();
         }
         return value;
+    }
+
+    private static String repairKnownItemNameOcr(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        String trimmed = stripTrailingOcrMarkers(value);
+        String collapsedValue = collapse(trimmed);
+        if (collapsedValue.contains("MIAZDZACATARCZAKOSCIANYCHLUSEK")) {
+            return "MIAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK";
+        }
+        return trimmed;
+    }
+
+    private static String stripTrailingOcrMarkers(String value) {
+        return value == null ? "" : value
+                .replaceAll("[\\s*★⭐✦✧✱✳✴✵✶✷✸✹✺✻✼✽✾❋❂◆◇♦●•]+$", "")
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     private static String repairTitleFirstWordOcr(String value) {
@@ -627,6 +646,7 @@ final class ItemImageImportTextParser {
             case ASPECT -> normalizeFortifyLegendaryEffect(line).orElse(line);
             case IMPLICIT -> normalizeShieldImplicitLine(line).orElse(line);
             case AFFIX -> normalizeDamageReductionAffixLine(line).orElse(line);
+            case TEMPERING -> ImportedItemTemperingExtractor.normalizeKnownTemperingLine(line).orElse(line);
             default -> line;
         };
     }
@@ -749,16 +769,18 @@ final class ItemImageImportTextParser {
     private static List<String> expandFullItemReadLines(List<String> lines) {
         List<String> expandedLines = new ArrayList<>();
         for (String line : lines) {
-            if (!looksLikeCondensedFullItemReadLine(line)) {
-                expandedLines.add(line);
-                continue;
+            for (String splitLine : ImportedItemTemperingExtractor.splitKnownTemperingSegments(line)) {
+                if (!looksLikeCondensedFullItemReadLine(splitLine)) {
+                    expandedLines.add(splitLine);
+                    continue;
+                }
+                List<String> extractedLines = extractCondensedFullItemReadLines(splitLine);
+                if (extractedLines.isEmpty()) {
+                    expandedLines.add(splitLine);
+                    continue;
+                }
+                expandedLines.addAll(extractedLines);
             }
-            List<String> extractedLines = extractCondensedFullItemReadLines(line);
-            if (extractedLines.isEmpty()) {
-                expandedLines.add(line);
-                continue;
-            }
-            expandedLines.addAll(extractedLines);
         }
         return expandedLines;
     }
@@ -954,6 +976,9 @@ final class ItemImageImportTextParser {
         }
         if (containsAny(collapsedLine, List.of("REDUKCJIBLOKOWANYCHOBRAZEN", "SZANSYNABLOK", "SZANSANABLOK", "OBRAZENODBRONIWGLOWNEJRECE"))) {
             return FullItemReadLineType.IMPLICIT;
+        }
+        if (ImportedItemTemperingExtractor.isKnownTemperingLine(line)) {
+            return FullItemReadLineType.TEMPERING;
         }
         if (containsAny(collapsedLine, List.of("ASPEKT", "ASPECT", "LEGENDARYPOWER", "ZADAJESZOBRAZENIAZWIEKSZONE", "TAPREMIAJEST", "UMIEJETNOSCIPODSTAWOWE", "GDYMASZUMOCNIENIE"))) {
             return FullItemReadLineType.ASPECT;
