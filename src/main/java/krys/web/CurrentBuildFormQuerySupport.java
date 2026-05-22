@@ -38,6 +38,7 @@ final class CurrentBuildFormQuerySupport {
         append(query, "blockChance", formData.getBlockChance());
         append(query, "retributionChance", formData.getRetributionChance());
         append(query, "horizonSeconds", formData.getHorizonSeconds());
+        append(query, "simulationStepCount", formData.getSimulationStepCount());
         append(query, "initialPrimaryResource", formData.getInitialPrimaryResource());
         append(query, "maxPrimaryResource", formData.getMaxPrimaryResource());
         append(query, "primaryResourceRegenPerSecond", formData.getPrimaryResourceRegenPerSecond());

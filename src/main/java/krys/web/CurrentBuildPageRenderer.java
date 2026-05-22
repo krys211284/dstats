@@ -187,7 +187,7 @@ public final class CurrentBuildPageRenderer {
                 <section class="panel panel-build-workspace">
                     <form method="post" action="/policz-aktualny-build">
                 """
-                + renderStickyFormActions()
+                + renderStickyFormActions(model)
                 + renderSkillPointSection(model)
                 + renderAssignedSkillsSection(model)
                 + renderActionBarSection(model)
@@ -200,20 +200,24 @@ public final class CurrentBuildPageRenderer {
                 """;
     }
 
-    private static String renderStickyFormActions() {
+    private static String renderStickyFormActions(CurrentBuildPageModel model) {
         return """
                 <div class="current-build-sticky-actions">
                     <div>
                         <strong>Akcje aktualnego buildu</strong>
                         <p>Oblicz bieżącą konfigurację albo zapisz zmiany w profilu bohatera.</p>
                     </div>
+                    <label class="current-build-step-count">
+                        Liczba kroków symulacji
+                        <input type="number" min="1" max="200" step="1" name="simulationStepCount" value="{{SIMULATION_STEP_COUNT}}">
+                    </label>
                     <div class="current-build-sticky-buttons">
                         <button type="submit" name="formAction" value="calculate">Oblicz aktualny build</button>
                         <button type="submit" name="formAction" value="save">Zapisz zmiany</button>
                         <a class="nav-link secondary-link" href="/policz-aktualny-build">Wycofaj zmiany</a>
                     </div>
                 </div>
-                """;
+                """.replace("{{SIMULATION_STEP_COUNT}}", escapeHtml(model.getFormData().getSimulationStepCount()));
     }
 
     private static String renderEquipmentSection(CurrentBuildPageModel model) {
@@ -828,7 +832,7 @@ public final class CurrentBuildPageRenderer {
             return "";
         }
         StringBuilder content = new StringBuilder();
-        content.append(renderAffixListSection("Wkład statystyczny", activeItemStats.getStatisticalAffixes()));
+        content.append(renderAffixListSection("Wartości itemów", activeItemStats.getStatisticalAffixes()));
         content.append(renderAffixListSection("Efekty opisowe", activeItemStats.getDescriptiveEffectAffixes()));
         return renderHeroStatListGroup("Aktywne affixy itemów", content.toString());
     }
@@ -885,7 +889,7 @@ public final class CurrentBuildPageRenderer {
 
     private static String renderActiveSlotContribution(SavedImportedItem item) {
         String weaponSection = renderSlotContributionSection("Broń", buildSlotWeaponChips(item));
-        String statsSection = renderSlotContributionSection("Wkład w statystyki", buildSlotStatChips(item));
+        String statsSection = renderSlotContributionSection("Wartości itemu", buildSlotStatChips(item));
         String temperingSection = renderSlotContributionSection("Hartowanie", buildSlotTemperingChips(item));
         String masterworkingSection = renderSlotContributionSection("Doskonalenie", buildSlotMasterworkingChips(item));
         String effectsSection = renderSlotContributionSection("Efekty opisowe", buildSlotEffectChips(item));
@@ -1091,7 +1095,7 @@ public final class CurrentBuildPageRenderer {
         html.append(renderSummaryCard("Efektywne obrażenia broni", Long.toString(calculation.getRequest().getWeaponDamage())));
         html.append(renderSummaryCard("Efektywna siła", String.format(Locale.US, "%.0f", calculation.getRequest().getStrength())));
         html.append(renderSummaryCard("Efektywna inteligencja", String.format(Locale.US, "%.0f", calculation.getRequest().getIntelligence())));
-        html.append(renderSummaryCard("Horyzont symulacji", calculation.getRequest().getHorizonSeconds() + " s"));
+        html.append(renderSummaryCard("Liczba kroków symulacji", Integer.toString(calculation.getRequest().getSimulationStepCount())));
         html.append(renderSummaryCard("Pasek akcji", CurrentBuildCalculationSectionsRenderer.buildActionBarLabel(calculation.getRequest().getActionBar())));
         html.append(renderSummaryCard("Aktywna Przysięga", activePaladinOathSummary(model.getFormData())));
         html.append(renderSummaryCard("Łączne obrażenia", Long.toString(calculation.getResult().getTotalDamage())));
@@ -1207,18 +1211,13 @@ public final class CurrentBuildPageRenderer {
                     Szansa retribution w ręcznym nadpisaniu [%]
                     <input type="number" min="0" step="0.01" name="retributionChance" value="{{RETRIBUTION_CHANCE}}">
                 </label>
-                <label>
-                    Horyzont symulacji [s]
-                    <input type="number" min="1" step="1" name="horizonSeconds" value="{{HORIZON_SECONDS}}">
-                </label>
                 """
                 .replace("{{WEAPON_DAMAGE}}", escapeHtml(formData.getWeaponDamage()))
                 .replace("{{STRENGTH}}", escapeHtml(formData.getStrength()))
                 .replace("{{INTELLIGENCE}}", escapeHtml(formData.getIntelligence()))
                 .replace("{{THORNS}}", escapeHtml(formData.getThorns()))
                 .replace("{{BLOCK_CHANCE}}", escapeHtml(formData.getBlockChance()))
-                .replace("{{RETRIBUTION_CHANCE}}", escapeHtml(formData.getRetributionChance()))
-                .replace("{{HORIZON_SECONDS}}", escapeHtml(formData.getHorizonSeconds()));
+                .replace("{{RETRIBUTION_CHANCE}}", escapeHtml(formData.getRetributionChance()));
     }
 
     private static String renderPrimaryResourceFields(CurrentBuildFormData formData) {

@@ -423,6 +423,46 @@ class CurrentBuildCalculationServiceTest {
     }
 
     @Test
+    void wait_z_powodu_braku_wiary_pokazuje_trwajacy_buff_molocha_bez_bonusowania_hitu() {
+        CurrentBuildRequest request = clashVerathielRequest(
+                PaladinOathId.JUGGERNAUT.name(),
+                13.0d,
+                true,
+                6,
+                13.0d,
+                33.0d
+        );
+
+        CurrentBuildCalculation calculation = calculationService.calculate(request);
+
+        assertEquals(2, calculation.getResult().getMolochBuffActivationCount());
+        SimulationStepTrace waitWithTwoSeconds = calculation.getResult().getStepTrace().get(3);
+        assertEquals("WAIT", waitWithTwoSeconds.getActionName());
+        assertEquals(0L, waitWithTwoSeconds.getDirectDamage());
+        assertTrue(waitWithTwoSeconds.isMolochBuffActive());
+        assertFalse(waitWithTwoSeconds.isMolochBuffActivated());
+        assertFalse(waitWithTwoSeconds.isMolochDamageApplied());
+        assertEquals(2, waitWithTwoSeconds.getMolochBuffRemainingSeconds());
+        assertTrue(waitWithTwoSeconds.getSelectionReason().contains("regeneracja następuje po decyzji akcji"));
+
+        SimulationStepTrace waitWithOneSecond = calculation.getResult().getStepTrace().get(4);
+        assertEquals("WAIT", waitWithOneSecond.getActionName());
+        assertEquals(0L, waitWithOneSecond.getDirectDamage());
+        assertTrue(waitWithOneSecond.isMolochBuffActive());
+        assertFalse(waitWithOneSecond.isMolochBuffActivated());
+        assertFalse(waitWithOneSecond.isMolochDamageApplied());
+        assertEquals(1, waitWithOneSecond.getMolochBuffRemainingSeconds());
+
+        SimulationStepTrace reactivationAfterExpiry = calculation.getResult().getStepTrace().get(5);
+        assertEquals("Clash", reactivationAfterExpiry.getActionName());
+        assertTrue(reactivationAfterExpiry.isMolochBuffActivated());
+        assertTrue(reactivationAfterExpiry.isMolochBuffActive());
+        assertTrue(reactivationAfterExpiry.isMolochDamageApplied());
+        assertEquals(5, reactivationAfterExpiry.getMolochBuffRemainingSeconds());
+        assertEquals(8.0d, reactivationAfterExpiry.getAnimusSpent(), 0.0000001d);
+    }
+
+    @Test
     void animusz_starcia_bez_molocha_nie_zmienia_damage_i_nie_pokazuje_buffa() {
         CurrentBuildRequest request = clashVerathielRequest("NONE", 1.0d, true, 10);
 
@@ -510,6 +550,15 @@ class CurrentBuildCalculationServiceTest {
                                                              boolean clashAnimus,
                                                              int horizonSeconds,
                                                              double maxAnimus) {
+        return clashVerathielRequest(selectedOathId, initialAnimus, clashAnimus, horizonSeconds, maxAnimus, 100.0d);
+    }
+
+    private static CurrentBuildRequest clashVerathielRequest(String selectedOathId,
+                                                             double initialAnimus,
+                                                             boolean clashAnimus,
+                                                             int horizonSeconds,
+                                                             double maxAnimus,
+                                                             double initialPrimaryResource) {
         return new CurrentBuildRequest(
                 70,
                 1664,
@@ -529,7 +578,7 @@ class CurrentBuildCalculationServiceTest {
                 )),
                 List.of(SkillId.CLASH),
                 horizonSeconds,
-                100.0d,
+                initialPrimaryResource,
                 100.0d,
                 1.50d,
                 selectedOathId,

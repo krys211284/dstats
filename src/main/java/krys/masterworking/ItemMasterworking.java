@@ -2,7 +2,7 @@ package krys.masterworking;
 
 import java.util.List;
 
-/** Dane itemu dla mechaniki Doskonalenia. Na tym etapie nie wpływa na runtime. */
+/** Dane itemu dla mechaniki Doskonalenia; source values zostają w itemie, a resolved values mogą wpływać na runtime dla potwierdzonych statystyk. */
 public final class ItemMasterworking {
     public static final int DEFAULT_QUALITY_CURRENT = 0;
     public static final int DEFAULT_QUALITY_MAX = 25;
@@ -37,7 +37,8 @@ public final class ItemMasterworking {
     public static ItemMasterworking fromPersisted(int qualityCurrent, int qualityMax, MasterworkedAffixSelection perfectedAffix) {
         int safeCurrent = isAllowedQualityStep(qualityCurrent) ? qualityCurrent : DEFAULT_QUALITY_CURRENT;
         int safeMax = qualityMax == DEFAULT_QUALITY_MAX ? qualityMax : DEFAULT_QUALITY_MAX;
-        return new ItemMasterworking(safeCurrent, safeMax, perfectedAffix);
+        MasterworkedAffixSelection safePerfectedAffix = safeCurrent == DEFAULT_QUALITY_MAX ? perfectedAffix : null;
+        return new ItemMasterworking(safeCurrent, safeMax, safePerfectedAffix);
     }
 
     public static boolean isAllowedQualityStep(int qualityCurrent) {

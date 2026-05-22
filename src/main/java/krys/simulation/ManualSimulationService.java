@@ -223,6 +223,7 @@ public final class ManualSimulationService {
             }
 
             long totalStepDamage = delayedDamage + reactiveDamage + directDamage;
+            boolean molochBuffActiveInStep = molochRuntimeActive && second <= molochBuffExpiresAtSecond;
             stepTrace.add(new SimulationStepTrace(
                     second,
                     actionType,
@@ -246,7 +247,7 @@ public final class ManualSimulationService {
                     animusGenerated,
                     currentAnimus,
                     molochBuffActivated,
-                    molochBuffActiveForDamage,
+                    molochBuffActiveInStep,
                     molochBuffRemainingSeconds(second, molochBuffExpiresAtSecond)
             ));
         }
@@ -552,7 +553,8 @@ public final class ManualSimulationService {
             if (evaluation.legalActive && !evaluation.onCooldown && !evaluation.hasRequiredResource) {
                 return Optional.of("WAIT: brak zasobu dla " + evaluation.skillName
                         + " (Wiara " + formatResource(evaluation.currentPrimaryResource)
-                        + " / koszt " + formatResource(evaluation.effectivePrimaryResourceCost) + ").");
+                        + " / koszt " + formatResource(evaluation.effectivePrimaryResourceCost)
+                        + "); regeneracja następuje po decyzji akcji.");
             }
         }
         return Optional.empty();

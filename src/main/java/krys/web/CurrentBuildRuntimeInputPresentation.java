@@ -63,6 +63,8 @@ final class CurrentBuildRuntimeInputPresentation {
                 "Jawne pole current build"));
         fields.add(new Field("Regeneracja Wiary/s", CurrentBuildNumberFormatter.resourceRegenPerSecond(parseDouble(model.getFormData().getPrimaryResourceRegenPerSecond())),
                 "Jawne pole current build"));
+        fields.add(new Field("Liczba kroków symulacji", model.getFormData().getSimulationStepCount(),
+                "Jawne pole current build"));
         fields.add(new Field("Początkowy Animusz", CurrentBuildNumberFormatter.resource(parseDouble(model.getFormData().getInitialAnimus())),
                 "Jawne pole current build"));
         fields.add(new Field("Maksymalny Animusz",

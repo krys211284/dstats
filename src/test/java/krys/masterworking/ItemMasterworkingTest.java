@@ -33,4 +33,38 @@ class ItemMasterworkingTest {
         assertEquals(0, masterworking.getQualityCurrent());
         assertEquals(25, masterworking.getQualityMax());
     }
+
+    @Test
+    void shouldClearPersistedPerfectedAffixWhenUnsupportedQualityFallsBackToZero() {
+        ItemMasterworking masterworking = ItemMasterworking.fromPersisted(
+                18,
+                25,
+                new MasterworkedAffixSelection(MasterworkedAffixSource.ORDINARY_AFFIX, "STRENGTH")
+        );
+
+        assertEquals(0, masterworking.getQualityCurrent());
+        assertNull(masterworking.getPerfectedAffix());
+    }
+
+    @Test
+    void shouldKeepPersistedPerfectedAffixOnlyAtFullQuality() {
+        MasterworkedAffixSelection selection = new MasterworkedAffixSelection(MasterworkedAffixSource.ORDINARY_AFFIX, "STRENGTH");
+
+        ItemMasterworking masterworking = ItemMasterworking.fromPersisted(25, 25, selection);
+
+        assertEquals(25, masterworking.getQualityCurrent());
+        assertEquals(selection, masterworking.getPerfectedAffix());
+    }
+
+    @Test
+    void shouldReadLegacyAllowedQualityAndClearPerfectedAffixBelowFullQuality() {
+        ItemMasterworking masterworking = ItemMasterworking.fromPersisted(
+                12,
+                25,
+                new MasterworkedAffixSelection(MasterworkedAffixSource.ORDINARY_AFFIX, "STRENGTH")
+        );
+
+        assertEquals(12, masterworking.getQualityCurrent());
+        assertNull(masterworking.getPerfectedAffix());
+    }
 }

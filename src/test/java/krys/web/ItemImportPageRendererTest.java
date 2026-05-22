@@ -617,7 +617,7 @@ class ItemImportPageRendererTest {
         assertTrue(qualitySelect.contains("<option value=\"25\">25/25</option>"));
         assertTrue(masterworking.contains("Jakość maksymalna"));
         assertTrue(masterworking.contains("name=\"masterworkingQualityMax\" value=\"25\" readonly"));
-        assertTrue(masterworking.contains("Dane itemu / runtime nieaktywny"));
+        assertTrue(masterworking.contains("Runtime aktywny dla potwierdzonych wartości"));
         assertFalse(masterworking.contains("Aktualny doskonalony afiks"));
     }
 

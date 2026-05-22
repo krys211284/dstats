@@ -18,6 +18,8 @@ public final class CurrentBuildRequest {
     public static final double DEFAULT_INITIAL_ANIMUS = 8.0d;
     public static final double DEFAULT_MAX_ANIMUS = 8.0d;
     public static final String DEFAULT_SELECTED_PALADIN_OATH_ID = "NONE";
+    public static final int MIN_SIMULATION_STEP_COUNT = 1;
+    public static final int MAX_SIMULATION_STEP_COUNT = 200;
 
     private final int level;
     private final long weaponDamage;
@@ -156,8 +158,8 @@ public final class CurrentBuildRequest {
         validateNonNegative("Thorns", thorns);
         validateNonNegative("Block chance", blockChance);
         validateNonNegative("Retribution chance", retributionChance);
-        if (horizonSeconds <= 0) {
-            throw new IllegalArgumentException("Horyzont symulacji musi być dodatni");
+        if (horizonSeconds < MIN_SIMULATION_STEP_COUNT || horizonSeconds > MAX_SIMULATION_STEP_COUNT) {
+            throw new IllegalArgumentException("Liczba kroków symulacji musi być liczbą całkowitą od 1 do 200.");
         }
         validateNonNegative("Początkowa Wiara", initialPrimaryResource);
         validateNonNegative("Maksymalna Wiara", maxPrimaryResource);
@@ -263,6 +265,10 @@ public final class CurrentBuildRequest {
     }
 
     public int getHorizonSeconds() {
+        return horizonSeconds;
+    }
+
+    public int getSimulationStepCount() {
         return horizonSeconds;
     }
 

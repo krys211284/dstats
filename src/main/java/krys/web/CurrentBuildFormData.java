@@ -14,6 +14,7 @@ import java.util.Map;
 /** Surowe dane formularza GUI M8, zachowywane także przy błędach walidacji. */
 public final class CurrentBuildFormData {
     public static final int ACTION_BAR_SLOT_COUNT = 6;
+    public static final String DEFAULT_SIMULATION_STEP_COUNT = "10";
 
     private final String level;
     private final String questSkillPoints;
@@ -23,7 +24,7 @@ public final class CurrentBuildFormData {
     private final String thorns;
     private final String blockChance;
     private final String retributionChance;
-    private final String horizonSeconds;
+    private final String simulationStepCount;
     private final String initialPrimaryResource;
     private final String maxPrimaryResource;
     private final String primaryResourceRegenPerSecond;
@@ -73,7 +74,7 @@ public final class CurrentBuildFormData {
         this.thorns = thorns;
         this.blockChance = blockChance;
         this.retributionChance = retributionChance;
-        this.horizonSeconds = horizonSeconds;
+        this.simulationStepCount = horizonSeconds;
         this.initialPrimaryResource = initialPrimaryResource;
         this.maxPrimaryResource = maxPrimaryResource;
         this.primaryResourceRegenPerSecond = primaryResourceRegenPerSecond;
@@ -87,7 +88,7 @@ public final class CurrentBuildFormData {
     public static CurrentBuildFormData defaultValues() {
         Map<SkillId, SkillConfigFormData> skillConfigs = createEmptySkillConfigs();
         skillConfigs.put(SkillId.ADVANCE, new SkillConfigFormData("5", true, SkillUpgradeChoice.RIGHT.name()));
-        return new CurrentBuildFormData("13", "0", "8", "18", "0", "50", "50", "50", "10", "100", "100", "1.50", "NONE", "8", "8",
+        return new CurrentBuildFormData("13", "0", "8", "18", "0", "50", "50", "50", DEFAULT_SIMULATION_STEP_COUNT, "100", "100", "1.50", "NONE", "8", "8",
                 skillConfigs,
                 List.of(SkillId.ADVANCE.name(), "NONE", "NONE", "NONE", "NONE", "NONE"));
     }
@@ -147,7 +148,7 @@ public final class CurrentBuildFormData {
                 fields.getOrDefault("thorns", defaults.getThorns()),
                 fields.getOrDefault("blockChance", defaults.getBlockChance()),
                 fields.getOrDefault("retributionChance", defaults.getRetributionChance()),
-                fields.getOrDefault("horizonSeconds", defaults.getHorizonSeconds()),
+                simulationStepCountFromFields(fields, defaults),
                 fields.getOrDefault("initialPrimaryResource", defaults.getInitialPrimaryResource()),
                 fields.getOrDefault("maxPrimaryResource", defaults.getMaxPrimaryResource()),
                 fields.getOrDefault("primaryResourceRegenPerSecond", defaults.getPrimaryResourceRegenPerSecond()),
@@ -224,7 +225,11 @@ public final class CurrentBuildFormData {
     }
 
     public String getHorizonSeconds() {
-        return horizonSeconds;
+        return simulationStepCount;
+    }
+
+    public String getSimulationStepCount() {
+        return simulationStepCount;
     }
 
     public String getInitialPrimaryResource() {
@@ -277,6 +282,16 @@ public final class CurrentBuildFormData {
             normalized.add("NONE");
         }
         return normalized;
+    }
+
+    private static String simulationStepCountFromFields(Map<String, String> fields, CurrentBuildFormData defaults) {
+        if (fields.containsKey("simulationStepCount")) {
+            return fields.get("simulationStepCount");
+        }
+        if (fields.containsKey("horizonSeconds")) {
+            return fields.get("horizonSeconds");
+        }
+        return defaults.getSimulationStepCount();
     }
 
     public static final class SkillConfigFormData {

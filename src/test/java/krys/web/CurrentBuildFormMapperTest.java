@@ -52,11 +52,34 @@ class CurrentBuildFormMapperTest {
         assertEquals(60.0d, request.getThorns(), 0.0000001d);
         assertEquals(40.0d, request.getBlockChance(), 0.0000001d);
         assertEquals(20.0d, request.getRetributionChance(), 0.0000001d);
+        assertEquals(15, request.getSimulationStepCount());
         assertEquals(2, request.getLearnedSkills().size());
         assertEquals(SkillUpgradeChoice.LEFT, request.getLearnedSkills().get(SkillId.BRANDISH).getChoiceUpgrade());
         assertEquals(SkillUpgradeChoice.RIGHT, request.getLearnedSkills().get(SkillId.ADVANCE).getChoiceUpgrade());
         assertEquals(SkillId.ADVANCE, request.getActionBar().get(0));
         assertEquals(SkillId.BRANDISH, request.getActionBar().get(1));
+    }
+
+    @Test
+    void powinien_walidowac_liczbe_krokow_symulacji_od_1_do_200() {
+        for (String acceptedValue : java.util.List.of("1", "5", "10", "20", "200")) {
+            Map<String, String> fields = validClashFields();
+            fields.put("simulationStepCount", acceptedValue);
+
+            CurrentBuildFormMapper.MappingResult mappingResult = formMapper.map(CurrentBuildFormData.fromFormFields(fields));
+
+            assertTrue(mappingResult.getErrors().isEmpty(), acceptedValue);
+            assertEquals(Integer.parseInt(acceptedValue), mappingResult.getRequest().getSimulationStepCount());
+        }
+
+        for (String rejectedValue : java.util.List.of("0", "-1", "201", "abc", "1.5")) {
+            Map<String, String> fields = validClashFields();
+            fields.put("simulationStepCount", rejectedValue);
+
+            CurrentBuildFormMapper.MappingResult mappingResult = formMapper.map(CurrentBuildFormData.fromFormFields(fields));
+
+            assertTrue(mappingResult.getErrors().contains("Liczba kroków symulacji musi być liczbą całkowitą od 1 do 200."), rejectedValue);
+        }
     }
 
     @Test
@@ -109,5 +132,28 @@ class CurrentBuildFormMapperTest {
         assertTrue(mappingResult.getErrors().isEmpty());
         assertEquals("animusz", formData.getSkillConfig(SkillId.CLASH).getChoiceGroup1());
         assertEquals(SkillRuntimeModifierChoice.ANIMUS, mappingResult.getRequest().getLearnedSkills().get(SkillId.CLASH).getRuntimeModifierChoice());
+    }
+
+    private static Map<String, String> validClashFields() {
+        Map<String, String> fields = new HashMap<>();
+        fields.put("level", "70");
+        fields.put("weaponDamage", "1664");
+        fields.put("strength", "304");
+        fields.put("intelligence", "76");
+        fields.put("thorns", "0");
+        fields.put("blockChance", "20");
+        fields.put("retributionChance", "0");
+        fields.put("simulationStepCount", "10");
+        fields.put("initialPrimaryResource", "100");
+        fields.put("maxPrimaryResource", "100");
+        fields.put("primaryResourceRegenPerSecond", "1.50");
+        fields.put("initialAnimus", "8");
+        fields.put("maxAnimus", "8");
+        fields.put(CurrentBuildFormData.rankFieldName(SkillId.ADVANCE), "0");
+        fields.put(CurrentBuildFormData.choiceFieldName(SkillId.ADVANCE), SkillUpgradeChoice.NONE.name());
+        fields.put(CurrentBuildFormData.rankFieldName(SkillId.CLASH), "1");
+        fields.put(CurrentBuildFormData.choiceFieldName(SkillId.CLASH), SkillUpgradeChoice.NONE.name());
+        fields.put(CurrentBuildFormData.actionBarFieldName(1), SkillId.CLASH.name());
+        return fields;
     }
 }

@@ -230,6 +230,7 @@ final class CurrentBuildCalculationSectionsRenderer {
         StringBuilder html = new StringBuilder("""
                 <section class="panel result-panel">
                     <h2>Ślad kroków symulacji</h2>
+                    <p class="helper">Liczba kroków symulacji: %s</p>
                     <table class="data-table trace-table">
                         <thead>
                             <tr>
@@ -249,7 +250,7 @@ final class CurrentBuildCalculationSectionsRenderer {
                             </tr>
                         </thead>
                         <tbody>
-                """);
+                """.formatted(calculation.getResult().getStepTrace().size()));
         for (SimulationStepTrace step : calculation.getResult().getStepTrace()) {
             html.append("<tr>")
                     .append("<td>").append(step.getSecond()).append("</td>")

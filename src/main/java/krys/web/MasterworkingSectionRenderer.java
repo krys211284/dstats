@@ -15,7 +15,7 @@ import krys.tempering.TemperingAffixRegistry;
 
 import java.util.List;
 
-/** Renderer sekcji Doskonalenia itemu. Mechanika jest tu wyłącznie danymi itemu. */
+/** Renderer sekcji Doskonalenia itemu; pokazuje source controls oraz resolved values używane w runtime dla potwierdzonych statystyk. */
 final class MasterworkingSectionRenderer {
     private static final TemperingAffixRegistry TEMPERING_REGISTRY = ApplicationTemperingAffixRegistry.get();
     private static final MasterworkingPresentationValueResolver VALUE_RESOLVER = new MasterworkingPresentationValueResolver();
@@ -53,7 +53,7 @@ final class MasterworkingSectionRenderer {
                 masterworking.getQualityMax(),
                 CurrentBuildCalculationSectionsRenderer.escapeHtml(MasterworkingPresentationSupport.runtimeStatusLabel()),
                 perfectedAffixSelector,
-                escapeHtml(MasterworkingPresentationValueResolver.RUNTIME_INACTIVE_NOTE)
+                escapeHtml(MasterworkingPresentationValueResolver.MASTERWORKING_RUNTIME_SCOPE_NOTE)
         );
     }
 

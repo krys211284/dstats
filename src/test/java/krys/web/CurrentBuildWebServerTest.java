@@ -65,6 +65,8 @@ class CurrentBuildWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Policz aktualny build"));
+        assertTrue(response.body().contains("Liczba kroków symulacji"));
+        assertTrue(response.body().contains("<input type=\"number\" min=\"1\" max=\"200\" step=\"1\" name=\"simulationStepCount\" value=\"10\">"));
         assertFalse(response.body().contains("<h1>Policz aktualny build</h1>"));
         assertFalse(response.body().contains("Bohater / Build / SSR"));
         assertFalse(response.body().contains("Operacyjny ekran aktywnego bohatera"));
@@ -148,6 +150,7 @@ class CurrentBuildWebServerTest {
         assertFalse(response.body().contains("name=\"" + CurrentBuildFormData.rankFieldName(krys.skill.SkillId.HOLY_BOLT) + "\""));
         assertFalse(response.body().contains("name=\"weaponDamage\""));
         assertFalse(response.body().contains("name=\"horizonSeconds\""));
+        assertTrue(response.body().contains("name=\"simulationStepCount\""));
         assertTrue(response.body().contains("name=\"actionBar1\""));
         assertTrue(response.body().contains("name=\"actionBar6\""));
         assertTrue(response.body().contains("name=\"selectedPaladinOathId\""));
@@ -317,7 +320,7 @@ class CurrentBuildWebServerTest {
         assertFalse(slotCard.contains("Brak wkładu"));
         assertTrue(slotCard.contains("slot-chip"));
         assertTrue(slotCard.contains("Broń"));
-        assertTrue(slotCard.contains("Wkład w statystyki"));
+        assertTrue(slotCard.contains("Wartości itemu"));
         assertTrue(slotCard.contains("Efekty opisowe"));
         assertTrue(slotCard.contains("DPS 1830"));
         assertTrue(slotCard.contains("1350 - 1978 obrażeń za trafienie"));
@@ -360,7 +363,7 @@ class CurrentBuildWebServerTest {
         assertTrue(html.contains("+545 zdrowia przy trafieniu [526 - 632]"));
         assertTrue(html.contains("Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]"));
         String activeAffixesGroup = heroStatGroup(html, "Aktywne affixy itemów");
-        assertTrue(activeAffixesGroup.contains("Wkład statystyczny"));
+        assertTrue(activeAffixesGroup.contains("Wartości itemów"));
         assertTrue(activeAffixesGroup.contains("Efekty opisowe"));
         assertEquals(4, countOccurrences(activeAffixesGroup, "<li>"));
         assertFalse(activeAffixesGroup.contains("OCR"));
@@ -481,6 +484,38 @@ class CurrentBuildWebServerTest {
                 .contains(runtimeInputCard("Obrażenia broni", "1664", "Aktywna broń: Odłamek Verathiela, średnie obrażenia trafienia")));
         assertTrue(response.body().contains(summaryCard("Pasek akcji", "Natarcie")));
         assertTrue(response.body().contains("Debug bezpośrednich trafień"));
+    }
+
+    @Test
+    void shouldKeepSimulationStepCountAfterSubmitAndShowItInTechnicalRuntimeInput() throws Exception {
+        createHero("Kroki symulacji UI", "70");
+        saveAndActivateVerathiel();
+        Map<String, String> fields = buildAdvanceFlashFields(20);
+        fields.put("level", "70");
+        fields.put("formAction", "calculate");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("<input type=\"number\" min=\"1\" max=\"200\" step=\"1\" name=\"simulationStepCount\" value=\"20\">"));
+        assertTrue(response.body().contains(summaryCard("Liczba kroków symulacji", "20")));
+        assertTrue(technicalRuntimeInputSection(response.body())
+                .contains(runtimeInputCard("Liczba kroków symulacji", "20", "Jawne pole current build")));
+    }
+
+    @Test
+    void shouldValidateSimulationStepCount() throws Exception {
+        createHero("Walidacja kroków symulacji", "70");
+        for (String value : List.of("0", "-1", "201", "abc", "1.5")) {
+            Map<String, String> fields = buildAdvanceFlashFields(10);
+            fields.put("simulationStepCount", value);
+            fields.put("formAction", "calculate");
+
+            HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+            assertEquals(200, response.statusCode(), value);
+            assertTrue(response.body().contains("Liczba kroków symulacji musi być liczbą całkowitą od 1 do 200."), value);
+        }
     }
 
     @Test
@@ -853,6 +888,116 @@ class CurrentBuildWebServerTest {
         String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
         assertEquals(2, countOccurrences(stepTrace, "<td>Aktywacja</td>"));
         assertEquals(8, countOccurrences(stepTrace, "<td>Aktywny</td>"));
+    }
+
+    @Test
+    void shouldUseConfiguredSimulationStepCountForTraceAndMolochRuntime() throws Exception {
+        createHero("Starcie Moloch 20 kroków", "70");
+        saveAndActivateVerathiel();
+        saveAndActivateKoscianychLusekShieldWithPerfectedMaxAnimusTempering("2");
+        assignSkill(krys.skill.SkillId.CLASH);
+        Map<String, String> fields = buildClashRankOneLevel70Fields();
+        fields.put("formAction", "calculate");
+        fields.put("simulationStepCount", "20");
+        fields.put("selectedPaladinOathId", PaladinOathId.JUGGERNAUT.name());
+        fields.put("initialAnimus", "20");
+        fields.put("maxAnimus", "8");
+        fields.put(CurrentBuildFormData.choiceGroupFieldName(krys.skill.SkillId.CLASH, 1), "animusz");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        String html = response.body();
+        assertFalse(html.contains("Błędy formularza"));
+        assertTrue(html.contains(summaryCard("Łączne obrażenia", "70360")));
+        assertTrue(html.contains(summaryCard("DPS", "3518")));
+        assertTrue(html.contains(summaryCard("Końcowa Wiara", "30")));
+        assertTrue(html.contains(summaryCard("Końcowy Animusz", "20")));
+        assertTrue(html.contains(summaryCard("Maksymalny Animusz", "20")));
+        assertTrue(html.contains(summaryCard("Aktywacje Molocha", "4")));
+        assertTrue(html.contains(summaryCard("Animusz ze Starcia", "+32")));
+        String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
+        assertTrue(stepTrace.contains("Liczba kroków symulacji: 20"));
+        assertEquals(20, countOccurrences(stepTrace, "<td>Starcie</td>"));
+        assertEquals(4, countOccurrences(stepTrace, "<td>Aktywacja</td>"));
+        assertEquals(16, countOccurrences(stepTrace, "<td>Aktywny</td>"));
+    }
+
+    @Test
+    void shouldUseConfiguredSimulationStepCountFiveForTraceAndRuntimeTotals() throws Exception {
+        createHero("Starcie Moloch 5 kroków", "70");
+        saveAndActivateVerathiel();
+        saveAndActivateKoscianychLusekShieldWithMaxAnimusTempering("2");
+        assignSkill(krys.skill.SkillId.CLASH);
+        Map<String, String> fields = buildClashRankOneLevel70Fields();
+        fields.put("formAction", "calculate");
+        fields.put("simulationStepCount", "5");
+        fields.put("selectedPaladinOathId", PaladinOathId.JUGGERNAUT.name());
+        fields.put("initialAnimus", "1");
+        fields.put("maxAnimus", "8");
+        fields.put(CurrentBuildFormData.choiceGroupFieldName(krys.skill.SkillId.CLASH, 1), "animusz");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        String html = response.body();
+        assertFalse(html.contains("Błędy formularza"));
+        assertTrue(html.contains(summaryCard("Łączne obrażenia", "11832")));
+        assertTrue(html.contains(summaryCard("DPS", "2366,4")));
+        assertTrue(html.contains(summaryCard("Końcowa Wiara", "82,5")));
+        assertTrue(html.contains(summaryCard("Końcowy Animusz", "3")));
+        assertTrue(html.contains(summaryCard("Maksymalny Animusz", "13")));
+        assertTrue(html.contains(summaryCard("Aktywacje Molocha", "1")));
+        assertTrue(html.contains(summaryCard("Animusz ze Starcia", "+10")));
+        String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
+        assertTrue(stepTrace.contains("Liczba kroków symulacji: 5"));
+        assertEquals(5, countOccurrences(stepTrace, "<td>Starcie</td>"));
+        assertEquals(1, countOccurrences(stepTrace, "<td>Aktywacja</td>"));
+        assertEquals(0, countOccurrences(stepTrace, "<td>Aktywny</td>"));
+    }
+
+    @Test
+    void shouldRenderMolochActiveDuringWaitRowsWithoutCountingThemAsBuffedHits() throws Exception {
+        createHero("WAIT podczas buffa Molocha", "70");
+        saveAndActivateVerathiel();
+        saveAndActivateEmptyShield("2");
+        assignSkill(krys.skill.SkillId.CLASH);
+        Map<String, String> fields = buildClashRankOneLevel70Fields();
+        fields.put("formAction", "calculate");
+        fields.put("simulationStepCount", "6");
+        fields.put("selectedPaladinOathId", PaladinOathId.JUGGERNAUT.name());
+        fields.put("initialPrimaryResource", "33");
+        fields.put("initialAnimus", "13");
+        fields.put("maxAnimus", "13");
+        fields.put(CurrentBuildFormData.choiceGroupFieldName(krys.skill.SkillId.CLASH, 1), "animusz");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        String html = response.body();
+        assertFalse(html.contains("Błędy formularza"));
+        assertTrue(html.contains(summaryCard("Aktywacje Molocha", "2")));
+        String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
+        String waitWithTwoSeconds = traceRowBySecond(stepTrace, 4);
+        assertTrue(waitWithTwoSeconds.contains("<td>WAIT</td>"));
+        assertTrue(waitWithTwoSeconds.contains("<td>0</td>"));
+        assertTrue(waitWithTwoSeconds.contains("brak zasobu dla Starcie"));
+        assertTrue(waitWithTwoSeconds.contains("regeneracja następuje po decyzji akcji"));
+        assertTrue(waitWithTwoSeconds.contains("<td>Aktywny</td><td>2 s</td>"));
+        assertFalse(waitWithTwoSeconds.contains("<td>Nie</td><td>2 s</td>"));
+
+        String waitWithOneSecond = traceRowBySecond(stepTrace, 5);
+        assertTrue(waitWithOneSecond.contains("<td>WAIT</td>"));
+        assertTrue(waitWithOneSecond.contains("<td>0</td>"));
+        assertTrue(waitWithOneSecond.contains("<td>Aktywny</td><td>1 s</td>"));
+        assertFalse(waitWithOneSecond.contains("<td>Nie</td><td>1 s</td>"));
+
+        String reactivationAfterExpiry = traceRowBySecond(stepTrace, 6);
+        assertTrue(reactivationAfterExpiry.contains("<td>Starcie</td>"));
+        assertTrue(reactivationAfterExpiry.contains("<td>Aktywacja</td><td>5 s</td>"));
+        assertEquals(2, countOccurrences(stepTrace, "<td>Aktywacja</td>"));
+        assertEquals(2, countOccurrences(stepTrace, "<td>WAIT</td>"));
+        assertEquals(4, countOccurrences(stepTrace, "<td>Starcie</td>"));
     }
 
     @Test
@@ -1894,6 +2039,7 @@ class CurrentBuildWebServerTest {
         fields.put("blockChance", "50");
         fields.put("retributionChance", "50");
         fields.put("horizonSeconds", horizonSeconds);
+        fields.put("simulationStepCount", horizonSeconds);
         fields.put("initialPrimaryResource", "100");
         fields.put("maxPrimaryResource", "100");
         fields.put("primaryResourceRegenPerSecond", "1.50");
@@ -2437,6 +2583,19 @@ class CurrentBuildWebServerTest {
             }
             previousIndex = index;
         }
+    }
+
+    private static String traceRowBySecond(String stepTrace, int second) {
+        String marker = "<tr><td>" + second + "</td>";
+        int start = stepTrace.indexOf(marker);
+        if (start < 0) {
+            throw new AssertionError("Brak wiersza trace dla kroku: " + second);
+        }
+        int end = stepTrace.indexOf("</tr>", start);
+        if (end < 0) {
+            throw new AssertionError("Nie udało się wyciąć wiersza trace dla kroku: " + second);
+        }
+        return stepTrace.substring(start, end + "</tr>".length());
     }
 
     private HttpResponse<String> sendGet(String path) throws Exception {

@@ -242,6 +242,10 @@ public final class SimulationStepTrace {
         return molochBuffActive;
     }
 
+    public boolean isMolochDamageApplied() {
+        return actionType == SimulationActionType.SKILL && directDamage > 0L && molochBuffActive;
+    }
+
     public int getMolochBuffRemainingSeconds() {
         return molochBuffRemainingSeconds;
     }

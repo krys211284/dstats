@@ -35,7 +35,7 @@ final class CurrentBuildFormMapper {
         Double thorns = parseDouble(formData.getThorns(), "Thorns", 0.0d, errors);
         Double blockChance = parseDouble(formData.getBlockChance(), "Block chance", 0.0d, errors);
         Double retributionChance = parseDouble(formData.getRetributionChance(), "Retribution chance", 0.0d, errors);
-        Integer horizonSeconds = parseInt(formData.getHorizonSeconds(), "Horyzont symulacji", 1, errors);
+        Integer simulationStepCount = parseSimulationStepCount(formData.getSimulationStepCount(), errors);
         Double initialPrimaryResource = parseDouble(formData.getInitialPrimaryResource(), "Początkowa Wiara", 0.0d, errors);
         Double maxPrimaryResource = parseDouble(formData.getMaxPrimaryResource(), "Maksymalna Wiara", 0.0d, errors);
         Double primaryResourceRegenPerSecond = parseDouble(formData.getPrimaryResourceRegenPerSecond(), "Regeneracja Wiary/s", 0.0d, errors);
@@ -56,7 +56,7 @@ final class CurrentBuildFormMapper {
 
         List<SkillId> actionBar = mapActionBar(formData, learnedSkills, errors);
         if (level == null || weaponDamage == null || strength == null || intelligence == null
-                || thorns == null || blockChance == null || retributionChance == null || horizonSeconds == null
+                || thorns == null || blockChance == null || retributionChance == null || simulationStepCount == null
                 || initialPrimaryResource == null || maxPrimaryResource == null || primaryResourceRegenPerSecond == null
                 || initialAnimus == null || maxAnimus == null
                 || !errors.isEmpty()) {
@@ -76,7 +76,7 @@ final class CurrentBuildFormMapper {
                     hasActiveShield,
                     learnedSkills,
                     actionBar,
-                    horizonSeconds,
+                    simulationStepCount,
                     initialPrimaryResource,
                     maxPrimaryResource,
                     primaryResourceRegenPerSecond,
@@ -254,6 +254,20 @@ final class CurrentBuildFormMapper {
             return value;
         } catch (NumberFormatException exception) {
             errors.add(label + " musi być liczbą całkowitą.");
+            return null;
+        }
+    }
+
+    private static Integer parseSimulationStepCount(String rawValue, List<String> errors) {
+        try {
+            int value = Integer.parseInt(rawValue);
+            if (value < 1 || value > 200) {
+                errors.add("Liczba kroków symulacji musi być liczbą całkowitą od 1 do 200.");
+                return null;
+            }
+            return value;
+        } catch (NumberFormatException | NullPointerException exception) {
+            errors.add("Liczba kroków symulacji musi być liczbą całkowitą od 1 do 200.");
             return null;
         }
     }

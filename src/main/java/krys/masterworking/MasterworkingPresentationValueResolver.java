@@ -10,8 +10,8 @@ import java.math.RoundingMode;
 /** Przelicza finalne wartosci itemu po Doskonaleniu do prezentacji UI. */
 public final class MasterworkingPresentationValueResolver {
     public static final String NO_RULE_NOTE = "Doskonalenie: brak reguły prezentacyjnej dla tego affixu";
-    public static final String RUNTIME_INACTIVE_NOTE = "Wartości po Doskonaleniu są używane w runtime dla potwierdzonych statystyk.";
-    public static final String RUNTIME_STORED_TEMPERING_NOTE = "Runtime: używa wartości po Doskonaleniu";
+    public static final String MASTERWORKING_RUNTIME_SCOPE_NOTE = "Wartości po Doskonaleniu są używane w runtime dla potwierdzonych statystyk.";
+    public static final String RUNTIME_RESOLVED_TEMPERING_NOTE = "Runtime: używa wartości po Doskonaleniu";
     private final MasterworkingResolvedItemValueResolver resolvedValueResolver = new MasterworkingResolvedItemValueResolver();
 
     public MasterworkingPresentationValue resolveArmor(long baseArmor, ItemMasterworking masterworking) {
@@ -81,7 +81,7 @@ public final class MasterworkingPresentationValueResolver {
                 "do maksymalnej liczby kumulacji Animuszu",
                 true,
                 perfected && quality == ItemMasterworking.DEFAULT_QUALITY_MAX,
-                RUNTIME_STORED_TEMPERING_NOTE + " +" + base
+                RUNTIME_RESOLVED_TEMPERING_NOTE + " +" + base
         );
     }
 
