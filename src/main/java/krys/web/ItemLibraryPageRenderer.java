@@ -293,12 +293,15 @@ public final class ItemLibraryPageRenderer {
         if (fullItemRead == null || !fullItemRead.hasAnyData()) {
             return "<div class=\"status-note\">Brak zapisanego pełnego odczytu OCR dla tego itemu.</div>"
                     + renderTemperingDetails(item)
-                    + MasterworkingSectionRenderer.renderReadonlySummary(item.getMasterworking());
+                    + MasterworkingSectionRenderer.renderReadonlySummary(
+                    item.getMasterworking(),
+                    item.getAffixes(),
+                    item.getTemperingAffixes());
         }
         List<String> baseStats = collectBaseStats(fullItemRead);
         List<String> implicitLines = collectLines(fullItemRead, ItemReadLineGroup.IMPLICIT);
         List<String> affixLines = item.getAffixes().stream()
-                .map(ItemLibraryPresentationSupport::formatAffixForDetails)
+                .map(affix -> formatAffixDetailsLine(item, affix))
                 .toList();
         List<String> socketLines = collectLines(fullItemRead, ItemReadLineGroup.SOCKET);
 
@@ -315,7 +318,7 @@ public final class ItemLibraryPageRenderer {
                 .append(renderMeta("Ancient", item.isAncient() ? "true" : "false"))
                 .append(renderMeta("Moc przedmiotu", item.getItemPower() == null ? simplifyItemPower(fullItemRead.getItemPower()) : Long.toString(item.getItemPower())));
         if (isShield(item)) {
-            html.append(renderMeta("Pancerz", nullableLongLabel(item.getItemArmor())));
+            html.append(renderMetaHtml("Pancerz", formatArmorDetailsValue(item)));
         } else if (isWeapon(item)) {
             html.append(renderMeta("DPS broni", nullableLongLabel(item.getWeaponDps())))
                     .append(renderMeta("Obrażenia min/max", weaponRangeLabel(item)))
@@ -326,9 +329,12 @@ public final class ItemLibraryPageRenderer {
                 .append("</div></section>")
                 .append(renderTextLineGroup("Base stats", baseStats))
                 .append(renderTextLineGroup("Linie bazowe", implicitLines))
-                .append(renderTextLineGroup("Affixy", affixLines))
+                .append(renderHtmlLineGroup("Affixy", affixLines))
                 .append(renderTemperingDetails(item))
-                .append(MasterworkingSectionRenderer.renderReadonlySummary(item.getMasterworking()))
+                .append(MasterworkingSectionRenderer.renderReadonlySummary(
+                        item.getMasterworking(),
+                        item.getAffixes(),
+                        item.getTemperingAffixes()))
                 .append(renderAspectDetails(item))
                 .append(renderTextLineGroup("Socket / gniazdo", socketLines))
                 .append("</div>");
@@ -343,12 +349,33 @@ public final class ItemLibraryPageRenderer {
         for (ItemTemperingAffix affix : item.getTemperingAffixes()) {
             lines.add(affix.getCategory().getDisplayName()
                     + ": "
-                    + TemperingPresentationSupport.formatAffix(affix, ApplicationTemperingAffixRegistry.get())
+                    + formatTemperingDetailsLine(item, affix)
                     + (affix.isGreaterAffix() ? " | Greater Affix / Gwiazdka" : "")
                     + " | Status: "
                     + affix.getRuntimeStatus().getDisplayName());
         }
-        return renderTextLineGroup("Hartowanie", lines);
+        return renderHtmlLineGroup("Hartowanie", lines);
+    }
+
+    private static String formatArmorDetailsValue(SavedImportedItem item) {
+        if (item.getMasterworking() != null && item.getMasterworking().hasVisibleProgress()) {
+            return MasterworkingSectionRenderer.formatArmorReadonlyValue(item.getMasterworking(), item.getItemArmor());
+        }
+        return nullableLongLabel(item.getItemArmor());
+    }
+
+    private static String formatAffixDetailsLine(SavedImportedItem item, ImportedItemAffix affix) {
+        if (item.getMasterworking() != null && item.getMasterworking().hasVisibleProgress()) {
+            return MasterworkingSectionRenderer.formatAffixReadonlyLine(item.getMasterworking(), affix);
+        }
+        return escapeHtml(ItemLibraryPresentationSupport.formatAffixForDetails(affix));
+    }
+
+    private static String formatTemperingDetailsLine(SavedImportedItem item, ItemTemperingAffix affix) {
+        if (item.getMasterworking() != null && item.getMasterworking().hasVisibleProgress()) {
+            return MasterworkingSectionRenderer.formatTemperingReadonlyLine(item.getMasterworking(), affix);
+        }
+        return escapeHtml(TemperingPresentationSupport.formatAffix(affix, ApplicationTemperingAffixRegistry.get()));
     }
 
     private static String renderTextLineGroup(String heading, List<String> lines) {
@@ -363,6 +390,23 @@ public final class ItemLibraryPageRenderer {
         html.append("<ul class=\"item-read-lines\">");
         for (String line : lines) {
             html.append("<li>").append(escapeHtml(line)).append("</li>");
+        }
+        html.append("</ul></section>");
+        return html.toString();
+    }
+
+    private static String renderHtmlLineGroup(String heading, List<String> lines) {
+        StringBuilder html = new StringBuilder("""
+                <section class="item-line-group">
+                    <h5>%s</h5>
+                """.formatted(escapeHtml(heading)));
+        if (lines.isEmpty()) {
+            html.append("<p class=\"helper\">Brak zapisanych linii w tej sekcji.</p></section>");
+            return html.toString();
+        }
+        html.append("<ul class=\"item-read-lines\">");
+        for (String line : lines) {
+            html.append("<li>").append(line).append("</li>");
         }
         html.append("</ul></section>");
         return html.toString();
@@ -916,6 +960,15 @@ public final class ItemLibraryPageRenderer {
                     <strong>%s</strong>
                 </div>
                 """.formatted(escapeHtml(label), escapeHtml(value));
+    }
+
+    private static String renderMetaHtml(String label, String valueHtml) {
+        return """
+                <div class="item-meta">
+                    <span>%s</span>
+                    <strong>%s</strong>
+                </div>
+                """.formatted(escapeHtml(label), valueHtml);
     }
 
     private static List<HeroEquipmentSlot> resolveActiveHeroSlots(ItemLibraryPageModel model, SavedImportedItem item) {

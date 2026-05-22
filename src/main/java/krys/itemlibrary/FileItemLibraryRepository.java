@@ -9,6 +9,8 @@ import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ItemImportDetails;
 import krys.masterworking.ItemMasterworking;
+import krys.masterworking.MasterworkedAffixSelection;
+import krys.masterworking.MasterworkedAffixSource;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
@@ -318,10 +320,12 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
 
     private static String encodeMasterworking(ItemMasterworking masterworking) {
         ItemMasterworking safe = masterworking == null ? ItemMasterworking.defaultState() : masterworking;
+        MasterworkedAffixSelection perfectedAffix = safe.getPerfectedAffix();
         return encode(String.join("|",
-                Boolean.toString(safe.isEnabled()),
                 Integer.toString(safe.getQualityCurrent()),
-                Integer.toString(safe.getQualityMax())
+                Integer.toString(safe.getQualityMax()),
+                perfectedAffix == null || perfectedAffix.getSource() == null ? "" : perfectedAffix.getSource().name(),
+                perfectedAffix == null ? "" : encode(perfectedAffix.getKey())
         ));
     }
 
@@ -467,13 +471,27 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
     private static ItemMasterworking decodeMasterworking(String encodedPayload) {
         String payload = decode(encodedPayload);
         String[] tokens = payload.split("\\|", -1);
+        if (tokens.length >= 3 && ("true".equalsIgnoreCase(tokens[0]) || "false".equalsIgnoreCase(tokens[0]))) {
+            return ItemMasterworking.fromLegacy(
+                    Boolean.parseBoolean(tokens[0]),
+                    Integer.parseInt(tokens[1]),
+                    Integer.parseInt(tokens[2])
+            );
+        }
         if (tokens.length < 3) {
             return ItemMasterworking.defaultState();
         }
-        return new ItemMasterworking(
-                Boolean.parseBoolean(tokens[0]),
-                Integer.parseInt(tokens[1]),
-                Integer.parseInt(tokens[2])
-        );
+        MasterworkedAffixSelection perfectedAffix = null;
+        if (tokens.length >= 4 && !tokens[2].isBlank()) {
+            try {
+                perfectedAffix = new MasterworkedAffixSelection(
+                        MasterworkedAffixSource.valueOf(tokens[2]),
+                        decode(tokens[3])
+                );
+            } catch (IllegalArgumentException exception) {
+                perfectedAffix = MasterworkedAffixSelection.unknown(tokens[2], tokens.length >= 4 ? decode(tokens[3]) : "");
+            }
+        }
+        return new ItemMasterworking(Integer.parseInt(tokens[0]), Integer.parseInt(tokens[1]), perfectedAffix);
     }
 }

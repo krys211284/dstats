@@ -200,7 +200,10 @@ public final class ItemImportPageRenderer {
                         </div>
                     """)
                 .append(renderSavedTemperingSummary(savedItem))
-                .append(MasterworkingSectionRenderer.renderReadonlySummary(savedItem.getMasterworking()))
+                .append(MasterworkingSectionRenderer.renderReadonlySummary(
+                        savedItem.getMasterworking(),
+                        savedItem.getAffixes(),
+                        savedItem.getTemperingAffixes()))
                 .append("""
                     </section>
                 </section>
@@ -536,6 +539,10 @@ public final class ItemImportPageRenderer {
                         </td>
                         <td class="affix-value-cell">
                             %s
+                            <label class="masterworking-source-value-field">
+                                Wartość źródłowa 0/25
+                                %s
+                            </label>
                         </td>
                         <td class="affix-range-cell">
                             %s
@@ -562,6 +569,7 @@ public final class ItemImportPageRenderer {
                     affix.getRollRangeMax() == null ? "" : formatDecimal(affix.getRollRangeMax()),
                     index,
                     escapeHtml(affix.getDisplayValue()),
+                    MasterworkingSectionRenderer.renderAffixEditorHint(form.getMasterworking(), affix),
                     renderAffixValueControl(index, affix),
                     escapeHtml(rollRangeLabel(affix)),
                     index,
@@ -804,6 +812,7 @@ public final class ItemImportPageRenderer {
                 <fieldset class="inline-fieldset">
                     <legend>Dane tarczy</legend>
                     %s
+                    %s
                     <section class="item-line-group">
                         <h5>Linie bazowe</h5>
                         <ul class="item-line-list">%s</ul>
@@ -811,6 +820,7 @@ public final class ItemImportPageRenderer {
                 </fieldset>
                 """.formatted(
                 renderNumberField("itemArmor", "Pancerz", form.getItemArmor(), "1"),
+                MasterworkingSectionRenderer.renderArmorEditorHint(form.getMasterworking(), form.getItemArmor()),
                 implicitLines
         );
     }

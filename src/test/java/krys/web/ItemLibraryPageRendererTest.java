@@ -11,6 +11,10 @@ import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
 import krys.itemlibrary.SavedImportedItem;
 import krys.masterworking.ItemMasterworking;
+import krys.masterworking.MasterworkedAffixSelection;
+import krys.tempering.ItemTemperingAffix;
+import krys.tempering.TemperingCategory;
+import krys.tempering.TemperingRuntimeStatus;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -171,7 +175,7 @@ class ItemLibraryPageRendererTest {
     }
 
     @Test
-    void shouldRenderMasterworkingDetailsWhenEnabled() {
+    void shouldHideMasterworkingDetailsForQualityZero() {
         SavedImportedItem shield = new SavedImportedItem(
                 1L,
                 "Ręka dodatkowa / tarcza.png",
@@ -188,14 +192,163 @@ class ItemLibraryPageRendererTest {
                 "",
                 krys.itemimport.ItemImportDetails.empty(),
                 List.of(),
-                ItemMasterworking.enabled(0)
+                ItemMasterworking.quality(0)
         );
 
         String html = render(List.of(shield));
 
-        assertTrue(html.contains("Doskonalenie"));
-        assertTrue(html.contains("Jakość 0/25"));
-        assertTrue(html.contains("Dane itemu / runtime nieaktywny"));
+        assertFalse(html.contains("Jakość 0/25"));
+        assertFalse(html.contains("Dane itemu / runtime nieaktywny"));
+    }
+
+    @Test
+    void shouldRenderMasterworkingDetailsFromQualityCurrent() {
+        SavedImportedItem shield = new SavedImportedItem(
+                1L,
+                "Ręka dodatkowa / tarcza.png",
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                new FullItemRead("Tarcza testowa", "Tarcza", "Legendarny", "Moc przedmiotu: 900", "1 202 pkt. pancerza", List.of()),
+                List.of(),
+                "",
+                krys.itemimport.ItemImportDetails.empty(),
+                List.of(),
+                ItemMasterworking.quality(3)
+        );
+
+        String html = render(List.of(shield));
+
+        assertTrue(html.contains("Doskonalenie · Jakość 3/25 · Runtime nieaktywny"));
+    }
+
+    @Test
+    void shouldRenderPerfectedAffixInMasterworkingDetails() {
+        SavedImportedItem shield = new SavedImportedItem(
+                1L,
+                "Ręka dodatkowa / tarcza.png",
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                new FullItemRead("Tarcza testowa", "Tarcza", "Legendarny", "Moc przedmiotu: 900", "1 202 pkt. pancerza", List.of()),
+                List.of(new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 270.0d)),
+                "",
+                krys.itemimport.ItemImportDetails.empty(),
+                List.of(new ItemTemperingAffix(
+                        "defense_max_animus",
+                        TemperingCategory.DEFENSE,
+                        7.0d,
+                        "+7 do maksymalnej liczby kumulacji Animuszu",
+                        TemperingRuntimeStatus.DATA_ONLY,
+                        true
+                )),
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.ordinaryAffix("STRENGTH"))
+        );
+
+        String html = render(List.of(shield));
+
+        assertTrue(html.contains("Doskonalenie · Jakość 25/25 · Doskonalony afiks: Siła · Runtime nieaktywny"));
+    }
+
+    @Test
+    void shouldRenderTemperingPerfectedAffixInMasterworkingDetails() {
+        SavedImportedItem shield = new SavedImportedItem(
+                1L,
+                "Ręka dodatkowa / tarcza.png",
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                new FullItemRead("Tarcza testowa", "Tarcza", "Legendarny", "Moc przedmiotu: 900", "1 202 pkt. pancerza", List.of()),
+                List.of(),
+                "",
+                krys.itemimport.ItemImportDetails.empty(),
+                List.of(new ItemTemperingAffix(
+                        "defense_max_animus",
+                        TemperingCategory.DEFENSE,
+                        7.0d,
+                        "+7 do maksymalnej liczby kumulacji Animuszu",
+                        TemperingRuntimeStatus.DATA_ONLY,
+                        true
+                )),
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.temperingAffix("defense_max_animus"))
+        );
+
+        String html = render(List.of(shield));
+
+        assertTrue(html.contains("Doskonalenie · Jakość 25/25 · Doskonalony afiks: maksymalna liczba kumulacji Animuszu · Runtime nieaktywny"));
+    }
+
+    @Test
+    void shouldRenderMasterworkingPresentationValuesForReferenceShield() {
+        SavedImportedItem shield = referenceShield(
+                new ItemMasterworking(25, 25),
+                List.of(referenceMaxAnimusTempering())
+        );
+
+        String html = render(List.of(shield));
+
+        assertFalse(html.contains("Podgląd wartości po Doskonaleniu"));
+        assertFalse(html.contains("<h5>Wartości po Doskonaleniu</h5>"));
+        assertFalse(html.contains("225 → 270"));
+        assertFalse(html.contains("787 → 945"));
+        assertFalse(html.contains("+5 → +7"));
+        assertTrue(html.contains("<span class=\"masterworking-value masterworking-value--upgraded\">1502</span>"));
+        assertTrue(html.contains("Siła <span class=\"masterworking-value masterworking-value--upgraded\">270</span>"));
+        assertTrue(html.contains("Odporność na Ogień <span class=\"masterworking-value masterworking-value--upgraded\">945</span>"));
+        assertTrue(html.contains("Redukcja obrażeń <span class=\"masterworking-value masterworking-value--upgraded\">14,3%</span>"));
+        assertTrue(html.contains("★ <span class=\"masterworking-value masterworking-value--upgraded\">+7</span> do maksymalnej liczby kumulacji Animuszu"));
+    }
+
+    @Test
+    void shouldRenderPerfectedTemperingPresentationValuesForReferenceShield() {
+        SavedImportedItem shield = referenceShield(
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.temperingAffix("defense_max_animus")),
+                List.of(referenceMaxAnimusTempering())
+        );
+
+        String html = render(List.of(shield));
+
+        assertFalse(html.contains("+5 → +12"));
+        assertTrue(html.contains("★ <span class=\"masterworking-value masterworking-value--perfected\">+12</span> do maksymalnej liczby kumulacji Animuszu"));
+        assertTrue(html.contains("Doskonalony afiks"));
+        assertTrue(html.contains("Runtime nadal używa zapisanej wartości +5."));
+    }
+
+    @Test
+    void shouldRenderPerfectedOrdinaryPresentationInlineForReferenceShield() {
+        SavedImportedItem strengthShield = referenceShield(
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.ordinaryAffix("STRENGTH")),
+                List.of(referenceMaxAnimusTempering())
+        );
+        SavedImportedItem fireShield = referenceShield(
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.ordinaryAffix("FIRE_RESISTANCE")),
+                List.of(referenceMaxAnimusTempering())
+        );
+
+        String strengthHtml = render(List.of(strengthShield));
+        String fireHtml = render(List.of(fireShield));
+
+        assertFalse(strengthHtml.contains("225 → 360"));
+        assertTrue(strengthHtml.contains("Siła <span class=\"masterworking-value masterworking-value--perfected\">360</span>"));
+        assertTrue(strengthHtml.contains("Doskonalony afiks"));
+        assertFalse(fireHtml.contains("787 → 1260"));
+        assertTrue(fireHtml.contains("Odporność na Ogień <span class=\"masterworking-value masterworking-value--perfected\">1260</span>"));
+        assertTrue(fireHtml.contains("Doskonalony afiks"));
     }
 
     @Test
@@ -333,6 +486,45 @@ class ItemLibraryPageRendererTest {
                 "",
                 null
         ));
+    }
+
+    private static SavedImportedItem referenceShield(ItemMasterworking masterworking, List<ItemTemperingAffix> temperingAffixes) {
+        return new SavedImportedItem(
+                1L,
+                "Ręka dodatkowa / tarcza.png",
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                20.0d,
+                0.0d,
+                new FullItemRead("Miażdżąca Tarcza Kościanych Łusek", "Tarcza", "Legendarny",
+                        "Moc przedmiotu: 900", "1202 pkt. pancerza", List.of()),
+                List.of(
+                        new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 225.0d, "", true, 0, "+225 siły", ImportedItemAffixSource.OCR),
+                        new ImportedItemAffix(ImportedItemAffixType.ALL_RESISTANCE, 490.0d, "", true, 1, "+490 do odporności na wszystkie żywioły", ImportedItemAffixSource.OCR),
+                        new ImportedItemAffix(ImportedItemAffixType.FIRE_RESISTANCE, 787.0d, "", true, 2, "+787 do odporności na: Ogień", ImportedItemAffixSource.OCR),
+                        new ImportedItemAffix(ImportedItemAffixType.DAMAGE_REDUCTION, 11.4d, "%", false, 3, "11,4% redukcji obrażeń", ImportedItemAffixSource.OCR)
+                ),
+                "",
+                new krys.itemimport.ItemImportDetails("Miażdżąca Tarcza Kościanych Łusek", "Tarcza", "LEGENDARY", true,
+                        EquipmentSlot.OFF_HAND, 900L, null, null, null, null, null, 1202L, ""),
+                temperingAffixes,
+                masterworking
+        );
+    }
+
+    private static ItemTemperingAffix referenceMaxAnimusTempering() {
+        return new ItemTemperingAffix(
+                "defense_max_animus",
+                TemperingCategory.DEFENSE,
+                5.0d,
+                "+5 do maksymalnej liczby kumulacji Animuszu",
+                TemperingRuntimeStatus.DATA_ONLY,
+                true
+        );
     }
 
     private static int countOccurrences(String value, String needle) {

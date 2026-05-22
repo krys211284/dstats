@@ -17,4 +17,15 @@ public final class MasterworkingPresentationSupport {
     public static String compactRuntimeStatusLabel() {
         return "Runtime nieaktywny";
     }
+
+    public static String compactSummary(ItemMasterworking masterworking, String perfectedAffixLabel) {
+        ItemMasterworking safe = masterworking == null ? ItemMasterworking.defaultState() : masterworking;
+        String summary = "Doskonalenie · Jakość " + qualityLabel(safe);
+        if (safe.getQualityCurrent() == ItemMasterworking.DEFAULT_QUALITY_MAX
+                && perfectedAffixLabel != null
+                && !perfectedAffixLabel.isBlank()) {
+            summary += " · Doskonalony afiks: " + perfectedAffixLabel;
+        }
+        return summary + " · " + compactRuntimeStatusLabel();
+    }
 }

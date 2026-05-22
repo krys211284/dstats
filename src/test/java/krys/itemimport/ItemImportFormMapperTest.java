@@ -5,6 +5,11 @@ import krys.itemlibrary.FileItemLibraryRepository;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
 import krys.masterworking.ItemMasterworking;
+import krys.masterworking.MasterworkedAffixSelection;
+import krys.masterworking.MasterworkedAffixSource;
+import krys.tempering.ItemTemperingAffix;
+import krys.tempering.TemperingCategory;
+import krys.tempering.TemperingRuntimeStatus;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -109,7 +114,7 @@ class ItemImportFormMapperTest {
                 "0",
                 "0",
                 FullItemRead.empty(),
-                List.of(),
+                List.of(new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 225.0d)),
                 "inner-calm",
                 ItemImportFieldConfidence.HIGH,
                 "inner-calm"
@@ -133,7 +138,7 @@ class ItemImportFormMapperTest {
                 "0",
                 "0",
                 FullItemRead.empty(),
-                List.of(),
+                List.of(new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 225.0d)),
                 "inner-calm",
                 ItemImportFieldConfidence.HIGH,
                 "inner-calm"
@@ -171,22 +176,71 @@ class ItemImportFormMapperTest {
 
     @Test
     void shouldValidateMasterworkingQualityRange() {
-        assertMasterworkingAccepted(new ItemMasterworking(true, 0, 25));
-        assertMasterworkingAccepted(new ItemMasterworking(true, 25, 25));
+        assertMasterworkingAccepted(new ItemMasterworking(0, 25));
+        assertMasterworkingAccepted(new ItemMasterworking(25, 25));
 
-        assertMasterworkingRejected(new ItemMasterworking(true, -1, 25), "Jakość aktualna musi mieścić się w zakresie 0 - 25");
-        assertMasterworkingRejected(new ItemMasterworking(true, 26, 25), "Jakość aktualna musi mieścić się w zakresie 0 - 25");
-        assertMasterworkingRejected(new ItemMasterworking(true, 0, 0), "Jakość maksymalna musi wynosić 25");
-        assertMasterworkingRejected(new ItemMasterworking(true, 0, 24), "Jakość maksymalna musi wynosić 25");
+        assertMasterworkingRejected(new ItemMasterworking(-1, 25), "Jakość aktualna musi mieścić się w zakresie 0 - 25");
+        assertMasterworkingRejected(new ItemMasterworking(26, 25), "Jakość aktualna musi mieścić się w zakresie 0 - 25");
+        assertMasterworkingRejected(new ItemMasterworking(0, 0), "Jakość maksymalna musi wynosić 25");
+        assertMasterworkingRejected(new ItemMasterworking(0, 24), "Jakość maksymalna musi wynosić 25");
+    }
+
+    @Test
+    void shouldValidatePerfectedAffixOnlyForQualityTwentyFive() {
+        assertMasterworkingRejected(
+                new ItemMasterworking(24, 25, MasterworkedAffixSelection.ordinaryAffix("STRENGTH")),
+                "aktualny doskonalony afiks można wskazać dopiero przy jakości 25/25"
+        );
+        assertMasterworkingAccepted(new ItemMasterworking(25, 25));
+        assertMasterworkingAccepted(new ItemMasterworking(25, 25, MasterworkedAffixSelection.ordinaryAffix("STRENGTH")));
+        assertMasterworkingAccepted(new ItemMasterworking(25, 25, MasterworkedAffixSelection.temperingAffix("defense_max_animus")));
+        assertMasterworkingRejected(
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.ordinaryAffix("FIRE_RESISTANCE")),
+                "wskazany zwykły affix nie występuje na itemie"
+        );
+        assertMasterworkingRejected(
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.temperingAffix("defense_maximum_life")),
+                "wskazane hartowanie nie występuje na itemie"
+        );
+        assertMasterworkingRejected(
+                new ItemMasterworking(25, 25, new MasterworkedAffixSelection(MasterworkedAffixSource.TEMPERING_AFFIX, "unknown_tempering")),
+                "wskazane hartowanie nie istnieje w katalogu"
+        );
+    }
+
+    @Test
+    void shouldKeepSourceValuesWhenMasterworkingPresentationWouldIncreaseThem() {
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(
+                formWithMasterworking(new ItemMasterworking(25, 25, MasterworkedAffixSelection.ordinaryAffix("STRENGTH")))
+        );
+
+        assertTrue(result.getErrors().isEmpty(), () -> String.join(", ", result.getErrors()));
+        ImportedItemAffix strength = result.getItem().getAffixes().stream()
+                .filter(affix -> affix.getType() == ImportedItemAffixType.STRENGTH)
+                .findFirst()
+                .orElseThrow();
+        ItemTemperingAffix maxAnimus = result.getItem().getTemperingAffixes().stream()
+                .filter(affix -> affix.getDefinitionId().equals("defense_max_animus"))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(225.0d, strength.getValue());
+        assertFalse(strength.getValue() == 270.0d);
+        assertFalse(strength.getValue() == 360.0d);
+        assertEquals(5.0d, maxAnimus.getValue());
+        assertFalse(maxAnimus.getValue() == 7.0d);
+        assertFalse(maxAnimus.getValue() == 12.0d);
     }
 
     private static void assertMasterworkingAccepted(ItemMasterworking masterworking) {
         ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(formWithMasterworking(masterworking));
 
         assertTrue(result.getErrors().isEmpty(), () -> String.join(", ", result.getErrors()));
-        assertEquals(masterworking.isEnabled(), result.getItem().getMasterworking().isEnabled());
         assertEquals(masterworking.getQualityCurrent(), result.getItem().getMasterworking().getQualityCurrent());
         assertEquals(25, result.getItem().getMasterworking().getQualityMax());
+        assertEquals(
+                masterworking.getPerfectedAffix() == null ? null : masterworking.getPerfectedAffix().getKey(),
+                result.getItem().getMasterworking().getPerfectedAffix() == null ? null : result.getItem().getMasterworking().getPerfectedAffix().getKey()
+        );
     }
 
     private static void assertMasterworkingRejected(ItemMasterworking masterworking, String expectedErrorFragment) {
@@ -208,13 +262,20 @@ class ItemImportFormMapperTest {
                 "20",
                 "0",
                 FullItemRead.empty(),
-                List.of(),
+                List.of(new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 225.0d)),
                 "",
                 ItemImportFieldConfidence.UNKNOWN,
                 "",
                 new ItemImportDetails("Tarcza", "Tarcza", "LEGENDARY", true, EquipmentSlot.OFF_HAND,
                         900L, null, null, null, null, null, 1202L, ""),
-                List.of(),
+                List.of(new ItemTemperingAffix(
+                        "defense_max_animus",
+                        TemperingCategory.DEFENSE,
+                        5.0d,
+                        "",
+                        TemperingRuntimeStatus.DATA_ONLY,
+                        true
+                )),
                 masterworking
         );
     }

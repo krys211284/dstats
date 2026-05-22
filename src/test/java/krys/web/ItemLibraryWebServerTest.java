@@ -166,8 +166,7 @@ class ItemLibraryWebServerTest {
         saveFields.put("thorns", "0");
         saveFields.put("blockChance", "20");
         saveFields.put("retributionChance", "0");
-        saveFields.put("masterworkingEnabled", "true");
-        saveFields.put("masterworkingQualityCurrent", "0");
+        saveFields.put("masterworkingQualityCurrent", "3");
         saveFields.put("masterworkingQualityMax", "25");
         saveFields.put("currentBuildQuery", buildCurrentBuildQuery());
         HttpResponse<String> saveResponse = sendUrlEncodedPost("/biblioteka-itemow", saveFields);
@@ -185,10 +184,10 @@ class ItemLibraryWebServerTest {
 
         assertEquals(200, currentBuildResponse.statusCode());
         assertTrue(currentBuildResponse.body().contains("Doskonalenie"));
-        assertTrue(currentBuildResponse.body().contains("Jakość 0/25"));
+        assertTrue(currentBuildResponse.body().contains("Doskonalenie · Jakość 3/25 · Runtime nieaktywny"));
         assertTrue(currentBuildResponse.body().contains("Runtime nieaktywny"));
         assertFalse(technicalRuntimeInputSection(currentBuildResponse.body()).contains("Doskonalenie"));
-        assertFalse(technicalRuntimeInputSection(currentBuildResponse.body()).contains("Jakość 0/25"));
+        assertFalse(technicalRuntimeInputSection(currentBuildResponse.body()).contains("Jakość 3/25"));
     }
 
     @Test

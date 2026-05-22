@@ -902,10 +902,17 @@ public final class CurrentBuildPageRenderer {
                 .append(escapeHtml(title))
                 .append("</span><div class=\"slot-chip-list\">");
         for (String chip : chips) {
-            html.append("<span class=\"slot-chip\">").append(escapeHtml(chip)).append("</span>");
+            html.append("<span class=\"slot-chip\">").append(renderSlotChipContent(chip)).append("</span>");
         }
         html.append("</div></div>");
         return html.toString();
+    }
+
+    private static String renderSlotChipContent(String chip) {
+        if (chip.contains("class=\"masterworking-value")) {
+            return chip;
+        }
+        return escapeHtml(chip);
     }
 
     private static List<String> buildSlotWeaponChips(SavedImportedItem item) {
@@ -924,6 +931,9 @@ public final class CurrentBuildPageRenderer {
 
     private static List<String> buildSlotStatChips(SavedImportedItem item) {
         List<String> chips = new ArrayList<>();
+        if (item.getItemArmor() != null) {
+            chips.add("Pancerz: " + MasterworkingSectionRenderer.formatArmorReadonlyValue(item.getMasterworking(), item.getItemArmor()));
+        }
         if (item.getWeaponDamage() > 0L) {
             chips.add("+" + item.getWeaponDamage() + " obrażeń broni");
         }
@@ -943,7 +953,9 @@ public final class CurrentBuildPageRenderer {
             chips.add("+" + ItemLibraryPresentationSupport.formatDecimal(item.getRetributionChance()) + "% retribution");
         }
         for (ImportedItemAffix affix : item.getAffixes()) {
-            if (affix.getType() == ImportedItemAffixType.MAXIMUM_LIFE) {
+            if (item.getMasterworking() != null && item.getMasterworking().hasVisibleProgress()) {
+                chips.add(MasterworkingSectionRenderer.formatAffixReadonlyLine(item.getMasterworking(), affix));
+            } else if (affix.getType() == ImportedItemAffixType.MAXIMUM_LIFE) {
                 chips.add("+" + ItemLibraryPresentationSupport.formatWhole(affix.getValue()) + " maksymalnego zdrowia");
             } else if (affix.getType() == ImportedItemAffixType.WEAPON_DAMAGE_FLAT) {
                 chips.add("+" + ItemLibraryPresentationSupport.formatWhole(affix.getValue()) + " obrażeń od broni");
@@ -967,10 +979,13 @@ public final class CurrentBuildPageRenderer {
     private static List<String> buildSlotTemperingChips(SavedImportedItem item) {
         List<String> chips = new ArrayList<>();
         for (ItemTemperingAffix affix : item.getTemperingAffixes()) {
+            String affixLabel = item.getMasterworking() != null && item.getMasterworking().hasVisibleProgress()
+                    ? MasterworkingSectionRenderer.formatTemperingReadonlyLine(item.getMasterworking(), affix)
+                    : (affix.isGreaterAffix() ? "★ " : "")
+                    + TemperingPresentationSupport.formatSavedAffixEffect(affix, ApplicationTemperingAffixRegistry.get());
             chips.add(affix.getCategory().getDisplayName()
                     + ": "
-                    + (affix.isGreaterAffix() ? "★ " : "")
-                    + TemperingPresentationSupport.formatSavedAffixEffect(affix, ApplicationTemperingAffixRegistry.get())
+                    + affixLabel
                     + (affix.isGreaterAffix() ? " | Greater Affix / Gwiazdka" : "")
                     + " | "
                     + activeSlotTemperingRuntimeStatus(affix));
@@ -979,8 +994,16 @@ public final class CurrentBuildPageRenderer {
     }
 
     private static List<String> buildSlotMasterworkingChips(SavedImportedItem item) {
-        String chip = MasterworkingSectionRenderer.compactChip(item.getMasterworking());
-        return chip.isBlank() ? List.of() : List.of(chip);
+        String chip = MasterworkingSectionRenderer.compactChip(
+                item.getMasterworking(),
+                item.getAffixes(),
+                item.getTemperingAffixes());
+        if (chip.isBlank()) {
+            return List.of();
+        }
+        List<String> chips = new ArrayList<>();
+        chips.add(chip);
+        return List.copyOf(chips);
     }
 
     private static String activeSlotTemperingRuntimeStatus(ItemTemperingAffix affix) {

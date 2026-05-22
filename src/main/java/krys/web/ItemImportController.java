@@ -25,6 +25,8 @@ import krys.itemknowledge.ItemKnowledgeService;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
 import krys.masterworking.ItemMasterworking;
+import krys.masterworking.MasterworkedAffixSelection;
+import krys.masterworking.MasterworkedAffixSource;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -275,10 +277,25 @@ public final class ItemImportController implements HttpHandler {
 
     private static ItemMasterworking parseMasterworking(Map<String, String> fields) {
         return new ItemMasterworking(
-                "true".equals(fields.get("masterworkingEnabled")),
                 parseIntOrDefault(fields.get("masterworkingQualityCurrent"), ItemMasterworking.DEFAULT_QUALITY_CURRENT),
-                parseIntOrDefault(fields.get("masterworkingQualityMax"), ItemMasterworking.DEFAULT_QUALITY_MAX)
+                parseIntOrDefault(fields.get("masterworkingQualityMax"), ItemMasterworking.DEFAULT_QUALITY_MAX),
+                parsePerfectedAffix(fields.getOrDefault("masterworkingPerfectedAffix", ""))
         );
+    }
+
+    private static MasterworkedAffixSelection parsePerfectedAffix(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return null;
+        }
+        String[] tokens = rawValue.split(":", 2);
+        if (tokens.length != 2 || tokens[0].isBlank() || tokens[1].isBlank()) {
+            return MasterworkedAffixSelection.unknown(tokens.length == 0 ? "" : tokens[0], tokens.length < 2 ? "" : tokens[1]);
+        }
+        try {
+            return new MasterworkedAffixSelection(MasterworkedAffixSource.valueOf(tokens[0]), tokens[1]);
+        } catch (IllegalArgumentException exception) {
+            return MasterworkedAffixSelection.unknown(tokens[0], tokens[1]);
+        }
     }
 
     private static int parseIntOrDefault(String rawValue, int fallback) {

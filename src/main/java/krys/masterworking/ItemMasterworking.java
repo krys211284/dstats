@@ -5,26 +5,30 @@ public final class ItemMasterworking {
     public static final int DEFAULT_QUALITY_CURRENT = 0;
     public static final int DEFAULT_QUALITY_MAX = 25;
 
-    private final boolean enabled;
     private final int qualityCurrent;
     private final int qualityMax;
+    private final MasterworkedAffixSelection perfectedAffix;
 
-    public ItemMasterworking(boolean enabled, int qualityCurrent, int qualityMax) {
-        this.enabled = enabled;
+    public ItemMasterworking(int qualityCurrent, int qualityMax) {
+        this(qualityCurrent, qualityMax, null);
+    }
+
+    public ItemMasterworking(int qualityCurrent, int qualityMax, MasterworkedAffixSelection perfectedAffix) {
         this.qualityCurrent = qualityCurrent;
         this.qualityMax = qualityMax;
+        this.perfectedAffix = perfectedAffix;
     }
 
     public static ItemMasterworking defaultState() {
-        return new ItemMasterworking(false, DEFAULT_QUALITY_CURRENT, DEFAULT_QUALITY_MAX);
+        return new ItemMasterworking(DEFAULT_QUALITY_CURRENT, DEFAULT_QUALITY_MAX);
     }
 
-    public static ItemMasterworking enabled(int qualityCurrent) {
-        return new ItemMasterworking(true, qualityCurrent, DEFAULT_QUALITY_MAX);
+    public static ItemMasterworking quality(int qualityCurrent) {
+        return new ItemMasterworking(qualityCurrent, DEFAULT_QUALITY_MAX);
     }
 
-    public boolean isEnabled() {
-        return enabled;
+    public static ItemMasterworking fromLegacy(boolean ignoredEnabled, int qualityCurrent, int qualityMax) {
+        return new ItemMasterworking(qualityCurrent, qualityMax);
     }
 
     public int getQualityCurrent() {
@@ -33,6 +37,14 @@ public final class ItemMasterworking {
 
     public int getQualityMax() {
         return qualityMax;
+    }
+
+    public MasterworkedAffixSelection getPerfectedAffix() {
+        return perfectedAffix;
+    }
+
+    public boolean hasVisibleProgress() {
+        return qualityCurrent > DEFAULT_QUALITY_CURRENT;
     }
 
     public String qualityLabel() {

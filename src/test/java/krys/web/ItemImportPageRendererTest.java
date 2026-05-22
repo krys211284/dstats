@@ -15,6 +15,7 @@ import krys.itemimport.ItemImportEditableForm;
 import krys.itemimport.ItemImportEditableFormFactory;
 import krys.itemimport.ItemImportFieldCandidate;
 import krys.masterworking.ItemMasterworking;
+import krys.masterworking.MasterworkedAffixSelection;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
@@ -541,7 +542,7 @@ class ItemImportPageRendererTest {
                 new ItemImportDetails("Tarcza testowa", "Tarcza", "LEGENDARY", true, EquipmentSlot.OFF_HAND,
                         900L, null, null, null, null, null, 1202L, ""),
                 List.of(),
-                ItemMasterworking.enabled(0)
+                ItemMasterworking.quality(0)
         );
         HeroProfile activeHero = new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty());
 
@@ -556,13 +557,113 @@ class ItemImportPageRendererTest {
         ));
         String masterworking = sectionByHeading(html, "Doskonalenie");
 
-        assertTrue(masterworking.contains("Doskonalenie aktywne / Item doskonalony"));
-        assertTrue(masterworking.contains("name=\"masterworkingEnabled\" value=\"true\" checked"));
+        assertFalse(masterworking.contains("Doskonalenie aktywne"));
+        assertFalse(masterworking.contains("Item doskonalony"));
+        assertFalse(masterworking.contains("name=\"masterworkingEnabled\""));
+        assertFalse(masterworking.contains("type=\"checkbox\""));
         assertTrue(masterworking.contains("Jakość aktualna"));
         assertTrue(masterworking.contains("name=\"masterworkingQualityCurrent\" value=\"0\""));
         assertTrue(masterworking.contains("Jakość maksymalna"));
         assertTrue(masterworking.contains("name=\"masterworkingQualityMax\" value=\"25\" readonly"));
         assertTrue(masterworking.contains("Dane itemu / runtime nieaktywny"));
+        assertFalse(masterworking.contains("Aktualny doskonalony afiks"));
+    }
+
+    @Test
+    void shouldRenderPerfectedAffixSelectorOnlyForQualityTwentyFive() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(
+                        new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 270.0d),
+                        new ImportedItemAffix(ImportedItemAffixType.FIRE_RESISTANCE, 945.0d)
+                ),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Tarcza testowa", "Tarcza", "LEGENDARY", true, EquipmentSlot.OFF_HAND,
+                        900L, null, null, null, null, null, 1502L, ""),
+                List.of(new ItemTemperingAffix(
+                        "defense_max_animus",
+                        TemperingCategory.DEFENSE,
+                        7.0d,
+                        "+7 do maksymalnej liczby kumulacji Animuszu",
+                        TemperingRuntimeStatus.DATA_ONLY,
+                        true
+                )),
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.ordinaryAffix("STRENGTH"))
+        );
+
+        String masterworking = sectionByHeading(renderFullPage(form), "Doskonalenie");
+        String selector = selectByName(masterworking, "masterworkingPerfectedAffix");
+
+        assertTrue(masterworking.contains("Aktualny doskonalony afiks"));
+        assertTrue(selector.contains("<option value=\"\""));
+        assertTrue(selector.contains("<option value=\"ORDINARY_AFFIX:STRENGTH\" selected>Siła</option>"));
+        assertTrue(selector.contains("<option value=\"ORDINARY_AFFIX:FIRE_RESISTANCE\">Odporność na Ogień</option>"));
+        assertTrue(selector.contains("<option value=\"TEMPERING_AFFIX:defense_max_animus\">Hartowanie: maksymalna liczba kumulacji Animuszu</option>"));
+    }
+
+    @Test
+    void shouldRenderMasterworkingValuesInlineWithoutReplacingSourceInputs() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "20",
+                "0",
+                FullItemRead.empty(),
+                List.of(
+                        new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 225.0d, "", true, 0, "+225 siły", krys.itemimport.ImportedItemAffixSource.OCR),
+                        new ImportedItemAffix(ImportedItemAffixType.FIRE_RESISTANCE, 787.0d, "", true, 1, "+787 do odporności na: Ogień", krys.itemimport.ImportedItemAffixSource.OCR),
+                        new ImportedItemAffix(ImportedItemAffixType.DAMAGE_REDUCTION, 11.4d, "%", false, 2, "11,4% redukcji obrażeń", krys.itemimport.ImportedItemAffixSource.OCR)
+                ),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Tarcza testowa", "Tarcza", "LEGENDARY", true, EquipmentSlot.OFF_HAND,
+                        900L, null, null, null, null, null, 1202L, ""),
+                List.of(new ItemTemperingAffix(
+                        "defense_max_animus",
+                        TemperingCategory.DEFENSE,
+                        5.0d,
+                        "+5 do maksymalnej liczby kumulacji Animuszu",
+                        TemperingRuntimeStatus.DATA_ONLY,
+                        true
+                )),
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.ordinaryAffix("STRENGTH"))
+        );
+
+        String html = renderFullPage(form);
+
+        assertFalse(html.contains("Podgląd wartości po Doskonaleniu"));
+        assertFalse(html.contains("<h5>Wartości po Doskonaleniu</h5>"));
+        assertFalse(html.contains("225 → 270"));
+        assertFalse(html.contains("787 → 945"));
+        assertFalse(html.contains("+5 → +7"));
+        assertFalse(html.contains("po Doskonaleniu:"));
+        assertTrue(html.contains("name=\"itemArmor\" value=\"1202\""));
+        assertTrue(html.contains("Aktualna wartość itemu: <span class=\"masterworking-value masterworking-value--upgraded\">1502</span>"));
+        assertTrue(html.contains("name=\"affixValue_0\" value=\"225\""));
+        assertTrue(html.contains("Aktualna wartość itemu: <span class=\"masterworking-value masterworking-value--perfected\">360</span>"));
+        assertTrue(html.contains("Doskonalony afiks"));
+        assertTrue(html.contains("name=\"affixValue_1\" value=\"787\""));
+        assertTrue(html.contains("Aktualna wartość itemu: <span class=\"masterworking-value masterworking-value--upgraded\">945</span>"));
+        assertTrue(html.contains("name=\"affixValue_2\" value=\"11.4\""));
+        assertTrue(html.contains("Aktualna wartość itemu: <span class=\"masterworking-value masterworking-value--upgraded\">14,3%</span>"));
+        assertTrue(html.contains("name=\"temperingValue_0\" value=\"5\""));
+        assertTrue(html.contains("★ <span class=\"masterworking-value masterworking-value--upgraded\">+7</span> do maksymalnej liczby kumulacji Animuszu"));
+        assertTrue(html.contains("Runtime nadal używa zapisanej wartości +5."));
     }
 
     @Test

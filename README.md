@@ -624,19 +624,67 @@ Katalog affixów jest na razie uzupełniony tylko dla kategorii `Defensywa` i za
 Affix Defensywy `do maksymalnej liczby kumulacji Animuszu` jest pierwszym hartowanym affixem aktywnym w runtime. Działa tylko z aktywnie założonych itemów i zwiększa maksymalny Animusz z wartości bazowej formularza, np. `8 + 5 = 13` dla aktywnej tarczy z GA `+5`; item zapisany w bibliotece, ale niezałożony, nie jest źródłem runtime. Nie zmienia minimum Molocha, kosztu aktywacji ani wzoru obrażeń. Pozostałe affixy Defensywy nadal mają status danych itemu / runtime nieaktywny, a affix pancerza pod postacią Arbitra pozostaje opisowy i nie aktywuje mechanik Przysięgi / Adepta / Arbitra.
 
 ### 4.5.2. Doskonalenie itemów
-`Doskonalenie` jest osobną mechaniką itemu, niezależną od `Hartowania`. Etap 1 dodaje wyłącznie model danych, zapis / odczyt biblioteki oraz UI importu, edycji, biblioteki i aktywnego buildu.
+`Doskonalenie` jest osobną mechaniką itemu, niezależną od `Hartowania`. Etap 2A utrzymuje je jako model danych, zapis / odczyt biblioteki oraz UI importu, edycji, biblioteki i aktywnego buildu.
 
 Potwierdzone ze screena kowala są tylko bezpieczne fakty:
 - mechanika nazywa się `Doskonalenie`,
 - ma pojęcie `Jakość`,
 - widoczny stan jakości to `0/25`,
+- item nie ma osobnego przełącznika aktywności Doskonalenia; źródłem prawdy jest jakość,
 - opis gry mówi, że jakość zwiększa podstawowe współczynniki i wartości affixów itemu.
 
-Model itemu przechowuje `enabled`, `qualityCurrent` i `qualityMax`. Domyślny stan dla nowych i starszych itemów bez danych Doskonalenia to `enabled=false`, `qualityCurrent=0`, `qualityMax=25`. Formularz importu i edycji pokazuje checkbox `Doskonalenie aktywne / Item doskonalony`, pole `Jakość aktualna` oraz readonly `Jakość maksymalna = 25`. Backend waliduje `qualityCurrent` w zakresie `0..25` i wymaga `qualityMax == 25`; inne maksima nie są obsługiwane, bo nie mamy jeszcze danych z gry.
+Model itemu przechowuje `qualityCurrent`, `qualityMax` oraz opcjonalny `perfectedAffix`. Domyślny stan dla nowych i starszych itemów bez danych Doskonalenia to `qualityCurrent=0`, `qualityMax=25`, `perfectedAffix=null`. Formularz importu i edycji pokazuje sekcję `Doskonalenie`, pole `Jakość aktualna`, readonly `Jakość maksymalna = 25` oraz status `Dane itemu / runtime nieaktywny`. Checkbox `Doskonalenie aktywne / Item doskonalony` został usunięty z UI i nie jest źródłem logiki. Backend waliduje `qualityCurrent` w zakresie `0..25` i wymaga `qualityMax == 25`; inne maksima nie są obsługiwane.
 
-Jeżeli `enabled=true`, biblioteka i current build pokazują osobną sekcję `Doskonalenie`, np. `Jakość 0/25` oraz `Dane itemu / runtime nieaktywny`. Jeżeli `enabled=false`, sekcja nie jest pokazywana w widokach zapisanych itemów, ale formularz konfiguracji pozostaje dostępny w imporcie i edycji.
+Znaczenie jakości:
+- `qualityCurrent=0` oznacza `Jakość 0/25`; w imporcie i edycji jest to jawny stan itemu, a w bibliotece i current build sekcja Doskonalenia jest ukryta,
+- `qualityCurrent>0` oznacza item doskonalony i biblioteka / current build pokazują `Doskonalenie · Jakość X/25 · Runtime nieaktywny`,
+- `qualityCurrent=25`, `perfectedAffix=null` oznacza item 25/25 bez wskazanego aktualnego doskonalonego afiksu,
+- `qualityCurrent=25`, `perfectedAffix!=null` oznacza item 25/25 z wybranym aktualnym doskonalonym afiksem, np. `Doskonalenie · Jakość 25/25 · Doskonalony afiks: Siła · Runtime nieaktywny`.
 
-Na tym etapie Doskonalenie nie wpływa na runtime DPS, effective stats, pancerz, wartości affixów, siłę, odporności, redukcję obrażeń, max Animusz, hartowanie ani `DamageEngine`. Matematyka zwiększania podstawowych współczynników i affixów będzie osobnym etapem po zebraniu screenów i testów.
+`perfectedAffix` jest dostępny tylko przy jakości `25/25`. Obsługiwane źródła wyboru to `ORDINARY_AFFIX` dla zwykłych affixów itemu oraz `TEMPERING_AFFIX` dla istniejącego hartowania itemu. `BASE_ARMOR` nie jest częścią modelu, bo potwierdzona akcja gry mówi o losowym afiksie. Walidacja odrzuca `perfectedAffix` dla jakości mniejszej niż `25`, nieznany typ, nieznany klucz oraz wybór affixu albo hartowania, którego item nie ma.
+
+Stare zapisy z polem `enabled` są nadal wczytywane kompatybilnie. `enabled=false`, `qualityCurrent=0`, `qualityMax=25` zostaje `0/25`; `enabled=true`, `qualityCurrent=0`, `qualityMax=25` również zostaje `0/25`; `enabled=true`, `qualityCurrent>0`, `qualityMax=25` zachowuje `qualityCurrent`. Nowy zapis nie używa `enabled`.
+
+Golden references z obserwacji gry dla itemu `Miażdżąca Tarcza Kościanych Łusek`, moc przedmiotu `900`, pancerz bazowy `0/25 = 1202`, affixy `0/25`: `Siła 225` GA, `Odporność na wszystkie żywioły 490` GA, `Odporność na Ogień 787` GA, `Redukcja obrażeń 11,4%`, hartowanie GA `+5 do maksymalnej liczby kumulacji Animuszu`.
+
+| Jakość | Pancerz | Siła | All res | Ogień | Redukcja | Max Animusz |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0/25 | 1202 | 225 | 490 | 787 | 11,4% | +5 |
+| 3/25 | 1238 | 230 | 501 | 806 | 11,8% | +5 |
+| 6/25 | 1274 | 236 | 513 | 825 | 12,1% | +5 |
+| 9/25 | 1310 | 241 | 525 | 844 | 12,5% | +5 |
+| 12/25 | 1346 | 247 | 537 | 863 | 12,8% | +5 |
+| 15/25 | 1382 | 252 | 548 | 882 | 13,2% | +5 |
+| 17/25 | 1406 | 256 | 556 | 894 | 13,4% | +5 |
+| 20/25 | 1442 | 261 | 568 | 913 | 13,7% | +5 |
+| 21/25 | 1454 | 263 | 572 | 919 | 13,8% | +5 |
+| 25/25 | 1502 | 270 | 588 | 945 | 14,3% | +7 |
+
+Po 25/25 i akcji `Udoskonal losowy afiks` potwierdzono: doskonalony affix `Siła` zmienia `270 -> 360`, doskonalony affix `Odporność na Ogień` zmienia `945 -> 1260`, a doskonalony affix hartowania `maksymalna liczba kumulacji Animuszu` zmienia `+7 -> +12`. Dla zwykłych dużych affixów liczbowych drugi etap wygląda jak `+33,33%` względem wartości po `25/25`. Dla hartowania max Animusz potwierdzona wartość referencyjna to `+7 -> +12`; nie traktujemy jej jeszcze jako uniwersalnej formuły.
+
+Etap `Doskonalenie 2B` dodaje wyłącznie prezentacyjne przeliczanie wartości itemu w UI importu, edycji, biblioteki i aktywnego itemu w current build. `MasterworkingPresentationValueResolver` wylicza wartość bazową oraz wartość po `qualityCurrent`, a przy potwierdzonym `perfectedAffix` również wartość po końcowym doskonalonym afiksie. User-facing UI pokazuje aktualną wartość itemu po Doskonaleniu tak jak gra, bez osobnego bloku `Podgląd wartości po Doskonaleniu` i bez formatu `source -> final` jako głównej treści.
+
+W formularzu importu i edycji pole techniczne nadal przechowuje wartość źródłową itemu, np. `Siła = 225` albo hartowanie `defense_max_animus = +5`. Główna wartość widoczna przy affixie jest jednak finalną wartością prezentacyjną, np. `Siła 360`. Wartości źródłowe nie są pokazywane jako główne wartości w normalnym UI i nie nadpisują zapisu biblioteki. W bibliotece i current build główną wartością wiersza jest aktualna wartość po Doskonaleniu, a runtime nadal używa wartości źródłowych / zapisanych.
+
+Stany wizualne wartości:
+- normalny styl: wartość niezmieniona przez Doskonalenie,
+- `masterworking-value masterworking-value--upgraded`: wartość zwiększona przez jakość Doskonalenia,
+- `masterworking-value masterworking-value--perfected`: aktualny doskonalony affix po `25/25`; tylko ten affix może dostać badge `Doskonalony afiks`.
+
+Kontrakt pod przyszły import udoskonalonych itemów: wartości widoczne w grze na itemie udoskonalonym są wartościami finalnymi po Doskonaleniu. Importer w przyszłym etapie nie może zapisać ich naiwnie jako source/base `0/25`, bo spowoduje to podwójne skalowanie. Przyszły import udoskonalonych itemów musi rozpoznać `qualityCurrent` / `perfectedAffix` i odtworzyć albo oznaczyć source values.
+
+Te wartości nie są wpisywane do `ValidatedImportedItem` jako runtime stats, nie zmieniają `CurrentBuildRequest`, `HeroBuildSnapshot`, technicznego wejścia runtime, DPS ani searcha.
+
+Reguły prezentacyjne 2B są ograniczone do potwierdzonych golden values:
+- pancerz bazowy itemu: `displayArmor = floor(baseArmor * (1 + qualityCurrent / 100))`, np. `1202 -> 1502` przy `25/25`,
+- zwykły non-GA affix `Redukcja obrażeń`: `display = baseValue * (1 + qualityCurrent / 100)` z formatowaniem do jednego miejsca i roundingiem zgodnym z tabelą golden, np. `11,4% -> 14,3%`,
+- zwykłe Greater Affixy `Siła`, `Odporność na wszystkie żywioły` i `Odporność na Ogień`: resolver odtwarza `normalMax = greaterAffixValue / 1,25`, liczy `normalMax * (1,25 + qualityCurrent / 100)` i stosuje rounding dopasowany do tabeli golden, np. `Siła 225 -> 270`, `Odporność na Ogień 787 -> 945`,
+- drugi etap `perfectedAffix` jest zaimplementowany tylko dla potwierdzonych ordinary affixów: `Siła 270 -> 360` i `Odporność na Ogień 945 -> 1260`; `Odporność na wszystkie żywioły` pozostaje `588`, bo nie ma potwierdzonego screena perfected all res,
+- hartowanie `defense_max_animus` ma explicit golden rule prezentacji: do `24/25` pokazuje zapisaną wartość `+5`, przy `25/25` pokazuje `+7`, a przy `25/25` i `perfectedAffix=TEMPERING_AFFIX:defense_max_animus` pokazuje `+12`.
+
+Nieznane affixy nie są zgadywane. Jeżeli resolver nie ma reguły prezentacyjnej dla affixu, UI pokazuje wartość bazową oraz status `Doskonalenie: brak reguły prezentacyjnej dla tego affixu`.
+
+Runtime nadal używa wartości bazowych / zapisanych, a nie wartości po Doskonaleniu. Hartowanie `defense_max_animus` nadal działa runtime tak jak wcześniej: aktywna tarcza z GA `+5` daje `maxAnimus=13`, bez zwiększenia do `15` albo `20` przez Doskonalenie. `DamageEngine` i `ManualSimulationService` nie używają Doskonalenia.
 
 ### 4.6. Baza wiedzy o itemach
 Aktualny foundation repo obejmuje osobną bazę wiedzy o itemach jako warstwę obserwacji i przyszłych sugestii. Nie jest to biblioteka konkretnych itemów użytkownika i nie jest to runtime.

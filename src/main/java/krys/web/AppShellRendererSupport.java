@@ -240,6 +240,60 @@ public final class AppShellRendererSupport {
                     background: rgba(255, 255, 255, 0.96);
                 }
 
+                .masterworking-value {
+                    font-weight: 850;
+                }
+
+                .masterworking-value--upgraded {
+                    color: var(--accent-strong);
+                }
+
+                .masterworking-value--perfected {
+                    color: #b66a00;
+                    text-shadow: 0 0 0 rgba(182, 106, 0, 0.08);
+                }
+
+                .masterworking-current-value {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 6px;
+                    align-items: center;
+                    margin: 0 0 8px;
+                    color: var(--text-secondary);
+                    font-size: 0.92rem;
+                    font-weight: 700;
+                }
+
+                .masterworking-perfected-badge {
+                    display: inline-flex;
+                    width: fit-content;
+                    align-items: center;
+                    padding: 3px 8px;
+                    border: 1px solid rgba(182, 106, 0, 0.28);
+                    border-radius: 999px;
+                    background: #fff2da;
+                    color: #8a4f00;
+                    font-size: 0.78rem;
+                    font-weight: 850;
+                }
+
+                .masterworking-runtime-note {
+                    display: block;
+                    margin-top: 4px;
+                    color: var(--text-secondary);
+                    font-size: 0.86rem;
+                    font-weight: 650;
+                }
+
+                .masterworking-source-value-field {
+                    display: grid;
+                    gap: 5px;
+                    margin-top: 6px;
+                    color: var(--text-secondary);
+                    font-size: 0.82rem;
+                    font-weight: 700;
+                }
+
                 .module-card-top,
                 .hero-card-top {
                     display: flex;

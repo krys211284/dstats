@@ -2,6 +2,8 @@ package krys.itemimport;
 
 import krys.item.EquipmentSlot;
 import krys.masterworking.ItemMasterworking;
+import krys.masterworking.MasterworkedAffixSelection;
+import krys.masterworking.MasterworkedAffixSource;
 import krys.tempering.ApplicationTemperingAffixRegistry;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingAffixDefinition;
@@ -53,7 +55,7 @@ public final class ItemImportFormMapper {
         String selectedAspectId = validateAspect(form.getSelectedAspectId(), slot, errors);
         ItemImportDetails details = buildDetails(form, slot, errors);
         List<ItemTemperingAffix> temperingAffixes = validateTempering(form.getTemperingAffixes(), slot, details.getItemType(), details.getItemPower(), errors);
-        ItemMasterworking masterworking = validateMasterworking(form.getMasterworking(), errors);
+        ItemMasterworking masterworking = validateMasterworking(form.getMasterworking(), form.getAffixes(), temperingAffixes, errors);
 
         if (!errors.isEmpty()) {
             return new MappingResult(null, errors);
@@ -76,7 +78,10 @@ public final class ItemImportFormMapper {
         ), errors);
     }
 
-    private static ItemMasterworking validateMasterworking(ItemMasterworking masterworking, List<String> errors) {
+    private ItemMasterworking validateMasterworking(ItemMasterworking masterworking,
+                                                    List<ImportedItemAffix> affixes,
+                                                    List<ItemTemperingAffix> temperingAffixes,
+                                                    List<String> errors) {
         ItemMasterworking safe = masterworking == null ? ItemMasterworking.defaultState() : masterworking;
         if (safe.getQualityCurrent() < 0 || safe.getQualityCurrent() > ItemMasterworking.DEFAULT_QUALITY_MAX) {
             errors.add("Doskonalenie: Jakość aktualna musi mieścić się w zakresie 0 - 25.");
@@ -84,7 +89,67 @@ public final class ItemImportFormMapper {
         if (safe.getQualityMax() != ItemMasterworking.DEFAULT_QUALITY_MAX) {
             errors.add("Doskonalenie: Jakość maksymalna musi wynosić 25.");
         }
+        validatePerfectedAffix(safe, affixes, temperingAffixes, errors);
         return safe;
+    }
+
+    private void validatePerfectedAffix(ItemMasterworking masterworking,
+                                        List<ImportedItemAffix> affixes,
+                                        List<ItemTemperingAffix> temperingAffixes,
+                                        List<String> errors) {
+        MasterworkedAffixSelection selection = masterworking.getPerfectedAffix();
+        if (selection == null) {
+            return;
+        }
+        if (masterworking.getQualityCurrent() < ItemMasterworking.DEFAULT_QUALITY_MAX) {
+            errors.add("Doskonalenie: aktualny doskonalony afiks można wskazać dopiero przy jakości 25/25.");
+            return;
+        }
+        if (!selection.hasRecognizedSource()) {
+            errors.add("Doskonalenie: aktualny doskonalony afiks ma nieznany typ.");
+            return;
+        }
+        if (selection.getKey().isBlank()) {
+            errors.add("Doskonalenie: aktualny doskonalony afiks wymaga klucza.");
+            return;
+        }
+        if (selection.getSource() == MasterworkedAffixSource.ORDINARY_AFFIX) {
+            validateOrdinaryPerfectedAffix(selection, affixes, errors);
+            return;
+        }
+        if (selection.getSource() == MasterworkedAffixSource.TEMPERING_AFFIX) {
+            validateTemperingPerfectedAffix(selection, temperingAffixes, errors);
+        }
+    }
+
+    private static void validateOrdinaryPerfectedAffix(MasterworkedAffixSelection selection,
+                                                       List<ImportedItemAffix> affixes,
+                                                       List<String> errors) {
+        ImportedItemAffixType type;
+        try {
+            type = ImportedItemAffixType.valueOf(selection.getKey());
+        } catch (IllegalArgumentException exception) {
+            errors.add("Doskonalenie: wskazany zwykły affix nie istnieje w katalogu itemu.");
+            return;
+        }
+        boolean itemHasAffix = affixes.stream().anyMatch(affix -> affix.getType() == type);
+        if (!itemHasAffix) {
+            errors.add("Doskonalenie: wskazany zwykły affix nie występuje na itemie.");
+        }
+    }
+
+    private void validateTemperingPerfectedAffix(MasterworkedAffixSelection selection,
+                                                 List<ItemTemperingAffix> temperingAffixes,
+                                                 List<String> errors) {
+        if (temperingAffixRegistry.findById(selection.getKey()).isEmpty()) {
+            errors.add("Doskonalenie: wskazane hartowanie nie istnieje w katalogu.");
+            return;
+        }
+        boolean itemHasTempering = temperingAffixes.stream()
+                .anyMatch(affix -> affix.getDefinitionId().equals(selection.getKey()));
+        if (!itemHasTempering) {
+            errors.add("Doskonalenie: wskazane hartowanie nie występuje na itemie.");
+        }
     }
 
     private List<ItemTemperingAffix> validateTempering(List<ItemTemperingAffix> affixes,

@@ -17,6 +17,7 @@ import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
 import krys.masterworking.ItemMasterworking;
+import krys.masterworking.MasterworkedAffixSelection;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
@@ -24,6 +25,8 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -70,7 +73,7 @@ class FileItemLibraryRepositoryTest {
                         "+1500 maksymalnego zdrowia",
                         TemperingRuntimeStatus.DATA_ONLY
                 )),
-                ItemMasterworking.enabled(0)
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.ordinaryAffix("STRENGTH"))
         ));
         SavedImportedItem secondItem = repository.save(new SavedImportedItem(
                 0L,
@@ -107,14 +110,85 @@ class FileItemLibraryRepositoryTest {
         assertEquals(1500.0d, savedItems.get(0).getTemperingAffixes().getFirst().getValue(), 0.0000001d);
         assertEquals(TemperingRuntimeStatus.DATA_ONLY, savedItems.get(0).getTemperingAffixes().getFirst().getRuntimeStatus());
         assertFalse(savedItems.get(0).getTemperingAffixes().getFirst().isGreaterAffix());
-        assertTrue(savedItems.get(0).getMasterworking().isEnabled());
-        assertEquals(0, savedItems.get(0).getMasterworking().getQualityCurrent());
+        assertEquals(25, savedItems.get(0).getMasterworking().getQualityCurrent());
         assertEquals(25, savedItems.get(0).getMasterworking().getQualityMax());
-        assertFalse(savedItems.get(1).getMasterworking().isEnabled());
+        assertEquals("STRENGTH", savedItems.get(0).getMasterworking().getPerfectedAffix().getKey());
         assertEquals(0, savedItems.get(1).getMasterworking().getQualityCurrent());
         assertEquals(25, savedItems.get(1).getMasterworking().getQualityMax());
         assertTrue(reloadedRepository.findById(secondItem.getItemId()).isPresent());
         assertEquals(secondItem.getItemId(), reloadedRepository.loadSelection().getSelectedItemId(EquipmentSlot.OFF_HAND));
+    }
+
+    @Test
+    void shouldReadLegacyMasterworkingEnabledPayloadWithoutUsingEnabledAsState() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-library-legacy-masterworking");
+        String item = String.join("|",
+                "ITEM",
+                "1",
+                encode("OFF_HAND / legacy.png"),
+                encode("legacy.png"),
+                EquipmentSlot.OFF_HAND.name(),
+                "0",
+                "0.0000",
+                "0.0000",
+                "0.0000",
+                "0.0000",
+                "0.0000",
+                encode(""),
+                encode(""),
+                encode(""),
+                encode(""),
+                encode(""),
+                encode("true|0|25")
+        );
+        String itemWithQuality = item.replace(encode("OFF_HAND / legacy.png"), encode("OFF_HAND / legacy-12.png"))
+                .replace("ITEM|1|", "ITEM|2|")
+                .replace(encode("true|0|25"), encode("true|12|25"));
+        Files.write(tempDirectory.resolve("saved-items.db"), List.of(item, itemWithQuality), StandardCharsets.UTF_8);
+
+        List<SavedImportedItem> savedItems = new FileItemLibraryRepository(tempDirectory).findAll();
+
+        assertEquals(0, savedItems.get(0).getMasterworking().getQualityCurrent());
+        assertEquals(25, savedItems.get(0).getMasterworking().getQualityMax());
+        assertEquals(12, savedItems.get(1).getMasterworking().getQualityCurrent());
+        assertEquals(25, savedItems.get(1).getMasterworking().getQualityMax());
+    }
+
+    @Test
+    void shouldPersistTemperingPerfectedAffixSelection() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-library-masterworking-tempering");
+        FileItemLibraryRepository repository = new FileItemLibraryRepository(tempDirectory);
+
+        repository.save(new SavedImportedItem(
+                0L,
+                "OFF_HAND / tarcza.png",
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                ItemImportDetails.empty(),
+                List.of(new ItemTemperingAffix(
+                        "defense_max_animus",
+                        TemperingCategory.DEFENSE,
+                        7.0d,
+                        "+7 do maksymalnej liczby kumulacji Animuszu",
+                        TemperingRuntimeStatus.DATA_ONLY,
+                        true
+                )),
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.temperingAffix("defense_max_animus"))
+        ));
+
+        SavedImportedItem reloaded = new FileItemLibraryRepository(tempDirectory).findAll().getFirst();
+
+        assertEquals(25, reloaded.getMasterworking().getQualityCurrent());
+        assertEquals("defense_max_animus", reloaded.getMasterworking().getPerfectedAffix().getKey());
     }
 
     @Test
@@ -249,5 +323,11 @@ class FileItemLibraryRepositoryTest {
                 .anyMatch(affix -> affix.getSourceText().contains("+94 obrażeń od broni [94 - 157]")));
         assertTrue(savedItem.getAffixes().stream()
                 .noneMatch(affix -> affix.getSourceText().contains("Umiejętności Podstawowe")));
+    }
+
+    private static String encode(String value) {
+        return Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(value.getBytes(StandardCharsets.UTF_8));
     }
 }

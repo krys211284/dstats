@@ -277,8 +277,12 @@ final class ItemEditPageRenderer {
                     <fieldset class="inline-fieldset">
                         <legend>Dane tarczy</legend>
                         %s
+                        %s
                     </fieldset>
-                    """.formatted(renderNumberField("itemArmor", "Pancerz", form.getItemArmor(), "1"));
+                    """.formatted(
+                    renderNumberField("itemArmor", "Pancerz", form.getItemArmor(), "1"),
+                    MasterworkingSectionRenderer.renderArmorEditorHint(form.getMasterworking(), form.getItemArmor())
+            );
         }
         if (!isWeapon(form)) {
             return "<input type=\"hidden\" name=\"itemArmor\" value=\"" + escapeHtml(form.getItemArmor()) + "\">";
@@ -424,7 +428,7 @@ final class ItemEditPageRenderer {
                             <input type="hidden" name="affixRangeMax_%s" value="%s">
                             <input type="hidden" name="affixDisplayValue_%s" value="%s">
                         </td>
-                        <td class="affix-value-cell">%s</td>
+                        <td class="affix-value-cell">%s<label class="masterworking-source-value-field">Wartość źródłowa 0/25%s</label></td>
                         <td class="affix-range-cell">%s</td>
                         <td class="affix-greater-cell"><label class="checkbox-label"><input type="checkbox" name="affixGreater_%s" value="true"%s> Gwiazdka</label></td>
                         <td class="affix-action-cell"><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
@@ -448,6 +452,7 @@ final class ItemEditPageRenderer {
                     affix.getRollRangeMax() == null ? "" : formatDecimal(affix.getRollRangeMax()),
                     index,
                     escapeHtml(affix.getDisplayValue()),
+                    MasterworkingSectionRenderer.renderAffixEditorHint(form.getMasterworking(), affix),
                     renderAffixValueControl(index, affix),
                     escapeHtml(rollRangeLabel(affix)),
                     index,

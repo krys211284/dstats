@@ -772,6 +772,38 @@ class CurrentBuildWebServerTest {
     }
 
     @Test
+    void shouldKeepTechnicalRuntimeInputUnchangedWhenMaxAnimusTemperingIsMasterworked() throws Exception {
+        createHero("Starcie Moloch hartowanie Animuszu doskonalone", "70");
+        saveAndActivateVerathiel();
+        saveAndActivateKoscianychLusekShieldWithPerfectedMaxAnimusTempering("2");
+        assignSkill(krys.skill.SkillId.CLASH);
+        Map<String, String> fields = buildClashRankOneLevel70Fields();
+        fields.put("formAction", "calculate");
+        fields.put("selectedPaladinOathId", PaladinOathId.JUGGERNAUT.name());
+        fields.put("initialAnimus", "13");
+        fields.put("maxAnimus", "8");
+        fields.put(CurrentBuildFormData.choiceGroupFieldName(krys.skill.SkillId.CLASH, 1), "animusz");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        String html = response.body();
+        assertFalse(html.contains("Błędy formularza"));
+        assertTrue(html.contains(summaryCard("Łączne obrażenia", "33800")));
+        assertTrue(html.contains(summaryCard("DPS", "3380")));
+        assertTrue(html.contains(summaryCard("Końcowy Animusz", "13")));
+        assertTrue(technicalRuntimeInputSection(html)
+                .contains(runtimeInputCard("Maksymalny Animusz", "13", "bazowe: 8 + hartowanie aktywnej tarczy: +5")));
+        assertFalse(technicalRuntimeInputSection(html).contains(runtimeInputCard("Maksymalny Animusz", "15", "")));
+        assertFalse(technicalRuntimeInputSection(html).contains(runtimeInputCard("Maksymalny Animusz", "20", "")));
+        assertFalse(html.contains("Podgląd wartości po Doskonaleniu"));
+        assertFalse(html.contains("<h5>Wartości po Doskonaleniu</h5>"));
+        assertFalse(html.contains("+5 → +12"));
+        assertTrue(html.contains("★ <span class=\"masterworking-value masterworking-value--perfected\">+12</span> do maksymalnej liczby kumulacji Animuszu"));
+        assertTrue(html.contains("Runtime nadal używa zapisanej wartości +5."));
+    }
+
+    @Test
     void shouldBlockClashWithVerathielWhenFaithStartsAtZero() throws Exception {
         createHero("Starcie bez wiary", "70");
         saveAndActivateVerathiel();
@@ -2166,6 +2198,28 @@ class CurrentBuildWebServerTest {
         fields.put("temperingDefinitionId_0", "defense_max_animus");
         fields.put("temperingValue_0", "5");
         fields.put("temperingGreaterAffix_0", "true");
+        HttpResponse<String> saveResponse = sendPost("/importuj-item-ze-screena", fields);
+        assertEquals(200, saveResponse.statusCode());
+
+        HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", shieldItemId,
+                "heroSlot", "OFF_HAND",
+                "currentBuildQuery", ""
+        ));
+        assertEquals(200, activateResponse.statusCode());
+    }
+
+    private void saveAndActivateKoscianychLusekShieldWithPerfectedMaxAnimusTempering(String shieldItemId) throws Exception {
+        Map<String, String> fields = koscianychLusekShieldImportFields();
+        fields.put("temperingCount", "1");
+        fields.put("temperingCategory_0", "DEFENSE");
+        fields.put("temperingDefinitionId_0", "defense_max_animus");
+        fields.put("temperingValue_0", "5");
+        fields.put("temperingGreaterAffix_0", "true");
+        fields.put("masterworkingQualityCurrent", "25");
+        fields.put("masterworkingQualityMax", "25");
+        fields.put("masterworkingPerfectedAffix", "TEMPERING_AFFIX:defense_max_animus");
         HttpResponse<String> saveResponse = sendPost("/importuj-item-ze-screena", fields);
         assertEquals(200, saveResponse.statusCode());
 

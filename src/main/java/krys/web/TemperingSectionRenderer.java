@@ -40,7 +40,7 @@ final class TemperingSectionRenderer {
 
         html.append("<div id=\"temperingRows\" class=\"tempering-readonly-list\">");
         for (int index = 0; index < form.getTemperingAffixes().size(); index++) {
-            html.append(renderExistingRow(form.getTemperingAffixes().get(index), index));
+            html.append(renderExistingRow(form.getTemperingAffixes().get(index), index, form.getMasterworking()));
         }
         html.append("</div>");
         if (!categories.isEmpty()) {
@@ -266,7 +266,7 @@ final class TemperingSectionRenderer {
                 """;
     }
 
-    private static String renderExistingRow(ItemTemperingAffix affix, int index) {
+    private static String renderExistingRow(ItemTemperingAffix affix, int index, krys.masterworking.ItemMasterworking masterworking) {
         TemperingAffixDefinition definition = REGISTRY.findById(affix.getDefinitionId()).orElse(null);
         String status = definition == null
                 ? TemperingPresentationSupport.compactRuntimeStatus(affix.getRuntimeStatus())
@@ -289,6 +289,7 @@ final class TemperingSectionRenderer {
                         %s
                     </div>
                     <strong class="tempering-existing-affix">%s</strong>
+                    %s
                     <span class="tempering-runtime-status">%s</span>
                     <div class="tempering-existing-actions">
                         <button type="button" class="secondary-button remove-tempering-button">Usuń</button>
@@ -304,7 +305,8 @@ final class TemperingSectionRenderer {
                 index,
                 escapeHtml(inputValue(affix, definition)),
                 affix.isGreaterAffix() ? "<input type=\"hidden\" name=\"temperingGreaterAffix_" + index + "\" value=\"true\">" : "",
-                escapeHtml(affixLabel),
+                MasterworkingSectionRenderer.renderTemperingEditorCurrentLine(masterworking, affix, affixLabel),
+                MasterworkingSectionRenderer.renderTemperingEditorHint(masterworking, affix),
                 escapeHtml(status)
         );
     }
