@@ -376,9 +376,12 @@ class ItemImageImportTextParserTest {
         assertTrue(temperingSection.contains("Greater Affix"));
         assertTrue(temperingSection.contains("Runtime nieaktywny"));
         assertTrue(temperingSection.contains("Limit hartowania dla tego przedmiotu został wykorzystany."));
-        assertTrue(temperingSection.contains("id=\"temperingAddControls\" hidden"));
-        assertTrue(temperingSection.contains("id=\"addTemperingButton\" disabled"));
         assertFalse(temperingSection.contains("<h4>Dodaj hartowanie</h4>"));
+        assertFalse(temperingSection.contains("id=\"temperingAddControls\""));
+        assertFalse(temperingSection.contains("id=\"addTemperingButton\""));
+        assertFalse(temperingSection.contains("name=\"newTemperingCategory\""));
+        assertFalse(temperingSection.contains("name=\"newTemperingDefinitionId\""));
+        assertFalse(temperingSection.contains("name=\"newTemperingValue\""));
         assertFalse(form.getUniqueEffectText().contains("maksymalnej liczby kumulacji Animuszu"));
 
         String readSection = sectionByHeading(html, "Pełny odczyt widocznego itemu");

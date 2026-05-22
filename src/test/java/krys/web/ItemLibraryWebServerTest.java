@@ -184,8 +184,8 @@ class ItemLibraryWebServerTest {
 
         assertEquals(200, currentBuildResponse.statusCode());
         assertTrue(currentBuildResponse.body().contains("Doskonalenie"));
-        assertTrue(currentBuildResponse.body().contains("Doskonalenie · Jakość 3/25 · Runtime nieaktywny"));
-        assertTrue(currentBuildResponse.body().contains("Runtime nieaktywny"));
+        assertTrue(currentBuildResponse.body().contains("Doskonalenie · Jakość 3/25 · Runtime aktywny dla potwierdzonych wartości"));
+        assertTrue(currentBuildResponse.body().contains("Runtime aktywny dla potwierdzonych wartości"));
         assertFalse(technicalRuntimeInputSection(currentBuildResponse.body()).contains("Doskonalenie"));
         assertFalse(technicalRuntimeInputSection(currentBuildResponse.body()).contains("Jakość 3/25"));
     }
@@ -481,7 +481,11 @@ class ItemLibraryWebServerTest {
 
         HttpResponse<String> editWithLimit = sendGet("/biblioteka-itemow/edytuj?itemId=1");
         assertTrue(editWithLimit.body().contains("Limit hartowania dla tego przedmiotu został wykorzystany."));
-        assertTrue(editWithLimit.body().contains("id=\"temperingAddControls\" hidden"));
+        assertFalse(editWithLimit.body().contains("id=\"temperingAddControls\""));
+        assertFalse(editWithLimit.body().contains("<select name=\"newTemperingCategory\""));
+        assertFalse(editWithLimit.body().contains("<select name=\"newTemperingDefinitionId\""));
+        assertFalse(editWithLimit.body().contains("<input type=\"number\" min=\"0\" step=\"0.01\" name=\"newTemperingValue\""));
+        assertFalse(editWithLimit.body().contains("id=\"addTemperingButton\""));
 
         Map<String, String> removeTempering = shieldUpdateFields("1", "tarcza-limit.png", "Tarcza Limit", "114", false, "");
         removeTempering.put("itemPower", "900");
@@ -490,7 +494,7 @@ class ItemLibraryWebServerTest {
         assertEquals(200, removeResponse.statusCode());
 
         HttpResponse<String> editAfterRemove = sendGet("/biblioteka-itemow/edytuj?itemId=1");
-        assertFalse(editAfterRemove.body().contains("id=\"temperingAddControls\" hidden"));
+        assertTrue(editAfterRemove.body().contains("id=\"temperingAddControls\""));
 
         Map<String, String> addAgain = shieldUpdateFields("1", "tarcza-limit.png", "Tarcza Limit", "114", false, "");
         addAgain.put("itemPower", "900");
@@ -536,7 +540,9 @@ class ItemLibraryWebServerTest {
         HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build?" + buildCurrentBuildQuery());
         assertEquals(200, currentBuildResponse.statusCode());
         assertTrue(currentBuildResponse.body().contains("Hartowanie"));
-        assertTrue(currentBuildResponse.body().contains("Defensywa: ★ +5 do maksymalnej liczby kumulacji Animuszu | Greater Affix / Gwiazdka | Runtime aktywny: +5 max Animusz"));
+        String offHandCard = equipmentSlotCard(currentBuildResponse.body(), "OFF_HAND");
+        assertTrue(offHandCard.contains("Defensywa: ★ +5 do maksymalnej liczby kumulacji Animuszu | Greater Affix / Gwiazdka"));
+        assertFalse(offHandCard.contains("Runtime aktywny: +5 max Animusz"));
         String runtimeInput = sectionByHeading(currentBuildResponse.body(), "Techniczne wejście runtime");
         assertTrue(runtimeInput.contains(runtimeInputCard("Maksymalny Animusz", "13", "bazowe: 8 + hartowanie aktywnej tarczy: +5")));
         assertTrue(runtimeInput.contains(runtimeInputCard("Obrażenia broni", "0", "Brak aktywnej broni")));
@@ -563,7 +569,9 @@ class ItemLibraryWebServerTest {
 
         HttpResponse<String> currentBuildResponse = sendGet("/policz-aktualny-build?" + buildCurrentBuildQuery());
         assertEquals(200, currentBuildResponse.statusCode());
-        assertTrue(currentBuildResponse.body().contains("Defensywa: +1500 maksymalnego zdrowia | Runtime nieaktywny"));
+        String offHandCard = equipmentSlotCard(currentBuildResponse.body(), "OFF_HAND");
+        assertTrue(offHandCard.contains("Defensywa: +1500 maksymalnego zdrowia"));
+        assertFalse(offHandCard.contains("Runtime nieaktywny"));
         String runtimeInput = sectionByHeading(currentBuildResponse.body(), "Techniczne wejście runtime");
         assertTrue(runtimeInput.contains(runtimeInputCard("Maksymalny Animusz", "8", "bazowe: 8")));
         assertFalse(runtimeInput.contains("1500 maksymalnego zdrowia"));
@@ -1057,5 +1065,18 @@ class ItemLibraryWebServerTest {
             throw new AssertionError("Nie udało się wyciąć sekcji: " + headingText);
         }
         return html.substring(start, end + "</section>".length());
+    }
+
+    private static String equipmentSlotCard(String html, String slotName) {
+        String marker = "<article class=\"equipment-slot equipment-slot-" + slotName.toLowerCase(java.util.Locale.ROOT);
+        int start = html.indexOf(marker);
+        if (start < 0) {
+            throw new AssertionError("Brak karty slotu: " + slotName);
+        }
+        int end = html.indexOf("</article>", start);
+        if (end < 0) {
+            throw new AssertionError("Nie udało się wyciąć karty slotu: " + slotName);
+        }
+        return html.substring(start, end);
     }
 }

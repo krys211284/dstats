@@ -13,6 +13,8 @@ import krys.itemlibrary.EffectiveCurrentBuildResolution;
 import krys.itemlibrary.FileItemLibraryRepository;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
+import krys.masterworking.ItemMasterworking;
+import krys.masterworking.MasterworkedAffixSelection;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
@@ -94,6 +96,55 @@ class CurrentBuildRuntimeInputResolverTest {
         assertEquals(13.0d, CurrentBuildRuntimeInputResolver.resolveMaximumAnimus(formData, activeResolution), 0.0000001d);
         CurrentBuildFormData effectiveFormData = resolver.applyRuntimeResourceBonuses(formData, activeResolution);
         assertEquals("13", effectiveFormData.getMaxAnimus());
+    }
+
+    @Test
+    void shouldResolveMasterworkedEffectiveItemValuesForRuntimeInput() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("runtime-input-masterworking");
+        ItemLibraryService service = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+        SavedImportedItem shield = service.saveImportedItem(referenceShield(
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.temperingAffix("defense_max_animus"))
+        ));
+        CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(java.util.Map.of(
+                "level", "70",
+                "maxAnimus", "8",
+                "initialAnimus", "20"
+        ));
+
+        EffectiveCurrentBuildResolution resolution = service.resolveEffectiveCurrentBuild(
+                legacyStats(),
+                HeroItemSelection.empty().withSelectedItem(HeroEquipmentSlot.OFF_HAND, shield.getItemId())
+        );
+        CurrentBuildImportableStats runtimeStats = resolver.resolve(hero(HeroItemSelection.empty(), formData), formData, resolution);
+
+        assertEquals(270.0d, resolution.getActiveItemsContribution().getStrength(), 0.0000001d);
+        assertEquals(349.0d, runtimeStats.getStrength(), 0.0000001d);
+        assertEquals(1502L, resolution.getActiveHeroItemStats().getItemArmor());
+        assertEquals(945.0d, resolution.getActiveHeroItemStats().getFireResistance(), 0.0000001d);
+        assertEquals(588.0d, resolution.getActiveHeroItemStats().getAllResistance(), 0.0000001d);
+        assertEquals(14.3d, resolution.getActiveHeroItemStats().getDamageReduction(), 0.0000001d);
+        assertEquals(12.0d, resolution.getActiveHeroItemStats().getMaxAnimusFromTempering(), 0.0000001d);
+        assertEquals(20.0d, CurrentBuildRuntimeInputResolver.resolveMaximumAnimus(formData, resolution), 0.0000001d);
+    }
+
+    @Test
+    void shouldResolveMasterworkedMaxAnimusWithoutPerfectedAffixAsFifteen() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("runtime-input-masterworking-no-perfect");
+        ItemLibraryService service = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+        SavedImportedItem shield = service.saveImportedItem(referenceShield(new ItemMasterworking(25, 25)));
+        CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(java.util.Map.of(
+                "level", "70",
+                "maxAnimus", "8",
+                "initialAnimus", "15"
+        ));
+
+        EffectiveCurrentBuildResolution resolution = service.resolveEffectiveCurrentBuild(
+                legacyStats(),
+                HeroItemSelection.empty().withSelectedItem(HeroEquipmentSlot.OFF_HAND, shield.getItemId())
+        );
+
+        assertEquals(7.0d, resolution.getActiveHeroItemStats().getMaxAnimusFromTempering(), 0.0000001d);
+        assertEquals(15.0d, CurrentBuildRuntimeInputResolver.resolveMaximumAnimus(formData, resolution), 0.0000001d);
     }
 
     private static HeroProfile hero(HeroItemSelection selection, CurrentBuildFormData formData) {
@@ -185,6 +236,50 @@ class CurrentBuildRuntimeInputResolverTest {
                         TemperingRuntimeStatus.DATA_ONLY,
                         true
                 ))
+        );
+    }
+
+    private static ValidatedImportedItem referenceShield(ItemMasterworking masterworking) {
+        return new ValidatedImportedItem(
+                "kosciane-luski.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                225.0d,
+                0.0d,
+                0.0d,
+                20.0d,
+                0.0d,
+                List.of(
+                        new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 225.0d, "", true, 0, "+225 siły", ImportedItemAffixSource.OCR),
+                        new ImportedItemAffix(ImportedItemAffixType.FIRE_RESISTANCE, 787.0d, "", true, 1, "+787 do odporności na: Ogień", ImportedItemAffixSource.OCR),
+                        new ImportedItemAffix(ImportedItemAffixType.DAMAGE_REDUCTION, 11.4d, "%", false, 2, "11,4% redukcji obrażeń", ImportedItemAffixSource.OCR),
+                        new ImportedItemAffix(ImportedItemAffixType.ALL_RESISTANCE, 490.0d, "", true, 3, "+490 do odporności na wszystkie żywioły", ImportedItemAffixSource.OCR)
+                ),
+                "",
+                new ItemImportDetails(
+                        "Miażdżąca Tarcza Kościanych Łusek",
+                        "Tarcza",
+                        "LEGENDARY",
+                        true,
+                        EquipmentSlot.OFF_HAND,
+                        900L,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        1202L,
+                        ""
+                ),
+                List.of(new ItemTemperingAffix(
+                        "defense_max_animus",
+                        TemperingCategory.DEFENSE,
+                        5.0d,
+                        "+5 do maksymalnej liczby kumulacji Animuszu",
+                        TemperingRuntimeStatus.DATA_ONLY,
+                        true
+                )),
+                masterworking
         );
     }
 }

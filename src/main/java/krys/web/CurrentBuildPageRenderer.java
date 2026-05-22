@@ -27,7 +27,6 @@ import krys.skill.SkillUpgradeChoice;
 import krys.tempering.ApplicationTemperingAffixRegistry;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingPresentationSupport;
-import krys.tempering.TemperingRuntimeSupport;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -725,16 +724,19 @@ public final class CurrentBuildPageRenderer {
                     .append(renderSummaryCard("Ciernie", ItemLibraryPresentationSupport.formatWhole(stats.getThorns())));
             html.append(renderHeroStatGroup("Pancerz i defensywa",
                             renderSummaryCard("Wytrzymałość", Integer.toString(baseline.getToughness()))
-                                    + renderSummaryCardWithTooltip("Pancerz", Integer.toString(armor.getTotalArmor()), buildArmorBreakdownLabel(armor))
-                                    + renderSummaryCardWithTooltip("Maksimum zdrowia", Integer.toString(stats.getMaxHealth()), buildMaxHealthBreakdownLabel(baseline, stats))))
+                                    + renderSummaryCardWithTooltip("Pancerz", Integer.toString(stats.getTotalArmor(baseline)), buildArmorBreakdownLabel(armor, stats))
+                                    + renderSummaryCardWithTooltip("Maksimum zdrowia", Integer.toString(stats.getMaxHealth()), buildMaxHealthBreakdownLabel(baseline, stats))
+                                    + (stats.getActiveHeroItemStats().getDamageReduction() > 0.0d
+                                    ? renderSummaryCard("Redukcja obrażeń z itemów", formatPercentComma(BigDecimal.valueOf(stats.getActiveHeroItemStats().getDamageReduction()), 1))
+                                    : "")))
                     .append(renderActiveWeaponGroup(stats.getActiveHeroItemStats()))
                     .append(renderHeroStatGroup("Odporności",
-                            renderSummaryCard("Fizyczne", Integer.toString(baseline.getPhysicalResistance()))
-                                    + renderSummaryCard("Ogień", Integer.toString(baseline.getFireResistance()))
-                                    + renderSummaryCard("Błyskawice", Integer.toString(baseline.getLightningResistance()))
-                                    + renderSummaryCard("Zimno", Integer.toString(baseline.getColdResistance()))
-                                    + renderSummaryCard("Trucizna", Integer.toString(baseline.getPoisonResistance()))
-                                    + renderSummaryCard("Cień", Integer.toString(baseline.getShadowResistance()))))
+                            renderSummaryCard("Fizyczne", Integer.toString(stats.getPhysicalResistance(baseline)))
+                                    + renderSummaryCard("Ogień", Integer.toString(stats.getFireResistance(baseline)))
+                                    + renderSummaryCard("Błyskawice", Integer.toString(stats.getLightningResistance(baseline)))
+                                    + renderSummaryCard("Zimno", Integer.toString(stats.getColdResistance(baseline)))
+                                    + renderSummaryCard("Trucizna", Integer.toString(stats.getPoisonResistance(baseline)))
+                                    + renderSummaryCard("Cień", Integer.toString(stats.getShadowResistance(baseline)))))
                     .append(renderHeroStatGroup("Ofensywa", offenseCards.toString()))
                     .append(renderActiveItemAffixesGroup(stats.getActiveHeroItemStats()));
         } else {
@@ -779,11 +781,11 @@ public final class CurrentBuildPageRenderer {
                 """;
     }
 
-    private static String buildArmorBreakdownLabel(HeroArmorBreakdown armor) {
+    private static String buildArmorBreakdownLabel(HeroArmorBreakdown armor, CurrentHeroStatsPresentation stats) {
         return armor.getArmorFromStrength() + " z siły, "
-                + armor.getArmorFromItems() + " z itemów/głównego wyposażenia, "
+                + (armor.getArmorFromItems() + stats.getActiveHeroItemStats().getItemArmor()) + " z itemów/głównego wyposażenia, "
                 + armor.getArmorFromOtherSources() + " z innych źródeł, razem "
-                + armor.getTotalArmor() + ".";
+                + (armor.getTotalArmor() + stats.getActiveHeroItemStats().getItemArmor()) + ".";
     }
 
     private static String buildCriticalChanceBreakdownLabel(HeroCriticalChanceBreakdown criticalChance) {
@@ -934,34 +936,46 @@ public final class CurrentBuildPageRenderer {
         if (item.getItemArmor() != null) {
             chips.add("Pancerz: " + MasterworkingSectionRenderer.formatArmorReadonlyValue(item.getMasterworking(), item.getItemArmor()));
         }
-        if (item.getWeaponDamage() > 0L) {
+        if (item.getWeaponDamage() > 0L && !hasAffix(item, ImportedItemAffixType.WEAPON_DAMAGE_FLAT)) {
             chips.add("+" + item.getWeaponDamage() + " obrażeń broni");
         }
-        if (item.getStrength() > 0.0d) {
+        if (item.getStrength() > 0.0d && !hasAffix(item, ImportedItemAffixType.STRENGTH)) {
             chips.add("+" + ItemLibraryPresentationSupport.formatWhole(item.getStrength()) + " siły");
         }
-        if (item.getIntelligence() > 0.0d) {
+        if (item.getIntelligence() > 0.0d && !hasAffix(item, ImportedItemAffixType.INTELLIGENCE)) {
             chips.add("+" + ItemLibraryPresentationSupport.formatWhole(item.getIntelligence()) + " inteligencji");
         }
-        if (item.getThorns() > 0.0d) {
+        if (item.getThorns() > 0.0d && !hasAffix(item, ImportedItemAffixType.THORNS)) {
             chips.add("+" + ItemLibraryPresentationSupport.formatWhole(item.getThorns()) + " cierni");
         }
-        if (item.getBlockChance() > 0.0d) {
+        if (item.getBlockChance() > 0.0d && !hasAffix(item, ImportedItemAffixType.BLOCK_CHANCE)) {
             chips.add("+" + ItemLibraryPresentationSupport.formatDecimal(item.getBlockChance()) + "% bloku");
         }
-        if (item.getRetributionChance() > 0.0d) {
+        if (item.getRetributionChance() > 0.0d && !hasAffix(item, ImportedItemAffixType.RETRIBUTION_CHANCE)) {
             chips.add("+" + ItemLibraryPresentationSupport.formatDecimal(item.getRetributionChance()) + "% retribution");
         }
         for (ImportedItemAffix affix : item.getAffixes()) {
-            if (item.getMasterworking() != null && item.getMasterworking().hasVisibleProgress()) {
-                chips.add(MasterworkingSectionRenderer.formatAffixReadonlyLine(item.getMasterworking(), affix));
-            } else if (affix.getType() == ImportedItemAffixType.MAXIMUM_LIFE) {
-                chips.add("+" + ItemLibraryPresentationSupport.formatWhole(affix.getValue()) + " maksymalnego zdrowia");
-            } else if (affix.getType() == ImportedItemAffixType.WEAPON_DAMAGE_FLAT) {
-                chips.add("+" + ItemLibraryPresentationSupport.formatWhole(affix.getValue()) + " obrażeń od broni");
+            if (!isDescriptiveSlotAffix(affix)) {
+                chips.add(formatSlotAffixChip(item, affix));
             }
         }
         return chips;
+    }
+
+    private static boolean hasAffix(SavedImportedItem item, ImportedItemAffixType type) {
+        return item.getAffixes().stream().anyMatch(affix -> affix.getType() == type);
+    }
+
+    private static boolean isDescriptiveSlotAffix(ImportedItemAffix affix) {
+        return affix.getType() == ImportedItemAffixType.LIFE_ON_HIT
+                || affix.getType() == ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE;
+    }
+
+    private static String formatSlotAffixChip(SavedImportedItem item, ImportedItemAffix affix) {
+        if (item.getMasterworking() != null && item.getMasterworking().hasVisibleProgress()) {
+            return MasterworkingSectionRenderer.formatAffixReadonlyLine(item.getMasterworking(), affix);
+        }
+        return ItemLibraryPresentationSupport.formatAffixForDetails(affix);
     }
 
     private static List<String> buildSlotEffectChips(SavedImportedItem item) {
@@ -986,9 +1000,7 @@ public final class CurrentBuildPageRenderer {
             chips.add(affix.getCategory().getDisplayName()
                     + ": "
                     + affixLabel
-                    + (affix.isGreaterAffix() ? " | Greater Affix / Gwiazdka" : "")
-                    + " | "
-                    + activeSlotTemperingRuntimeStatus(affix));
+                    + (affix.isGreaterAffix() ? " | Greater Affix / Gwiazdka" : ""));
         }
         return chips;
     }
@@ -1004,13 +1016,6 @@ public final class CurrentBuildPageRenderer {
         List<String> chips = new ArrayList<>();
         chips.add(chip);
         return List.copyOf(chips);
-    }
-
-    private static String activeSlotTemperingRuntimeStatus(ItemTemperingAffix affix) {
-        if (TemperingRuntimeSupport.affectsMaximumAnimus(affix)) {
-            return "Runtime aktywny: +" + ItemLibraryPresentationSupport.formatWhole(affix.getValue()) + " max Animusz";
-        }
-        return TemperingPresentationSupport.compactRuntimeStatus(affix.getRuntimeStatus());
     }
 
     private static String luckyHitResourceValue(ImportedItemAffix affix) {

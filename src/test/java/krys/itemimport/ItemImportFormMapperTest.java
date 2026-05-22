@@ -175,12 +175,17 @@ class ItemImportFormMapperTest {
     }
 
     @Test
-    void shouldValidateMasterworkingQualityRange() {
-        assertMasterworkingAccepted(new ItemMasterworking(0, 25));
-        assertMasterworkingAccepted(new ItemMasterworking(25, 25));
+    void shouldValidateMasterworkingQualityAllowedSteps() {
+        for (int quality : ItemMasterworking.ALLOWED_QUALITY_STEPS) {
+            assertMasterworkingAccepted(new ItemMasterworking(quality, 25));
+        }
 
-        assertMasterworkingRejected(new ItemMasterworking(-1, 25), "Jakość aktualna musi mieścić się w zakresie 0 - 25");
-        assertMasterworkingRejected(new ItemMasterworking(26, 25), "Jakość aktualna musi mieścić się w zakresie 0 - 25");
+        for (int quality : List.of(-1, 1, 2, 4, 5, 7, 8, 10, 16, 18, 22, 24, 26)) {
+            assertMasterworkingRejected(
+                    new ItemMasterworking(quality, 25),
+                    "Jakość Doskonalenia musi być jednym z progów: 0, 3, 6, 9, 12, 15, 17, 20, 21, 25"
+            );
+        }
         assertMasterworkingRejected(new ItemMasterworking(0, 0), "Jakość maksymalna musi wynosić 25");
         assertMasterworkingRejected(new ItemMasterworking(0, 24), "Jakość maksymalna musi wynosić 25");
     }

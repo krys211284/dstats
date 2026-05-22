@@ -765,14 +765,15 @@ class CurrentBuildWebServerTest {
         assertTrue(html.contains(summaryCard("Aktywacje Molocha", "2")));
         assertTrue(technicalRuntimeInputSection(html)
                 .contains(runtimeInputCard("Maksymalny Animusz", "13", "bazowe: 8 + hartowanie aktywnej tarczy: +5")));
-        assertTrue(html.contains("★ +5 do maksymalnej liczby kumulacji Animuszu"));
-        assertTrue(html.contains("Runtime aktywny: +5 max Animusz"));
+        String offHandCard = equipmentSlotCard(html, "OFF_HAND");
+        assertTrue(offHandCard.contains("Defensywa: ★ +5 do maksymalnej liczby kumulacji Animuszu | Greater Affix / Gwiazdka"));
+        assertFalse(offHandCard.contains("Runtime aktywny: +5 max Animusz"));
         String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
         assertTrue(stepTrace.contains(animusCell("13", "-8", "1", "+2", "7")));
     }
 
     @Test
-    void shouldKeepTechnicalRuntimeInputUnchangedWhenMaxAnimusTemperingIsMasterworked() throws Exception {
+    void shouldUseMasterworkedMaxAnimusTemperingInTechnicalRuntimeInput() throws Exception {
         createHero("Starcie Moloch hartowanie Animuszu doskonalone", "70");
         saveAndActivateVerathiel();
         saveAndActivateKoscianychLusekShieldWithPerfectedMaxAnimusTempering("2");
@@ -789,18 +790,109 @@ class CurrentBuildWebServerTest {
         assertEquals(200, response.statusCode());
         String html = response.body();
         assertFalse(html.contains("Błędy formularza"));
-        assertTrue(html.contains(summaryCard("Łączne obrażenia", "33800")));
-        assertTrue(html.contains(summaryCard("DPS", "3380")));
-        assertTrue(html.contains(summaryCard("Końcowy Animusz", "13")));
+        assertTrue(html.contains(summaryCard("Łączne obrażenia", "35180")));
+        assertTrue(html.contains(summaryCard("DPS", "3518")));
+        assertTrue(html.contains(summaryCard("Końcowy Animusz", "17")));
         assertTrue(technicalRuntimeInputSection(html)
-                .contains(runtimeInputCard("Maksymalny Animusz", "13", "bazowe: 8 + hartowanie aktywnej tarczy: +5")));
+                .contains(runtimeInputCard("Maksymalny Animusz", "20", "bazowe: 8 + hartowanie aktywnej tarczy po Doskonaleniu: +12")));
+        assertFalse(technicalRuntimeInputSection(html).contains(runtimeInputCard("Maksymalny Animusz", "13", "")));
         assertFalse(technicalRuntimeInputSection(html).contains(runtimeInputCard("Maksymalny Animusz", "15", "")));
-        assertFalse(technicalRuntimeInputSection(html).contains(runtimeInputCard("Maksymalny Animusz", "20", "")));
+        assertTrue(technicalRuntimeInputSection(html).contains(runtimeInputCard("Pancerz", "1502", "Aktywne itemy")));
+        assertTrue(technicalRuntimeInputSection(html).contains(runtimeInputCard("Siła", "349", "Baseline Paladyn poziom 70 + aktywne itemy")));
+        assertTrue(technicalRuntimeInputSection(html).contains(runtimeInputCard("Odporność na Ogień", "945", "Aktywne itemy")));
+        assertTrue(technicalRuntimeInputSection(html).contains(runtimeInputCard("Odporność na wszystkie żywioły", "588", "Aktywne itemy")));
+        assertTrue(technicalRuntimeInputSection(html).contains(runtimeInputCard("Redukcja obrażeń", "14,3%", "Aktywne itemy")));
         assertFalse(html.contains("Podgląd wartości po Doskonaleniu"));
         assertFalse(html.contains("<h5>Wartości po Doskonaleniu</h5>"));
         assertFalse(html.contains("+5 → +12"));
-        assertTrue(html.contains("★ <span class=\"masterworking-value masterworking-value--perfected\">+12</span> do maksymalnej liczby kumulacji Animuszu"));
-        assertTrue(html.contains("Runtime nadal używa zapisanej wartości +5."));
+        String offHandCard = equipmentSlotCard(html, "OFF_HAND");
+        assertTrue(offHandCard.contains("Pancerz: <span class=\"masterworking-value masterworking-value--upgraded\">1502</span>"));
+        assertTrue(offHandCard.contains("Siła <span class=\"masterworking-value masterworking-value--upgraded\">270</span>"));
+        assertTrue(offHandCard.contains("Odporność na Ogień <span class=\"masterworking-value masterworking-value--upgraded\">945</span>"));
+        assertTrue(offHandCard.contains("Redukcja obrażeń <span class=\"masterworking-value masterworking-value--upgraded\">14,3%</span>"));
+        assertTrue(offHandCard.contains("Odporność na wszystkie żywioły <span class=\"masterworking-value masterworking-value--upgraded\">588</span>"));
+        assertTrue(offHandCard.contains("★ <span class=\"masterworking-value masterworking-value--perfected\">+12</span> do maksymalnej liczby kumulacji Animuszu"));
+        assertTrue(offHandCard.contains("Doskonalenie · Jakość 25/25 · Doskonalony afiks: maksymalna liczba kumulacji Animuszu · Runtime aktywny dla potwierdzonych wartości"));
+        assertFalse(offHandCard.contains("+225 siły"));
+        assertFalse(offHandCard.contains("+787 odporności na Ogień"));
+        assertFalse(offHandCard.contains("+490 odporności na wszystkie żywioły"));
+        assertFalse(offHandCard.contains("+5 max Animusz"));
+        assertFalse(offHandCard.contains("Runtime aktywny: +5 max Animusz"));
+        assertFalse(offHandCard.contains("Runtime nadal używa zapisanej wartości +5"));
+        assertFalse(offHandCard.contains("225 → 270"));
+        assertFalse(offHandCard.contains("+5 → +12"));
+        assertFalse(offHandCard.contains("po Doskonaleniu"));
+        assertFalse(offHandCard.contains("wartość źródłowa"));
+        assertFalse(html.contains("Runtime nadal używa zapisanej wartości +5"));
+    }
+
+    @Test
+    void shouldCalculateCurrentBuildWithMasterworkedMaxAnimusRuntimeCapTwenty() throws Exception {
+        createHero("Starcie Moloch Doskonalenie max Animusz 20", "70");
+        saveAndActivateVerathiel();
+        saveAndActivateKoscianychLusekShieldWithPerfectedMaxAnimusTempering("2");
+        assignSkill(krys.skill.SkillId.CLASH);
+        Map<String, String> fields = buildClashRankOneLevel70Fields();
+        fields.put("formAction", "calculate");
+        fields.put("selectedPaladinOathId", PaladinOathId.JUGGERNAUT.name());
+        fields.put("initialAnimus", "20");
+        fields.put("maxAnimus", "8");
+        fields.put(CurrentBuildFormData.choiceGroupFieldName(krys.skill.SkillId.CLASH, 1), "animusz");
+
+        HttpResponse<String> response = sendPost("/policz-aktualny-build", fields);
+
+        assertEquals(200, response.statusCode());
+        String html = response.body();
+        assertFalse(html.contains("Błędy formularza"));
+        assertTrue(html.contains(summaryCard("Łączne obrażenia", "35180")));
+        assertTrue(html.contains(summaryCard("DPS", "3518")));
+        assertTrue(html.contains(summaryCard("Końcowy Animusz", "20")));
+        assertTrue(html.contains(summaryCard("Maksymalny Animusz", "20")));
+        assertTrue(html.contains(summaryCard("Aktywacje Molocha", "2")));
+        assertTrue(html.contains(summaryCard("Animusz ze Starcia", "+16")));
+        String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
+        assertEquals(2, countOccurrences(stepTrace, "<td>Aktywacja</td>"));
+        assertEquals(8, countOccurrences(stepTrace, "<td>Aktywny</td>"));
+    }
+
+    @Test
+    void shouldRenderNonPerfectedMasterworkedTemperingInCurrentBuildCompactCard() throws Exception {
+        createHero("Tarcza Doskonalenie bez trafienia krytycznego", "70");
+        saveAndActivateKoscianychLusekShieldWithMasterworking("1", "");
+
+        HttpResponse<String> response = sendGet("/policz-aktualny-build");
+
+        assertEquals(200, response.statusCode());
+        String offHandCard = equipmentSlotCard(response.body(), "OFF_HAND");
+        assertTrue(offHandCard.contains("★ <span class=\"masterworking-value masterworking-value--upgraded\">+7</span> do maksymalnej liczby kumulacji Animuszu"));
+        assertFalse(offHandCard.contains("+5 max Animusz"));
+        assertTrue(technicalRuntimeInputSection(response.body())
+                .contains(runtimeInputCard("Maksymalny Animusz", "15", "bazowe: 8 + hartowanie aktywnej tarczy po Doskonaleniu: +7")));
+    }
+
+    @Test
+    void shouldRenderPerfectedOrdinaryAffixOnceInCurrentBuildCompactCard() throws Exception {
+        createHero("Tarcza Doskonalenie zwykłego affixu", "70");
+        saveAndActivateKoscianychLusekShieldWithMasterworking("1", "ORDINARY_AFFIX:STRENGTH");
+
+        HttpResponse<String> strengthResponse = sendGet("/policz-aktualny-build");
+
+        assertEquals(200, strengthResponse.statusCode());
+        String strengthCard = equipmentSlotCard(strengthResponse.body(), "OFF_HAND");
+        assertTrue(strengthCard.contains("Siła <span class=\"masterworking-value masterworking-value--perfected\">360</span>"));
+        assertFalse(strengthCard.contains("+225 siły"));
+        assertFalse(strengthCard.contains("Siła <span class=\"masterworking-value masterworking-value--upgraded\">270</span>"));
+
+        createHero("Tarcza Doskonalenie odporności", "70");
+        saveAndActivateKoscianychLusekShieldWithMasterworking("2", "ORDINARY_AFFIX:FIRE_RESISTANCE");
+
+        HttpResponse<String> fireResponse = sendGet("/policz-aktualny-build");
+
+        assertEquals(200, fireResponse.statusCode());
+        String fireCard = equipmentSlotCard(fireResponse.body(), "OFF_HAND");
+        assertTrue(fireCard.contains("Odporność na Ogień <span class=\"masterworking-value masterworking-value--perfected\">1260</span>"));
+        assertFalse(fireCard.contains("+787 odporności na Ogień"));
+        assertFalse(fireCard.contains("Odporność na Ogień <span class=\"masterworking-value masterworking-value--upgraded\">945</span>"));
     }
 
     @Test
@@ -2211,6 +2303,10 @@ class CurrentBuildWebServerTest {
     }
 
     private void saveAndActivateKoscianychLusekShieldWithPerfectedMaxAnimusTempering(String shieldItemId) throws Exception {
+        saveAndActivateKoscianychLusekShieldWithMasterworking(shieldItemId, "TEMPERING_AFFIX:defense_max_animus");
+    }
+
+    private void saveAndActivateKoscianychLusekShieldWithMasterworking(String shieldItemId, String perfectedAffix) throws Exception {
         Map<String, String> fields = koscianychLusekShieldImportFields();
         fields.put("temperingCount", "1");
         fields.put("temperingCategory_0", "DEFENSE");
@@ -2219,7 +2315,7 @@ class CurrentBuildWebServerTest {
         fields.put("temperingGreaterAffix_0", "true");
         fields.put("masterworkingQualityCurrent", "25");
         fields.put("masterworkingQualityMax", "25");
-        fields.put("masterworkingPerfectedAffix", "TEMPERING_AFFIX:defense_max_animus");
+        fields.put("masterworkingPerfectedAffix", perfectedAffix);
         HttpResponse<String> saveResponse = sendPost("/importuj-item-ze-screena", fields);
         assertEquals(200, saveResponse.statusCode());
 

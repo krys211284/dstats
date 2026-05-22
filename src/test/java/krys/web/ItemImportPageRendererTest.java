@@ -97,8 +97,6 @@ class ItemImportPageRendererTest {
         assertFalse(html.contains("Ta lista jest głównym modelem korekty itemu. Finalny zapis użyje tylko aktywnych wierszy widocznych w tej tabeli."));
         assertTrue(html.contains("affix-table-wrap"));
         assertTrue(html.contains("data-table affix-table"));
-        assertTrue(html.contains("item-affix-add-grid"));
-        assertTrue(html.contains("item-affix-add-actions"));
         assertTrue(html.contains("<main class=\"layout wide-item-page\">"));
         assertTrue(html.contains(".layout.wide-item-page"));
         assertFalse(html.contains("Projekcja do aktualnego runtime"));
@@ -402,14 +400,57 @@ class ItemImportPageRendererTest {
         assertFalse(html.contains("Odczyt OCR / źródło"));
         assertFalse(html.contains("Źródło: OCR"));
         assertFalse(html.contains("Ta lista jest głównym modelem korekty itemu. Finalny zapis użyje tylko aktywnych wierszy widocznych w tej tabeli."));
-        assertTrue(html.contains("affix-table-wrap"));
-        assertTrue(html.contains("item-affix-add-grid"));
-        assertTrue(html.contains("item-affix-add-actions"));
+        String affixSection = html.substring(html.indexOf("<table class=\"data-table affix-table\""), html.indexOf("<h3>Hartowanie</h3>"));
+        assertTrue(affixSection.contains("data-table affix-table"));
+        assertTrue(affixSection.contains("Limit affixów dla tego przedmiotu został wykorzystany."));
+        assertFalse(affixSection.contains("item-affix-add-grid"));
+        assertFalse(affixSection.contains("item-affix-add-actions"));
+        assertFalse(affixSection.contains("<h4>Dodaj affix</h4>"));
+        assertFalse(affixSection.contains("name=\"newAffixType\""));
+        assertFalse(affixSection.contains("name=\"newAffixValue\""));
+        assertFalse(affixSection.contains("id=\"newAffixGreater\""));
+        assertFalse(affixSection.contains("id=\"addAffixButton\""));
         assertTrue(html.contains("name=\"affixType_0\""));
         assertTrue(html.contains("name=\"affixType_1\""));
         assertTrue(html.contains("name=\"affixType_2\""));
         assertTrue(html.contains("name=\"affixType_3\""));
         assertFalse(html.contains("<h5>Affixy</h5>"));
+    }
+
+    @Test
+    void shouldRenderAddAffixFormWhenOrdinaryAffixLimitIsNotUsed() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(
+                        new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 225.0d),
+                        new ImportedItemAffix(ImportedItemAffixType.FIRE_RESISTANCE, 787.0d),
+                        new ImportedItemAffix(ImportedItemAffixType.DAMAGE_REDUCTION, 11.4d, "%")
+                ),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Tarcza testowa", "Tarcza", "LEGENDARY", true, EquipmentSlot.OFF_HAND,
+                        900L, null, null, null, null, null, 1202L, ""),
+                List.of(),
+                ItemMasterworking.defaultState()
+        );
+
+        String html = renderFullPage(form);
+
+        assertTrue(html.contains("<h4>Dodaj affix</h4>"));
+        assertTrue(html.contains("name=\"newAffixType\""));
+        assertTrue(html.contains("name=\"newAffixValue\""));
+        assertTrue(html.contains("id=\"newAffixGreater\""));
+        assertTrue(html.contains("id=\"addAffixButton\""));
+        assertFalse(html.contains("Limit affixów dla tego przedmiotu został wykorzystany."));
     }
 
     @Test
@@ -562,7 +603,18 @@ class ItemImportPageRendererTest {
         assertFalse(masterworking.contains("name=\"masterworkingEnabled\""));
         assertFalse(masterworking.contains("type=\"checkbox\""));
         assertTrue(masterworking.contains("Jakość aktualna"));
-        assertTrue(masterworking.contains("name=\"masterworkingQualityCurrent\" value=\"0\""));
+        String qualitySelect = selectByName(masterworking, "masterworkingQualityCurrent");
+        assertFalse(masterworking.contains("<input type=\"number\" min=\"0\" max=\"25\" step=\"1\" name=\"masterworkingQualityCurrent\""));
+        assertTrue(qualitySelect.contains("<option value=\"0\" selected>0/25</option>"));
+        assertTrue(qualitySelect.contains("<option value=\"3\">3/25</option>"));
+        assertTrue(qualitySelect.contains("<option value=\"6\">6/25</option>"));
+        assertTrue(qualitySelect.contains("<option value=\"9\">9/25</option>"));
+        assertTrue(qualitySelect.contains("<option value=\"12\">12/25</option>"));
+        assertTrue(qualitySelect.contains("<option value=\"15\">15/25</option>"));
+        assertTrue(qualitySelect.contains("<option value=\"17\">17/25</option>"));
+        assertTrue(qualitySelect.contains("<option value=\"20\">20/25</option>"));
+        assertTrue(qualitySelect.contains("<option value=\"21\">21/25</option>"));
+        assertTrue(qualitySelect.contains("<option value=\"25\">25/25</option>"));
         assertTrue(masterworking.contains("Jakość maksymalna"));
         assertTrue(masterworking.contains("name=\"masterworkingQualityMax\" value=\"25\" readonly"));
         assertTrue(masterworking.contains("Dane itemu / runtime nieaktywny"));
@@ -652,18 +704,19 @@ class ItemImportPageRendererTest {
         assertFalse(html.contains("787 → 945"));
         assertFalse(html.contains("+5 → +7"));
         assertFalse(html.contains("po Doskonaleniu:"));
+        assertFalse(html.contains("Aktualna wartość itemu:"));
+        assertFalse(html.contains("Runtime nadal używa zapisanej wartości +5"));
         assertTrue(html.contains("name=\"itemArmor\" value=\"1202\""));
-        assertTrue(html.contains("Aktualna wartość itemu: <span class=\"masterworking-value masterworking-value--upgraded\">1502</span>"));
+        assertTrue(html.contains("<div class=\"masterworking-current-value\"><span class=\"masterworking-value masterworking-value--upgraded\">1502</span>"));
         assertTrue(html.contains("name=\"affixValue_0\" value=\"225\""));
-        assertTrue(html.contains("Aktualna wartość itemu: <span class=\"masterworking-value masterworking-value--perfected\">360</span>"));
+        assertTrue(html.contains("<div class=\"masterworking-current-value\"><span class=\"masterworking-value masterworking-value--perfected\">360</span>"));
         assertTrue(html.contains("Doskonalony afiks"));
         assertTrue(html.contains("name=\"affixValue_1\" value=\"787\""));
-        assertTrue(html.contains("Aktualna wartość itemu: <span class=\"masterworking-value masterworking-value--upgraded\">945</span>"));
+        assertTrue(html.contains("<div class=\"masterworking-current-value\"><span class=\"masterworking-value masterworking-value--upgraded\">945</span>"));
         assertTrue(html.contains("name=\"affixValue_2\" value=\"11.4\""));
-        assertTrue(html.contains("Aktualna wartość itemu: <span class=\"masterworking-value masterworking-value--upgraded\">14,3%</span>"));
+        assertTrue(html.contains("<div class=\"masterworking-current-value\"><span class=\"masterworking-value masterworking-value--upgraded\">14,3%</span>"));
         assertTrue(html.contains("name=\"temperingValue_0\" value=\"5\""));
         assertTrue(html.contains("★ <span class=\"masterworking-value masterworking-value--upgraded\">+7</span> do maksymalnej liczby kumulacji Animuszu"));
-        assertTrue(html.contains("Runtime nadal używa zapisanej wartości +5."));
     }
 
     @Test
@@ -683,7 +736,13 @@ class ItemImportPageRendererTest {
         assertTrue(tempering.contains("Defensywa: do maksymalnej liczby kumulacji Animuszu [2 - 3]"));
         assertEquals(12, countOccurrences(tempering, "\"id\":\"defense_"));
         assertTrue(tempering.contains("Limit hartowania dla tego przedmiotu został wykorzystany."));
-        assertTrue(tempering.contains("id=\"temperingAddControls\" hidden"));
+        assertFalse(tempering.contains("<h4>Dodaj hartowanie</h4>"));
+        assertFalse(tempering.contains("id=\"temperingAddControls\""));
+        assertFalse(tempering.contains("name=\"newTemperingCategory\""));
+        assertFalse(tempering.contains("name=\"newTemperingDefinitionId\""));
+        assertFalse(tempering.contains("name=\"newTemperingValue\""));
+        assertFalse(tempering.contains("name=\"newTemperingGreaterAffix\""));
+        assertFalse(tempering.contains("id=\"addTemperingButton\""));
         assertFalse(tempering.contains("<select name=\"temperingDefinitionId_0\""));
         assertTrue(tempering.contains("tempering-existing-card"));
         assertTrue(tempering.contains("Usuń"));

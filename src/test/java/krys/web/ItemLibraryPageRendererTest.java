@@ -224,7 +224,7 @@ class ItemLibraryPageRendererTest {
 
         String html = render(List.of(shield));
 
-        assertTrue(html.contains("Doskonalenie · Jakość 3/25 · Runtime nieaktywny"));
+        assertTrue(html.contains("Doskonalenie · Jakość 3/25 · Runtime aktywny dla potwierdzonych wartości"));
     }
 
     @Test
@@ -257,7 +257,7 @@ class ItemLibraryPageRendererTest {
 
         String html = render(List.of(shield));
 
-        assertTrue(html.contains("Doskonalenie · Jakość 25/25 · Doskonalony afiks: Siła · Runtime nieaktywny"));
+        assertTrue(html.contains("Doskonalenie · Jakość 25/25 · Doskonalony afiks: Siła · Runtime aktywny dla potwierdzonych wartości"));
     }
 
     @Test
@@ -290,7 +290,7 @@ class ItemLibraryPageRendererTest {
 
         String html = render(List.of(shield));
 
-        assertTrue(html.contains("Doskonalenie · Jakość 25/25 · Doskonalony afiks: maksymalna liczba kumulacji Animuszu · Runtime nieaktywny"));
+        assertTrue(html.contains("Doskonalenie · Jakość 25/25 · Doskonalony afiks: maksymalna liczba kumulacji Animuszu · Runtime aktywny dla potwierdzonych wartości"));
     }
 
     @Test
@@ -326,7 +326,28 @@ class ItemLibraryPageRendererTest {
         assertFalse(html.contains("+5 → +12"));
         assertTrue(html.contains("★ <span class=\"masterworking-value masterworking-value--perfected\">+12</span> do maksymalnej liczby kumulacji Animuszu"));
         assertTrue(html.contains("Doskonalony afiks"));
-        assertTrue(html.contains("Runtime nadal używa zapisanej wartości +5."));
+        assertFalse(html.contains("Runtime nadal używa zapisanej wartości +5"));
+    }
+
+    @Test
+    void shouldRenderFinalPresentationValuesInItemLibrarySummaryRow() {
+        SavedImportedItem shield = referenceShield(
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.temperingAffix("defense_max_animus")),
+                List.of(referenceMaxAnimusTempering())
+        );
+
+        String html = render(List.of(shield));
+
+        String row = firstItemIndexRow(html);
+        assertTrue(row.contains("Siła <span class=\"masterworking-value masterworking-value--upgraded\">270</span>"));
+        assertTrue(row.contains("Odporność na Ogień <span class=\"masterworking-value masterworking-value--upgraded\">945</span>"));
+        assertTrue(row.contains("Redukcja obrażeń <span class=\"masterworking-value masterworking-value--upgraded\">14,3%</span>"));
+        assertTrue(row.contains("Odporność na wszystkie żywioły <span class=\"masterworking-value masterworking-value--upgraded\">588</span>"));
+        assertTrue(row.contains("★ <span class=\"masterworking-value masterworking-value--perfected\">+12</span> do maksymalnej liczby kumulacji Animuszu"));
+        assertFalse(row.contains("+225 siły"));
+        assertFalse(row.contains("+787 odporności"));
+        assertFalse(row.contains("+490 odporności"));
+        assertFalse(row.contains("+5 max Animusz"));
     }
 
     @Test
@@ -535,5 +556,17 @@ class ItemLibraryPageRendererTest {
             index = value.indexOf(needle, index + needle.length());
         }
         return count;
+    }
+
+    private static String firstItemIndexRow(String html) {
+        int start = html.indexOf("<tr class=\"item-index-row");
+        if (start < 0) {
+            throw new AssertionError("Brak wiersza biblioteki itemów.");
+        }
+        int end = html.indexOf("</tr>", start);
+        if (end < 0) {
+            throw new AssertionError("Nie udało się wyciąć wiersza biblioteki itemów.");
+        }
+        return html.substring(start, end + "</tr>".length());
     }
 }

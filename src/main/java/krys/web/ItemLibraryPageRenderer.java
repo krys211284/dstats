@@ -253,17 +253,32 @@ public final class ItemLibraryPageRenderer {
     }
 
     private static String renderAffixSummary(SavedImportedItem item) {
-        if (item.getAffixes().isEmpty()) {
+        if (item.getAffixes().isEmpty() && item.getTemperingAffixes().isEmpty()) {
             return "<span class=\"muted-value\">Brak zatwierdzonych affixów</span>";
         }
         StringBuilder html = new StringBuilder("<ul class=\"affix-summary\">");
         for (ImportedItemAffix affix : item.getAffixes()) {
             html.append("<li>")
-                    .append(escapeHtml(ItemLibraryPresentationSupport.formatAffixForList(affix)))
+                    .append(formatAffixSummaryLine(item, affix))
+                    .append("</li>");
+        }
+        for (ItemTemperingAffix affix : item.getTemperingAffixes()) {
+            html.append("<li>")
+                    .append(escapeHtml(affix.getCategory().getDisplayName()))
+                    .append(": ")
+                    .append(formatTemperingDetailsLine(item, affix))
+                    .append(affix.isGreaterAffix() ? " | Greater Affix / Gwiazdka" : "")
                     .append("</li>");
         }
         html.append("</ul>");
         return html.toString();
+    }
+
+    private static String formatAffixSummaryLine(SavedImportedItem item, ImportedItemAffix affix) {
+        if (item.getMasterworking() != null && item.getMasterworking().hasVisibleProgress()) {
+            return MasterworkingSectionRenderer.formatAffixReadonlyLine(item.getMasterworking(), affix);
+        }
+        return escapeHtml(ItemLibraryPresentationSupport.formatAffixForList(affix));
     }
 
     private static String renderItemDetailsModal(SavedImportedItem item) {

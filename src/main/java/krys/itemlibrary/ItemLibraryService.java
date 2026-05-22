@@ -10,6 +10,9 @@ import krys.itemimport.ImportedItemCurrentBuildApplicationService;
 import krys.itemimport.ImportedItemCurrentBuildContribution;
 import krys.itemimport.ItemImportDetails;
 import krys.itemimport.ValidatedImportedItem;
+import krys.masterworking.MasterworkingPresentationValue;
+import krys.masterworking.MasterworkingPresentationValueResolver;
+import krys.masterworking.MasterworkingResolvedItemValueResolver;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingRuntimeSupport;
 import krys.web.HeroItemSelection;
@@ -27,6 +30,8 @@ public final class ItemLibraryService {
     private final ItemLibraryRepository repository;
     private final SavedImportedItemCurrentBuildContributionMapper contributionMapper;
     private final ImportedItemCurrentBuildApplicationService applicationService;
+    private final MasterworkingResolvedItemValueResolver masterworkingValueResolver = new MasterworkingResolvedItemValueResolver();
+    private final MasterworkingPresentationValueResolver masterworkingPresentationResolver = new MasterworkingPresentationValueResolver();
 
     public ItemLibraryService(ItemLibraryRepository repository) {
         this(
@@ -243,6 +248,10 @@ public final class ItemLibraryService {
         double thorns = 0.0d;
         double blockChance = 0.0d;
         double retributionChance = 0.0d;
+        long itemArmor = 0L;
+        double fireResistance = 0.0d;
+        double allResistance = 0.0d;
+        double damageReduction = 0.0d;
         double maxAnimusFromTempering = 0.0d;
         List<String> descriptiveAffixes = new ArrayList<>();
         List<String> statisticalAffixes = new ArrayList<>();
@@ -251,11 +260,15 @@ public final class ItemLibraryService {
 
         for (HeroSlotItemAssignment assignment : items) {
             SavedImportedItem item = assignment.getItem();
-            strength += item.getStrength();
-            intelligence += item.getIntelligence();
-            thorns += item.getThorns();
-            blockChance += item.getBlockChance();
-            retributionChance += item.getRetributionChance();
+            ImportedItemCurrentBuildContribution contribution = contributionMapper.map(item);
+            strength += contribution.getStrength();
+            intelligence += contribution.getIntelligence();
+            thorns += contribution.getThorns();
+            blockChance += contribution.getBlockChance();
+            retributionChance += contribution.getRetributionChance();
+            if (item.getItemArmor() != null && item.getItemArmor() > 0L) {
+                itemArmor += masterworkingValueResolver.resolveArmor(item.getItemArmor(), item.getMasterworking());
+            }
 
             ItemImportDetails details = item.getDetails();
             if (assignment.getHeroSlot() == HeroEquipmentSlot.MAIN_HAND
@@ -274,7 +287,7 @@ public final class ItemLibraryService {
             }
 
             for (ImportedItemAffix affix : item.getAffixes()) {
-                String formattedAffix = ItemLibraryPresentationSupport.formatAffixForDetails(affix);
+                String formattedAffix = formatEffectiveAffix(item, affix);
                 if (affix.getType() == ImportedItemAffixType.MAXIMUM_LIFE) {
                     maximumLifeFromItems += affix.getValue();
                     descriptiveAffixes.add(formattedAffix);
@@ -291,6 +304,18 @@ public final class ItemLibraryService {
                     luckyHitPrimaryResourceValue += affix.getValue();
                     descriptiveAffixes.add(formattedAffix);
                     descriptiveEffectAffixes.add(formattedAffix);
+                } else if (affix.getType() == ImportedItemAffixType.FIRE_RESISTANCE) {
+                    fireResistance += masterworkingValueResolver.resolveAffixValue(affix, item.getMasterworking());
+                    descriptiveAffixes.add(formattedAffix);
+                    statisticalAffixes.add(formattedAffix);
+                } else if (affix.getType() == ImportedItemAffixType.ALL_RESISTANCE) {
+                    allResistance += masterworkingValueResolver.resolveAffixValue(affix, item.getMasterworking());
+                    descriptiveAffixes.add(formattedAffix);
+                    statisticalAffixes.add(formattedAffix);
+                } else if (affix.getType() == ImportedItemAffixType.DAMAGE_REDUCTION) {
+                    damageReduction += masterworkingValueResolver.resolveAffixValue(affix, item.getMasterworking());
+                    descriptiveAffixes.add(formattedAffix);
+                    statisticalAffixes.add(formattedAffix);
                 } else if (isScalarPresentationAffix(affix.getType())) {
                     descriptiveAffixes.add(formattedAffix);
                     statisticalAffixes.add(formattedAffix);
@@ -300,8 +325,9 @@ public final class ItemLibraryService {
                 if (!TemperingRuntimeSupport.affectsMaximumAnimus(affix)) {
                     continue;
                 }
-                maxAnimusFromTempering += affix.getValue();
-                maxAnimusTemperingSources.add(sourceLabelForMaxAnimus(assignment.getHeroSlot(), affix.getValue()));
+                double effectiveValue = masterworkingValueResolver.resolveTemperingValue(affix, item.getMasterworking());
+                maxAnimusFromTempering += effectiveValue;
+                maxAnimusTemperingSources.add(sourceLabelForMaxAnimus(assignment.getHeroSlot(), affix.getValue(), effectiveValue));
             }
         }
 
@@ -320,6 +346,10 @@ public final class ItemLibraryService {
                 thorns,
                 blockChance,
                 retributionChance,
+                itemArmor,
+                fireResistance,
+                allResistance,
+                damageReduction,
                 maxAnimusFromTempering,
                 descriptiveAffixes,
                 statisticalAffixes,
@@ -328,9 +358,27 @@ public final class ItemLibraryService {
         );
     }
 
-    private static String sourceLabelForMaxAnimus(HeroEquipmentSlot slot, double value) {
+    private String formatEffectiveAffix(SavedImportedItem item, ImportedItemAffix affix) {
+        if (item.getMasterworking() == null || !item.getMasterworking().hasVisibleProgress()
+                || !masterworkingValueResolver.supportsAffix(affix)) {
+            return ItemLibraryPresentationSupport.formatAffixForDetails(affix);
+        }
+        MasterworkingPresentationValue value = masterworkingPresentationResolver.resolveAffix(affix, item.getMasterworking());
+        String line = value.getLabel() + " " + value.getDisplayValueLabel();
+        if (!value.getSuffixLabel().isBlank()) {
+            line += " " + value.getSuffixLabel();
+        }
+        return line;
+    }
+
+    private static String sourceLabelForMaxAnimus(HeroEquipmentSlot slot, double sourceValue, double effectiveValue) {
         String slotLabel = slot == HeroEquipmentSlot.OFF_HAND ? "aktywnej tarczy" : "aktywnego itemu";
-        return "hartowanie " + slotLabel + ": +" + ItemLibraryPresentationSupport.formatWhole(value);
+        String source = ItemLibraryPresentationSupport.formatWhole(sourceValue);
+        String effective = ItemLibraryPresentationSupport.formatWhole(effectiveValue);
+        if (source.equals(effective)) {
+            return "hartowanie " + slotLabel + ": +" + source;
+        }
+        return "hartowanie " + slotLabel + " po Doskonaleniu: +" + effective;
     }
 
     private static boolean hasWeaponDetails(ItemImportDetails details) {

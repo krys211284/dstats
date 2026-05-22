@@ -20,6 +20,10 @@ public final class CurrentHeroActiveItemStats {
     private final double thorns;
     private final double blockChance;
     private final double retributionChance;
+    private final long itemArmor;
+    private final double fireResistance;
+    private final double allResistance;
+    private final double damageReduction;
     private final double maxAnimusFromTempering;
     private final List<String> descriptiveAffixes;
     private final List<String> statisticalAffixes;
@@ -43,7 +47,8 @@ public final class CurrentHeroActiveItemStats {
                                       List<String> descriptiveAffixes) {
         this(weaponDps, weaponDamageMin, weaponDamageMax, averageWeaponDamage, attacksPerSecond,
                 maximumLifeFromItems, flatWeaponDamageFromAffixes, lifeOnHit, luckyHitPrimaryResourceValue,
-                strength, intelligence, thorns, blockChance, retributionChance, 0.0d,
+                strength, intelligence, thorns, blockChance, retributionChance,
+                0L, 0.0d, 0.0d, 0.0d, 0.0d,
                 descriptiveAffixes, List.of(), List.of(), List.of());
     }
 
@@ -61,6 +66,10 @@ public final class CurrentHeroActiveItemStats {
                                       double thorns,
                                       double blockChance,
                                       double retributionChance,
+                                      long itemArmor,
+                                      double fireResistance,
+                                      double allResistance,
+                                      double damageReduction,
                                       double maxAnimusFromTempering,
                                       List<String> descriptiveAffixes,
                                       List<String> statisticalAffixes,
@@ -80,6 +89,10 @@ public final class CurrentHeroActiveItemStats {
         this.thorns = thorns;
         this.blockChance = blockChance;
         this.retributionChance = retributionChance;
+        this.itemArmor = itemArmor;
+        this.fireResistance = fireResistance;
+        this.allResistance = allResistance;
+        this.damageReduction = damageReduction;
         this.maxAnimusFromTempering = maxAnimusFromTempering;
         this.descriptiveAffixes = Collections.unmodifiableList(new ArrayList<>(descriptiveAffixes == null ? List.of() : descriptiveAffixes));
         this.statisticalAffixes = Collections.unmodifiableList(new ArrayList<>(statisticalAffixes == null ? List.of() : statisticalAffixes));
@@ -146,6 +159,22 @@ public final class CurrentHeroActiveItemStats {
 
     public double getRetributionChance() {
         return retributionChance;
+    }
+
+    public long getItemArmor() {
+        return itemArmor;
+    }
+
+    public double getFireResistance() {
+        return fireResistance;
+    }
+
+    public double getAllResistance() {
+        return allResistance;
+    }
+
+    public double getDamageReduction() {
+        return damageReduction;
     }
 
     public double getMaxAnimusFromTempering() {

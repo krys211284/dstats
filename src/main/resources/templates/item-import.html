@@ -459,7 +459,7 @@
     const newType = document.querySelector('[name="newAffixType"]');
     const newValue = document.querySelector('[name="newAffixValue"]');
     const newGreater = document.getElementById('newAffixGreater');
-    if (!rows || !count || !template || !addButton || !newType || !newValue) {
+    if (!rows || !count) {
         return;
     }
 
@@ -501,24 +501,26 @@
         }
     });
 
-    addButton.addEventListener('click', () => {
-        const index = rows.querySelectorAll('tr').length;
-        const wrapper = document.createElement('tbody');
-        wrapper.innerHTML = template.innerHTML.replaceAll('__INDEX__', index).replaceAll('__VALUE__', newValue.value);
-        const row = wrapper.querySelector('tr');
-        if (!row) {
-            return;
-        }
-        const type = row.querySelector(`select[name="affixType_${index}"]`);
-        const greater = row.querySelector(`input[name="affixGreater_${index}"]`);
-        if (type) type.value = newType.value;
-        if (greater && newGreater) greater.checked = newGreater.checked;
-        rows.appendChild(row);
-        newType.value = '';
-        newValue.value = '';
-        if (newGreater) newGreater.checked = false;
-        renumberRows();
-    });
+    if (template && addButton && newType && newValue) {
+        addButton.addEventListener('click', () => {
+            const index = rows.querySelectorAll('tr').length;
+            const wrapper = document.createElement('tbody');
+            wrapper.innerHTML = template.innerHTML.replaceAll('__INDEX__', index).replaceAll('__VALUE__', newValue.value);
+            const row = wrapper.querySelector('tr');
+            if (!row) {
+                return;
+            }
+            const type = row.querySelector(`select[name="affixType_${index}"]`);
+            const greater = row.querySelector(`input[name="affixGreater_${index}"]`);
+            if (type) type.value = newType.value;
+            if (greater && newGreater) greater.checked = newGreater.checked;
+            rows.appendChild(row);
+            newType.value = '';
+            newValue.value = '';
+            if (newGreater) newGreater.checked = false;
+            renumberRows();
+        });
+    }
 
     const form = rows.closest('form');
     if (form) {

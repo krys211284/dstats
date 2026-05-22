@@ -7,16 +7,16 @@ import krys.tempering.ItemTemperingAffix;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-/** Przelicza wartosci itemu po Doskonaleniu tylko do prezentacji UI, bez runtime DPS. */
+/** Przelicza finalne wartosci itemu po Doskonaleniu do prezentacji UI. */
 public final class MasterworkingPresentationValueResolver {
     public static final String NO_RULE_NOTE = "Doskonalenie: brak reguły prezentacyjnej dla tego affixu";
-    public static final String RUNTIME_INACTIVE_NOTE = "Wartości po Doskonaleniu są prezentacyjne i nie wpływają jeszcze na runtime.";
-    public static final String RUNTIME_STORED_TEMPERING_NOTE = "Runtime: nadal używa zapisanej wartości";
-    private static final String MAX_ANIMUS_TEMPERING_ID = "defense_max_animus";
+    public static final String RUNTIME_INACTIVE_NOTE = "Wartości po Doskonaleniu są używane w runtime dla potwierdzonych statystyk.";
+    public static final String RUNTIME_STORED_TEMPERING_NOTE = "Runtime: używa wartości po Doskonaleniu";
+    private final MasterworkingResolvedItemValueResolver resolvedValueResolver = new MasterworkingResolvedItemValueResolver();
 
     public MasterworkingPresentationValue resolveArmor(long baseArmor, ItemMasterworking masterworking) {
         int quality = quality(masterworking);
-        long displayArmor = displayArmor(baseArmor, quality);
+        long displayArmor = resolvedValueResolver.resolveArmor(baseArmor, quality);
         return new MasterworkingPresentationValue(
                 "Pancerz",
                 Long.toString(baseArmor),
@@ -35,27 +35,21 @@ public final class MasterworkingPresentationValueResolver {
         int quality = quality(masterworking);
         ImportedItemAffixType type = affix.getType();
         if (type == ImportedItemAffixType.STRENGTH && affix.isGreaterAffix()) {
-            int display = displayStrengthGreaterAffix(affix.getValue(), quality);
-            boolean perfected = isPerfectedOrdinary(masterworking, type);
-            if (perfected && quality == ItemMasterworking.DEFAULT_QUALITY_MAX) {
-                display = 360;
-            }
+            int display = (int) resolvedValueResolver.resolveAffixValue(affix, masterworking);
+            boolean perfected = resolvedValueResolver.isPerfectedOrdinary(masterworking, type);
             return integerAffix(type.getDisplayName(), affix.getValue(), display, perfected, masterworking);
         }
         if (type == ImportedItemAffixType.ALL_RESISTANCE && affix.isGreaterAffix()) {
             return integerAffix(type.getDisplayName(), affix.getValue(),
-                    displayAllResistanceGreaterAffix(affix.getValue(), quality), false, masterworking);
+                    (int) resolvedValueResolver.resolveAffixValue(affix, masterworking), false, masterworking);
         }
         if (type == ImportedItemAffixType.FIRE_RESISTANCE && affix.isGreaterAffix()) {
-            int display = displayFireResistanceGreaterAffix(affix.getValue(), quality);
-            boolean perfected = isPerfectedOrdinary(masterworking, type);
-            if (perfected && quality == ItemMasterworking.DEFAULT_QUALITY_MAX) {
-                display = 1260;
-            }
+            int display = (int) resolvedValueResolver.resolveAffixValue(affix, masterworking);
+            boolean perfected = resolvedValueResolver.isPerfectedOrdinary(masterworking, type);
             return integerAffix(type.getDisplayName(), affix.getValue(), display, perfected, masterworking);
         }
         if (type == ImportedItemAffixType.DAMAGE_REDUCTION) {
-            double display = displayDamageReduction(affix.getValue(), quality);
+            double display = resolvedValueResolver.resolveAffixValue(affix, masterworking);
             return new MasterworkingPresentationValue(
                     type.getDisplayName(),
                     formatDecimalOne(affix.getValue()) + "%",
@@ -74,12 +68,12 @@ public final class MasterworkingPresentationValueResolver {
             return unsupported("", "", "");
         }
         String base = formatInteger(affix.getValue());
-        if (!MAX_ANIMUS_TEMPERING_ID.equals(affix.getDefinitionId())) {
+        if (!resolvedValueResolver.supportsTempering(affix)) {
             return unsupported(affix.getDefinitionId(), "+" + base, NO_RULE_NOTE);
         }
         int quality = quality(masterworking);
-        int display = displayMaxAnimusTempering(affix, masterworking);
-        boolean perfected = isPerfectedTempering(masterworking, affix.getDefinitionId());
+        int display = resolvedValueResolver.resolveMaxAnimusTempering(affix, masterworking);
+        boolean perfected = resolvedValueResolver.isPerfectedTempering(masterworking, affix.getDefinitionId());
         return new MasterworkingPresentationValue(
                 "maksymalna liczba kumulacji Animuszu",
                 "+" + base,
@@ -92,42 +86,27 @@ public final class MasterworkingPresentationValueResolver {
     }
 
     public long displayArmor(long baseArmor, int qualityCurrent) {
-        return (long) Math.floor(baseArmor * (1.0d + qualityCurrent / 100.0d));
+        return resolvedValueResolver.resolveArmor(baseArmor, qualityCurrent);
     }
 
     public int displayStrengthGreaterAffix(double storedGreaterAffixValue, int qualityCurrent) {
-        double normalMax = Math.round(storedGreaterAffixValue / 1.25d);
-        return roundHalfUp(normalMax * (1.25d + qualityCurrent / 100.0d));
+        return resolvedValueResolver.resolveStrengthGreaterAffix(storedGreaterAffixValue, qualityCurrent);
     }
 
     public int displayAllResistanceGreaterAffix(double storedGreaterAffixValue, int qualityCurrent) {
-        double normalMax = Math.round(storedGreaterAffixValue / 1.25d);
-        return floor(normalMax * (1.25d + qualityCurrent / 100.0d));
+        return resolvedValueResolver.resolveAllResistanceGreaterAffix(storedGreaterAffixValue, qualityCurrent);
     }
 
     public int displayFireResistanceGreaterAffix(double storedGreaterAffixValue, int qualityCurrent) {
-        double normalMax = Math.round(storedGreaterAffixValue / 1.25d);
-        return floor(normalMax * (1.25d + qualityCurrent / 100.0d));
+        return resolvedValueResolver.resolveFireResistanceGreaterAffix(storedGreaterAffixValue, qualityCurrent);
     }
 
     public double displayDamageReduction(double baseValue, int qualityCurrent) {
-        double raw = baseValue * (1.0d + qualityCurrent / 100.0d);
-        return Math.ceil(raw * 10.0d - 0.000000001d) / 10.0d;
+        return resolvedValueResolver.resolveDamageReduction(baseValue, qualityCurrent);
     }
 
     public int displayMaxAnimusTempering(ItemTemperingAffix affix, ItemMasterworking masterworking) {
-        int storedValue = roundHalfUp(affix.getValue());
-        int quality = quality(masterworking);
-        if (!MAX_ANIMUS_TEMPERING_ID.equals(affix.getDefinitionId())) {
-            return storedValue;
-        }
-        if (quality < ItemMasterworking.DEFAULT_QUALITY_MAX) {
-            return storedValue;
-        }
-        if (isPerfectedTempering(masterworking, affix.getDefinitionId())) {
-            return 12;
-        }
-        return 7;
+        return resolvedValueResolver.resolveMaxAnimusTempering(affix, masterworking);
     }
 
     private static MasterworkingPresentationValue integerAffix(String label,
@@ -150,20 +129,6 @@ public final class MasterworkingPresentationValueResolver {
         return new MasterworkingPresentationValue(label, baseValue, baseValue, "", false, false, note);
     }
 
-    private static boolean isPerfectedOrdinary(ItemMasterworking masterworking, ImportedItemAffixType type) {
-        MasterworkedAffixSelection selection = masterworking == null ? null : masterworking.getPerfectedAffix();
-        return selection != null
-                && selection.getSource() == MasterworkedAffixSource.ORDINARY_AFFIX
-                && type.name().equals(selection.getKey());
-    }
-
-    private static boolean isPerfectedTempering(ItemMasterworking masterworking, String definitionId) {
-        MasterworkedAffixSelection selection = masterworking == null ? null : masterworking.getPerfectedAffix();
-        return selection != null
-                && selection.getSource() == MasterworkedAffixSource.TEMPERING_AFFIX
-                && definitionId.equals(selection.getKey());
-    }
-
     private static String qualityNote(ItemMasterworking masterworking) {
         ItemMasterworking safe = masterworking == null ? ItemMasterworking.defaultState() : masterworking;
         return "Doskonalenie: Jakość " + safe.qualityLabel();
@@ -171,10 +136,6 @@ public final class MasterworkingPresentationValueResolver {
 
     private static int quality(ItemMasterworking masterworking) {
         return masterworking == null ? ItemMasterworking.DEFAULT_QUALITY_CURRENT : masterworking.getQualityCurrent();
-    }
-
-    private static int floor(double value) {
-        return (int) Math.floor(value + 0.000000001d);
     }
 
     private static int roundHalfUp(double value) {

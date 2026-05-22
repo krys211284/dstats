@@ -49,6 +49,14 @@ final class CurrentBuildRuntimeInputPresentation {
                 contributionSource(activeItemContribution.getBlockChance())));
         fields.add(new Field("Szansa retribution [%]", formatNumber(runtimeStats.getRetributionChance()),
                 contributionSource(activeItemContribution.getRetributionChance())));
+        fields.add(new Field("Pancerz", Long.toString(model.getActiveHeroItemStats().getItemArmor()),
+                contributionSource(model.getActiveHeroItemStats().getItemArmor())));
+        fields.add(new Field("Odporność na Ogień", ItemLibraryPresentationSupport.formatWhole(model.getActiveHeroItemStats().getFireResistance()),
+                contributionSource(model.getActiveHeroItemStats().getFireResistance())));
+        fields.add(new Field("Odporność na wszystkie żywioły", ItemLibraryPresentationSupport.formatWhole(model.getActiveHeroItemStats().getAllResistance()),
+                contributionSource(model.getActiveHeroItemStats().getAllResistance())));
+        fields.add(new Field("Redukcja obrażeń", formatPercent(model.getActiveHeroItemStats().getDamageReduction()),
+                contributionSource(model.getActiveHeroItemStats().getDamageReduction())));
         fields.add(new Field("Początkowa Wiara", CurrentBuildNumberFormatter.resource(parseDouble(model.getFormData().getInitialPrimaryResource())),
                 "Jawne pole current build"));
         fields.add(new Field("Maksymalna Wiara", CurrentBuildNumberFormatter.resource(parseDouble(model.getFormData().getMaxPrimaryResource())),
@@ -150,6 +158,13 @@ final class CurrentBuildRuntimeInputPresentation {
 
     private static String formatNumber(double value) {
         return BigDecimal.valueOf(value).stripTrailingZeros().toPlainString();
+    }
+
+    private static String formatPercent(double value) {
+        return BigDecimal.valueOf(value)
+                .setScale(1, java.math.RoundingMode.HALF_UP)
+                .toPlainString()
+                .replace('.', ',') + "%";
     }
 
     private static double parseDouble(String value) {

@@ -83,8 +83,10 @@ public final class ItemImportFormMapper {
                                                     List<ItemTemperingAffix> temperingAffixes,
                                                     List<String> errors) {
         ItemMasterworking safe = masterworking == null ? ItemMasterworking.defaultState() : masterworking;
-        if (safe.getQualityCurrent() < 0 || safe.getQualityCurrent() > ItemMasterworking.DEFAULT_QUALITY_MAX) {
-            errors.add("Doskonalenie: Jakość aktualna musi mieścić się w zakresie 0 - 25.");
+        if (!ItemMasterworking.isAllowedQualityStep(safe.getQualityCurrent())) {
+            errors.add("Doskonalenie: Jakość Doskonalenia musi być jednym z progów: "
+                    + ItemMasterworking.allowedQualityStepsLabel()
+                    + ".");
         }
         if (safe.getQualityMax() != ItemMasterworking.DEFAULT_QUALITY_MAX) {
             errors.add("Doskonalenie: Jakość maksymalna musi wynosić 25.");

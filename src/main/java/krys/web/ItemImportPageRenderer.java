@@ -539,10 +539,7 @@ public final class ItemImportPageRenderer {
                         </td>
                         <td class="affix-value-cell">
                             %s
-                            <label class="masterworking-source-value-field">
-                                Wartość źródłowa 0/25
-                                %s
-                            </label>
+                            <label class="masterworking-source-value-field">%s</label>
                         </td>
                         <td class="affix-range-cell">
                             %s
@@ -580,6 +577,15 @@ public final class ItemImportPageRenderer {
                         </tbody>
                     </table>
                     </div>
+                    """);
+        if (form.getAffixes().size() >= 4) {
+            html.append("""
+                    <div class="add-affix-row">
+                        <p class="helper">Limit affixów dla tego przedmiotu został wykorzystany.</p>
+                    </div>
+                    """);
+        } else {
+            html.append("""
                     <div class="add-affix-row">
                         <h4>Dodaj affix</h4>
                         <div class="item-affix-add-grid">
@@ -614,11 +620,14 @@ public final class ItemImportPageRenderer {
                             <td class="affix-action-cell"><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
                         </tr>
                     </template>
+                    """.formatted(
+                    renderAffixTypeOptions(null),
+                    renderAffixTypeOptions(null)
+            ));
+        }
+        html.append("""
                 </section>
-                """.formatted(
-                renderAffixTypeOptions(null),
-                renderAffixTypeOptions(null)
-        ));
+                """);
         return html.toString();
     }
 

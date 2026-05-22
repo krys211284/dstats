@@ -69,14 +69,17 @@ final class TemperingSectionRenderer {
                     const valueMessage = document.getElementById('newTemperingValueMessage');
                     const rangeMessage = document.getElementById('newTemperingRangeMessage');
                     const catalogNode = document.getElementById('temperingAffixCatalog');
-                    if (!rows || !count || !template || !addButton || !newCategory || !newDefinition || !newValue || !catalogNode) return;
-                    const greaterAvailable = catalogNode.dataset.greaterAvailable === 'true';
-                    const limit = Number.parseInt(catalogNode.dataset.limit || '1', 10);
+                    if (!rows || !count) return;
+                    const canAdd = !!(template && addButton && newCategory && newDefinition && newValue && catalogNode);
+                    const greaterAvailable = catalogNode ? catalogNode.dataset.greaterAvailable === 'true' : false;
+                    const limit = Number.parseInt(catalogNode ? catalogNode.dataset.limit || '1' : '1', 10);
                     let catalog = {};
-                    try {
-                        catalog = JSON.parse(catalogNode.textContent || '{}');
-                    } catch (error) {
-                        catalog = {};
+                    if (catalogNode) {
+                        try {
+                            catalog = JSON.parse(catalogNode.textContent || '{}');
+                        } catch (error) {
+                            catalog = {};
+                        }
                     }
                     const messageText = 'Katalog affixów tej kategorii nie został jeszcze uzupełniony.';
                     const buildOptions = (select, category, selectedValue = '') => {
@@ -222,44 +225,52 @@ final class TemperingSectionRenderer {
                         if (row) {
                             row.remove();
                             renumberRows();
-                            updateAddState();
+                            if (canAdd) {
+                                updateAddState();
+                            } else {
+                                updateLimitState();
+                            }
                         }
                     });
-                    addButton.addEventListener('click', () => {
-                        if (addButton.disabled) return;
-                        const index = rows.querySelectorAll('[data-tempering-row]').length;
-                        const option = selectedDefinition(newDefinition);
-                        if (!option) return;
-                        const greaterChecked = !!(newGreater && newGreater.checked && !newGreater.disabled);
-                        const wrapper = document.createElement('div');
-                        wrapper.innerHTML = template.innerHTML
-                            .replaceAll('__INDEX__', index)
-                            .replaceAll('__CATEGORY__', escapeHtml(newCategory.value))
-                            .replaceAll('__CATEGORY_LABEL__', escapeHtml(newCategory.selectedOptions[0]?.textContent || newCategory.value))
-                            .replaceAll('__DEFINITION__', escapeHtml(newDefinition.value))
-                            .replaceAll('__AFFIX_EFFECT__', escapeHtml(formatSavedEffect(option, newValue.value, greaterChecked)))
-                            .replaceAll('__VALUE__', escapeHtml(newValue.value))
-                            .replaceAll('__GREATER_HIDDEN__', greaterChecked ? `<input type="hidden" name="temperingGreaterAffix_${index}" value="true">` : '')
-                            .replaceAll('__GREATER_BADGE__', greaterChecked ? '<span class="tempering-greater-badge">★ Greater Affix</span>' : '');
-                        const row = wrapper.querySelector('[data-tempering-row]');
-                        if (!row) return;
-                        rows.appendChild(row);
-                        newValue.value = '';
-                        if (newGreater) newGreater.checked = false;
+                    if (canAdd) {
+                        addButton.addEventListener('click', () => {
+                            if (addButton.disabled) return;
+                            const index = rows.querySelectorAll('[data-tempering-row]').length;
+                            const option = selectedDefinition(newDefinition);
+                            if (!option) return;
+                            const greaterChecked = !!(newGreater && newGreater.checked && !newGreater.disabled);
+                            const wrapper = document.createElement('div');
+                            wrapper.innerHTML = template.innerHTML
+                                .replaceAll('__INDEX__', index)
+                                .replaceAll('__CATEGORY__', escapeHtml(newCategory.value))
+                                .replaceAll('__CATEGORY_LABEL__', escapeHtml(newCategory.selectedOptions[0]?.textContent || newCategory.value))
+                                .replaceAll('__DEFINITION__', escapeHtml(newDefinition.value))
+                                .replaceAll('__AFFIX_EFFECT__', escapeHtml(formatSavedEffect(option, newValue.value, greaterChecked)))
+                                .replaceAll('__VALUE__', escapeHtml(newValue.value))
+                                .replaceAll('__GREATER_HIDDEN__', greaterChecked ? `<input type="hidden" name="temperingGreaterAffix_${index}" value="true">` : '')
+                                .replaceAll('__GREATER_BADGE__', greaterChecked ? '<span class="tempering-greater-badge">★ Greater Affix</span>' : '');
+                            const row = wrapper.querySelector('[data-tempering-row]');
+                            if (!row) return;
+                            rows.appendChild(row);
+                            newValue.value = '';
+                            if (newGreater) newGreater.checked = false;
+                            updateAddState();
+                            renumberRows();
+                        });
+                        rows.addEventListener('change', event => {
+                            if (event.target.matches('select[name^="temperingCategory_"], select[name^="temperingDefinitionId_"], input[name^="temperingGreaterAffix_"]')) updateAddState();
+                        });
+                        newCategory.addEventListener('change', () => {
+                            newDefinition.value = '';
+                            updateAddState();
+                        });
+                        newDefinition.addEventListener('change', updateAddState);
+                        newValue.addEventListener('input', updateAddState);
+                        if (newGreater) newGreater.addEventListener('change', updateAddState);
                         updateAddState();
-                        renumberRows();
-                    });
-                    rows.addEventListener('change', event => {
-                        if (event.target.matches('select[name^="temperingCategory_"], select[name^="temperingDefinitionId_"], input[name^="temperingGreaterAffix_"]')) updateAddState();
-                    });
-                    newCategory.addEventListener('change', () => {
-                        newDefinition.value = '';
-                        updateAddState();
-                    });
-                    newDefinition.addEventListener('change', updateAddState);
-                    newValue.addEventListener('input', updateAddState);
-                    if (newGreater) newGreater.addEventListener('change', updateAddState);
-                    updateAddState();
+                    } else {
+                        updateLimitState();
+                    }
                     const form = rows.closest('form');
                     if (form) form.addEventListener('submit', renumberRows);
                 })();
@@ -316,42 +327,8 @@ final class TemperingSectionRenderer {
             return """
                     <div class="tempering-add-card tempering-limit-card">
                         <p class="helper" id="temperingLimitMessage">Limit hartowania dla tego przedmiotu został wykorzystany.</p>
-                        <div class="tempering-add-grid" id="temperingAddControls" hidden>
-                            <label class="tempering-add-field-category">
-                                Kategoria
-                                <select name="newTemperingCategory">%s</select>
-                            </label>
-                            <label class="tempering-add-field-affix">
-                                Affix
-                                <select name="newTemperingDefinitionId" data-tempering-affix-select%s>%s</select>
-                                <span class="helper tempering-catalog-message" id="newTemperingCatalogMessage"%s>%s</span>
-                            </label>
-                            <label class="tempering-add-field-value">
-                                Wartość rolla
-                                <input type="number" min="0" step="0.01" name="newTemperingValue" value="">
-                                <span class="helper" id="newTemperingRangeMessage" hidden></span>
-                            </label>
-                            <label class="tempering-add-field-greater">
-                                Greater Affix / Gwiazdka
-                                <input type="checkbox" name="newTemperingGreaterAffix" value="true"%s>
-                                <span class="helper" id="newTemperingGreaterValue" hidden></span>
-                                %s
-                            </label>
-                            <button type="button" id="addTemperingButton" disabled>Dodaj hartowanie</button>
-                            <div class="tempering-validation-message">
-                                <span class="helper" id="newTemperingValueMessage" hidden></span>
-                            </div>
-                        </div>
                     </div>
-                    """.formatted(
-                    renderCategoryOptions(categories, categories.getFirst()),
-                    renderDisabledAttribute(categories.getFirst()),
-                    renderDefinitionOptions(categories.getFirst(), ""),
-                    renderMessageHiddenAttribute(categories.getFirst()),
-                    renderCatalogMessage(categories.getFirst()),
-                    greaterAffixAvailable ? "" : " disabled",
-                    greaterAffixAvailable ? "" : "<span class=\"helper\">Greater Affix przy hartowaniu jest dostępny tylko dla przedmiotów o mocy 900.</span>"
-            );
+                    """;
         }
         return """
                 <div class="tempering-add-card">

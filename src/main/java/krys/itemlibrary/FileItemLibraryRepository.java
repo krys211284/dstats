@@ -492,6 +492,6 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                 perfectedAffix = MasterworkedAffixSelection.unknown(tokens[2], tokens.length >= 4 ? decode(tokens[3]) : "");
             }
         }
-        return new ItemMasterworking(Integer.parseInt(tokens[0]), Integer.parseInt(tokens[1]), perfectedAffix);
+        return ItemMasterworking.fromPersisted(Integer.parseInt(tokens[0]), Integer.parseInt(tokens[1]), perfectedAffix);
     }
 }

@@ -428,7 +428,7 @@ final class ItemEditPageRenderer {
                             <input type="hidden" name="affixRangeMax_%s" value="%s">
                             <input type="hidden" name="affixDisplayValue_%s" value="%s">
                         </td>
-                        <td class="affix-value-cell">%s<label class="masterworking-source-value-field">Wartość źródłowa 0/25%s</label></td>
+                        <td class="affix-value-cell">%s<label class="masterworking-source-value-field">%s</label></td>
                         <td class="affix-range-cell">%s</td>
                         <td class="affix-greater-cell"><label class="checkbox-label"><input type="checkbox" name="affixGreater_%s" value="true"%s> Gwiazdka</label></td>
                         <td class="affix-action-cell"><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
@@ -463,6 +463,15 @@ final class ItemEditPageRenderer {
                         </tbody>
                     </table>
                     </div>
+                    """);
+        if (form.getAffixes().size() >= 4) {
+            html.append("""
+                    <div class="add-affix-row">
+                        <p class="helper">Limit affixów dla tego przedmiotu został wykorzystany.</p>
+                    </div>
+                    """);
+        } else {
+            html.append("""
                     <div class="add-affix-row">
                         <h4>Dodaj affix</h4>
                         <div class="item-affix-add-grid">
@@ -497,8 +506,11 @@ final class ItemEditPageRenderer {
                             <td class="affix-action-cell"><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
                         </tr>
                     </template>
+                    """.formatted(renderAffixTypeOptions(null), renderAffixTypeOptions(null)));
+        }
+        html.append("""
                 </section>
-                """.formatted(renderAffixTypeOptions(null), renderAffixTypeOptions(null)));
+                """);
         return html.toString();
     }
 
@@ -513,7 +525,7 @@ final class ItemEditPageRenderer {
                     const newType = document.querySelector('[name="newAffixType"]');
                     const newValue = document.querySelector('[name="newAffixValue"]');
                     const newGreater = document.getElementById('newAffixGreater');
-                    if (!rows || !count || !template || !addButton || !newType || !newValue) return;
+                    if (!rows || !count) return;
                     const renumberRows = () => {
                         Array.from(rows.querySelectorAll('tr')).forEach((row, index) => {
                             row.querySelectorAll('select[name^="affixType_"], input[name^="affixValue_"], input[name^="affixGreater_"], input[name^="affixSourceText_"], input[name^="affixSource_"], input[name^="affixOriginalType_"], input[name^="affixOriginalValue_"], input[name^="affixDefinitionId_"], input[name^="affixRangeMin_"], input[name^="affixRangeMax_"], input[name^="affixDisplayValue_"]').forEach(control => {
@@ -532,22 +544,24 @@ final class ItemEditPageRenderer {
                             renumberRows();
                         }
                     });
-                    addButton.addEventListener('click', () => {
-                        const index = rows.querySelectorAll('tr').length;
-                        const wrapper = document.createElement('tbody');
-                        wrapper.innerHTML = template.innerHTML.replaceAll('__INDEX__', index).replaceAll('__VALUE__', newValue.value);
-                        const row = wrapper.querySelector('tr');
-                        if (!row) return;
-                        const type = row.querySelector(`select[name="affixType_${index}"]`);
-                        const greater = row.querySelector(`input[name="affixGreater_${index}"]`);
-                        if (type) type.value = newType.value;
-                        if (greater && newGreater) greater.checked = newGreater.checked;
-                        rows.appendChild(row);
-                        newType.value = '';
-                        newValue.value = '';
-                        if (newGreater) newGreater.checked = false;
-                        renumberRows();
-                    });
+                    if (template && addButton && newType && newValue) {
+                        addButton.addEventListener('click', () => {
+                            const index = rows.querySelectorAll('tr').length;
+                            const wrapper = document.createElement('tbody');
+                            wrapper.innerHTML = template.innerHTML.replaceAll('__INDEX__', index).replaceAll('__VALUE__', newValue.value);
+                            const row = wrapper.querySelector('tr');
+                            if (!row) return;
+                            const type = row.querySelector(`select[name="affixType_${index}"]`);
+                            const greater = row.querySelector(`input[name="affixGreater_${index}"]`);
+                            if (type) type.value = newType.value;
+                            if (greater && newGreater) greater.checked = newGreater.checked;
+                            rows.appendChild(row);
+                            newType.value = '';
+                            newValue.value = '';
+                            if (newGreater) newGreater.checked = false;
+                            renumberRows();
+                        });
+                    }
                     const form = rows.closest('form');
                     if (form) form.addEventListener('submit', renumberRows);
                 })();

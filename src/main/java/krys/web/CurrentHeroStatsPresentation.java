@@ -5,16 +5,10 @@ import krys.hero.HeroClassDefs;
 import krys.hero.HeroClassStatBaseline;
 import krys.hero.HeroClassStatBaselines;
 import krys.item.Item;
-import krys.item.ItemStat;
-import krys.item.ItemStatType;
 import krys.itemimport.CurrentBuildImportableStats;
 import krys.itemlibrary.CurrentHeroActiveItemStats;
-import krys.itemlibrary.HeroSlotItemAssignment;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
-import krys.itemlibrary.SavedImportedItem;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 /** Prezentacja statystyk bohatera w UI current build, oddzielona od technicznych effective stats runtime. */
@@ -46,13 +40,13 @@ public final class CurrentHeroStatsPresentation {
     public static CurrentHeroStatsPresentation from(CurrentBuildPageModel model) {
         HeroClassDef classDef = HeroClassDefs.get(model.getActiveHero().getHeroClass());
         int level = parseDisplayLevel(model.getFormData().getLevel());
-        List<Item> equippedItems = activeItemsAsItems(model);
+        CurrentBuildImportableStats activeContribution = model.getActiveLibraryContribution();
         return new CurrentHeroStatsPresentation(
                 classDef.getDisplayName(),
                 level,
-                classDef.resolveTotalMainStat(level, equippedItems),
-                classDef.resolveTotalIntelligence(level, equippedItems),
-                model.getActiveLibraryContribution(),
+                classDef.resolveTotalMainStat(level, effectiveItems(activeContribution)),
+                classDef.resolveTotalIntelligence(level, effectiveItems(activeContribution)),
+                activeContribution,
                 model.getActiveHeroItemStats(),
                 HeroClassStatBaselines.find(model.getActiveHero().getHeroClass(), level)
         );
@@ -113,6 +107,40 @@ public final class CurrentHeroStatsPresentation {
         return activeItemStats.getRetributionChance() > 0.0d;
     }
 
+    public int getTotalArmor(HeroClassStatBaseline baseline) {
+        return baseline.getArmor() + Math.toIntExact(activeHeroItemStats.getItemArmor());
+    }
+
+    public String getActiveItemArmorDisplay() {
+        return Long.toString(activeHeroItemStats.getItemArmor());
+    }
+
+    public int getPhysicalResistance(HeroClassStatBaseline baseline) {
+        return baseline.getPhysicalResistance() + (int) Math.round(activeHeroItemStats.getAllResistance());
+    }
+
+    public int getFireResistance(HeroClassStatBaseline baseline) {
+        return baseline.getFireResistance()
+                + (int) Math.round(activeHeroItemStats.getAllResistance())
+                + (int) Math.round(activeHeroItemStats.getFireResistance());
+    }
+
+    public int getLightningResistance(HeroClassStatBaseline baseline) {
+        return baseline.getLightningResistance() + (int) Math.round(activeHeroItemStats.getAllResistance());
+    }
+
+    public int getColdResistance(HeroClassStatBaseline baseline) {
+        return baseline.getColdResistance() + (int) Math.round(activeHeroItemStats.getAllResistance());
+    }
+
+    public int getPoisonResistance(HeroClassStatBaseline baseline) {
+        return baseline.getPoisonResistance() + (int) Math.round(activeHeroItemStats.getAllResistance());
+    }
+
+    public int getShadowResistance(HeroClassStatBaseline baseline) {
+        return baseline.getShadowResistance() + (int) Math.round(activeHeroItemStats.getAllResistance());
+    }
+
     private static int parseDisplayLevel(String rawLevel) {
         try {
             return Math.max(1, Integer.parseInt(rawLevel));
@@ -121,24 +149,19 @@ public final class CurrentHeroStatsPresentation {
         }
     }
 
-    private static List<Item> activeItemsAsItems(CurrentBuildPageModel model) {
-        List<Item> items = new ArrayList<>();
-        for (HeroSlotItemAssignment assignment : model.getActiveLibraryItems()) {
-            SavedImportedItem item = assignment.getItem();
-            items.add(new Item(
-                    Math.toIntExact(item.getItemId()),
-                    item.getDisplayName(),
-                    item.getSlot(),
-                    List.of(
-                            new ItemStat(ItemStatType.STRENGTH, item.getStrength()),
-                            new ItemStat(ItemStatType.INTELLIGENCE, item.getIntelligence()),
-                            new ItemStat(ItemStatType.MAIN_HAND_WEAPON_DAMAGE, item.getWeaponDamage()),
-                            new ItemStat(ItemStatType.THORNS, item.getThorns()),
-                            new ItemStat(ItemStatType.BLOCK_CHANCE, item.getBlockChance()),
-                            new ItemStat(ItemStatType.RETRIBUTION_CHANCE, item.getRetributionChance())
-                    )
-            ));
-        }
-        return items;
+    private static java.util.List<Item> effectiveItems(CurrentBuildImportableStats activeContribution) {
+        return java.util.List.of(new Item(
+                0,
+                "Aktywne itemy",
+                null,
+                java.util.List.of(
+                        new krys.item.ItemStat(krys.item.ItemStatType.STRENGTH, activeContribution.getStrength()),
+                        new krys.item.ItemStat(krys.item.ItemStatType.INTELLIGENCE, activeContribution.getIntelligence()),
+                        new krys.item.ItemStat(krys.item.ItemStatType.MAIN_HAND_WEAPON_DAMAGE, activeContribution.getWeaponDamage()),
+                        new krys.item.ItemStat(krys.item.ItemStatType.THORNS, activeContribution.getThorns()),
+                        new krys.item.ItemStat(krys.item.ItemStatType.BLOCK_CHANCE, activeContribution.getBlockChance()),
+                        new krys.item.ItemStat(krys.item.ItemStatType.RETRIBUTION_CHANCE, activeContribution.getRetributionChance())
+                )
+        ));
     }
 }

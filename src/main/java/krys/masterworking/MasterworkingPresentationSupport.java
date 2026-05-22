@@ -11,11 +11,11 @@ public final class MasterworkingPresentationSupport {
     }
 
     public static String runtimeStatusLabel() {
-        return "Dane itemu / runtime nieaktywny";
+        return "Runtime aktywny dla potwierdzonych wartości";
     }
 
     public static String compactRuntimeStatusLabel() {
-        return "Runtime nieaktywny";
+        return "Runtime aktywny dla potwierdzonych wartości";
     }
 
     public static String compactSummary(ItemMasterworking masterworking, String perfectedAffixLabel) {

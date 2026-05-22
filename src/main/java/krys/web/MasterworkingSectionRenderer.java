@@ -36,7 +36,7 @@ final class MasterworkingSectionRenderer {
                         <div class="masterworking-grid">
                             <label>
                                 Jakość aktualna
-                                <input type="number" min="0" max="25" step="1" name="masterworkingQualityCurrent" value="%s">
+                                <select name="masterworkingQualityCurrent">%s</select>
                             </label>
                             <label>
                                 Jakość maksymalna
@@ -49,7 +49,7 @@ final class MasterworkingSectionRenderer {
                     </fieldset>
                 </section>
                 """.formatted(
-                masterworking.getQualityCurrent(),
+                renderQualityCurrentOptions(masterworking.getQualityCurrent()),
                 masterworking.getQualityMax(),
                 CurrentBuildCalculationSectionsRenderer.escapeHtml(MasterworkingPresentationSupport.runtimeStatusLabel()),
                 perfectedAffixSelector,
@@ -108,8 +108,7 @@ final class MasterworkingSectionRenderer {
         if (masterworking == null || !masterworking.hasVisibleProgress()) {
             return "";
         }
-        MasterworkingPresentationValue value = VALUE_RESOLVER.resolveTempering(affix, masterworking);
-        return renderRuntimeNote(value);
+        return "";
     }
 
     static String renderTemperingEditorCurrentLine(ItemMasterworking masterworking, ItemTemperingAffix affix, String fallbackLabel) {
@@ -145,7 +144,7 @@ final class MasterworkingSectionRenderer {
         if (value == null || !hasVisiblePresentation(value)) {
             return "";
         }
-        StringBuilder html = new StringBuilder("<div class=\"masterworking-current-value\">Aktualna wartość itemu: ")
+        StringBuilder html = new StringBuilder("<div class=\"masterworking-current-value\">")
                 .append(valueSpan(value));
         if (value.isPerfected()) {
             html.append(" ").append(perfectedBadge());
@@ -204,7 +203,6 @@ final class MasterworkingSectionRenderer {
         if (!value.isSupported()) {
             line.append(" <span class=\"helper masterworking-rule-note\">").append(escapeHtml(value.getNote())).append("</span>");
         }
-        line.append(renderRuntimeNote(value));
         return line.toString();
     }
 
@@ -220,18 +218,6 @@ final class MasterworkingSectionRenderer {
 
     private static String perfectedBadge() {
         return "<span class=\"masterworking-perfected-badge\">Doskonalony afiks</span>";
-    }
-
-    private static String renderRuntimeNote(MasterworkingPresentationValue value) {
-        if (value == null || value.getNote().isBlank()
-                || !value.getNote().startsWith(MasterworkingPresentationValueResolver.RUNTIME_STORED_TEMPERING_NOTE)) {
-            return "";
-        }
-        String note = value.getNote().replace("Runtime:", "Runtime").strip();
-        if (!note.endsWith(".")) {
-            note += ".";
-        }
-        return " <span class=\"masterworking-runtime-note\">" + escapeHtml(note) + "</span>";
     }
 
     private static String renderPerfectedAffixSelector(ItemMasterworking masterworking,
@@ -319,6 +305,25 @@ final class MasterworkingSectionRenderer {
             return "maksymalna liczba kumulacji Animuszu";
         }
         return label.startsWith("do ") ? label.substring(3) : label;
+    }
+
+    private static String renderQualityCurrentOptions(int selectedQuality) {
+        StringBuilder options = new StringBuilder();
+        int safeSelected = ItemMasterworking.isAllowedQualityStep(selectedQuality)
+                ? selectedQuality
+                : ItemMasterworking.DEFAULT_QUALITY_CURRENT;
+        for (Integer step : ItemMasterworking.ALLOWED_QUALITY_STEPS) {
+            options.append("<option value=\"")
+                    .append(step)
+                    .append("\"")
+                    .append(step == safeSelected ? " selected" : "")
+                    .append(">")
+                    .append(step)
+                    .append("/")
+                    .append(ItemMasterworking.DEFAULT_QUALITY_MAX)
+                    .append("</option>");
+        }
+        return options.toString();
     }
 
     private static String escapeHtml(String value) {
