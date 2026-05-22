@@ -70,7 +70,8 @@ public final class ItemLibraryService {
                 importedItem.getSelectedAspectId(),
                 importedItem.getDetails(),
                 importedItem.getTemperingAffixes(),
-                importedItem.getMasterworking()
+                importedItem.getMasterworking(),
+                importedItem.getTransfiguration()
         );
         return repository.save(itemToSave);
     }
@@ -94,7 +95,8 @@ public final class ItemLibraryService {
                 importedItem.getSelectedAspectId(),
                 importedItem.getDetails(),
                 importedItem.getTemperingAffixes(),
-                importedItem.getMasterworking()
+                importedItem.getMasterworking(),
+                importedItem.getTransfiguration()
         );
         return repository.save(itemToSave);
     }

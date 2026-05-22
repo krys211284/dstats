@@ -90,9 +90,10 @@ final class ItemEditController implements HttpHandler {
         AffixParseResult affixParseResult = parseExistingAffixes(fields);
         TemperingFormSupport.ParseResult temperingParseResult = TemperingFormSupport.parse(fields);
         ItemMasterworking masterworking = parseMasterworking(fields);
+        krys.transfiguration.ItemTransfiguration transfiguration = TransfigurationFormSupport.parse(fields);
         ArrayList<ImportedItemAffix> affixes = new ArrayList<>(affixParseResult.affixes());
         parseNewAffix(fields, affixParseResult.errors()).ifPresent(affixes::add);
-        ItemImportEditableForm form = buildEditableForm(fields, existingItem, decodedFullItemRead, affixes, temperingParseResult.affixes(), masterworking);
+        ItemImportEditableForm form = buildEditableForm(fields, existingItem, decodedFullItemRead, affixes, temperingParseResult.affixes(), masterworking, transfiguration);
 
         ItemImportFormMapper.MappingResult mappingResult = formMapper.map(form);
         ArrayList<String> errors = new ArrayList<>(affixParseResult.errors());
@@ -125,7 +126,8 @@ final class ItemEditController implements HttpHandler {
                 item.getSelectedAspectId(),
                 item.getDetails(),
                 item.getTemperingAffixes(),
-                item.getMasterworking()
+                item.getMasterworking(),
+                item.getTransfiguration()
         );
     }
 
@@ -150,6 +152,17 @@ final class ItemEditController implements HttpHandler {
                                                             List<ImportedItemAffix> affixes,
                                                             List<krys.tempering.ItemTemperingAffix> temperingAffixes,
                                                             ItemMasterworking masterworking) {
+        return buildEditableForm(fields, existingItem, decodedFullItemRead, affixes, temperingAffixes, masterworking,
+                TransfigurationFormSupport.parse(fields));
+    }
+
+    private static ItemImportEditableForm buildEditableForm(Map<String, String> fields,
+                                                            SavedImportedItem existingItem,
+                                                            FullItemRead decodedFullItemRead,
+                                                            List<ImportedItemAffix> affixes,
+                                                            List<krys.tempering.ItemTemperingAffix> temperingAffixes,
+                                                            ItemMasterworking masterworking,
+                                                            krys.transfiguration.ItemTransfiguration transfiguration) {
         return new ItemImportEditableForm(
                 existingItem.getSourceImageName(),
                 fields.getOrDefault("slot", ""),
@@ -166,7 +179,8 @@ final class ItemEditController implements HttpHandler {
                 fields.getOrDefault("selectedAspectId", ""),
                 parseItemDetails(fields, existingItem),
                 temperingAffixes,
-                masterworking
+                masterworking,
+                transfiguration
         );
     }
 

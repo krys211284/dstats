@@ -10,6 +10,10 @@ import krys.masterworking.MasterworkedAffixSource;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
+import krys.transfiguration.HoradricTransfigurationOutcome;
+import krys.transfiguration.HoradricTuningPrism;
+import krys.transfiguration.ItemTransfiguration;
+import krys.transfiguration.TransfigurationAffixRoll;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -236,6 +240,86 @@ class ItemImportFormMapperTest {
         assertFalse(maxAnimus.getValue() == 12.0d);
     }
 
+    @Test
+    void shouldDefaultMissingTransfigurationToNotTransfigured() {
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(formWithTransfiguration(ItemTransfiguration.none()));
+
+        assertTrue(result.getErrors().isEmpty(), () -> String.join(", ", result.getErrors()));
+        assertFalse(result.getItem().getTransfiguration().isTransfigured());
+        assertFalse(result.getItem().getTransfiguration().isLockedAfterTransfiguration());
+        assertEquals(HoradricTransfigurationOutcome.NONE, result.getItem().getTransfiguration().getOutcome());
+    }
+
+    @Test
+    void shouldValidateUpgradeToGreaterAffixTransfiguration() {
+        assertTransfigurationAccepted(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.UPGRADE_TO_GREATER_AFFIX,
+                "DAMAGE_REDUCTION", null, "", null, null, false, ""));
+        assertTransfigurationRejected(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.UPGRADE_TO_GREATER_AFFIX,
+                "STRENGTH", null, "", null, null, false, ""), "nie może być już Greater Affix");
+        assertTransfigurationRejected(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.UPGRADE_TO_GREATER_AFFIX,
+                "TEMPERING_AFFIX:defense_max_animus", null, "", null, null, false, ""), "nie może wskazywać hartowania");
+    }
+
+    @Test
+    void shouldValidateBonusTransfigurationAffixRoll() {
+        assertTransfigurationAccepted(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.AGGRESSIVE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                "", new TransfigurationAffixRoll("PRIMARY_STAT", 150.0d), "", null, null, false, ""));
+        assertTransfigurationAccepted(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.AGGRESSIVE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                "", new TransfigurationAffixRoll("PRIMARY_STAT", 180.0d), "", null, null, false, ""));
+        assertTransfigurationRejected(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.AGGRESSIVE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                "", new TransfigurationAffixRoll("PRIMARY_STAT", 149.0d), "", null, null, false, ""), "150-180");
+        assertTransfigurationRejected(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.AGGRESSIVE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                "", new TransfigurationAffixRoll("PRIMARY_STAT", 181.0d), "", null, null, false, ""), "150-180");
+        assertTransfigurationAccepted(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                "", new TransfigurationAffixRoll("CRITICAL_STRIKE_CHANCE", 3.5d), "", null, null, false, ""));
+        assertTransfigurationAccepted(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                "", new TransfigurationAffixRoll("CRITICAL_STRIKE_CHANCE", 5.0d), "", null, null, false, ""));
+        assertTransfigurationRejected(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                "", new TransfigurationAffixRoll("CRITICAL_STRIKE_CHANCE", 3.4d), "", null, null, false, ""), "3,5-5%");
+        assertTransfigurationRejected(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                "", new TransfigurationAffixRoll("CRITICAL_STRIKE_CHANCE", 5.1d), "", null, null, false, ""), "3,5-5%");
+    }
+
+    @Test
+    void shouldValidateReplacementTransfiguration() {
+        assertTransfigurationAccepted(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.REPLACE_EXISTING_AFFIX_WITH_TRANSFIGURATION_AFFIX,
+                "", null, "DAMAGE_REDUCTION", new TransfigurationAffixRoll("TOTAL_ARMOR_PERCENT", 10.0d), null, false, ""));
+        assertTransfigurationRejected(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.REPLACE_EXISTING_AFFIX_WITH_TRANSFIGURATION_AFFIX,
+                "", null, "STRENGTH", new TransfigurationAffixRoll("TOTAL_ARMOR_PERCENT", 10.0d), null, false, ""), "nie może być już Greater Affix");
+        assertTransfigurationRejected(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.REPLACE_EXISTING_AFFIX_WITH_TRANSFIGURATION_AFFIX,
+                "", null, "TEMPERING_AFFIX:defense_max_animus", new TransfigurationAffixRoll("TOTAL_ARMOR_PERCENT", 10.0d), null, false, ""), "nie może wskazywać hartowania");
+    }
+
+    @Test
+    void shouldValidateBonusItemQualityTransfiguration() {
+        assertTransfigurationAccepted(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY,
+                "", null, "", null, 1, false, ""));
+        assertTransfigurationAccepted(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY,
+                "", null, "", null, 15, false, ""));
+        assertTransfigurationRejected(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY,
+                "", null, "", null, 0, false, ""), "od 1 do 15");
+        assertTransfigurationRejected(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY,
+                "", null, "", null, 16, false, ""), "od 1 do 15");
+    }
+
     private static void assertMasterworkingAccepted(ItemMasterworking masterworking) {
         ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(formWithMasterworking(masterworking));
 
@@ -282,6 +366,54 @@ class ItemImportFormMapperTest {
                         true
                 )),
                 masterworking
+        );
+    }
+
+    private static void assertTransfigurationAccepted(ItemTransfiguration transfiguration) {
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(formWithTransfiguration(transfiguration));
+
+        assertTrue(result.getErrors().isEmpty(), () -> String.join(", ", result.getErrors()));
+        assertEquals(transfiguration.getOutcome(), result.getItem().getTransfiguration().getOutcome());
+    }
+
+    private static void assertTransfigurationRejected(ItemTransfiguration transfiguration, String expectedErrorFragment) {
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(formWithTransfiguration(transfiguration));
+
+        assertNull(result.getItem());
+        assertTrue(result.getErrors().stream().anyMatch(error -> error.contains(expectedErrorFragment)),
+                () -> String.join(", ", result.getErrors()));
+    }
+
+    private static ItemImportEditableForm formWithTransfiguration(ItemTransfiguration transfiguration) {
+        return new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "20",
+                "0",
+                FullItemRead.empty(),
+                List.of(
+                        new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 225.0d, "", true, 0, "+225 siły", ImportedItemAffixSource.MANUAL),
+                        new ImportedItemAffix(ImportedItemAffixType.DAMAGE_REDUCTION, 11.4d, "%", false, 1, "11,4% redukcji obrażeń", ImportedItemAffixSource.MANUAL)
+                ),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Tarcza", "Tarcza", "LEGENDARY", true, EquipmentSlot.OFF_HAND,
+                        900L, null, null, null, null, null, 1202L, ""),
+                List.of(new ItemTemperingAffix(
+                        "defense_max_animus",
+                        TemperingCategory.DEFENSE,
+                        5.0d,
+                        "",
+                        TemperingRuntimeStatus.DATA_ONLY,
+                        true
+                )),
+                ItemMasterworking.defaultState(),
+                transfiguration
         );
     }
 

@@ -253,7 +253,8 @@ public final class ItemLibraryPageRenderer {
     }
 
     private static String renderAffixSummary(SavedImportedItem item) {
-        if (item.getAffixes().isEmpty() && item.getTemperingAffixes().isEmpty()) {
+        if (item.getAffixes().isEmpty() && item.getTemperingAffixes().isEmpty()
+                && !item.getTransfiguration().isTransfigured()) {
             return "<span class=\"muted-value\">Brak zatwierdzonych affixów</span>";
         }
         StringBuilder html = new StringBuilder("<ul class=\"affix-summary\">");
@@ -269,6 +270,10 @@ public final class ItemLibraryPageRenderer {
                     .append(formatTemperingDetailsLine(item, affix))
                     .append(affix.isGreaterAffix() ? " | Greater Affix / Gwiazdka" : "")
                     .append("</li>");
+        }
+        String transfigurationSummary = TransfigurationSectionRenderer.compactChip(item.getTransfiguration(), item.getAffixes());
+        if (!transfigurationSummary.isBlank()) {
+            html.append("<li>").append(escapeHtml(transfigurationSummary)).append("</li>");
         }
         html.append("</ul>");
         return html.toString();
@@ -311,7 +316,8 @@ public final class ItemLibraryPageRenderer {
                     + MasterworkingSectionRenderer.renderReadonlySummary(
                     item.getMasterworking(),
                     item.getAffixes(),
-                    item.getTemperingAffixes());
+                    item.getTemperingAffixes())
+                    + TransfigurationSectionRenderer.renderReadonlySummary(item.getTransfiguration(), item.getAffixes());
         }
         List<String> baseStats = collectBaseStats(fullItemRead);
         List<String> implicitLines = collectLines(fullItemRead, ItemReadLineGroup.IMPLICIT);
@@ -350,6 +356,9 @@ public final class ItemLibraryPageRenderer {
                         item.getMasterworking(),
                         item.getAffixes(),
                         item.getTemperingAffixes()))
+                .append(TransfigurationSectionRenderer.renderReadonlySummary(
+                        item.getTransfiguration(),
+                        item.getAffixes()))
                 .append(renderAspectDetails(item))
                 .append(renderTextLineGroup("Socket / gniazdo", socketLines))
                 .append("</div>");

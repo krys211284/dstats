@@ -10,6 +10,12 @@ import krys.tempering.TemperingAffixDefinition;
 import krys.tempering.TemperingAffixRegistry;
 import krys.tempering.TemperingEligibilityRegistry;
 import krys.tempering.TemperingPresentationSupport;
+import krys.transfiguration.HoradricTransfigurationOutcome;
+import krys.transfiguration.ItemTransfiguration;
+import krys.transfiguration.TransfigurationAffixCatalog;
+import krys.transfiguration.TransfigurationAffixDefinition;
+import krys.transfiguration.TransfigurationAffixRoll;
+import krys.transfiguration.TransfigurationPresentationSupport;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -56,6 +62,7 @@ public final class ItemImportFormMapper {
         ItemImportDetails details = buildDetails(form, slot, errors);
         List<ItemTemperingAffix> temperingAffixes = validateTempering(form.getTemperingAffixes(), slot, details.getItemType(), details.getItemPower(), errors);
         ItemMasterworking masterworking = validateMasterworking(form.getMasterworking(), form.getAffixes(), temperingAffixes, errors);
+        ItemTransfiguration transfiguration = validateTransfiguration(form.getTransfiguration(), form.getAffixes(), errors);
 
         if (!errors.isEmpty()) {
             return new MappingResult(null, errors);
@@ -74,8 +81,101 @@ public final class ItemImportFormMapper {
                 selectedAspectId,
                 details,
                 temperingAffixes,
-                masterworking
+                masterworking,
+                transfiguration
         ), errors);
+    }
+
+    private ItemTransfiguration validateTransfiguration(ItemTransfiguration transfiguration,
+                                                        List<ImportedItemAffix> affixes,
+                                                        List<String> errors) {
+        ItemTransfiguration safe = transfiguration == null ? ItemTransfiguration.none() : transfiguration;
+        if (!safe.isTransfigured()) {
+            return ItemTransfiguration.none();
+        }
+        if (safe.getOutcome() == null || safe.getOutcome() == HoradricTransfigurationOutcome.NONE) {
+            errors.add("Przeistoczenie: wynik przeistoczenia jest wymagany dla przeistoczonego itemu.");
+            return safe;
+        }
+        switch (safe.getOutcome()) {
+            case INDESTRUCTIBLE, UNKNOWN -> {
+                return safe;
+            }
+            case UPGRADE_TO_GREATER_AFFIX -> validateUpgradeableAffix(
+                    safe.getUpgradedAffixRef(), affixes, "Przeistoczenie: ulepszany affix", errors);
+            case BONUS_TRANSFIGURATION_AFFIX -> validateTransfigurationRoll(
+                    safe.getAddedTransfigurationAffix(), "Przeistoczenie: bonusowy affix", errors);
+            case REPLACE_EXISTING_AFFIX_WITH_TRANSFIGURATION_AFFIX -> {
+                validateUpgradeableAffix(safe.getReplacedAffixRef(), affixes,
+                        "Przeistoczenie: zastępowany affix", errors);
+                validateTransfigurationRoll(safe.getReplacementTransfigurationAffix(),
+                        "Przeistoczenie: affix zastępujący", errors);
+            }
+            case BONUS_ITEM_QUALITY -> validateBonusQuality(safe.getBonusQuality(), errors);
+            case NONE -> {
+            }
+        }
+        return safe;
+    }
+
+    private static void validateUpgradeableAffix(String rawRef,
+                                                 List<ImportedItemAffix> affixes,
+                                                 String label,
+                                                 List<String> errors) {
+        if (rawRef == null || rawRef.isBlank()) {
+            errors.add(label + " musi wskazywać istniejący zwykły affix.");
+            return;
+        }
+        if (rawRef.startsWith("TEMPERING_AFFIX:")) {
+            errors.add(label + " nie może wskazywać hartowania.");
+            return;
+        }
+        ImportedItemAffixType type;
+        try {
+            type = ImportedItemAffixType.valueOf(rawRef);
+        } catch (IllegalArgumentException exception) {
+            errors.add(label + " nie istnieje w katalogu itemu.");
+            return;
+        }
+        ImportedItemAffix affix = affixes.stream()
+                .filter(candidate -> candidate.getType() == type)
+                .findFirst()
+                .orElse(null);
+        if (affix == null) {
+            errors.add(label + " nie występuje na itemie.");
+            return;
+        }
+        if (affix.isGreaterAffix()) {
+            errors.add(label + " nie może być już Greater Affix.");
+        }
+    }
+
+    private static void validateTransfigurationRoll(TransfigurationAffixRoll roll,
+                                                    String label,
+                                                    List<String> errors) {
+        if (roll == null || roll.isEmpty()) {
+            errors.add(label + " wymaga definicji z katalogu Przeistoczenia.");
+            return;
+        }
+        TransfigurationAffixDefinition definition = TransfigurationAffixCatalog.findById(roll.getDefinitionId()).orElse(null);
+        if (definition == null) {
+            errors.add(label + " nie istnieje w katalogu Przeistoczenia.");
+            return;
+        }
+        if (!definition.accepts(roll.getValue())) {
+            errors.add(label + " musi mieć wartość w zakresie "
+                    + TransfigurationPresentationSupport.formatRange(definition) + ".");
+        }
+    }
+
+    private static void validateBonusQuality(Integer bonusQuality, List<String> errors) {
+        if (bonusQuality == null) {
+            errors.add("Przeistoczenie: bonusowa jakość jest wymagana.");
+            return;
+        }
+        if (bonusQuality < 1 || bonusQuality > 15) {
+            errors.add("Przeistoczenie: bonusowa jakość itemu dla non-2H musi być od 1 do 15.");
+        }
     }
 
     private ItemMasterworking validateMasterworking(ItemMasterworking masterworking,

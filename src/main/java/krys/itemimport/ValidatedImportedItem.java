@@ -3,6 +3,7 @@ package krys.itemimport;
 import krys.item.EquipmentSlot;
 import krys.masterworking.ItemMasterworking;
 import krys.tempering.ItemTemperingAffix;
+import krys.transfiguration.ItemTransfiguration;
 
 import java.util.List;
 
@@ -21,6 +22,7 @@ public final class ValidatedImportedItem {
     private final ItemImportDetails details;
     private final List<ItemTemperingAffix> temperingAffixes;
     private final ItemMasterworking masterworking;
+    private final ItemTransfiguration transfiguration;
 
     public ValidatedImportedItem(String sourceImageName,
                                  EquipmentSlot slot,
@@ -103,6 +105,24 @@ public final class ValidatedImportedItem {
                                  ItemImportDetails details,
                                  List<ItemTemperingAffix> temperingAffixes,
                                  ItemMasterworking masterworking) {
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
+                affixes, selectedAspectId, details, temperingAffixes, masterworking, ItemTransfiguration.none());
+    }
+
+    public ValidatedImportedItem(String sourceImageName,
+                                 EquipmentSlot slot,
+                                 long weaponDamage,
+                                 double strength,
+                                 double intelligence,
+                                 double thorns,
+                                 double blockChance,
+                                 double retributionChance,
+                                 List<ImportedItemAffix> affixes,
+                                 String selectedAspectId,
+                                 ItemImportDetails details,
+                                 List<ItemTemperingAffix> temperingAffixes,
+                                 ItemMasterworking masterworking,
+                                 ItemTransfiguration transfiguration) {
         this.sourceImageName = sourceImageName == null || sourceImageName.isBlank() ? "item" : sourceImageName;
         this.slot = slot;
         this.weaponDamage = weaponDamage;
@@ -116,6 +136,7 @@ public final class ValidatedImportedItem {
         this.details = details == null ? ItemImportDetails.empty() : details;
         this.temperingAffixes = temperingAffixes == null ? List.of() : List.copyOf(temperingAffixes);
         this.masterworking = masterworking == null ? ItemMasterworking.defaultState() : masterworking;
+        this.transfiguration = transfiguration == null ? ItemTransfiguration.none() : transfiguration;
     }
 
     public String getSourceImageName() {
@@ -168,6 +189,10 @@ public final class ValidatedImportedItem {
 
     public ItemMasterworking getMasterworking() {
         return masterworking;
+    }
+
+    public ItemTransfiguration getTransfiguration() {
+        return transfiguration;
     }
 
     public String getItemName() {

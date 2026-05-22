@@ -6,6 +6,7 @@ import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ItemImportDetails;
 import krys.masterworking.ItemMasterworking;
 import krys.tempering.ItemTemperingAffix;
+import krys.transfiguration.ItemTransfiguration;
 
 import java.util.List;
 
@@ -27,6 +28,7 @@ public final class SavedImportedItem {
     private final ItemImportDetails details;
     private final List<ItemTemperingAffix> temperingAffixes;
     private final ItemMasterworking masterworking;
+    private final ItemTransfiguration transfiguration;
 
     public SavedImportedItem(long itemId,
                              String displayName,
@@ -142,6 +144,28 @@ public final class SavedImportedItem {
                              ItemImportDetails details,
                              List<ItemTemperingAffix> temperingAffixes,
                              ItemMasterworking masterworking) {
+        this(itemId, displayName, sourceImageName, slot, weaponDamage, strength, intelligence, thorns,
+                blockChance, retributionChance, fullItemRead, affixes, selectedAspectId, details, temperingAffixes,
+                masterworking, ItemTransfiguration.none());
+    }
+
+    public SavedImportedItem(long itemId,
+                             String displayName,
+                             String sourceImageName,
+                             EquipmentSlot slot,
+                             long weaponDamage,
+                             double strength,
+                             double intelligence,
+                             double thorns,
+                             double blockChance,
+                             double retributionChance,
+                             FullItemRead fullItemRead,
+                             List<ImportedItemAffix> affixes,
+                             String selectedAspectId,
+                             ItemImportDetails details,
+                             List<ItemTemperingAffix> temperingAffixes,
+                             ItemMasterworking masterworking,
+                             ItemTransfiguration transfiguration) {
         if (itemId < 0L) {
             throw new IllegalArgumentException("Id itemu nie może być ujemne.");
         }
@@ -179,6 +203,7 @@ public final class SavedImportedItem {
         this.details = details == null ? ItemImportDetails.empty() : details;
         this.temperingAffixes = temperingAffixes == null ? List.of() : List.copyOf(temperingAffixes);
         this.masterworking = masterworking == null ? ItemMasterworking.defaultState() : masterworking;
+        this.transfiguration = transfiguration == null ? ItemTransfiguration.none() : transfiguration;
     }
 
     private static void validateNonNegative(String label, double value) {
@@ -249,6 +274,10 @@ public final class SavedImportedItem {
 
     public ItemMasterworking getMasterworking() {
         return masterworking;
+    }
+
+    public ItemTransfiguration getTransfiguration() {
+        return transfiguration;
     }
 
     public String getItemName() {

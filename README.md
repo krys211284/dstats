@@ -691,6 +691,33 @@ Nieznane affixy nie są zgadywane. Jeżeli resolver nie ma reguły dla affixu, U
 
 Runtime dla potwierdzonych wartości używa resolved values po Doskonaleniu, a source values pozostają bazą zapisu i edycji. Hartowanie `defense_max_animus` działa runtime tak: source GA `+5` bez Doskonalenia daje `maxAnimus=13`, `qualityCurrent=25` bez doskonalonego hartowania daje `maxAnimus=15`, a `qualityCurrent=25` z `perfectedAffix=TEMPERING_AFFIX:defense_max_animus` daje `maxAnimus=20`. Większy max Animusz nie zmienia zasad Molocha: buff nie re-aktywuje się w trakcie trwania, nie pobiera drugiego kosztu `8` w trakcie buffa i nie resetuje/odświeża trwającego buffa. `DamageEngine` i `ManualSimulationService` nie zawierają osobnej logiki Doskonalenia; dostają już resolved runtime input.
 
+### Przeistoczenie przedmiotu / Kostka Horadrimów
+Pierwszy etap Kostki Horadrimów dodaje model danych, katalogi źródłowe, UI importu/edycji, zapis/odczyt i prezentację Przeistoczenia itemu. Źródło danych: screen z gry + lokalnie dostarczona kopia strony Maxroll Horadric Cube. Przeistoczenie w tym etapie jest runtime nieaktywne: nie zmienia current build, effective stats, DPS, source values ani logiki Doskonalenia 2C.
+
+Receptura `Przeistoczenie przedmiotu / Transfigure Item` wymaga `1x` przedmiotu legendarnego, unikatowego albo mitycznego oraz `1x` `Niestabilny prastary pył / Volatile Primordial Dust`; `Pryzmat dostrojenia / Tuning Prism` jest opcjonalny. UI zapisuje pryzmat jako dane itemu i przyszły kontekst importu, ale wpływ pryzmatu na losowanie nie jest symulowany. Obsługiwane wartości pryzmatu: `Brak`, `Entropic`, `Kullean`, `Aggressive`, `Pragmatic`, `Protector's`, `Resourceful`, `Adept's`, `Chromatic`.
+
+Model itemu przechowuje `transfigured`, `lockedAfterTransfiguration`, `tuningPrism`, `outcome`, referencje do affixów przy upgrade/replacement, roll bonusowego lub zastępującego affixu Przeistoczenia, `bonusQuality`, `indestructible` i notatkę. Stare itemy bez tych pól wczytują się jako `transfigured=false`, `lockedAfterTransfiguration=false`, `outcome=null/Brak`. Dla `transfigured=true` domyślny status to `lockedAfterTransfiguration=true`, ale formularz pozwala zapisać `false`, bo Maxroll opisuje małą szansę braku blokady po przeistoczeniu około `~1/16`. Status `niemodyfikowalny` nie blokuje technicznej edycji w aplikacji; użytkownik nadal może ręcznie poprawić importowane dane.
+
+Regularne wyniki Przeistoczenia zapisane w katalogu:
+
+| Wynik | Znaczenie | Szansa z próbek |
+| --- | --- | ---: |
+| `INDESTRUCTIBLE` | item nie traci wytrzymałości | `~20%` |
+| `UPGRADE_TO_GREATER_AFFIX` | jeden zwykły non-GA affix zostaje ulepszony do Greater Affix | `~15%` |
+| `BONUS_TRANSFIGURATION_AFFIX` | item dostaje dodatkowy specjalny affix z puli Przeistoczenia | `~35%` |
+| `REPLACE_EXISTING_AFFIX_WITH_TRANSFIGURATION_AFFIX` | jeden zwykły affix zostaje zastąpiony affixem Przeistoczenia | `~10%` |
+| `BONUS_ITEM_QUALITY` | item dostaje bonusową jakość `+1..15`; broń dwuręczna według źródła `+2..30` | `~20%` |
+
+Walidacja upgrade/replacement nie pozwala wskazać hartowania ani zwykłego affixu, który już jest Greater Affix. Replacement nie usuwa fizycznie source affixu w tym etapie; zapisuje wynik przeistoczenia oddzielnie i pokazuje go prezentacyjnie jako zamianę. Jeżeli w projekcie nie ma jeszcze flagi enchantowanego affixu, warunek „nie może dotyczyć enchantowanych affixów” pozostaje przyszłym etapem. `BONUS_ITEM_QUALITY` jest walidowany jako `1..15` dla obecnych non-2H/shield przypadków; rozpoznanie zakresu `2..30` dla 2H weapons będzie osobnym etapem, gdy model slotu/typu broni będzie użyty do tej walidacji. Bonusowa jakość stackuje się w grze z Doskonaleniem, ale runtime tego jeszcze nie używa.
+
+Katalog zwykłych affixów Przeistoczenia obejmuje zakresy dla non-2H weapons i zapisuje flagę `doublesOnTwoHandedWeapon`, bo źródło podaje podwojenie wartości na broniach dwuręcznych. Zakresy: `ALL_STATS 75-100`, `ATTACK_SPEED 8-10%`, `COOLDOWN_REDUCTION 10-12%`, `CRITICAL_STRIKE_CHANCE 3,5-5%`, `ELEMENTAL_SPECIFIC_DAMAGE 8-10%[x]` z elementem `Cold/Fire/Holy/Lightning/Physical/Poison/Shadow`, `GEM_STRENGTH 75-100%[x]`, `LIFE_ON_HIT 263-316`, `LUCKY_HIT_CHANCE 6-8%`, `MAX_LIFE_PERCENT 6-8%`, `MAX_RESOURCE 15-20`, `MOVEMENT_SPEED 20-30%`, `PRIMARY_STAT 150-180`, `PRIMARY_STAT_PERCENT 3,5-5%`, `RESOURCE_COST_REDUCTION 6-8%`, `TOTAL_ARMOR_PERCENT 8-10%`, `TOTAL_RESISTANCE_PERCENT 8-10%`.
+
+Katalog ranków skillowych Przeistoczenia dla Paladyna: `Head: Aura, Valor`; `Chest: Aura, Justice`; `Gloves: Core`; `Pants: Basic, Aura`; `Boots: Aura, Justice`; `Amulet: All Skills, Core`; `Rings: All Skills, Valor`; `1H Weapon: Basic`; `Shield: Basic, Aura`; `2H Weapon` i zwykły `Offhand` bez wpisu dla Paladyna w dostarczonej tabeli. Domyślny zakres ranków dla tagu skilla to `+2..3`; wyjątek Maxroll dla Ultimate skills na 2H weapons `+4..6` nie jest używany dla Paladyna w tym etapie.
+
+UI importu i edycji pokazuje sekcję `Przeistoczenie / Kostka Horadrimów` z polami stanu, wyniku, pryzmatu, statusu niemodyfikowalności oraz polami zależnymi od wyniku. Biblioteka, current build i szczegóły itemu pokazują kompaktowy opis tylko dla itemów przeistoczonych, np. `Przeistoczenie · Bonusowy affix: +180 Primary Stat · Niemodyfikowalny · Runtime nieaktywny`. Item nieprzeistoczony nie pokazuje kompaktowej sekcji w summary.
+
+Przyszły import itemów przeistoczonych musi rozpoznawać finalne wartości z gry i status niemodyfikowalności; nie wolno naiwnie traktować affixów Przeistoczenia jako zwykłych source affixów bez oznaczenia pochodzenia.
+
 ### 4.6. Baza wiedzy o itemach
 Aktualny foundation repo obejmuje osobną bazę wiedzy o itemach jako warstwę obserwacji i przyszłych sugestii. Nie jest to biblioteka konkretnych itemów użytkownika i nie jest to runtime.
 

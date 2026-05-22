@@ -14,6 +14,10 @@ import krys.masterworking.MasterworkedAffixSource;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
+import krys.transfiguration.HoradricTransfigurationOutcome;
+import krys.transfiguration.HoradricTuningPrism;
+import krys.transfiguration.ItemTransfiguration;
+import krys.transfiguration.TransfigurationAffixRoll;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -66,7 +70,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     item.getSelectedAspectId(),
                     item.getDetails(),
                     item.getTemperingAffixes(),
-                    item.getMasterworking()
+                    item.getMasterworking(),
+                    item.getTransfiguration()
             );
         }
 
@@ -181,7 +186,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                 tokens.length >= 14 ? decode(tokens[13]) : "",
                 tokens.length >= 15 ? decodeDetails(tokens[14]) : ItemImportDetails.empty(),
                 tokens.length >= 16 ? decodeTemperingAffixes(tokens[15]) : List.of(),
-                tokens.length >= 17 ? decodeMasterworking(tokens[16]) : ItemMasterworking.defaultState()
+                tokens.length >= 17 ? decodeMasterworking(tokens[16]) : ItemMasterworking.defaultState(),
+                tokens.length >= 18 ? decodeTransfiguration(tokens[17]) : ItemTransfiguration.none()
         );
     }
 
@@ -206,7 +212,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     encode(item.getSelectedAspectId()),
                     encodeDetails(item.getDetails()),
                     encodeTemperingAffixes(item.getTemperingAffixes()),
-                    encodeMasterworking(item.getMasterworking())
+                    encodeMasterworking(item.getMasterworking()),
+                    encodeTransfiguration(item.getTransfiguration())
             ));
         }
         try {
@@ -326,6 +333,29 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                 Integer.toString(safe.getQualityMax()),
                 perfectedAffix == null || perfectedAffix.getSource() == null ? "" : perfectedAffix.getSource().name(),
                 perfectedAffix == null ? "" : encode(perfectedAffix.getKey())
+        ));
+    }
+
+    private static String encodeTransfiguration(ItemTransfiguration transfiguration) {
+        ItemTransfiguration safe = transfiguration == null ? ItemTransfiguration.none() : transfiguration;
+        TransfigurationAffixRoll added = safe.getAddedTransfigurationAffix();
+        TransfigurationAffixRoll replacement = safe.getReplacementTransfigurationAffix();
+        return encode(String.join("|",
+                Boolean.toString(safe.isTransfigured()),
+                Boolean.toString(safe.isLockedAfterTransfiguration()),
+                safe.getTuningPrism().name(),
+                safe.getOutcome().name(),
+                encode(safe.getUpgradedAffixRef()),
+                encodeRollDefinition(added),
+                encodeRollValue(added),
+                encodeRollElement(added),
+                encode(safe.getReplacedAffixRef()),
+                encodeRollDefinition(replacement),
+                encodeRollValue(replacement),
+                encodeRollElement(replacement),
+                safe.getBonusQuality() == null ? "" : safe.getBonusQuality().toString(),
+                Boolean.toString(safe.isIndestructible()),
+                encode(safe.getNotes())
         ));
     }
 
@@ -493,5 +523,55 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
             }
         }
         return ItemMasterworking.fromPersisted(Integer.parseInt(tokens[0]), Integer.parseInt(tokens[1]), perfectedAffix);
+    }
+
+    private static ItemTransfiguration decodeTransfiguration(String encodedPayload) {
+        if (encodedPayload == null || encodedPayload.isBlank()) {
+            return ItemTransfiguration.none();
+        }
+        String payload = decode(encodedPayload);
+        if (payload.isBlank()) {
+            return ItemTransfiguration.none();
+        }
+        String[] tokens = payload.split("\\|", -1);
+        if (tokens.length < 4) {
+            return ItemTransfiguration.none();
+        }
+        boolean transfigured = Boolean.parseBoolean(tokens[0]);
+        if (!transfigured) {
+            return ItemTransfiguration.none();
+        }
+        return new ItemTransfiguration(
+                true,
+                Boolean.parseBoolean(tokens[1]),
+                HoradricTuningPrism.fromNullable(tokens[2]),
+                HoradricTransfigurationOutcome.fromNullable(tokens[3]),
+                tokens.length >= 5 ? decode(tokens[4]) : "",
+                tokens.length >= 8 ? decodeRoll(tokens[5], tokens[6], tokens[7]) : null,
+                tokens.length >= 9 ? decode(tokens[8]) : "",
+                tokens.length >= 12 ? decodeRoll(tokens[9], tokens[10], tokens[11]) : null,
+                tokens.length >= 13 && !tokens[12].isBlank() ? Integer.parseInt(tokens[12]) : null,
+                tokens.length >= 14 && Boolean.parseBoolean(tokens[13]),
+                tokens.length >= 15 ? decode(tokens[14]) : ""
+        );
+    }
+
+    private static String encodeRollDefinition(TransfigurationAffixRoll roll) {
+        return roll == null ? "" : encode(roll.getDefinitionId());
+    }
+
+    private static String encodeRollValue(TransfigurationAffixRoll roll) {
+        return roll == null ? "" : formatDouble(roll.getValue());
+    }
+
+    private static String encodeRollElement(TransfigurationAffixRoll roll) {
+        return roll == null ? "" : encode(roll.getElement());
+    }
+
+    private static TransfigurationAffixRoll decodeRoll(String definition, String value, String element) {
+        if (definition == null || definition.isBlank()) {
+            return null;
+        }
+        return new TransfigurationAffixRoll(decode(definition), Double.parseDouble(value), decode(element));
     }
 }

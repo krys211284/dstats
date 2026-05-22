@@ -892,8 +892,9 @@ public final class CurrentBuildPageRenderer {
         String statsSection = renderSlotContributionSection("Wartości itemu", buildSlotStatChips(item));
         String temperingSection = renderSlotContributionSection("Hartowanie", buildSlotTemperingChips(item));
         String masterworkingSection = renderSlotContributionSection("Doskonalenie", buildSlotMasterworkingChips(item));
+        String transfigurationSection = renderSlotContributionSection("Przeistoczenie", buildSlotTransfigurationChips(item));
         String effectsSection = renderSlotContributionSection("Efekty opisowe", buildSlotEffectChips(item));
-        String content = weaponSection + statsSection + temperingSection + masterworkingSection + effectsSection;
+        String content = weaponSection + statsSection + temperingSection + masterworkingSection + transfigurationSection + effectsSection;
         if (content.isBlank()) {
             return "<p class=\"slot-contribution\">Brak wkładu</p>";
         }
@@ -1020,6 +1021,14 @@ public final class CurrentBuildPageRenderer {
         List<String> chips = new ArrayList<>();
         chips.add(chip);
         return List.copyOf(chips);
+    }
+
+    private static List<String> buildSlotTransfigurationChips(SavedImportedItem item) {
+        String chip = TransfigurationSectionRenderer.compactChip(item.getTransfiguration(), item.getAffixes());
+        if (chip.isBlank()) {
+            return List.of();
+        }
+        return List.of(chip);
     }
 
     private static String luckyHitResourceValue(ImportedItemAffix affix) {

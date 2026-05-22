@@ -151,6 +151,7 @@ public final class ItemImportPageRenderer {
                 .append(renderAffixEditor(form))
                 .append(TemperingSectionRenderer.renderEditor(form))
                 .append(MasterworkingSectionRenderer.renderEditor(form))
+                .append(TransfigurationSectionRenderer.renderEditor(form))
                 .append("""
                             <div class="submit-row">
                                 <button type="submit" name="formAction" value="confirmItem">Zatwierdź item</button>
@@ -204,6 +205,9 @@ public final class ItemImportPageRenderer {
                         savedItem.getMasterworking(),
                         savedItem.getAffixes(),
                         savedItem.getTemperingAffixes()))
+                .append(TransfigurationSectionRenderer.renderReadonlySummary(
+                        savedItem.getTransfiguration(),
+                        savedItem.getAffixes()))
                 .append("""
                     </section>
                 </section>

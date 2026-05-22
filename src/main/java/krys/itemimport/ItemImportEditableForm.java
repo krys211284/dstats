@@ -2,6 +2,7 @@ package krys.itemimport;
 
 import krys.masterworking.ItemMasterworking;
 import krys.tempering.ItemTemperingAffix;
+import krys.transfiguration.ItemTransfiguration;
 
 import java.util.List;
 
@@ -23,6 +24,7 @@ public final class ItemImportEditableForm {
     private final ItemImportDetails details;
     private final List<ItemTemperingAffix> temperingAffixes;
     private final ItemMasterworking masterworking;
+    private final ItemTransfiguration transfiguration;
 
     public ItemImportEditableForm(String sourceImageName,
                                   String slot,
@@ -134,6 +136,28 @@ public final class ItemImportEditableForm {
                                   ItemImportDetails details,
                                   List<ItemTemperingAffix> temperingAffixes,
                                   ItemMasterworking masterworking) {
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
+                fullItemRead, affixes, ocrSuggestedAspectId, ocrAspectConfidence, selectedAspectId, details,
+                temperingAffixes, masterworking, ItemTransfiguration.none());
+    }
+
+    public ItemImportEditableForm(String sourceImageName,
+                                  String slot,
+                                  String weaponDamage,
+                                  String strength,
+                                  String intelligence,
+                                  String thorns,
+                                  String blockChance,
+                                  String retributionChance,
+                                  FullItemRead fullItemRead,
+                                  List<ImportedItemAffix> affixes,
+                                  String ocrSuggestedAspectId,
+                                  ItemImportFieldConfidence ocrAspectConfidence,
+                                  String selectedAspectId,
+                                  ItemImportDetails details,
+                                  List<ItemTemperingAffix> temperingAffixes,
+                                  ItemMasterworking masterworking,
+                                  ItemTransfiguration transfiguration) {
         this.sourceImageName = sourceImageName;
         this.slot = slot;
         this.weaponDamage = weaponDamage;
@@ -150,6 +174,7 @@ public final class ItemImportEditableForm {
         this.details = details == null ? ItemImportDetails.empty() : details;
         this.temperingAffixes = temperingAffixes == null ? List.of() : List.copyOf(temperingAffixes);
         this.masterworking = masterworking == null ? ItemMasterworking.defaultState() : masterworking;
+        this.transfiguration = transfiguration == null ? ItemTransfiguration.none() : transfiguration;
     }
 
     public String getSourceImageName() {
@@ -214,6 +239,10 @@ public final class ItemImportEditableForm {
 
     public ItemMasterworking getMasterworking() {
         return masterworking;
+    }
+
+    public ItemTransfiguration getTransfiguration() {
+        return transfiguration;
     }
 
     public String getItemName() {

@@ -15,6 +15,10 @@ import krys.masterworking.MasterworkedAffixSelection;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
+import krys.transfiguration.HoradricTransfigurationOutcome;
+import krys.transfiguration.HoradricTuningPrism;
+import krys.transfiguration.ItemTransfiguration;
+import krys.transfiguration.TransfigurationAffixRoll;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -136,6 +140,48 @@ class ItemLibraryPageRendererTest {
         assertTrue(html.contains("aria-label=\"Edytuj item Ręka dodatkowa / tarcza.png\""));
         assertTrue(html.contains("class=\"icon-action delete-action\""));
         assertTrue(html.contains("aria-label=\"Usuń item Ręka dodatkowa / tarcza.png\""));
+    }
+
+    @Test
+    void shouldRenderTransfigurationSummaryInLibraryAndDetails() {
+        SavedImportedItem shield = new SavedImportedItem(
+                1L,
+                "Ręka dodatkowa / tarcza.png",
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                20.0d,
+                0.0d,
+                new FullItemRead("Tarcza", "Tarcza", "Legendarny", "Moc przedmiotu: 900", "1202 pkt. pancerza", List.of()),
+                List.of(new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 225.0d, "", false, 0, "+225 siły", ImportedItemAffixSource.MANUAL)),
+                "",
+                new krys.itemimport.ItemImportDetails("Tarcza", "Tarcza", "LEGENDARY", true,
+                        EquipmentSlot.OFF_HAND, 900L, null, null, null, null, null, 1202L, ""),
+                List.of(),
+                ItemMasterworking.defaultState(),
+                new ItemTransfiguration(
+                        true,
+                        true,
+                        HoradricTuningPrism.AGGRESSIVE,
+                        HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                        "",
+                        new TransfigurationAffixRoll("PRIMARY_STAT", 180.0d),
+                        "",
+                        null,
+                        null,
+                        false,
+                        "")
+        );
+
+        String html = render(List.of(shield));
+        String row = firstItemIndexRow(html);
+
+        assertTrue(row.contains("Przeistoczenie · Bonusowy affix: +180 Primary Stat · Niemodyfikowalny · Runtime nieaktywny"));
+        assertTrue(html.contains("<h5>Przeistoczenie / Kostka Horadrimów</h5>"));
+        assertTrue(html.contains("Przedmiot niemodyfikowalny po przeistoczeniu"));
     }
 
     @Test

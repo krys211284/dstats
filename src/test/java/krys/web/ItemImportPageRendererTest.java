@@ -19,6 +19,10 @@ import krys.masterworking.MasterworkedAffixSelection;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
+import krys.transfiguration.HoradricTransfigurationOutcome;
+import krys.transfiguration.HoradricTuningPrism;
+import krys.transfiguration.ItemTransfiguration;
+import krys.transfiguration.TransfigurationAffixRoll;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -101,6 +105,65 @@ class ItemImportPageRendererTest {
         assertTrue(html.contains(".layout.wide-item-page"));
         assertFalse(html.contains("Projekcja do aktualnego runtime"));
         assertFalse(html.contains("Mapowanie do aktualnego modelu buildu"));
+    }
+
+    @Test
+    void shouldRenderHoradricTransfigurationEditorFields() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "20",
+                "0",
+                FullItemRead.empty(),
+                List.of(new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 225.0d)),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                ItemImportDetails.empty(),
+                List.of(),
+                ItemMasterworking.defaultState(),
+                new ItemTransfiguration(
+                        true,
+                        true,
+                        HoradricTuningPrism.AGGRESSIVE,
+                        HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                        "",
+                        new TransfigurationAffixRoll("PRIMARY_STAT", 180.0d),
+                        "",
+                        null,
+                        null,
+                        false,
+                        "")
+        );
+        HeroProfile activeHero = new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty());
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                null,
+                List.of(),
+                null,
+                activeHero,
+                "Import testowy",
+                ""
+        ));
+
+        assertTrue(html.contains("Przeistoczenie / Kostka Horadrimów"));
+        assertTrue(html.contains("Wynik przeistoczenia"));
+        assertTrue(html.contains("Pryzmat dostrojenia"));
+        assertTrue(html.contains("Niemodyfikowalny po przeistoczeniu"));
+        assertTrue(html.contains("name=\"transfigurationState\""));
+        assertTrue(html.contains("value=\"TRANSFIGURED\" selected"));
+        assertTrue(html.contains("name=\"transfigurationOutcome\""));
+        assertTrue(html.contains("value=\"BONUS_TRANSFIGURATION_AFFIX\" selected"));
+        assertTrue(html.contains("name=\"transfigurationTuningPrism\""));
+        assertTrue(html.contains("value=\"AGGRESSIVE\" selected"));
+        assertTrue(html.contains("name=\"transfigurationAddedAffixId\""));
+        assertTrue(html.contains("value=\"PRIMARY_STAT\" selected"));
+        assertTrue(html.contains("name=\"transfigurationAddedAffixValue\" step=\"0.1\" value=\"180\""));
     }
 
     @Test

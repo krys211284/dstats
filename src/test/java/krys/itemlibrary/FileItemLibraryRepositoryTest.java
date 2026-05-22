@@ -21,6 +21,10 @@ import krys.masterworking.MasterworkedAffixSelection;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
+import krys.transfiguration.HoradricTransfigurationOutcome;
+import krys.transfiguration.HoradricTuningPrism;
+import krys.transfiguration.ItemTransfiguration;
+import krys.transfiguration.TransfigurationAffixRoll;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -192,6 +196,74 @@ class FileItemLibraryRepositoryTest {
     }
 
     @Test
+    void shouldPersistHoradricTransfigurationOutcomes() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-library-transfiguration");
+        FileItemLibraryRepository repository = new FileItemLibraryRepository(tempDirectory);
+
+        repository.save(itemWithTransfiguration(ItemTransfiguration.transfigured(HoradricTransfigurationOutcome.INDESTRUCTIBLE)));
+        repository.save(itemWithTransfiguration(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.UPGRADE_TO_GREATER_AFFIX,
+                "DAMAGE_REDUCTION", null, "", null, null, false, "")));
+        repository.save(itemWithTransfiguration(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.AGGRESSIVE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                "", new TransfigurationAffixRoll("PRIMARY_STAT", 180.0d), "", null, null, false, "")));
+        repository.save(itemWithTransfiguration(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.KULLEAN, HoradricTransfigurationOutcome.REPLACE_EXISTING_AFFIX_WITH_TRANSFIGURATION_AFFIX,
+                "", null, "DAMAGE_REDUCTION", new TransfigurationAffixRoll("TOTAL_ARMOR_PERCENT", 10.0d), null, false, "")));
+        repository.save(itemWithTransfiguration(new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY,
+                "", null, "", null, 15, false, "")));
+        repository.save(itemWithTransfiguration(new ItemTransfiguration(
+                true, false, HoradricTuningPrism.CHROMATIC, HoradricTransfigurationOutcome.UNKNOWN,
+                "", null, "", null, null, false, "do sprawdzenia")));
+
+        List<SavedImportedItem> reloaded = new FileItemLibraryRepository(tempDirectory).findAll();
+
+        assertEquals(HoradricTransfigurationOutcome.INDESTRUCTIBLE, reloaded.get(0).getTransfiguration().getOutcome());
+        assertTrue(reloaded.get(0).getTransfiguration().isIndestructible());
+        assertEquals("DAMAGE_REDUCTION", reloaded.get(1).getTransfiguration().getUpgradedAffixRef());
+        assertEquals("PRIMARY_STAT", reloaded.get(2).getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(180.0d, reloaded.get(2).getTransfiguration().getAddedTransfigurationAffix().getValue(), 0.0000001d);
+        assertEquals(HoradricTuningPrism.AGGRESSIVE, reloaded.get(2).getTransfiguration().getTuningPrism());
+        assertEquals("DAMAGE_REDUCTION", reloaded.get(3).getTransfiguration().getReplacedAffixRef());
+        assertEquals("TOTAL_ARMOR_PERCENT", reloaded.get(3).getTransfiguration().getReplacementTransfigurationAffix().getDefinitionId());
+        assertEquals(15, reloaded.get(4).getTransfiguration().getBonusQuality());
+        assertFalse(reloaded.get(5).getTransfiguration().isLockedAfterTransfiguration());
+        assertEquals("do sprawdzenia", reloaded.get(5).getTransfiguration().getNotes());
+    }
+
+    @Test
+    void shouldReadLegacyItemsWithoutTransfigurationAsNotTransfigured() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-library-legacy-transfiguration");
+        String item = String.join("|",
+                "ITEM",
+                "1",
+                encode("OFF_HAND / legacy.png"),
+                encode("legacy.png"),
+                EquipmentSlot.OFF_HAND.name(),
+                "0",
+                "0.0000",
+                "0.0000",
+                "0.0000",
+                "0.0000",
+                "0.0000",
+                encode(""),
+                encode(""),
+                encode(""),
+                encode(""),
+                encode(""),
+                encode("0|25||")
+        );
+        Files.write(tempDirectory.resolve("saved-items.db"), List.of(item), StandardCharsets.UTF_8);
+
+        SavedImportedItem reloaded = new FileItemLibraryRepository(tempDirectory).findAll().getFirst();
+
+        assertFalse(reloaded.getTransfiguration().isTransfigured());
+        assertFalse(reloaded.getTransfiguration().isLockedAfterTransfiguration());
+        assertEquals(HoradricTransfigurationOutcome.NONE, reloaded.getTransfiguration().getOutcome());
+    }
+
+    @Test
     void shouldPersistBootItemStructureAfterDraftFormSaveAndReload() throws Exception {
         Path tempDirectory = Files.createTempDirectory("boot-item-library-repo");
         FileItemLibraryRepository repository = new FileItemLibraryRepository(tempDirectory);
@@ -329,5 +401,30 @@ class FileItemLibraryRepositoryTest {
         return Base64.getUrlEncoder()
                 .withoutPadding()
                 .encodeToString(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static SavedImportedItem itemWithTransfiguration(ItemTransfiguration transfiguration) {
+        return new SavedImportedItem(
+                0L,
+                "OFF_HAND / tarcza.png",
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                20.0d,
+                0.0d,
+                FullItemRead.empty(),
+                List.of(
+                        new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 225.0d, "", true, 0, "+225 siły", ImportedItemAffixSource.MANUAL),
+                        new ImportedItemAffix(ImportedItemAffixType.DAMAGE_REDUCTION, 11.4d, "%", false, 1, "11,4% redukcji obrażeń", ImportedItemAffixSource.MANUAL)
+                ),
+                "",
+                ItemImportDetails.empty(),
+                List.of(),
+                ItemMasterworking.defaultState(),
+                transfiguration
+        );
     }
 }
