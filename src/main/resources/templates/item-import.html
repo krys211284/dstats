@@ -433,10 +433,11 @@
             <div class="form-grid">
                 <label>
                     Obraz pojedynczego itemu
-                    <input type="file" name="itemImage" accept="image/png,image/jpeg,image/webp">
+                    <input type="file" name="itemImage" accept="image/png,image/jpeg,image/webp" multiple data-item-screenshot-input>
                 </label>
             </div>
             <p class="helper">{{HELP_TEXT}}</p>
+            <p class="helper" data-multi-screenshot-info hidden>Import wieloscreenowy: <span data-multi-screenshot-count>0</span> obrazów zostanie scalonych jako jeden item.</p>
             <p class="helper">Po zatwierdzeniu item zostanie zapisany w bibliotece, a ekran pokaże akcje założenia go bohaterowi, przejścia do biblioteki albo powrotu do aktualnego buildu.</p>
             <div class="submit-row">
                 <button type="submit">Wczytaj i pokaż pola do potwierdzenia</button>
@@ -452,6 +453,19 @@
 </main>
 <script>
 (() => {
+    const screenshotInput = document.querySelector('[data-item-screenshot-input]');
+    const multiScreenshotInfo = document.querySelector('[data-multi-screenshot-info]');
+    const multiScreenshotCount = document.querySelector('[data-multi-screenshot-count]');
+    if (screenshotInput && multiScreenshotInfo && multiScreenshotCount) {
+        const refreshMultiScreenshotInfo = () => {
+            const count = screenshotInput.files ? screenshotInput.files.length : 0;
+            multiScreenshotCount.textContent = String(count);
+            multiScreenshotInfo.hidden = count <= 1;
+        };
+        screenshotInput.addEventListener('change', refreshMultiScreenshotInfo);
+        refreshMultiScreenshotInfo();
+    }
+
     const rows = document.getElementById('affixRows');
     const count = document.getElementById('affixCount');
     const template = document.getElementById('affixRowTemplate');

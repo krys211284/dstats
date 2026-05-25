@@ -6,9 +6,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
-/** Minimalny parser `multipart/form-data` dla uploadu pojedynczego screena itemu w prostym SSR. */
+/** Minimalny parser `multipart/form-data` dla uploadu screenów itemu w prostym SSR. */
 final class MultipartFormSupport {
     private MultipartFormSupport() {
     }
@@ -24,7 +26,7 @@ final class MultipartFormSupport {
         String delimiter = "--" + boundary;
         String[] rawParts = body.split(java.util.regex.Pattern.quote(delimiter));
 
-        Map<String, MultipartFilePart> fileParts = new LinkedHashMap<>();
+        Map<String, List<MultipartFilePart>> fileParts = new LinkedHashMap<>();
         for (String rawPart : rawParts) {
             String normalizedPart = normalizePart(rawPart);
             if (normalizedPart.isEmpty() || "--".equals(normalizedPart)) {
@@ -50,7 +52,7 @@ final class MultipartFormSupport {
                 bodyBlock = bodyBlock.substring(0, bodyBlock.length() - 2);
             }
 
-            fileParts.put(fieldName, new MultipartFilePart(
+            fileParts.computeIfAbsent(fieldName, ignored -> new ArrayList<>()).add(new MultipartFilePart(
                     fileName,
                     headers.getOrDefault("content-type", "application/octet-stream"),
                     bodyBlock.getBytes(StandardCharsets.ISO_8859_1)
@@ -113,18 +115,33 @@ final class MultipartFormSupport {
     }
 
     static final class MultipartFormData {
-        private final Map<String, MultipartFilePart> fileParts;
+        private final Map<String, List<MultipartFilePart>> fileParts;
 
-        private MultipartFormData(Map<String, MultipartFilePart> fileParts) {
-            this.fileParts = Map.copyOf(fileParts);
+        private MultipartFormData(Map<String, List<MultipartFilePart>> fileParts) {
+            Map<String, List<MultipartFilePart>> safeFileParts = new LinkedHashMap<>();
+            for (Map.Entry<String, List<MultipartFilePart>> entry : fileParts.entrySet()) {
+                safeFileParts.put(entry.getKey(), List.copyOf(entry.getValue()));
+            }
+            this.fileParts = Map.copyOf(safeFileParts);
         }
 
         MultipartFilePart requireFile(String fieldName) {
-            MultipartFilePart filePart = fileParts.get(fieldName);
+            List<MultipartFilePart> files = requireFiles(fieldName);
+            MultipartFilePart filePart = files.getFirst();
             if (filePart == null || filePart.getContent().length == 0) {
                 throw new IllegalArgumentException("Wgraj screenshot pojedynczego itemu.");
             }
             return filePart;
+        }
+
+        List<MultipartFilePart> requireFiles(String fieldName) {
+            List<MultipartFilePart> files = fileParts.getOrDefault(fieldName, List.of()).stream()
+                    .filter(filePart -> filePart != null && filePart.getContent().length > 0)
+                    .toList();
+            if (files.isEmpty()) {
+                throw new IllegalArgumentException("Wgraj screenshot pojedynczego itemu.");
+            }
+            return files;
         }
     }
 

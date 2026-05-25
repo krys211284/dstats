@@ -248,6 +248,7 @@ class ItemImportFormMapperTest {
         assertTrue(result.getErrors().isEmpty(), () -> String.join(", ", result.getErrors()));
         assertFalse(result.getItem().getTransfiguration().isTransfigured());
         assertFalse(result.getItem().getTransfiguration().isLockedAfterTransfiguration());
+        assertEquals(HoradricTuningPrism.NONE, result.getItem().getTransfiguration().getTuningPrism());
         assertEquals(HoradricTransfigurationOutcome.NONE, result.getItem().getTransfiguration().getOutcome());
     }
 
@@ -404,6 +405,8 @@ class ItemImportFormMapperTest {
         assertTrue(result.getErrors().isEmpty(), () -> String.join(", ", result.getErrors()));
         ItemTransfiguration cleaned = result.getItem().getTransfiguration();
         assertEquals(HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX, cleaned.getOutcome());
+        assertTrue(cleaned.isLockedAfterTransfiguration());
+        assertEquals(HoradricTuningPrism.NONE, cleaned.getTuningPrism());
         assertEquals("ALL_STATS", cleaned.getAddedTransfigurationAffix().getDefinitionId());
         assertEquals(96.0d, cleaned.getAddedTransfigurationAffix().getDisplayedValue());
         assertEquals(TransfigurationValueProvenance.GAME_DISPLAYED_VALUE, cleaned.getAddedTransfigurationAffix().getValueProvenance());

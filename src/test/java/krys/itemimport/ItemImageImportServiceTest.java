@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Test realnego rozpoznania ograniczonych pól foundation z pojedynczego screena itemu. */
@@ -63,6 +64,55 @@ class ItemImageImportServiceTest {
             "Gdy masz umocnienie, zadajesz obrażenia zwiększone o 610[x] [45 - 65]%. 70 poziomu",
             "Puste gniazdo"
     );
+
+    @Test
+    void shouldAcceptOneToFiveScreensAndRejectSixScreensForOneItem() throws Exception {
+        byte[] imageBytes = buildShieldLikeScreenshot();
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new FakeOcrTextReader(Map.of("original", "Tarcza\nMoc przedmiotu: 900")),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        for (int count = 1; count <= 5; count++) {
+            ItemImageImportCandidateParseResult result = service.analyze(repeatedRequests(imageBytes, count));
+            assertNotNull(result.getFullItemRead());
+        }
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> service.analyze(repeatedRequests(imageBytes, 6)));
+        assertEquals("Można przesłać maksymalnie 5 screenów jednego itemu.", exception.getMessage());
+    }
+
+    @Test
+    void shouldAnalyzeTwoScreensAsOneMergedItem() throws Exception {
+        byte[] imageBytes = buildShieldLikeScreenshot();
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new QueuedOcrTextReader(List.of(
+                        ItemScreenshotTextMergerTest.realShieldTopText(),
+                        ItemScreenshotTextMergerTest.realShieldBottomText()
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(List.of(
+                new ItemImageImportRequest("tarcza1.png", "image/png", imageBytes),
+                new ItemImageImportRequest("tarcza2.png", "image/png", imageBytes)
+        ));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals("tarcza1.png, tarcza2.png", result.getImageMetadata().getOriginalFilename());
+        assertTrue(result.getImportNotice().contains("Import wieloscreenowy: 2 obrazów zostanie scalonych jako jeden item."));
+        assertEquals("Miażdżąca Tarcza Kościanych Łusek", form.getItemName());
+        assertEquals("1202", form.getItemArmor());
+        assertEquals(25, form.getMasterworking().getQualityCurrent());
+        assertEquals("defense_max_animus", form.getMasterworking().getPerfectedAffix().getKey());
+        assertEquals("ALL_STATS", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(96.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue());
+    }
 
     @Test
     void shouldMergeFieldsAcrossPreparedVariantsWithoutChangingImportFlow() throws Exception {
@@ -748,6 +798,12 @@ class ItemImageImportServiceTest {
         return outputStream.toByteArray();
     }
 
+    private static List<ItemImageImportRequest> repeatedRequests(byte[] imageBytes, int count) {
+        return java.util.stream.IntStream.rangeClosed(1, count)
+                .mapToObj(index -> new ItemImageImportRequest("screen-" + index + ".png", "image/png", imageBytes))
+                .toList();
+    }
+
     private static final class FakeOcrTextReader implements ItemImageOcrTextReader {
         private final Map<String, String> variantTexts;
 
@@ -762,6 +818,24 @@ class ItemImageImportServiceTest {
                             variant.getVariantId(),
                             variantTexts.getOrDefault(variant.getVariantId(), "")
                     ))
+                    .toList();
+        }
+    }
+
+    private static final class QueuedOcrTextReader implements ItemImageOcrTextReader {
+        private final List<String> texts;
+        private int callIndex;
+
+        private QueuedOcrTextReader(List<String> texts) {
+            this.texts = List.copyOf(texts);
+        }
+
+        @Override
+        public List<ItemImageOcrTextVariant> readTextVariants(List<ItemImageOcrVariant> variants) {
+            String text = callIndex < texts.size() ? texts.get(callIndex) : "";
+            callIndex++;
+            return variants.stream()
+                    .map(variant -> new ItemImageOcrTextVariant(variant.getVariantId(), text))
                     .toList();
         }
     }

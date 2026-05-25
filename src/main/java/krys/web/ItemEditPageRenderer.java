@@ -41,6 +41,7 @@ final class ItemEditPageRenderer {
                         .checkbox-label { display: inline-flex; gap: 8px; align-items: center; font-weight: 600; }
                         input[type="number"], input[type="text"], select, textarea { width: 100%%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--text); font: inherit; }
                         textarea { resize: vertical; }
+                        [hidden] { display: none !important; }
                         .inline-fieldset { display: grid; gap: 10px; grid-column: 1 / -1; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255, 255, 255, 0.72); }
                         .inline-fieldset legend { padding: 0 6px; color: var(--muted); font-weight: 700; }
                         .aspect-effect-fieldset { grid-template-columns: minmax(240px, 0.75fr) minmax(320px, 1.25fr); align-items: start; }

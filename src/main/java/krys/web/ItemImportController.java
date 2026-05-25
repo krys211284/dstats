@@ -142,12 +142,14 @@ public final class ItemImportController implements HttpHandler {
         try {
             HeroProfile activeHero = heroService.requireActiveHero();
             MultipartFormSupport.MultipartFormData multipartFormData = MultipartFormSupport.parse(exchange);
-            MultipartFormSupport.MultipartFilePart filePart = multipartFormData.requireFile("itemImage");
-            ItemImageImportCandidateParseResult parseResult = imageImportService.analyze(new ItemImageImportRequest(
-                    filePart.getOriginalFilename(),
-                    filePart.getContentType(),
-                    filePart.getContent()
-            ));
+            List<MultipartFormSupport.MultipartFilePart> fileParts = multipartFormData.requireFiles("itemImage");
+            ItemImageImportCandidateParseResult parseResult = imageImportService.analyze(fileParts.stream()
+                    .map(filePart -> new ItemImageImportRequest(
+                            filePart.getOriginalFilename(),
+                            filePart.getContentType(),
+                            filePart.getContent()
+                    ))
+                    .toList());
             return new ItemImportPageModel(
                     editableFormFactory.create(parseResult),
                     parseResult,
@@ -511,7 +513,7 @@ public final class ItemImportController implements HttpHandler {
     }
 
     private static String buildHelpText() {
-        return "To jest import wspomagany pojedynczego itemu ze screena. Foundation sprawdza obraz, pokazuje niepewność pól i wymaga ręcznego zatwierdzenia użytkownika. Nie jest to jeszcze pełny automatyczny import całej postaci.";
+        return "Możesz dodać jeden lub kilka screenów tego samego itemu. Jeśli tooltip jest przewijany, dodaj screeny w kolejności od góry do dołu. Limit: 1..5 screenów jednego itemu. Foundation sprawdza obraz, pokazuje niepewność pól i wymaga ręcznego zatwierdzenia użytkownika.";
     }
 
     private void renderPage(HttpExchange exchange, ItemImportPageModel pageModel) throws IOException {

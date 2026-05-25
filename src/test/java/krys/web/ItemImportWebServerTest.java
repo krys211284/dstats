@@ -72,7 +72,8 @@ class ItemImportWebServerTest {
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Importuj pojedynczy item ze screena"));
         assertTrue(response.body().contains("name=\"itemImage\""));
-        assertTrue(response.body().contains("To jest import wspomagany pojedynczego itemu ze screena."));
+        assertTrue(response.body().contains("Możesz dodać jeden lub kilka screenów tego samego itemu."));
+        assertTrue(response.body().contains("multiple"));
         assertTrue(response.body().contains("Wstępnie rozpoznane pola"));
         assertTrue(response.body().contains("Tu pojawią się rozpoznane pola itemu"));
         assertTrue(response.body().contains("Aktywny bohater importu"));

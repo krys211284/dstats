@@ -186,9 +186,11 @@ class ItemLibraryPageRendererTest {
         String html = render(List.of(shield));
         String row = firstItemIndexRow(html);
 
-        assertTrue(row.contains("Przeistoczenie · Bonusowy affix: +96 do wszystkich współczynników · Niemodyfikowalny · Runtime nieaktywny"));
+        assertTrue(row.contains("Przeistoczenie · Bonusowy affix: +96 do wszystkich współczynników · Runtime nieaktywny"));
         assertTrue(html.contains("<h5>Przeistoczenie / Kostka Horadrimów</h5>"));
-        assertTrue(html.contains("Przedmiot niemodyfikowalny po przeistoczeniu"));
+        assertFalse(html.contains("Niemodyfikowalny"));
+        assertFalse(html.contains("Przedmiot niemodyfikowalny po przeistoczeniu"));
+        assertFalse(html.contains("Pryzmat"));
     }
 
     @Test

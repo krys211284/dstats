@@ -19,10 +19,6 @@ public final class TransfigurationPresentationSupport {
         }
         StringBuilder summary = new StringBuilder("Przeistoczenie · ");
         summary.append(outcomeSummary(transfiguration, itemAffixes));
-        summary.append(" · ");
-        summary.append(transfiguration.isLockedAfterTransfiguration()
-                ? "Niemodyfikowalny"
-                : "Nie został zablokowany");
         summary.append(" · ").append(RUNTIME_INACTIVE_LABEL);
         return summary.toString();
     }

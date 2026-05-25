@@ -222,6 +222,10 @@ public final class AppShellRendererSupport {
                     line-height: 1.6;
                 }
 
+                [hidden] {
+                    display: none !important;
+                }
+
                 .hero p,
                 .helper,
                 .module-meta,

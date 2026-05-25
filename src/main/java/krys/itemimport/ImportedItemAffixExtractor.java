@@ -1,5 +1,8 @@
 package krys.itemimport;
 
+import krys.masterworking.ItemMasterworking;
+import krys.masterworking.MasterworkingResolvedItemValueResolver;
+
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -20,6 +23,8 @@ public final class ImportedItemAffixExtractor {
     private static final Pattern RESOURCE_PATTERN = Pattern.compile("\\+\\s*([0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?)\\s+PODSTAWOWEGO\\s+ZASOBU", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
     private final AffixRegistry affixRegistry;
+    private static final MasterworkingResolvedItemValueResolver MASTERWORKING_RESOLVER =
+            new MasterworkingResolvedItemValueResolver();
 
     public ImportedItemAffixExtractor() {
         this(ApplicationAffixRegistry.get());
@@ -35,13 +40,17 @@ public final class ImportedItemAffixExtractor {
         }
         boolean verathielContext = isVerathielContext(fullItemRead);
         boolean koscianychLusekShieldContext = isKoscianychLusekShieldContext(fullItemRead);
+        boolean koscianychLusekQuality25Context = koscianychLusekShieldContext
+                && ItemImageImportTextParser.containsQuality25(
+                fullItemRead.getLines().stream().map(FullItemReadLine::getText).toList());
         Map<String, ImportedItemAffix> affixes = new LinkedHashMap<>();
         int displayOrder = 0;
         for (FullItemReadLine line : fullItemRead.getLines()) {
             if (!isEditableAffixLine(line)) {
                 continue;
             }
-            for (ImportedItemAffix affix : extractAffixesFromLine(line, displayOrder, verathielContext, koscianychLusekShieldContext)) {
+            for (ImportedItemAffix affix : extractAffixesFromLine(line, displayOrder, verathielContext,
+                    koscianychLusekShieldContext, koscianychLusekQuality25Context)) {
                 String key = editableAffixDeduplicationKey(affix);
                 ImportedItemAffix existing = affixes.get(key);
                 if (existing == null || affixQualityScore(affix) > affixQualityScore(existing)) {
@@ -68,11 +77,13 @@ public final class ImportedItemAffixExtractor {
     private List<ImportedItemAffix> extractAffixesFromLine(FullItemReadLine line,
                                                            int baseDisplayOrder,
                                                            boolean verathielContext,
-                                                           boolean koscianychLusekShieldContext) {
+                                                           boolean koscianychLusekShieldContext,
+                                                           boolean koscianychLusekQuality25Context) {
         String text = line.getText();
         List<AffixRegistry.AffixTextMatch> matches = affixRegistry.findMatches(text);
         if (matches.isEmpty()) {
-            return fallbackExtract(text, baseDisplayOrder, verathielContext, koscianychLusekShieldContext);
+            return fallbackExtract(text, baseDisplayOrder, verathielContext, koscianychLusekShieldContext,
+                    koscianychLusekQuality25Context);
         }
 
         List<AffixRegistry.AffixTextMatch> compactMatches = removeContainedMatches(matches);
@@ -84,7 +95,8 @@ public final class ImportedItemAffixExtractor {
                     ? findSegmentStart(text, compactMatches.get(index + 1).start())
                     : text.length();
             String segment = text.substring(Math.max(0, segmentStart), Math.max(segmentStart, segmentEnd)).trim();
-            buildAffix(match.definition(), segment, text, baseDisplayOrder + affixes.size(), verathielContext, koscianychLusekShieldContext)
+            buildAffix(match.definition(), segment, text, baseDisplayOrder + affixes.size(), verathielContext,
+                    koscianychLusekShieldContext, koscianychLusekQuality25Context)
                     .ifPresent(affixes::add);
         }
         return affixes;
@@ -116,20 +128,26 @@ public final class ImportedItemAffixExtractor {
     private List<ImportedItemAffix> fallbackExtract(String text,
                                                     int displayOrder,
                                                     boolean verathielContext,
-                                                    boolean koscianychLusekShieldContext) {
+                                                    boolean koscianychLusekShieldContext,
+                                                    boolean koscianychLusekQuality25Context) {
         Optional<ImportedItemAffixType> type = ImportedItemAffixType.detectFromLine(text);
         Optional<Double> value = firstNumber(text);
         if (type.isEmpty() || value.isEmpty()) {
             return List.of();
         }
         AffixDefinition definition = affixRegistry.findByType(type.get()).orElse(null);
-        boolean greaterAffix = isGreaterAffixLine(text) || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, type.get(), value.get());
+        ResolvedImportedAffixValue resolved = resolveKoscianychLusekSourceValue(
+                koscianychLusekShieldContext, koscianychLusekQuality25Context, type.get(), value.get()
+        );
+        boolean greaterAffix = isGreaterAffixLine(text)
+                || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, type.get(), resolved.value())
+                || resolved.greaterAffix();
         Optional<RollRange> rollRange = greaterAffix
                 ? Optional.empty()
-                : repairCatalogRollRange(definition, value.get(), text, parseRollRange(text), verathielContext);
+                : repairCatalogRollRange(definition, resolved.value(), text, parseRollRange(text), verathielContext);
         return List.of(new ImportedItemAffix(
                 type.get(),
-                value.get(),
+                resolved.value(),
                 defaultUnit(type.get()),
                 greaterAffix,
                 displayOrder,
@@ -147,22 +165,27 @@ public final class ImportedItemAffixExtractor {
                                                           String sourceLine,
                                                           int displayOrder,
                                                           boolean verathielContext,
-                                                          boolean koscianychLusekShieldContext) {
+                                                          boolean koscianychLusekShieldContext,
+                                                          boolean koscianychLusekQuality25Context) {
         if (definition.getFormType() == ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE) {
             Optional<Double> chance = parseChancePercent(segment);
             Optional<Double> resource = parseResourceAmount(segment);
             if (resource.isEmpty()) {
                 return Optional.empty();
             }
+            ResolvedImportedAffixValue resolved = resolveKoscianychLusekSourceValue(
+                    koscianychLusekShieldContext, koscianychLusekQuality25Context, definition.getFormType(), resource.get()
+            );
             boolean greaterAffix = isGreaterAffixLine(segment)
-                    || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, definition.getFormType(), resource.get());
+                    || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, definition.getFormType(), resolved.value())
+                    || resolved.greaterAffix();
             Optional<RollRange> rollRange = greaterAffix
                     ? Optional.empty()
-                    : repairCatalogRollRange(definition, resource.get(), segment, parseRollRange(segment), verathielContext);
-            String displayValue = "+" + formatValue(resource.get());
+                    : repairCatalogRollRange(definition, resolved.value(), segment, parseRollRange(segment), verathielContext);
+            String displayValue = "+" + formatValue(resolved.value());
             return Optional.of(new ImportedItemAffix(
                     definition.getFormType(),
-                    resource.get(),
+                    resolved.value(),
                     defaultUnit(definition.getFormType()),
                     greaterAffix,
                     displayOrder,
@@ -182,14 +205,18 @@ public final class ImportedItemAffixExtractor {
         if (value.isEmpty()) {
             return Optional.empty();
         }
+        ResolvedImportedAffixValue resolved = resolveKoscianychLusekSourceValue(
+                koscianychLusekShieldContext, koscianychLusekQuality25Context, definition.getFormType(), value.get()
+        );
         boolean greaterAffix = isGreaterAffixLine(segment)
-                || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, definition.getFormType(), value.get());
+                || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, definition.getFormType(), resolved.value())
+                || resolved.greaterAffix();
         Optional<RollRange> rollRange = greaterAffix
                 ? Optional.empty()
-                : repairCatalogRollRange(definition, value.get(), segment, parseRollRange(segment), verathielContext);
+                : repairCatalogRollRange(definition, resolved.value(), segment, parseRollRange(segment), verathielContext);
         return Optional.of(new ImportedItemAffix(
                 definition.getFormType(),
-                value.get(),
+                resolved.value(),
                 defaultUnit(definition.getFormType()),
                 greaterAffix,
                 displayOrder,
@@ -478,6 +505,67 @@ public final class ImportedItemAffixExtractor {
                 || (type == ImportedItemAffixType.ALL_RESISTANCE && sameValue(value, 490.0d));
     }
 
+    private static ResolvedImportedAffixValue resolveKoscianychLusekSourceValue(boolean koscianychLusekShieldContext,
+                                                                                boolean koscianychLusekQuality25Context,
+                                                                                ImportedItemAffixType type,
+                                                                                double displayedValue) {
+        if (!koscianychLusekShieldContext || !koscianychLusekQuality25Context) {
+            return new ResolvedImportedAffixValue(displayedValue, false);
+        }
+        return switch (type) {
+            case STRENGTH -> reverseDisplayedAffixValue(type, displayedValue, true, 1, 500)
+                    .orElse(new ResolvedImportedAffixValue(displayedValue, false));
+            case ALL_RESISTANCE, FIRE_RESISTANCE -> reverseDisplayedAffixValue(type, displayedValue, true, 1, 1200)
+                    .orElse(new ResolvedImportedAffixValue(displayedValue, false));
+            case DAMAGE_REDUCTION -> reverseDisplayedDamageReduction(displayedValue)
+                    .orElse(new ResolvedImportedAffixValue(displayedValue, false));
+            default -> new ResolvedImportedAffixValue(displayedValue, false);
+        };
+    }
+
+    private static Optional<ResolvedImportedAffixValue> reverseDisplayedAffixValue(ImportedItemAffixType type,
+                                                                                   double displayedValue,
+                                                                                   boolean greaterAffix,
+                                                                                   int min,
+                                                                                   int max) {
+        ItemMasterworking quality25 = new ItemMasterworking(25, 25);
+        for (int source = min; source <= max; source++) {
+            ImportedItemAffix candidate = new ImportedItemAffix(
+                    type,
+                    source,
+                    defaultUnit(type),
+                    greaterAffix,
+                    0,
+                    "",
+                    ImportedItemAffixSource.OCR
+            );
+            if (sameValue(MASTERWORKING_RESOLVER.resolveAffixValue(candidate, quality25), displayedValue)) {
+                return Optional.of(new ResolvedImportedAffixValue(source, greaterAffix));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<ResolvedImportedAffixValue> reverseDisplayedDamageReduction(double displayedValue) {
+        ItemMasterworking quality25 = new ItemMasterworking(25, 25);
+        for (int tenths = 0; tenths <= 500; tenths++) {
+            double source = tenths / 10.0d;
+            ImportedItemAffix candidate = new ImportedItemAffix(
+                    ImportedItemAffixType.DAMAGE_REDUCTION,
+                    source,
+                    defaultUnit(ImportedItemAffixType.DAMAGE_REDUCTION),
+                    false,
+                    0,
+                    "",
+                    ImportedItemAffixSource.OCR
+            );
+            if (sameValue(MASTERWORKING_RESOLVER.resolveAffixValue(candidate, quality25), displayedValue)) {
+                return Optional.of(new ResolvedImportedAffixValue(source, false));
+            }
+        }
+        return Optional.empty();
+    }
+
     private static boolean sameValue(double left, double right) {
         return Math.abs(left - right) < 0.0001d;
     }
@@ -506,5 +594,8 @@ public final class ImportedItemAffixExtractor {
     }
 
     private record RollRange(Double min, Double max) {
+    }
+
+    private record ResolvedImportedAffixValue(double value, boolean greaterAffix) {
     }
 }

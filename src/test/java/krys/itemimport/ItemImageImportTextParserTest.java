@@ -5,8 +5,11 @@ import krys.item.EquipmentSlot;
 import krys.itemlibrary.FileItemLibraryRepository;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
+import krys.masterworking.MasterworkedAffixSelection;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
+import krys.transfiguration.HoradricTransfigurationOutcome;
+import krys.transfiguration.TransfigurationValueProvenance;
 import krys.web.HeroItemSelection;
 import krys.web.HeroProfile;
 import krys.web.ItemImportPageModel;
@@ -333,6 +336,73 @@ class ItemImageImportTextParserTest {
         assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.DAMAGE_REDUCTION, 11.4d, false);
         assertTrue(form.getAffixes().stream()
                 .noneMatch(affix -> affix.getSourceText().contains("maksymalnej liczby kumulacji Animuszu")));
+    }
+
+    @Test
+    void shouldImportRealTransfiguredMasterworkedShieldFromMergedScreens() {
+        String mergedText = new ItemScreenshotTextMerger().merge(List.of(
+                ItemScreenshotTextMergerTest.realShieldTopText(),
+                ItemScreenshotTextMergerTest.realShieldBottomText()
+        ));
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, mergedText);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals("Miażdżąca Tarcza Kościanych Łusek", form.getItemName());
+        assertEquals("Tarcza", form.getItemType());
+        assertEquals("Starożytna legendarna tarcza", result.getFullItemRead().getItemTypeLine());
+        assertEquals("LEGENDARY", form.getItemRarity());
+        assertTrue(form.isAncient());
+        assertEquals("900", form.getItemPower());
+        assertEquals("1202", form.getItemArmor());
+        assertEquals(25, form.getMasterworking().getQualityCurrent());
+        assertEquals(25, form.getMasterworking().getQualityMax());
+        assertEquals("defense_max_animus", form.getMasterworking().getPerfectedAffix().getKey());
+        assertEquals(MasterworkedAffixSelection.temperingAffix("defense_max_animus").getSource(),
+                form.getMasterworking().getPerfectedAffix().getSource());
+
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.STRENGTH, 225.0d, true);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.ALL_RESISTANCE, 490.0d, true);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.FIRE_RESISTANCE, 787.0d, true);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.DAMAGE_REDUCTION, 11.4d, false);
+        assertEquals(4, form.getAffixes().size());
+
+        assertEquals(1, form.getTemperingAffixes().size());
+        ItemTemperingAffix tempering = form.getTemperingAffixes().getFirst();
+        assertEquals(TemperingCategory.DEFENSE, tempering.getCategory());
+        assertEquals("defense_max_animus", tempering.getDefinitionId());
+        assertEquals(5.0d, tempering.getValue());
+        assertTrue(tempering.isGreaterAffix());
+
+        assertTrue(form.getTransfiguration().isTransfigured());
+        assertTrue(form.getTransfiguration().isLockedAfterTransfiguration());
+        assertEquals(HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX, form.getTransfiguration().getOutcome());
+        assertEquals("ALL_STATS", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(96.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue());
+        assertEquals(TransfigurationValueProvenance.GAME_DISPLAYED_VALUE,
+                form.getTransfiguration().getAddedTransfigurationAffix().getValueProvenance());
+        assertTrue(form.getAffixes().stream()
+                .noneMatch(affix -> affix.getSourceText().contains("wszystkich współczynników")));
+
+        assertEquals("Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.",
+                form.getUniqueEffectText());
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                result,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "Import testowy",
+                ""
+        ));
+        String transfigurationSection = sectionByHeading(html, "Przeistoczenie / Kostka Horadrimów");
+        assertTrue(transfigurationSection.contains("selected>Przeistoczony</option>"));
+        assertTrue(transfigurationSection.contains("selected>Bonusowy affix Przeistoczenia</option>"));
+        assertTrue(transfigurationSection.contains("do wszystkich współczynników"));
+        assertTrue(transfigurationSection.contains("name=\"transfigurationAddedDisplayedValue\" step=\"0.1\" value=\"96\""));
+        assertTrue(transfigurationSection.contains("selected>Wartość widoczna w grze</option>"));
+        assertFalse(transfigurationSection.contains("Pryzmat dostrojenia"));
+        assertFalse(transfigurationSection.contains("Niemodyfikowalny po przeistoczeniu"));
     }
 
     @Test

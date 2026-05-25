@@ -1,6 +1,7 @@
 package krys.itemimport;
 
 import krys.item.EquipmentSlot;
+import krys.masterworking.MasterworkingResolvedItemValueResolver;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
@@ -167,6 +168,9 @@ final class ItemImageImportTextParser {
         Long itemPower = detectItemPower(lines, itemPowerLine).orElse(null);
         Long weaponDps = detectWeaponDps(lines).orElse(null);
         Long itemArmor = detectItemArmor(lines).orElse(null);
+        if (itemArmor != null && isKoscianychLusekQuality25Context(lines)) {
+            itemArmor = reverseMasterworkedArmor(itemArmor, 25).orElse(itemArmor);
+        }
         DamageRange damageRange = detectWeaponDamageRange(lines).orElse(new DamageRange(null, null));
         Double attacksPerSecond = detectAttacksPerSecond(lines).orElse(null);
         String uniqueEffectText = detectUniqueEffect(readLines);
@@ -521,6 +525,34 @@ final class ItemImageImportTextParser {
             return parseLongToken(joinedReversedMatcher.group(1));
         }
         return Optional.empty();
+    }
+
+    private static Optional<Long> reverseMasterworkedArmor(long displayedArmor, int qualityCurrent) {
+        MasterworkingResolvedItemValueResolver resolver = new MasterworkingResolvedItemValueResolver();
+        for (long source = Math.max(1L, displayedArmor - 600L); source <= displayedArmor; source++) {
+            if (resolver.resolveArmor(source, qualityCurrent) == displayedArmor) {
+                return Optional.of(source);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static boolean isKoscianychLusekQuality25Context(List<String> lines) {
+        String collapsed = collapse(String.join(" ", lines));
+        return collapsed.contains("KOSCIANYCHLUSEK")
+                && collapsed.contains("TARCZA")
+                && containsQuality25(lines);
+    }
+
+    static boolean containsQuality25(List<String> lines) {
+        for (String line : lines) {
+            String collapsed = collapse(line);
+            if ((collapsed.contains("25") && collapsed.contains("JAKOSCI"))
+                    || collapsed.contains("25PLUS25JAKOSCI")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Optional<DamageRange> detectWeaponDamageRange(List<String> lines) {

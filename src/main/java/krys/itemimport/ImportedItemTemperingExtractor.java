@@ -62,6 +62,9 @@ public final class ImportedItemTemperingExtractor {
             return Optional.empty();
         }
         String segment = stripTrailingBoundaryMarkers(matcher.group(1).trim());
+        if (isDisplayedPerfectedMaxAnimus(segment)) {
+            return Optional.of("★ +12 do maksymalnej liczby kumulacji Animuszu");
+        }
         if (!hasGreaterMarker(segment)) {
             return Optional.of(segment);
         }
@@ -98,12 +101,14 @@ public final class ImportedItemTemperingExtractor {
             return Optional.empty();
         }
         TemperingAffixDefinition resolvedDefinition = definition.get();
-        boolean greaterAffix = isGreaterAffix(line, itemPower, value.get(), resolvedDefinition);
+        boolean displayedPerfectedValue = isDisplayedPerfectedMaxAnimus(line);
+        double storedValue = displayedPerfectedValue ? resolvedDefinition.greaterAffixValue() : value.get();
+        boolean greaterAffix = displayedPerfectedValue || isGreaterAffix(line, itemPower, storedValue, resolvedDefinition);
         return Optional.of(new ItemTemperingAffix(
                 resolvedDefinition.getId(),
                 resolvedDefinition.getCategory(),
-                value.get(),
-                "+" + formatFlexibleValue(value.get()) + " " + resolvedDefinition.getDisplayName(),
+                storedValue,
+                "+" + formatFlexibleValue(storedValue) + " " + resolvedDefinition.getDisplayName(),
                 TemperingRuntimeStatus.DATA_ONLY,
                 greaterAffix
         ));
@@ -133,6 +138,16 @@ public final class ImportedItemTemperingExtractor {
         } catch (NumberFormatException exception) {
             return Optional.empty();
         }
+    }
+
+    private static boolean isDisplayedPerfectedMaxAnimus(String line) {
+        Optional<Double> value = parseLeadingValue(line);
+        if (value.isEmpty()) {
+            return false;
+        }
+        String normalizedLine = normalize(line);
+        return sameValue(value.get(), 12.0d)
+                && normalizedLine.contains("MAKSYMALNEJ LICZBY KUMULACJI ANIMUSZU");
     }
 
     private static boolean hasGreaterMarker(String line) {

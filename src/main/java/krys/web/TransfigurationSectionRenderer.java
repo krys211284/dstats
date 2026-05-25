@@ -3,7 +3,6 @@ package krys.web;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ItemImportEditableForm;
 import krys.transfiguration.HoradricTransfigurationOutcome;
-import krys.transfiguration.HoradricTuningPrism;
 import krys.transfiguration.ItemTransfiguration;
 import krys.transfiguration.TransfigurationAffixCatalog;
 import krys.transfiguration.TransfigurationAffixDefinition;
@@ -20,7 +19,6 @@ final class TransfigurationSectionRenderer {
 
     static String renderEditor(ItemImportEditableForm form) {
         ItemTransfiguration transfiguration = form.getTransfiguration();
-        boolean lockedSelected = transfiguration.isLockedAfterTransfiguration();
         boolean active = transfiguration.isTransfigured();
         return """
                 <section class="subpanel transfiguration-section" data-transfiguration-section>
@@ -41,19 +39,6 @@ final class TransfigurationSectionRenderer {
                                 %s
                             </select>
                         </label>
-                        <label>
-                            Pryzmat dostrojenia
-                            <select name="transfigurationTuningPrism">
-                                %s
-                            </select>
-                        </label>
-                        <label>
-                            Niemodyfikowalny po przeistoczeniu
-                            <select name="transfigurationLockedAfter">
-                                <option value="true"%s>Tak</option>
-                                <option value="false"%s>Nie</option>
-                            </select>
-                        </label>
                     </div>
                     %s
                     <p class="helper" data-transfiguration-runtime%s>Przeistoczenie jest w tym etapie danymi itemu i prezentacją. Runtime nieaktywny.</p>
@@ -63,9 +48,6 @@ final class TransfigurationSectionRenderer {
                 active ? " hidden" : "",
                 active ? "" : " hidden",
                 outcomeOptions(transfiguration),
-                prismOptions(transfiguration),
-                lockedSelected ? " selected" : "",
-                !lockedSelected ? " selected" : "",
                 renderOutcomeFields(transfiguration, form.getAffixes()),
                 active ? "" : " hidden"
         );
@@ -80,12 +62,10 @@ final class TransfigurationSectionRenderer {
                     <h5>Przeistoczenie / Kostka Horadrimów</h5>
                     <ul class="item-read-lines">
                         <li>%s</li>
-                        <li>%s</li>
                     </ul>
                 </section>
                 """.formatted(
-                escape(TransfigurationPresentationSupport.compactSummary(transfiguration, affixes)),
-                escape(TransfigurationPresentationSupport.lockStatus(transfiguration))
+                escape(TransfigurationPresentationSupport.compactSummary(transfiguration, affixes))
         );
     }
 
@@ -108,25 +88,10 @@ final class TransfigurationSectionRenderer {
         return html.toString();
     }
 
-    private static String prismOptions(ItemTransfiguration transfiguration) {
-        HoradricTuningPrism selected = transfiguration == null ? HoradricTuningPrism.NONE : transfiguration.getTuningPrism();
-        StringBuilder html = new StringBuilder();
-        for (HoradricTuningPrism prism : HoradricTuningPrism.values()) {
-            html.append(option(prism.name(), prism.getDisplayName(), prism == selected));
-        }
-        return html.toString();
-    }
-
     private static String renderOutcomeFields(ItemTransfiguration transfiguration, List<ImportedItemAffix> affixes) {
         boolean active = transfiguration.isTransfigured();
         HoradricTransfigurationOutcome selected = transfiguration.getOutcome();
-        StringBuilder html = new StringBuilder("<div data-transfiguration-outcome-fields");
-        if (!active || selected == HoradricTransfigurationOutcome.NONE
-                || selected == HoradricTransfigurationOutcome.UNKNOWN
-                || selected == HoradricTransfigurationOutcome.INDESTRUCTIBLE) {
-            html.append(" hidden");
-        }
-        html.append(">");
+        StringBuilder html = new StringBuilder();
         html.append(outcomeGroup(
                 HoradricTransfigurationOutcome.UPGRADE_TO_GREATER_AFFIX,
                 upgradedAffixField(transfiguration, affixes),
@@ -145,13 +110,12 @@ final class TransfigurationSectionRenderer {
                 HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY,
                 bonusQualityField(transfiguration),
                 active && selected == HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY));
-        html.append("</div>");
         return html.toString();
     }
 
     private static String outcomeGroup(HoradricTransfigurationOutcome outcome, String content, boolean visible) {
         return """
-                <div class="transfiguration-grid transfiguration-dynamic-grid" data-transfiguration-field data-transfiguration-outcome="%s"%s>
+                <div class="transfiguration-grid transfiguration-dynamic-grid" data-transfiguration-field data-transfiguration-outcome-fields data-transfiguration-outcome="%s"%s>
                     %s
                 </div>
                 """.formatted(outcome.name(), visible ? "" : " hidden", content);
@@ -277,19 +241,15 @@ final class TransfigurationSectionRenderer {
                         const activeFields = section.querySelector('[data-transfiguration-active-fields]');
                         const emptyMessage = section.querySelector('[data-transfiguration-empty]');
                         const runtimeMessage = section.querySelector('[data-transfiguration-runtime]');
-                        const outcomeFields = section.querySelector('[data-transfiguration-outcome-fields]');
                         if (!state) return;
                         const transfigured = state.value === 'TRANSFIGURED';
                         if (activeFields) activeFields.hidden = !transfigured;
                         if (emptyMessage) emptyMessage.hidden = transfigured;
                         if (runtimeMessage) runtimeMessage.hidden = !transfigured;
-                        let hasVisibleOutcome = false;
-                        section.querySelectorAll('[data-transfiguration-outcome]').forEach(group => {
+                        section.querySelectorAll('[data-transfiguration-outcome-fields]').forEach(group => {
                             const visible = transfigured && outcome && group.dataset.transfigurationOutcome === outcome.value;
                             group.hidden = !visible;
-                            hasVisibleOutcome = hasVisibleOutcome || visible;
                         });
-                        if (outcomeFields) outcomeFields.hidden = !hasVisibleOutcome;
                         refreshElementField(section, 'transfigurationAdded');
                         refreshElementField(section, 'transfigurationReplacement');
                     };

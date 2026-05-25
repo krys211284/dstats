@@ -6,22 +6,27 @@ import javax.imageio.stream.ImageInputStream;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
 /** Wstępny analizator obrazu pojedynczego itemu z jawnie ręcznym potwierdzeniem użytkownika. */
 public final class ItemImageImportService {
+    public static final int MAX_SCREENSHOT_COUNT = 5;
+
     private final ItemImageOcrPreprocessor ocrPreprocessor;
     private final ItemImageOcrTextReader ocrTextReader;
     private final ItemImageImportTextParser textParser;
     private final ItemImageImportCandidateMerger candidateMerger;
+    private final ItemScreenshotTextMerger textMerger;
 
     public ItemImageImportService() {
         this(
                 new ItemImageOcrPreprocessor(),
                 new WindowsItemOcrTextReader(),
                 new ItemImageImportTextParser(),
-                new ItemImageImportCandidateMerger()
+                new ItemImageImportCandidateMerger(),
+                new ItemScreenshotTextMerger()
         );
     }
 
@@ -29,10 +34,19 @@ public final class ItemImageImportService {
                            ItemImageOcrTextReader ocrTextReader,
                            ItemImageImportTextParser textParser,
                            ItemImageImportCandidateMerger candidateMerger) {
+        this(ocrPreprocessor, ocrTextReader, textParser, candidateMerger, new ItemScreenshotTextMerger());
+    }
+
+    ItemImageImportService(ItemImageOcrPreprocessor ocrPreprocessor,
+                           ItemImageOcrTextReader ocrTextReader,
+                           ItemImageImportTextParser textParser,
+                           ItemImageImportCandidateMerger candidateMerger,
+                           ItemScreenshotTextMerger textMerger) {
         this.ocrPreprocessor = ocrPreprocessor;
         this.ocrTextReader = ocrTextReader;
         this.textParser = textParser;
         this.candidateMerger = candidateMerger;
+        this.textMerger = textMerger;
     }
 
     public ItemImageImportCandidateParseResult analyze(ItemImageImportRequest request) {
@@ -59,6 +73,62 @@ public final class ItemImageImportService {
         );
     }
 
+    public ItemImageImportCandidateParseResult analyze(List<ItemImageImportRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
+            throw new IllegalArgumentException("Wgraj screenshot pojedynczego itemu.");
+        }
+        if (requests.size() > MAX_SCREENSHOT_COUNT) {
+            throw new IllegalArgumentException("Można przesłać maksymalnie 5 screenów jednego itemu.");
+        }
+        if (requests.size() == 1) {
+            return analyze(requests.getFirst());
+        }
+
+        List<String> ocrTexts = new ArrayList<>();
+        int analyzedVariantCount = 0;
+        int totalHeight = 0;
+        int maxWidth = 0;
+        StringBuilder fileNames = new StringBuilder();
+        String contentType = requests.getFirst().getContentType();
+        for (ItemImageImportRequest request : requests) {
+            BufferedImage image = readImage(request.getImageBytes());
+            totalHeight += image.getHeight();
+            maxWidth = Math.max(maxWidth, image.getWidth());
+            if (!fileNames.isEmpty()) {
+                fileNames.append(", ");
+            }
+            fileNames.append(request.getOriginalFilename());
+
+            var variants = ocrPreprocessor.prepareVariants(image);
+            analyzedVariantCount += variants.size();
+            var textVariants = ocrTextReader.readTextVariants(variants);
+            ocrTexts.add(selectBestTextVariant(textVariants));
+        }
+
+        ItemImageMetadata metadata = new ItemImageMetadata(
+                fileNames.toString(),
+                contentType,
+                "MULTI",
+                maxWidth,
+                totalHeight
+        );
+        String mergedText = textMerger.merge(ocrTexts);
+        ItemImageImportCandidateParseResult parsed = textParser.parse(metadata, mergedText);
+        return new ItemImageImportCandidateParseResult(
+                metadata,
+                parsed.getFullItemRead(),
+                parsed.getSlotCandidate(),
+                parsed.getWeaponDamageCandidate(),
+                parsed.getStrengthCandidate(),
+                parsed.getIntelligenceCandidate(),
+                parsed.getThornsCandidate(),
+                parsed.getBlockChanceCandidate(),
+                parsed.getRetributionChanceCandidate(),
+                "Import wieloscreenowy: " + requests.size() + " obrazów zostanie scalonych jako jeden item. "
+                        + "OCR analizował " + analyzedVariantCount + " wariantów obrazu. Wynik nadal wymaga ręcznego potwierdzenia użytkownika."
+        );
+    }
+
     private static BufferedImage readImage(byte[] imageBytes) {
         try {
             BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageBytes));
@@ -81,5 +151,34 @@ public final class ItemImageImportService {
         } catch (IOException exception) {
             return "UNKNOWN";
         }
+    }
+
+    private static String selectBestTextVariant(List<ItemImageOcrTextVariant> variants) {
+        if (variants == null || variants.isEmpty()) {
+            return "";
+        }
+        ItemImageOcrTextVariant best = variants.getFirst();
+        int bestScore = textVariantScore(best.getText());
+        for (ItemImageOcrTextVariant variant : variants) {
+            int score = textVariantScore(variant.getText());
+            if (score > bestScore) {
+                best = variant;
+                bestScore = score;
+            }
+        }
+        return best.getText();
+    }
+
+    private static int textVariantScore(String text) {
+        if (text == null || text.isBlank()) {
+            return 0;
+        }
+        int nonBlankLines = 0;
+        for (String line : text.split("\\R")) {
+            if (!line.trim().isBlank()) {
+                nonBlankLines++;
+            }
+        }
+        return nonBlankLines * 1000 + text.length();
     }
 }
