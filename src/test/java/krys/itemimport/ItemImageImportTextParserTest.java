@@ -354,6 +354,8 @@ class ItemImageImportTextParserTest {
         assertTrue(form.isAncient());
         assertEquals("900", form.getItemPower());
         assertEquals("1202", form.getItemArmor());
+        assertEquals(1, countFullReadLines(result, FullItemReadLineType.IMPLICIT, "20,0% szansy na blok [20,0]%"));
+        assertEquals(1, countFullReadLines(result, FullItemReadLineType.IMPLICIT, "+100% obrażeń od broni w głównej ręce [100]%"));
         assertEquals(25, form.getMasterworking().getQualityCurrent());
         assertEquals(25, form.getMasterworking().getQualityMax());
         assertEquals("defense_max_animus", form.getMasterworking().getPerfectedAffix().getKey());
@@ -403,6 +405,92 @@ class ItemImageImportTextParserTest {
         assertTrue(transfigurationSection.contains("selected>Wartość widoczna w grze</option>"));
         assertFalse(transfigurationSection.contains("Pryzmat dostrojenia"));
         assertFalse(transfigurationSection.contains("Niemodyfikowalny po przeistoczeniu"));
+    }
+
+    @Test
+    void shouldRecognizeQuality25OcrVariants() {
+        for (String qualityLine : List.of(
+                "25 (+25) jakości",
+                "25 (+ 25) jakości",
+                "25 (* +25) jakości",
+                "25 (x +25) jakości",
+                "25 (✦ +25) jakości",
+                "25 (◆ +25) jakości"
+        )) {
+            ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                    Miażdżąca Tarcza Kościanych Łusek
+                    Starożytna legendarna tarcza
+                    Moc przedmiotu: 900
+                    %s
+                    1 502 pkt. pancerza
+                    +270 siły
+                    +588 do odporności na wszystkie żywioły
+                    +945 do odporności na: Ogień
+                    14,3%% redukcji obrażeń [11,0 - 15,0]%%
+                    """.formatted(qualityLine));
+            ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+            assertEquals(25, form.getMasterworking().getQualityCurrent(), qualityLine);
+            assertEquals("1202", form.getItemArmor(), qualityLine);
+            assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.STRENGTH, 225.0d, true);
+            assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.ALL_RESISTANCE, 490.0d, true);
+            assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.FIRE_RESISTANCE, 787.0d, true);
+            assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.DAMAGE_REDUCTION, 11.4d, false);
+        }
+    }
+
+    @Test
+    void shouldDropNoisyExtraAffixCandidatesFromRealTransfiguredShieldContext() {
+        String mergedText = new ItemScreenshotTextMerger().merge(List.of(
+                """
+                        Miażdżąca Tarcza Kościanych Łusek
+                        Starożytna legendarna tarcza
+                        Moc przedmiotu: 900
+                        25 (+25) jakości
+                        Przeistoczony
+                        1 502 pkt. pancerza
+                        20,0% szansy na blok [20,0]%
+                        +100% obrażeń od broni w głównej ręce [100]%
+                        +270 siły
+                        +588 do odporności na wszystkie żywioły
+                        +945 do odporności na: Ogień
+                        14,3% redukcji obrażeń [11,0 - 15,0]%
+                        """,
+                """
+                        20,0% szansy na blok [20,010]%
+                        +100% obrażeń od broni w głównej ręce [1001
+                        +388 do odporności na wszystkie żywioły
+                        +943 do odporności na: Ogień
+                        1181,3% redukcji obrażeń
+                        +1001 siły
+                        +96 pkt. do wszystkich współczynników [+75 - 100]
+                        +12 do maksymalnej liczby kumulacji Animuszu
+                        Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.
+                        Brak możliwości modyfikacji
+                        """
+        ));
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, mergedText);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(2, result.getFullItemRead().getLines().stream()
+                .filter(line -> line.getType() == FullItemReadLineType.IMPLICIT)
+                .count());
+        assertEquals(1, countFullReadLines(result, FullItemReadLineType.IMPLICIT, "20,0% szansy na blok [20,0]%"));
+        assertEquals(1, countFullReadLines(result, FullItemReadLineType.IMPLICIT, "+100% obrażeń od broni w głównej ręce [100]%"));
+        assertEquals(4, form.getAffixes().size());
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.STRENGTH, 225.0d, true);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.ALL_RESISTANCE, 490.0d, true);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.FIRE_RESISTANCE, 787.0d, true);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.DAMAGE_REDUCTION, 11.4d, false);
+        assertTrue(form.getAffixes().stream()
+                .noneMatch(affix -> affix.getType() == ImportedItemAffixType.WEAPON_DAMAGE_FLAT
+                        || affix.getValue() == 1001.0d
+                        || affix.getValue() == 324.0d
+                        || affix.getValue() == 786.0d
+                        || affix.getValue() == 945.0d));
+        assertEquals("ALL_STATS", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(96.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue());
+        assertEquals("defense_max_animus", form.getMasterworking().getPerfectedAffix().getKey());
     }
 
     @Test
@@ -812,6 +900,16 @@ class ItemImageImportTextParserTest {
                         .map(FullItemReadLine::getText)
                         .anyMatch(expectedText::equals),
                 "Brak znormalizowanej linii: " + expectedText);
+    }
+
+    private static long countFullReadLines(ItemImageImportCandidateParseResult result,
+                                           FullItemReadLineType type,
+                                           String expectedText) {
+        return result.getFullItemRead().getLines().stream()
+                .filter(line -> line.getType() == type)
+                .map(FullItemReadLine::getText)
+                .filter(expectedText::equals)
+                .count();
     }
 
     static String verathielRawText() {

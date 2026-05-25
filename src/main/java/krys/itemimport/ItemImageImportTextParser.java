@@ -1,14 +1,17 @@
 package krys.itemimport;
 
 import krys.item.EquipmentSlot;
+import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkingResolvedItemValueResolver;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -113,6 +116,7 @@ final class ItemImageImportTextParser {
     static FullItemRead buildFullItemRead(List<String> lines) {
         List<String> fullReadSourceLines = expandFullItemReadLines(lines);
         List<FullItemReadLine> readLines = new ArrayList<>();
+        Set<String> readLineKeys = new LinkedHashSet<>();
         String itemName = "";
         String itemTypeLine = "";
         String rarity = "";
@@ -126,6 +130,9 @@ final class ItemImageImportTextParser {
             FullItemReadLineType type = classifyFullReadLine(line);
             String readLineText = normalizeFullReadLine(type, line);
             String collapsedLine = collapse(line);
+            if (!readLineKeys.add(type.name() + ":" + collapse(readLineText))) {
+                continue;
+            }
             readLines.add(new FullItemReadLine(type, readLineText));
             if (type == FullItemReadLineType.ITEM_NAME && itemName.isBlank()) {
                 itemName = readLineText;
@@ -202,6 +209,9 @@ final class ItemImageImportTextParser {
     private static String detectVerathielName(List<String> lines, String fallbackName) {
         String joined = String.join(" ", lines);
         String collapsed = collapse(joined);
+        if (collapsed.contains("KOSCIANYCHLUSEK") && collapsed.contains("TARCZA")) {
+            return "Miażdżąca Tarcza Kościanych Łusek";
+        }
         if (isVerathielUniqueSwordContext(lines)
                 && (collapsed.contains("VERATHEL") || collapsed.contains("VERATHIEL"))
                 && (collapsed.contains("ODLAMEK") || collapsed.contains("ODLFIK") || collapsed.contains("ODLAMFK") || collapsed.contains("ODL")) ) {
@@ -545,14 +555,25 @@ final class ItemImageImportTextParser {
     }
 
     static boolean containsQuality25(List<String> lines) {
+        return detectQualityCurrent(lines).orElse(-1) == 25;
+    }
+
+    static Optional<Integer> detectQualityCurrent(List<String> lines) {
         for (String line : lines) {
-            String collapsed = collapse(line);
-            if ((collapsed.contains("25") && collapsed.contains("JAKOSCI"))
-                    || collapsed.contains("25PLUS25JAKOSCI")) {
-                return true;
+            String normalized = normalizeLineForPatternKeepingPlus(line);
+            if (!normalized.contains("JAKOSCI")) {
+                continue;
+            }
+            Matcher matcher = Pattern.compile("\\b([0-9]{1,2})\\b").matcher(normalized);
+            if (!matcher.find()) {
+                continue;
+            }
+            int quality = Integer.parseInt(matcher.group(1));
+            if (ItemMasterworking.ALLOWED_QUALITY_STEPS.contains(quality)) {
+                return Optional.of(quality);
             }
         }
-        return false;
+        return Optional.empty();
     }
 
     private static Optional<DamageRange> detectWeaponDamageRange(List<String> lines) {

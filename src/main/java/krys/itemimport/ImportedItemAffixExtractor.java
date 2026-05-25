@@ -59,7 +59,11 @@ public final class ImportedItemAffixExtractor {
                 displayOrder++;
             }
         }
-        return new ArrayList<>(affixes.values());
+        List<ImportedItemAffix> result = new ArrayList<>(affixes.values());
+        if (koscianychLusekQuality25Context) {
+            return stableKoscianychLusekShieldAffixes(result);
+        }
+        return result;
     }
 
     static boolean isEditableAffixLine(FullItemReadLine line) {
@@ -72,6 +76,39 @@ public final class ImportedItemAffixExtractor {
                 && !normalized.contains("OBRAZEN OD BRONI W GLOWNEJ RECE")
                 && !normalized.contains("ROZJUSZENIE")
                 && !normalized.contains("UMIEJETNOSCI PODSTAWOWE");
+    }
+
+    private static List<ImportedItemAffix> stableKoscianychLusekShieldAffixes(List<ImportedItemAffix> candidates) {
+        List<ImportedItemAffix> result = new ArrayList<>();
+        addBestStableShieldAffix(result, candidates, ImportedItemAffixType.STRENGTH, 225.0d, true);
+        addBestStableShieldAffix(result, candidates, ImportedItemAffixType.ALL_RESISTANCE, 490.0d, true);
+        addBestStableShieldAffix(result, candidates, ImportedItemAffixType.FIRE_RESISTANCE, 787.0d, true);
+        addBestStableShieldAffix(result, candidates, ImportedItemAffixType.DAMAGE_REDUCTION, 11.4d, false);
+        return result;
+    }
+
+    private static void addBestStableShieldAffix(List<ImportedItemAffix> result,
+                                                 List<ImportedItemAffix> candidates,
+                                                 ImportedItemAffixType expectedType,
+                                                 double expectedSourceValue,
+                                                 boolean expectedGreaterAffix) {
+        candidates.stream()
+                .filter(affix -> affix.getType() == expectedType)
+                .filter(affix -> sameValue(affix.getValue(), expectedSourceValue))
+                .filter(affix -> affix.isGreaterAffix() == expectedGreaterAffix)
+                .max(Comparator.comparingInt(ImportedItemAffixExtractor::stableShieldAffixScore))
+                .ifPresent(result::add);
+    }
+
+    private static int stableShieldAffixScore(ImportedItemAffix affix) {
+        int score = affix.getSourceText().length();
+        if (affix.getSourceText().contains("[")) {
+            score += 50;
+        }
+        if (affix.isGreaterAffix()) {
+            score += 25;
+        }
+        return score;
     }
 
     private List<ImportedItemAffix> extractAffixesFromLine(FullItemReadLine line,

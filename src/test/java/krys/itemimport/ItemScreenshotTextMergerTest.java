@@ -68,6 +68,25 @@ class ItemScreenshotTextMergerTest {
         }
     }
 
+    @Test
+    void shouldCanonicalizeNoisyShieldBaseLineDuplicates() {
+        String merged = merger.merge(List.of(
+                """
+                        20,0% szansy na blok [20,0]%
+                        +100% obrażeń od broni w głównej ręce [100]%
+                        """,
+                """
+                        20,0% szansy na blok [20,010]%
+                        +100% obrażeń od broni w głównej ręce [1001
+                        """
+        ));
+
+        assertTrue(merged.contains("20,0% szansy na blok [20,0]%"), merged);
+        assertTrue(merged.contains("+100% obrażeń od broni w głównej ręce [100]%"), merged);
+        assertFalse(merged.contains("[20,010]"), merged);
+        assertFalse(merged.contains("[1001"), merged);
+    }
+
     static String realShieldTopText() {
         return """
                 Miażdżąca Tarcza Kościanych Łusek

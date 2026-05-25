@@ -115,6 +115,84 @@ class ItemImageImportServiceTest {
     }
 
     @Test
+    void shouldMergeComplementaryOcrVariantsDuringMultiScreenImport() throws Exception {
+        byte[] imageBytes = buildShieldLikeScreenshot();
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new QueuedVariantOcrTextReader(List.of(
+                        Map.of(
+                                "original", """
+                                        Miażdżąca Tarcza Kościanych Łusek
+                                        Starożytna legendarna tarcza
+                                        25 (+25) jakości
+                                        20,0% szansy na blok [20,0]%
+                                        +100% obrażeń od broni w głównej ręce [100]%
+                                        """,
+                                "text-crop", """
+                                        Moc przedmiotu: 900
+                                        1 502 pkt. pancerza
+                                        +100% obrażeń od broni w głównej ręce [100]%
+                                        +270 siły
+                                        +588 do odporności na wszystkie żywioły
+                                        +945 do odporności na: Ogień
+                                        14,3% redukcji obrażeń [11,0 - 15,0]%
+                                        """,
+                                "text-crop-gray-x2-contrast", """
+                                        MIAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK Moc przedmiotu 900 25 (+25) jakości Przeistoczony +270 siły +588 do odporności na wszystkie żywioły +945 do odporności na: Ogień
+                                        +388 do odporności na wszystkie żywioły
+                                        +943 do odporności na: Ogień
+                                        1181,3% redukcji obrażeń
+                                        +1001 siły
+                                        """
+                        ),
+                        Map.of(
+                                "original", """
+                                        Przewiń do góry
+                                        +96 pkt. do wszystkich współczynników [+75 - 100]
+                                        +12 do maksymalnej liczby kumulacji Animuszu
+                                        Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.
+                                        Brak możliwości modyfikacji
+                                        """,
+                                "text-crop", """
+                                        +96 pkt. do wszystkich współczynników [+75 - 100]
+                                        +12 do maksymalnej liczby kumulacji Animuszu
+                                        """
+                        )
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(List.of(
+                new ItemImageImportRequest("tarcza1.png", "image/png", imageBytes),
+                new ItemImageImportRequest("tarcza2.png", "image/png", imageBytes)
+        ));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertTrue(result.getImportNotice().contains("Linie OCR przed merge:"));
+        assertTrue(result.getImportNotice().contains("Canonical source text used by parser:"));
+        assertTrue(result.getImportNotice().contains("Raw OCR variants debug:"));
+        assertTrue(result.getImportNotice().contains("25 (+25) jakości"));
+        String canonicalSource = canonicalSourceTextFromNotice(result.getImportNotice());
+        assertFalse(canonicalSource.contains("+388"), canonicalSource);
+        assertFalse(canonicalSource.contains("+943"), canonicalSource);
+        assertFalse(canonicalSource.contains("1181,3"), canonicalSource);
+        assertFalse(canonicalSource.contains("+1001"), canonicalSource);
+        assertEquals(1, countOccurrences(canonicalSource, "Miażdżąca Tarcza Kościanych Łusek"));
+        assertEquals("Miażdżąca Tarcza Kościanych Łusek", form.getItemName());
+        assertEquals(25, form.getMasterworking().getQualityCurrent());
+        assertEquals("defense_max_animus", form.getMasterworking().getPerfectedAffix().getKey());
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.STRENGTH, 225.0d, true);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.ALL_RESISTANCE, 490.0d, true);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.FIRE_RESISTANCE, 787.0d, true);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.DAMAGE_REDUCTION, 11.4d, false);
+        assertEquals(1, countFullReadLines(result, FullItemReadLineType.IMPLICIT, "20,0% szansy na blok [20,0]%"));
+        assertEquals(1, countFullReadLines(result, FullItemReadLineType.IMPLICIT, "+100% obrażeń od broni w głównej ręce [100]%"));
+        assertEquals("ALL_STATS", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(4, form.getAffixes().size());
+    }
+
+    @Test
     void shouldMergeFieldsAcrossPreparedVariantsWithoutChangingImportFlow() throws Exception {
         byte[] imageBytes = buildShieldLikeScreenshot();
         ItemImageImportService service = new ItemImageImportService(
@@ -607,6 +685,28 @@ class ItemImageImportServiceTest {
                 "Pełny odczyt itemu zawiera zakazany sklejony tekst: " + forbiddenText);
     }
 
+    private static void assertAffixValueAndGreaterFlag(ItemImportEditableForm form,
+                                                       ImportedItemAffixType expectedType,
+                                                       double expectedValue,
+                                                       boolean expectedGreaterAffix) {
+        ImportedItemAffix affix = form.getAffixes().stream()
+                .filter(candidate -> candidate.getType() == expectedType)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Brak affixu: " + expectedType.getDisplayName()));
+        assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
+        assertEquals(expectedGreaterAffix, affix.isGreaterAffix(), expectedType.getDisplayName());
+    }
+
+    private static long countFullReadLines(ItemImageImportCandidateParseResult result,
+                                           FullItemReadLineType type,
+                                           String expectedText) {
+        return result.getFullItemRead().getLines().stream()
+                .filter(line -> line.getType() == type)
+                .map(FullItemReadLine::getText)
+                .filter(expectedText::equals)
+                .count();
+    }
+
     private static int countOccurrences(String text, String expectedText) {
         int count = 0;
         int index = 0;
@@ -615,6 +715,17 @@ class ItemImageImportServiceTest {
             index += expectedText.length();
         }
         return count;
+    }
+
+    private static String canonicalSourceTextFromNotice(String notice) {
+        String marker = "Canonical source text used by parser:\n";
+        int start = notice.indexOf(marker);
+        if (start < 0) {
+            throw new AssertionError("Brak kanonicznego tekstu parsera w diagnostyce importu.");
+        }
+        start += marker.length();
+        int end = notice.indexOf("\nRaw OCR variants debug:", start);
+        return end < 0 ? notice.substring(start) : notice.substring(start, end);
     }
 
     private static int countCheckedGreaterAffixes(String html) {
@@ -836,6 +947,27 @@ class ItemImageImportServiceTest {
             callIndex++;
             return variants.stream()
                     .map(variant -> new ItemImageOcrTextVariant(variant.getVariantId(), text))
+                    .toList();
+        }
+    }
+
+    private static final class QueuedVariantOcrTextReader implements ItemImageOcrTextReader {
+        private final List<Map<String, String>> textsByCall;
+        private int callIndex;
+
+        private QueuedVariantOcrTextReader(List<Map<String, String>> textsByCall) {
+            this.textsByCall = List.copyOf(textsByCall);
+        }
+
+        @Override
+        public List<ItemImageOcrTextVariant> readTextVariants(List<ItemImageOcrVariant> variants) {
+            Map<String, String> current = callIndex < textsByCall.size() ? textsByCall.get(callIndex) : Map.of();
+            callIndex++;
+            return variants.stream()
+                    .map(variant -> new ItemImageOcrTextVariant(
+                            variant.getVariantId(),
+                            current.getOrDefault(variant.getVariantId(), "")
+                    ))
                     .toList();
         }
     }
