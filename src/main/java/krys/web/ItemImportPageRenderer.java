@@ -272,6 +272,9 @@ public final class ItemImportPageRenderer {
         if (fullItemRead == null || fullItemRead.getBaseItemValue().isBlank()) {
             return "";
         }
+        if (isArmorBaseValue(fullItemRead.getBaseItemValue())) {
+            return "";
+        }
         if (fullItemRead.getDetails().getWeaponDps() != null
                 || fullItemRead.getDetails().getWeaponDamageMin() != null
                 || fullItemRead.getDetails().getWeaponDamageMax() != null
@@ -286,7 +289,7 @@ public final class ItemImportPageRenderer {
             return "";
         }
         if (isShield(details)) {
-            return renderItemHeaderField("Pancerz", nullableLongLabel(details.getItemArmor()));
+            return "";
         }
         if (!isWeapon(details)) {
             return "";
@@ -421,6 +424,11 @@ public final class ItemImportPageRenderer {
             return "Bazowe obrażenia";
         }
         return "Bazowa wartość";
+    }
+
+    private static boolean isArmorBaseValue(String baseItemValue) {
+        String normalized = normalizeForDisplayRules(baseItemValue);
+        return normalized.contains("PANCERZ") || normalized.contains("ARMOR");
     }
 
     private static String simplifyBaseValue(String baseItemValue) {

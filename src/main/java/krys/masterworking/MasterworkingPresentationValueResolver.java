@@ -60,6 +60,10 @@ public final class MasterworkingPresentationValueResolver {
                     qualityNote(masterworking)
             );
         }
+        if (resolvedValueResolver.supportsAffix(affix)) {
+            double display = resolvedValueResolver.resolveAffixValue(affix, masterworking);
+            return numericAffix(type, affix.getValue(), display, false, masterworking);
+        }
         return unsupported(type.getDisplayName(), affix.getValueLabel(), NO_RULE_NOTE);
     }
 
@@ -125,6 +129,23 @@ public final class MasterworkingPresentationValueResolver {
         );
     }
 
+    private static MasterworkingPresentationValue numericAffix(ImportedItemAffixType type,
+                                                               double baseValue,
+                                                               double displayValue,
+                                                               boolean perfected,
+                                                               ItemMasterworking masterworking) {
+        String unit = percentAffix(type) ? "%" : "";
+        return new MasterworkingPresentationValue(
+                type.getDisplayName(),
+                formatSourceValue(baseValue) + unit,
+                formatDisplayValue(type, displayValue) + unit,
+                "",
+                true,
+                perfected,
+                qualityNote(masterworking)
+        );
+    }
+
     private static MasterworkingPresentationValue unsupported(String label, String baseValue, String note) {
         return new MasterworkingPresentationValue(label, baseValue, baseValue, "", false, false, note);
     }
@@ -151,5 +172,35 @@ public final class MasterworkingPresentationValueResolver {
                 .setScale(1, RoundingMode.HALF_UP)
                 .toPlainString()
                 .replace('.', ',');
+    }
+
+    private static String formatSourceValue(double value) {
+        BigDecimal decimal = BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros();
+        return decimal.toPlainString().replace('.', ',');
+    }
+
+    private static String formatDisplayValue(ImportedItemAffixType type, double value) {
+        if (integerAffixType(type)) {
+            return formatInteger(value);
+        }
+        return formatDecimalOne(value);
+    }
+
+    private static boolean integerAffixType(ImportedItemAffixType type) {
+        return switch (type) {
+            case STRENGTH, INTELLIGENCE, THORNS, ALL_RESISTANCE, FIRE_RESISTANCE, WEAPON_DAMAGE_FLAT,
+                 MAXIMUM_LIFE, LIFE_ON_HIT, LUCKY_HIT_PRIMARY_RESOURCE -> true;
+            case DAMAGE_REDUCTION, BLOCK_CHANCE, RETRIBUTION_CHANCE, CRITICAL_STRIKE_CHANCE, LUCKY_HIT_CHANCE,
+                 COOLDOWN_REDUCTION, MOVEMENT_SPEED, DODGE_CHANCE -> false;
+        };
+    }
+
+    private static boolean percentAffix(ImportedItemAffixType type) {
+        return switch (type) {
+            case DAMAGE_REDUCTION, BLOCK_CHANCE, RETRIBUTION_CHANCE, CRITICAL_STRIKE_CHANCE, LUCKY_HIT_CHANCE,
+                 COOLDOWN_REDUCTION, MOVEMENT_SPEED, DODGE_CHANCE -> true;
+            case STRENGTH, INTELLIGENCE, THORNS, ALL_RESISTANCE, FIRE_RESISTANCE, WEAPON_DAMAGE_FLAT,
+                 MAXIMUM_LIFE, LIFE_ON_HIT, LUCKY_HIT_PRIMARY_RESOURCE -> false;
+        };
     }
 }

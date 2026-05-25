@@ -285,6 +285,20 @@ class ItemImageImportServiceTest {
         assertTrue(html.contains("Tarcza Burzy Księżycowego Szału"));
         assertTrue(html.contains("Naznaczenie"));
         assertTrue(html.contains("name=\"transfigurationBonusQuality\" min=\"1\" max=\"15\" step=\"1\" value=\"4\""));
+        String stormFullReadHeader = itemReadHeaderByHeading(html, "Pełny odczyt widocznego itemu");
+        assertFalse(stormFullReadHeader.contains("<div class=\"summary-label\">Pancerz</div>"), stormFullReadHeader);
+        String stormShieldFields = fieldSetByLegend(html, "Dane tarczy");
+        assertTrue(stormShieldFields.contains("name=\"itemArmor\" value=\"1202\""), stormShieldFields);
+        assertTrue(stormShieldFields.contains("<span class=\"masterworking-value masterworking-value--upgraded\">1502</span>"), stormShieldFields);
+        assertFalse(html.contains("Doskonalenie: brak reguły prezentacyjnej dla tego affixu"));
+        assertTrue(html.contains("name=\"affixValue_0\" value=\"173.6\""));
+        assertTrue(html.contains("name=\"affixValue_1\" value=\"8.8\""));
+        assertTrue(html.contains("name=\"affixValue_2\" value=\"14.08\""));
+        assertTrue(html.contains("name=\"affixValue_3\" value=\"10.25\""));
+        assertTrue(html.contains(">217<"));
+        assertTrue(html.contains(">11,0%<"));
+        assertTrue(html.contains(">17,6%<"));
+        assertTrue(html.contains(">12,3%<"));
 
         ItemImportFormMapper.MappingResult mappingResult = new ItemImportFormMapper().map(form);
         assertTrue(mappingResult.getErrors().isEmpty(), () -> String.join(", ", mappingResult.getErrors()));
@@ -375,9 +389,11 @@ class ItemImageImportServiceTest {
         assertTrue(html.contains("Miażdżąca Tarcza Kościanych Łusek"));
         assertTrue(html.contains("LEGENDARY / Legendarny"));
         assertTrue(html.contains("name=\"itemPower\" value=\"900\""));
-        assertTrue(html.contains("name=\"itemArmor\" value=\"1202\""));
-        assertEquals(1, countOccurrences(html, "<div class=\"summary-label\">Pancerz</div>"));
+        String fullReadHeader = itemReadHeaderByHeading(html, "Pełny odczyt widocznego itemu");
+        assertFalse(fullReadHeader.contains("<div class=\"summary-label\">Pancerz</div>"), fullReadHeader);
         assertTrue(html.contains("Dane tarczy"));
+        String shieldFields = fieldSetByLegend(html, "Dane tarczy");
+        assertTrue(shieldFields.contains("name=\"itemArmor\" value=\"1202\""), shieldFields);
         assertTrue(html.contains("Linie bazowe"));
         assertFalse(html.contains("Linie bazowe / implicit"));
         assertFalse(html.contains("Linie bazowe / implicity"));
@@ -821,6 +837,32 @@ class ItemImageImportServiceTest {
             index += expectedText.length();
         }
         return count;
+    }
+
+    private static String itemReadHeaderByHeading(String html, String heading) {
+        int headingIndex = html.indexOf("<h3>" + heading + "</h3>");
+        if (headingIndex < 0) {
+            throw new AssertionError("Brak sekcji pełnego odczytu: " + heading);
+        }
+        int start = html.indexOf("<div class=\"item-read-header\">", headingIndex);
+        int end = html.indexOf("<div class=\"item-read-groups\">", headingIndex);
+        if (start < 0 || end < 0 || end <= start) {
+            throw new AssertionError("Nie udało się wyciąć nagłówka pełnego odczytu: " + heading);
+        }
+        return html.substring(start, end);
+    }
+
+    private static String fieldSetByLegend(String html, String legend) {
+        int legendIndex = html.indexOf("<legend>" + legend + "</legend>");
+        if (legendIndex < 0) {
+            throw new AssertionError("Brak fieldsetu: " + legend);
+        }
+        int start = html.lastIndexOf("<fieldset", legendIndex);
+        int end = html.indexOf("</fieldset>", legendIndex);
+        if (start < 0 || end < 0) {
+            throw new AssertionError("Nie udało się wyciąć fieldsetu: " + legend);
+        }
+        return html.substring(start, end + "</fieldset>".length());
     }
 
     private static int countCheckedGreaterAffixes(String html) {

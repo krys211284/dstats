@@ -26,6 +26,16 @@ class MasterworkingResolvedItemValueResolverTest {
     }
 
     @Test
+    void shouldResolveGenericNumericAffixesAtQualityTwentyFive() {
+        ItemMasterworking masterworking = new ItemMasterworking(25, 25);
+
+        assertEquals(217.0d, resolver.resolveAffixValue(affix(ImportedItemAffixType.STRENGTH, 173.6d, false), masterworking), 0.0000001d);
+        assertEquals(11.0d, resolver.resolveAffixValue(affix(ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 8.8d, false), masterworking), 0.0000001d);
+        assertEquals(17.6d, resolver.resolveAffixValue(affix(ImportedItemAffixType.DAMAGE_REDUCTION, 14.08d, false), masterworking), 0.0000001d);
+        assertEquals(12.3d, resolver.resolveAffixValue(greaterAffix(ImportedItemAffixType.COOLDOWN_REDUCTION, 10.25d), masterworking), 0.0000001d);
+    }
+
+    @Test
     void shouldResolveReferenceShieldValuesAtQualityTwentyFiveWithPerfectedMaxAnimus() {
         ItemMasterworking masterworking = new ItemMasterworking(25, 25,
                 MasterworkedAffixSelection.temperingAffix("defense_max_animus"));

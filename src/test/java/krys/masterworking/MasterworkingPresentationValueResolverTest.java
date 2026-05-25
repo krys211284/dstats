@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 class MasterworkingPresentationValueResolverTest {
     private final MasterworkingPresentationValueResolver resolver = new MasterworkingPresentationValueResolver();
@@ -103,6 +104,16 @@ class MasterworkingPresentationValueResolverTest {
     }
 
     @Test
+    void shouldResolveGenericNumericAffixesWithoutUnsupportedNote() {
+        ItemMasterworking masterworking = new ItemMasterworking(25, 25);
+
+        assertPresentation(ImportedItemAffixType.STRENGTH, 173.6d, false, "217");
+        assertPresentation(ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 8.8d, false, "11,0%");
+        assertPresentation(ImportedItemAffixType.DAMAGE_REDUCTION, 14.08d, false, "17,6%");
+        assertPresentation(ImportedItemAffixType.COOLDOWN_REDUCTION, 10.25d, true, "12,3%");
+    }
+
+    @Test
     void shouldResolveMaxAnimusTemperingGoldenValues() {
         ItemTemperingAffix affix = maxAnimusTempering();
         for (int quality : new int[]{0, 3, 6, 9, 12, 15, 17, 20, 21}) {
@@ -134,6 +145,17 @@ class MasterworkingPresentationValueResolverTest {
         ImportedItemAffix affix = greaterAffix(type, storedValue);
         expected.forEach((quality, value) -> assertEquals(value,
                 resolver.resolveAffix(affix, ItemMasterworking.quality(quality)).getDisplayValueLabel()));
+    }
+
+    private void assertPresentation(ImportedItemAffixType type, double sourceValue, boolean greaterAffix, String expectedDisplay) {
+        MasterworkingPresentationValue value = resolver.resolveAffix(
+                new ImportedItemAffix(type, sourceValue, "", greaterAffix, 0, type.getDisplayName(), ImportedItemAffixSource.OCR),
+                new ItemMasterworking(25, 25)
+        );
+
+        assertEquals(expectedDisplay, value.getDisplayValueLabel(), type.getDisplayName());
+        assertNotEquals(MasterworkingPresentationValueResolver.NO_RULE_NOTE, value.getNote(), type.getDisplayName());
+        assertEquals(true, value.isSupported(), type.getDisplayName());
     }
 
     private static ImportedItemAffix greaterAffix(ImportedItemAffixType type, double value) {

@@ -9,6 +9,12 @@ import krys.item.ItemStatType;
 import krys.item.EquipmentSlot;
 import krys.item.HeroEquipmentSlot;
 import krys.itemimport.CurrentBuildImportableStats;
+import krys.itemimport.ImportedItemAffix;
+import krys.itemimport.ImportedItemAffixSource;
+import krys.itemimport.ImportedItemAffixType;
+import krys.itemimport.ItemImportDetails;
+import krys.itemimport.ValidatedImportedItem;
+import krys.masterworking.ItemMasterworking;
 import krys.simulation.HeroBuildSnapshot;
 import krys.skill.SkillId;
 import krys.skill.SkillState;
@@ -128,5 +134,43 @@ class ItemLibraryCurrentBuildPipelineTest {
         assertEquals(494.0d, Item.sumStat(snapshot.getEquippedItems(), ItemStatType.THORNS), 0.0000001d);
         assertEquals(20.0d, Item.sumStat(snapshot.getEquippedItems(), ItemStatType.BLOCK_CHANCE), 0.0000001d);
         assertEquals(25.0d, Item.sumStat(snapshot.getEquippedItems(), ItemStatType.RETRIBUTION_CHANCE), 0.0000001d);
+    }
+
+    @Test
+    void shouldUseResolvedMasterworkedStrengthForEffectiveStats() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-library-masterworked-strength");
+        ItemLibraryService service = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+        SavedImportedItem offHand = service.saveImportedItem(new ValidatedImportedItem(
+                "storm-shield.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                173.6d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                List.of(new ImportedItemAffix(
+                        ImportedItemAffixType.STRENGTH,
+                        173.6d,
+                        "",
+                        false,
+                        0,
+                        "+217 siły",
+                        ImportedItemAffixSource.OCR
+                )),
+                "",
+                ItemImportDetails.empty(),
+                List.of(),
+                new ItemMasterworking(25, 25)
+        ));
+        HeroItemSelection selection = HeroItemSelection.empty()
+                .withSelectedItem(HeroEquipmentSlot.OFF_HAND, offHand.getItemId());
+
+        EffectiveCurrentBuildResolution resolution = service.resolveEffectiveCurrentBuild(
+                new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d),
+                selection
+        );
+
+        assertEquals(217.0d, resolution.getEffectiveStats().getStrength(), 0.0000001d);
     }
 }

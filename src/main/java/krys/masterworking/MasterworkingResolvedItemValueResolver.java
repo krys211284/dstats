@@ -42,6 +42,12 @@ public final class MasterworkingResolvedItemValueResolver {
         if (type == ImportedItemAffixType.DAMAGE_REDUCTION) {
             return resolveDamageReduction(affix.getValue(), quality);
         }
+        if (supportsGenericNumericAffix(type)) {
+            if (affix.isGreaterAffix()) {
+                return resolveGenericGreaterAffix(type, affix.getValue(), quality);
+            }
+            return resolveGenericNonGreaterAffix(type, affix.getValue(), quality);
+        }
         return affix.getValue();
     }
 
@@ -52,7 +58,8 @@ public final class MasterworkingResolvedItemValueResolver {
         return (affix.getType() == ImportedItemAffixType.STRENGTH && affix.isGreaterAffix())
                 || (affix.getType() == ImportedItemAffixType.ALL_RESISTANCE && affix.isGreaterAffix())
                 || (affix.getType() == ImportedItemAffixType.FIRE_RESISTANCE && affix.isGreaterAffix())
-                || affix.getType() == ImportedItemAffixType.DAMAGE_REDUCTION;
+                || affix.getType() == ImportedItemAffixType.DAMAGE_REDUCTION
+                || supportsGenericNumericAffix(affix.getType());
     }
 
     public double resolveTemperingValue(ItemTemperingAffix affix, ItemMasterworking masterworking) {
@@ -87,6 +94,23 @@ public final class MasterworkingResolvedItemValueResolver {
     public double resolveDamageReduction(double baseValue, int qualityCurrent) {
         double raw = baseValue * (1.0d + qualityCurrent / 100.0d);
         return Math.ceil(raw * 10.0d - 0.000000001d) / 10.0d;
+    }
+
+    public double resolveGenericNonGreaterAffix(ImportedItemAffixType type, double sourceValue, int qualityCurrent) {
+        if (qualityCurrent <= ItemMasterworking.DEFAULT_QUALITY_CURRENT) {
+            return sourceValue;
+        }
+        double raw = sourceValue * (1.0d + qualityCurrent / 100.0d);
+        return roundForAffixType(type, raw);
+    }
+
+    public double resolveGenericGreaterAffix(ImportedItemAffixType type, double storedGreaterAffixValue, int qualityCurrent) {
+        if (qualityCurrent <= ItemMasterworking.DEFAULT_QUALITY_CURRENT) {
+            return storedGreaterAffixValue;
+        }
+        double normalMax = storedGreaterAffixValue / 1.25d;
+        double raw = normalMax * (1.25d + qualityCurrent / 100.0d);
+        return roundForAffixType(type, raw);
     }
 
     public int resolveMaxAnimusTempering(ItemTemperingAffix affix, ItemMasterworking masterworking) {
@@ -128,5 +152,30 @@ public final class MasterworkingResolvedItemValueResolver {
 
     private static int roundHalfUp(double value) {
         return BigDecimal.valueOf(value).setScale(0, RoundingMode.HALF_UP).intValueExact();
+    }
+
+    private static double roundForAffixType(ImportedItemAffixType type, double value) {
+        if (integerLikeAffix(type)) {
+            return BigDecimal.valueOf(value).setScale(0, RoundingMode.HALF_UP).doubleValue();
+        }
+        return BigDecimal.valueOf(value).setScale(1, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    private static boolean integerLikeAffix(ImportedItemAffixType type) {
+        return switch (type) {
+            case STRENGTH, INTELLIGENCE, THORNS, ALL_RESISTANCE, FIRE_RESISTANCE, WEAPON_DAMAGE_FLAT,
+                 MAXIMUM_LIFE, LIFE_ON_HIT, LUCKY_HIT_PRIMARY_RESOURCE -> true;
+            case DAMAGE_REDUCTION, BLOCK_CHANCE, RETRIBUTION_CHANCE, CRITICAL_STRIKE_CHANCE, LUCKY_HIT_CHANCE,
+                 COOLDOWN_REDUCTION, MOVEMENT_SPEED, DODGE_CHANCE -> false;
+        };
+    }
+
+    private static boolean supportsGenericNumericAffix(ImportedItemAffixType type) {
+        return switch (type) {
+            case STRENGTH, INTELLIGENCE, THORNS, BLOCK_CHANCE, RETRIBUTION_CHANCE, CRITICAL_STRIKE_CHANCE,
+                 LUCKY_HIT_CHANCE, WEAPON_DAMAGE_FLAT, MAXIMUM_LIFE, LIFE_ON_HIT, LUCKY_HIT_PRIMARY_RESOURCE,
+                 COOLDOWN_REDUCTION, MOVEMENT_SPEED, DODGE_CHANCE -> true;
+            case ALL_RESISTANCE, FIRE_RESISTANCE, DAMAGE_REDUCTION -> false;
+        };
     }
 }

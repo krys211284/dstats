@@ -296,8 +296,8 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("<div class=\"summary-value\">Starożytna legendarna</div>"));
         assertTrue(response.body().contains("<div class=\"summary-label\">Moc przedmiotu</div>"));
         assertTrue(response.body().contains("<div class=\"summary-value\">800</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-label\">Pancerz</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-value\">1 131</div>"));
+        String fullReadHeader = itemReadHeaderByHeading(response.body(), "Pełny odczyt zapisany w bibliotece");
+        assertFalse(fullReadHeader.contains("<div class=\"summary-label\">Pancerz</div>"), fullReadHeader);
         assertTrue(response.body().contains("Pełny zapis itemu"));
         assertTrue(response.body().contains("Linie bazowe"));
         assertTrue(response.body().contains("45% redukcji blokowanych obrażeń [45]%"));
@@ -602,5 +602,18 @@ class ItemImportWebServerTest {
 
     private static String encode(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private static String itemReadHeaderByHeading(String html, String heading) {
+        int headingIndex = html.indexOf("<h3>" + heading + "</h3>");
+        if (headingIndex < 0) {
+            throw new AssertionError("Brak sekcji pełnego odczytu: " + heading);
+        }
+        int start = html.indexOf("<div class=\"item-read-header\">", headingIndex);
+        int end = html.indexOf("<div class=\"item-read-groups\">", headingIndex);
+        if (start < 0 || end < 0 || end <= start) {
+            throw new AssertionError("Nie udało się wyciąć nagłówka pełnego odczytu: " + heading);
+        }
+        return html.substring(start, end);
     }
 }
