@@ -494,6 +494,53 @@ class ItemImageImportTextParserTest {
     }
 
     @Test
+    void shouldReadAllStatsTransfigurationValueFromLocalPhraseNotDamageReductionPrefix() {
+        String mergedText = new ItemScreenshotTextMerger().merge(List.of(
+                """
+                        Miażdżąca Tarcza Kościanych Łusek
+                        Starożytna legendarna tarcza
+                        Moc przedmiotu: 900
+                        25 (+25) jakości
+                        Przeistoczony
+                        14,3% redukcji obrażeń [11,0 - 15,0]% +96 pkt. do wszystkich współczynników [+75 - 100]
+                        """
+        ));
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, mergedText);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals("ALL_STATS", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(96.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue());
+        assertFalse(form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue() == 14.3d);
+        assertTrue(form.getAffixes().stream()
+                .noneMatch(affix -> affix.getSourceText().contains("wszystkich współczynników")));
+    }
+
+    @Test
+    void shouldSelectFortifyAspectAfterCanonicalMergeOfNoisyOcrVariants() {
+        for (String rawAspect : List.of(
+                "Gdy masz umocnienie, zadajesz obrażenia zwiększone o61%[x] [45 - 65]%.",
+                "Gdy masz umocnienie, zadajesz obrażenia zwiększone o 610[x] [45 - 65]%. 70 poziomu",
+                "Gdy masz umocnienie, zadajesz obrażenia zwiększone 0 610/01x] [45 - 651%."
+        )) {
+            String mergedText = new ItemScreenshotTextMerger().merge(List.of(
+                    """
+                            Miażdżąca Tarcza Kościanych Łusek
+                            Starożytna legendarna tarcza
+                            Moc przedmiotu: 900
+                            %s
+                            """.formatted(rawAspect)
+            ));
+            ItemImageImportCandidateParseResult result = parser.parse(metadata, mergedText);
+            ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+            assertEquals("fortify_damage_increased", form.getSelectedAspectId(), rawAspect);
+            assertEquals("fortify_damage_increased", form.getOcrSuggestedAspectId(), rawAspect);
+            assertEquals("Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.",
+                    form.getUniqueEffectText(), rawAspect);
+        }
+    }
+
+    @Test
     void shouldIgnoreDurabilityComparisonNoiseLine() {
         ItemImageImportCandidateParseResult result = parser.parse(metadata, hardenedShieldRawText().replace(
                 "(Wytrzymałość: -1,7%)",

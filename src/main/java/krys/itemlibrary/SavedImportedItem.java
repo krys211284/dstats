@@ -5,6 +5,7 @@ import krys.itemimport.FullItemRead;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ItemImportDetails;
 import krys.masterworking.ItemMasterworking;
+import krys.socketing.ItemSocketing;
 import krys.tempering.ItemTemperingAffix;
 import krys.transfiguration.ItemTransfiguration;
 
@@ -29,6 +30,7 @@ public final class SavedImportedItem {
     private final List<ItemTemperingAffix> temperingAffixes;
     private final ItemMasterworking masterworking;
     private final ItemTransfiguration transfiguration;
+    private final ItemSocketing socketing;
 
     public SavedImportedItem(long itemId,
                              String displayName,
@@ -166,6 +168,29 @@ public final class SavedImportedItem {
                              List<ItemTemperingAffix> temperingAffixes,
                              ItemMasterworking masterworking,
                              ItemTransfiguration transfiguration) {
+        this(itemId, displayName, sourceImageName, slot, weaponDamage, strength, intelligence, thorns,
+                blockChance, retributionChance, fullItemRead, affixes, selectedAspectId, details, temperingAffixes,
+                masterworking, transfiguration, ItemSocketing.empty());
+    }
+
+    public SavedImportedItem(long itemId,
+                             String displayName,
+                             String sourceImageName,
+                             EquipmentSlot slot,
+                             long weaponDamage,
+                             double strength,
+                             double intelligence,
+                             double thorns,
+                             double blockChance,
+                             double retributionChance,
+                             FullItemRead fullItemRead,
+                             List<ImportedItemAffix> affixes,
+                             String selectedAspectId,
+                             ItemImportDetails details,
+                             List<ItemTemperingAffix> temperingAffixes,
+                             ItemMasterworking masterworking,
+                             ItemTransfiguration transfiguration,
+                             ItemSocketing socketing) {
         if (itemId < 0L) {
             throw new IllegalArgumentException("Id itemu nie może być ujemne.");
         }
@@ -204,6 +229,7 @@ public final class SavedImportedItem {
         this.temperingAffixes = temperingAffixes == null ? List.of() : List.copyOf(temperingAffixes);
         this.masterworking = masterworking == null ? ItemMasterworking.defaultState() : masterworking;
         this.transfiguration = transfiguration == null ? ItemTransfiguration.none() : transfiguration;
+        this.socketing = socketing == null ? ItemSocketing.empty() : socketing;
     }
 
     private static void validateNonNegative(String label, double value) {
@@ -278,6 +304,10 @@ public final class SavedImportedItem {
 
     public ItemTransfiguration getTransfiguration() {
         return transfiguration;
+    }
+
+    public ItemSocketing getSocketing() {
+        return socketing;
     }
 
     public String getItemName() {

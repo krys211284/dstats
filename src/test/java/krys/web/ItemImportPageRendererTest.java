@@ -16,6 +16,8 @@ import krys.itemimport.ItemImportEditableFormFactory;
 import krys.itemimport.ItemImportFieldCandidate;
 import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkedAffixSelection;
+import krys.socketing.ItemSocket;
+import krys.socketing.ItemSocketing;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
@@ -34,6 +36,49 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Testuje strukturę SSR formularza ręcznej walidacji affixów itemu. */
 class ItemImportPageRendererTest {
+    @Test
+    void shouldRenderSocketingEditorWithArmorEffectForShieldGem() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Tarcza", "Tarcza", "LEGENDARY", false, EquipmentSlot.OFF_HAND,
+                        900L, null, null, null, null, null, 1202L, ""),
+                List.of(),
+                ItemMasterworking.defaultState(),
+                ItemTransfiguration.none(),
+                new ItemSocketing(1, List.of(ItemSocket.gem(0, "diamond_grand")))
+        );
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                null,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "",
+                ""
+        ));
+
+        assertTrue(html.contains("Gniazda"));
+        assertTrue(html.contains("name=\"socketCount\""));
+        assertTrue(html.contains("Gniazdo 1"));
+        assertTrue(html.contains("Wspaniały Diament"));
+        assertTrue(html.contains("+30 pkt. do wszystkich współczynników"));
+        assertTrue(html.contains("Runtime nieaktywny"));
+        assertTrue(html.contains("data-socketing-section"));
+    }
+
     @Test
     void shouldRenderMultiScreenshotUploadInputAndHelpText() {
         String html = new ItemImportPageRenderer().render(new ItemImportPageModel(

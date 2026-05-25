@@ -7,6 +7,9 @@ import krys.itemlibrary.SavedImportedItem;
 import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkedAffixSelection;
 import krys.masterworking.MasterworkedAffixSource;
+import krys.socketing.ItemSocket;
+import krys.socketing.ItemSocketing;
+import krys.socketing.SocketContentType;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
@@ -28,6 +31,77 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Testy walidacji ręcznie poprawionego itemu przed zatwierdzeniem do modelu aplikacji. */
 class ItemImportFormMapperTest {
     @Test
+    void shouldDefaultImportedItemToNoSockets() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+        );
+
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+
+        assertTrue(result.getErrors().isEmpty());
+        assertEquals(0, result.getItem().getSocketing().getSocketCount());
+        assertTrue(result.getItem().getSocketing().getSockets().isEmpty());
+    }
+
+    @Test
+    void shouldValidateSocketedGem() {
+        ItemImportEditableForm form = socketedForm(new ItemSocketing(
+                1,
+                List.of(ItemSocket.gem(0, "diamond_grand"))
+        ));
+
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+
+        assertTrue(result.getErrors().isEmpty());
+        assertEquals(1, result.getItem().getSocketing().getSocketCount());
+        assertEquals(SocketContentType.GEM, result.getItem().getSocketing().socketAt(0).getContentType());
+        assertEquals("diamond_grand", result.getItem().getSocketing().socketAt(0).getGemId());
+    }
+
+    @Test
+    void shouldRejectInvalidGemId() {
+        ItemImportEditableForm form = socketedForm(new ItemSocketing(
+                1,
+                List.of(ItemSocket.gem(0, "diamond_fake"))
+        ));
+
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+
+        assertNull(result.getItem());
+        assertTrue(result.getErrors().contains("Nieznany gem: diamond_fake"));
+    }
+
+    @Test
+    void shouldRejectSocketCountOutsideSupportedRange() {
+        ItemImportEditableForm form = socketedForm(ItemSocketing.emptySockets(3));
+
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+
+        assertNull(result.getItem());
+        assertTrue(result.getErrors().contains("Gniazda: liczba gniazd musi być od 0 do 2."));
+    }
+
+    @Test
+    void shouldRejectExtraSocketRowsBeyondDeclaredCount() {
+        ItemImportEditableForm form = socketedForm(new ItemSocketing(
+                1,
+                List.of(ItemSocket.empty(0), ItemSocket.gem(1, "ruby_grand"))
+        ));
+
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+
+        assertNull(result.getItem());
+        assertTrue(result.getErrors().contains("Gniazda: liczba przesłanych gniazd nie może przekraczać wybranej liczby gniazd."));
+    }
+
+    @Test
     void shouldValidateManuallyCorrectedMainHandItem() {
         ItemImportEditableForm form = new ItemImportEditableForm(
                 "topor.png",
@@ -48,6 +122,29 @@ class ItemImportFormMapperTest {
         assertEquals(EquipmentSlot.MAIN_HAND, result.getItem().getSlot());
         assertEquals(444L, result.getItem().getWeaponDamage());
         assertEquals(70.0d, result.getItem().getStrength());
+    }
+
+    private static ItemImportEditableForm socketedForm(ItemSocketing socketing) {
+        return new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                ItemImportDetails.empty(),
+                List.of(),
+                ItemMasterworking.defaultState(),
+                krys.transfiguration.ItemTransfiguration.none(),
+                socketing
+        );
     }
 
     @Test

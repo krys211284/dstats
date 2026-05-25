@@ -3,6 +3,7 @@ package krys.itemimport;
 import krys.item.EquipmentSlot;
 import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkedAffixSelection;
+import krys.socketing.ItemSocketing;
 import krys.tempering.ItemTemperingAffix;
 import krys.transfiguration.HoradricTransfigurationOutcome;
 import krys.transfiguration.HoradricTuningPrism;
@@ -52,7 +53,8 @@ public final class ItemImportEditableFormFactory {
                 parseResult.getFullItemRead().getDetails(),
                 draft.getTemperingAffixes(),
                 draft.getMasterworking(),
-                draft.getTransfiguration()
+                draft.getTransfiguration(),
+                draft.getSocketing()
         );
     }
 
@@ -72,6 +74,7 @@ public final class ItemImportEditableFormFactory {
         List<ItemTemperingAffix> temperingAffixes = temperingExtractor.extractTemperingAffixes(parseResult.getFullItemRead());
         ItemMasterworking masterworking = detectMasterworking(parseResult.getFullItemRead(), temperingAffixes);
         ItemTransfiguration transfiguration = detectTransfiguration(parseResult.getFullItemRead());
+        ItemSocketing socketing = detectSocketing(parseResult.getFullItemRead());
         return new ItemImportDraft(
                 parseResult,
                 aspectMatch.aspectId(),
@@ -79,8 +82,19 @@ public final class ItemImportEditableFormFactory {
                 affixes,
                 temperingAffixes,
                 masterworking,
-                transfiguration
+                transfiguration,
+                socketing
         );
+    }
+
+    private static ItemSocketing detectSocketing(FullItemRead fullItemRead) {
+        if (fullItemRead == null || !fullItemRead.hasAnyData()) {
+            return ItemSocketing.empty();
+        }
+        boolean hasEmptySocket = fullItemRead.getLines().stream()
+                .anyMatch(line -> line.getType() == FullItemReadLineType.SOCKET
+                        && normalize(line.getText()).equals("PUSTE GNIAZDO"));
+        return hasEmptySocket ? ItemSocketing.emptySockets(1) : ItemSocketing.empty();
     }
 
     private static ItemMasterworking detectMasterworking(FullItemRead fullItemRead, List<ItemTemperingAffix> temperingAffixes) {
@@ -137,26 +151,44 @@ public final class ItemImportEditableFormFactory {
     }
 
     private static Optional<TransfigurationAffixRoll> detectAllStatsTransfigurationRoll(FullItemRead fullItemRead) {
-        Pattern valuePattern = Pattern.compile("\\+\\s*([0-9]+(?:[,.][0-9]+)?)");
         for (FullItemReadLine line : fullItemRead.getLines()) {
-            String normalized = normalize(line.getText());
-            if (!normalized.contains("DO WSZYSTKICH WSPOLCZYNNIKOW")
-                    || normalized.contains("ODPORNOSCI")) {
+            Optional<Double> displayedValue = extractAllStatsDisplayedValue(line.getText());
+            if (displayedValue.isEmpty()) {
                 continue;
             }
-            Matcher matcher = valuePattern.matcher(line.getText());
-            if (!matcher.find()) {
-                continue;
-            }
-            double displayedValue = Double.parseDouble(matcher.group(1).replace(',', '.'));
             return Optional.of(new TransfigurationAffixRoll(
                     "ALL_STATS",
-                    displayedValue,
+                    displayedValue.get(),
                     TransfigurationValueProvenance.GAME_DISPLAYED_VALUE,
                     ""
             ));
         }
         return Optional.empty();
+    }
+
+    private static Optional<Double> extractAllStatsDisplayedValue(String line) {
+        String normalized = normalize(line);
+        if (normalized.contains("ODPORNOSCI")) {
+            return Optional.empty();
+        }
+        Matcher matcher = Pattern.compile(
+                "\\+\\s*([0-9]+(?:[,.][0-9]+)?)\\s*(?:PKT\\.?|PT\\.?)?\\s*(?:DO\\s+)?WSZYSTKICH\\s+WSPOLCZYNNIKOW",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+        ).matcher(normalized);
+        if (!matcher.find()) {
+            matcher = Pattern.compile(
+                    "\\+\\s*([0-9]+(?:[,.][0-9]+)?)\\s*(?:PKT\\.?|PT\\.?)?\\s*DO\\s+WSZYSTKICH",
+                    Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+            ).matcher(normalized);
+            if (!matcher.find()) {
+                return Optional.empty();
+            }
+        }
+        double displayedValue = Double.parseDouble(matcher.group(1).replace(',', '.'));
+        if (displayedValue < 75.0d || displayedValue > 100.0d) {
+            return Optional.empty();
+        }
+        return Optional.of(displayedValue);
     }
 
     private static boolean hasLineContaining(FullItemRead fullItemRead, String normalizedNeedle) {

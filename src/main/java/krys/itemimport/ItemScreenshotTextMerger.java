@@ -78,8 +78,8 @@ public final class ItemScreenshotTextMerger {
     }
 
     private static List<String> splitLogicalLines(String line) {
-        if (line == null || line.length() < 120) {
-            return List.of(line);
+        if (line == null) {
+            return List.of("");
         }
         String key = comparisonKey(line).replace(" ", "");
         int anchors = 0;
@@ -101,7 +101,12 @@ public final class ItemScreenshotTextMerger {
                 anchors++;
             }
         }
-        if (anchors < 3) {
+        boolean allStatsJoinedWithOtherLine = key.contains("wszystkichwspolczynnikow") && anchors >= 2;
+        boolean fortifyAspectLine = key.contains("gdymaszumocnienie") && key.contains("zadajeszobrazeniazwiekszone");
+        if (line.length() < 120 && !allStatsJoinedWithOtherLine && !fortifyAspectLine) {
+            return List.of(line);
+        }
+        if (anchors < 3 && !allStatsJoinedWithOtherLine && !fortifyAspectLine) {
             return List.of(line);
         }
 
@@ -118,9 +123,11 @@ public final class ItemScreenshotTextMerger {
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+do\\s+odporności\\s+na\\s+wszystkie\\s+żywioły(?:\\s*\\[[^\\]]+])?)");
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+do\\s+odporności\\s+na:?\\s+Ogień(?:\\s*\\[[^\\]]+])?)");
         appendFirst(extracted, line, "([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+obrażeń(?:\\s*\\[[^\\]]+])?%?)");
-        appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+pkt\\.\\s+do\\s+wszystkich\\s+współczynników(?:\\s*\\[[^\\]]+])?)");
+        extractAllStatsDisplayedValue(line)
+                .map(value -> "+" + formatValue(value) + " pkt. do wszystkich współczynników [+75 - 100]")
+                .ifPresent(value -> appendIfMissing(extracted, value));
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+do\\s+maksymalnej\\s+liczby\\s+kumulacji\\s+Animuszu)");
-        appendFirst(extracted, line, "(Gdy\\s+masz\\s+umocnienie,\\s+zadajesz\\s+obrażenia\\s+zwiększone\\s+o\\s+[0-9]+(?:,[0-9]+)?%?\\[x\\](?:\\s*\\[[^\\]]+])?%?\\.?)");
+        extractFortifyAspectLine(line).ifPresent(value -> appendIfMissing(extracted, value));
         appendFirst(extracted, line, "\\b(Puste\\s+gniazdo)\\b");
         appendFirst(extracted, line, "\\b(Przedmiot\\s+z\\s+dodatku\\s+Lord\\s+of\\s+Hatred)\\b");
         appendFirst(extracted, line, "\\b(Brak\\s+możliwości\\s+modyfikacji)\\b");
@@ -131,9 +138,13 @@ public final class ItemScreenshotTextMerger {
         Matcher matcher = Pattern.compile(pattern, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(line);
         if (matcher.find()) {
             String value = matcher.group(1).replaceAll("\\s+", " ").trim();
-            if (!value.isBlank() && !target.contains(value)) {
-                target.add(value);
-            }
+            appendIfMissing(target, value);
+        }
+    }
+
+    private static void appendIfMissing(List<String> target, String value) {
+        if (value != null && !value.isBlank() && !target.contains(value)) {
+            target.add(value);
         }
     }
 
@@ -185,7 +196,10 @@ public final class ItemScreenshotTextMerger {
                     "+100% obrażeń od broni w głównej ręce [100]%", lineQualityScore(line, 100.0d, context) + 500));
         }
         if (key.contains("wszystkichwspolczynnikow")) {
-            Optional<Double> value = firstNumber(line);
+            Optional<Double> value = extractAllStatsDisplayedValue(line);
+            if (value.isEmpty()) {
+                return Optional.empty();
+            }
             String text = value.map(number -> "+" + formatValue(number) + " pkt. do wszystkich współczynników [+75 - 100]")
                     .orElse(line);
             return Optional.of(new CanonicalLineCandidate("transfiguration:all-stats",
@@ -199,8 +213,9 @@ public final class ItemScreenshotTextMerger {
                     text, lineQualityScore(line, context.koscianychLusekQuality25() ? 12.0d : null, context)));
         }
         if (key.contains("gdymaszumocnienie") && key.contains("zadajeszobrazeniazwiekszone")) {
+            String normalizedAspect = FortifyLegendaryEffectNormalizer.normalize(line).orElse(line);
             return Optional.of(new CanonicalLineCandidate("aspect:fortify-damage",
-                    line, lineQualityScore(line, 61.0d, context) + 400));
+                    normalizedAspect, lineQualityScore(normalizedAspect, 61.0d, context) + 400));
         }
         if (key.contains("pustegniazdo") || key.equals("puste")) {
             return Optional.of(new CanonicalLineCandidate("socket:empty", "Puste gniazdo", 5_000));
@@ -290,6 +305,46 @@ public final class ItemScreenshotTextMerger {
         }
         try {
             return Optional.of(Double.parseDouble(matcher.group(1).replace(" ", "").replace(',', '.')));
+        } catch (NumberFormatException exception) {
+            return Optional.empty();
+        }
+    }
+
+    private static Optional<Double> extractAllStatsDisplayedValue(String line) {
+        String normalized = comparisonKey(line);
+        Matcher matcher = Pattern.compile(
+                "\\+\\s*([0-9]+(?:[,.][0-9]+)?)\\s*(?:pkt\\.?|pt\\.?)?\\s*(?:do\\s+)?wszystkich\\s+wspolczynnikow",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+        ).matcher(normalized);
+        if (!matcher.find()) {
+            matcher = Pattern.compile(
+                    "\\+\\s*([0-9]+(?:[,.][0-9]+)?)\\s*(?:pkt\\.?|pt\\.?)?\\s*do\\s+wszystkich",
+                    Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+            ).matcher(normalized);
+            if (!matcher.find()) {
+                return Optional.empty();
+            }
+        }
+        Optional<Double> value = parseNumber(matcher.group(1));
+        return value.filter(number -> number >= 75.0d && number <= 100.0d);
+    }
+
+    private static Optional<String> extractFortifyAspectLine(String line) {
+        if (line == null || line.isBlank()) {
+            return Optional.empty();
+        }
+        String key = comparisonKey(line).replace(" ", "");
+        if (!key.contains("gdymaszumocnienie") || !key.contains("zadajeszobrazeniazwiekszone")) {
+            return Optional.empty();
+        }
+        int start = key.indexOf("gdymaszumocnienie");
+        // Normalizer działa na całej linii i sam odcina znane śmieci OCR z zakresu.
+        return FortifyLegendaryEffectNormalizer.normalize(start >= 0 ? line : line);
+    }
+
+    private static Optional<Double> parseNumber(String rawToken) {
+        try {
+            return Optional.of(Double.parseDouble((rawToken == null ? "" : rawToken).replace(" ", "").replace(',', '.')));
         } catch (NumberFormatException exception) {
             return Optional.empty();
         }

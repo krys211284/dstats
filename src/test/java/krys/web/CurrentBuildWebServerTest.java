@@ -862,6 +862,37 @@ class CurrentBuildWebServerTest {
     }
 
     @Test
+    void shouldShowSocketedGemsOnCurrentBuildCardWithoutRuntimeContribution() throws Exception {
+        createHero("Gniazda bez runtime", "70");
+        saveAndActivateVerathiel();
+        Map<String, String> fields = koscianychLusekShieldImportFields();
+        fields.put("socketCount", "1");
+        fields.put("socketContent_0", "GEM");
+        fields.put("socketGemId_0", "diamond_grand");
+        HttpResponse<String> saveResponse = sendPost("/importuj-item-ze-screena", fields);
+        assertEquals(200, saveResponse.statusCode());
+        HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", "2",
+                "heroSlot", "OFF_HAND",
+                "currentBuildQuery", ""
+        ));
+        assertEquals(200, activateResponse.statusCode());
+
+        HttpResponse<String> response = sendGet("/policz-aktualny-build");
+
+        assertEquals(200, response.statusCode());
+        String html = response.body();
+        String offHandCard = equipmentSlotCard(html, "OFF_HAND");
+        assertTrue(offHandCard.contains("Gniazda"));
+        assertTrue(offHandCard.contains("1: Wspaniały Diament"));
+        assertTrue(offHandCard.contains("+30 pkt. do wszystkich współczynników"));
+        assertTrue(offHandCard.contains("Runtime nieaktywny"));
+        assertFalse(technicalRuntimeInputSection(html)
+                .contains(runtimeInputCard("Siła", "379", "Baseline Paladyn poziom 70 + aktywne itemy")));
+    }
+
+    @Test
     void shouldCalculateCurrentBuildWithMasterworkedMaxAnimusRuntimeCapTwenty() throws Exception {
         createHero("Starcie Moloch Doskonalenie max Animusz 20", "70");
         saveAndActivateVerathiel();

@@ -8,6 +8,34 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /** Test mapowania wstępnie rozpoznanych pól do edytowalnego formularza potwierdzenia. */
 class ItemImportEditableFormFactoryTest {
     @Test
+    void shouldDetectEmptySocketFromExactSocketLine() {
+        ItemImageImportCandidateParseResult parseResult = new ItemImageImportCandidateParseResult(
+                new ItemImageMetadata("tarcza.png", "image/png", "PNG", 1200, 800),
+                new FullItemRead(
+                        "Tarcza",
+                        "Tarcza",
+                        "Legendarny",
+                        "Moc przedmiotu: 900",
+                        "1 502 pkt. pancerza",
+                        java.util.List.of(new FullItemReadLine(FullItemReadLineType.SOCKET, "Puste gniazdo"))
+                ),
+                new ItemImportFieldCandidate<>("OFF_HAND", EquipmentSlot.OFF_HAND, ItemImportFieldConfidence.MEDIUM, "slot"),
+                ItemImportFieldCandidate.unknown("weapon"),
+                ItemImportFieldCandidate.unknown("str"),
+                ItemImportFieldCandidate.unknown("int"),
+                ItemImportFieldCandidate.unknown("thorns"),
+                ItemImportFieldCandidate.unknown("block"),
+                ItemImportFieldCandidate.unknown("retribution"),
+                "Import wspomagany"
+        );
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
+
+        assertEquals(1, form.getSocketing().getSocketCount());
+        assertEquals(krys.socketing.SocketContentType.EMPTY, form.getSocketing().socketAt(0).getContentType());
+    }
+
+    @Test
     void shouldMapSuggestedFieldsToEditableForm() {
         ItemImageImportCandidateParseResult parseResult = new ItemImageImportCandidateParseResult(
                 new ItemImageMetadata("tarcza.png", "image/png", "PNG", 1200, 800),

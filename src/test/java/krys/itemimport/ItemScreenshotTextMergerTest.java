@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -85,6 +86,31 @@ class ItemScreenshotTextMergerTest {
         assertTrue(merged.contains("+100% obrażeń od broni w głównej ręce [100]%"), merged);
         assertFalse(merged.contains("[20,010]"), merged);
         assertFalse(merged.contains("[1001"), merged);
+    }
+
+    @Test
+    void shouldSplitAllStatsFromDamageReductionJoinedLineWithoutTakingFirstNumber() {
+        String merged = merger.merge(List.of(
+                "14,3% redukcji obrażeń [11,0 - 15,0]% +96 pkt. do wszystkich współczynników [+75 - 100]"
+        ));
+
+        assertTrue(merged.contains("14,3% redukcji obrażeń [11,0 - 15,0]%"), merged);
+        assertTrue(merged.contains("+96 pkt. do wszystkich współczynników [+75 - 100]"), merged);
+        assertFalse(merged.contains("+14,3 pkt. do wszystkich współczynników"), merged);
+    }
+
+    @Test
+    void shouldNormalizeFortifyAspectOcrVariantsDuringCanonicalMerge() {
+        for (String rawAspect : List.of(
+                "Gdy masz umocnienie, zadajesz obrażenia zwiększone o61%[x] [45 - 65]%.",
+                "Gdy masz umocnienie, zadajesz obrażenia zwiększone o 610[x] [45 - 65]%. 70 poziomu",
+                "Gdy masz umocnienie, zadajesz obrażenia zwiększone 0 610/01x] [45 - 651%."
+        )) {
+            String merged = merger.merge(List.of(rawAspect));
+
+            assertEquals("Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.",
+                    merged, rawAspect);
+        }
     }
 
     static String realShieldTopText() {

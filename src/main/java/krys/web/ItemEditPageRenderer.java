@@ -93,8 +93,10 @@ final class ItemEditPageRenderer {
                         .masterworking-runtime-status { display: inline-flex; width: fit-content; align-items: center; padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(109, 102, 92, 0.18); background: #fff; color: var(--muted); font-weight: 700; }
                         .transfiguration-grid { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 12px; align-items: end; }
                         .transfiguration-dynamic-grid { margin-top: 12px; grid-template-columns: repeat(3, minmax(180px, 1fr)); }
+                        .socketing-grid { display: grid; grid-template-columns: minmax(160px, 0.4fr); gap: 12px; align-items: end; }
+                        .socketing-row { display: grid; grid-template-columns: minmax(140px, 0.45fr) minmax(280px, 1fr) minmax(260px, 1fr); gap: 12px; align-items: end; }
                         @media (max-width: 900px) {
-                            .manual-confirm-grid, .aspect-effect-fieldset, .item-affix-add-grid, .tempering-add-grid, .tempering-readonly-card, .tempering-existing-card, .masterworking-grid, .transfiguration-grid, .transfiguration-dynamic-grid { grid-template-columns: 1fr; }
+                            .manual-confirm-grid, .aspect-effect-fieldset, .item-affix-add-grid, .tempering-add-grid, .tempering-readonly-card, .tempering-existing-card, .masterworking-grid, .transfiguration-grid, .transfiguration-dynamic-grid, .socketing-row { grid-template-columns: 1fr; }
                             .item-affix-add-actions, .tempering-readonly-actions, .tempering-existing-actions { justify-content: flex-start; }
                             .data-table, .data-table thead, .data-table tbody, .data-table tr, .data-table th, .data-table td { display: block; }
                             .data-table thead { display: none; }
@@ -178,6 +180,7 @@ final class ItemEditPageRenderer {
                         %s
                         %s
                         %s
+                        %s
                         <div class="submit-row">
                             <button type="submit">Zapisz zmiany</button>
                             <a class="nav-link secondary-link" href="%s">Anuluj</a>
@@ -206,6 +209,7 @@ final class ItemEditPageRenderer {
                 TemperingSectionRenderer.renderEditor(form),
                 MasterworkingSectionRenderer.renderEditor(form),
                 TransfigurationSectionRenderer.renderEditor(form),
+                SocketingSectionRenderer.renderEditor(form),
                 escapeHtml(ItemLibraryFilterQuerySupport.libraryUrl(model.getFilter()))
         );
     }
@@ -595,7 +599,9 @@ final class ItemEditPageRenderer {
                 </script>
                 """.formatted(TemperingSectionRenderer.renderScript()
                 + "\n"
-                + TransfigurationSectionRenderer.renderScript());
+                + TransfigurationSectionRenderer.renderScript()
+                + "\n"
+                + SocketingSectionRenderer.renderScript());
     }
 
     private static String renderAffixTypeOptions(ImportedItemAffixType selectedType) {

@@ -11,6 +11,9 @@ import krys.itemimport.ItemImportDetails;
 import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkedAffixSelection;
 import krys.masterworking.MasterworkedAffixSource;
+import krys.socketing.ItemSocket;
+import krys.socketing.ItemSocketing;
+import krys.socketing.SocketContentType;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
@@ -72,7 +75,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     item.getDetails(),
                     item.getTemperingAffixes(),
                     item.getMasterworking(),
-                    item.getTransfiguration()
+                    item.getTransfiguration(),
+                    item.getSocketing()
             );
         }
 
@@ -188,7 +192,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                 tokens.length >= 15 ? decodeDetails(tokens[14]) : ItemImportDetails.empty(),
                 tokens.length >= 16 ? decodeTemperingAffixes(tokens[15]) : List.of(),
                 tokens.length >= 17 ? decodeMasterworking(tokens[16]) : ItemMasterworking.defaultState(),
-                tokens.length >= 18 ? decodeTransfiguration(tokens[17]) : ItemTransfiguration.none()
+                tokens.length >= 18 ? decodeTransfiguration(tokens[17]) : ItemTransfiguration.none(),
+                tokens.length >= 19 ? decodeSocketing(tokens[18]) : ItemSocketing.empty()
         );
     }
 
@@ -214,7 +219,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     encodeDetails(item.getDetails()),
                     encodeTemperingAffixes(item.getTemperingAffixes()),
                     encodeMasterworking(item.getMasterworking()),
-                    encodeTransfiguration(item.getTransfiguration())
+                    encodeTransfiguration(item.getTransfiguration()),
+                    encodeSocketing(item.getSocketing())
             ));
         }
         try {
@@ -360,6 +366,21 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                 Boolean.toString(safe.isIndestructible()),
                 encode(safe.getNotes())
         ));
+    }
+
+    private static String encodeSocketing(ItemSocketing socketing) {
+        ItemSocketing safe = socketing == null ? ItemSocketing.empty() : socketing;
+        List<String> payloadLines = new ArrayList<>();
+        payloadLines.add("COUNT|" + safe.getSocketCount());
+        for (ItemSocket socket : safe.getSockets()) {
+            payloadLines.add(String.join("|",
+                    "SOCKET",
+                    Integer.toString(socket.getIndex()),
+                    socket.getContentType().name(),
+                    encode(socket.getGemId())
+            ));
+        }
+        return encode(String.join("\n", payloadLines));
     }
 
     private static String encodeDetails(ItemImportDetails details) {
@@ -572,6 +593,39 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                 tokens.length >= 14 && Boolean.parseBoolean(tokens[13]),
                 tokens.length >= 15 ? decode(tokens[14]) : ""
         );
+    }
+
+    private static ItemSocketing decodeSocketing(String encodedPayload) {
+        if (encodedPayload == null || encodedPayload.isBlank()) {
+            return ItemSocketing.empty();
+        }
+        String payload = decode(encodedPayload);
+        if (payload.isBlank()) {
+            return ItemSocketing.empty();
+        }
+        int socketCount = 0;
+        List<ItemSocket> sockets = new ArrayList<>();
+        for (String line : payload.split("\\R")) {
+            if (line.isBlank()) {
+                continue;
+            }
+            String[] tokens = line.split("\\|", -1);
+            if (tokens.length < 2) {
+                continue;
+            }
+            if ("COUNT".equals(tokens[0])) {
+                socketCount = Integer.parseInt(tokens[1]);
+                continue;
+            }
+            if ("SOCKET".equals(tokens[0]) && tokens.length >= 4) {
+                sockets.add(new ItemSocket(
+                        Integer.parseInt(tokens[1]),
+                        SocketContentType.valueOf(tokens[2]),
+                        decode(tokens[3])
+                ));
+            }
+        }
+        return new ItemSocketing(socketCount, sockets);
     }
 
     private static String encodeRollDefinition(TransfigurationAffixRoll roll) {

@@ -18,6 +18,9 @@ import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
 import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkedAffixSelection;
+import krys.socketing.ItemSocket;
+import krys.socketing.ItemSocketing;
+import krys.socketing.SocketContentType;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
@@ -41,6 +44,102 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Testuje trwały zapis minimalnej biblioteki itemów bez bazy danych. */
 class FileItemLibraryRepositoryTest {
+    @Test
+    void shouldPersistSocketedItemsOnDisk() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-library-socketing");
+        FileItemLibraryRepository repository = new FileItemLibraryRepository(tempDirectory);
+
+        repository.save(new SavedImportedItem(
+                0L,
+                "Tarcza z gemem",
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                ItemImportDetails.empty(),
+                List.of(),
+                ItemMasterworking.defaultState(),
+                ItemTransfiguration.none(),
+                new ItemSocketing(1, List.of(ItemSocket.gem(0, "diamond_grand")))
+        ));
+
+        SavedImportedItem reloaded = new FileItemLibraryRepository(tempDirectory).findAll().getFirst();
+
+        assertEquals(1, reloaded.getSocketing().getSocketCount());
+        assertEquals(SocketContentType.GEM, reloaded.getSocketing().socketAt(0).getContentType());
+        assertEquals("diamond_grand", reloaded.getSocketing().socketAt(0).getGemId());
+    }
+
+    @Test
+    void shouldPersistTwoSocketedGemsOnDisk() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-library-two-sockets");
+        FileItemLibraryRepository repository = new FileItemLibraryRepository(tempDirectory);
+
+        repository.save(new SavedImportedItem(
+                0L,
+                "Napierśnik z gemami",
+                "pancerz.png",
+                EquipmentSlot.CHEST,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                ItemImportDetails.empty(),
+                List.of(),
+                ItemMasterworking.defaultState(),
+                ItemTransfiguration.none(),
+                new ItemSocketing(2, List.of(
+                        ItemSocket.gem(0, "ruby_royal"),
+                        ItemSocket.gem(1, "diamond_grand")
+                ))
+        ));
+
+        SavedImportedItem reloaded = new FileItemLibraryRepository(tempDirectory).findAll().getFirst();
+
+        assertEquals(2, reloaded.getSocketing().getSocketCount());
+        assertEquals("ruby_royal", reloaded.getSocketing().socketAt(0).getGemId());
+        assertEquals("diamond_grand", reloaded.getSocketing().socketAt(1).getGemId());
+    }
+
+    @Test
+    void shouldLoadLegacyItemsWithoutSocketPayloadAsNoSockets() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-library-legacy-sockets");
+        FileItemLibraryRepository repository = new FileItemLibraryRepository(tempDirectory);
+        SavedImportedItem saved = repository.save(new SavedImportedItem(
+                0L,
+                "Legacy",
+                "legacy.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d
+        ));
+        Path file = tempDirectory.resolve("saved-items.db");
+        String line = Files.readString(file, StandardCharsets.UTF_8).trim();
+        String[] tokens = line.split("\\|", -1);
+        Files.writeString(file, String.join("|", java.util.Arrays.copyOf(tokens, 18)), StandardCharsets.UTF_8);
+
+        SavedImportedItem reloaded = new FileItemLibraryRepository(tempDirectory).findById(saved.getItemId()).orElseThrow();
+
+        assertEquals(0, reloaded.getSocketing().getSocketCount());
+        assertTrue(reloaded.getSocketing().getSockets().isEmpty());
+    }
+
     @Test
     void shouldPersistSavedItemsAndSelectionOnDisk() throws Exception {
         Path tempDirectory = Files.createTempDirectory("item-library-repo");

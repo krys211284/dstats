@@ -27,6 +27,7 @@ import krys.itemlibrary.SavedImportedItem;
 import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkedAffixSelection;
 import krys.masterworking.MasterworkedAffixSource;
+import krys.socketing.ItemSocketing;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -174,11 +175,12 @@ public final class ItemImportController implements HttpHandler {
         TemperingFormSupport.ParseResult temperingParseResult = TemperingFormSupport.parse(fields);
         ItemMasterworking masterworking = parseMasterworking(fields);
         krys.transfiguration.ItemTransfiguration transfiguration = TransfigurationFormSupport.parse(fields);
+        ItemSocketing socketing = SocketingFormSupport.parse(fields);
         List<ImportedItemAffix> affixes = affixParseResult.affixes();
         if ("addAffix".equals(formAction)) {
             java.util.ArrayList<ImportedItemAffix> updatedAffixes = new java.util.ArrayList<>(affixes);
             parseNewAffix(fields, affixParseResult.errors()).ifPresent(updatedAffixes::add);
-            ItemImportEditableForm form = buildEditableForm(fields, decodedFullItemRead, updatedAffixes, temperingParseResult.affixes(), masterworking, transfiguration);
+            ItemImportEditableForm form = buildEditableForm(fields, decodedFullItemRead, updatedAffixes, temperingParseResult.affixes(), masterworking, transfiguration, socketing);
             return new ItemImportPageModel(
                     form,
                     null,
@@ -190,7 +192,7 @@ public final class ItemImportController implements HttpHandler {
             );
         }
 
-        ItemImportEditableForm form = buildEditableForm(fields, decodedFullItemRead, affixes, temperingParseResult.affixes(), masterworking, transfiguration);
+        ItemImportEditableForm form = buildEditableForm(fields, decodedFullItemRead, affixes, temperingParseResult.affixes(), masterworking, transfiguration, socketing);
 
         ItemImportFormMapper.MappingResult mappingResult = formMapper.map(form);
         java.util.ArrayList<String> allErrors = new java.util.ArrayList<>(affixParseResult.errors());
@@ -259,7 +261,7 @@ public final class ItemImportController implements HttpHandler {
                                                             List<krys.tempering.ItemTemperingAffix> temperingAffixes,
                                                             ItemMasterworking masterworking) {
         return buildEditableForm(fields, decodedFullItemRead, affixes, temperingAffixes, masterworking,
-                TransfigurationFormSupport.parse(fields));
+                TransfigurationFormSupport.parse(fields), SocketingFormSupport.parse(fields));
     }
 
     private static ItemImportEditableForm buildEditableForm(Map<String, String> fields,
@@ -268,6 +270,17 @@ public final class ItemImportController implements HttpHandler {
                                                             List<krys.tempering.ItemTemperingAffix> temperingAffixes,
                                                             ItemMasterworking masterworking,
                                                             krys.transfiguration.ItemTransfiguration transfiguration) {
+        return buildEditableForm(fields, decodedFullItemRead, affixes, temperingAffixes, masterworking,
+                transfiguration, SocketingFormSupport.parse(fields));
+    }
+
+    private static ItemImportEditableForm buildEditableForm(Map<String, String> fields,
+                                                            FullItemRead decodedFullItemRead,
+                                                            List<ImportedItemAffix> affixes,
+                                                            List<krys.tempering.ItemTemperingAffix> temperingAffixes,
+                                                            ItemMasterworking masterworking,
+                                                            krys.transfiguration.ItemTransfiguration transfiguration,
+                                                            ItemSocketing socketing) {
         return new ItemImportEditableForm(
                 fields.getOrDefault("sourceImageName", "nieznany-item"),
                 fields.getOrDefault("slot", ""),
@@ -285,7 +298,8 @@ public final class ItemImportController implements HttpHandler {
                 parseItemDetails(fields),
                 temperingAffixes,
                 masterworking,
-                transfiguration
+                transfiguration,
+                socketing
         );
     }
 

@@ -4,6 +4,10 @@ import krys.item.EquipmentSlot;
 import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkedAffixSelection;
 import krys.masterworking.MasterworkedAffixSource;
+import krys.socketing.GemCatalog;
+import krys.socketing.ItemSocket;
+import krys.socketing.ItemSocketing;
+import krys.socketing.SocketContentType;
 import krys.tempering.ApplicationTemperingAffixRegistry;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingAffixDefinition;
@@ -64,6 +68,7 @@ public final class ItemImportFormMapper {
         List<ItemTemperingAffix> temperingAffixes = validateTempering(form.getTemperingAffixes(), slot, details.getItemType(), details.getItemPower(), errors);
         ItemMasterworking masterworking = validateMasterworking(form.getMasterworking(), form.getAffixes(), temperingAffixes, errors);
         ItemTransfiguration transfiguration = validateTransfiguration(form.getTransfiguration(), form.getAffixes(), masterworking, errors);
+        ItemSocketing socketing = validateSocketing(form.getSocketing(), errors);
 
         if (!errors.isEmpty()) {
             return new MappingResult(null, errors);
@@ -83,8 +88,47 @@ public final class ItemImportFormMapper {
                 details,
                 temperingAffixes,
                 masterworking,
-                transfiguration
+                transfiguration,
+                socketing
         ), errors);
+    }
+
+    private static ItemSocketing validateSocketing(ItemSocketing socketing, List<String> errors) {
+        ItemSocketing safe = socketing == null ? ItemSocketing.empty() : socketing;
+        int socketCount = safe.getSocketCount();
+        if (socketCount < ItemSocketing.MIN_SOCKET_COUNT || socketCount > ItemSocketing.MAX_SOCKET_COUNT) {
+            errors.add("Gniazda: liczba gniazd musi być od 0 do 2.");
+            return safe;
+        }
+        if (safe.getSockets().size() > socketCount) {
+            errors.add("Gniazda: liczba przesłanych gniazd nie może przekraczać wybranej liczby gniazd.");
+            return safe;
+        }
+        List<ItemSocket> validated = new ArrayList<>();
+        for (int index = 0; index < socketCount; index++) {
+            ItemSocket socket = safe.socketAt(index);
+            SocketContentType contentType = socket.getContentType() == null ? SocketContentType.EMPTY : socket.getContentType();
+            String gemId = socket.getGemId() == null ? "" : socket.getGemId().trim();
+            if (contentType == SocketContentType.EMPTY) {
+                if (!gemId.isBlank()) {
+                    errors.add("Gniazdo " + (index + 1) + ": puste gniazdo nie może mieć wybranego gema.");
+                }
+                validated.add(ItemSocket.empty(index));
+                continue;
+            }
+            if (gemId.isBlank()) {
+                errors.add("Gniazdo " + (index + 1) + ": gem jest wymagany.");
+                validated.add(new ItemSocket(index, contentType, gemId));
+                continue;
+            }
+            if (GemCatalog.findById(gemId).isEmpty()) {
+                errors.add("Nieznany gem: " + gemId);
+                validated.add(new ItemSocket(index, contentType, gemId));
+                continue;
+            }
+            validated.add(ItemSocket.gem(index, gemId));
+        }
+        return new ItemSocketing(socketCount, validated);
     }
 
     private ItemTransfiguration validateTransfiguration(ItemTransfiguration transfiguration,

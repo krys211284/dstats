@@ -254,7 +254,8 @@ public final class ItemLibraryPageRenderer {
 
     private static String renderAffixSummary(SavedImportedItem item) {
         if (item.getAffixes().isEmpty() && item.getTemperingAffixes().isEmpty()
-                && !item.getTransfiguration().isTransfigured()) {
+                && !item.getTransfiguration().isTransfigured()
+                && item.getSocketing().getSocketCount() <= 0) {
             return "<span class=\"muted-value\">Brak zatwierdzonych affixów</span>";
         }
         StringBuilder html = new StringBuilder("<ul class=\"affix-summary\">");
@@ -274,6 +275,11 @@ public final class ItemLibraryPageRenderer {
         String transfigurationSummary = TransfigurationSectionRenderer.compactChip(item.getTransfiguration(), item.getAffixes());
         if (!transfigurationSummary.isBlank()) {
             html.append("<li>").append(escapeHtml(transfigurationSummary)).append("</li>");
+        }
+        String socketingSummary = krys.socketing.SocketingPresentationSupport.compactSummary(
+                item.getSocketing(), item.getSlot(), item.getDetails());
+        if (!socketingSummary.isBlank()) {
+            html.append("<li>").append(escapeHtml(socketingSummary)).append("</li>");
         }
         html.append("</ul>");
         return html.toString();
@@ -317,7 +323,8 @@ public final class ItemLibraryPageRenderer {
                     item.getMasterworking(),
                     item.getAffixes(),
                     item.getTemperingAffixes())
-                    + TransfigurationSectionRenderer.renderReadonlySummary(item.getTransfiguration(), item.getAffixes());
+                    + TransfigurationSectionRenderer.renderReadonlySummary(item.getTransfiguration(), item.getAffixes())
+                    + SocketingSectionRenderer.renderReadonlySummary(item);
         }
         List<String> baseStats = collectBaseStats(fullItemRead);
         List<String> implicitLines = collectLines(fullItemRead, ItemReadLineGroup.IMPLICIT);
@@ -359,6 +366,7 @@ public final class ItemLibraryPageRenderer {
                 .append(TransfigurationSectionRenderer.renderReadonlySummary(
                         item.getTransfiguration(),
                         item.getAffixes()))
+                .append(SocketingSectionRenderer.renderReadonlySummary(item))
                 .append(renderAspectDetails(item))
                 .append(renderTextLineGroup("Socket / gniazdo", socketLines))
                 .append("</div>");

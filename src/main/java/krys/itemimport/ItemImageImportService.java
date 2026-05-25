@@ -85,9 +85,7 @@ public final class ItemImageImportService {
         }
 
         List<String> ocrTexts = new ArrayList<>();
-        StringBuilder rawVariantDump = new StringBuilder();
         int analyzedVariantCount = 0;
-        int linesBeforeMerge = 0;
         int totalHeight = 0;
         int maxWidth = 0;
         StringBuilder fileNames = new StringBuilder();
@@ -107,10 +105,6 @@ public final class ItemImageImportService {
             List<String> variantTexts = textVariants.stream()
                     .map(ItemImageOcrTextVariant::getText)
                     .toList();
-            appendRawVariantDump(rawVariantDump, request.getOriginalFilename(), textVariants);
-            linesBeforeMerge += variantTexts.stream()
-                    .mapToInt(ItemImageImportService::nonBlankLineCount)
-                    .sum();
             ocrTexts.add(textMerger.merge(variantTexts));
         }
 
@@ -122,11 +116,7 @@ public final class ItemImageImportService {
                 totalHeight
         );
         String mergedText = textMerger.merge(ocrTexts);
-        int linesAfterMerge = nonBlankLineCount(mergedText);
         ItemImageImportCandidateParseResult parsed = textParser.parse(metadata, mergedText);
-        String rawDebug = rawVariantDump.isEmpty()
-                ? ""
-                : "\nRaw OCR variants debug:\n" + rawVariantDump;
         return new ItemImageImportCandidateParseResult(
                 metadata,
                 parsed.getFullItemRead(),
@@ -137,31 +127,9 @@ public final class ItemImageImportService {
                 parsed.getThornsCandidate(),
                 parsed.getBlockChanceCandidate(),
                 parsed.getRetributionChanceCandidate(),
-                "Import wieloscreenowy: " + requests.size() + " obrazów zostanie scalonych jako jeden item. "
-                        + "OCR analizował " + analyzedVariantCount + " wariantów obrazu. "
-                        + "Linie OCR przed merge: " + linesBeforeMerge + ", po merge: " + linesAfterMerge + ". "
-                        + "Canonical source text used by parser:\n" + mergedText
-                        + rawDebug
+                "Import wieloscreenowy: " + requests.size() + " obrazy scalone jako jeden item. "
+                        + "OCR analizował " + analyzedVariantCount + " wariantów obrazu."
         );
-    }
-
-    private static void appendRawVariantDump(StringBuilder target,
-                                             String fileName,
-                                             List<ItemImageOcrTextVariant> textVariants) {
-        if (textVariants == null || textVariants.isEmpty()) {
-            return;
-        }
-        if (!target.isEmpty()) {
-            target.append('\n');
-        }
-        target.append("### ").append(fileName == null ? "" : fileName).append('\n');
-        for (ItemImageOcrTextVariant variant : textVariants) {
-            if (variant.getText() == null || variant.getText().isBlank()) {
-                continue;
-            }
-            target.append("---").append(variant.getVariantId()).append("---\n");
-            target.append(variant.getText().trim()).append('\n');
-        }
     }
 
     private static BufferedImage readImage(byte[] imageBytes) {

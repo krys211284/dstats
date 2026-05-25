@@ -20,6 +20,7 @@ import krys.itemlibrary.SavedImportedItem;
 import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkedAffixSelection;
 import krys.masterworking.MasterworkedAffixSource;
+import krys.socketing.ItemSocketing;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -91,9 +92,10 @@ final class ItemEditController implements HttpHandler {
         TemperingFormSupport.ParseResult temperingParseResult = TemperingFormSupport.parse(fields);
         ItemMasterworking masterworking = parseMasterworking(fields);
         krys.transfiguration.ItemTransfiguration transfiguration = TransfigurationFormSupport.parse(fields);
+        ItemSocketing socketing = SocketingFormSupport.parse(fields);
         ArrayList<ImportedItemAffix> affixes = new ArrayList<>(affixParseResult.affixes());
         parseNewAffix(fields, affixParseResult.errors()).ifPresent(affixes::add);
-        ItemImportEditableForm form = buildEditableForm(fields, existingItem, decodedFullItemRead, affixes, temperingParseResult.affixes(), masterworking, transfiguration);
+        ItemImportEditableForm form = buildEditableForm(fields, existingItem, decodedFullItemRead, affixes, temperingParseResult.affixes(), masterworking, transfiguration, socketing);
 
         ItemImportFormMapper.MappingResult mappingResult = formMapper.map(form);
         ArrayList<String> errors = new ArrayList<>(affixParseResult.errors());
@@ -127,7 +129,8 @@ final class ItemEditController implements HttpHandler {
                 item.getDetails(),
                 item.getTemperingAffixes(),
                 item.getMasterworking(),
-                item.getTransfiguration()
+                item.getTransfiguration(),
+                item.getSocketing()
         );
     }
 
@@ -153,7 +156,7 @@ final class ItemEditController implements HttpHandler {
                                                             List<krys.tempering.ItemTemperingAffix> temperingAffixes,
                                                             ItemMasterworking masterworking) {
         return buildEditableForm(fields, existingItem, decodedFullItemRead, affixes, temperingAffixes, masterworking,
-                TransfigurationFormSupport.parse(fields));
+                TransfigurationFormSupport.parse(fields), SocketingFormSupport.parse(fields));
     }
 
     private static ItemImportEditableForm buildEditableForm(Map<String, String> fields,
@@ -163,6 +166,18 @@ final class ItemEditController implements HttpHandler {
                                                             List<krys.tempering.ItemTemperingAffix> temperingAffixes,
                                                             ItemMasterworking masterworking,
                                                             krys.transfiguration.ItemTransfiguration transfiguration) {
+        return buildEditableForm(fields, existingItem, decodedFullItemRead, affixes, temperingAffixes, masterworking,
+                transfiguration, SocketingFormSupport.parse(fields));
+    }
+
+    private static ItemImportEditableForm buildEditableForm(Map<String, String> fields,
+                                                            SavedImportedItem existingItem,
+                                                            FullItemRead decodedFullItemRead,
+                                                            List<ImportedItemAffix> affixes,
+                                                            List<krys.tempering.ItemTemperingAffix> temperingAffixes,
+                                                            ItemMasterworking masterworking,
+                                                            krys.transfiguration.ItemTransfiguration transfiguration,
+                                                            ItemSocketing socketing) {
         return new ItemImportEditableForm(
                 existingItem.getSourceImageName(),
                 fields.getOrDefault("slot", ""),
@@ -180,7 +195,8 @@ final class ItemEditController implements HttpHandler {
                 parseItemDetails(fields, existingItem),
                 temperingAffixes,
                 masterworking,
-                transfiguration
+                transfiguration,
+                socketing
         );
     }
 

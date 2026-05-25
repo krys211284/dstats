@@ -107,7 +107,8 @@ public final class ItemLibraryController implements HttpHandler {
                 krys.itemimport.ItemImportDetails.empty(),
                 temperingParseResult.affixes(),
                 parseMasterworking(fields),
-                TransfigurationFormSupport.parse(fields)
+                TransfigurationFormSupport.parse(fields),
+                SocketingFormSupport.parse(fields)
         );
         ItemImportFormMapper.MappingResult mappingResult = itemImportFormMapper.map(form);
         List<String> errors = new ArrayList<>(temperingParseResult.errors());

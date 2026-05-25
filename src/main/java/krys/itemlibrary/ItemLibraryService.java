@@ -71,7 +71,8 @@ public final class ItemLibraryService {
                 importedItem.getDetails(),
                 importedItem.getTemperingAffixes(),
                 importedItem.getMasterworking(),
-                importedItem.getTransfiguration()
+                importedItem.getTransfiguration(),
+                importedItem.getSocketing()
         );
         return repository.save(itemToSave);
     }
@@ -96,7 +97,8 @@ public final class ItemLibraryService {
                 importedItem.getDetails(),
                 importedItem.getTemperingAffixes(),
                 importedItem.getMasterworking(),
-                importedItem.getTransfiguration()
+                importedItem.getTransfiguration(),
+                importedItem.getSocketing()
         );
         return repository.save(itemToSave);
     }

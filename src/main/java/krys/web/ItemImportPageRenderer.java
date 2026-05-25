@@ -53,7 +53,9 @@ public final class ItemImportPageRenderer {
                 .replace("{{CONFIRM_SECTION}}", renderConfirmSection(model))
                 .replace("{{TEMPERING_SCRIPT}}", TemperingSectionRenderer.renderScript()
                         + "\n"
-                        + TransfigurationSectionRenderer.renderScript());
+                        + TransfigurationSectionRenderer.renderScript()
+                        + "\n"
+                        + SocketingSectionRenderer.renderScript());
     }
 
     private static String renderErrors(List<String> errors) {
@@ -154,6 +156,7 @@ public final class ItemImportPageRenderer {
                 .append(TemperingSectionRenderer.renderEditor(form))
                 .append(MasterworkingSectionRenderer.renderEditor(form))
                 .append(TransfigurationSectionRenderer.renderEditor(form))
+                .append(SocketingSectionRenderer.renderEditor(form))
                 .append("""
                             <div class="submit-row">
                                 <button type="submit" name="formAction" value="confirmItem">Zatwierdź item</button>
@@ -210,6 +213,7 @@ public final class ItemImportPageRenderer {
                 .append(TransfigurationSectionRenderer.renderReadonlySummary(
                         savedItem.getTransfiguration(),
                         savedItem.getAffixes()))
+                .append(SocketingSectionRenderer.renderReadonlySummary(savedItem))
                 .append("""
                     </section>
                 </section>

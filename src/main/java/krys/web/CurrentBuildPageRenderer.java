@@ -893,8 +893,9 @@ public final class CurrentBuildPageRenderer {
         String temperingSection = renderSlotContributionSection("Hartowanie", buildSlotTemperingChips(item));
         String masterworkingSection = renderSlotContributionSection("Doskonalenie", buildSlotMasterworkingChips(item));
         String transfigurationSection = renderSlotContributionSection("Przeistoczenie", buildSlotTransfigurationChips(item));
+        String socketingSection = renderSlotContributionSection("Gniazda", SocketingSectionRenderer.compactChips(item));
         String effectsSection = renderSlotContributionSection("Efekty opisowe", buildSlotEffectChips(item));
-        String content = weaponSection + statsSection + temperingSection + masterworkingSection + transfigurationSection + effectsSection;
+        String content = weaponSection + statsSection + temperingSection + masterworkingSection + transfigurationSection + socketingSection + effectsSection;
         if (content.isBlank()) {
             return "<p class=\"slot-contribution\">Brak wkładu</p>";
         }

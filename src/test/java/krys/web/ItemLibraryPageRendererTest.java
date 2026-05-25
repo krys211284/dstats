@@ -12,6 +12,8 @@ import krys.itemimport.ImportedItemAffixType;
 import krys.itemlibrary.SavedImportedItem;
 import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkedAffixSelection;
+import krys.socketing.ItemSocket;
+import krys.socketing.ItemSocketing;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
@@ -30,6 +32,38 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Testuje semantyczny render zapisanych itemów w bibliotece. */
 class ItemLibraryPageRendererTest {
+    @Test
+    void shouldRenderSocketingSummaryForSavedShield() {
+        SavedImportedItem shield = new SavedImportedItem(
+                1L,
+                "Tarcza z diamentem",
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                new krys.itemimport.ItemImportDetails("Tarcza z diamentem", "Tarcza", "LEGENDARY", false,
+                        EquipmentSlot.OFF_HAND, 900L, null, null, null, null, null, 1202L, ""),
+                List.of(),
+                ItemMasterworking.defaultState(),
+                ItemTransfiguration.none(),
+                new ItemSocketing(1, List.of(ItemSocket.gem(0, "diamond_grand")))
+        );
+
+        String html = render(List.of(shield));
+
+        assertTrue(html.contains("Gniazda"));
+        assertTrue(html.contains("1: Wspaniały Diament"));
+        assertTrue(html.contains("+30 pkt. do wszystkich współczynników"));
+        assertTrue(html.contains("Runtime nieaktywny"));
+    }
+
     @Test
     void shouldRenderShieldItemInSemanticSectionsWithoutFlatOcrDump() {
         SavedImportedItem shield = new SavedImportedItem(

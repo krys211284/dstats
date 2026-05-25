@@ -1,6 +1,7 @@
 package krys.itemimport;
 
 import krys.masterworking.ItemMasterworking;
+import krys.socketing.ItemSocketing;
 import krys.tempering.ItemTemperingAffix;
 import krys.transfiguration.ItemTransfiguration;
 
@@ -15,6 +16,7 @@ public final class ItemImportDraft {
     private final List<ItemTemperingAffix> temperingAffixes;
     private final ItemMasterworking masterworking;
     private final ItemTransfiguration transfiguration;
+    private final ItemSocketing socketing;
 
     public ItemImportDraft(ItemImageImportCandidateParseResult parseResult,
                            String ocrSuggestedAspectId,
@@ -32,6 +34,18 @@ public final class ItemImportDraft {
                            List<ItemTemperingAffix> temperingAffixes,
                            ItemMasterworking masterworking,
                            ItemTransfiguration transfiguration) {
+        this(parseResult, ocrSuggestedAspectId, ocrAspectConfidence, affixes, temperingAffixes,
+                masterworking, transfiguration, ItemSocketing.empty());
+    }
+
+    public ItemImportDraft(ItemImageImportCandidateParseResult parseResult,
+                           String ocrSuggestedAspectId,
+                           ItemImportFieldConfidence ocrAspectConfidence,
+                           List<ImportedItemAffix> affixes,
+                           List<ItemTemperingAffix> temperingAffixes,
+                           ItemMasterworking masterworking,
+                           ItemTransfiguration transfiguration,
+                           ItemSocketing socketing) {
         this.parseResult = parseResult;
         this.ocrSuggestedAspectId = ocrSuggestedAspectId == null ? "" : ocrSuggestedAspectId;
         this.ocrAspectConfidence = ocrAspectConfidence == null ? ItemImportFieldConfidence.UNKNOWN : ocrAspectConfidence;
@@ -39,6 +53,7 @@ public final class ItemImportDraft {
         this.temperingAffixes = temperingAffixes == null ? List.of() : List.copyOf(temperingAffixes);
         this.masterworking = masterworking == null ? ItemMasterworking.defaultState() : masterworking;
         this.transfiguration = transfiguration == null ? ItemTransfiguration.none() : transfiguration;
+        this.socketing = socketing == null ? ItemSocketing.empty() : socketing;
     }
 
     public ItemImageImportCandidateParseResult getParseResult() {
@@ -67,5 +82,9 @@ public final class ItemImportDraft {
 
     public ItemTransfiguration getTransfiguration() {
         return transfiguration;
+    }
+
+    public ItemSocketing getSocketing() {
+        return socketing;
     }
 }
