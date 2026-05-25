@@ -23,6 +23,7 @@ import krys.transfiguration.HoradricTransfigurationOutcome;
 import krys.transfiguration.HoradricTuningPrism;
 import krys.transfiguration.ItemTransfiguration;
 import krys.transfiguration.TransfigurationAffixRoll;
+import krys.transfiguration.TransfigurationValueProvenance;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -163,7 +164,95 @@ class ItemImportPageRendererTest {
         assertTrue(html.contains("value=\"AGGRESSIVE\" selected"));
         assertTrue(html.contains("name=\"transfigurationAddedAffixId\""));
         assertTrue(html.contains("value=\"PRIMARY_STAT\" selected"));
-        assertTrue(html.contains("name=\"transfigurationAddedAffixValue\" step=\"0.1\" value=\"180\""));
+        assertTrue(html.contains("name=\"transfigurationAddedDisplayedValue\" step=\"0.1\" value=\"180\""));
+        assertTrue(html.contains("Wartość widoczna na itemie"));
+        assertTrue(html.contains("name=\"transfigurationAddedValueProvenance\""));
+        assertTrue(html.contains("data-transfiguration-section"));
+        assertTrue(html.contains("data-transfiguration-outcome=\"BONUS_TRANSFIGURATION_AFFIX\""));
+        assertTrue(html.contains("data-transfiguration-field"));
+        assertTrue(html.contains("Wartość widoczna w grze"));
+    }
+
+    @Test
+    void shouldRenderMinimalTransfigurationEditorForNotTransfiguredItem() {
+        String section = sectionByHeading(renderFullPage(formWithTransfiguration(ItemTransfiguration.none())), "Przeistoczenie / Kostka Horadrimów");
+
+        assertTrue(section.contains("Nieprzeistoczony"));
+        assertTrue(section.contains("Przeistoczenie nie jest ustawione dla tego itemu."));
+        assertTrue(tagByDataAttribute(section, "data-transfiguration-active-fields").contains(" hidden"));
+        assertTrue(tagByDataAttribute(section, "data-transfiguration-outcome-fields").contains(" hidden"));
+        assertTrue(section.contains("Wynik przeistoczenia"));
+        assertTrue(section.contains("Pryzmat dostrojenia"));
+        assertTrue(section.contains("Niemodyfikowalny po przeistoczeniu"));
+        assertTrue(section.contains("Bonusowy affix Przeistoczenia"));
+        assertTrue(section.contains("Wartość widoczna na itemie"));
+    }
+
+    @Test
+    void shouldRenderOnlyOutcomeSpecificTransfigurationFields() {
+        assertOutcomeFields(
+                HoradricTransfigurationOutcome.UPGRADE_TO_GREATER_AFFIX,
+                List.of("Affix ulepszony do Greater Affix"),
+                List.of("name=\"transfigurationAddedAffixId\"", "Wartość widoczna na itemie", "Affix do zastąpienia", "Affix zastępujący", "name=\"transfigurationBonusQuality\""));
+        assertOutcomeFields(
+                HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                List.of("Bonusowy affix Przeistoczenia", "Wartość widoczna na itemie"),
+                List.of("Affix ulepszony do Greater Affix", "Affix do zastąpienia", "Affix zastępujący", "name=\"transfigurationBonusQuality\""));
+        assertOutcomeFields(
+                HoradricTransfigurationOutcome.REPLACE_EXISTING_AFFIX_WITH_TRANSFIGURATION_AFFIX,
+                List.of("Affix do zastąpienia", "Affix zastępujący", "Wartość widoczna na itemie"),
+                List.of("Affix ulepszony do Greater Affix", "name=\"transfigurationAddedAffixId\"", "name=\"transfigurationBonusQuality\""));
+        assertOutcomeFields(
+                HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY,
+                List.of("Bonusowa jakość itemu"),
+                List.of("Affix ulepszony do Greater Affix", "name=\"transfigurationAddedAffixId\"", "Wartość widoczna na itemie", "Affix do zastąpienia", "Affix zastępujący"));
+        assertOutcomeFields(
+                HoradricTransfigurationOutcome.INDESTRUCTIBLE,
+                List.of(),
+                List.of("Affix ulepszony do Greater Affix", "name=\"transfigurationAddedAffixId\"", "Wartość widoczna na itemie", "Affix do zastąpienia", "Affix zastępujący", "name=\"transfigurationBonusQuality\""));
+    }
+
+    @Test
+    void shouldRenderBonusTransfigurationAffixForRealShieldValue() {
+        String section = sectionByHeading(renderFullPage(formWithTransfiguration(new ItemTransfiguration(
+                true,
+                true,
+                HoradricTuningPrism.NONE,
+                HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                "",
+                new TransfigurationAffixRoll("ALL_STATS", 96.0d, TransfigurationValueProvenance.GAME_DISPLAYED_VALUE, ""),
+                "",
+                null,
+                null,
+                false,
+                ""))), "Przeistoczenie / Kostka Horadrimów");
+        String activeGroup = outcomeGroup(section, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX);
+
+        assertTrue(section.contains("value=\"TRANSFIGURED\" selected"));
+        assertTrue(activeGroup.contains("Bonusowy affix Przeistoczenia"));
+        assertTrue(activeGroup.contains("do wszystkich współczynników [75-100]"));
+        assertTrue(activeGroup.contains("name=\"transfigurationAddedDisplayedValue\" step=\"0.1\" value=\"96\""));
+        assertTrue(activeGroup.contains("Wartość widoczna w grze"));
+        assertTrue(section.contains("Niemodyfikowalny po przeistoczeniu"));
+        assertTrue(section.contains("<option value=\"true\" selected>Tak</option>"));
+        assertTrue(outcomeGroup(section, HoradricTransfigurationOutcome.REPLACE_EXISTING_AFFIX_WITH_TRANSFIGURATION_AFFIX).contains(" hidden"));
+        assertTrue(outcomeGroup(section, HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY).contains(" hidden"));
+    }
+
+    @Test
+    void shouldRenderPolishTuningPrismLabels() {
+        String section = sectionByHeading(renderFullPage(formWithTransfiguration(ItemTransfiguration.transfigured(
+                HoradricTransfigurationOutcome.UNKNOWN))), "Przeistoczenie / Kostka Horadrimów");
+
+        assertTrue(section.contains("Entropiczny"));
+        assertTrue(section.contains("Kulleana"));
+        assertTrue(section.contains("Agresywny"));
+        assertTrue(section.contains("Pragmatyczny"));
+        assertTrue(section.contains("Protektora"));
+        assertTrue(section.contains("Zasobny"));
+        assertTrue(section.contains("Adeptowski"));
+        assertTrue(section.contains("Chromatyczny"));
+        assertFalse(section.contains(">Aggressive<"));
     }
 
     @Test
@@ -946,6 +1035,87 @@ class ItemImportPageRendererTest {
 
     private static String renderTemperingSection(ItemImportEditableForm form) {
         return sectionByHeading(renderFullPage(form), "Hartowanie");
+    }
+
+    private static void assertOutcomeFields(HoradricTransfigurationOutcome outcome,
+                                            List<String> expected,
+                                            List<String> rejected) {
+        String section = sectionByHeading(renderFullPage(formWithTransfiguration(new ItemTransfiguration(
+                true,
+                true,
+                HoradricTuningPrism.NONE,
+                outcome,
+                "DAMAGE_REDUCTION",
+                new TransfigurationAffixRoll("ALL_STATS", 96.0d),
+                "DAMAGE_REDUCTION",
+                new TransfigurationAffixRoll("TOTAL_ARMOR_PERCENT", 10.0d),
+                15,
+                outcome == HoradricTransfigurationOutcome.INDESTRUCTIBLE,
+                ""))), "Przeistoczenie / Kostka Horadrimów");
+        String visibleFields = switch (outcome) {
+            case UPGRADE_TO_GREATER_AFFIX, BONUS_TRANSFIGURATION_AFFIX,
+                    REPLACE_EXISTING_AFFIX_WITH_TRANSFIGURATION_AFFIX, BONUS_ITEM_QUALITY -> outcomeGroup(section, outcome);
+            case INDESTRUCTIBLE, UNKNOWN, NONE -> tagByDataAttribute(section, "data-transfiguration-outcome-fields");
+        };
+        for (String value : expected) {
+            assertTrue(visibleFields.contains(value), value + "\n" + visibleFields);
+        }
+        for (String value : rejected) {
+            assertFalse(visibleFields.contains(value), value + "\n" + visibleFields);
+        }
+    }
+
+    private static String outcomeGroup(String section, HoradricTransfigurationOutcome outcome) {
+        String marker = "data-transfiguration-outcome=\"" + outcome.name() + "\"";
+        int markerIndex = section.indexOf(marker);
+        if (markerIndex < 0) {
+            throw new AssertionError("Brak grupy outcome: " + outcome);
+        }
+        int start = section.lastIndexOf("<div", markerIndex);
+        int next = section.indexOf("<div class=\"transfiguration-grid transfiguration-dynamic-grid\"", markerIndex + marker.length());
+        int end = next >= 0 ? next : section.indexOf("</div>\n</div>", markerIndex);
+        if (start < 0 || end < 0) {
+            throw new AssertionError("Nie udało się wyciąć grupy outcome: " + outcome);
+        }
+        return section.substring(start, end);
+    }
+
+    private static String tagByDataAttribute(String section, String attribute) {
+        int markerIndex = section.indexOf(attribute);
+        if (markerIndex < 0) {
+            throw new AssertionError("Brak atrybutu: " + attribute);
+        }
+        int start = section.lastIndexOf("<", markerIndex);
+        int end = section.indexOf(">", markerIndex);
+        if (start < 0 || end < 0) {
+            throw new AssertionError("Nie udało się wyciąć tagu: " + attribute);
+        }
+        return section.substring(start, end + 1);
+    }
+
+    private static ItemImportEditableForm formWithTransfiguration(ItemTransfiguration transfiguration) {
+        return new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "20",
+                "0",
+                FullItemRead.empty(),
+                List.of(
+                        new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 225.0d),
+                        new ImportedItemAffix(ImportedItemAffixType.DAMAGE_REDUCTION, 11.4d)
+                ),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                ItemImportDetails.empty(),
+                List.of(),
+                ItemMasterworking.defaultState(),
+                transfiguration
+        );
     }
 
     private static String renderFullPage(ItemImportEditableForm form) {

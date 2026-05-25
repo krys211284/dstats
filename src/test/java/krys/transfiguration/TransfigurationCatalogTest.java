@@ -21,6 +21,10 @@ class TransfigurationCatalogTest {
 
     @Test
     void shouldValidateTransfigurationAffixCatalogRanges() {
+        assertEquals("do wszystkich współczynników", TransfigurationAffixCatalog.findById("ALL_STATS").orElseThrow().getDisplayName());
+        assertEquals("główny atrybut", TransfigurationAffixCatalog.findById("PRIMARY_STAT").orElseThrow().getDisplayName());
+        assertEquals("szansa na trafienie krytyczne", TransfigurationAffixCatalog.findById("CRITICAL_STRIKE_CHANCE").orElseThrow().getDisplayName());
+
         TransfigurationAffixDefinition primaryStat = TransfigurationAffixCatalog.findById("PRIMARY_STAT").orElseThrow();
         assertTrue(primaryStat.accepts(150.0d));
         assertTrue(primaryStat.accepts(180.0d));

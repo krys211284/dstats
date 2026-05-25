@@ -9,6 +9,7 @@ import krys.transfiguration.TransfigurationAffixCatalog;
 import krys.transfiguration.TransfigurationAffixDefinition;
 import krys.transfiguration.TransfigurationAffixRoll;
 import krys.transfiguration.TransfigurationPresentationSupport;
+import krys.transfiguration.TransfigurationValueProvenance;
 
 import java.util.List;
 
@@ -19,20 +20,24 @@ final class TransfigurationSectionRenderer {
 
     static String renderEditor(ItemImportEditableForm form) {
         ItemTransfiguration transfiguration = form.getTransfiguration();
-        boolean lockedSelected = !transfiguration.isTransfigured() || transfiguration.isLockedAfterTransfiguration();
+        boolean lockedSelected = transfiguration.isLockedAfterTransfiguration();
+        boolean active = transfiguration.isTransfigured();
         return """
-                <section class="subpanel transfiguration-section">
+                <section class="subpanel transfiguration-section" data-transfiguration-section>
                     <h3>Przeistoczenie / Kostka Horadrimów</h3>
                     <div class="transfiguration-grid">
                         <label>
                             Stan
-                            <select name="transfigurationState">
+                            <select name="transfigurationState" data-transfiguration-state>
                                 %s
                             </select>
                         </label>
+                    </div>
+                    <p class="helper" data-transfiguration-empty%s>Przeistoczenie nie jest ustawione dla tego itemu.</p>
+                    <div class="transfiguration-grid" data-transfiguration-active-fields%s>
                         <label>
                             Wynik przeistoczenia
-                            <select name="transfigurationOutcome">
+                            <select name="transfigurationOutcome" data-transfiguration-outcome-select>
                                 %s
                             </select>
                         </label>
@@ -50,24 +55,19 @@ final class TransfigurationSectionRenderer {
                             </select>
                         </label>
                     </div>
-                    <div class="transfiguration-grid transfiguration-dynamic-grid">
-                        %s
-                        %s
-                        %s
-                        %s
-                    </div>
-                    <p class="helper">Przeistoczenie jest w tym etapie danymi itemu i prezentacją. Runtime nieaktywny.</p>
+                    %s
+                    <p class="helper" data-transfiguration-runtime%s>Przeistoczenie jest w tym etapie danymi itemu i prezentacją. Runtime nieaktywny.</p>
                 </section>
                 """.formatted(
                 stateOptions(transfiguration),
+                active ? " hidden" : "",
+                active ? "" : " hidden",
                 outcomeOptions(transfiguration),
                 prismOptions(transfiguration),
                 lockedSelected ? " selected" : "",
                 !lockedSelected ? " selected" : "",
-                upgradedAffixField(transfiguration, form.getAffixes()),
-                addedAffixFields("transfigurationAdded", "Bonusowy affix Przeistoczenia", transfiguration.getAddedTransfigurationAffix()),
-                replacedAffixFields(transfiguration, form.getAffixes()),
-                bonusQualityField(transfiguration)
+                renderOutcomeFields(transfiguration, form.getAffixes()),
+                active ? "" : " hidden"
         );
     }
 
@@ -117,6 +117,46 @@ final class TransfigurationSectionRenderer {
         return html.toString();
     }
 
+    private static String renderOutcomeFields(ItemTransfiguration transfiguration, List<ImportedItemAffix> affixes) {
+        boolean active = transfiguration.isTransfigured();
+        HoradricTransfigurationOutcome selected = transfiguration.getOutcome();
+        StringBuilder html = new StringBuilder("<div data-transfiguration-outcome-fields");
+        if (!active || selected == HoradricTransfigurationOutcome.NONE
+                || selected == HoradricTransfigurationOutcome.UNKNOWN
+                || selected == HoradricTransfigurationOutcome.INDESTRUCTIBLE) {
+            html.append(" hidden");
+        }
+        html.append(">");
+        html.append(outcomeGroup(
+                HoradricTransfigurationOutcome.UPGRADE_TO_GREATER_AFFIX,
+                upgradedAffixField(transfiguration, affixes),
+                active && selected == HoradricTransfigurationOutcome.UPGRADE_TO_GREATER_AFFIX));
+        html.append(outcomeGroup(
+                HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                addedAffixFields("transfigurationAdded",
+                        "Bonusowy affix Przeistoczenia",
+                        transfiguration.getAddedTransfigurationAffix()),
+                active && selected == HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX));
+        html.append(outcomeGroup(
+                HoradricTransfigurationOutcome.REPLACE_EXISTING_AFFIX_WITH_TRANSFIGURATION_AFFIX,
+                replacedAffixFields(transfiguration, affixes),
+                active && selected == HoradricTransfigurationOutcome.REPLACE_EXISTING_AFFIX_WITH_TRANSFIGURATION_AFFIX));
+        html.append(outcomeGroup(
+                HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY,
+                bonusQualityField(transfiguration),
+                active && selected == HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY));
+        html.append("</div>");
+        return html.toString();
+    }
+
+    private static String outcomeGroup(HoradricTransfigurationOutcome outcome, String content, boolean visible) {
+        return """
+                <div class="transfiguration-grid transfiguration-dynamic-grid" data-transfiguration-field data-transfiguration-outcome="%s"%s>
+                    %s
+                </div>
+                """.formatted(outcome.name(), visible ? "" : " hidden", content);
+    }
+
     private static String upgradedAffixField(ItemTransfiguration transfiguration, List<ImportedItemAffix> affixes) {
         return """
                 <label>
@@ -153,21 +193,25 @@ final class TransfigurationSectionRenderer {
 
     private static String addedAffixFields(String prefix, String label, TransfigurationAffixRoll roll) {
         String selectedId = roll == null ? "" : roll.getDefinitionId();
-        String value = roll == null ? "" : krys.itemlibrary.ItemLibraryPresentationSupport.formatDecimal(roll.getValue()).replace(',', '.');
+        String value = roll == null ? "" : krys.itemlibrary.ItemLibraryPresentationSupport.formatDecimal(roll.getDisplayedValue()).replace(',', '.');
         String element = roll == null ? "" : roll.getElement();
+        boolean showElement = "ELEMENTAL_SPECIFIC_DAMAGE".equals(selectedId);
         return """
                 <label>
                     %s
                     <select name="%sAffixId">%s</select>
                 </label>
                 <label>
-                    Wartość rolla
-                    <input type="number" name="%sAffixValue" step="0.1" value="%s">
+                    Wartość widoczna na itemie
+                    <input type="number" name="%sDisplayedValue" step="0.1" value="%s">
+                    <span class="helper">Przepisz finalną wartość z itemu w grze. Dla realnego bonusu +96 do wszystkich współczynników wpisz 96.</span>
                 </label>
                 <label>
-                    Element
-                    <input type="text" name="%sAffixElement" value="%s">
+                    Pochodzenie wartości
+                    <select name="%sValueProvenance">%s</select>
+                    <span class="helper">Domyślnie używaj wartości widocznej w grze; nie trzeba ręcznie odwracać jakości 25/25 do source rolla.</span>
                 </label>
+                %s
                 """.formatted(
                 escape(label),
                 prefix,
@@ -175,8 +219,29 @@ final class TransfigurationSectionRenderer {
                 prefix,
                 escape(value),
                 prefix,
-                escape(element)
+                provenanceOptions(roll),
+                elementField(prefix, element, showElement)
         );
+    }
+
+    private static String elementField(String prefix, String element, boolean visible) {
+        return """
+                <label data-transfiguration-field data-transfiguration-element-for="%s"%s>
+                    Element
+                    <input type="text" name="%sAffixElement" value="%s">
+                </label>
+                """.formatted(prefix, visible ? "" : " hidden", prefix, escape(element));
+    }
+
+    private static String provenanceOptions(TransfigurationAffixRoll roll) {
+        TransfigurationValueProvenance selected = roll == null
+                ? TransfigurationValueProvenance.GAME_DISPLAYED_VALUE
+                : roll.getValueProvenance();
+        StringBuilder html = new StringBuilder();
+        for (TransfigurationValueProvenance provenance : TransfigurationValueProvenance.values()) {
+            html.append(option(provenance.name(), provenance.getDisplayName(), provenance == selected));
+        }
+        return html.toString();
     }
 
     private static String transfigurationAffixOptions(String selectedId) {
@@ -201,6 +266,49 @@ final class TransfigurationSectionRenderer {
         return "<option value=\"" + escape(value) + "\"" + (selected ? " selected" : "") + ">"
                 + escape(label)
                 + "</option>";
+    }
+
+    static String renderScript() {
+        return """
+                (() => {
+                    const refreshSection = section => {
+                        const state = section.querySelector('[name="transfigurationState"]');
+                        const outcome = section.querySelector('[name="transfigurationOutcome"]');
+                        const activeFields = section.querySelector('[data-transfiguration-active-fields]');
+                        const emptyMessage = section.querySelector('[data-transfiguration-empty]');
+                        const runtimeMessage = section.querySelector('[data-transfiguration-runtime]');
+                        const outcomeFields = section.querySelector('[data-transfiguration-outcome-fields]');
+                        if (!state) return;
+                        const transfigured = state.value === 'TRANSFIGURED';
+                        if (activeFields) activeFields.hidden = !transfigured;
+                        if (emptyMessage) emptyMessage.hidden = transfigured;
+                        if (runtimeMessage) runtimeMessage.hidden = !transfigured;
+                        let hasVisibleOutcome = false;
+                        section.querySelectorAll('[data-transfiguration-outcome]').forEach(group => {
+                            const visible = transfigured && outcome && group.dataset.transfigurationOutcome === outcome.value;
+                            group.hidden = !visible;
+                            hasVisibleOutcome = hasVisibleOutcome || visible;
+                        });
+                        if (outcomeFields) outcomeFields.hidden = !hasVisibleOutcome;
+                        refreshElementField(section, 'transfigurationAdded');
+                        refreshElementField(section, 'transfigurationReplacement');
+                    };
+                    const refreshElementField = (section, prefix) => {
+                        const select = section.querySelector(`[name="${prefix}AffixId"]`);
+                        const field = section.querySelector(`[data-transfiguration-element-for="${prefix}"]`);
+                        if (!select || !field) return;
+                        const group = field.closest('[data-transfiguration-outcome]');
+                        field.hidden = group.hidden || select.value !== 'ELEMENTAL_SPECIFIC_DAMAGE';
+                    };
+                    document.querySelectorAll('[data-transfiguration-section]').forEach(section => {
+                        ['transfigurationState', 'transfigurationOutcome', 'transfigurationAddedAffixId', 'transfigurationReplacementAffixId']
+                            .map(name => section.querySelector(`[name="${name}"]`))
+                            .filter(Boolean)
+                            .forEach(control => control.addEventListener('change', () => refreshSection(section)));
+                        refreshSection(section);
+                    });
+                })();
+                """;
     }
 
     private static String escape(String value) {

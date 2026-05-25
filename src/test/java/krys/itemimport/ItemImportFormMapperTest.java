@@ -14,6 +14,7 @@ import krys.transfiguration.HoradricTransfigurationOutcome;
 import krys.transfiguration.HoradricTuningPrism;
 import krys.transfiguration.ItemTransfiguration;
 import krys.transfiguration.TransfigurationAffixRoll;
+import krys.transfiguration.TransfigurationValueProvenance;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -267,28 +268,45 @@ class ItemImportFormMapperTest {
     void shouldValidateBonusTransfigurationAffixRoll() {
         assertTransfigurationAccepted(new ItemTransfiguration(
                 true, true, HoradricTuningPrism.AGGRESSIVE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
-                "", new TransfigurationAffixRoll("PRIMARY_STAT", 150.0d), "", null, null, false, ""));
+                "", sourceRoll("PRIMARY_STAT", 150.0d), "", null, null, false, ""));
         assertTransfigurationAccepted(new ItemTransfiguration(
                 true, true, HoradricTuningPrism.AGGRESSIVE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
-                "", new TransfigurationAffixRoll("PRIMARY_STAT", 180.0d), "", null, null, false, ""));
+                "", sourceRoll("PRIMARY_STAT", 180.0d), "", null, null, false, ""));
         assertTransfigurationRejected(new ItemTransfiguration(
                 true, true, HoradricTuningPrism.AGGRESSIVE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
-                "", new TransfigurationAffixRoll("PRIMARY_STAT", 149.0d), "", null, null, false, ""), "150-180");
+                "", sourceRoll("PRIMARY_STAT", 149.0d), "", null, null, false, ""), "150-180");
         assertTransfigurationRejected(new ItemTransfiguration(
                 true, true, HoradricTuningPrism.AGGRESSIVE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
-                "", new TransfigurationAffixRoll("PRIMARY_STAT", 181.0d), "", null, null, false, ""), "150-180");
+                "", sourceRoll("PRIMARY_STAT", 181.0d), "", null, null, false, ""), "150-180");
         assertTransfigurationAccepted(new ItemTransfiguration(
                 true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
-                "", new TransfigurationAffixRoll("CRITICAL_STRIKE_CHANCE", 3.5d), "", null, null, false, ""));
+                "", sourceRoll("CRITICAL_STRIKE_CHANCE", 3.5d), "", null, null, false, ""));
         assertTransfigurationAccepted(new ItemTransfiguration(
                 true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
-                "", new TransfigurationAffixRoll("CRITICAL_STRIKE_CHANCE", 5.0d), "", null, null, false, ""));
+                "", sourceRoll("CRITICAL_STRIKE_CHANCE", 5.0d), "", null, null, false, ""));
         assertTransfigurationRejected(new ItemTransfiguration(
                 true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
-                "", new TransfigurationAffixRoll("CRITICAL_STRIKE_CHANCE", 3.4d), "", null, null, false, ""), "3,5-5%");
+                "", sourceRoll("CRITICAL_STRIKE_CHANCE", 3.4d), "", null, null, false, ""), "3,5-5%");
         assertTransfigurationRejected(new ItemTransfiguration(
                 true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
-                "", new TransfigurationAffixRoll("CRITICAL_STRIKE_CHANCE", 5.1d), "", null, null, false, ""), "3,5-5%");
+                "", sourceRoll("CRITICAL_STRIKE_CHANCE", 5.1d), "", null, null, false, ""), "3,5-5%");
+    }
+
+    @Test
+    void shouldValidateGameDisplayedTransfigurationValueAgainstMasterworkingQuality() {
+        ItemTransfiguration displayedAllStats = new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                "", new TransfigurationAffixRoll("ALL_STATS", 96.0d, TransfigurationValueProvenance.GAME_DISPLAYED_VALUE, ""),
+                "", null, null, false, "");
+        assertTransfigurationAccepted(displayedAllStats, new ItemMasterworking(25, 25, MasterworkedAffixSelection.temperingAffix("defense_max_animus")));
+        assertTransfigurationAccepted(displayedAllStats, new ItemMasterworking(0, 25));
+
+        assertTransfigurationRejected(new ItemTransfiguration(
+                        true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                        "", new TransfigurationAffixRoll("ALL_STATS", 140.0d, TransfigurationValueProvenance.GAME_DISPLAYED_VALUE, ""),
+                        "", null, null, false, ""),
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.temperingAffix("defense_max_animus")),
+                "93,75-125");
     }
 
     @Test
@@ -318,6 +336,81 @@ class ItemImportFormMapperTest {
         assertTransfigurationRejected(new ItemTransfiguration(
                 true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY,
                 "", null, "", null, 16, false, ""), "od 1 do 15");
+    }
+
+    @Test
+    void shouldClearInactiveTransfigurationFieldsForOutcome() {
+        ItemTransfiguration indestructibleWithStaleRoll = new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.INDESTRUCTIBLE,
+                "DAMAGE_REDUCTION",
+                new TransfigurationAffixRoll("ALL_STATS", 96.0d, TransfigurationValueProvenance.GAME_DISPLAYED_VALUE, ""),
+                "DAMAGE_REDUCTION",
+                new TransfigurationAffixRoll("TOTAL_ARMOR_PERCENT", 10.0d),
+                15,
+                true,
+                "");
+
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(formWithTransfiguration(indestructibleWithStaleRoll));
+
+        assertTrue(result.getErrors().isEmpty(), () -> String.join(", ", result.getErrors()));
+        ItemTransfiguration cleaned = result.getItem().getTransfiguration();
+        assertEquals(HoradricTransfigurationOutcome.INDESTRUCTIBLE, cleaned.getOutcome());
+        assertNull(cleaned.getAddedTransfigurationAffix());
+        assertNull(cleaned.getReplacementTransfigurationAffix());
+        assertEquals("", cleaned.getUpgradedAffixRef());
+        assertEquals("", cleaned.getReplacedAffixRef());
+        assertNull(cleaned.getBonusQuality());
+
+        ItemTransfiguration bonusQualityWithStaleRoll = new ItemTransfiguration(
+                true, true, HoradricTuningPrism.NONE, HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY,
+                "DAMAGE_REDUCTION",
+                new TransfigurationAffixRoll("ALL_STATS", 96.0d),
+                "DAMAGE_REDUCTION",
+                new TransfigurationAffixRoll("TOTAL_ARMOR_PERCENT", 10.0d),
+                15,
+                false,
+                "");
+        ItemImportFormMapper.MappingResult bonusQualityResult = new ItemImportFormMapper().map(formWithTransfiguration(bonusQualityWithStaleRoll));
+
+        assertTrue(bonusQualityResult.getErrors().isEmpty(), () -> String.join(", ", bonusQualityResult.getErrors()));
+        ItemTransfiguration bonusQualityCleaned = bonusQualityResult.getItem().getTransfiguration();
+        assertEquals(HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY, bonusQualityCleaned.getOutcome());
+        assertNull(bonusQualityCleaned.getAddedTransfigurationAffix());
+        assertNull(bonusQualityCleaned.getReplacementTransfigurationAffix());
+        assertEquals("", bonusQualityCleaned.getUpgradedAffixRef());
+        assertEquals("", bonusQualityCleaned.getReplacedAffixRef());
+        assertEquals(15, bonusQualityCleaned.getBonusQuality());
+    }
+
+    @Test
+    void shouldKeepOnlyBonusTransfigurationAffixFieldsForRealShield() {
+        ItemTransfiguration realShieldTransfiguration = new ItemTransfiguration(
+                true,
+                true,
+                HoradricTuningPrism.NONE,
+                HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                "DAMAGE_REDUCTION",
+                new TransfigurationAffixRoll("ALL_STATS", 96.0d, TransfigurationValueProvenance.GAME_DISPLAYED_VALUE, ""),
+                "DAMAGE_REDUCTION",
+                new TransfigurationAffixRoll("TOTAL_ARMOR_PERCENT", 10.0d),
+                15,
+                false,
+                "");
+
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(
+                formWithTransfiguration(realShieldTransfiguration,
+                        new ItemMasterworking(25, 25, MasterworkedAffixSelection.temperingAffix("defense_max_animus"))));
+
+        assertTrue(result.getErrors().isEmpty(), () -> String.join(", ", result.getErrors()));
+        ItemTransfiguration cleaned = result.getItem().getTransfiguration();
+        assertEquals(HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX, cleaned.getOutcome());
+        assertEquals("ALL_STATS", cleaned.getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(96.0d, cleaned.getAddedTransfigurationAffix().getDisplayedValue());
+        assertEquals(TransfigurationValueProvenance.GAME_DISPLAYED_VALUE, cleaned.getAddedTransfigurationAffix().getValueProvenance());
+        assertEquals("", cleaned.getUpgradedAffixRef());
+        assertEquals("", cleaned.getReplacedAffixRef());
+        assertNull(cleaned.getReplacementTransfigurationAffix());
+        assertNull(cleaned.getBonusQuality());
     }
 
     private static void assertMasterworkingAccepted(ItemMasterworking masterworking) {
@@ -370,14 +463,24 @@ class ItemImportFormMapperTest {
     }
 
     private static void assertTransfigurationAccepted(ItemTransfiguration transfiguration) {
-        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(formWithTransfiguration(transfiguration));
+        assertTransfigurationAccepted(transfiguration, ItemMasterworking.defaultState());
+    }
+
+    private static void assertTransfigurationAccepted(ItemTransfiguration transfiguration, ItemMasterworking masterworking) {
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(formWithTransfiguration(transfiguration, masterworking));
 
         assertTrue(result.getErrors().isEmpty(), () -> String.join(", ", result.getErrors()));
         assertEquals(transfiguration.getOutcome(), result.getItem().getTransfiguration().getOutcome());
     }
 
     private static void assertTransfigurationRejected(ItemTransfiguration transfiguration, String expectedErrorFragment) {
-        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(formWithTransfiguration(transfiguration));
+        assertTransfigurationRejected(transfiguration, ItemMasterworking.defaultState(), expectedErrorFragment);
+    }
+
+    private static void assertTransfigurationRejected(ItemTransfiguration transfiguration,
+                                                      ItemMasterworking masterworking,
+                                                      String expectedErrorFragment) {
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(formWithTransfiguration(transfiguration, masterworking));
 
         assertNull(result.getItem());
         assertTrue(result.getErrors().stream().anyMatch(error -> error.contains(expectedErrorFragment)),
@@ -385,6 +488,10 @@ class ItemImportFormMapperTest {
     }
 
     private static ItemImportEditableForm formWithTransfiguration(ItemTransfiguration transfiguration) {
+        return formWithTransfiguration(transfiguration, ItemMasterworking.defaultState());
+    }
+
+    private static ItemImportEditableForm formWithTransfiguration(ItemTransfiguration transfiguration, ItemMasterworking masterworking) {
         return new ItemImportEditableForm(
                 "tarcza.png",
                 "OFF_HAND",
@@ -412,9 +519,13 @@ class ItemImportFormMapperTest {
                         TemperingRuntimeStatus.DATA_ONLY,
                         true
                 )),
-                ItemMasterworking.defaultState(),
+                masterworking,
                 transfiguration
         );
+    }
+
+    private static TransfigurationAffixRoll sourceRoll(String definitionId, double value) {
+        return new TransfigurationAffixRoll(definitionId, value, TransfigurationValueProvenance.SOURCE_ROLL, "");
     }
 
     @Test

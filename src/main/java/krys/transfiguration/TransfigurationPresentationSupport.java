@@ -42,7 +42,7 @@ public final class TransfigurationPresentationSupport {
         }
         TransfigurationAffixDefinition definition = TransfigurationAffixCatalog.findById(roll.getDefinitionId()).orElse(null);
         String name = definition == null ? roll.getDefinitionId() : definition.getDisplayName();
-        String value = formatValue(roll.getValue(), definition == null ? TransfigurationAffixValueKind.FLAT : definition.getValueKind());
+        String value = formatValue(roll.getDisplayedValue(), definition == null ? TransfigurationAffixValueKind.FLAT : definition.getValueKind());
         String element = roll.getElement().isBlank() ? "" : " (" + roll.getElement() + ")";
         return value + " " + name + element;
     }
@@ -50,6 +50,16 @@ public final class TransfigurationPresentationSupport {
     public static String formatRange(TransfigurationAffixDefinition definition) {
         String min = formatNumber(definition.getMin());
         String max = formatNumber(definition.getMax());
+        return switch (definition.getValueKind()) {
+            case FLAT, RANKS -> min + "-" + max;
+            case PERCENT -> min + "-" + max + "%";
+            case MULTIPLICATIVE_PERCENT -> min + "-" + max + "%[x]";
+        };
+    }
+
+    public static String formatScaledRange(TransfigurationAffixDefinition definition, double multiplier) {
+        String min = formatNumber(definition.getMin() * multiplier);
+        String max = formatNumber(definition.getMax() * multiplier);
         return switch (definition.getValueKind()) {
             case FLAT, RANKS -> min + "-" + max;
             case PERCENT -> min + "-" + max + "%";

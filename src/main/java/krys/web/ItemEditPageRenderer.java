@@ -592,7 +592,9 @@ final class ItemEditPageRenderer {
                     refreshAspectOptions();
                 })();
                 </script>
-                """.formatted(TemperingSectionRenderer.renderScript());
+                """.formatted(TemperingSectionRenderer.renderScript()
+                + "\n"
+                + TransfigurationSectionRenderer.renderScript());
     }
 
     private static String renderAffixTypeOptions(ImportedItemAffixType selectedType) {

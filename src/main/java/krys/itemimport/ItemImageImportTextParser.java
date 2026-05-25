@@ -119,7 +119,7 @@ final class ItemImageImportTextParser {
         String baseItemValue = "";
 
         for (String line : fullReadSourceLines) {
-            if (isLevelRequirementNoiseLine(line)) {
+            if (isLevelRequirementNoiseLine(line) || isComparisonNoiseLine(line)) {
                 continue;
             }
             FullItemReadLineType type = classifyFullReadLine(line);
@@ -993,6 +993,16 @@ final class ItemImageImportTextParser {
             return FullItemReadLineType.AFFIX;
         }
         return FullItemReadLineType.ITEM_NAME;
+    }
+
+    private static boolean isComparisonNoiseLine(String line) {
+        String trimmed = line == null ? "" : line.trim();
+        if (!trimmed.startsWith("(") || !trimmed.endsWith(")")) {
+            return false;
+        }
+        String collapsedLine = collapse(trimmed);
+        return collapsedLine.contains("WYTRZYMALOSC")
+                || collapsedLine.contains("DURABILITY");
     }
 
     private static boolean isItemTypeLine(String collapsedLine) {

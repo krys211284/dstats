@@ -160,15 +160,22 @@ class ItemLibraryPageRendererTest {
                 "",
                 new krys.itemimport.ItemImportDetails("Tarcza", "Tarcza", "LEGENDARY", true,
                         EquipmentSlot.OFF_HAND, 900L, null, null, null, null, null, 1202L, ""),
-                List.of(),
-                ItemMasterworking.defaultState(),
+                List.of(new ItemTemperingAffix(
+                        "defense_max_animus",
+                        TemperingCategory.DEFENSE,
+                        5.0d,
+                        "+5 do maksymalnej liczby kumulacji Animuszu",
+                        TemperingRuntimeStatus.DATA_ONLY,
+                        true
+                )),
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.temperingAffix("defense_max_animus")),
                 new ItemTransfiguration(
                         true,
                         true,
                         HoradricTuningPrism.AGGRESSIVE,
                         HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
                         "",
-                        new TransfigurationAffixRoll("PRIMARY_STAT", 180.0d),
+                        new TransfigurationAffixRoll("ALL_STATS", 96.0d),
                         "",
                         null,
                         null,
@@ -179,7 +186,7 @@ class ItemLibraryPageRendererTest {
         String html = render(List.of(shield));
         String row = firstItemIndexRow(html);
 
-        assertTrue(row.contains("Przeistoczenie · Bonusowy affix: +180 Primary Stat · Niemodyfikowalny · Runtime nieaktywny"));
+        assertTrue(row.contains("Przeistoczenie · Bonusowy affix: +96 do wszystkich współczynników · Niemodyfikowalny · Runtime nieaktywny"));
         assertTrue(html.contains("<h5>Przeistoczenie / Kostka Horadrimów</h5>"));
         assertTrue(html.contains("Przedmiot niemodyfikowalny po przeistoczeniu"));
     }

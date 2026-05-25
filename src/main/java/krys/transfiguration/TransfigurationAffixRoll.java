@@ -3,16 +3,25 @@ package krys.transfiguration;
 /** Ręcznie zapisany roll affixu Przeistoczenia. */
 public final class TransfigurationAffixRoll {
     private final String definitionId;
-    private final double value;
+    private final double displayedValue;
+    private final TransfigurationValueProvenance valueProvenance;
     private final String element;
 
-    public TransfigurationAffixRoll(String definitionId, double value) {
-        this(definitionId, value, "");
+    public TransfigurationAffixRoll(String definitionId, double displayedValue) {
+        this(definitionId, displayedValue, TransfigurationValueProvenance.GAME_DISPLAYED_VALUE, "");
     }
 
-    public TransfigurationAffixRoll(String definitionId, double value, String element) {
+    public TransfigurationAffixRoll(String definitionId, double displayedValue, String element) {
+        this(definitionId, displayedValue, TransfigurationValueProvenance.GAME_DISPLAYED_VALUE, element);
+    }
+
+    public TransfigurationAffixRoll(String definitionId,
+                                    double displayedValue,
+                                    TransfigurationValueProvenance valueProvenance,
+                                    String element) {
         this.definitionId = definitionId == null ? "" : definitionId;
-        this.value = value;
+        this.displayedValue = displayedValue;
+        this.valueProvenance = valueProvenance == null ? TransfigurationValueProvenance.UNKNOWN : valueProvenance;
         this.element = element == null ? "" : element;
     }
 
@@ -20,8 +29,17 @@ public final class TransfigurationAffixRoll {
         return definitionId;
     }
 
+    public double getDisplayedValue() {
+        return displayedValue;
+    }
+
+    /** Kompatybilny alias dla starszego kodu Stage 1; oznacza wartość widoczną/zapisaną, nie source roll. */
     public double getValue() {
-        return value;
+        return displayedValue;
+    }
+
+    public TransfigurationValueProvenance getValueProvenance() {
+        return valueProvenance;
     }
 
     public String getElement() {

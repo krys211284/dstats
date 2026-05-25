@@ -25,6 +25,7 @@ import krys.transfiguration.HoradricTransfigurationOutcome;
 import krys.transfiguration.HoradricTuningPrism;
 import krys.transfiguration.ItemTransfiguration;
 import krys.transfiguration.TransfigurationAffixRoll;
+import krys.transfiguration.TransfigurationValueProvenance;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -223,13 +224,123 @@ class FileItemLibraryRepositoryTest {
         assertTrue(reloaded.get(0).getTransfiguration().isIndestructible());
         assertEquals("DAMAGE_REDUCTION", reloaded.get(1).getTransfiguration().getUpgradedAffixRef());
         assertEquals("PRIMARY_STAT", reloaded.get(2).getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
-        assertEquals(180.0d, reloaded.get(2).getTransfiguration().getAddedTransfigurationAffix().getValue(), 0.0000001d);
+        assertEquals(180.0d, reloaded.get(2).getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0000001d);
         assertEquals(HoradricTuningPrism.AGGRESSIVE, reloaded.get(2).getTransfiguration().getTuningPrism());
         assertEquals("DAMAGE_REDUCTION", reloaded.get(3).getTransfiguration().getReplacedAffixRef());
         assertEquals("TOTAL_ARMOR_PERCENT", reloaded.get(3).getTransfiguration().getReplacementTransfigurationAffix().getDefinitionId());
         assertEquals(15, reloaded.get(4).getTransfiguration().getBonusQuality());
         assertFalse(reloaded.get(5).getTransfiguration().isLockedAfterTransfiguration());
         assertEquals("do sprawdzenia", reloaded.get(5).getTransfiguration().getNotes());
+    }
+
+    @Test
+    void shouldPersistRealTransfiguredMasterworkedShieldWithDisplayedAllStats() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-library-real-transfigured-shield");
+        FileItemLibraryRepository repository = new FileItemLibraryRepository(tempDirectory);
+
+        repository.save(new SavedImportedItem(
+                0L,
+                "Miażdżąca Tarcza Kościanych Łusek",
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                20.0d,
+                0.0d,
+                FullItemRead.empty(),
+                List.of(new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 225.0d, "", true, 0, "+225 siły", ImportedItemAffixSource.MANUAL)),
+                "",
+                new ItemImportDetails("Miażdżąca Tarcza Kościanych Łusek", "Tarcza", "LEGENDARY", true,
+                        EquipmentSlot.OFF_HAND, 900L, null, null, null, null, null, 1202L, ""),
+                List.of(new ItemTemperingAffix(
+                        "defense_max_animus",
+                        TemperingCategory.DEFENSE,
+                        5.0d,
+                        "+5 do maksymalnej liczby kumulacji Animuszu",
+                        TemperingRuntimeStatus.DATA_ONLY,
+                        true
+                )),
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.temperingAffix("defense_max_animus")),
+                new ItemTransfiguration(
+                        true,
+                        true,
+                        HoradricTuningPrism.NONE,
+                        HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                        "",
+                        new TransfigurationAffixRoll("ALL_STATS", 96.0d, TransfigurationValueProvenance.GAME_DISPLAYED_VALUE, ""),
+                        "",
+                        null,
+                        null,
+                        false,
+                        "")
+        ));
+
+        SavedImportedItem reloaded = new FileItemLibraryRepository(tempDirectory).findAll().getFirst();
+
+        assertEquals(25, reloaded.getMasterworking().getQualityCurrent());
+        assertEquals("defense_max_animus", reloaded.getMasterworking().getPerfectedAffix().getKey());
+        assertTrue(reloaded.getTransfiguration().isTransfigured());
+        assertEquals(HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX, reloaded.getTransfiguration().getOutcome());
+        assertEquals("ALL_STATS", reloaded.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(96.0d, reloaded.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0000001d);
+        assertEquals(TransfigurationValueProvenance.GAME_DISPLAYED_VALUE, reloaded.getTransfiguration().getAddedTransfigurationAffix().getValueProvenance());
+        assertTrue(reloaded.getTransfiguration().isLockedAfterTransfiguration());
+        assertEquals(225.0d, reloaded.getAffixes().getFirst().getValue());
+    }
+
+    @Test
+    void shouldMigrateLegacyTransfigurationRollValueToDisplayedValueWithUnknownProvenance() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-library-legacy-transfiguration-roll");
+        String legacyTransfiguration = encode(String.join("|",
+                "true",
+                "true",
+                "NONE",
+                "BONUS_TRANSFIGURATION_AFFIX",
+                encode(""),
+                encode("ALL_STATS"),
+                "96.0000",
+                encode(""),
+                encode(""),
+                "",
+                "",
+                "",
+                "",
+                "false",
+                encode("")
+        ));
+        String item = String.join("|",
+                "ITEM",
+                "1",
+                encode("Miażdżąca Tarcza Kościanych Łusek"),
+                encode("tarcza.png"),
+                EquipmentSlot.OFF_HAND.name(),
+                "0",
+                "0.0000",
+                "0.0000",
+                "0.0000",
+                "20.0000",
+                "0.0000",
+                encode(""),
+                encode(""),
+                encode(""),
+                encode(""),
+                encode(""),
+                encode("25|25|TEMPERING_AFFIX|" + encode("defense_max_animus")),
+                legacyTransfiguration
+        );
+        Files.write(tempDirectory.resolve("saved-items.db"), List.of(item), StandardCharsets.UTF_8);
+
+        SavedImportedItem reloaded = new FileItemLibraryRepository(tempDirectory).findAll().getFirst();
+
+        assertEquals("ALL_STATS", reloaded.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(96.0d, reloaded.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0000001d);
+        assertEquals(TransfigurationValueProvenance.UNKNOWN, reloaded.getTransfiguration().getAddedTransfigurationAffix().getValueProvenance());
+
+        new FileItemLibraryRepository(tempDirectory).save(reloaded);
+        SavedImportedItem savedAgain = new FileItemLibraryRepository(tempDirectory).findAll().getFirst();
+        assertEquals(TransfigurationValueProvenance.UNKNOWN, savedAgain.getTransfiguration().getAddedTransfigurationAffix().getValueProvenance());
     }
 
     @Test

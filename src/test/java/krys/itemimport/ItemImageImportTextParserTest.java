@@ -336,6 +336,22 @@ class ItemImageImportTextParserTest {
     }
 
     @Test
+    void shouldIgnoreDurabilityComparisonNoiseLine() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, hardenedShieldRawText().replace(
+                "(Wytrzymałość: -1,7%)",
+                "(Wytrzymałość: +4,6%)"
+        ));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertFalse(result.getFullItemRead().getLines().stream()
+                .anyMatch(line -> line.getText().contains("Wytrzymałość")));
+        assertFalse(form.getAffixes().stream()
+                .anyMatch(affix -> affix.getSourceText().contains("Wytrzymałość")));
+        assertFalse(form.getFullItemRead().getLines().stream()
+                .anyMatch(line -> line.getText().contains("+4,6")));
+    }
+
+    @Test
     void shouldSplitTemperingAndAspectWhenOcrJoinsThemInOneLine() {
         ItemImageImportCandidateParseResult result = parser.parse(metadata, hardenedShieldRawText().replace(
                 "★ +5 do maksymalnej liczby kumulacji Animuszu\n\nGdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.",

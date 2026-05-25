@@ -18,6 +18,7 @@ import krys.transfiguration.HoradricTransfigurationOutcome;
 import krys.transfiguration.HoradricTuningPrism;
 import krys.transfiguration.ItemTransfiguration;
 import krys.transfiguration.TransfigurationAffixRoll;
+import krys.transfiguration.TransfigurationValueProvenance;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -348,10 +349,12 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                 encode(safe.getUpgradedAffixRef()),
                 encodeRollDefinition(added),
                 encodeRollValue(added),
+                encodeRollProvenance(added),
                 encodeRollElement(added),
                 encode(safe.getReplacedAffixRef()),
                 encodeRollDefinition(replacement),
                 encodeRollValue(replacement),
+                encodeRollProvenance(replacement),
                 encodeRollElement(replacement),
                 safe.getBonusQuality() == null ? "" : safe.getBonusQuality().toString(),
                 Boolean.toString(safe.isIndestructible()),
@@ -541,15 +544,30 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
         if (!transfigured) {
             return ItemTransfiguration.none();
         }
+        if (tokens.length >= 17) {
+            return new ItemTransfiguration(
+                    true,
+                    Boolean.parseBoolean(tokens[1]),
+                    HoradricTuningPrism.fromNullable(tokens[2]),
+                    HoradricTransfigurationOutcome.fromNullable(tokens[3]),
+                    tokens.length >= 5 ? decode(tokens[4]) : "",
+                    decodeRoll(tokens[5], tokens[6], tokens[7], tokens[8]),
+                    tokens.length >= 10 ? decode(tokens[9]) : "",
+                    decodeRoll(tokens[10], tokens[11], tokens[12], tokens[13]),
+                    tokens.length >= 15 && !tokens[14].isBlank() ? Integer.parseInt(tokens[14]) : null,
+                    tokens.length >= 16 && Boolean.parseBoolean(tokens[15]),
+                    tokens.length >= 17 ? decode(tokens[16]) : ""
+            );
+        }
         return new ItemTransfiguration(
                 true,
                 Boolean.parseBoolean(tokens[1]),
                 HoradricTuningPrism.fromNullable(tokens[2]),
                 HoradricTransfigurationOutcome.fromNullable(tokens[3]),
                 tokens.length >= 5 ? decode(tokens[4]) : "",
-                tokens.length >= 8 ? decodeRoll(tokens[5], tokens[6], tokens[7]) : null,
+                tokens.length >= 8 ? decodeLegacyRoll(tokens[5], tokens[6], tokens[7]) : null,
                 tokens.length >= 9 ? decode(tokens[8]) : "",
-                tokens.length >= 12 ? decodeRoll(tokens[9], tokens[10], tokens[11]) : null,
+                tokens.length >= 12 ? decodeLegacyRoll(tokens[9], tokens[10], tokens[11]) : null,
                 tokens.length >= 13 && !tokens[12].isBlank() ? Integer.parseInt(tokens[12]) : null,
                 tokens.length >= 14 && Boolean.parseBoolean(tokens[13]),
                 tokens.length >= 15 ? decode(tokens[14]) : ""
@@ -561,17 +579,38 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
     }
 
     private static String encodeRollValue(TransfigurationAffixRoll roll) {
-        return roll == null ? "" : formatDouble(roll.getValue());
+        return roll == null ? "" : formatDouble(roll.getDisplayedValue());
+    }
+
+    private static String encodeRollProvenance(TransfigurationAffixRoll roll) {
+        return roll == null ? "" : roll.getValueProvenance().name();
     }
 
     private static String encodeRollElement(TransfigurationAffixRoll roll) {
         return roll == null ? "" : encode(roll.getElement());
     }
 
-    private static TransfigurationAffixRoll decodeRoll(String definition, String value, String element) {
+    private static TransfigurationAffixRoll decodeRoll(String definition, String value, String provenance, String element) {
         if (definition == null || definition.isBlank()) {
             return null;
         }
-        return new TransfigurationAffixRoll(decode(definition), Double.parseDouble(value), decode(element));
+        return new TransfigurationAffixRoll(
+                decode(definition),
+                Double.parseDouble(value),
+                TransfigurationValueProvenance.fromNullable(provenance),
+                decode(element)
+        );
+    }
+
+    private static TransfigurationAffixRoll decodeLegacyRoll(String definition, String value, String element) {
+        if (definition == null || definition.isBlank()) {
+            return null;
+        }
+        return new TransfigurationAffixRoll(
+                decode(definition),
+                Double.parseDouble(value),
+                TransfigurationValueProvenance.UNKNOWN,
+                decode(element)
+        );
     }
 }

@@ -10,13 +10,13 @@ public final class TransfigurationAffixCatalog {
     );
 
     private static final List<TransfigurationAffixDefinition> DEFINITIONS = List.of(
-            definition("ALL_STATS", "All Stats", "All Stats [+]", 75, 100, TransfigurationAffixValueKind.FLAT),
-            definition("ATTACK_SPEED", "Attack Speed", "Attack Speed [+]", 8, 10, TransfigurationAffixValueKind.PERCENT),
-            definition("COOLDOWN_REDUCTION", "Cooldown Reduction", "Cooldown Reduction", 10, 12, TransfigurationAffixValueKind.PERCENT),
-            definition("CRITICAL_STRIKE_CHANCE", "Critical Strike Chance", "Critical Strike Chance [+]", 3.5, 5, TransfigurationAffixValueKind.PERCENT),
+            definition("ALL_STATS", "do wszystkich współczynników", "All Stats [+]", 75, 100, TransfigurationAffixValueKind.FLAT),
+            definition("ATTACK_SPEED", "szybkość ataku", "Attack Speed [+]", 8, 10, TransfigurationAffixValueKind.PERCENT),
+            definition("COOLDOWN_REDUCTION", "redukcja czasu odnowienia", "Cooldown Reduction", 10, 12, TransfigurationAffixValueKind.PERCENT),
+            definition("CRITICAL_STRIKE_CHANCE", "szansa na trafienie krytyczne", "Critical Strike Chance [+]", 3.5, 5, TransfigurationAffixValueKind.PERCENT),
             new TransfigurationAffixDefinition(
                     "ELEMENTAL_SPECIFIC_DAMAGE",
-                    "Elemental specific Damage",
+                    "obrażenia od wybranego żywiołu",
                     "Elemental specific Damage [x]",
                     8,
                     10,
@@ -24,17 +24,17 @@ public final class TransfigurationAffixCatalog {
                     true,
                     "Element może być: Cold, Fire, Holy, Lightning, Physical, Poison, Shadow.",
                     ELEMENT_OPTIONS),
-            definition("GEM_STRENGTH", "Gem Strength", "Gem Strength for an item [x]", 75, 100, TransfigurationAffixValueKind.MULTIPLICATIVE_PERCENT),
-            definition("LIFE_ON_HIT", "Life on Hit", "Life on Hit", 263, 316, TransfigurationAffixValueKind.FLAT),
-            definition("LUCKY_HIT_CHANCE", "Lucky Hit Chance", "Lucky Hit Chance", 6, 8, TransfigurationAffixValueKind.PERCENT),
-            definition("MAX_LIFE_PERCENT", "Max Life%", "Max Life% [+]", 6, 8, TransfigurationAffixValueKind.PERCENT),
-            definition("MAX_RESOURCE", "Max Resource", "Max Resource [+]", 15, 20, TransfigurationAffixValueKind.FLAT),
-            definition("MOVEMENT_SPEED", "Movement Speed", "Movement Speed [+]", 20, 30, TransfigurationAffixValueKind.PERCENT),
-            definition("PRIMARY_STAT", "Primary Stat", "Primary Stat [+]", 150, 180, TransfigurationAffixValueKind.FLAT),
-            definition("PRIMARY_STAT_PERCENT", "Primary Stat%", "Primary Stat% [+]", 3.5, 5, TransfigurationAffixValueKind.PERCENT),
-            definition("RESOURCE_COST_REDUCTION", "Resource Cost Reduction", "Resource Cost Reduction", 6, 8, TransfigurationAffixValueKind.PERCENT),
-            definition("TOTAL_ARMOR_PERCENT", "Total Armor%", "Total Armor% [+]", 8, 10, TransfigurationAffixValueKind.PERCENT),
-            definition("TOTAL_RESISTANCE_PERCENT", "Total Resistance%", "Total Resistance% [+]", 8, 10, TransfigurationAffixValueKind.PERCENT)
+            definition("GEM_STRENGTH", "moc klejnotu", "Gem Strength for an item [x]", 75, 100, TransfigurationAffixValueKind.MULTIPLICATIVE_PERCENT),
+            definition("LIFE_ON_HIT", "zdrowie przy trafieniu", "Life on Hit", 263, 316, TransfigurationAffixValueKind.FLAT),
+            definition("LUCKY_HIT_CHANCE", "szansa Lucky Hit", "Lucky Hit Chance", 6, 8, TransfigurationAffixValueKind.PERCENT),
+            definition("MAX_LIFE_PERCENT", "maksymalne zdrowie", "Max Life% [+]", 6, 8, TransfigurationAffixValueKind.PERCENT),
+            definition("MAX_RESOURCE", "maksymalny zasób", "Max Resource [+]", 15, 20, TransfigurationAffixValueKind.FLAT),
+            definition("MOVEMENT_SPEED", "szybkość ruchu", "Movement Speed [+]", 20, 30, TransfigurationAffixValueKind.PERCENT),
+            definition("PRIMARY_STAT", "główny atrybut", "Primary Stat [+]", 150, 180, TransfigurationAffixValueKind.FLAT),
+            definition("PRIMARY_STAT_PERCENT", "główny atrybut", "Primary Stat% [+]", 3.5, 5, TransfigurationAffixValueKind.PERCENT),
+            definition("RESOURCE_COST_REDUCTION", "redukcja kosztu zasobu", "Resource Cost Reduction", 6, 8, TransfigurationAffixValueKind.PERCENT),
+            definition("TOTAL_ARMOR_PERCENT", "całkowity pancerz", "Total Armor% [+]", 8, 10, TransfigurationAffixValueKind.PERCENT),
+            definition("TOTAL_RESISTANCE_PERCENT", "całkowita odporność", "Total Resistance% [+]", 8, 10, TransfigurationAffixValueKind.PERCENT)
     );
 
     private TransfigurationAffixCatalog() {

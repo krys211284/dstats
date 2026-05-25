@@ -51,7 +51,9 @@ public final class ItemImportPageRenderer {
                 .replace("{{UPLOAD_ACTION}}", escapeHtml(buildUploadAction(model.getCurrentBuildQuery())))
                 .replace("{{PARSE_SECTION}}", renderParseSection(model))
                 .replace("{{CONFIRM_SECTION}}", renderConfirmSection(model))
-                .replace("{{TEMPERING_SCRIPT}}", TemperingSectionRenderer.renderScript());
+                .replace("{{TEMPERING_SCRIPT}}", TemperingSectionRenderer.renderScript()
+                        + "\n"
+                        + TransfigurationSectionRenderer.renderScript());
     }
 
     private static String renderErrors(List<String> errors) {

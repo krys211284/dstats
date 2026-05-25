@@ -3,14 +3,14 @@ package krys.transfiguration;
 /** Pryzmat dostrojenia zapisany przy Przeistoczeniu itemu. */
 public enum HoradricTuningPrism {
     NONE("Brak"),
-    ENTROPIC("Entropic"),
-    KULLEAN("Kullean"),
-    AGGRESSIVE("Aggressive"),
-    PRAGMATIC("Pragmatic"),
-    PROTECTOR("Protector's"),
-    RESOURCEFUL("Resourceful"),
-    ADEPT("Adept's"),
-    CHROMATIC("Chromatic");
+    ENTROPIC("Entropiczny"),
+    KULLEAN("Kulleana"),
+    AGGRESSIVE("Agresywny"),
+    PRAGMATIC("Pragmatyczny"),
+    PROTECTOR("Protektora"),
+    RESOURCEFUL("Zasobny"),
+    ADEPT("Adeptowski"),
+    CHROMATIC("Chromatyczny");
 
     private final String displayName;
 

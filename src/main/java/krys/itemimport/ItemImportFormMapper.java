@@ -16,6 +16,7 @@ import krys.transfiguration.TransfigurationAffixCatalog;
 import krys.transfiguration.TransfigurationAffixDefinition;
 import krys.transfiguration.TransfigurationAffixRoll;
 import krys.transfiguration.TransfigurationPresentationSupport;
+import krys.transfiguration.TransfigurationValueProvenance;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -62,7 +63,7 @@ public final class ItemImportFormMapper {
         ItemImportDetails details = buildDetails(form, slot, errors);
         List<ItemTemperingAffix> temperingAffixes = validateTempering(form.getTemperingAffixes(), slot, details.getItemType(), details.getItemPower(), errors);
         ItemMasterworking masterworking = validateMasterworking(form.getMasterworking(), form.getAffixes(), temperingAffixes, errors);
-        ItemTransfiguration transfiguration = validateTransfiguration(form.getTransfiguration(), form.getAffixes(), errors);
+        ItemTransfiguration transfiguration = validateTransfiguration(form.getTransfiguration(), form.getAffixes(), masterworking, errors);
 
         if (!errors.isEmpty()) {
             return new MappingResult(null, errors);
@@ -88,6 +89,7 @@ public final class ItemImportFormMapper {
 
     private ItemTransfiguration validateTransfiguration(ItemTransfiguration transfiguration,
                                                         List<ImportedItemAffix> affixes,
+                                                        ItemMasterworking masterworking,
                                                         List<String> errors) {
         ItemTransfiguration safe = transfiguration == null ? ItemTransfiguration.none() : transfiguration;
         if (!safe.isTransfigured()) {
@@ -97,6 +99,7 @@ public final class ItemImportFormMapper {
             errors.add("Przeistoczenie: wynik przeistoczenia jest wymagany dla przeistoczonego itemu.");
             return safe;
         }
+        safe = activeOnlyTransfigurationFields(safe);
         switch (safe.getOutcome()) {
             case INDESTRUCTIBLE, UNKNOWN -> {
                 return safe;
@@ -104,18 +107,84 @@ public final class ItemImportFormMapper {
             case UPGRADE_TO_GREATER_AFFIX -> validateUpgradeableAffix(
                     safe.getUpgradedAffixRef(), affixes, "Przeistoczenie: ulepszany affix", errors);
             case BONUS_TRANSFIGURATION_AFFIX -> validateTransfigurationRoll(
-                    safe.getAddedTransfigurationAffix(), "Przeistoczenie: bonusowy affix", errors);
+                    safe.getAddedTransfigurationAffix(), masterworking, "Przeistoczenie: bonusowy affix", errors);
             case REPLACE_EXISTING_AFFIX_WITH_TRANSFIGURATION_AFFIX -> {
                 validateUpgradeableAffix(safe.getReplacedAffixRef(), affixes,
                         "Przeistoczenie: zastępowany affix", errors);
                 validateTransfigurationRoll(safe.getReplacementTransfigurationAffix(),
-                        "Przeistoczenie: affix zastępujący", errors);
+                        masterworking, "Przeistoczenie: affix zastępujący", errors);
             }
             case BONUS_ITEM_QUALITY -> validateBonusQuality(safe.getBonusQuality(), errors);
             case NONE -> {
             }
         }
         return safe;
+    }
+
+    private static ItemTransfiguration activeOnlyTransfigurationFields(ItemTransfiguration transfiguration) {
+        return switch (transfiguration.getOutcome()) {
+            case UPGRADE_TO_GREATER_AFFIX -> new ItemTransfiguration(
+                    true,
+                    transfiguration.isLockedAfterTransfiguration(),
+                    transfiguration.getTuningPrism(),
+                    transfiguration.getOutcome(),
+                    transfiguration.getUpgradedAffixRef(),
+                    null,
+                    "",
+                    null,
+                    null,
+                    false,
+                    transfiguration.getNotes());
+            case BONUS_TRANSFIGURATION_AFFIX -> new ItemTransfiguration(
+                    true,
+                    transfiguration.isLockedAfterTransfiguration(),
+                    transfiguration.getTuningPrism(),
+                    transfiguration.getOutcome(),
+                    "",
+                    transfiguration.getAddedTransfigurationAffix(),
+                    "",
+                    null,
+                    null,
+                    false,
+                    transfiguration.getNotes());
+            case REPLACE_EXISTING_AFFIX_WITH_TRANSFIGURATION_AFFIX -> new ItemTransfiguration(
+                    true,
+                    transfiguration.isLockedAfterTransfiguration(),
+                    transfiguration.getTuningPrism(),
+                    transfiguration.getOutcome(),
+                    "",
+                    null,
+                    transfiguration.getReplacedAffixRef(),
+                    transfiguration.getReplacementTransfigurationAffix(),
+                    null,
+                    false,
+                    transfiguration.getNotes());
+            case BONUS_ITEM_QUALITY -> new ItemTransfiguration(
+                    true,
+                    transfiguration.isLockedAfterTransfiguration(),
+                    transfiguration.getTuningPrism(),
+                    transfiguration.getOutcome(),
+                    "",
+                    null,
+                    "",
+                    null,
+                    transfiguration.getBonusQuality(),
+                    false,
+                    transfiguration.getNotes());
+            case INDESTRUCTIBLE, UNKNOWN -> new ItemTransfiguration(
+                    true,
+                    transfiguration.isLockedAfterTransfiguration(),
+                    transfiguration.getTuningPrism(),
+                    transfiguration.getOutcome(),
+                    "",
+                    null,
+                    "",
+                    null,
+                    null,
+                    transfiguration.getOutcome() == HoradricTransfigurationOutcome.INDESTRUCTIBLE,
+                    transfiguration.getNotes());
+            case NONE -> transfiguration;
+        };
     }
 
     private static void validateUpgradeableAffix(String rawRef,
@@ -151,6 +220,7 @@ public final class ItemImportFormMapper {
     }
 
     private static void validateTransfigurationRoll(TransfigurationAffixRoll roll,
+                                                    ItemMasterworking masterworking,
                                                     String label,
                                                     List<String> errors) {
         if (roll == null || roll.isEmpty()) {
@@ -162,10 +232,38 @@ public final class ItemImportFormMapper {
             errors.add(label + " nie istnieje w katalogu Przeistoczenia.");
             return;
         }
-        if (!definition.accepts(roll.getValue())) {
+        if (!acceptsTransfigurationValue(definition, roll, masterworking)) {
             errors.add(label + " musi mieć wartość w zakresie "
-                    + TransfigurationPresentationSupport.formatRange(definition) + ".");
+                    + expectedRangeLabel(definition, roll, masterworking) + ".");
         }
+    }
+
+    private static boolean acceptsTransfigurationValue(TransfigurationAffixDefinition definition,
+                                                       TransfigurationAffixRoll roll,
+                                                       ItemMasterworking masterworking) {
+        if (roll.getValueProvenance() == TransfigurationValueProvenance.SOURCE_ROLL) {
+            return definition.accepts(roll.getDisplayedValue());
+        }
+        int quality = masterworking == null ? ItemMasterworking.DEFAULT_QUALITY_CURRENT : masterworking.getQualityCurrent();
+        double multiplier = 1.0d + Math.max(0, quality) / 100.0d;
+        double tolerance = definition.getValueKind() == krys.transfiguration.TransfigurationAffixValueKind.FLAT
+                || definition.getValueKind() == krys.transfiguration.TransfigurationAffixValueKind.RANKS
+                ? 1.0d
+                : 0.1d;
+        double min = definition.getMin() * multiplier - tolerance;
+        double max = definition.getMax() * multiplier + tolerance;
+        return roll.getDisplayedValue() >= min && roll.getDisplayedValue() <= max;
+    }
+
+    private static String expectedRangeLabel(TransfigurationAffixDefinition definition,
+                                             TransfigurationAffixRoll roll,
+                                             ItemMasterworking masterworking) {
+        if (roll == null || roll.getValueProvenance() == TransfigurationValueProvenance.SOURCE_ROLL) {
+            return TransfigurationPresentationSupport.formatRange(definition);
+        }
+        int quality = masterworking == null ? ItemMasterworking.DEFAULT_QUALITY_CURRENT : masterworking.getQualityCurrent();
+        double multiplier = 1.0d + Math.max(0, quality) / 100.0d;
+        return TransfigurationPresentationSupport.formatScaledRange(definition, multiplier);
     }
 
     private static void validateBonusQuality(Integer bonusQuality, List<String> errors) {

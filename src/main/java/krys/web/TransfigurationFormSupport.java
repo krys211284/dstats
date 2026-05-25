@@ -4,6 +4,7 @@ import krys.transfiguration.HoradricTransfigurationOutcome;
 import krys.transfiguration.HoradricTuningPrism;
 import krys.transfiguration.ItemTransfiguration;
 import krys.transfiguration.TransfigurationAffixRoll;
+import krys.transfiguration.TransfigurationValueProvenance;
 
 import java.util.Map;
 
@@ -22,16 +23,31 @@ final class TransfigurationFormSupport {
                 fields.getOrDefault("transfigurationOutcome", ""));
         boolean locked = !fields.containsKey("transfigurationLockedAfter")
                 || "true".equals(fields.get("transfigurationLockedAfter"));
+        String upgradedAffixRef = "";
+        TransfigurationAffixRoll addedRoll = null;
+        String replacedAffixRef = "";
+        TransfigurationAffixRoll replacementRoll = null;
+        Integer bonusQuality = null;
+        if (outcome == HoradricTransfigurationOutcome.UPGRADE_TO_GREATER_AFFIX) {
+            upgradedAffixRef = fields.getOrDefault("transfigurationUpgradedAffixRef", "");
+        } else if (outcome == HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX) {
+            addedRoll = parseRoll(fields, "transfigurationAdded");
+        } else if (outcome == HoradricTransfigurationOutcome.REPLACE_EXISTING_AFFIX_WITH_TRANSFIGURATION_AFFIX) {
+            replacedAffixRef = fields.getOrDefault("transfigurationReplacedAffixRef", "");
+            replacementRoll = parseRoll(fields, "transfigurationReplacement");
+        } else if (outcome == HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY) {
+            bonusQuality = parseInteger(fields.get("transfigurationBonusQuality"));
+        }
         return new ItemTransfiguration(
                 true,
                 locked,
                 HoradricTuningPrism.fromNullable(fields.getOrDefault("transfigurationTuningPrism", "")),
                 outcome,
-                fields.getOrDefault("transfigurationUpgradedAffixRef", ""),
-                parseRoll(fields, "transfigurationAdded"),
-                fields.getOrDefault("transfigurationReplacedAffixRef", ""),
-                parseRoll(fields, "transfigurationReplacement"),
-                parseInteger(fields.get("transfigurationBonusQuality")),
+                upgradedAffixRef,
+                addedRoll,
+                replacedAffixRef,
+                replacementRoll,
+                bonusQuality,
                 "true".equals(fields.get("transfigurationIndestructible")),
                 fields.getOrDefault("transfigurationNotes", "")
         );
@@ -44,9 +60,18 @@ final class TransfigurationFormSupport {
         }
         return new TransfigurationAffixRoll(
                 definitionId,
-                parseDouble(fields.get(prefix + "AffixValue")),
+                parseDouble(firstNonBlank(fields.get(prefix + "DisplayedValue"), fields.get(prefix + "AffixValue"))),
+                TransfigurationValueProvenance.fromNullable(fields.getOrDefault(prefix + "ValueProvenance",
+                        TransfigurationValueProvenance.GAME_DISPLAYED_VALUE.name())),
                 fields.getOrDefault(prefix + "AffixElement", "")
         );
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        if (first != null && !first.isBlank()) {
+            return first;
+        }
+        return second;
     }
 
     private static Integer parseInteger(String rawValue) {
