@@ -33,6 +33,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Testuje semantyczny render zapisanych itemów w bibliotece. */
 class ItemLibraryPageRendererTest {
     @Test
+    void shouldRenderNewAspectNameEffectAndRuntimeStatusInLibraryDetails() {
+        SavedImportedItem shield = new SavedImportedItem(
+                1L,
+                "Tarcza z aspektem",
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                FullItemRead.empty(),
+                List.of(),
+                "sanctified_punishment_aspect"
+        );
+
+        String html = render(List.of(shield));
+
+        assertTrue(html.contains("Aspekt Uświęconej Kary"));
+        assertTrue(html.contains("Obrażenia Świętości i Ognia są zwiększone o 60,0%[x] [40,0 - 60,0]%."));
+        assertTrue(html.contains("Runtime nieaktywny"));
+    }
+
+    @Test
     void shouldRenderSocketingSummaryForSavedShield() {
         SavedImportedItem shield = new SavedImportedItem(
                 1L,

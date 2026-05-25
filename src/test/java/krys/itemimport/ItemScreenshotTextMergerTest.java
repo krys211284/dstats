@@ -35,7 +35,7 @@ class ItemScreenshotTextMergerTest {
 
     @Test
     void shouldMergeRealScrolledShieldTextAndDropUiOnlyLines() {
-        String merged = merger.merge(List.of(realShieldTopText(), realShieldBottomText()));
+        String merged = merger.merge(List.of(ItemImportTextFixtures.realShieldTopText(), ItemImportTextFixtures.realShieldBottomText()));
 
         for (String expected : List.of(
                 "Miażdżąca Tarcza Kościanych Łusek",
@@ -113,41 +113,39 @@ class ItemScreenshotTextMergerTest {
         }
     }
 
-    static String realShieldTopText() {
-        return """
-                Miażdżąca Tarcza Kościanych Łusek
-                Starożytna legendarna tarcza
-                Moc przedmiotu: 900
-                25 (+25) jakości
-                Przeistoczony
-                1 502 pkt. pancerza
-                (Wytrzymałość: +4,6%)
-                20,0% szansy na blok [20,0]%
-                +100% obrażeń od broni w głównej ręce [100]%
-                +270 siły
-                +588 do odporności na wszystkie żywioły
-                +945 do odporności na: Ogień
-                Przewiń w dół
-                Wyposaż
-                Porównaj
-                """;
+    @Test
+    void shouldKeepStormMoonShieldCanonicalLinesAndQualityBonus() {
+        String merged = merger.merge(List.of(
+                ItemImportTextFixtures.stormMoonShieldTopText(),
+                ItemImportTextFixtures.stormMoonShieldBottomText()
+        ));
+
+        for (String expected : List.of(
+                "Tarcza Burzy Księżycowego Szału",
+                "29 (+25) jakości",
+                "+217 siły",
+                "+11,0% szansy na trafienie krytyczne",
+                "17,6% redukcji obrażeń",
+                "12,3% redukcji czasu odnowienia",
+                "+4 do jakości przedmiotu [1 - 15]",
+                "+12 do maksymalnej liczby kumulacji Animuszu",
+                "Puste gniazdo",
+                "Naznaczenie",
+                "Wampirycznego Szału Krwi"
+        )) {
+            assertTrue(merged.contains(expected), expected + "\n" + merged);
+        }
+        for (String forbidden : List.of(
+                "Rynsztunek w Zbrojowni",
+                "Przewiń w dół",
+                "Przewiń do góry",
+                "Wymaga 70 poziomu",
+                "Przypisano do konta",
+                "Wartość sprzedaży",
+                "Trwałość"
+        )) {
+            assertFalse(merged.contains(forbidden), forbidden + "\n" + merged);
+        }
     }
 
-    static String realShieldBottomText() {
-        return """
-                Przewiń do góry
-                +945 do odporności na: Ogień
-                14,3% redukcji obrażeń [11,0 - 15,0]%
-                +96 pkt. do wszystkich współczynników [+75 - 100]
-                +12 do maksymalnej liczby kumulacji Animuszu
-                Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.
-                Puste gniazdo
-                Przedmiot z dodatku Lord of Hatred
-                Brak możliwości modyfikacji
-                Wartość sprzedaży: 38 450
-                Trwałość: 100/100
-                Oznacz jako śmieć
-                Upuść
-                """;
-    }
 }

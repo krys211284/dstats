@@ -129,12 +129,18 @@ public final class ItemImportEditableFormFactory {
         boolean transfigured = hasLineContaining(fullItemRead, "PRZEISTOCZONY");
         boolean locked = hasLineContaining(fullItemRead, "BRAK MOZLIWOSCI MODYFIKACJI");
         Optional<TransfigurationAffixRoll> allStatsRoll = detectAllStatsTransfigurationRoll(fullItemRead);
-        if (!transfigured && allStatsRoll.isEmpty()) {
+        Optional<Integer> bonusQuality = detectBonusItemQuality(fullItemRead);
+        if (!transfigured && allStatsRoll.isEmpty() && bonusQuality.isEmpty()) {
             return ItemTransfiguration.none();
         }
-        HoradricTransfigurationOutcome outcome = allStatsRoll.isPresent()
-                ? HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX
-                : HoradricTransfigurationOutcome.UNKNOWN;
+        HoradricTransfigurationOutcome outcome;
+        if (allStatsRoll.isPresent()) {
+            outcome = HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX;
+        } else if (bonusQuality.isPresent()) {
+            outcome = HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY;
+        } else {
+            outcome = HoradricTransfigurationOutcome.UNKNOWN;
+        }
         return new ItemTransfiguration(
                 true,
                 locked || transfigured,
@@ -144,10 +150,54 @@ public final class ItemImportEditableFormFactory {
                 allStatsRoll.orElse(null),
                 "",
                 null,
-                null,
+                bonusQuality.orElse(null),
                 false,
                 ""
         );
+    }
+
+    private static Optional<Integer> detectBonusItemQuality(FullItemRead fullItemRead) {
+        Optional<Integer> fromQualityLine = detectBonusQualityFromStackedQualityLine(fullItemRead);
+        if (fromQualityLine.isPresent()) {
+            return fromQualityLine;
+        }
+        for (FullItemReadLine line : fullItemRead.getLines()) {
+            Optional<Integer> direct = extractBonusItemQualityDisplayedValue(line.getText());
+            if (direct.isPresent()) {
+                return direct;
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<Integer> detectBonusQualityFromStackedQualityLine(FullItemRead fullItemRead) {
+        for (FullItemReadLine line : fullItemRead.getLines()) {
+            String normalized = normalize(line.getText());
+            if (!normalized.contains("JAKOSCI")) {
+                continue;
+            }
+            Matcher matcher = Pattern.compile("\\b([0-9]{1,2})\\s*\\([^)]*\\+\\s*([0-9]{1,2})\\s*\\)\\s+JAKOSCI").matcher(normalized);
+            if (!matcher.find()) {
+                continue;
+            }
+            int total = Integer.parseInt(matcher.group(1));
+            int masterworking = Integer.parseInt(matcher.group(2));
+            int bonus = total - masterworking;
+            if (masterworking == 25 && bonus >= 1 && bonus <= 15) {
+                return Optional.of(bonus);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<Integer> extractBonusItemQualityDisplayedValue(String line) {
+        String normalized = normalize(line);
+        Matcher matcher = Pattern.compile("\\+\\s*([0-9]+)\\s*(?:DO\\s+)?JAKOSCI\\s+PRZEDMIOTU").matcher(normalized);
+        if (!matcher.find()) {
+            return Optional.empty();
+        }
+        int bonus = Integer.parseInt(matcher.group(1));
+        return bonus >= 1 && bonus <= 15 ? Optional.of(bonus) : Optional.empty();
     }
 
     private static Optional<TransfigurationAffixRoll> detectAllStatsTransfigurationRoll(FullItemRead fullItemRead) {

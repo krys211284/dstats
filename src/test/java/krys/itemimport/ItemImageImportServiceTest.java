@@ -91,8 +91,8 @@ class ItemImageImportServiceTest {
         ItemImageImportService service = new ItemImageImportService(
                 new ItemImageOcrPreprocessor(),
                 new QueuedOcrTextReader(List.of(
-                        ItemScreenshotTextMergerTest.realShieldTopText(),
-                        ItemScreenshotTextMergerTest.realShieldBottomText()
+                        ItemImportTextFixtures.realShieldTopText(),
+                        ItemImportTextFixtures.realShieldBottomText()
                 )),
                 new ItemImageImportTextParser(),
                 new ItemImageImportCandidateMerger()
@@ -207,6 +207,95 @@ class ItemImageImportServiceTest {
         assertTrue(html.contains("Miażdżąca Tarcza Kościanych Łusek"));
         assertTrue(html.contains("Umocnienie: zwiększone obrażenia"));
         assertTrue(html.contains("name=\"transfigurationAddedDisplayedValue\" step=\"0.1\" value=\"96\""));
+    }
+
+    @Test
+    void shouldImportStormMoonFrenzyShieldFromTwoScreensWithoutManualFixes() throws Exception {
+        byte[] imageBytes = buildShieldLikeScreenshot();
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new QueuedOcrTextReader(List.of(
+                        ItemImportTextFixtures.stormMoonShieldTopText(),
+                        ItemImportTextFixtures.stormMoonShieldBottomText()
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(List.of(
+                new ItemImageImportRequest("burza-gora.png", "image/png", imageBytes),
+                new ItemImageImportRequest("burza-dol.png", "image/png", imageBytes)
+        ));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals("Tarcza Burzy Księżycowego Szału", form.getItemName());
+        assertEquals("Tarcza", form.getItemType());
+        assertEquals("LEGENDARY", form.getItemRarity());
+        assertTrue(form.isAncient());
+        assertEquals("OFF_HAND", form.getSlot());
+        assertEquals("900", form.getItemPower());
+        assertEquals("1202", form.getItemArmor());
+        assertEquals(25, form.getMasterworking().getQualityCurrent());
+        assertEquals(25, form.getMasterworking().getQualityMax());
+        assertEquals("defense_max_animus", form.getMasterworking().getPerfectedAffix().getKey());
+
+        assertEquals(4, form.getAffixes().size());
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.STRENGTH, 173.6d, false);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 8.8d, false);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.DAMAGE_REDUCTION, 14.08d, false);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.COOLDOWN_REDUCTION, 10.25d, true);
+        assertTrue(form.getAffixes().stream().noneMatch(affix -> affix.getSourceText().contains("jakości przedmiotu")));
+        assertTrue(form.getAffixes().stream().noneMatch(affix -> affix.getSourceText().contains("maksymalnej liczby kumulacji Animuszu")));
+        assertTrue(form.getAffixes().stream().noneMatch(affix -> affix.getSourceText().contains("Puste gniazdo")));
+
+        assertEquals(1, form.getTemperingAffixes().size());
+        assertEquals("defense_max_animus", form.getTemperingAffixes().getFirst().getDefinitionId());
+        assertEquals(5.0d, form.getTemperingAffixes().getFirst().getValue());
+        assertTrue(form.getTemperingAffixes().getFirst().isGreaterAffix());
+        assertEquals(1, form.getSocketing().getSocketCount());
+        assertTrue(form.getSocketing().socketAt(0).getGemId().isBlank());
+        assertEquals(krys.transfiguration.HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY,
+                form.getTransfiguration().getOutcome());
+        assertEquals(4, form.getTransfiguration().getBonusQuality());
+        assertEquals("naznaczenie_aspect", form.getSelectedAspectId());
+        assertEquals("naznaczenie_aspect", form.getOcrSuggestedAspectId());
+        assertTrue(form.getUniqueEffectText().contains("Wampirycznego Szału Krwi"));
+        assertEquals(1, countFullReadLines(result, FullItemReadLineType.IMPLICIT, "20,0% szansy na blok [20,0]%"));
+        assertEquals(1, countFullReadLines(result, FullItemReadLineType.IMPLICIT, "+100% obrażeń od broni w głównej ręce [100]%"));
+
+        String allReadLines = result.getFullItemRead().getLines().stream()
+                .map(FullItemReadLine::getText)
+                .reduce("", (left, right) -> left + "\n" + right);
+        assertFalse(allReadLines.contains("Rynsztunek w Zbrojowni"));
+        assertFalse(allReadLines.contains("Przewiń"));
+        assertFalse(allReadLines.contains("Wartość sprzedaży"));
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                result,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "Import testowy",
+                ""
+        ));
+        assertFalse(html.contains("Canonical source text used by parser"));
+        assertFalse(html.contains("Raw OCR variants debug"));
+        assertFalse(html.contains("---original---"));
+        assertTrue(html.contains("Tarcza Burzy Księżycowego Szału"));
+        assertTrue(html.contains("Naznaczenie"));
+        assertTrue(html.contains("name=\"transfigurationBonusQuality\" min=\"1\" max=\"15\" step=\"1\" value=\"4\""));
+
+        ItemImportFormMapper.MappingResult mappingResult = new ItemImportFormMapper().map(form);
+        assertTrue(mappingResult.getErrors().isEmpty(), () -> String.join(", ", mappingResult.getErrors()));
+        ValidatedImportedItem item = mappingResult.getItem();
+        assertEquals(1202L, item.getItemArmor());
+        assertEquals(25, item.getMasterworking().getQualityCurrent());
+        assertEquals(4, item.getAffixes().size());
+        assertEquals("naznaczenie_aspect", item.getSelectedAspectId());
+        assertEquals(krys.transfiguration.HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY,
+                item.getTransfiguration().getOutcome());
+        assertEquals(4, item.getTransfiguration().getBonusQuality());
     }
 
     @Test

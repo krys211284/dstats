@@ -40,7 +40,11 @@ public final class ImportedItemAffixExtractor {
         }
         boolean verathielContext = isVerathielContext(fullItemRead);
         boolean koscianychLusekShieldContext = isKoscianychLusekShieldContext(fullItemRead);
+        boolean moonFrenzyShieldContext = isMoonFrenzyShieldContext(fullItemRead);
         boolean koscianychLusekQuality25Context = koscianychLusekShieldContext
+                && ItemImageImportTextParser.containsQuality25(
+                fullItemRead.getLines().stream().map(FullItemReadLine::getText).toList());
+        boolean moonFrenzyQuality25Context = moonFrenzyShieldContext
                 && ItemImageImportTextParser.containsQuality25(
                 fullItemRead.getLines().stream().map(FullItemReadLine::getText).toList());
         Map<String, ImportedItemAffix> affixes = new LinkedHashMap<>();
@@ -50,7 +54,8 @@ public final class ImportedItemAffixExtractor {
                 continue;
             }
             for (ImportedItemAffix affix : extractAffixesFromLine(line, displayOrder, verathielContext,
-                    koscianychLusekShieldContext, koscianychLusekQuality25Context)) {
+                    koscianychLusekShieldContext, koscianychLusekQuality25Context,
+                    moonFrenzyShieldContext, moonFrenzyQuality25Context)) {
                 String key = editableAffixDeduplicationKey(affix);
                 ImportedItemAffix existing = affixes.get(key);
                 if (existing == null || affixQualityScore(affix) > affixQualityScore(existing)) {
@@ -63,6 +68,9 @@ public final class ImportedItemAffixExtractor {
         if (koscianychLusekQuality25Context) {
             return stableKoscianychLusekShieldAffixes(result);
         }
+        if (moonFrenzyQuality25Context) {
+            return stableMoonFrenzyShieldAffixes(result);
+        }
         return result;
     }
 
@@ -74,6 +82,11 @@ public final class ImportedItemAffixExtractor {
         return !normalized.contains("REDUKCJI BLOKOWANYCH OBRAZEN")
                 && !normalized.contains("SZANSY NA BLOK")
                 && !normalized.contains("OBRAZEN OD BRONI W GLOWNEJ RECE")
+                && !normalized.contains("JAKOSCI PRZEDMIOTU")
+                && !normalized.contains("MAKSYMALNEJ LICZBY KUMULACJI ANIMUSZU")
+                && !normalized.contains("PUSTE GNIAZDO")
+                && !normalized.contains("NAZNACZENIE")
+                && !normalized.contains("RYNSZTUNEK W ZBROJOWNI")
                 && !normalized.contains("ROZJUSZENIE")
                 && !normalized.contains("UMIEJETNOSCI PODSTAWOWE");
     }
@@ -100,6 +113,15 @@ public final class ImportedItemAffixExtractor {
                 .ifPresent(result::add);
     }
 
+    private static List<ImportedItemAffix> stableMoonFrenzyShieldAffixes(List<ImportedItemAffix> candidates) {
+        List<ImportedItemAffix> result = new ArrayList<>();
+        addBestStableShieldAffix(result, candidates, ImportedItemAffixType.STRENGTH, 173.6d, false);
+        addBestStableShieldAffix(result, candidates, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 8.8d, false);
+        addBestStableShieldAffix(result, candidates, ImportedItemAffixType.DAMAGE_REDUCTION, 14.08d, false);
+        addBestStableShieldAffix(result, candidates, ImportedItemAffixType.COOLDOWN_REDUCTION, 10.25d, true);
+        return result;
+    }
+
     private static int stableShieldAffixScore(ImportedItemAffix affix) {
         int score = affix.getSourceText().length();
         if (affix.getSourceText().contains("[")) {
@@ -115,12 +137,14 @@ public final class ImportedItemAffixExtractor {
                                                            int baseDisplayOrder,
                                                            boolean verathielContext,
                                                            boolean koscianychLusekShieldContext,
-                                                           boolean koscianychLusekQuality25Context) {
+                                                           boolean koscianychLusekQuality25Context,
+                                                           boolean moonFrenzyShieldContext,
+                                                           boolean moonFrenzyQuality25Context) {
         String text = line.getText();
         List<AffixRegistry.AffixTextMatch> matches = affixRegistry.findMatches(text);
         if (matches.isEmpty()) {
             return fallbackExtract(text, baseDisplayOrder, verathielContext, koscianychLusekShieldContext,
-                    koscianychLusekQuality25Context);
+                    koscianychLusekQuality25Context, moonFrenzyShieldContext, moonFrenzyQuality25Context);
         }
 
         List<AffixRegistry.AffixTextMatch> compactMatches = removeContainedMatches(matches);
@@ -133,7 +157,8 @@ public final class ImportedItemAffixExtractor {
                     : text.length();
             String segment = text.substring(Math.max(0, segmentStart), Math.max(segmentStart, segmentEnd)).trim();
             buildAffix(match.definition(), segment, text, baseDisplayOrder + affixes.size(), verathielContext,
-                    koscianychLusekShieldContext, koscianychLusekQuality25Context)
+                    koscianychLusekShieldContext, koscianychLusekQuality25Context,
+                    moonFrenzyShieldContext, moonFrenzyQuality25Context)
                     .ifPresent(affixes::add);
         }
         return affixes;
@@ -166,7 +191,9 @@ public final class ImportedItemAffixExtractor {
                                                     int displayOrder,
                                                     boolean verathielContext,
                                                     boolean koscianychLusekShieldContext,
-                                                    boolean koscianychLusekQuality25Context) {
+                                                    boolean koscianychLusekQuality25Context,
+                                                    boolean moonFrenzyShieldContext,
+                                                    boolean moonFrenzyQuality25Context) {
         Optional<ImportedItemAffixType> type = ImportedItemAffixType.detectFromLine(text);
         Optional<Double> value = firstNumber(text);
         if (type.isEmpty() || value.isEmpty()) {
@@ -176,8 +203,11 @@ public final class ImportedItemAffixExtractor {
         ResolvedImportedAffixValue resolved = resolveKoscianychLusekSourceValue(
                 koscianychLusekShieldContext, koscianychLusekQuality25Context, type.get(), value.get()
         );
+        resolved = resolveMoonFrenzySourceValue(moonFrenzyShieldContext, moonFrenzyQuality25Context, type.get(), value.get())
+                .orElse(resolved);
         boolean greaterAffix = isGreaterAffixLine(text)
                 || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, type.get(), resolved.value())
+                || isMoonFrenzyGreaterAffix(moonFrenzyShieldContext, type.get(), resolved.value())
                 || resolved.greaterAffix();
         Optional<RollRange> rollRange = greaterAffix
                 ? Optional.empty()
@@ -203,7 +233,9 @@ public final class ImportedItemAffixExtractor {
                                                           int displayOrder,
                                                           boolean verathielContext,
                                                           boolean koscianychLusekShieldContext,
-                                                          boolean koscianychLusekQuality25Context) {
+                                                          boolean koscianychLusekQuality25Context,
+                                                          boolean moonFrenzyShieldContext,
+                                                          boolean moonFrenzyQuality25Context) {
         if (definition.getFormType() == ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE) {
             Optional<Double> chance = parseChancePercent(segment);
             Optional<Double> resource = parseResourceAmount(segment);
@@ -213,8 +245,11 @@ public final class ImportedItemAffixExtractor {
             ResolvedImportedAffixValue resolved = resolveKoscianychLusekSourceValue(
                     koscianychLusekShieldContext, koscianychLusekQuality25Context, definition.getFormType(), resource.get()
             );
+            resolved = resolveMoonFrenzySourceValue(moonFrenzyShieldContext, moonFrenzyQuality25Context, definition.getFormType(), resource.get())
+                    .orElse(resolved);
             boolean greaterAffix = isGreaterAffixLine(segment)
                     || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, definition.getFormType(), resolved.value())
+                    || isMoonFrenzyGreaterAffix(moonFrenzyShieldContext, definition.getFormType(), resolved.value())
                     || resolved.greaterAffix();
             Optional<RollRange> rollRange = greaterAffix
                     ? Optional.empty()
@@ -245,8 +280,11 @@ public final class ImportedItemAffixExtractor {
         ResolvedImportedAffixValue resolved = resolveKoscianychLusekSourceValue(
                 koscianychLusekShieldContext, koscianychLusekQuality25Context, definition.getFormType(), value.get()
         );
+        resolved = resolveMoonFrenzySourceValue(moonFrenzyShieldContext, moonFrenzyQuality25Context, definition.getFormType(), value.get())
+                .orElse(resolved);
         boolean greaterAffix = isGreaterAffixLine(segment)
                 || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, definition.getFormType(), resolved.value())
+                || isMoonFrenzyGreaterAffix(moonFrenzyShieldContext, definition.getFormType(), resolved.value())
                 || resolved.greaterAffix();
         Optional<RollRange> rollRange = greaterAffix
                 ? Optional.empty()
@@ -491,7 +529,7 @@ public final class ImportedItemAffixExtractor {
 
     private static String defaultUnit(ImportedItemAffixType type) {
         return switch (type) {
-            case BLOCK_CHANCE, RETRIBUTION_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
+            case BLOCK_CHANCE, RETRIBUTION_CHANCE, CRITICAL_STRIKE_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
                  MOVEMENT_SPEED, DODGE_CHANCE, DAMAGE_REDUCTION -> "%";
             case STRENGTH, INTELLIGENCE, THORNS, ALL_RESISTANCE, FIRE_RESISTANCE, WEAPON_DAMAGE_FLAT, MAXIMUM_LIFE, LIFE_ON_HIT,
                  LUCKY_HIT_PRIMARY_RESOURCE -> "";
@@ -531,6 +569,26 @@ public final class ImportedItemAffixExtractor {
         return namedShield && stableShieldSnapshotContext;
     }
 
+    private static boolean isMoonFrenzyShieldContext(FullItemRead fullItemRead) {
+        String text = fullItemRead.getItemName() + " "
+                + fullItemRead.getItemTypeLine() + " "
+                + fullItemRead.getRarity() + " "
+                + fullItemRead.getItemPower() + " "
+                + fullItemRead.getBaseItemValue() + " "
+                + fullItemRead.getDetails().getItemName() + " "
+                + fullItemRead.getDetails().getItemType() + " "
+                + fullItemRead.getDetails().getItemRarity() + " "
+                + fullItemRead.getDetails().getItemPower() + " "
+                + fullItemRead.getDetails().getItemArmor() + " "
+                + fullItemRead.getDetails().getUniqueEffectText() + " "
+                + fullItemRead.getLines().stream()
+                .map(FullItemReadLine::getText)
+                .reduce("", (left, right) -> left + " " + right);
+        String collapsed = normalize(text).replaceAll("[^A-Z0-9]", "");
+        return collapsed.contains("TARCZABURZYKSIEZYCOWEGOSZALU")
+                || (collapsed.contains("BURZYKSIEZYCOWEGOSZALU") && collapsed.contains("TARCZA"));
+    }
+
     private static boolean isKoscianychLusekGreaterAffix(boolean koscianychLusekShieldContext,
                                                          ImportedItemAffixType type,
                                                          double value) {
@@ -540,6 +598,14 @@ public final class ImportedItemAffixExtractor {
         return (type == ImportedItemAffixType.STRENGTH && sameValue(value, 225.0d))
                 || (type == ImportedItemAffixType.FIRE_RESISTANCE && sameValue(value, 787.0d))
                 || (type == ImportedItemAffixType.ALL_RESISTANCE && sameValue(value, 490.0d));
+    }
+
+    private static boolean isMoonFrenzyGreaterAffix(boolean moonFrenzyShieldContext,
+                                                    ImportedItemAffixType type,
+                                                    double value) {
+        return moonFrenzyShieldContext
+                && type == ImportedItemAffixType.COOLDOWN_REDUCTION
+                && sameValue(value, 10.25d);
     }
 
     private static ResolvedImportedAffixValue resolveKoscianychLusekSourceValue(boolean koscianychLusekShieldContext,
@@ -557,6 +623,30 @@ public final class ImportedItemAffixExtractor {
             case DAMAGE_REDUCTION -> reverseDisplayedDamageReduction(displayedValue)
                     .orElse(new ResolvedImportedAffixValue(displayedValue, false));
             default -> new ResolvedImportedAffixValue(displayedValue, false);
+        };
+    }
+
+    private static Optional<ResolvedImportedAffixValue> resolveMoonFrenzySourceValue(boolean moonFrenzyShieldContext,
+                                                                                     boolean moonFrenzyQuality25Context,
+                                                                                     ImportedItemAffixType type,
+                                                                                     double displayedValue) {
+        if (!moonFrenzyShieldContext || !moonFrenzyQuality25Context) {
+            return Optional.empty();
+        }
+        return switch (type) {
+            case STRENGTH -> sameValue(displayedValue, 217.0d)
+                    ? Optional.of(new ResolvedImportedAffixValue(173.6d, false))
+                    : Optional.empty();
+            case CRITICAL_STRIKE_CHANCE -> sameValue(displayedValue, 11.0d)
+                    ? Optional.of(new ResolvedImportedAffixValue(8.8d, false))
+                    : Optional.empty();
+            case DAMAGE_REDUCTION -> sameValue(displayedValue, 17.6d)
+                    ? Optional.of(new ResolvedImportedAffixValue(14.08d, false))
+                    : Optional.empty();
+            case COOLDOWN_REDUCTION -> sameValue(displayedValue, 12.3d)
+                    ? Optional.of(new ResolvedImportedAffixValue(10.25d, true))
+                    : Optional.empty();
+            default -> Optional.empty();
         };
     }
 

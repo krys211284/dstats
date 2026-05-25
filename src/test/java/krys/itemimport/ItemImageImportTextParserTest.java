@@ -341,8 +341,8 @@ class ItemImageImportTextParserTest {
     @Test
     void shouldImportRealTransfiguredMasterworkedShieldFromMergedScreens() {
         String mergedText = new ItemScreenshotTextMerger().merge(List.of(
-                ItemScreenshotTextMergerTest.realShieldTopText(),
-                ItemScreenshotTextMergerTest.realShieldBottomText()
+                ItemImportTextFixtures.realShieldTopText(),
+                ItemImportTextFixtures.realShieldBottomText()
         ));
         ItemImageImportCandidateParseResult result = parser.parse(metadata, mergedText);
         ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);

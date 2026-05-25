@@ -62,6 +62,12 @@ public final class AspectRegistry {
             return findById("verathiel_shard")
                     .map(definition -> new AspectMatch(definition.getId(), ItemImportFieldConfidence.HIGH));
         }
+        for (AspectDefinition definition : definitions) {
+            String normalizedName = normalize(definition.getDisplayName());
+            if (!normalizedName.isBlank() && normalizedAll.contains(normalizedName)) {
+                return Optional.of(new AspectMatch(definition.getId(), ItemImportFieldConfidence.HIGH));
+            }
+        }
         if (normalized.contains("GDY MASZ UMOCNIENIE")
                 && normalized.contains("ZADAJESZ OBRAZENIA ZWIEKSZONE")) {
             return findById("fortify_damage_increased")

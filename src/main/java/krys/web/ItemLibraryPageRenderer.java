@@ -324,7 +324,8 @@ public final class ItemLibraryPageRenderer {
                     item.getAffixes(),
                     item.getTemperingAffixes())
                     + TransfigurationSectionRenderer.renderReadonlySummary(item.getTransfiguration(), item.getAffixes())
-                    + SocketingSectionRenderer.renderReadonlySummary(item);
+                    + SocketingSectionRenderer.renderReadonlySummary(item)
+                    + renderAspectDetails(item);
         }
         List<String> baseStats = collectBaseStats(fullItemRead);
         List<String> implicitLines = collectLines(fullItemRead, ItemReadLineGroup.IMPLICIT);
@@ -474,6 +475,11 @@ public final class ItemLibraryPageRenderer {
             } else {
                 addUnique(lines, aspect.getDisplayName());
                 addUnique(lines, firstNonBlank(item.getUniqueEffectText(), aspect.getEffectDescription()));
+                if (aspect.getRuntimeStatus() == krys.itemimport.AspectRuntimeStatus.DESCRIPTIVE_ONLY) {
+                    addUnique(lines, "Runtime nieaktywny");
+                } else {
+                    addUnique(lines, aspect.getRuntimeStatus().getDisplayName());
+                }
             }
         } else {
             addUnique(lines, "Brak wybranego aspektu.");

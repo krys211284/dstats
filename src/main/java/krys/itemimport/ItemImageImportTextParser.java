@@ -175,7 +175,7 @@ final class ItemImageImportTextParser {
         Long itemPower = detectItemPower(lines, itemPowerLine).orElse(null);
         Long weaponDps = detectWeaponDps(lines).orElse(null);
         Long itemArmor = detectItemArmor(lines).orElse(null);
-        if (itemArmor != null && isKoscianychLusekQuality25Context(lines)) {
+        if (itemArmor != null && (isKoscianychLusekQuality25Context(lines) || isMoonFrenzyQuality25Context(lines))) {
             itemArmor = reverseMasterworkedArmor(itemArmor, 25).orElse(itemArmor);
         }
         DamageRange damageRange = detectWeaponDamageRange(lines).orElse(new DamageRange(null, null));
@@ -211,6 +211,9 @@ final class ItemImageImportTextParser {
         String collapsed = collapse(joined);
         if (collapsed.contains("KOSCIANYCHLUSEK") && collapsed.contains("TARCZA")) {
             return "Miażdżąca Tarcza Kościanych Łusek";
+        }
+        if (collapsed.contains("BURZYKSIEZYCOWEGOSZALU") && collapsed.contains("TARCZA")) {
+            return "Tarcza Burzy Księżycowego Szału";
         }
         if (isVerathielUniqueSwordContext(lines)
                 && (collapsed.contains("VERATHEL") || collapsed.contains("VERATHIEL"))
@@ -389,6 +392,9 @@ final class ItemImageImportTextParser {
         if (collapsedValue.contains("MIAZDZACATARCZAKOSCIANYCHLUSEK")) {
             return "MIAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK";
         }
+        if (collapsedValue.contains("TARCZABURZYKSIEZYCOWEGOSZALU")) {
+            return "TARCZA BURZY KSIĘŻYCOWEGO SZAŁU";
+        }
         return trimmed;
     }
 
@@ -554,6 +560,13 @@ final class ItemImageImportTextParser {
                 && containsQuality25(lines);
     }
 
+    private static boolean isMoonFrenzyQuality25Context(List<String> lines) {
+        String collapsed = collapse(String.join(" ", lines));
+        return collapsed.contains("BURZYKSIEZYCOWEGOSZALU")
+                && collapsed.contains("TARCZA")
+                && containsQuality25(lines);
+    }
+
     static boolean containsQuality25(List<String> lines) {
         return detectQualityCurrent(lines).orElse(-1) == 25;
     }
@@ -563,6 +576,13 @@ final class ItemImageImportTextParser {
             String normalized = normalizeLineForPatternKeepingPlus(line);
             if (!normalized.contains("JAKOSCI")) {
                 continue;
+            }
+            Matcher parentheticalMatcher = Pattern.compile("\\([^)]*\\+\\s*([0-9]{1,2})\\s*\\)\\s+JAKOSCI").matcher(normalized);
+            if (parentheticalMatcher.find()) {
+                int quality = Integer.parseInt(parentheticalMatcher.group(1));
+                if (ItemMasterworking.ALLOWED_QUALITY_STEPS.contains(quality)) {
+                    return Optional.of(quality);
+                }
             }
             Matcher matcher = Pattern.compile("\\b([0-9]{1,2})\\b").matcher(normalized);
             if (!matcher.find()) {
@@ -770,11 +790,15 @@ final class ItemImageImportTextParser {
         boolean collectingUniqueEffect = false;
         for (FullItemReadLine line : readLines) {
             String collapsedLine = collapse(line.getText());
-            if (collapsedLine.contains("UMIEJETNOSCIPODSTAWOWE")) {
+            if (collapsedLine.contains("UMIEJETNOSCIPODSTAWOWE")
+                    || collapsedLine.contains("UMIEJETNOSCIAPODSTAWOWA")
+                    || collapsedLine.contains("WAMPIRYCZNEGOSZALUKRWI")) {
                 collectingUniqueEffect = true;
             }
             if (line.getType() == FullItemReadLineType.ASPECT
                     || collapsedLine.contains("UMIEJETNOSCIPODSTAWOWE")
+                    || collapsedLine.contains("UMIEJETNOSCIAPODSTAWOWA")
+                    || collapsedLine.contains("WAMPIRYCZNEGOSZALUKRWI")
                     || collapsedLine.contains("ZUZYWAJA25")
                     || collectingUniqueEffect) {
                 effectParts.add(line.getText());
@@ -794,7 +818,16 @@ final class ItemImageImportTextParser {
         if (collapsed.contains("GDYMASZUMOCNIENIE") && collapsed.contains("ZADAJESZOBRAZENIAZWIEKSZONE")) {
             return normalizeFortifyLegendaryEffect(joined).orElse(joined);
         }
+        if (collapsed.contains("WAMPIRYCZNEGOSZALUKRWI") || collapsed.contains("NAZNACZENIE")) {
+            return markingAspectText();
+        }
         return joined;
+    }
+
+    private static String markingAspectText() {
+        return "Zadanie wrogowi obrażeń umiejętnością Podstawową zwiększa twoją szybkość ataku o 4% na 10 sek. "
+                + "Efekt kumuluje się maksymalnie 5 razy. Przy maksymalnej kumulacji wchodzisz w stan Wampirycznego Szału Krwi, "
+                + "który zapewnia zwiększenie obrażeń od umiejętności Podstawowych o 60%[x] oraz zwiększenie szybkości ruchu o 15% przez 10 sek.";
     }
 
     private static Optional<String> normalizeFortifyLegendaryEffect(String text) {
@@ -867,7 +900,10 @@ final class ItemImageImportTextParser {
                 "OBRAZENZATRAFIENIE",
                 "MAKSYMALNEGOZDROWIA",
                 "ZDROWIAPRZYTRAFIENIU",
-                "UMIEJETNOSCIPODSTAWOWE"
+                "UMIEJETNOSCIPODSTAWOWE",
+                "UMIEJETNOSCIAPODSTAWOWA",
+                "WAMPIRYCZNEGOSZALUKRWI",
+                "NAZNACZENIE"
         )) {
             if (collapsedLine.contains(anchor)) {
                 anchors++;
@@ -915,6 +951,8 @@ final class ItemImageImportTextParser {
         appendFirstMatch(extractedLines, line,
                 "(\\+[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?siły(?:\\s*\\+?\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
+                "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+trafienie\\s+krytyczne(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
+        appendFirstMatch(extractedLines, line,
                 "(\\+[0-9]+(?:[,.][0-9]+)?\\s+do\\s+odporności\\s+na\\s+wszystkie\\s+żywioły(?:\\s*\\+?\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
                 "(\\+[0-9]+(?:[,.][0-9]+)?\\s+do\\s+odporności\\s+na:?\\s+Ogień(?:\\s*\\+?\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
@@ -928,6 +966,7 @@ final class ItemImageImportTextParser {
                 "\\b([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+czasu\\s+odnowienia(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendVerathielUniqueEffectLine(extractedLines, line);
         appendFortifyLegendaryEffectLine(extractedLines, line);
+        appendMarkingAspectLine(extractedLines, line);
         appendLegendaryEffectLine(extractedLines, line);
         appendFirstMatch(extractedLines, line,
                 "\\b(Ta\\s+premia\\s+jest\\s+trzy\\s+razy\\s+większa,\\s+jeśli\\s+stoisz\\s+w\\s+bezruchu\\s+przez\\s+co\\s+najmniej\\s+3\\s+sek\\.)", 1);
@@ -960,6 +999,18 @@ final class ItemImageImportTextParser {
             return;
         }
         String value = normalizedEffect.get();
+        if (!target.contains(value)) {
+            target.add(value);
+        }
+    }
+
+    private static void appendMarkingAspectLine(List<String> target, String line) {
+        String collapsed = collapse(line);
+        if (!collapsed.contains("WAMPIRYCZNEGOSZALUKRWI")
+                && !(collapsed.contains("ZADANIEWROGOWIOBRAZEN") && collapsed.contains("PODSTAWOWA"))) {
+            return;
+        }
+        String value = markingAspectText();
         if (!target.contains(value)) {
             target.add(value);
         }
@@ -1034,6 +1085,9 @@ final class ItemImageImportTextParser {
             return FullItemReadLineType.TEMPERING;
         }
         if (containsAny(collapsedLine, List.of("ASPEKT", "ASPECT", "LEGENDARYPOWER", "ZADAJESZOBRAZENIAZWIEKSZONE", "TAPREMIAJEST", "UMIEJETNOSCIPODSTAWOWE", "GDYMASZUMOCNIENIE"))) {
+            return FullItemReadLineType.ASPECT;
+        }
+        if (containsAny(collapsedLine, List.of("NAZNACZENIE", "WAMPIRYCZNEGOSZALUKRWI", "UMIEJETNOSCIAPODSTAWOWA", "UMIEJETNOSCIPODSTAWOWYCH"))) {
             return FullItemReadLineType.ASPECT;
         }
         if (containsAny(collapsedLine, List.of("GNIAZDO", "GNIAZDA", "SOCKET", "SOCKETS", "PUSTE"))) {

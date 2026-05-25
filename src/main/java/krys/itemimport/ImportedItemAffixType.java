@@ -14,6 +14,7 @@ public enum ImportedItemAffixType {
     DAMAGE_REDUCTION("Redukcja obrażeń", "%s%% redukcji obrażeń", RuntimeProjection.NONE),
     BLOCK_CHANCE("Szansa na blok", "%s%% szansy na blok", RuntimeProjection.BLOCK_CHANCE),
     RETRIBUTION_CHANCE("Szansa retribution", "%s%% szansy retribution", RuntimeProjection.RETRIBUTION_CHANCE),
+    CRITICAL_STRIKE_CHANCE("Szansa na trafienie krytyczne", "+%s%% szansy na trafienie krytyczne", RuntimeProjection.NONE),
     LUCKY_HIT_CHANCE("Szansa na szczęśliwy traf", "+%s%% szansy na szczęśliwy traf", RuntimeProjection.NONE),
     WEAPON_DAMAGE_FLAT("Obrażenia od broni", "+%s obrażeń od broni", RuntimeProjection.NONE),
     MAXIMUM_LIFE("Maksymalne zdrowie", "+%s maksymalnego zdrowia", RuntimeProjection.NONE),
@@ -70,6 +71,11 @@ public enum ImportedItemAffixType {
         }
         if (normalized.contains("RETRIBUTION") || normalized.contains("ODWET")) {
             return Optional.of(RETRIBUTION_CHANCE);
+        }
+        if (normalized.contains("SZANSY NA TRAFIENIE KRYTYCZNE")
+                || normalized.contains("SZANSA NA TRAFIENIE KRYTYCZNE")
+                || normalized.contains("CRITICAL STRIKE CHANCE")) {
+            return Optional.of(CRITICAL_STRIKE_CHANCE);
         }
         if (normalized.contains("SZCZESLIWY TRAF") || normalized.contains("LUCKY HIT")) {
             if (normalized.contains("PODSTAWOWEGO ZASOBU") || normalized.contains("PODSTAWOWY ZASOB")) {

@@ -12,11 +12,18 @@ public final class AspectDefinition {
     private final String id;
     private final String displayName;
     private final String effectDescription;
+    private final AspectCategory category;
     private final AspectType aspectType;
     private final AspectRuntimeStatus runtimeStatus;
     private final Set<EquipmentSlot> allowedItemSlots;
     private final Set<HeroClass> heroClasses;
     private final List<String> tags;
+    private final AspectDefinitionSource source;
+    private final Integer visibleRankCurrent;
+    private final Integer visibleRankMax;
+    private final List<AspectRollDefinition> rolls;
+    private final Integer durationSeconds;
+    private final Integer maxStacks;
 
     public AspectDefinition(String id,
                             String displayName,
@@ -36,6 +43,26 @@ public final class AspectDefinition {
                             Set<EquipmentSlot> allowedItemSlots,
                             Set<HeroClass> heroClasses,
                             List<String> tags) {
+        this(id, displayName, effectDescription, AspectCategory.UNKNOWN, aspectType, runtimeStatus,
+                allowedItemSlots, heroClasses, tags, AspectDefinitionSource.LOCAL_SEED, null, null,
+                List.of(), null, null);
+    }
+
+    public AspectDefinition(String id,
+                            String displayName,
+                            String effectDescription,
+                            AspectCategory category,
+                            AspectType aspectType,
+                            AspectRuntimeStatus runtimeStatus,
+                            Set<EquipmentSlot> allowedItemSlots,
+                            Set<HeroClass> heroClasses,
+                            List<String> tags,
+                            AspectDefinitionSource source,
+                            Integer visibleRankCurrent,
+                            Integer visibleRankMax,
+                            List<AspectRollDefinition> rolls,
+                            Integer durationSeconds,
+                            Integer maxStacks) {
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("Id aspektu jest wymagane.");
         }
@@ -51,6 +78,7 @@ public final class AspectDefinition {
         this.id = id;
         this.displayName = displayName;
         this.effectDescription = effectDescription;
+        this.category = category == null ? AspectCategory.UNKNOWN : category;
         this.aspectType = aspectType == null ? AspectType.LEGENDARY : aspectType;
         this.runtimeStatus = runtimeStatus == null ? AspectRuntimeStatus.DESCRIPTIVE_ONLY : runtimeStatus;
         this.allowedItemSlots = EnumSet.copyOf(allowedItemSlots);
@@ -58,6 +86,12 @@ public final class AspectDefinition {
                 ? EnumSet.noneOf(HeroClass.class)
                 : EnumSet.copyOf(heroClasses);
         this.tags = tags == null ? List.of() : List.copyOf(tags);
+        this.source = source == null ? AspectDefinitionSource.LOCAL_SEED : source;
+        this.visibleRankCurrent = visibleRankCurrent;
+        this.visibleRankMax = visibleRankMax;
+        this.rolls = rolls == null ? List.of() : List.copyOf(rolls);
+        this.durationSeconds = durationSeconds;
+        this.maxStacks = maxStacks;
     }
 
     public String getId() {
@@ -70,6 +104,10 @@ public final class AspectDefinition {
 
     public String getEffectDescription() {
         return effectDescription;
+    }
+
+    public AspectCategory getCategory() {
+        return category;
     }
 
     public AspectType getAspectType() {
@@ -94,6 +132,30 @@ public final class AspectDefinition {
 
     public List<String> getTags() {
         return tags;
+    }
+
+    public AspectDefinitionSource getSource() {
+        return source;
+    }
+
+    public Integer getVisibleRankCurrent() {
+        return visibleRankCurrent;
+    }
+
+    public Integer getVisibleRankMax() {
+        return visibleRankMax;
+    }
+
+    public List<AspectRollDefinition> getRolls() {
+        return rolls;
+    }
+
+    public Integer getDurationSeconds() {
+        return durationSeconds;
+    }
+
+    public Integer getMaxStacks() {
+        return maxStacks;
     }
 
     public boolean allowsSlot(EquipmentSlot slot) {

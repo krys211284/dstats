@@ -893,6 +893,33 @@ class CurrentBuildWebServerTest {
     }
 
     @Test
+    void shouldShowNewOffensiveAspectOnCurrentBuildCardAsRuntimeInactive() throws Exception {
+        createHero("Aspekt ofensywny bez runtime", "70");
+        saveAndActivateVerathiel();
+        Map<String, String> fields = koscianychLusekShieldImportFields();
+        fields.put("selectedAspectId", "sanctified_punishment_aspect");
+        fields.put("uniqueEffectText", "Obrażenia Świętości i Ognia są zwiększone o 60,0%[x] [40,0 - 60,0]%.");
+        HttpResponse<String> saveResponse = sendPost("/importuj-item-ze-screena", fields);
+        assertEquals(200, saveResponse.statusCode());
+        HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
+                "action", "activateItem",
+                "itemId", "2",
+                "heroSlot", "OFF_HAND",
+                "currentBuildQuery", ""
+        ));
+        assertEquals(200, activateResponse.statusCode());
+
+        HttpResponse<String> response = sendGet("/policz-aktualny-build");
+
+        assertEquals(200, response.statusCode());
+        String html = response.body();
+        String offHandCard = equipmentSlotCard(html, "OFF_HAND");
+        assertTrue(offHandCard.contains("Aspekt Uświęconej Kary"));
+        assertTrue(offHandCard.contains("Runtime nieaktywny"));
+        assertFalse(technicalRuntimeInputSection(html).contains("Świętości"));
+    }
+
+    @Test
     void shouldCalculateCurrentBuildWithMasterworkedMaxAnimusRuntimeCapTwenty() throws Exception {
         createHero("Starcie Moloch Doskonalenie max Animusz 20", "70");
         saveAndActivateVerathiel();

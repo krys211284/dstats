@@ -610,6 +610,8 @@ Import itemu z wielu screenów jest przeznaczony dla przewijanego tooltipa, któ
 
 Realny przykład wieloscreenowy to przeistoczona `Miażdżąca Tarcza Kościanych Łusek` z jakością `25/25`. Dla takiego itemu wartości zwykłych affixów i hartowania widoczne w tooltipie są wartościami finalnymi po Doskonaleniu, więc importer odtwarza source values zapisu: np. `+270 siły` trafia jako source `225` GA, odporności `+588/+945` jako `490/787` GA, `14,3% redukcji obrażeń` jako source `11,4`, a `+12 do maksymalnej liczby kumulacji Animuszu` jako source hartowania `defense_max_animus=5` GA z `perfectedAffix=TEMPERING_AFFIX:defense_max_animus`. Ten znany przypadek ma dokładnie 4 zwykłe affixy; śmieciowe warianty OCR typu `+388`, `+943`, `1181,3` albo `+1001 siły` są traktowane jako duplikaty/noise, a nie dodatkowe affixy. Bonus `+96 do wszystkich współczynników` jest affixem Przeistoczenia `ALL_STATS` z `displayedValue=96` i `valueProvenance=GAME_DISPLAYED_VALUE`, nie zwykłym affixem itemu; wartość `96` jest brana lokalnie z frazy `+... do wszystkich współczynników`, więc wcześniejsze `14,3% redukcji obrażeń` ze sklejonej linii nie może nadpisać wartości Przeistoczenia. Przeistoczenie pozostaje runtime nieaktywne.
 
+Drugi regresyjny przypadek wieloscreenowy to przeistoczona `Tarcza Burzy Księżycowego Szału`. Linia `29 (+25) jakości` oznacza `qualityCurrent=25`, `qualityMax=25` oraz wynik Przeistoczenia `BONUS_ITEM_QUALITY` z bonusem `+4`; importer nie zapisuje `qualityCurrent=29` i nie zostawia itemu jako `0/25`. Przy `25/25` wartości tooltipa są odtwarzane do source values: `+217 siły` -> `173,6`, `+11,0% szansy na trafienie krytyczne` -> `8,8%`, `17,6% redukcji obrażeń` -> `14,08%`, a `12,3% redukcji czasu odnowienia` -> `10,25%` z flagą Greater Affix. `+12 do maksymalnej liczby kumulacji Animuszu` pozostaje hartowaniem `defense_max_animus=5` GA z `perfectedAffix=TEMPERING_AFFIX:defense_max_animus`, `Puste gniazdo` ustawia jedno puste gniazdo, a `Rynsztunek w Zbrojowni` jest ignorowany jako UI/noise. `+4 do jakości przedmiotu` nie jest zwykłym affixem, `+12 Animusz` nie jest zwykłym affixem, a aspekt `Naznaczenie` jest rozpoznawany jako aspekt opisowy `Runtime nieaktywny`.
+
 ### 4.5.1a. Gniazda / Gemy
 Etap 1 socketingu dodaje model danych gniazd, katalog `GemCatalog v1`, UI importu/edycji, zapis/odczyt biblioteki oraz prezentację w bibliotece i current build. Item ma `socketCount=0..2`, a każde gniazdo może być `Puste` albo zawierać gem wskazany stabilnym id katalogowym, np. `diamond_grand`. Stare zapisy bez danych socketingu wczytują się jako `socketCount=0`. Runy nie są częścią tego etapu i pozostają przyszłą mechaniką.
 
@@ -634,6 +636,33 @@ Wartości tierów dla Rubinu: `Surowy Rubin` x14% Ognia i Świętości / +10 si�
 Pozostałe rodziny używają tych samych progów wartości broni dla rodzin żywiołowych/fizycznych: x14%, x16%, x18%, x20%, x22%, x24%, x28%, x32%. Pancerz dla Szafiru/Szmaragdu/Topazu daje odpowiednio siłę woli/zręczność/inteligencję w progach `+10/+20/+30/+40/+60/+90/+120/+150`; biżuteria daje odporności w progach `+50/+250/+450/+900/+1 750/+2 625/+3 500/+4 375`. Ametyst w pancerzu daje generowanie bariery `+2,0%/+4,0%/+6,0%/+8,0%/+12,0%/+18,0%/+24,0%/+30,0%`. Czaszka w pancerzu daje otrzymywane leczenie `+1,0%/+1,2%/+1,5%/+1,8%/+2,1%/+2,5%/+2,8%/+3,0%`. Diament ma osobne progi: broń x10%/x12%/x14%/x16%/x18%/x20%/x24%/x28% wszystkich obrażeń, pancerz `+3/+7/+10/+13/+20/+30/+40/+50 pkt. do wszystkich współczynników`, biżuteria `+7/+36/+64/+129/+250/+375/+500/+625 odporności na wszystkie żywioły`.
 
 UI importu i edycji pokazuje sekcję `Gniazda` z wyborem `Liczba gniazd` (`0`, `1`, `2`) oraz wierszami `Gniazdo 1` i `Gniazdo 2`. Po wybraniu gema formularz pokazuje jego efekt dla kontekstu itemu; dla tarczy `Wspaniały Diament` pokazuje `+30 pkt. do wszystkich współczynników`. Biblioteka i current build prezentują sockety jako osobne linie, np. `Gniazda · 1: Wspaniały Diament · +30 pkt. do wszystkich współczynników · Runtime nieaktywny`. Import OCR może rozpoznać dokładną linię `Puste gniazdo` jako jedno puste gniazdo, ale automatyczne rozpoznawanie osadzonych gemów ze screena nie jest częścią tego etapu.
+
+### Aspekty ofensywne Paladyna — uzupełnienie z Kodeksu Potęgi
+Katalog aspektów został uzupełniony o 15 aspektów ofensywnych z Kodeksu Potęgi. Wartości, rangi i zakresy są oznaczone jako `VERIFIED_SCREENSHOT`. W tym etapie są to dane katalogowe, wybór w UI, persistence i prezentacja; nowe aspekty nie zmieniają runtime DPS, effective stats ani technical runtime input. Podłączanie runtime będzie robione osobnymi etapami, bo wymagają warunków takich jak pełne zdrowie, Osąd, blok, trafienia krytyczne, bariera, powalenie, obezwładnienie, rotacja typów obrażeń, Ferwor albo koszt zdrowia.
+
+Dodane aspekty:
+
+| Id | Nazwa | Ranga | Wartości | Runtime |
+|---|---|---:|---|---|
+| `immortal_glory_aspect` | Aspekt Nieśmiertelnej Chwały | 21/21 | 35%[x], zakres 20 - 35% | Runtime nieaktywny |
+| `watkins_law_aspect` | Aspekt Prawa Watkinsa | 21/21 | 65,0%[x], zakres 45,0 - 65,0% | Runtime nieaktywny |
+| `proselytism_aspect` | Aspekt Prozelityzmu | 21/21 | 40% szansy; 150,0%[x], zakres 50,0 - 150% | Runtime nieaktywny |
+| `redirected_power_aspect` | Aspekt Przekierowanej Mocy | 21/21 | 60%[x], zakres 40 - 60%; buff po bloku 10 sek. | Runtime nieaktywny |
+| `sanctified_punishment_aspect` | Aspekt Uświęconej Kary | 21/21 | 60,0%[x], zakres 40,0 - 60,0% dla obrażeń Świętości i Ognia | Runtime nieaktywny |
+| `crushing_aspect` | Miażdżący aspekt | 21/21 | 65%[x], zakres 45 - 65% przy umocnieniu | Runtime nieaktywny; ten sam efekt opisowy co dotychczasowe `Umocnienie: zwiększone obrażenia` |
+| `accelerating_aspect` | Przyspieszający aspekt | 21/21 | 50,0%[+], zakres 30,0 - 50,0%; 5 sek. | Runtime nieaktywny |
+| `golden_hour_aspect` | Aspekt Złotej Godziny | 21/21 | 100%[x], zakres 60 - 100% | Runtime nieaktywny |
+| `elemental_fate_aspect` | Aspekt Żywiołowego Losu | 21/21 | 60%[x], zakres 40 - 60%; 7 sek.; maks. 6 kumulacji | Runtime nieaktywny |
+| `bristling_aspect` | Najeżony aspekt | 21/21 | 300%, zakres 200 - 300% obrażeń od cierni | Runtime nieaktywny |
+| `relentless_aspect` | Nieubłagany aspekt | 11/11 | 60%[x], zakres 50 - 60%; 6 sek. | Runtime nieaktywny |
+| `revelatory_aspect` | Objawienny aspekt | 21/21 | 32,5%[x], zakres 12,5 - 32,5%; podwojenie przy 3 kumulacjach Ferworu | Runtime nieaktywny |
+| `penitential_aspect` | Penitencki aspekt | 21/21 | 15,0% szansy krytycznej, zakres 5,0 - 15,0%; 55%[x] crit damage, zakres 35 - 55%; 4 sek. | Runtime nieaktywny |
+| `smiting_aspect` | Pogromowy aspekt | 31/31 | 90%[x], zakres 60 - 90% przeciw obezwładnionym | Runtime nieaktywny |
+| `conceited_aspect` | Pyszałkowaty aspekt | 21/21 | 60%[x], zakres 40 - 60% przy aktywnej barierze | Runtime nieaktywny |
+
+Aspekty są widoczne w selectach importu i edycji itemu dla ofensywnych slotów (`Broń`, `Tarcza`/off-hand, `Rękawice`, `Amulet`, `Pierścień`). Zapisywany jest stabilny `selectedAspectId`, a nie nazwa display. Biblioteka, szczegóły itemu i current build compact card pokazują polską nazwę, tekst efektu albo status `Runtime nieaktywny`. Import OCR może zasugerować aspekt po rozpoznanej polskiej nazwie, także po normalizacji znaków diakrytycznych; rozpoznawanie pełnej mechaniki efektów pozostaje poza tym etapem.
+
+Katalog zawiera także rozpoznanie aspektu `Naznaczenie` dla importu realnej tarczy z przewijanego tooltipa. Efekt Wampirycznego Szału Krwi jest zapisywany jako opis aspektu i ma `VERIFIED_SCREENSHOT`, ale nie wpływa na DPS, szybkość ataku, szybkość ruchu ani technical runtime input.
 
 Hartowane affixy mogą mieć flagę `Greater Affix / Gwiazdka` tylko dla itemów o mocy `900`. Zwykły roll jest walidowany normalnym zakresem definicji, a Greater Affix wymaga dokładnej wartości GA. Domyślna reguła projektu to `normalRangeMax × 1.25`, np. siła `150 - 180` daje GA `225`, a `+[1000 - 1500] maksymalnego zdrowia` daje GA `1875`. Definicja może mieć jawny override wartości GA; potwierdzony wyjątek Defensywy to `+[2 - 3] do maksymalnej liczby kumulacji Animuszu`, gdzie GA wynosi `5`, a nie `3,75`. Dla tego affixu zwykłe wartości `2` i `3` są poprawne, GA wymaga dokładnie `5`, a wartość `10` jest błędna niezależnie od zaznaczenia gwiazdki. Runtime czyta zapisaną wartość itemu, więc zwykły przyszły roll `+2` albo `+3` zwiększy maksymalny Animusz o tę wartość, a zapisany GA `+5` zwiększa go o `5`.
 

@@ -215,6 +215,22 @@ public final class ApplicationAffixRegistry {
                     true
             ),
             new AffixDefinition(
+                    "critical_strike_chance",
+                    ImportedItemAffixType.CRITICAL_STRIKE_CHANCE,
+                    "Szansa na trafienie krytyczne",
+                    AffixCategory.OFFENSIVE,
+                    List.of("szansy na trafienie krytyczne", "szansa na trafienie krytyczne", "critical strike chance"),
+                    AffixValueUnit.PERCENT,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    AffixRuntimeStatus.DESCRIPTIVE_ONLY,
+                    true,
+                    true
+            ),
+            new AffixDefinition(
                     "cooldown_reduction",
                     ImportedItemAffixType.COOLDOWN_REDUCTION,
                     "Redukcja czasu odnowienia",

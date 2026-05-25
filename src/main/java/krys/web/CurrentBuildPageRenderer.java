@@ -6,6 +6,10 @@ import krys.hero.HeroClassDefs;
 import krys.hero.HeroCriticalChanceBreakdown;
 import krys.hero.HeroClassStatBaseline;
 import krys.item.HeroEquipmentSlot;
+import krys.itemimport.ApplicationAspectRegistry;
+import krys.itemimport.AspectDefinition;
+import krys.itemimport.AspectRegistry;
+import krys.itemimport.AspectRuntimeStatus;
 import krys.itemimport.CurrentBuildImportableStats;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixType;
@@ -39,6 +43,7 @@ import java.util.Locale;
 
 /** Renderuje pojedynczy szablon HTML dla prostego SSR bez zewnętrznego frameworka webowego. */
 public final class CurrentBuildPageRenderer {
+    private static final AspectRegistry ASPECT_REGISTRY = ApplicationAspectRegistry.get();
     private static final List<HeroEquipmentSlot> LEFT_PAPER_DOLL_SLOTS = List.of(
             HeroEquipmentSlot.HELMET,
             HeroEquipmentSlot.CHEST,
@@ -894,8 +899,9 @@ public final class CurrentBuildPageRenderer {
         String masterworkingSection = renderSlotContributionSection("Doskonalenie", buildSlotMasterworkingChips(item));
         String transfigurationSection = renderSlotContributionSection("Przeistoczenie", buildSlotTransfigurationChips(item));
         String socketingSection = renderSlotContributionSection("Gniazda", SocketingSectionRenderer.compactChips(item));
+        String aspectSection = renderSlotContributionSection("Aspekt", buildSlotAspectChips(item));
         String effectsSection = renderSlotContributionSection("Efekty opisowe", buildSlotEffectChips(item));
-        String content = weaponSection + statsSection + temperingSection + masterworkingSection + transfigurationSection + socketingSection + effectsSection;
+        String content = weaponSection + statsSection + temperingSection + masterworkingSection + transfigurationSection + socketingSection + aspectSection + effectsSection;
         if (content.isBlank()) {
             return "<p class=\"slot-contribution\">Brak wkładu</p>";
         }
@@ -1030,6 +1036,20 @@ public final class CurrentBuildPageRenderer {
             return List.of();
         }
         return List.of(chip);
+    }
+
+    private static List<String> buildSlotAspectChips(SavedImportedItem item) {
+        if (item.getSelectedAspectId() == null || item.getSelectedAspectId().isBlank()) {
+            return List.of();
+        }
+        AspectDefinition aspect = ASPECT_REGISTRY.findById(item.getSelectedAspectId()).orElse(null);
+        if (aspect == null) {
+            return List.of(item.getSelectedAspectId());
+        }
+        String runtime = aspect.getRuntimeStatus() == AspectRuntimeStatus.DESCRIPTIVE_ONLY
+                ? "Runtime nieaktywny"
+                : aspect.getRuntimeStatus().getDisplayName();
+        return List.of(aspect.getDisplayName() + " · " + runtime);
     }
 
     private static String luckyHitResourceValue(ImportedItemAffix affix) {

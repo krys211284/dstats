@@ -45,6 +45,32 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Testuje trwały zapis minimalnej biblioteki itemów bez bazy danych. */
 class FileItemLibraryRepositoryTest {
     @Test
+    void shouldPersistNewSelectedAspectId() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-library-aspect-id");
+        FileItemLibraryRepository repository = new FileItemLibraryRepository(tempDirectory);
+
+        repository.save(new SavedImportedItem(
+                0L,
+                "Tarcza z aspektem",
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                FullItemRead.empty(),
+                List.of(),
+                "sanctified_punishment_aspect"
+        ));
+
+        SavedImportedItem reloaded = new FileItemLibraryRepository(tempDirectory).findAll().getFirst();
+
+        assertEquals("sanctified_punishment_aspect", reloaded.getSelectedAspectId());
+    }
+
+    @Test
     void shouldPersistSocketedItemsOnDisk() throws Exception {
         Path tempDirectory = Files.createTempDirectory("item-library-socketing");
         FileItemLibraryRepository repository = new FileItemLibraryRepository(tempDirectory);

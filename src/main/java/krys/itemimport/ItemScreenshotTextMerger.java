@@ -67,6 +67,7 @@ public final class ItemScreenshotTextMerger {
                 || key.equals("oznacz jako smiec")
                 || key.equals("upusc")
                 || key.equals("przypisano do konta")
+                || key.equals("rynsztunek w zbrojowni")
                 || key.matches("wymaga [0-9]+ poziomu")
                 || key.startsWith("wartosc sprzedazy:")
                 || key.startsWith("trwalosc:")
@@ -91,11 +92,16 @@ public final class ItemScreenshotTextMerger {
                 "szansynablok",
                 "obrazenodbroniwglownejrece",
                 "sily",
+                "trafieniekrytyczne",
                 "odpornosci",
                 "redukcjiobrazen",
+                "redukcjiczasuodnowienia",
                 "wszystkichwspolczynnikow",
+                "jakosciprzedmiotu",
                 "maksymalnejliczbykumulacjianimuszu",
-                "gdymaszumocnienie"
+                "gdymaszumocnienie",
+                "naznaczenie",
+                "wampirycznego"
         )) {
             if (key.contains(anchor)) {
                 anchors++;
@@ -112,6 +118,7 @@ public final class ItemScreenshotTextMerger {
 
         List<String> extracted = new ArrayList<>();
         appendFirst(extracted, line, "(Miażdżąca\\s+Tarcza\\s+Kościanych\\s+Łusek)");
+        appendFirst(extracted, line, "(Tarcza\\s+Burzy\\s+Księżycowego\\s+Szału)");
         appendFirst(extracted, line, "(Starożytna\\s+legendarna\\s+tarcza)");
         appendFirst(extracted, line, "(Moc\\s+przedmiotu\\s*[:.\\-–—]?\\s*[0-9]+)");
         appendFirst(extracted, line, "([0-9]{1,2}\\s*\\([^)]*\\+\\s*[0-9]{1,2}\\s*\\)\\s+jakości)");
@@ -120,14 +127,21 @@ public final class ItemScreenshotTextMerger {
         appendFirst(extracted, line, "([0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+blok(?:\\s*\\[[^\\]]+])?%?)");
         appendFirst(extracted, line, "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+obrażeń\\s+od\\s+broni\\s+w\\s+głównej\\s+ręce(?:\\s*\\[[^\\]]+])?%?)");
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?siły(?:\\s*\\[[^\\]]+])?)");
+        appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+trafienie\\s+krytyczne(?:\\s*\\[[^\\]]+])?)");
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+do\\s+odporności\\s+na\\s+wszystkie\\s+żywioły(?:\\s*\\[[^\\]]+])?)");
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+do\\s+odporności\\s+na:?\\s+Ogień(?:\\s*\\[[^\\]]+])?)");
         appendFirst(extracted, line, "([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+obrażeń(?:\\s*\\[[^\\]]+])?%?)");
+        appendFirst(extracted, line, "([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+czasu\\s+odnowienia(?:\\s*\\[[^\\]]+])?%?)");
         extractAllStatsDisplayedValue(line)
                 .map(value -> "+" + formatValue(value) + " pkt. do wszystkich współczynników [+75 - 100]")
                 .ifPresent(value -> appendIfMissing(extracted, value));
+        extractBonusItemQualityDisplayedValue(line)
+                .map(value -> "+" + formatValue(value) + " do jakości przedmiotu [1 - 15]")
+                .ifPresent(value -> appendIfMissing(extracted, value));
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+do\\s+maksymalnej\\s+liczby\\s+kumulacji\\s+Animuszu)");
         extractFortifyAspectLine(line).ifPresent(value -> appendIfMissing(extracted, value));
+        extractMarkingAspectLine(line).ifPresent(value -> appendIfMissing(extracted, value));
+        appendFirst(extracted, line, "\\b(Naznaczenie)\\b");
         appendFirst(extracted, line, "\\b(Puste\\s+gniazdo)\\b");
         appendFirst(extracted, line, "\\b(Przedmiot\\s+z\\s+dodatku\\s+Lord\\s+of\\s+Hatred)\\b");
         appendFirst(extracted, line, "\\b(Brak\\s+możliwości\\s+modyfikacji)\\b");
@@ -163,6 +177,10 @@ public final class ItemScreenshotTextMerger {
             return Optional.of(new CanonicalLineCandidate("known-name:koscianych-lusek",
                     "Miażdżąca Tarcza Kościanych Łusek", 10_000));
         }
+        if (key.contains("tarczaburzyksiezycowegoszalu")) {
+            return Optional.of(new CanonicalLineCandidate("known-name:burzy-ksiezycowego-szalu",
+                    "Tarcza Burzy Księżycowego Szału", 10_000));
+        }
         if (key.contains("starozytnalegendarnatarcza")) {
             return Optional.of(new CanonicalLineCandidate("type:ancient-legendary-shield",
                     "Starożytna legendarna tarcza", 9_000));
@@ -171,9 +189,13 @@ public final class ItemScreenshotTextMerger {
             return Optional.of(new CanonicalLineCandidate("item-power", "Moc przedmiotu: 900", 9_000));
         }
         if (key.contains("jakosci")) {
-            Optional<Double> value = firstNumber(line);
-            if (value.isPresent() && Math.rint(value.get()) == 25.0d) {
-                return Optional.of(new CanonicalLineCandidate("masterworking-quality", "25 (+25) jakości", 9_000));
+            Optional<Integer> qualityCurrent = extractMasterworkingQualityCurrent(line);
+            if (qualityCurrent.isPresent() && qualityCurrent.get() == 25) {
+                Optional<Double> total = firstNumber(line);
+                String text = total.isPresent() && Math.rint(total.get()) == 29.0d
+                        ? "29 (+25) jakości"
+                        : "25 (+25) jakości";
+                return Optional.of(new CanonicalLineCandidate("masterworking-quality", text, 9_000));
             }
         }
         if (key.equals("przeistoczony")) {
@@ -205,6 +227,13 @@ public final class ItemScreenshotTextMerger {
             return Optional.of(new CanonicalLineCandidate("transfiguration:all-stats",
                     text, lineQualityScore(line, context.koscianychLusekQuality25() ? 96.0d : null, context)));
         }
+        if (key.contains("jakosciprzedmiotu")) {
+            Optional<Double> value = extractBonusItemQualityDisplayedValue(line);
+            if (value.isPresent()) {
+                return Optional.of(new CanonicalLineCandidate("transfiguration:bonus-item-quality",
+                        "+" + formatValue(value.get()) + " do jakości przedmiotu [1 - 15]", lineQualityScore(line, 4.0d, context)));
+            }
+        }
         if (key.contains("maksymalnejliczbykumulacjianimuszu")) {
             Optional<Double> value = firstNumber(line);
             String text = value.map(number -> "+" + formatValue(number) + " do maksymalnej liczby kumulacji Animuszu")
@@ -216,6 +245,13 @@ public final class ItemScreenshotTextMerger {
             String normalizedAspect = FortifyLegendaryEffectNormalizer.normalize(line).orElse(line);
             return Optional.of(new CanonicalLineCandidate("aspect:fortify-damage",
                     normalizedAspect, lineQualityScore(normalizedAspect, 61.0d, context) + 400));
+        }
+        if (key.equals("naznaczenie")) {
+            return Optional.of(new CanonicalLineCandidate("aspect:naznaczenie-name", "Naznaczenie", 6_000));
+        }
+        if (key.contains("wampirycznegoszalukrwi") || key.contains("zadanie") && key.contains("podstawowa")) {
+            return Optional.of(new CanonicalLineCandidate("aspect:naznaczenie-effect",
+                    markingAspectText(), lineQualityScore(line, 60.0d, context) + 300));
         }
         if (key.contains("pustegniazdo") || key.equals("puste")) {
             return Optional.of(new CanonicalLineCandidate("socket:empty", "Puste gniazdo", 5_000));
@@ -270,12 +306,26 @@ public final class ItemScreenshotTextMerger {
                             "+" + formatValue(value) + " siły",
                             lineQualityScore(line, context.koscianychLusekQuality25() ? 270.0d : null, context)));
         }
+        if (key.contains("szansy") && key.contains("trafieniekrytyczne")) {
+            return firstNumber(line)
+                    .filter(value -> value <= 100.0d)
+                    .map(value -> new CanonicalLineCandidate("affix:critical-strike-chance",
+                            "+" + formatPercentOne(value) + "% szansy na trafienie krytyczne",
+                            lineQualityScore(line, context.moonFrenzyQuality25() ? 11.0d : null, context)));
+        }
         if (key.contains("redukcjiobrazen")) {
             return firstNumber(line)
                     .filter(value -> value <= 100.0d)
                     .map(value -> new CanonicalLineCandidate("affix:damage-reduction",
                             formatValue(value) + "% redukcji obrażeń [11,0 - 15,0]%",
                             lineQualityScore(line, context.koscianychLusekQuality25() ? 14.3d : null, context)));
+        }
+        if (key.contains("redukcjiczasuodnowienia")) {
+            return firstNumber(line)
+                    .filter(value -> value <= 100.0d)
+                    .map(value -> new CanonicalLineCandidate("affix:cooldown-reduction",
+                            formatValue(value) + "% redukcji czasu odnowienia",
+                            lineQualityScore(line, context.moonFrenzyQuality25() ? 12.3d : null, context)));
         }
         return Optional.empty();
     }
@@ -329,6 +379,29 @@ public final class ItemScreenshotTextMerger {
         return value.filter(number -> number >= 75.0d && number <= 100.0d);
     }
 
+    private static Optional<Double> extractBonusItemQualityDisplayedValue(String line) {
+        String normalized = comparisonKey(line);
+        Matcher matcher = Pattern.compile(
+                "\\+\\s*([0-9]+(?:[,.][0-9]+)?)\\s*(?:do\\s+)?jakosci\\s+przedmiotu",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+        ).matcher(normalized);
+        if (!matcher.find()) {
+            return Optional.empty();
+        }
+        Optional<Double> value = parseNumber(matcher.group(1));
+        return value.filter(number -> number >= 1.0d && number <= 15.0d);
+    }
+
+    private static Optional<Integer> extractMasterworkingQualityCurrent(String line) {
+        String normalized = comparisonKey(line);
+        Matcher parenthetical = Pattern.compile("\\([^)]*\\+\\s*([0-9]{1,2})\\s*\\)\\s+jakosci").matcher(normalized);
+        if (parenthetical.find()) {
+            return parseNumber(parenthetical.group(1)).map(Double::intValue);
+        }
+        Optional<Double> first = firstNumber(line);
+        return first.map(Double::intValue);
+    }
+
     private static Optional<String> extractFortifyAspectLine(String line) {
         if (line == null || line.isBlank()) {
             return Optional.empty();
@@ -340,6 +413,21 @@ public final class ItemScreenshotTextMerger {
         int start = key.indexOf("gdymaszumocnienie");
         // Normalizer działa na całej linii i sam odcina znane śmieci OCR z zakresu.
         return FortifyLegendaryEffectNormalizer.normalize(start >= 0 ? line : line);
+    }
+
+    private static Optional<String> extractMarkingAspectLine(String line) {
+        String key = comparisonKey(line).replace(" ", "");
+        if (!key.contains("wampirycznegoszalukrwi")
+                && !(key.contains("zadanie") && key.contains("podstawowa") && key.contains("szybkosc")) ) {
+            return Optional.empty();
+        }
+        return Optional.of(markingAspectText());
+    }
+
+    private static String markingAspectText() {
+        return "Zadanie wrogowi obrażeń umiejętnością Podstawową zwiększa twoją szybkość ataku o 4% na 10 sek. "
+                + "Efekt kumuluje się maksymalnie 5 razy. Przy maksymalnej kumulacji wchodzisz w stan Wampirycznego Szału Krwi, "
+                + "który zapewnia zwiększenie obrażeń od umiejętności Podstawowych o 60%[x] oraz zwiększenie szybkości ruchu o 15% przez 10 sek.";
     }
 
     private static Optional<Double> parseNumber(String rawToken) {
@@ -357,6 +445,10 @@ public final class ItemScreenshotTextMerger {
         return String.format(Locale.US, "%.1f", value).replace('.', ',');
     }
 
+    private static String formatPercentOne(double value) {
+        return String.format(Locale.US, "%.1f", value).replace('.', ',');
+    }
+
     private static String comparisonKey(String line) {
         return Normalizer.normalize(line == null ? "" : line, Normalizer.Form.NFD)
                 .replace('Ł', 'L')
@@ -370,13 +462,16 @@ public final class ItemScreenshotTextMerger {
     private record CanonicalLineCandidate(String key, String text, int score) {
     }
 
-    private record MergeContext(boolean koscianychLusekQuality25) {
+    private record MergeContext(boolean koscianychLusekQuality25, boolean moonFrenzyQuality25) {
         private static MergeContext from(String source) {
             String key = comparisonKey(source).replace(" ", "");
             return new MergeContext(key.contains("koscianychlusek")
                     && key.contains("tarcza")
                     && key.contains("25")
-                    && key.contains("jakosci"));
+                    && key.contains("jakosci"),
+                    (key.contains("burzyksiezycowegoszalu") || key.contains("tarczaburzy"))
+                            && key.contains("25")
+                            && key.contains("jakosci"));
         }
     }
 }

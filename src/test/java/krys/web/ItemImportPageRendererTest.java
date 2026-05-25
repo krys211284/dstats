@@ -37,6 +37,37 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Testuje strukturę SSR formularza ręcznej walidacji affixów itemu. */
 class ItemImportPageRendererTest {
     @Test
+    void shouldRenderNewOffensiveAspectsInImportSelect() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of()
+        );
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                null,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "",
+                ""
+        ));
+
+        assertTrue(html.contains("Aspekt Nieśmiertelnej Chwały"));
+        assertTrue(html.contains("Aspekt Uświęconej Kary"));
+        assertTrue(html.contains("Miażdżący aspekt"));
+        assertTrue(html.contains("Pyszałkowaty aspekt"));
+    }
+
+    @Test
     void shouldRenderSocketingEditorWithArmorEffectForShieldGem() {
         ItemImportEditableForm form = new ItemImportEditableForm(
                 "tarcza.png",
