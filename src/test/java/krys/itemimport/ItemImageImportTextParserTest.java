@@ -891,6 +891,35 @@ class ItemImageImportTextParserTest {
     }
 
     @Test
+    void shouldExtractVerathielDotRangeFromWrappedOcrLine() {
+        ItemImageImportCandidateParseResult result = parser.parse(
+                new ItemImageMetadata("verathiel-wrapped-dot.png", "image/png", "PNG", 447, 736),
+                """
+                        Odłamek Verathiela
+                        Starożytny unikatowy miecz
+                        Moc przedmiotu: 900
+                        1 874 pkt. obrażeń na sek.
+                        [1 390 - 2 018] pkt. obrażeń za trafienie
+                        1,10 ataku na sekundę
+                        +134 obrażeń od broni [94 - 157]
+                        +172 siły [150 - 180]
+                        +300 zdrowia za zabicie [+300]
+                        Mnożnik x16% obrażeń z upływem
+                        czasu [15 - 30]%
+                        Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100]%, ale dodatkowo zużywają 25 pkt. podstawowego zasobu.
+                        """
+        );
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(4, form.getAffixes().size());
+        assertAffix(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 134.0d, 94.0d, 157.0d);
+        assertAffix(form, ImportedItemAffixType.LIFE_ON_KILL, 300.0d, 300.0d, 300.0d);
+        assertAffix(form, ImportedItemAffixType.STRENGTH, 172.0d, 150.0d, 180.0d);
+        assertAffix(form, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d, 15.0d, 30.0d);
+    }
+
+    @Test
     void shouldRenderAllVerathielPresentationAffixesInManualVerification() {
         ItemImageImportCandidateParseResult result = parser.parse(
                 new ItemImageMetadata("verathiel-confirmation.png", "image/png", "PNG", 447, 736),

@@ -1406,7 +1406,40 @@ final class ItemImageImportTextParser {
                 lines.add(trimmedLine);
             }
         }
+        lines = joinWrappedDamageOverTimeMultiplierLines(lines);
         return lines;
+    }
+
+    private static List<String> joinWrappedDamageOverTimeMultiplierLines(List<String> lines) {
+        if (lines.size() < 2) {
+            return lines;
+        }
+        List<String> joinedLines = new ArrayList<>();
+        for (int index = 0; index < lines.size(); index++) {
+            String line = lines.get(index);
+            if (index + 1 < lines.size() && isWrappedDamageOverTimeMultiplierPrefix(line)) {
+                String nextLine = lines.get(index + 1);
+                if (isWrappedDamageOverTimeMultiplierSuffix(nextLine)) {
+                    joinedLines.add((line + " " + nextLine).replaceAll("\\s+", " ").trim());
+                    index++;
+                    continue;
+                }
+            }
+            joinedLines.add(line);
+        }
+        return joinedLines;
+    }
+
+    private static boolean isWrappedDamageOverTimeMultiplierPrefix(String line) {
+        String collapsed = collapse(line);
+        return collapsed.startsWith("MNOZNIK")
+                && collapsed.contains("OBRAZENZUPLYWEM")
+                && !collapsed.contains("OBRAZENZUPLYWEMCZASU");
+    }
+
+    private static boolean isWrappedDamageOverTimeMultiplierSuffix(String line) {
+        String collapsed = collapse(line);
+        return collapsed.startsWith("CZASU") && collapsed.contains("15") && collapsed.contains("30");
     }
 
     private static String normalizeDamagedRollRangeClosings(String line) {
