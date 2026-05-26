@@ -301,6 +301,9 @@ final class ItemImageImportCandidateMerger {
         if (normalized.contains("CZASU ODNOWIENIA")) {
             return "AFFIX:COOLDOWN_REDUCTION:" + firstNumber(normalized);
         }
+        if (normalized.contains("OBRAZEN Z UPLYWEM CZASU")) {
+            return "AFFIX:DAMAGE_OVER_TIME_MULTIPLIER:" + firstNumber(normalized);
+        }
         if (normalized.contains("GDY MASZ UMOCNIENIE")) {
             return "ASPECT:FORTIFY_DAMAGE";
         }

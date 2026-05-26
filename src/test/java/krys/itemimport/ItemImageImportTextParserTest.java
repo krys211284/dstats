@@ -843,6 +843,97 @@ class ItemImageImportTextParserTest {
     }
 
     @Test
+    void shouldExtractVerathielPresentationAffixesFromCondensedOcrLine() {
+        ItemImageImportCandidateParseResult result = parser.parse(
+                new ItemImageMetadata("verathiel-condensed.png", "image/png", "PNG", 447, 736),
+                "Odłamek Verathiela Starożytny unikatowy miecz Moc przedmiotu: 900 "
+                        + "1 874 pkt. obrażeń na sek. [1 390 - 2 018] pkt. obrażeń za trafienie "
+                        + "1,10 ataku na sekundę +134 obrażeń od broni [94 - 157] "
+                        + "+172 siły [150 - 180] +300 zdrowia za zabicie [+300] "
+                        + "Mnożnik x16% obrażeń z upływem czasu [15 - 30]% "
+                        + "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100]%, "
+                        + "ale dodatkowo zużywają 25 pkt. podstawowego zasobu."
+        );
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(4, form.getAffixes().size());
+        assertAffix(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 134.0d, 94.0d, 157.0d);
+        assertAffix(form, ImportedItemAffixType.STRENGTH, 172.0d, 150.0d, 180.0d);
+        assertAffix(form, ImportedItemAffixType.LIFE_ON_KILL, 300.0d, 300.0d, 300.0d);
+        assertAffix(form, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d, 15.0d, 30.0d);
+        assertAffixSourceText(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT, "[94 - 157]");
+        assertAffixSourceText(form, ImportedItemAffixType.LIFE_ON_KILL, "[+300]");
+        assertAffixSourceText(form, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, "[15 - 30]%");
+        assertTrue(result.getFullItemRead().getDetails().getUniqueEffectText().contains("100%[x]"));
+    }
+
+    @Test
+    void shouldExtractVerathielDotRangeFromCondensedOcrLineWithoutPolishDiacritics() {
+        ItemImageImportCandidateParseResult result = parser.parse(
+                new ItemImageMetadata("verathiel-condensed-no-diacritics.png", "image/png", "PNG", 447, 736),
+                "Odlamek Verathiela Starozytny unikatowy miecz Moc przedmiotu: 900 "
+                        + "1 874 pkt. obrazen na sek. [1 390 - 2 018] pkt. obrazen za trafienie "
+                        + "1,10 ataku na sekunde +134 obrazen od broni [94 - 157] "
+                        + "+172 siły [150 - 180] +300 zdrowia za zabicie [+300] "
+                        + "Mnoznik x16% obrazen z uplywem czasu [15 - 301% "
+                        + "Umiejetnosci Podstawowe zadaja obrazenia zwiekszone o 100%[x] [70 - 100], "
+                        + "ale dodatkowo zuzywaja 25 pkt. podstawowego zasobu."
+        );
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(4, form.getAffixes().size());
+        assertAffix(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 134.0d, 94.0d, 157.0d);
+        assertAffix(form, ImportedItemAffixType.STRENGTH, 172.0d, 150.0d, 180.0d);
+        assertAffix(form, ImportedItemAffixType.LIFE_ON_KILL, 300.0d, 300.0d, 300.0d);
+        assertAffix(form, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d, 15.0d, 30.0d);
+    }
+
+    @Test
+    void shouldRenderAllVerathielPresentationAffixesInManualVerification() {
+        ItemImageImportCandidateParseResult result = parser.parse(
+                new ItemImageMetadata("verathiel-confirmation.png", "image/png", "PNG", 447, 736),
+                "Odłamek Verathiela Starożytny unikatowy miecz Moc przedmiotu: 900 "
+                        + "1 874 pkt. obrażeń na sek. [1 390 - 2 018] pkt. obrażeń za trafienie "
+                        + "1,10 ataku na sekundę +134 obrażeń od broni [94 - 157] "
+                        + "+172 siły [150 - 180] +300 zdrowia za zabicie [+300] "
+                        + "Mnożnik x16% obrażeń z upływem czasu [15 - 30]% "
+                        + "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100]%, "
+                        + "ale dodatkowo zużywają 25 pkt. podstawowego zasobu."
+        );
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                result,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "Import testowy",
+                ""
+        ));
+
+        String affixSection = sectionByHeading(html, "Ręczna weryfikacja affixów");
+        assertTrue(affixSection.contains("name=\"affixCount\" value=\"4\""));
+        assertAffixRow(affixSection, "WEAPON_DAMAGE_FLAT", "134", "94", "157");
+        assertAffixRow(affixSection, "STRENGTH", "172", "150", "180");
+        assertAffixRow(affixSection, "LIFE_ON_KILL", "300", "300", "300");
+        assertAffixRow(affixSection, "DAMAGE_OVER_TIME_MULTIPLIER", "16", "15", "30");
+        assertFalse(affixSection.contains("name=\"affixType_4\""));
+        assertFalse(affixSection.contains("Brak zakresu"));
+        assertFalse(affixSection.contains("checked> Gwiazdka"));
+        assertTrue(html.contains("name=\"weaponDps\" value=\"1874\""));
+        assertTrue(html.contains("name=\"weaponDamageMin\" value=\"1390\""));
+        assertTrue(html.contains("name=\"weaponDamageMax\" value=\"2018\""));
+        assertTrue(html.contains("name=\"averageWeaponDamage\" value=\"1704\""));
+        assertTrue(html.contains("name=\"attacksPerSecond\" value=\"1.10\""));
+        assertTrue(html.contains("<option value=\"verathiel_shard\""));
+        assertTrue(html.contains("100%[x]"));
+        assertTrue(html.contains("25 pkt. podstawowego zasobu"));
+    }
+
+    @Test
     void shouldRenderVerathielNoisyOcrWeaponAndAffixPrefillInFinalHtmlForm() {
         List<ItemImageImportCandidateParseResult> variants = List.of(
                 parser.parse(new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768), verathielNoisyUiFixture()),
@@ -1004,6 +1095,44 @@ class ItemImageImportTextParserTest {
         assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
         assertEquals(expectedRangeMin, affix.getRollRangeMin(), 0.0001d, expectedType.getDisplayName());
         assertEquals(expectedRangeMax, affix.getRollRangeMax(), 0.0001d, expectedType.getDisplayName());
+        assertFalse(affix.isGreaterAffix(), expectedType.getDisplayName());
+    }
+
+    private static void assertAffixRow(String affixSection,
+                                       String originalType,
+                                       String value,
+                                       String rangeMin,
+                                       String rangeMax) {
+        int sourceIndex = affixSection.indexOf("name=\"affixOriginalType_");
+        while (sourceIndex >= 0) {
+            int inputEnd = affixSection.indexOf(">", sourceIndex);
+            if (inputEnd >= 0 && affixSection.substring(sourceIndex, inputEnd).contains("value=\"" + originalType + "\"")) {
+                break;
+            }
+            sourceIndex = affixSection.indexOf("name=\"affixOriginalType_", sourceIndex + 1);
+        }
+        if (sourceIndex < 0) {
+            throw new AssertionError("Brak wiersza affixu: " + originalType);
+        }
+        int rowStart = affixSection.lastIndexOf("<tr>", sourceIndex);
+        int rowEnd = affixSection.indexOf("</tr>", sourceIndex);
+        if (rowStart < 0 || rowEnd < 0) {
+            throw new AssertionError("Nie udało się wyciąć wiersza affixu: " + originalType);
+        }
+        String row = affixSection.substring(rowStart, rowEnd);
+        assertTrue(row.contains("name=\"affixValue_") && row.contains("value=\"" + value + "\""), row);
+        assertTrue(row.contains("name=\"affixRangeMin_") && row.contains("value=\"" + rangeMin + "\""), row);
+        assertTrue(row.contains("name=\"affixRangeMax_") && row.contains("value=\"" + rangeMax + "\""), row);
+    }
+
+    private static void assertAffixSourceText(ItemImportEditableForm form,
+                                              ImportedItemAffixType expectedType,
+                                              String expectedText) {
+        ImportedItemAffix affix = form.getAffixes().stream()
+                .filter(candidate -> candidate.getType() == expectedType)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Brak affixu: " + expectedType.getDisplayName()));
+        assertTrue(affix.getSourceText().contains(expectedText), affix.getSourceText());
     }
 
     private static void assertLineText(ItemImageImportCandidateParseResult result,

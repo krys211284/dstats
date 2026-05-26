@@ -38,6 +38,7 @@ import static krys.itemimport.ItemImportTextFixtures.realShieldBottomText;
 import static krys.itemimport.ItemImportTextFixtures.realShieldTopText;
 import static krys.itemimport.ItemImportTextFixtures.stormMoonShieldBottomText;
 import static krys.itemimport.ItemImportTextFixtures.stormMoonShieldTopText;
+import static krys.itemimport.ItemImportTextFixtures.verathielCondensedTextWithDamagedRollRanges;
 
 /** Test realnego rozpoznania ograniczonych pól foundation z pojedynczego screena itemu. */
 class ItemImageImportServiceTest {
@@ -244,10 +245,10 @@ class ItemImageImportServiceTest {
         assertEquals("defense_max_animus", form.getMasterworking().getPerfectedAffix().getKey());
 
         assertEquals(4, form.getAffixes().size());
-        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.STRENGTH, 173.6d, false);
-        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 8.8d, false);
-        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.DAMAGE_REDUCTION, 14.08d, false);
-        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.COOLDOWN_REDUCTION, 10.25d, true);
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.STRENGTH, 173.6d, 150.0d, 180.0d, false);
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 8.8d, 6.5d, 8.5d, false);
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.DAMAGE_REDUCTION, 14.08d, 11.0d, 15.0d, false);
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.COOLDOWN_REDUCTION, 10.25d, 10.0d, 12.0d, true);
         assertTrue(form.getAffixes().stream().noneMatch(affix -> affix.getSourceText().contains("jakości przedmiotu")));
         assertTrue(form.getAffixes().stream().noneMatch(affix -> affix.getSourceText().contains("maksymalnej liczby kumulacji Animuszu")));
         assertTrue(form.getAffixes().stream().noneMatch(affix -> affix.getSourceText().contains("Puste gniazdo")));
@@ -303,6 +304,19 @@ class ItemImageImportServiceTest {
         assertTrue(html.contains(">11,0%<"));
         assertTrue(html.contains(">17,6%<"));
         assertTrue(html.contains(">12,3%<"));
+        String stormStrengthRow = affixRow(html, "Siła");
+        assertTrue(stormStrengthRow.contains("150 - 180"), stormStrengthRow);
+        assertFalse(stormStrengthRow.contains("Brak zakresu"), stormStrengthRow);
+        String stormCriticalChanceRow = affixRow(html, "Szansa na trafienie krytyczne");
+        assertTrue(stormCriticalChanceRow.contains("6,5 - 8,5"), stormCriticalChanceRow);
+        assertFalse(stormCriticalChanceRow.contains("Brak zakresu"), stormCriticalChanceRow);
+        String stormDamageReductionRow = affixRow(html, "Redukcja obrażeń");
+        assertTrue(stormDamageReductionRow.contains("11,0 - 15,0"), stormDamageReductionRow);
+        assertFalse(stormDamageReductionRow.contains("Brak zakresu"), stormDamageReductionRow);
+        String stormCooldownReductionRow = affixRow(html, "Redukcja czasu odnowienia");
+        assertTrue(stormCooldownReductionRow.contains("10 - 12"), stormCooldownReductionRow);
+        assertFalse(stormCooldownReductionRow.contains("Brak zakresu"), stormCooldownReductionRow);
+        assertTrue(stormCooldownReductionRow.contains("value=\"true\" checked"), stormCooldownReductionRow);
 
         ItemImportFormMapper.MappingResult mappingResult = new ItemImportFormMapper().map(form);
         assertTrue(mappingResult.getErrors().isEmpty(), () -> String.join(", ", mappingResult.getErrors()));
@@ -314,6 +328,117 @@ class ItemImageImportServiceTest {
         assertEquals(krys.transfiguration.HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY,
                 item.getTransfiguration().getOutcome());
         assertEquals(4, item.getTransfiguration().getBonusQuality());
+    }
+
+    @Test
+    void shouldKeepVerathielRollRangesThroughDraftFormAndFinalHtml() throws Exception {
+        byte[] imageBytes = buildShieldLikeScreenshot();
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new QueuedOcrTextReader(List.of(verathielCondensedTextWithDamagedRollRanges())),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(
+                new ItemImageImportRequest("verathiel-miecz.png", "image/png", imageBytes)
+        );
+        ItemImportEditableFormFactory formFactory = new ItemImportEditableFormFactory();
+        ItemImportDraft draft = formFactory.createDraft(result);
+        ItemImportEditableForm form = formFactory.create(result);
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                result,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "Import testowy",
+                ""
+        ));
+
+        assertEquals(4, draft.getAffixes().size());
+        assertAffixValueRangeAndGreaterFlag(draft.getAffixes(), ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 134.0d, 94.0d, 157.0d, false);
+        assertAffixValueRangeAndGreaterFlag(draft.getAffixes(), ImportedItemAffixType.LIFE_ON_KILL, 300.0d, 300.0d, 300.0d, false);
+        assertAffixValueRangeAndGreaterFlag(draft.getAffixes(), ImportedItemAffixType.STRENGTH, 172.0d, 150.0d, 180.0d, false);
+        assertAffixValueRangeAndGreaterFlag(draft.getAffixes(), ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d, 15.0d, 30.0d, false);
+
+        assertEquals(4, form.getAffixes().size());
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 134.0d, 94.0d, 157.0d, false);
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.LIFE_ON_KILL, 300.0d, 300.0d, 300.0d, false);
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.STRENGTH, 172.0d, 150.0d, 180.0d, false);
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d, 15.0d, 30.0d, false);
+
+        String weaponDamageRow = affixRow(html, "Obrażenia od broni");
+        assertTrue(weaponDamageRow.contains("94 - 157"), weaponDamageRow);
+        assertFalse(weaponDamageRow.contains("Brak zakresu"), weaponDamageRow);
+        String lifeOnKillRow = affixRow(html, "Zdrowie za zabicie");
+        assertTrue(lifeOnKillRow.contains("300 - 300"), lifeOnKillRow);
+        String strengthRow = affixRow(html, "Siła");
+        assertTrue(strengthRow.contains("150 - 180"), strengthRow);
+        assertFalse(strengthRow.contains("Brak zakresu"), strengthRow);
+        String damageOverTimeRow = affixRow(html, "Mnożnik obrażeń z upływem czasu");
+        assertTrue(damageOverTimeRow.contains("15 - 30"), damageOverTimeRow);
+        assertFalse(damageOverTimeRow.contains("Brak zakresu"), damageOverTimeRow);
+        assertTrue(html.contains("name=\"weaponDps\" value=\"1874\""));
+        assertTrue(html.contains("name=\"weaponDamageMin\" value=\"1390\""));
+        assertTrue(html.contains("name=\"weaponDamageMax\" value=\"2018\""));
+        assertTrue(html.contains("name=\"averageWeaponDamage\" value=\"1704\""));
+        assertTrue(html.contains("name=\"attacksPerSecond\" value=\"1.10\""));
+    }
+
+    @Test
+    void shouldKeepVerathielDotMultiplierRangeFromFullItemTranscriptionInFinalHtml() throws Exception {
+        byte[] imageBytes = buildShieldLikeScreenshot();
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new QueuedOcrTextReader(List.of("""
+                        Odłamek Verathiela
+                        Starożytny unikatowy miecz
+                        Moc przedmiotu: 900
+                        1 874 pkt. obrażeń na sek.
+                        [1 390 - 2 018] pkt. obrażeń za trafienie
+                        1,10 ataku na sekundę (Szybka)
+                        +134 obrażeń od broni [94 - 157]
+                        +172 siły [150 - 180]
+                        +300 zdrowia za zabicie [+300]
+                        Mnożnik x16% obrażeń z upływem czasu [15 - 30]%
+                        Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu.
+                        Wymaga 70 poziomu
+                        Unikatowe wyposażenie
+                        Wartość sprzedaży
+                        Trwałość
+                        Hartowania: 3/3
+                        """)),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(
+                new ItemImageImportRequest("verathiel-miecz.png", "image/png", imageBytes)
+        );
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                result,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "Import testowy",
+                ""
+        ));
+
+        assertEquals(4, form.getAffixes().size());
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 134.0d, 94.0d, 157.0d, false);
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.LIFE_ON_KILL, 300.0d, 300.0d, 300.0d, false);
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.STRENGTH, 172.0d, 150.0d, 180.0d, false);
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d, 15.0d, 30.0d, false);
+
+        assertTrue(affixRow(html, "Obrażenia od broni").contains("94 - 157"), html);
+        assertTrue(affixRow(html, "Zdrowie za zabicie").contains("300 - 300"), html);
+        assertTrue(affixRow(html, "Siła").contains("150 - 180"), html);
+        String damageOverTimeRow = affixRow(html, "Mnożnik obrażeń z upływem czasu");
+        assertTrue(damageOverTimeRow.contains("15 - 30"), damageOverTimeRow);
+        assertFalse(damageOverTimeRow.contains("Brak zakresu"), damageOverTimeRow);
     }
 
     @Test
@@ -820,6 +945,32 @@ class ItemImageImportServiceTest {
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Brak affixu: " + expectedType.getDisplayName()));
         assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
+        assertEquals(expectedGreaterAffix, affix.isGreaterAffix(), expectedType.getDisplayName());
+    }
+
+    private static void assertAffixValueRangeAndGreaterFlag(ItemImportEditableForm form,
+                                                            ImportedItemAffixType expectedType,
+                                                            double expectedValue,
+                                                            double expectedRangeMin,
+                                                            double expectedRangeMax,
+                                                            boolean expectedGreaterAffix) {
+        assertAffixValueRangeAndGreaterFlag(form.getAffixes(), expectedType, expectedValue, expectedRangeMin,
+                expectedRangeMax, expectedGreaterAffix);
+    }
+
+    private static void assertAffixValueRangeAndGreaterFlag(List<ImportedItemAffix> affixes,
+                                                            ImportedItemAffixType expectedType,
+                                                            double expectedValue,
+                                                            double expectedRangeMin,
+                                                            double expectedRangeMax,
+                                                            boolean expectedGreaterAffix) {
+        ImportedItemAffix affix = affixes.stream()
+                .filter(candidate -> candidate.getType() == expectedType)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Brak affixu: " + expectedType.getDisplayName()));
+        assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
+        assertEquals(expectedRangeMin, affix.getRollRangeMin(), 0.0001d, expectedType.getDisplayName());
+        assertEquals(expectedRangeMax, affix.getRollRangeMax(), 0.0001d, expectedType.getDisplayName());
         assertEquals(expectedGreaterAffix, affix.isGreaterAffix(), expectedType.getDisplayName());
     }
 

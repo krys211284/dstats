@@ -86,9 +86,16 @@ public final class ItemScreenshotTextMerger {
         int anchors = 0;
         for (String anchor : List.of(
                 "mocprzedmiotu",
+                "verathiel",
+                "obrazennasek",
+                "obrazenzatrafienie",
                 "jakosci",
                 "przeistoczony",
                 "pancerza",
+                "obrazenodbroni",
+                "zdrowiazazabicie",
+                "obrazenzuplywemczasu",
+                "umiejetnoscipodstawowe",
                 "szansynablok",
                 "obrazenodbroniwglownejrece",
                 "sily",
@@ -119,8 +126,13 @@ public final class ItemScreenshotTextMerger {
         List<String> extracted = new ArrayList<>();
         appendFirst(extracted, line, "(Miażdżąca\\s+Tarcza\\s+Kościanych\\s+Łusek)");
         appendFirst(extracted, line, "(Tarcza\\s+Burzy\\s+Księżycowego\\s+Szału)");
+        appendFirst(extracted, line, "((?:Odłamek|Odlamek)\\s+Verathi?el)");
         appendFirst(extracted, line, "(Starożytna\\s+legendarna\\s+tarcza)");
+        appendFirst(extracted, line, "(Staro(?:ż|z)ytny\\s+unikatowy\\s+miecz)");
         appendFirst(extracted, line, "(Moc\\s+przedmiotu\\s*[:.\\-–—]?\\s*[0-9]+)");
+        appendFirst(extracted, line, "([0-9]+(?:\\s[0-9]{3})*\\s+pkt\\.\\s+obra(?:ż|z)e(?:ń|n)\\s+na\\s+sek\\.)");
+        appendFirst(extracted, line, "(\\[?\\s*[0-9]+(?:\\s[0-9]{3})*\\s*[-–—−]\\s*[0-9]+(?:\\s[0-9]{3})*\\s*]?\\s+pkt\\.\\s+obra(?:ż|z)e(?:ń|n)\\s+za\\s+trafienie)");
+        appendFirst(extracted, line, "([0-9]+,[0-9]+\\s+ataku\\s+na\\s+sekund[eę](?:\\s*\\([^)]*\\))?)");
         appendFirst(extracted, line, "([0-9]{1,2}\\s*\\([^)]*\\+\\s*[0-9]{1,2}\\s*\\)\\s+jakości)");
         appendFirst(extracted, line, "\\b(Przeistoczony)\\b");
         appendFirst(extracted, line, "([0-9]+(?:\\s[0-9]{3})*\\s+pkt\\.\\s+pancerza)");
@@ -132,6 +144,9 @@ public final class ItemScreenshotTextMerger {
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+do\\s+odporności\\s+na:?\\s+Ogień(?:\\s*\\[[^\\]]+])?)");
         appendFirst(extracted, line, "([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+obrażeń(?:\\s*\\[[^\\]]+])?%?)");
         appendFirst(extracted, line, "([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+czasu\\s+odnowienia(?:\\s*\\[[^\\]]+])?%?)");
+        appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+obra(?:ż|z)e(?:ń|n)\\s+od\\s+broni(?:\\s*\\[[^\\]]+])?%?)");
+        appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+zdrowia\\s+za\\s+zabicie(?:\\s*\\[[^\\]]+])?%?)");
+        appendFirst(extracted, line, "(Mno(?:ż|z)nik\\s*[x×]?\\s*[0-9]+(?:[,.][0-9]+)?%\\s+obra(?:ż|z)e(?:ń|n)\\s+z\\s+up(?:ł|l)ywem\\s+czasu(?:\\s*\\[[^\\]]+])?%?)");
         extractAllStatsDisplayedValue(line)
                 .map(value -> "+" + formatValue(value) + " pkt. do wszystkich współczynników [+75 - 100]")
                 .ifPresent(value -> appendIfMissing(extracted, value));
@@ -303,14 +318,14 @@ public final class ItemScreenshotTextMerger {
             return firstNumber(line)
                     .filter(value -> value <= 500.0d)
                     .map(value -> new CanonicalLineCandidate("affix:strength",
-                            "+" + formatValue(value) + " siły",
+                            "+" + formatValue(value) + " siły" + rollRangeSuffix(line),
                             lineQualityScore(line, context.koscianychLusekQuality25() ? 270.0d : null, context)));
         }
         if (key.contains("szansy") && key.contains("trafieniekrytyczne")) {
             return firstNumber(line)
                     .filter(value -> value <= 100.0d)
                     .map(value -> new CanonicalLineCandidate("affix:critical-strike-chance",
-                            "+" + formatPercentOne(value) + "% szansy na trafienie krytyczne",
+                            "+" + formatPercentOne(value) + "% szansy na trafienie krytyczne" + rollRangeSuffix(line),
                             lineQualityScore(line, context.moonFrenzyQuality25() ? 11.0d : null, context)));
         }
         if (key.contains("redukcjiobrazen")) {
@@ -324,10 +339,28 @@ public final class ItemScreenshotTextMerger {
             return firstNumber(line)
                     .filter(value -> value <= 100.0d)
                     .map(value -> new CanonicalLineCandidate("affix:cooldown-reduction",
-                            formatValue(value) + "% redukcji czasu odnowienia",
+                            formatValue(value) + "% redukcji czasu odnowienia" + rollRangeSuffix(line),
                             lineQualityScore(line, context.moonFrenzyQuality25() ? 12.3d : null, context)));
         }
+        if (key.contains("obrazenzuplywemczasu")) {
+            return firstNumber(line)
+                    .filter(value -> value <= 100.0d)
+                    .map(value -> new CanonicalLineCandidate("affix:damage-over-time-multiplier",
+                            "Mnożnik x" + formatValue(value) + "% obrażeń z upływem czasu" + rollRangeSuffix(line),
+                            lineQualityScore(line, 16.0d, context)));
+        }
         return Optional.empty();
+    }
+
+    private static String rollRangeSuffix(String line) {
+        Matcher matcher = Pattern.compile("\\[\\s*\\+?\\s*[0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?(?:\\s*[-–—−]\\s*\\+?\\s*[0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?)?\\s*(?:]|1(?=\\s*%?(?:\\s|$|\\+)))\\s*%?")
+                .matcher(line == null ? "" : line);
+        if (!matcher.find()) {
+            return "";
+        }
+        String range = matcher.group().replaceAll("\\s+", " ").trim();
+        range = range.replaceFirst("1(?=\\s*%?$)", "]");
+        return " " + range;
     }
 
     private static int lineQualityScore(String line, Double expectedValue, MergeContext context) {

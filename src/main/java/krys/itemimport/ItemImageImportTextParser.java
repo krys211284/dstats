@@ -18,7 +18,9 @@ import java.util.regex.Pattern;
 /** Mapuje surowy tekst OCR ograniczonego foundation do candidate parse result pojedynczego itemu. */
 final class ItemImageImportTextParser {
     private static final Pattern OCR_NUMBER_PATTERN = Pattern.compile("([0-9OISBL]+(?:[.,][0-9OISBL]+)?)");
-    private static final String ROLL_RANGE_FRAGMENT = "\\[[0-9]+(?:[,.][0-9]+)?(?:\\s*-\\s*[0-9]+(?:[,.][0-9]+)?)?(?:\\]%?)?";
+    private static final String ROLL_RANGE_NUMBER_FRAGMENT = "\\+?\\s*[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?";
+    private static final String ROLL_RANGE_FRAGMENT = "\\[\\s*" + ROLL_RANGE_NUMBER_FRAGMENT
+            + "(?:\\s*[-–—−]\\s*" + ROLL_RANGE_NUMBER_FRAGMENT + ")?\\s*]\\s*%?";
     private static final String DAMAGE_RANGE_NUMBER_PATTERN = "[0-9OISBL]+(?:\\s+[0-9OISBL]{3}[0-9OISBL]?)*";
 
     ItemImageImportCandidateParseResult parse(ItemImageMetadata metadata, String ocrText) {
@@ -909,7 +911,9 @@ final class ItemImageImportTextParser {
                 "OBRAZENNASEK",
                 "OBRAZENZATRAFIENIE",
                 "MAKSYMALNEGOZDROWIA",
+                "ZDROWIAZAZABICIE",
                 "ZDROWIAPRZYTRAFIENIU",
+                "OBRAZENZUPLYWEMCZASU",
                 "UMIEJETNOSCIPODSTAWOWE",
                 "UMIEJETNOSCIAPODSTAWOWA",
                 "WAMPIRYCZNEGOSZALUKRWI",
@@ -951,13 +955,15 @@ final class ItemImageImportTextParser {
         appendFirstMatch(extractedLines, line,
                 "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+obrażeń\\s+od\\s+broni\\s+w\\s+głównej\\s+ręce(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
-                "(\\+[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+obra(?:ż|z)e(?:ń|n)\\s+od\\s+broni\\s*\\[[^\\]]+])", 1);
+                "(\\+[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+obra(?:ż|z)e(?:ń|n)\\s+od\\s+broni(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
-                "(\\+[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+maksymalnego\\s+zdrowia\\s*\\[[^\\]]+])", 1);
+                "(\\+[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+maksymalnego\\s+zdrowia(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
-                "(\\+[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+pkt\\.\\s+zdrowia\\s+przy\\s+trafieniu\\s*\\[[^\\]]+])", 1);
+                "(\\+[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+zdrowia\\s+za\\s+zabicie(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
-                "(Szcz(?:ę|e)(?:ś|s)liwy\\s+traf:\\s+maksymalnie\\s+[0-9]+%\\s+szans\\s+na\\s+odzyskanie\\s+\\+[0-9]+\\s+podstawowego\\s+zasobu\\s*\\[[^\\]]+])", 1);
+                "(\\+[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+pkt\\.\\s+zdrowia\\s+przy\\s+trafieniu(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
+        appendFirstMatch(extractedLines, line,
+                "(Szcz(?:ę|e)(?:ś|s)liwy\\s+traf:\\s+maksymalnie\\s+[0-9]+%\\s+szans\\s+na\\s+odzyskanie\\s+\\+[0-9]+\\s+podstawowego\\s+zasobu(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
                 "(\\+[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?siły(?:\\s*\\+?\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
@@ -972,6 +978,8 @@ final class ItemImageImportTextParser {
                 "(\\+[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?cierni(?:\\s*\\+?\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
                 "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+szczęśliwy\\s+traf(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
+        appendFirstMatch(extractedLines, line,
+                "(Mno(?:ż|z)nik\\s*[x×]?\\s*[0-9]+(?:[,.][0-9]+)?%\\s+obra(?:ż|z)e(?:ń|n)\\s+z\\s+up(?:ł|l)ywem\\s+czasu(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
                 "\\b([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+czasu\\s+odnowienia(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendVerathielUniqueEffectLine(extractedLines, line);
@@ -1040,7 +1048,6 @@ final class ItemImageImportTextParser {
     private static String normalizeExtractedFullReadLine(String line) {
         return line == null ? "" : line
                 .replaceAll("\\s+\\+\\s*\\[", " [")
-                .replaceAll("\\+\\[", "[")
                 .replaceAll("\\s+", " ")
                 .trim();
     }
@@ -1394,12 +1401,28 @@ final class ItemImageImportTextParser {
             return lines;
         }
         for (String line : text.split("\\R")) {
-            String trimmedLine = line.trim();
+            String trimmedLine = normalizeDamagedRollRangeClosings(line.trim());
             if (!trimmedLine.isBlank()) {
                 lines.add(trimmedLine);
             }
         }
         return lines;
+    }
+
+    private static String normalizeDamagedRollRangeClosings(String line) {
+        if (line == null || line.isBlank()) {
+            return "";
+        }
+        String normalized = line;
+        normalized = normalized.replaceAll(
+                "(\\[\\s*\\+?\\s*[0-9]{1,3}(?:[,.][0-9]+)?\\s*[-–—−]\\s*[0-9]{1,3})1(?=\\s*%?(?:\\s|$|\\+))",
+                "$1]"
+        );
+        normalized = normalized.replaceAll(
+                "(\\[\\s*\\+?\\s*[0-9]{1,3})1(?!\\s*[-–—−])(?=\\s*%?(?:\\s|$|\\+))",
+                "$1]"
+        );
+        return normalized;
     }
 
     private static String buildImportNotice(List<String> lines,

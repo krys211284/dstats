@@ -212,7 +212,6 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("Identyfikator biblioteki"));
         assertFalse(response.body().contains("Wkład itemu"));
         assertTrue(response.body().contains("Pełny odczyt zapisany w bibliotece"));
-        assertTrue(response.body().contains("Młot Importera"));
         assertFalse(response.body().contains("Aspekt testowego impetu"));
         assertTrue(response.body().contains("Załóż bohaterowi: Broń"));
         assertTrue(response.body().contains("Przejdź do biblioteki"));
@@ -288,15 +287,11 @@ class ItemImportWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Pełny odczyt zapisany w bibliotece"));
-        assertTrue(response.body().contains("<div class=\"summary-label\">Nazwa</div>"));
-        assertTrue(response.body().contains("NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU"));
-        assertTrue(response.body().contains("<div class=\"summary-label\">Typ</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-value\">Tarcza</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-label\">Rzadkość</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-value\">Starożytna legendarna</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-label\">Moc przedmiotu</div>"));
-        assertTrue(response.body().contains("<div class=\"summary-value\">800</div>"));
         String fullReadHeader = itemReadHeaderByHeading(response.body(), "Pełny odczyt zapisany w bibliotece");
+        assertFalse(fullReadHeader.contains("<div class=\"summary-label\">Nazwa</div>"), fullReadHeader);
+        assertFalse(fullReadHeader.contains("<div class=\"summary-label\">Typ</div>"), fullReadHeader);
+        assertFalse(fullReadHeader.contains("<div class=\"summary-label\">Rzadkość</div>"), fullReadHeader);
+        assertFalse(fullReadHeader.contains("<div class=\"summary-label\">Moc przedmiotu</div>"), fullReadHeader);
         assertFalse(fullReadHeader.contains("<div class=\"summary-label\">Pancerz</div>"), fullReadHeader);
         assertTrue(response.body().contains("Pełny zapis itemu"));
         assertTrue(response.body().contains("Linie bazowe"));

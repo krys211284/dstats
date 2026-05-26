@@ -154,6 +154,39 @@ class ImportedItemAffixExtractorTest {
         assertAffix(affixes, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d, 15.0d, 30.0d);
     }
 
+    @Test
+    void shouldRecognizeDotMultiplierRollRangeFromSingleVerathielLine() {
+        List<ImportedItemAffix> affixes = extractor.extractEditableAffixes(new FullItemRead(
+                "Odłamek Verathiela",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "1 874 pkt. obrażeń na sek.",
+                List.of(new FullItemReadLine(
+                        FullItemReadLineType.AFFIX,
+                        "Mnożnik x16% obrażeń z upływem czasu [15 - 30]%"
+                )),
+                new ItemImportDetails(
+                        "Odłamek Verathiela",
+                        "Miecz",
+                        "UNIQUE",
+                        true,
+                        krys.item.EquipmentSlot.MAIN_HAND,
+                        900L,
+                        1874L,
+                        1390L,
+                        2018L,
+                        1704L,
+                        1.10d,
+                        ""
+                )
+        ));
+
+        assertEquals(1, affixes.size());
+        assertAffix(affixes, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d, 15.0d, 30.0d);
+        assertFalse(affixes.getFirst().isGreaterAffix());
+    }
+
     private void assertGreaterAffix(String text, FullItemReadLineType type) {
         assertTrue(extractSingle(text, type).isGreaterAffix(), text);
     }

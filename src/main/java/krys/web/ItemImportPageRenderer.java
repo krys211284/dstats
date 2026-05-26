@@ -232,27 +232,19 @@ public final class ItemImportPageRenderer {
                     </section>
                     """.formatted(escapeHtml(heading));
         }
+        List<FullItemReadLine> implicitLines = groupedLines(fullItemRead, ItemReadLineGroup.IMPLICIT);
+        List<FullItemReadLine> otherLines = groupedLines(fullItemRead, ItemReadLineGroup.OTHER);
+        List<FullItemReadLine> socketLines = groupedLines(fullItemRead, ItemReadLineGroup.SOCKET);
         StringBuilder html = new StringBuilder("""
                 <section class="subpanel">
                     <h3>%s</h3>
-                    <div class="item-read-header">
-                """.formatted(escapeHtml(heading)));
-        ItemImportDetails details = fullItemRead.getDetails();
-        html.append(renderItemHeaderField("Nazwa", emptyLabel(firstNonBlank(details.getItemName(), fullItemRead.getItemName()))))
-                .append(renderItemHeaderField("Typ", emptyLabel(firstNonBlank(details.getItemType(), simplifyItemType(fullItemRead.getItemTypeLine())))))
-                .append(renderItemHeaderField("Rzadkość", simplifyRarity(firstNonBlank(details.getItemRarity(), fullItemRead.getRarity()))))
-                .append(renderItemHeaderField("Ancient", details.isAncient() ? "true" : "false"))
-                .append(renderItemHeaderField("Slot", slotDisplayName(details)))
-                .append(renderItemHeaderField("Moc przedmiotu", details.getItemPower() == null ? simplifyItemPower(fullItemRead.getItemPower()) : Long.toString(details.getItemPower())))
-                .append(renderBaseValueHeader(fullItemRead))
-                .append("</div>")
-                .append("""
+                    <div class="item-read-header"></div>
                     <div class="item-read-groups">
                         <h4>Pełny zapis itemu</h4>
-                    """)
-                .append(renderLineGroup("Linie bazowe", groupedLines(fullItemRead, ItemReadLineGroup.IMPLICIT)))
-                .append(renderLineGroup("Dodatkowe / sezonowe linie", groupedLines(fullItemRead, ItemReadLineGroup.OTHER)))
-                .append(renderLineGroup("Socket / gniazdo", groupedLines(fullItemRead, ItemReadLineGroup.SOCKET)))
+                    """.formatted(escapeHtml(heading)));
+        html.append(renderLineGroup("Linie bazowe", implicitLines))
+                .append(renderLineGroup("Dodatkowe / sezonowe linie", otherLines))
+                .append(renderLineGroup("Socket / gniazdo", socketLines))
                 .append("</div>")
                 .append("</section>");
         return html.toString();

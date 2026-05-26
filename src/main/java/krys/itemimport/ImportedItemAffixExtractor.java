@@ -209,9 +209,8 @@ public final class ImportedItemAffixExtractor {
                 || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, type.get(), resolved.value())
                 || isMoonFrenzyGreaterAffix(moonFrenzyShieldContext, type.get(), resolved.value())
                 || resolved.greaterAffix();
-        Optional<RollRange> rollRange = greaterAffix
-                ? Optional.empty()
-                : repairCatalogRollRange(definition, resolved.value(), text, parseRollRange(text), verathielContext);
+        Optional<RollRange> rollRange = repairCatalogRollRange(
+                definition, resolved.value(), text, parseRollRange(text), verathielContext);
         return List.of(new ImportedItemAffix(
                 type.get(),
                 resolved.value(),
@@ -251,9 +250,8 @@ public final class ImportedItemAffixExtractor {
                     || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, definition.getFormType(), resolved.value())
                     || isMoonFrenzyGreaterAffix(moonFrenzyShieldContext, definition.getFormType(), resolved.value())
                     || resolved.greaterAffix();
-            Optional<RollRange> rollRange = greaterAffix
-                    ? Optional.empty()
-                    : repairCatalogRollRange(definition, resolved.value(), segment, parseRollRange(segment), verathielContext);
+            Optional<RollRange> rollRange = repairCatalogRollRange(
+                    definition, resolved.value(), segment, parseRollRange(segment), verathielContext);
             String displayValue = "+" + formatValue(resolved.value());
             return Optional.of(new ImportedItemAffix(
                     definition.getFormType(),
@@ -286,9 +284,8 @@ public final class ImportedItemAffixExtractor {
                 || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, definition.getFormType(), resolved.value())
                 || isMoonFrenzyGreaterAffix(moonFrenzyShieldContext, definition.getFormType(), resolved.value())
                 || resolved.greaterAffix();
-        Optional<RollRange> rollRange = greaterAffix
-                ? Optional.empty()
-                : repairCatalogRollRange(definition, resolved.value(), segment, parseRollRange(segment), verathielContext);
+        Optional<RollRange> rollRange = repairCatalogRollRange(
+                definition, resolved.value(), segment, parseRollRange(segment), verathielContext);
         return Optional.of(new ImportedItemAffix(
                 definition.getFormType(),
                 resolved.value(),

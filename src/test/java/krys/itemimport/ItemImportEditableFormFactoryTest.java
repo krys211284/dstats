@@ -192,4 +192,35 @@ class ItemImportEditableFormFactoryTest {
         assertEquals(AspectType.UNIQUE, aspect.getAspectType());
         assertEquals(AspectRuntimeStatus.DESCRIPTIVE_ONLY, aspect.getRuntimeStatus());
     }
+
+    @Test
+    void shouldKeepVerathielRollRangesInEditableForm() {
+        ItemImageImportCandidateParseResult parseResult = new ItemImageImportTextParser().parse(
+                new ItemImageMetadata("verathiel.png", "image/png", "PNG", 479, 768),
+                ItemImportTextFixtures.verathielCondensedTextWithDamagedRollRanges()
+        );
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
+
+        assertEquals(4, form.getAffixes().size());
+        assertAffixRange(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 134.0d, 94.0d, 157.0d);
+        assertAffixRange(form, ImportedItemAffixType.LIFE_ON_KILL, 300.0d, 300.0d, 300.0d);
+        assertAffixRange(form, ImportedItemAffixType.STRENGTH, 172.0d, 150.0d, 180.0d);
+        assertAffixRange(form, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d, 15.0d, 30.0d);
+    }
+
+    private static void assertAffixRange(ItemImportEditableForm form,
+                                         ImportedItemAffixType type,
+                                         double value,
+                                         double rangeMin,
+                                         double rangeMax) {
+        ImportedItemAffix affix = form.getAffixes().stream()
+                .filter(candidate -> candidate.getType() == type)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(value, affix.getValue());
+        assertEquals(rangeMin, affix.getRollRangeMin());
+        assertEquals(rangeMax, affix.getRollRangeMax());
+        assertEquals(false, affix.isGreaterAffix());
+    }
 }

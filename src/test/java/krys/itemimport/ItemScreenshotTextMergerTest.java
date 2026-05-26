@@ -100,6 +100,16 @@ class ItemScreenshotTextMergerTest {
     }
 
     @Test
+    void shouldKeepVerathielDotMultiplierRangeDuringCanonicalMerge() {
+        String merged = merger.merge(List.of(
+                "Mnoznik x16% obrazen z uplywem czasu [15 - 301%",
+                "Mnożnik x16% obrażeń z upływem czasu"
+        ));
+
+        assertEquals("Mnożnik x16% obrażeń z upływem czasu [15 - 30]%", merged);
+    }
+
+    @Test
     void shouldNormalizeFortifyAspectOcrVariantsDuringCanonicalMerge() {
         for (String rawAspect : List.of(
                 "Gdy masz umocnienie, zadajesz obrażenia zwiększone o61%[x] [45 - 65]%.",

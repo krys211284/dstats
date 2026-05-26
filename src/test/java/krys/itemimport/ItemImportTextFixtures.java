@@ -54,8 +54,8 @@ final class ItemImportTextFixtures {
                 Rynsztunek w Zbrojowni
                 20,0% szansy na blok [20,0]%
                 +100% obrażeń od broni w głównej ręce [100]%
-                +217 siły
-                +11,0% szansy na trafienie krytyczne
+                +217 siły [150 - 180]
+                +11,0% szansy na trafienie krytyczne [6,5 - 8,5]%
                 Przewiń w dół
                 """;
     }
@@ -63,8 +63,8 @@ final class ItemImportTextFixtures {
     static String stormMoonShieldBottomText() {
         return """
                 Przewiń do góry
-                17,6% redukcji obrażeń
-                12,3% redukcji czasu odnowienia
+                17,6% redukcji obrażeń [11,0 - 15,0]%
+                12,3% redukcji czasu odnowienia [10 - 12]%
                 +4 do jakości przedmiotu [1 - 15]
                 +12 do maksymalnej liczby kumulacji Animuszu
                 Puste gniazdo
@@ -76,5 +76,15 @@ final class ItemImportTextFixtures {
                 Wartość sprzedaży: 38 450
                 Trwałość: 100/100
                 """;
+    }
+
+    static String verathielCondensedTextWithDamagedRollRanges() {
+        return "Odłamek Verathiela Starożytny unikatowy miecz Moc przedmiotu: 900 "
+                + "1 874 pkt. obrażeń na sek. [1 390 - 2 018] pkt. obrażeń za trafienie "
+                + "1,10 ataku na sekundę +134 obrażeń od broni [94 - 1571 "
+                + "+172 siły [150 - 1801 +300 zdrowia za zabicie [+300] "
+                + "Mnożnik x16% obrażeń z upływem czasu [15 - 301% "
+                + "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100]%, "
+                + "ale dodatkowo zużywają 25 pkt. podstawowego zasobu.";
     }
 }
