@@ -89,7 +89,7 @@ final class ItemEditPageRenderer {
                         .affix-action-cell { text-align: right; white-space: nowrap; }
                         .affix-greater-cell .checkbox-label { min-height: 40px; }
                         .tempering-category-notes { margin-top: 10px; }
-                        .masterworking-grid { display: grid; grid-template-columns: minmax(160px, 0.55fr) minmax(160px, 0.55fr) minmax(220px, 1fr); gap: 12px; align-items: end; }
+                        .masterworking-grid { display: grid; grid-template-columns: minmax(160px, 0.55fr) minmax(220px, 1fr); gap: 12px; align-items: end; }
                         .masterworking-runtime-status { display: inline-flex; width: fit-content; align-items: center; padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(109, 102, 92, 0.18); background: #fff; color: var(--muted); font-weight: 700; }
                         .transfiguration-grid { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 12px; align-items: end; }
                         .transfiguration-dynamic-grid { margin-top: 12px; grid-template-columns: repeat(3, minmax(180px, 1fr)); }

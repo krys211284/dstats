@@ -855,7 +855,7 @@ class ItemImportPageRendererTest {
         assertFalse(masterworking.contains("Item doskonalony"));
         assertFalse(masterworking.contains("name=\"masterworkingEnabled\""));
         assertFalse(masterworking.contains("type=\"checkbox\""));
-        assertTrue(masterworking.contains("Jakość aktualna"));
+        assertTrue(masterworking.contains("Jakość"));
         String qualitySelect = selectByName(masterworking, "masterworkingQualityCurrent");
         assertFalse(masterworking.contains("<input type=\"number\" min=\"0\" max=\"25\" step=\"1\" name=\"masterworkingQualityCurrent\""));
         assertTrue(qualitySelect.contains("<option value=\"0\" selected>0/25</option>"));
@@ -868,8 +868,8 @@ class ItemImportPageRendererTest {
         assertTrue(qualitySelect.contains("<option value=\"20\">20/25</option>"));
         assertTrue(qualitySelect.contains("<option value=\"21\">21/25</option>"));
         assertTrue(qualitySelect.contains("<option value=\"25\">25/25</option>"));
-        assertTrue(masterworking.contains("Jakość maksymalna"));
-        assertTrue(masterworking.contains("name=\"masterworkingQualityMax\" value=\"25\" readonly"));
+        assertFalse(masterworking.contains("Jakość maksymalna"));
+        assertFalse(masterworking.contains("name=\"masterworkingQualityMax\""));
         assertTrue(masterworking.contains("Runtime aktywny dla potwierdzonych wartości"));
         assertFalse(masterworking.contains("Aktualny doskonalony afiks"));
     }

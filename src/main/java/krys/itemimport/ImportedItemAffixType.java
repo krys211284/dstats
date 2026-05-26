@@ -19,6 +19,8 @@ public enum ImportedItemAffixType {
     WEAPON_DAMAGE_FLAT("Obrażenia od broni", "+%s obrażeń od broni", RuntimeProjection.NONE),
     MAXIMUM_LIFE("Maksymalne zdrowie", "+%s maksymalnego zdrowia", RuntimeProjection.NONE),
     LIFE_ON_HIT("Zdrowie przy trafieniu", "+%s pkt. zdrowia przy trafieniu", RuntimeProjection.NONE),
+    LIFE_ON_KILL("Zdrowie za zabicie", "+%s zdrowia za zabicie", RuntimeProjection.NONE),
+    DAMAGE_OVER_TIME_MULTIPLIER("Mnożnik obrażeń z upływem czasu", "Mnożnik x%s%% obrażeń z upływem czasu", RuntimeProjection.NONE),
     LUCKY_HIT_PRIMARY_RESOURCE("Szczęśliwy traf: podstawowy zasób", "Szczęśliwy traf: +%s podstawowego zasobu", RuntimeProjection.NONE),
     COOLDOWN_REDUCTION("Redukcja czasu odnowienia", "%s%% redukcji czasu odnowienia", RuntimeProjection.NONE),
     MOVEMENT_SPEED("Szybkość ruchu", "+%s%% szybkości ruchu", RuntimeProjection.NONE),
@@ -91,6 +93,14 @@ public enum ImportedItemAffixType {
         }
         if (normalized.contains("ZDROWIA PRZY TRAFIENIU") || normalized.contains("LIFE ON HIT")) {
             return Optional.of(LIFE_ON_HIT);
+        }
+        if (normalized.contains("ZDROWIA ZA ZABICIE") || normalized.contains("LIFE ON KILL")) {
+            return Optional.of(LIFE_ON_KILL);
+        }
+        if (normalized.contains("OBRAZEN Z UPLYWEM CZASU")
+                || normalized.contains("DAMAGE OVER TIME")
+                || normalized.contains("DOT MULTIPLIER")) {
+            return Optional.of(DAMAGE_OVER_TIME_MULTIPLIER);
         }
         if (normalized.contains("CZASU ODNOWIENIA") || normalized.contains("COOLDOWN")) {
             return Optional.of(COOLDOWN_REDUCTION);

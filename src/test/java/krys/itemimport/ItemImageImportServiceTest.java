@@ -34,6 +34,10 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static krys.itemimport.ItemImportTextFixtures.realShieldBottomText;
+import static krys.itemimport.ItemImportTextFixtures.realShieldTopText;
+import static krys.itemimport.ItemImportTextFixtures.stormMoonShieldBottomText;
+import static krys.itemimport.ItemImportTextFixtures.stormMoonShieldTopText;
 
 /** Test realnego rozpoznania ograniczonych pól foundation z pojedynczego screena itemu. */
 class ItemImageImportServiceTest {
@@ -91,8 +95,8 @@ class ItemImageImportServiceTest {
         ItemImageImportService service = new ItemImageImportService(
                 new ItemImageOcrPreprocessor(),
                 new QueuedOcrTextReader(List.of(
-                        ItemImportTextFixtures.realShieldTopText(),
-                        ItemImportTextFixtures.realShieldBottomText()
+                        realShieldTopText(),
+                        realShieldBottomText()
                 )),
                 new ItemImageImportTextParser(),
                 new ItemImageImportCandidateMerger()
@@ -215,8 +219,8 @@ class ItemImageImportServiceTest {
         ItemImageImportService service = new ItemImageImportService(
                 new ItemImageOcrPreprocessor(),
                 new QueuedOcrTextReader(List.of(
-                        ItemImportTextFixtures.stormMoonShieldTopText(),
-                        ItemImportTextFixtures.stormMoonShieldBottomText()
+                        stormMoonShieldTopText(),
+                        stormMoonShieldBottomText()
                 )),
                 new ItemImageImportTextParser(),
                 new ItemImageImportCandidateMerger()

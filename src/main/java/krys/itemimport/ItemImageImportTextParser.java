@@ -680,11 +680,14 @@ final class ItemImageImportTextParser {
         if (parsedMin.isEmpty() || parsedMax.isEmpty()) {
             return Optional.empty();
         }
+        if (parsedMin.get() > parsedMax.get()) {
+            return Optional.empty();
+        }
         return Optional.of(new DamageRange(parsedMin.get(), parsedMax.get()));
     }
 
     private static Optional<Long> parseDamageRangeNumber(String rawToken) {
-        String normalized = rawToken == null ? "" : rawToken.trim();
+        String normalized = normalizeDamageRangeNumberToken(rawToken);
         Optional<Long> parsed = parseLongToken(normalized);
         if (parsed.isEmpty()) {
             return Optional.empty();
@@ -696,6 +699,13 @@ final class ItemImageImportTextParser {
             return parseLongToken(compact.substring(0, 4));
         }
         return parsed;
+    }
+
+    private static String normalizeDamageRangeNumberToken(String rawToken) {
+        if (rawToken == null) {
+            return "";
+        }
+        return rawToken.trim().replaceAll("(?<=\\d)\\s+(?=\\d{3}\\b)", "");
     }
 
     private static Optional<Double> detectAttacksPerSecond(List<String> lines) {

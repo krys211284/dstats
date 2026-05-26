@@ -35,12 +35,8 @@ final class MasterworkingSectionRenderer {
                         <legend>Jakość</legend>
                         <div class="masterworking-grid">
                             <label>
-                                Jakość aktualna
+                                Jakość
                                 <select name="masterworkingQualityCurrent">%s</select>
-                            </label>
-                            <label>
-                                Jakość maksymalna
-                                <input type="number" min="25" max="25" step="1" name="masterworkingQualityMax" value="%s" readonly>
                             </label>
                             <span class="masterworking-runtime-status">%s</span>
                         </div>
@@ -50,7 +46,6 @@ final class MasterworkingSectionRenderer {
                 </section>
                 """.formatted(
                 renderQualityCurrentOptions(masterworking.getQualityCurrent()),
-                masterworking.getQualityMax(),
                 CurrentBuildCalculationSectionsRenderer.escapeHtml(MasterworkingPresentationSupport.runtimeStatusLabel()),
                 perfectedAffixSelector,
                 escapeHtml(MasterworkingPresentationValueResolver.MASTERWORKING_RUNTIME_SCOPE_NOTE)

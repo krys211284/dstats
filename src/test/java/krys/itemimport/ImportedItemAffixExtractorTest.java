@@ -117,6 +117,43 @@ class ImportedItemAffixExtractorTest {
         assertEquals(4.0d, affix.getRollRangeMax());
     }
 
+    @Test
+    void shouldRecognizeUniqueWeaponPresentationAffixesWithRollRanges() {
+        List<ImportedItemAffix> affixes = extractor.extractEditableAffixes(new FullItemRead(
+                "Odłamek Verathiela",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "1 874 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+134 obrażeń od broni [94 - 157]"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+172 siły [150 - 180]"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+300 zdrowia za zabicie [+300]"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Mnożnik x16% obrażeń z upływem czasu [15 - 30]%")
+                ),
+                new ItemImportDetails(
+                        "Odłamek Verathiela",
+                        "Miecz",
+                        "UNIQUE",
+                        true,
+                        krys.item.EquipmentSlot.MAIN_HAND,
+                        900L,
+                        1874L,
+                        1390L,
+                        2018L,
+                        1704L,
+                        1.10d,
+                        ""
+                )
+        ));
+
+        assertEquals(4, affixes.size());
+        assertAffix(affixes, ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 134.0d, 94.0d, 157.0d);
+        assertAffix(affixes, ImportedItemAffixType.STRENGTH, 172.0d, 150.0d, 180.0d);
+        assertAffix(affixes, ImportedItemAffixType.LIFE_ON_KILL, 300.0d, 300.0d, 300.0d);
+        assertAffix(affixes, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d, 15.0d, 30.0d);
+    }
+
     private void assertGreaterAffix(String text, FullItemReadLineType type) {
         assertTrue(extractSingle(text, type).isGreaterAffix(), text);
     }
@@ -150,6 +187,20 @@ class ImportedItemAffixExtractorTest {
         List<ImportedItemAffix> affixes = extractVerathiel(text);
         assertEquals(1, affixes.size(), text);
         return affixes.getFirst();
+    }
+
+    private static void assertAffix(List<ImportedItemAffix> affixes,
+                                    ImportedItemAffixType expectedType,
+                                    double expectedValue,
+                                    double expectedRangeMin,
+                                    double expectedRangeMax) {
+        ImportedItemAffix affix = affixes.stream()
+                .filter(candidate -> candidate.getType() == expectedType)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Brak affixu: " + expectedType.getDisplayName()));
+        assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
+        assertEquals(expectedRangeMin, affix.getRollRangeMin(), 0.0001d, expectedType.getDisplayName());
+        assertEquals(expectedRangeMax, affix.getRollRangeMax(), 0.0001d, expectedType.getDisplayName());
     }
 
     private List<ImportedItemAffix> extractVerathiel(String text) {

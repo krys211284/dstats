@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 public final class ImportedItemAffixExtractor {
     private static final Pattern NUMBER_PATTERN = Pattern.compile("([0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?)");
     private static final Pattern SIGNED_NUMBER_PATTERN = Pattern.compile("\\+\\s*([0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?)|\\b([0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?)\\s*%");
-    private static final Pattern ROLL_RANGE_PATTERN = Pattern.compile("\\[\\s*([0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?)\\s*[-–—−]\\s*([0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?)\\s*]?");
+    private static final Pattern ROLL_RANGE_PATTERN = Pattern.compile("\\[\\s*\\+?\\s*([0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?)(?:\\s*[-–—−]\\s*\\+?\\s*([0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?))?\\s*]?%?");
     private static final Pattern CHANCE_PATTERN = Pattern.compile("([0-9]+(?:[,.][0-9]+)?)\\s*%\\s+SZANS", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern RESOURCE_PATTERN = Pattern.compile("\\+\\s*([0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?)\\s+PODSTAWOWEGO\\s+ZASOBU", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
@@ -370,7 +370,7 @@ public final class ImportedItemAffixExtractor {
             return Optional.empty();
         }
         Optional<Double> min = parseDouble(matcher.group(1));
-        Optional<Double> max = parseDouble(matcher.group(2));
+        Optional<Double> max = matcher.group(2) == null ? min : parseDouble(matcher.group(2));
         if (min.isEmpty() || max.isEmpty() || min.get() > max.get()) {
             return Optional.empty();
         }
@@ -530,9 +530,9 @@ public final class ImportedItemAffixExtractor {
     private static String defaultUnit(ImportedItemAffixType type) {
         return switch (type) {
             case BLOCK_CHANCE, RETRIBUTION_CHANCE, CRITICAL_STRIKE_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
-                 MOVEMENT_SPEED, DODGE_CHANCE, DAMAGE_REDUCTION -> "%";
+                 MOVEMENT_SPEED, DODGE_CHANCE, DAMAGE_REDUCTION, DAMAGE_OVER_TIME_MULTIPLIER -> "%";
             case STRENGTH, INTELLIGENCE, THORNS, ALL_RESISTANCE, FIRE_RESISTANCE, WEAPON_DAMAGE_FLAT, MAXIMUM_LIFE, LIFE_ON_HIT,
-                 LUCKY_HIT_PRIMARY_RESOURCE -> "";
+                 LIFE_ON_KILL, LUCKY_HIT_PRIMARY_RESOURCE -> "";
         };
     }
 

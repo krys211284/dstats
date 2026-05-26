@@ -167,7 +167,6 @@ class ItemLibraryWebServerTest {
         saveFields.put("blockChance", "20");
         saveFields.put("retributionChance", "0");
         saveFields.put("masterworkingQualityCurrent", "3");
-        saveFields.put("masterworkingQualityMax", "25");
         saveFields.put("currentBuildQuery", buildCurrentBuildQuery());
         HttpResponse<String> saveResponse = sendUrlEncodedPost("/biblioteka-itemow", saveFields);
         assertEquals(200, saveResponse.statusCode());

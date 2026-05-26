@@ -22,6 +22,38 @@ public final class ApplicationAffixRegistry {
                     true
             ),
             new AffixDefinition(
+                    "life_on_kill",
+                    ImportedItemAffixType.LIFE_ON_KILL,
+                    "Zdrowie za zabicie",
+                    AffixCategory.DEFENSIVE,
+                    List.of("zdrowia za zabicie", "life on kill"),
+                    AffixValueUnit.FLAT,
+                    null,
+                    300.0d,
+                    300.0d,
+                    null,
+                    null,
+                    AffixRuntimeStatus.DESCRIPTIVE_ONLY,
+                    true,
+                    true
+            ),
+            new AffixDefinition(
+                    "damage_over_time_multiplier",
+                    ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER,
+                    "Mnożnik obrażeń z upływem czasu",
+                    AffixCategory.OFFENSIVE,
+                    List.of("obrażeń z upływem czasu", "obrazen z uplywem czasu", "damage over time", "dot multiplier"),
+                    AffixValueUnit.PERCENT,
+                    null,
+                    15.0d,
+                    30.0d,
+                    null,
+                    null,
+                    AffixRuntimeStatus.DESCRIPTIVE_ONLY,
+                    true,
+                    true
+            ),
+            new AffixDefinition(
                     "verathiel_maximum_life",
                     ImportedItemAffixType.MAXIMUM_LIFE,
                     "Maksymalne zdrowie",

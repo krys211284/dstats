@@ -24,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static krys.itemimport.ItemImportTextFixtures.realShieldBottomText;
+import static krys.itemimport.ItemImportTextFixtures.realShieldTopText;
 
 /** Testuje polskie frazy OCR dla foundation importu itemu. */
 class ItemImageImportTextParserTest {
@@ -341,8 +343,8 @@ class ItemImageImportTextParserTest {
     @Test
     void shouldImportRealTransfiguredMasterworkedShieldFromMergedScreens() {
         String mergedText = new ItemScreenshotTextMerger().merge(List.of(
-                ItemImportTextFixtures.realShieldTopText(),
-                ItemImportTextFixtures.realShieldBottomText()
+                realShieldTopText(),
+                realShieldBottomText()
         ));
         ItemImageImportCandidateParseResult result = parser.parse(metadata, mergedText);
         ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
@@ -760,6 +762,7 @@ class ItemImageImportTextParserTest {
     void shouldRecognizeVerathielDamageRangeFromSupportedOcrVariants() {
         for (String rangeLine : List.of(
                 "[1 350 - 1 978] pkt. obrażeń za trafienie",
+                "[1 390 - 2 018] pkt. obrażeń za trafienie",
                 "1 350 - 1 978 pkt. obrażeń za trafienie",
                 "[1350 - 1978] pkt. obrażeń za trafienie",
                 "1350-1978 pkt. obrażeń za trafienie",
@@ -782,11 +785,61 @@ class ItemImageImportTextParserTest {
             );
 
             ItemImportDetails details = result.getFullItemRead().getDetails();
-            assertEquals(1350L, details.getWeaponDamageMin(), rangeLine);
-            assertEquals(1978L, details.getWeaponDamageMax(), rangeLine);
-            assertEquals(1664L, details.getAverageWeaponDamage(), rangeLine);
+            long expectedMin = rangeLine.contains("1 390") ? 1390L : 1350L;
+            long expectedMax = rangeLine.contains("2 018") ? 2018L : 1978L;
+            long expectedAverage = rangeLine.contains("1 390") ? 1704L : 1664L;
+            assertEquals(expectedMin, details.getWeaponDamageMin(), rangeLine);
+            assertEquals(expectedMax, details.getWeaponDamageMax(), rangeLine);
+            assertEquals(expectedAverage, details.getAverageWeaponDamage(), rangeLine);
             assertFalse(Long.valueOf(1830L).equals(details.getAverageWeaponDamage()), rangeLine);
         }
+    }
+
+    @Test
+    void shouldImportUniqueSwordWithThousandSeparatedDamageRangeAndPresentationAffixes() {
+        ItemImageImportCandidateParseResult result = parser.parse(
+                new ItemImageMetadata("verathiel-miecz.png", "image/png", "PNG", 479, 768),
+                """
+                        Odłamek Verathiela
+                        Starożytny unikatowy miecz
+                        Moc przedmiotu: 900
+                        1 874 pkt. obrażeń na sek.
+                        [1 390 - 2 018] pkt. obrażeń za trafienie
+                        1,10 ataku na sekundę
+                        +134 obrażeń od broni [94 - 157]
+                        +172 siły [150 - 180]
+                        +300 zdrowia za zabicie [+300]
+                        Mnożnik x16% obrażeń z upływem czasu [15 - 30]%
+                        Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100]%, ale dodatkowo zużywają 25 pkt. podstawowego zasobu.
+                        """
+        );
+
+        ItemImportDetails details = result.getFullItemRead().getDetails();
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals("Odłamek Verathiela", details.getItemName());
+        assertEquals("Miecz", details.getItemType());
+        assertEquals("UNIQUE", details.getItemRarity());
+        assertTrue(details.isAncient());
+        assertEquals(krys.item.EquipmentSlot.MAIN_HAND, details.getEquipmentSlot());
+        assertEquals(900L, details.getItemPower());
+        assertEquals(1874L, details.getWeaponDps());
+        assertEquals(1390L, details.getWeaponDamageMin());
+        assertEquals(2018L, details.getWeaponDamageMax());
+        assertEquals(1704L, details.getAverageWeaponDamage());
+        assertEquals(1.10d, details.getAttacksPerSecond());
+        assertFalse(Long.valueOf(11390L).equals(details.getWeaponDamageMin()));
+        assertFalse(Long.valueOf(6704L).equals(details.getAverageWeaponDamage()));
+        assertEquals("verathiel_shard", form.getSelectedAspectId());
+        assertTrue(details.getUniqueEffectText().contains("100%[x]"));
+        assertTrue(details.getUniqueEffectText().contains("25 pkt. podstawowego zasobu"));
+
+        assertEquals(4, form.getAffixes().size());
+        assertAffix(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 134.0d, 94.0d, 157.0d);
+        assertAffix(form, ImportedItemAffixType.STRENGTH, 172.0d, 150.0d, 180.0d);
+        assertAffix(form, ImportedItemAffixType.LIFE_ON_KILL, 300.0d, 300.0d, 300.0d);
+        assertAffix(form, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d, 15.0d, 30.0d);
+        assertEquals(25, form.getMasterworking().getQualityMax());
     }
 
     @Test
@@ -937,6 +990,20 @@ class ItemImageImportTextParserTest {
                 .orElseThrow(() -> new AssertionError("Brak affixu: " + expectedType.getDisplayName()));
         assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
         assertEquals(expectedGreaterAffix, affix.isGreaterAffix(), expectedType.getDisplayName());
+    }
+
+    private static void assertAffix(ItemImportEditableForm form,
+                                    ImportedItemAffixType expectedType,
+                                    double expectedValue,
+                                    double expectedRangeMin,
+                                    double expectedRangeMax) {
+        ImportedItemAffix affix = form.getAffixes().stream()
+                .filter(candidate -> candidate.getType() == expectedType)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Brak affixu: " + expectedType.getDisplayName()));
+        assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
+        assertEquals(expectedRangeMin, affix.getRollRangeMin(), 0.0001d, expectedType.getDisplayName());
+        assertEquals(expectedRangeMax, affix.getRollRangeMax(), 0.0001d, expectedType.getDisplayName());
     }
 
     private static void assertLineText(ItemImageImportCandidateParseResult result,
