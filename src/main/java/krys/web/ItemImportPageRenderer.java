@@ -244,7 +244,6 @@ public final class ItemImportPageRenderer {
                 .append(renderItemHeaderField("Ancient", details.isAncient() ? "true" : "false"))
                 .append(renderItemHeaderField("Slot", slotDisplayName(details)))
                 .append(renderItemHeaderField("Moc przedmiotu", details.getItemPower() == null ? simplifyItemPower(fullItemRead.getItemPower()) : Long.toString(details.getItemPower())))
-                .append(renderItemTypeSummaryFields(details))
                 .append(renderBaseValueHeader(fullItemRead))
                 .append("</div>")
                 .append("""
@@ -282,27 +281,6 @@ public final class ItemImportPageRenderer {
             return "";
         }
         return renderItemHeaderField(baseValueLabel(fullItemRead.getBaseItemValue()), simplifyBaseValue(fullItemRead.getBaseItemValue()));
-    }
-
-    private static String renderItemTypeSummaryFields(ItemImportDetails details) {
-        if (details == null || !details.hasAnyData()) {
-            return "";
-        }
-        if (isShield(details)) {
-            return "";
-        }
-        if (!isWeapon(details)) {
-            return "";
-        }
-        StringBuilder html = new StringBuilder();
-        html.append(renderItemHeaderField("DPS broni", nullableLongLabel(details.getWeaponDps())));
-        html.append(renderItemHeaderField("Obrażenia za trafienie min", nullableLongLabel(details.getWeaponDamageMin())));
-        html.append(renderItemHeaderField("Obrażenia za trafienie max", nullableLongLabel(details.getWeaponDamageMax())));
-        html.append(renderItemHeaderField("Średnie obrażenia trafienia", nullableLongLabel(details.getAverageWeaponDamage())));
-        html.append(renderItemHeaderField("Ataki na sekundę", details.getAttacksPerSecond() == null
-                ? "Brak pewnego odczytu"
-                : String.format(Locale.US, "%.2f", details.getAttacksPerSecond())));
-        return html.toString();
     }
 
     private static String renderLineGroup(String heading, List<FullItemReadLine> lines) {
@@ -450,10 +428,6 @@ public final class ItemImportPageRenderer {
 
     private static String firstNonBlank(String preferred, String fallback) {
         return preferred == null || preferred.isBlank() ? fallback : preferred;
-    }
-
-    private static String nullableLongLabel(Long value) {
-        return value == null ? "Brak pewnego odczytu" : Long.toString(value);
     }
 
     private static String renderAffixDisplayValue(ImportedItemAffix affix) {

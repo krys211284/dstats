@@ -14,6 +14,8 @@ import krys.itemimport.ItemImportFieldConfidence;
 import krys.itemimport.ItemImportEditableForm;
 import krys.itemimport.ItemImportEditableFormFactory;
 import krys.itemimport.ItemImportFieldCandidate;
+import krys.itemimport.ValidatedImportedItem;
+import krys.itemlibrary.SavedImportedItem;
 import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkedAffixSelection;
 import krys.socketing.ItemSocket;
@@ -603,14 +605,19 @@ class ItemImportPageRendererTest {
         ));
 
         assertTrue(html.contains("Odłamek Verathiela"));
-        assertTrue(html.contains("name=\"weaponDps\" value=\"1830\""));
-        assertTrue(html.contains("name=\"weaponDamageMin\" value=\"1350\""));
-        assertTrue(html.contains("name=\"weaponDamageMax\" value=\"1978\""));
-        assertTrue(html.contains("name=\"averageWeaponDamage\" value=\"1664\""));
-        assertTrue(html.contains("name=\"attacksPerSecond\" value=\"1.10\""));
+        String fullReadHeader = itemReadHeaderByHeading(html, "Pełny odczyt widocznego itemu");
+        assertFalse(fullReadHeader.contains("DPS broni"), fullReadHeader);
+        assertFalse(fullReadHeader.contains("Obrażenia za trafienie min"), fullReadHeader);
+        assertFalse(fullReadHeader.contains("Obrażenia za trafienie max"), fullReadHeader);
+        assertFalse(fullReadHeader.contains("Średnie obrażenia trafienia"), fullReadHeader);
+        assertFalse(fullReadHeader.contains("Ataki na sekundę"), fullReadHeader);
+        String weaponFields = fieldSetByLegend(html, "Dane broni");
+        assertTrue(weaponFields.contains("name=\"weaponDps\" value=\"1830\""));
+        assertTrue(weaponFields.contains("name=\"weaponDamageMin\" value=\"1350\""));
+        assertTrue(weaponFields.contains("name=\"weaponDamageMax\" value=\"1978\""));
+        assertTrue(weaponFields.contains("name=\"averageWeaponDamage\" value=\"1664\""));
+        assertTrue(weaponFields.contains("name=\"attacksPerSecond\" value=\"1.10\""));
         assertTrue(html.contains("name=\"itemPower\" value=\"900\""));
-        assertTrue(html.contains("DPS broni"));
-        assertTrue(html.contains("Średnie obrażenia trafienia"));
         assertFalse(html.contains("name=\"itemPower\" value=\"1\""));
         assertFalse(html.contains("<div class=\"summary-label\">Moc przedmiotu</div>\n                    <div class=\"summary-value\">1</div>"));
         assertFalse(html.contains("<div class=\"summary-label\">Bazowe obrażenia</div>\n                    <div class=\"summary-value\">1</div>"));
@@ -668,6 +675,64 @@ class ItemImportPageRendererTest {
         assertTrue(html.contains("name=\"affixType_2\""));
         assertTrue(html.contains("name=\"affixType_3\""));
         assertFalse(html.contains("<h5>Affixy</h5>"));
+    }
+
+    @Test
+    void shouldNotDuplicateWeaponFieldsInSavedFullReadSummary() {
+        FullItemRead fullRead = verathielFullRead();
+        ItemImportDetails details = verathielDetails();
+        List<ImportedItemAffix> affixes = List.of(
+                new ImportedItemAffix(ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 134.0d, "+134 obrażeń od broni [94 - 157]"),
+                new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 172.0d, "+172 siły [150 - 180]"),
+                new ImportedItemAffix(ImportedItemAffixType.LIFE_ON_KILL, 300.0d, "+300 zdrowia za zabicie [+300]"),
+                new ImportedItemAffix(ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d, "Mnożnik x16% obrażeń z upływem czasu [15 - 30]%")
+        );
+        ValidatedImportedItem importedItem = new ValidatedImportedItem(
+                "verathiel.png",
+                EquipmentSlot.MAIN_HAND,
+                1704L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                affixes,
+                "verathiel_shard",
+                details
+        );
+        SavedImportedItem savedItem = new SavedImportedItem(
+                1L,
+                "Odłamek Verathiela",
+                "verathiel.png",
+                EquipmentSlot.MAIN_HAND,
+                1704L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                fullRead,
+                affixes,
+                "verathiel_shard",
+                details
+        );
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                null,
+                null,
+                List.of(),
+                new ItemImportPageModel.ConfirmedImportView(importedItem, savedItem, null, null),
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "Import testowy",
+                ""
+        ));
+
+        String fullReadHeader = itemReadHeaderByHeading(html, "Pełny odczyt zapisany w bibliotece");
+        assertFalse(fullReadHeader.contains("DPS broni"), fullReadHeader);
+        assertFalse(fullReadHeader.contains("Obrażenia za trafienie min"), fullReadHeader);
+        assertFalse(fullReadHeader.contains("Obrażenia za trafienie max"), fullReadHeader);
+        assertFalse(fullReadHeader.contains("Średnie obrażenia trafienia"), fullReadHeader);
+        assertFalse(fullReadHeader.contains("Ataki na sekundę"), fullReadHeader);
     }
 
     @Test
@@ -1275,6 +1340,67 @@ class ItemImportPageRendererTest {
             throw new AssertionError("Nie udało się wyciąć sekcji: " + heading);
         }
         return html.substring(start, end + "</section>".length());
+    }
+
+    private static String itemReadHeaderByHeading(String html, String heading) {
+        int headingIndex = html.indexOf("<h3>" + heading + "</h3>");
+        if (headingIndex < 0) {
+            throw new AssertionError("Brak sekcji pełnego odczytu: " + heading);
+        }
+        int start = html.indexOf("<div class=\"item-read-header\">", headingIndex);
+        int end = html.indexOf("<div class=\"item-read-groups\">", start);
+        if (start < 0 || end < 0) {
+            throw new AssertionError("Nie udało się wyciąć nagłówka pełnego odczytu: " + heading);
+        }
+        return html.substring(start, end);
+    }
+
+    private static String fieldSetByLegend(String html, String legend) {
+        int legendIndex = html.indexOf("<legend>" + legend + "</legend>");
+        if (legendIndex < 0) {
+            throw new AssertionError("Brak fieldsetu: " + legend);
+        }
+        int start = html.lastIndexOf("<fieldset", legendIndex);
+        int end = html.indexOf("</fieldset>", legendIndex);
+        if (start < 0 || end < 0) {
+            throw new AssertionError("Nie udało się wyciąć fieldsetu: " + legend);
+        }
+        return html.substring(start, end + "</fieldset>".length());
+    }
+
+    private static FullItemRead verathielFullRead() {
+        return new FullItemRead(
+                "Odłamek Verathiela",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "1 874 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT, "1 874 pkt. obrażeń na sek."),
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT, "[1 390 - 2 018] pkt. obrażeń za trafienie"),
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT, "1,10 ataku na sekundę"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+134 obrażeń od broni [94 - 157]"),
+                        new FullItemReadLine(FullItemReadLineType.ASPECT, "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100]%, ale dodatkowo zużywają 25 pkt. podstawowego zasobu.")
+                ),
+                verathielDetails()
+        );
+    }
+
+    private static ItemImportDetails verathielDetails() {
+        return new ItemImportDetails(
+                "Odłamek Verathiela",
+                "Miecz",
+                "UNIQUE",
+                true,
+                EquipmentSlot.MAIN_HAND,
+                900L,
+                1874L,
+                1390L,
+                2018L,
+                1704L,
+                1.10d,
+                "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100]%, ale dodatkowo zużywają 25 pkt. podstawowego zasobu."
+        );
     }
 
     private static String existingTemperingCard(String html) {
