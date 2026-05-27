@@ -91,6 +91,10 @@ final class ItemImageImportTextParser {
                 return field(line, EquipmentSlot.BOOTS, ItemImportFieldConfidence.HIGH,
                         "Slot rozpoznany bezpośrednio z tekstu OCR.");
             }
+            if (containsAny(collapsedLine, List.of("HELMET", "HELM", "HELMU"))) {
+                return field(line, EquipmentSlot.HELMET, ItemImportFieldConfidence.HIGH,
+                        "Slot rozpoznany bezpośrednio z typu hełmu w OCR.");
+            }
             if (containsAny(collapsedLine, List.of("SHIELD", "TARCZA"))) {
                 return field(line, EquipmentSlot.OFF_HAND, ItemImportFieldConfidence.HIGH,
                         "Slot rozpoznany bezpośrednio z nazwy typu itemu w OCR.");
@@ -173,6 +177,7 @@ final class ItemImageImportTextParser {
         String detectedType = detectStructuredItemType(lines, itemTypeLine);
         String detectedRarity = detectStructuredRarity(lines, rarityLine);
         boolean ancient = detectAncient(lines, itemTypeLine, rarityLine);
+        boolean mythicUnique = detectMythicUnique(lines, itemTypeLine, rarityLine);
         EquipmentSlot equipmentSlot = detectEquipmentSlot(lines).orElse(null);
         Long itemPower = detectItemPower(lines, itemPowerLine).orElse(null);
         Long weaponDps = detectWeaponDps(lines).orElse(null);
@@ -196,7 +201,8 @@ final class ItemImageImportTextParser {
                 null,
                 attacksPerSecond,
                 itemArmor,
-                uniqueEffectText
+                uniqueEffectText,
+                mythicUnique
         );
     }
 
@@ -221,6 +227,9 @@ final class ItemImageImportTextParser {
                 && (collapsed.contains("VERATHEL") || collapsed.contains("VERATHIEL"))
                 && (collapsed.contains("ODLAMEK") || collapsed.contains("ODLFIK") || collapsed.contains("ODLAMFK") || collapsed.contains("ODL")) ) {
             return "Odłamek Verathiela";
+        }
+        if (collapsed.contains("DZIEDZICZATRACENIA") && containsAny(collapsed, List.of("HELM", "HELMET"))) {
+            return "Dziedzic Zatracenia";
         }
         return fallbackName;
     }
@@ -439,6 +448,9 @@ final class ItemImageImportTextParser {
             if (collapsedLine.contains("BUTY") || collapsedLine.contains("BOOTS")) {
                 return "Buty";
             }
+            if (collapsedLine.contains("HELM") || collapsedLine.contains("HELMET")) {
+                return "Hełm";
+            }
         }
         return fallbackType;
     }
@@ -470,6 +482,13 @@ final class ItemImageImportTextParser {
         String joined = String.join(" ", lines) + " " + itemTypeLine + " " + rarityLine;
         String collapsed = collapse(joined);
         return collapsed.contains("STAROZYTNY") || collapsed.contains("STAROZYTNA") || collapsed.contains("ANCESTRAL");
+    }
+
+    private static boolean detectMythicUnique(List<String> lines, String itemTypeLine, String rarityLine) {
+        String joined = String.join(" ", lines) + " " + itemTypeLine + " " + rarityLine;
+        String collapsed = collapse(joined);
+        return (collapsed.contains("MITYCZNY") || collapsed.contains("MYTHIC"))
+                && (collapsed.contains("UNIKAT") || collapsed.contains("UNIQUE"));
     }
 
     private static Optional<EquipmentSlot> detectEquipmentSlot(List<String> lines) {
@@ -807,15 +826,24 @@ final class ItemImageImportTextParser {
                     || collapsedLine.contains("WAMPIRYCZNEGOSZALUKRWI")) {
                 collectingUniqueEffect = true;
             }
+            if (collapsedLine.contains("PODDAJSIENIENAWISCI")
+                    || collapsedLine.contains("LASKIMATKI")) {
+                collectingUniqueEffect = true;
+            }
             if (line.getType() == FullItemReadLineType.ASPECT
                     || collapsedLine.contains("UMIEJETNOSCIPODSTAWOWE")
                     || collapsedLine.contains("UMIEJETNOSCIAPODSTAWOWA")
                     || collapsedLine.contains("WAMPIRYCZNEGOSZALUKRWI")
+                    || collapsedLine.contains("PODDAJSIENIENAWISCI")
+                    || collapsedLine.contains("LASKIMATKI")
                     || collapsedLine.contains("ZUZYWAJA25")
                     || collectingUniqueEffect) {
                 effectParts.add(line.getText());
             }
             if (collectingUniqueEffect && collapsedLine.contains("PODSTAWOWEGOZASOBU")) {
+                collectingUniqueEffect = false;
+            }
+            if (collectingUniqueEffect && collapsedLine.contains("EFEKTLASKIMATKI")) {
                 collectingUniqueEffect = false;
             }
         }
@@ -832,6 +860,10 @@ final class ItemImageImportTextParser {
         }
         if (collapsed.contains("WAMPIRYCZNEGOSZALUKRWI") || collapsed.contains("NAZNACZENIE")) {
             return markingAspectText();
+        }
+        if (collapsed.contains("LASKIMATKI") && collapsed.contains("80")) {
+            return "Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x]. "
+                    + "Zabijaj wrogów, aby na chwilę ukraść pobliskim sojusznikom efekt Łaski Matki.";
         }
         return joined;
     }
@@ -901,13 +933,18 @@ final class ItemImageImportTextParser {
                 "SILY",
                 "CIERNI",
                 "SZCZESLIWYTRAF",
+                "SZYBKOSCIRUCHU",
+                "UMIEJETNOSCIGLOWNE",
                 "CZASUODNOWIENIA",
                 "ODPORNOSCINAWSZYSTKIE",
                 "ODPORNOSCINAOGIEN",
+                "WSZYSTKICHWSPOLCZYNNIKOW",
                 "REDUKCJIOBRAZEN",
                 "GDYMASZUMOCNIENIE",
                 "ZADAJESZOBRAZENIA",
                 "VERATHIEL",
+                "DZIEDZICZATRACENIA",
+                "LASKIMATKI",
                 "OBRAZENNASEK",
                 "OBRAZENZATRAFIENIE",
                 "MAKSYMALNEGOZDROWIA",
@@ -936,6 +973,8 @@ final class ItemImageImportTextParser {
                 "\\b(Starożytna\\s+legendarna\\s+tarcza)\\b", 1);
         appendFirstMatch(extractedLines, line,
                 "\\b(Staro(?:ż|z)ytny\\s+unikatowy\\s+miecz)\\b", 1);
+        appendFirstMatch(extractedLines, line,
+                "\\b(Staro(?:ż|z)ytny\\s+mityczny\\s+unikatowy\\s+he(?:ł|l)m)\\b", 1);
         appendFirstMatch(extractedLines, line,
                 "\\b(Moc\\s+przedmiotu\\s*[:.\\-–—]?\\s*[0-9]+)\\b", 1);
         appendFirstMatch(extractedLines, line,
@@ -969,6 +1008,12 @@ final class ItemImageImportTextParser {
         appendFirstMatch(extractedLines, line,
                 "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+trafienie\\s+krytyczne(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
+                "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+szybko(?:ś|s)ci\\s+ruchu(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
+        appendFirstMatch(extractedLines, line,
+                "(\\+[0-9]+(?:[,.][0-9]+)?\\s+do\\s+umiej(?:ę|e)tno(?:ś|s)ci:?\\s+G(?:ł|l)(?:ó|o)wne(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
+        appendFirstMatch(extractedLines, line,
+                "(\\+[0-9]+(?:[,.][0-9]+)?\\s+pkt\\.\\s+do\\s+wszystkich\\s+wsp(?:ó|o)(?:ł|l)czynnik(?:ó|o)w\\s*\\+?(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
+        appendFirstMatch(extractedLines, line,
                 "(\\+[0-9]+(?:[,.][0-9]+)?\\s+do\\s+odporności\\s+na\\s+wszystkie\\s+żywioły(?:\\s*\\+?\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
                 "(\\+[0-9]+(?:[,.][0-9]+)?\\s+do\\s+odporności\\s+na:?\\s+Ogień(?:\\s*\\+?\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
@@ -977,7 +1022,7 @@ final class ItemImageImportTextParser {
         appendFirstMatch(extractedLines, line,
                 "(\\+[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?cierni(?:\\s*\\+?\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
-                "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+szczęśliwy\\s+traf(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
+                "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+szcz(?:ę|e)(?:ś|s)liwy\\s+traf(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
                 "(Mno(?:ż|z)nik\\s*[x×]?\\s*[0-9]+(?:[,.][0-9]+)?%\\s+obra(?:ż|z)e(?:ń|n)\\s+z\\s+up(?:ł|l)ywem\\s+czasu(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
@@ -1101,7 +1146,7 @@ final class ItemImageImportTextParser {
         if (ImportedItemTemperingExtractor.isKnownTemperingLine(line)) {
             return FullItemReadLineType.TEMPERING;
         }
-        if (containsAny(collapsedLine, List.of("ASPEKT", "ASPECT", "LEGENDARYPOWER", "ZADAJESZOBRAZENIAZWIEKSZONE", "TAPREMIAJEST", "UMIEJETNOSCIPODSTAWOWE", "GDYMASZUMOCNIENIE"))) {
+        if (containsAny(collapsedLine, List.of("ASPEKT", "ASPECT", "LEGENDARYPOWER", "ZADAJESZOBRAZENIAZWIEKSZONE", "TAPREMIAJEST", "UMIEJETNOSCIPODSTAWOWE", "GDYMASZUMOCNIENIE", "PODDAJSIENIENAWISCI", "LASKIMATKI"))) {
             return FullItemReadLineType.ASPECT;
         }
         if (containsAny(collapsedLine, List.of("NAZNACZENIE", "WAMPIRYCZNEGOSZALUKRWI", "UMIEJETNOSCIAPODSTAWOWA", "UMIEJETNOSCIPODSTAWOWYCH"))) {
@@ -1133,11 +1178,11 @@ final class ItemImageImportTextParser {
         if (collapsedLine == null || collapsedLine.isBlank()) {
             return false;
         }
-        if (containsAny(collapsedLine, List.of("MAINHAND", "OFFHAND", "CHEST", "RING", "BOOTS", "BUTY", "BUCIORY", "OBUWIE", "FOCUS", "ARMOR", "CHESTPLATE", "BREASTPLATE", "BAND"))) {
+        if (containsAny(collapsedLine, List.of("MAINHAND", "OFFHAND", "CHEST", "RING", "BOOTS", "BUTY", "BUCIORY", "OBUWIE", "HELMET", "HELM", "HELMU", "FOCUS", "ARMOR", "CHESTPLATE", "BREASTPLATE", "BAND"))) {
             return true;
         }
         if (containsAny(collapsedLine, List.of("STAROZYTNY", "STAROZYTNA", "UNIKATOWY", "UNIKATOWA", "LEGENDARNY", "LEGENDARNA", "RZADKI", "RZADKA", "MAGICZNY", "MAGICZNA", "ANCESTRAL", "UNIQUE", "LEGENDARY", "RARE", "MAGIC"))
-                && containsAny(collapsedLine, List.of("SHIELD", "TARCZA", "SWORD", "AXE", "MACE", "HAMMER", "DAGGER", "WEAPON", "MIECZ"))) {
+                && containsAny(collapsedLine, List.of("SHIELD", "TARCZA", "SWORD", "AXE", "MACE", "HAMMER", "DAGGER", "WEAPON", "MIECZ", "HELMET", "HELM", "HELMU"))) {
             return true;
         }
         return collapsedLine.equals("SHIELD")
@@ -1148,7 +1193,10 @@ final class ItemImageImportTextParser {
                 || collapsedLine.equals("HAMMER")
                 || collapsedLine.equals("DAGGER")
                 || collapsedLine.equals("WEAPON")
-                || collapsedLine.equals("MIECZ");
+                || collapsedLine.equals("MIECZ")
+                || collapsedLine.equals("HELMET")
+                || collapsedLine.equals("HELM")
+                || collapsedLine.equals("HELMU");
     }
 
     private static boolean isRarityLine(String collapsedLine) {
@@ -1406,61 +1454,106 @@ final class ItemImageImportTextParser {
                 lines.add(trimmedLine);
             }
         }
-        lines = joinWrappedDamageOverTimeMultiplierLines(lines);
+        lines = joinWrappedKnownItemLines(lines);
+        lines = attachOrphanRollRangeLines(lines);
         return lines;
     }
 
-    private static List<String> joinWrappedDamageOverTimeMultiplierLines(List<String> lines) {
+    private static List<String> joinWrappedKnownItemLines(List<String> lines) {
         if (lines.size() < 2) {
             return lines;
         }
         List<String> joinedLines = new ArrayList<>();
         for (int index = 0; index < lines.size(); index++) {
             String line = lines.get(index);
-            if (index + 1 < lines.size() && isWrappedDamageOverTimeMultiplierPrefix(line)) {
-                String nextLine = lines.get(index + 1);
-                if (isWrappedDamageOverTimeMultiplierSuffix(nextLine)) {
-                    joinedLines.add((line + " " + nextLine).replaceAll("\\s+", " ").trim());
-                    index++;
-                    continue;
-                }
-            }
-            if (index + 1 < lines.size() && isDamageOverTimeMultiplierLineWithoutRollRange(line)) {
-                String nextLine = lines.get(index + 1);
-                if (isStandaloneRollRangeLine(nextLine)) {
-                    joinedLines.add((line + " " + nextLine).replaceAll("\\s+", " ").trim());
-                    index++;
-                    continue;
-                }
+            if (index + 1 < lines.size() && shouldJoinWrappedKnownItemLine(line, lines.get(index + 1))) {
+                joinedLines.add((line + " " + lines.get(index + 1)).replaceAll("\\s+", " ").trim());
+                index++;
+                continue;
             }
             joinedLines.add(line);
         }
         return joinedLines;
     }
 
-    private static boolean isWrappedDamageOverTimeMultiplierPrefix(String line) {
-        String collapsed = collapse(line);
-        return collapsed.startsWith("MNOZNIK")
-                && collapsed.contains("OBRAZENZUPLYWEM")
-                && !collapsed.contains("OBRAZENZUPLYWEMCZASU");
+    private static boolean shouldJoinWrappedKnownItemLine(String line, String nextLine) {
+        String current = collapse(line);
+        String next = collapse(nextLine);
+        if (current.contains("SZANSYNATRAFIENIE") && next.contains("KRYTYCZNE")) {
+            return true;
+        }
+        if (current.contains("DOWSZYSTKICH") && next.contains("WSPOLCZYNNIKOW")) {
+            return true;
+        }
+        if (current.contains("DOMAKSYMALNEJLICZBY") && next.contains("KUMULACJIANIMUSZU")) {
+            return true;
+        }
+        if ((current.contains("PODDAJSIENIENAWISCI") || current.contains("LASKIMATKI"))
+                && (next.contains("LASKIMATKI") || next.contains("ZADAWANE") || next.contains("80") || next.contains("SOJUSZNIKOM"))) {
+            return true;
+        }
+        return false;
     }
 
-    private static boolean isWrappedDamageOverTimeMultiplierSuffix(String line) {
-        String collapsed = collapse(line);
-        return collapsed.startsWith("CZASU") && collapsed.contains("15") && collapsed.contains("30");
+    private static List<String> attachOrphanRollRangeLines(List<String> lines) {
+        if (lines.size() < 2) {
+            return lines;
+        }
+        List<String> joinedLines = new ArrayList<>();
+        for (int index = 0; index < lines.size(); index++) {
+            String line = lines.get(index);
+            if (isOrphanRollRangeLine(line) && canAttachOrphanRollRange(joinedLines, line)) {
+                int candidateIndex = joinedLines.size() - 1;
+                String candidate = joinedLines.get(candidateIndex);
+                joinedLines.set(candidateIndex, (candidate + " " + line).replaceAll("\\s+", " ").trim());
+                continue;
+            }
+            joinedLines.add(line);
+        }
+        return joinedLines;
     }
 
-    private static boolean isDamageOverTimeMultiplierLineWithoutRollRange(String line) {
-        String collapsed = collapse(line);
-        return collapsed.startsWith("MNOZNIK")
-                && collapsed.contains("OBRAZENZUPLYWEMCZASU")
-                && !hasActualRollRange(line);
+    private static boolean canAttachOrphanRollRange(List<String> lines, String orphanRangeLine) {
+        if (lines.isEmpty()) {
+            return false;
+        }
+        int candidateIndex = lines.size() - 1;
+        String candidate = lines.get(candidateIndex);
+        if (!isAffixLineWithoutRollRange(candidate)) {
+            return false;
+        }
+        if (candidateIndex > 0 && isAffixLineWithoutRollRange(lines.get(candidateIndex - 1))) {
+            return false;
+        }
+        return isRollRangeUnitCompatible(candidate, orphanRangeLine);
     }
 
-    private static boolean isStandaloneRollRangeLine(String line) {
-        return Pattern.compile("^\\s*" + ROLL_RANGE_FRAGMENT + "\\s*$", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE)
+    private static boolean isAffixLineWithoutRollRange(String line) {
+        return classifyFullReadLine(line) == FullItemReadLineType.AFFIX
+                && !hasActualRollRange(line)
+                && !isOrphanRollRangeLine(line);
+    }
+
+    private static boolean isOrphanRollRangeLine(String line) {
+        if (!hasActualRollRange(line)) {
+            return false;
+        }
+        String textWithoutRange = Pattern.compile(ROLL_RANGE_FRAGMENT, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE)
                 .matcher(line == null ? "" : line)
-                .matches();
+                .replaceAll(" ")
+                .replaceAll("[\\s:.,;()\\-–—−]+", " ")
+                .trim();
+        return textWithoutRange.isBlank() || !Pattern.compile("[+0-9]").matcher(textWithoutRange).find();
+    }
+
+    private static boolean isRollRangeUnitCompatible(String affixLine, String orphanRangeLine) {
+        boolean orphanRangeIsPercent = Pattern.compile(ROLL_RANGE_FRAGMENT, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE)
+                .matcher(orphanRangeLine == null ? "" : orphanRangeLine)
+                .results()
+                .findFirst()
+                .map(match -> match.group().trim().endsWith("%"))
+                .orElse(false);
+        return !orphanRangeIsPercent || (affixLine != null && affixLine.contains("%"));
     }
 
     private static boolean hasActualRollRange(String line) {
@@ -1474,6 +1567,26 @@ final class ItemImageImportTextParser {
             return "";
         }
         String normalized = line;
+        normalized = normalized.replaceAll(
+                "(?i)(?<=[x×])\\s*[iIlL|]\\s+([0-9]+(?:[,.][0-9]+)?)\\s*%",
+                "1$1%"
+        );
+        normalized = normalized.replaceAll(
+                "(?<![0-9\\[])\\+1([0-9]{2,3}\\s*[-–—−]\\s*[0-9]{2,3})1(?=\\s|$|%)",
+                "[$1]"
+        );
+        normalized = normalized.replaceAll(
+                "((?:zdrowia\\s+za\\s+zabicie|life\\s+on\\s+kill)\\s+)\\+1([0-9]{2,3})1(?=\\s|$|%)",
+                "$1[+$2]"
+        );
+        normalized = normalized.replaceAll(
+                "([\\[(]\\s*\\+?\\s*[0-9]{1,3}(?:[,.][0-9]+)?\\s*[-–—−]\\s*[0-9]{1,3})1(?:0/0|%)(?=\\s|$)",
+                "$1]%"
+        );
+        normalized = normalized.replaceAll(
+                "\\(\\s*(\\+?\\s*[0-9]{1,3}(?:[,.][0-9]+)?\\s*[-–—−]\\s*\\+?\\s*[0-9]{1,3}(?:[,.][0-9]+)?)\\s*]",
+                "[$1]"
+        );
         normalized = normalized.replaceAll(
                 "(\\[\\s*\\+?\\s*[0-9]{1,3}(?:[,.][0-9]+)?\\s*[-–—−]\\s*[0-9]{1,3})1(?=\\s*%?(?:\\s|$|\\+))",
                 "$1]"

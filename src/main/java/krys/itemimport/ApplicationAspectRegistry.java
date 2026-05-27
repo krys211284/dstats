@@ -47,6 +47,16 @@ public final class ApplicationAspectRegistry {
                     EnumSet.noneOf(HeroClass.class),
                     List.of("unique", "sword", "basic-skills", "resource-cost")
             ),
+            new AspectDefinition(
+                    "heir_of_perdition",
+                    "Dziedzic Zatracenia",
+                    "Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x]. Zabijaj wrogów, aby na chwilę ukraść pobliskim sojusznikom efekt Łaski Matki.",
+                    AspectType.UNIQUE,
+                    AspectRuntimeStatus.DESCRIPTIVE_ONLY,
+                    EnumSet.of(EquipmentSlot.HELMET),
+                    EnumSet.noneOf(HeroClass.class),
+                    List.of("unique", "mythic-unique", "helmet", "mother-grace", "descriptive-only")
+            ),
             offensivePaladin(
                     "immortal_glory_aspect",
                     "Aspekt Nieśmiertelnej Chwały",

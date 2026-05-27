@@ -54,9 +54,10 @@ public final class ItemImportFormMapper {
         Double thorns = projection.thorns();
         Double blockChance = projection.blockChance() + visibleImplicitBlockChance(form.getFullItemRead());
         Double retributionChance = projection.retributionChance();
+        Double criticalChancePercent = projection.criticalChancePercent();
 
         if (slot == null || weaponDamage == null || strength == null || intelligence == null
-                || thorns == null || blockChance == null || retributionChance == null) {
+                || thorns == null || blockChance == null || retributionChance == null || criticalChancePercent == null) {
             return new MappingResult(null, errors);
         }
 
@@ -489,7 +490,8 @@ public final class ItemImportFormMapper {
                 averageWeaponDamage,
                 attacksPerSecond,
                 itemArmor,
-                form.getUniqueEffectText()
+                form.getUniqueEffectText(),
+                form.getDetails().isMythicUnique()
         );
     }
 
@@ -516,6 +518,7 @@ public final class ItemImportFormMapper {
         double thorns = 0.0d;
         double blockChance = 0.0d;
         double retributionChance = 0.0d;
+        double criticalChancePercent = 0.0d;
         for (ImportedItemAffix affix : affixes) {
             switch (affix.getType().getRuntimeProjection()) {
                 case STRENGTH -> strength += affix.getValue();
@@ -523,11 +526,12 @@ public final class ItemImportFormMapper {
                 case THORNS -> thorns += affix.getValue();
                 case BLOCK_CHANCE -> blockChance += affix.getValue();
                 case RETRIBUTION_CHANCE -> retributionChance += affix.getValue();
+                case CRITICAL_STRIKE_CHANCE -> criticalChancePercent += affix.getValue();
                 case NONE -> {
                 }
             }
         }
-        return new RuntimeProjection(strength, intelligence, thorns, blockChance, retributionChance);
+        return new RuntimeProjection(strength, intelligence, thorns, blockChance, retributionChance, criticalChancePercent);
     }
 
     private static EquipmentSlot parseSlot(String rawValue, List<String> errors) {
@@ -648,6 +652,7 @@ public final class ItemImportFormMapper {
                                      double intelligence,
                                      double thorns,
                                      double blockChance,
-                                     double retributionChance) {
+                                     double retributionChance,
+                                     double criticalChancePercent) {
     }
 }

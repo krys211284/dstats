@@ -20,6 +20,7 @@ public final class ItemImportDetails {
     private final Double attacksPerSecond;
     private final Long itemArmor;
     private final String uniqueEffectText;
+    private final boolean mythicUnique;
 
     public ItemImportDetails(String itemName,
                              String itemType,
@@ -50,6 +51,24 @@ public final class ItemImportDetails {
                              Double attacksPerSecond,
                              Long itemArmor,
                              String uniqueEffectText) {
+        this(itemName, itemType, itemRarity, ancient, equipmentSlot, itemPower, weaponDps,
+                weaponDamageMin, weaponDamageMax, averageWeaponDamage, attacksPerSecond, itemArmor, uniqueEffectText, false);
+    }
+
+    public ItemImportDetails(String itemName,
+                             String itemType,
+                             String itemRarity,
+                             boolean ancient,
+                             EquipmentSlot equipmentSlot,
+                             Long itemPower,
+                             Long weaponDps,
+                             Long weaponDamageMin,
+                             Long weaponDamageMax,
+                             Long averageWeaponDamage,
+                             Double attacksPerSecond,
+                             Long itemArmor,
+                             String uniqueEffectText,
+                             boolean mythicUnique) {
         this.itemName = normalize(itemName);
         this.itemType = normalize(itemType);
         this.itemRarity = normalize(itemRarity);
@@ -64,6 +83,7 @@ public final class ItemImportDetails {
         this.attacksPerSecond = nonNegativeOrNull("Ataki na sekundę", attacksPerSecond);
         this.itemArmor = nonNegativeOrNull("Pancerz", itemArmor);
         this.uniqueEffectText = normalizeFortifyLegendaryEffect(uniqueEffectText).orElse(normalize(uniqueEffectText));
+        this.mythicUnique = mythicUnique;
     }
 
     public static ItemImportDetails empty() {
@@ -143,6 +163,10 @@ public final class ItemImportDetails {
         return itemArmor;
     }
 
+    public boolean isMythicUnique() {
+        return mythicUnique;
+    }
+
     public boolean hasAnyData() {
         return !itemName.isBlank()
                 || !itemType.isBlank()
@@ -156,6 +180,7 @@ public final class ItemImportDetails {
                 || averageWeaponDamage != null
                 || attacksPerSecond != null
                 || itemArmor != null
+                || mythicUnique
                 || !uniqueEffectText.isBlank();
     }
 

@@ -147,6 +147,26 @@ class CurrentBuildRuntimeInputResolverTest {
         assertEquals(15.0d, CurrentBuildRuntimeInputResolver.resolveMaximumAnimus(formData, resolution), 0.0000001d);
     }
 
+    @Test
+    void shouldProjectCriticalStrikeChanceFromActiveHelmetWithoutIntelligenceFormula() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("runtime-input-critical-helmet");
+        ItemLibraryService service = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+        SavedImportedItem helmet = service.saveImportedItem(heirOfPerditionHelmet());
+        CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(java.util.Map.of(
+                "level", "70",
+                "intelligence", "999"
+        ));
+        HeroItemSelection selection = HeroItemSelection.empty().withSelectedItem(HeroEquipmentSlot.HELMET, helmet.getItemId());
+
+        EffectiveCurrentBuildResolution resolution = service.resolveEffectiveCurrentBuild(legacyStats(), selection);
+        CurrentBuildImportableStats runtimeStats = resolver.resolve(hero(selection, formData), formData, resolution);
+
+        assertEquals(15.0d, resolution.getActiveItemsContribution().getCriticalChancePercent(), 0.0000001d);
+        assertEquals(20.2d, runtimeStats.getCriticalChancePercent(), 0.0000001d);
+        assertNotEquals(23.2d, runtimeStats.getCriticalChancePercent(), 0.0000001d);
+        assertEquals(15.0d, resolution.getActiveHeroItemStats().getCriticalChancePercent(), 0.0000001d);
+    }
+
     private static HeroProfile hero(HeroItemSelection selection, CurrentBuildFormData formData) {
         return new HeroProfile(
                 1L,
@@ -236,6 +256,39 @@ class CurrentBuildRuntimeInputResolverTest {
                         TemperingRuntimeStatus.DATA_ONLY,
                         true
                 ))
+        );
+    }
+
+    private static ValidatedImportedItem heirOfPerditionHelmet() {
+        return new ValidatedImportedItem(
+                "dziedzic-zatracenia.png",
+                EquipmentSlot.HELMET,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                List.of(new ImportedItemAffix(ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, "%", false, 0,
+                        "+15,0% szansy na trafienie krytyczne [12,0]%", ImportedItemAffixSource.CORRECTED,
+                        "critical_strike_chance", null, null, 12.0d, "")),
+                "heir_of_perdition",
+                new ItemImportDetails(
+                        "Dziedzic Zatracenia",
+                        "Hełm",
+                        "UNIQUE",
+                        true,
+                        EquipmentSlot.HELMET,
+                        900L,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        2004L,
+                        "Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x]. Zabijaj wrogów, aby na chwilę ukraść pobliskim sojusznikom efekt Łaski Matki.",
+                        true
+                )
         );
     }
 

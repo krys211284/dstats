@@ -31,6 +31,7 @@ public final class FullItemReadFormCodec {
         payloadLines.add("DETAIL_ATTACKS_PER_SECOND|" + encodeNullableDouble(safeRead.getDetails().getAttacksPerSecond()));
         payloadLines.add("DETAIL_ITEM_ARMOR|" + encodeNullableLong(safeRead.getDetails().getItemArmor()));
         payloadLines.add("DETAIL_UNIQUE_EFFECT_TEXT|" + encodeText(safeRead.getDetails().getUniqueEffectText()));
+        payloadLines.add("DETAIL_MYTHIC_UNIQUE|" + safeRead.getDetails().isMythicUnique());
         for (FullItemReadLine line : safeRead.getLines()) {
             payloadLines.add("LINE|" + line.getType().name() + "|" + encodeText(line.getText()));
         }
@@ -60,6 +61,7 @@ public final class FullItemReadFormCodec {
         Double detailAttacksPerSecond = null;
         Long detailItemArmor = null;
         String detailUniqueEffectText = "";
+        boolean detailMythicUnique = false;
         List<FullItemReadLine> lines = new ArrayList<>();
         for (String line : payload.split("\\R")) {
             String[] tokens = line.split("\\|", -1);
@@ -90,6 +92,7 @@ public final class FullItemReadFormCodec {
                 case "DETAIL_ATTACKS_PER_SECOND" -> detailAttacksPerSecond = decodeNullableDouble(tokens[1]);
                 case "DETAIL_ITEM_ARMOR" -> detailItemArmor = decodeNullableLong(tokens[1]);
                 case "DETAIL_UNIQUE_EFFECT_TEXT" -> detailUniqueEffectText = decodeText(tokens[1]);
+                case "DETAIL_MYTHIC_UNIQUE" -> detailMythicUnique = Boolean.parseBoolean(tokens[1]);
                 case "LINE" -> {
                     if (tokens.length >= 3) {
                         lines.add(new FullItemReadLine(FullItemReadLineType.valueOf(tokens[1]), decodeText(tokens[2])));
@@ -101,7 +104,8 @@ public final class FullItemReadFormCodec {
         }
         ItemImportDetails details = new ItemImportDetails(detailItemName, detailItemType, detailItemRarity, detailAncient,
                 detailEquipmentSlot, detailItemPower, detailWeaponDps, detailWeaponDamageMin, detailWeaponDamageMax,
-                detailAverageWeaponDamage, detailAttacksPerSecond, detailItemArmor, detailUniqueEffectText);
+                detailAverageWeaponDamage, detailAttacksPerSecond, detailItemArmor, detailUniqueEffectText,
+                detailMythicUnique);
         return new FullItemRead(itemName, itemTypeLine, rarity, itemPower, baseItemValue, lines, details);
     }
 

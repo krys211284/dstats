@@ -49,7 +49,9 @@ public final class CurrentBuildSnapshotFactory {
                 request.getSelectedPaladinOathId(),
                 request.getInitialAnimus(),
                 request.getMaxAnimus(),
-                request.getActiveAspectIds()
+                request.getActiveAspectIds(),
+                request.getCriticalChancePercent(),
+                request.getSimulationSeed()
         );
     }
 

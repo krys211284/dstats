@@ -251,7 +251,10 @@ final class ItemEditController implements HttpHandler {
                 parseLongOrFallback(fields.get("averageWeaponDamage"), fallback.getAverageWeaponDamage()),
                 parseDoubleOrFallback(fields.get("attacksPerSecond"), fallback.getAttacksPerSecond()),
                 parseLongOrFallback(fields.get("itemArmor"), fallback.getItemArmor()),
-                valueOrFallback(fields, "uniqueEffectText", fallback.getUniqueEffectText())
+                valueOrFallback(fields, "uniqueEffectText", fallback.getUniqueEffectText()),
+                fields.containsKey("isMythicUniqueSubmitted")
+                        ? "true".equals(fields.get("isMythicUnique"))
+                        : fallback.isMythicUnique()
         );
     }
 
@@ -278,6 +281,7 @@ final class ItemEditController implements HttpHandler {
                 fields.getOrDefault("affixDefinitionId_" + index, ""),
                 parseNullableDouble(fields.get("affixRangeMin_" + index)),
                 parseNullableDouble(fields.get("affixRangeMax_" + index)),
+                parseNullableDouble(fields.get("affixReferenceValue_" + index)),
                 fields.getOrDefault("affixDisplayValue_" + index, ""),
                 errors
         );
@@ -296,6 +300,7 @@ final class ItemEditController implements HttpHandler {
                 "",
                 null,
                 null,
+                null,
                 "",
                 errors
         );
@@ -309,11 +314,12 @@ final class ItemEditController implements HttpHandler {
                                                                     String sourceText,
                                                                     String originalType,
                                                                     String originalValue,
-                                                                    String affixDefinitionId,
-                                                                    Double rollRangeMin,
-                                                                    Double rollRangeMax,
-                                                                    String displayValue,
-                                                                    List<String> errors) {
+                                                                     String affixDefinitionId,
+                                                                     Double rollRangeMin,
+                                                                     Double rollRangeMax,
+                                                                     Double referenceValue,
+                                                                     String displayValue,
+                                                                     List<String> errors) {
         boolean missingType = rawType == null || rawType.isBlank();
         boolean missingValue = rawValue == null || rawValue.isBlank();
         if (missingType && missingValue) {
@@ -339,11 +345,13 @@ final class ItemEditController implements HttpHandler {
                 affixDefinitionId = "";
                 rollRangeMin = null;
                 rollRangeMax = null;
+                referenceValue = null;
                 displayValue = "";
                 source = ImportedItemAffixSource.CORRECTED;
             }
             return java.util.Optional.of(new ImportedItemAffix(type, value, defaultUnit(type), greaterAffix,
-                    displayOrder, sourceText, source, affixDefinitionId, rollRangeMin, rollRangeMax, displayValue));
+                    displayOrder, sourceText, source, affixDefinitionId, rollRangeMin, rollRangeMax,
+                    referenceValue, displayValue));
         } catch (IllegalArgumentException exception) {
             errors.add("Affix #" + (displayOrder + 1) + ": affix ma niepoprawny typ albo wartość.");
             return java.util.Optional.empty();
@@ -355,7 +363,7 @@ final class ItemEditController implements HttpHandler {
             case BLOCK_CHANCE, RETRIBUTION_CHANCE, CRITICAL_STRIKE_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
                  MOVEMENT_SPEED, DODGE_CHANCE, DAMAGE_REDUCTION, DAMAGE_OVER_TIME_MULTIPLIER -> "%";
             case STRENGTH, INTELLIGENCE, THORNS, WEAPON_DAMAGE_FLAT, MAXIMUM_LIFE, LIFE_ON_HIT, LIFE_ON_KILL,
-                 LUCKY_HIT_PRIMARY_RESOURCE, ALL_RESISTANCE, FIRE_RESISTANCE -> "";
+                 LUCKY_HIT_PRIMARY_RESOURCE, ALL_RESISTANCE, FIRE_RESISTANCE, CORE_SKILL_RANKS -> "";
         };
     }
 

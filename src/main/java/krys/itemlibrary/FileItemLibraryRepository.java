@@ -311,6 +311,7 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     encode(affix.getAffixDefinitionId()),
                     encodeDouble(affix.getRollRangeMin()),
                     encodeDouble(affix.getRollRangeMax()),
+                    encodeDouble(affix.getReferenceValue()),
                     encode(affix.getDisplayValue())
             ));
         }
@@ -399,6 +400,7 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
         payloadLines.add("ATTACKS_PER_SECOND|" + encodeDouble(safeDetails.getAttacksPerSecond()));
         payloadLines.add("ITEM_ARMOR|" + encodeLong(safeDetails.getItemArmor()));
         payloadLines.add("UNIQUE_EFFECT_TEXT|" + encode(safeDetails.getUniqueEffectText()));
+        payloadLines.add("MYTHIC_UNIQUE|" + safeDetails.isMythicUnique());
         return encode(String.join("\n", payloadLines));
     }
 
@@ -417,6 +419,7 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
         Double attacksPerSecond = null;
         Long itemArmor = null;
         String uniqueEffectText = "";
+        boolean mythicUnique = false;
         for (String line : payload.split("\\R")) {
             String[] tokens = line.split("\\|", -1);
             if (tokens.length < 2) {
@@ -441,12 +444,14 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                 case "ATTACKS_PER_SECOND" -> attacksPerSecond = decodeDouble(tokens[1]);
                 case "ITEM_ARMOR" -> itemArmor = decodeLong(tokens[1]);
                 case "UNIQUE_EFFECT_TEXT" -> uniqueEffectText = decode(tokens[1]);
+                case "MYTHIC_UNIQUE" -> mythicUnique = Boolean.parseBoolean(tokens[1]);
                 default -> {
                 }
             }
         }
         return new ItemImportDetails(itemName, itemType, itemRarity, ancient, equipmentSlot, itemPower,
-                weaponDps, weaponDamageMin, weaponDamageMax, averageWeaponDamage, attacksPerSecond, itemArmor, uniqueEffectText);
+                weaponDps, weaponDamageMin, weaponDamageMax, averageWeaponDamage, attacksPerSecond, itemArmor,
+                uniqueEffectText, mythicUnique);
     }
 
     private static String encodeLong(Long value) {
@@ -490,7 +495,8 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                         tokens.length >= 8 ? decode(tokens[7]) : "",
                         tokens.length >= 9 ? decodeDouble(tokens[8]) : null,
                         tokens.length >= 10 ? decodeDouble(tokens[9]) : null,
-                        tokens.length >= 11 ? decode(tokens[10]) : ""
+                        tokens.length >= 12 ? decodeDouble(tokens[10]) : null,
+                        tokens.length >= 12 ? decode(tokens[11]) : tokens.length >= 11 ? decode(tokens[10]) : ""
                 ));
             } else {
                 affixes.add(new ImportedItemAffix(type, value, tokens.length >= 3 ? decode(tokens[2]) : ""));

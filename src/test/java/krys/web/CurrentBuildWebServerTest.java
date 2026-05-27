@@ -755,7 +755,13 @@ class CurrentBuildWebServerTest {
         String stepTrace = sectionByHeading(html, "Ślad kroków symulacji");
         assertTrue(stepTrace.contains("<th>Sekunda</th>"));
         assertTrue(stepTrace.contains("<th>Akcja</th>"));
-        assertTrue(stepTrace.contains("<th>Bezpośrednie</th>"));
+        assertTrue(stepTrace.contains("<th>Zwykłe</th>"));
+        assertTrue(stepTrace.contains("<th>Krytyczne</th>"));
+        assertTrue(stepTrace.contains("<th>Szansa kryta</th>"));
+        assertTrue(stepTrace.contains("<th>Roll kryta</th>"));
+        assertTrue(stepTrace.contains("<th>Kryt?</th>"));
+        assertTrue(stepTrace.contains("<th>Zastosowane</th>"));
+        assertFalse(stepTrace.contains("<th>Bezpośrednie</th>"));
         assertTrue(stepTrace.contains("<th>Opóźnione</th>"));
         assertTrue(stepTrace.contains("<th>Reaktywne</th>"));
         assertTrue(stepTrace.contains("<th>Krok</th>"));

@@ -20,6 +20,7 @@ public final class CurrentHeroActiveItemStats {
     private final double thorns;
     private final double blockChance;
     private final double retributionChance;
+    private final double criticalChancePercent;
     private final long itemArmor;
     private final double fireResistance;
     private final double allResistance;
@@ -47,7 +48,7 @@ public final class CurrentHeroActiveItemStats {
                                       List<String> descriptiveAffixes) {
         this(weaponDps, weaponDamageMin, weaponDamageMax, averageWeaponDamage, attacksPerSecond,
                 maximumLifeFromItems, flatWeaponDamageFromAffixes, lifeOnHit, luckyHitPrimaryResourceValue,
-                strength, intelligence, thorns, blockChance, retributionChance,
+                strength, intelligence, thorns, blockChance, retributionChance, 0.0d,
                 0L, 0.0d, 0.0d, 0.0d, 0.0d,
                 descriptiveAffixes, List.of(), List.of(), List.of());
     }
@@ -66,6 +67,7 @@ public final class CurrentHeroActiveItemStats {
                                       double thorns,
                                       double blockChance,
                                       double retributionChance,
+                                      double criticalChancePercent,
                                       long itemArmor,
                                       double fireResistance,
                                       double allResistance,
@@ -89,6 +91,7 @@ public final class CurrentHeroActiveItemStats {
         this.thorns = thorns;
         this.blockChance = blockChance;
         this.retributionChance = retributionChance;
+        this.criticalChancePercent = criticalChancePercent;
         this.itemArmor = itemArmor;
         this.fireResistance = fireResistance;
         this.allResistance = allResistance;
@@ -159,6 +162,10 @@ public final class CurrentHeroActiveItemStats {
 
     public double getRetributionChance() {
         return retributionChance;
+    }
+
+    public double getCriticalChancePercent() {
+        return criticalChancePercent;
     }
 
     public long getItemArmor() {

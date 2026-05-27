@@ -15,6 +15,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.SplittableRandom;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -171,12 +173,90 @@ class ClashManualSimulationTest {
         assertFalse(ManualSimulationService.isMolochSkill(SkillId.ADVANCE));
     }
 
+    @Test
+    void szansa_kryta_zero_uzywa_zwyklego_hitu_w_sladzie() {
+        SimulationResult result = simulationService.calculateCurrentBuild(
+                clashSnapshot(1664L, true, true, 0.0d, 1L),
+                1
+        );
+
+        SimulationStepTrace firstStep = result.getStepTrace().getFirst();
+        assertFalse(firstStep.isCriticalHit());
+        assertEquals(0.0d, firstStep.getCriticalChancePercent(), 0.0000001d);
+        assertTrue(firstStep.hasCriticalRoll());
+        assertEquals(firstStep.getNormalDirectDamage(), firstStep.getAppliedDirectDamage());
+        assertEquals(firstStep.getNormalDirectDamage(), firstStep.getDirectDamage());
+        assertEquals(firstStep.getNormalDirectDamage() + firstStep.getDelayedDamage() + firstStep.getReactiveDamage(),
+                firstStep.getTotalStepDamage());
+        assertEquals(firstStep.getAppliedDirectDamage(), result.getTotalDamage());
+    }
+
+    @Test
+    void szansa_kryta_sto_uzywa_krytycznego_hitu_w_sladzie() {
+        SimulationResult result = simulationService.calculateCurrentBuild(
+                clashSnapshot(1664L, true, true, 100.0d, 1L),
+                1
+        );
+
+        SimulationStepTrace firstStep = result.getStepTrace().getFirst();
+        assertTrue(firstStep.isCriticalHit());
+        assertEquals(100.0d, firstStep.getCriticalChancePercent(), 0.0000001d);
+        assertTrue(firstStep.hasCriticalRoll());
+        assertEquals(firstStep.getCriticalDirectDamage(), firstStep.getAppliedDirectDamage());
+        assertEquals(firstStep.getCriticalDirectDamage(), firstStep.getDirectDamage());
+        assertEquals(firstStep.getCriticalDirectDamage() + firstStep.getDelayedDamage() + firstStep.getReactiveDamage(),
+                firstStep.getTotalStepDamage());
+        assertEquals(firstStep.getAppliedDirectDamage(), result.getTotalDamage());
+    }
+
+    @Test
+    void szansa_kryta_polowa_uzywa_stabilnej_sekwencji_dla_seeda() {
+        long seed = 123L;
+        SimulationResult firstRun = simulationService.calculateCurrentBuild(
+                clashSnapshot(1664L, true, true, 50.0d, seed),
+                6
+        );
+        SimulationResult secondRun = simulationService.calculateCurrentBuild(
+                clashSnapshot(1664L, true, true, 50.0d, seed),
+                6
+        );
+
+        List<Boolean> actualSequence = firstRun.getStepTrace().stream()
+                .map(SimulationStepTrace::isCriticalHit)
+                .collect(Collectors.toList());
+        List<Boolean> repeatedSequence = secondRun.getStepTrace().stream()
+                .map(SimulationStepTrace::isCriticalHit)
+                .collect(Collectors.toList());
+        SplittableRandom expectedRandom = new SplittableRandom(seed);
+        List<Boolean> expectedSequence = firstRun.getStepTrace().stream()
+                .map(step -> expectedRandom.nextDouble(100.0d) < 50.0d)
+                .collect(Collectors.toList());
+
+        assertEquals(expectedSequence, actualSequence);
+        assertEquals(actualSequence, repeatedSequence);
+        for (SimulationStepTrace step : firstRun.getStepTrace()) {
+            long expectedApplied = step.isCriticalHit() ? step.getCriticalDirectDamage() : step.getNormalDirectDamage();
+            assertEquals(expectedApplied, step.getAppliedDirectDamage());
+            assertEquals(expectedApplied + step.getDelayedDamage() + step.getReactiveDamage(), step.getTotalStepDamage());
+        }
+    }
+
     private static HeroBuildSnapshot clashSnapshot(long weaponDamage, boolean hasActiveWeapon, boolean hasActiveShield) {
+        return clashSnapshot(weaponDamage, hasActiveWeapon, hasActiveShield, 0.0d, HeroBuildSnapshot.DEFAULT_SIMULATION_SEED);
+    }
+
+    private static HeroBuildSnapshot clashSnapshot(long weaponDamage,
+                                                   boolean hasActiveWeapon,
+                                                   boolean hasActiveShield,
+                                                   double criticalChancePercent,
+                                                   long simulationSeed) {
         return snapshot(
                 new SkillState(SkillId.CLASH, 1, false, SkillUpgradeChoice.NONE),
                 weaponDamage,
                 hasActiveWeapon,
-                hasActiveShield
+                hasActiveShield,
+                criticalChancePercent,
+                simulationSeed
         );
     }
 
@@ -184,6 +264,16 @@ class ClashManualSimulationTest {
                                               long weaponDamage,
                                               boolean hasActiveWeapon,
                                               boolean hasActiveShield) {
+        return snapshot(skillState, weaponDamage, hasActiveWeapon, hasActiveShield,
+                0.0d, HeroBuildSnapshot.DEFAULT_SIMULATION_SEED);
+    }
+
+    private static HeroBuildSnapshot snapshot(SkillState skillState,
+                                              long weaponDamage,
+                                              boolean hasActiveWeapon,
+                                              boolean hasActiveShield,
+                                              double criticalChancePercent,
+                                              long simulationSeed) {
         Hero hero = new Hero(1, "Paladyn", 70, HeroClass.PALADIN);
         List<Item> items = List.of(
                 new Item(1, "Techniczna broń", EquipmentSlot.MAIN_HAND, List.of(
@@ -202,7 +292,16 @@ class ClashManualSimulationTest {
                 hasActiveWeapon,
                 hasActiveShield,
                 Map.of(skillState.getSkillId(), skillState),
-                List.of(skillState.getSkillId())
+                List.of(skillState.getSkillId()),
+                HeroBuildSnapshot.DEFAULT_INITIAL_PRIMARY_RESOURCE,
+                HeroBuildSnapshot.DEFAULT_MAX_PRIMARY_RESOURCE,
+                HeroBuildSnapshot.DEFAULT_PRIMARY_RESOURCE_REGEN_PER_SECOND,
+                HeroBuildSnapshot.DEFAULT_SELECTED_PALADIN_OATH_ID,
+                HeroBuildSnapshot.DEFAULT_INITIAL_ANIMUS,
+                HeroBuildSnapshot.DEFAULT_MAX_ANIMUS,
+                List.of(),
+                criticalChancePercent,
+                simulationSeed
         );
     }
 }

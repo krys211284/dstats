@@ -39,6 +39,7 @@ public final class ImportedItemAffixExtractor {
             return List.of();
         }
         boolean verathielContext = isVerathielContext(fullItemRead);
+        boolean mythicUniqueContext = fullItemRead.getDetails().isMythicUnique();
         boolean koscianychLusekShieldContext = isKoscianychLusekShieldContext(fullItemRead);
         boolean moonFrenzyShieldContext = isMoonFrenzyShieldContext(fullItemRead);
         boolean koscianychLusekQuality25Context = koscianychLusekShieldContext
@@ -55,7 +56,7 @@ public final class ImportedItemAffixExtractor {
             }
             for (ImportedItemAffix affix : extractAffixesFromLine(line, displayOrder, verathielContext,
                     koscianychLusekShieldContext, koscianychLusekQuality25Context,
-                    moonFrenzyShieldContext, moonFrenzyQuality25Context)) {
+                    moonFrenzyShieldContext, moonFrenzyQuality25Context, mythicUniqueContext)) {
                 String key = editableAffixDeduplicationKey(affix);
                 ImportedItemAffix existing = affixes.get(key);
                 if (existing == null || affixQualityScore(affix) > affixQualityScore(existing)) {
@@ -139,12 +140,14 @@ public final class ImportedItemAffixExtractor {
                                                            boolean koscianychLusekShieldContext,
                                                            boolean koscianychLusekQuality25Context,
                                                            boolean moonFrenzyShieldContext,
-                                                           boolean moonFrenzyQuality25Context) {
+                                                           boolean moonFrenzyQuality25Context,
+                                                           boolean mythicUniqueContext) {
         String text = line.getText();
         List<AffixRegistry.AffixTextMatch> matches = affixRegistry.findMatches(text);
         if (matches.isEmpty()) {
             return fallbackExtract(text, baseDisplayOrder, verathielContext, koscianychLusekShieldContext,
-                    koscianychLusekQuality25Context, moonFrenzyShieldContext, moonFrenzyQuality25Context);
+                    koscianychLusekQuality25Context, moonFrenzyShieldContext, moonFrenzyQuality25Context,
+                    mythicUniqueContext);
         }
 
         List<AffixRegistry.AffixTextMatch> compactMatches = removeContainedMatches(matches);
@@ -158,7 +161,7 @@ public final class ImportedItemAffixExtractor {
             String segment = text.substring(Math.max(0, segmentStart), Math.max(segmentStart, segmentEnd)).trim();
             buildAffix(match.definition(), segment, text, baseDisplayOrder + affixes.size(), verathielContext,
                     koscianychLusekShieldContext, koscianychLusekQuality25Context,
-                    moonFrenzyShieldContext, moonFrenzyQuality25Context)
+                    moonFrenzyShieldContext, moonFrenzyQuality25Context, mythicUniqueContext)
                     .ifPresent(affixes::add);
         }
         return affixes;
@@ -193,7 +196,8 @@ public final class ImportedItemAffixExtractor {
                                                     boolean koscianychLusekShieldContext,
                                                     boolean koscianychLusekQuality25Context,
                                                     boolean moonFrenzyShieldContext,
-                                                    boolean moonFrenzyQuality25Context) {
+                                                    boolean moonFrenzyQuality25Context,
+                                                    boolean mythicUniqueContext) {
         Optional<ImportedItemAffixType> type = ImportedItemAffixType.detectFromLine(text);
         Optional<Double> value = firstNumber(text);
         if (type.isEmpty() || value.isEmpty()) {
@@ -205,12 +209,16 @@ public final class ImportedItemAffixExtractor {
         );
         resolved = resolveMoonFrenzySourceValue(moonFrenzyShieldContext, moonFrenzyQuality25Context, type.get(), value.get())
                 .orElse(resolved);
+        Optional<RollRange> parsedRange = parseRollRange(text);
+        Double referenceValue = mythicReferenceValue(mythicUniqueContext, parsedRange).orElse(null);
+        Optional<RollRange> rollRange = referenceValue == null
+                ? validateParsedRollRange(resolved.value(), parsedRange)
+                : Optional.empty();
         boolean greaterAffix = isGreaterAffixLine(text)
                 || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, type.get(), resolved.value())
                 || isMoonFrenzyGreaterAffix(moonFrenzyShieldContext, type.get(), resolved.value())
-                || resolved.greaterAffix();
-        Optional<RollRange> rollRange = repairCatalogRollRange(
-                definition, resolved.value(), text, parseRollRange(text), verathielContext);
+                || resolved.greaterAffix()
+                || (!mythicUniqueContext && isGreaterAffixFromRollRange(resolved.value(), rollRange));
         return List.of(new ImportedItemAffix(
                 type.get(),
                 resolved.value(),
@@ -222,6 +230,7 @@ public final class ImportedItemAffixExtractor {
                 definition == null ? "" : definition.getId(),
                 rollRange.map(RollRange::min).orElse(null),
                 rollRange.map(RollRange::max).orElse(null),
+                referenceValue,
                 ""
         ));
     }
@@ -234,7 +243,8 @@ public final class ImportedItemAffixExtractor {
                                                           boolean koscianychLusekShieldContext,
                                                           boolean koscianychLusekQuality25Context,
                                                           boolean moonFrenzyShieldContext,
-                                                          boolean moonFrenzyQuality25Context) {
+                                                          boolean moonFrenzyQuality25Context,
+                                                          boolean mythicUniqueContext) {
         if (definition.getFormType() == ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE) {
             Optional<Double> chance = parseChancePercent(segment);
             Optional<Double> resource = parseResourceAmount(segment);
@@ -246,12 +256,16 @@ public final class ImportedItemAffixExtractor {
             );
             resolved = resolveMoonFrenzySourceValue(moonFrenzyShieldContext, moonFrenzyQuality25Context, definition.getFormType(), resource.get())
                     .orElse(resolved);
+            Optional<RollRange> parsedRange = parseRollRange(segment);
+            Double referenceValue = mythicReferenceValue(mythicUniqueContext, parsedRange).orElse(null);
+            Optional<RollRange> rollRange = referenceValue == null
+                    ? validateParsedRollRange(resolved.value(), parsedRange)
+                    : Optional.empty();
             boolean greaterAffix = isGreaterAffixLine(segment)
                     || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, definition.getFormType(), resolved.value())
                     || isMoonFrenzyGreaterAffix(moonFrenzyShieldContext, definition.getFormType(), resolved.value())
-                    || resolved.greaterAffix();
-            Optional<RollRange> rollRange = repairCatalogRollRange(
-                    definition, resolved.value(), segment, parseRollRange(segment), verathielContext);
+                    || resolved.greaterAffix()
+                    || (!mythicUniqueContext && isGreaterAffixFromRollRange(resolved.value(), rollRange));
             String displayValue = "+" + formatValue(resolved.value());
             return Optional.of(new ImportedItemAffix(
                     definition.getFormType(),
@@ -264,6 +278,7 @@ public final class ImportedItemAffixExtractor {
                     definition.getId(),
                     rollRange.map(RollRange::min).orElse(null),
                     rollRange.map(RollRange::max).orElse(null),
+                    referenceValue,
                     displayValue
             ));
         }
@@ -280,12 +295,16 @@ public final class ImportedItemAffixExtractor {
         );
         resolved = resolveMoonFrenzySourceValue(moonFrenzyShieldContext, moonFrenzyQuality25Context, definition.getFormType(), value.get())
                 .orElse(resolved);
+        Optional<RollRange> parsedRange = parseRollRange(segment);
+        Double referenceValue = mythicReferenceValue(mythicUniqueContext, parsedRange).orElse(null);
+        Optional<RollRange> rollRange = referenceValue == null
+                ? validateParsedRollRange(resolved.value(), parsedRange)
+                : Optional.empty();
         boolean greaterAffix = isGreaterAffixLine(segment)
                 || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, definition.getFormType(), resolved.value())
                 || isMoonFrenzyGreaterAffix(moonFrenzyShieldContext, definition.getFormType(), resolved.value())
-                || resolved.greaterAffix();
-        Optional<RollRange> rollRange = repairCatalogRollRange(
-                definition, resolved.value(), segment, parseRollRange(segment), verathielContext);
+                || resolved.greaterAffix()
+                || (!mythicUniqueContext && isGreaterAffixFromRollRange(resolved.value(), rollRange));
         return Optional.of(new ImportedItemAffix(
                 definition.getFormType(),
                 resolved.value(),
@@ -297,6 +316,7 @@ public final class ImportedItemAffixExtractor {
                 definition.getId(),
                 rollRange.map(RollRange::min).orElse(null),
                 rollRange.map(RollRange::max).orElse(null),
+                referenceValue,
                 ""
         ));
     }
@@ -374,64 +394,30 @@ public final class ImportedItemAffixExtractor {
         return Optional.of(new RollRange(min.get(), max.get()));
     }
 
-    private static Optional<RollRange> repairCatalogRollRange(AffixDefinition definition,
-                                                              double value,
-                                                              String sourceText,
-                                                              Optional<RollRange> parsedRange,
-                                                              boolean verathielContext) {
-        if (!verathielContext || definition == null || definition.getRollRangeMin() == null || definition.getRollRangeMax() == null) {
-            return repairDamageReductionRollRange(definition, value, sourceText, parsedRange);
+    private static Optional<RollRange> validateParsedRollRange(double value, Optional<RollRange> parsedRange) {
+        if (parsedRange.isEmpty()) {
+            return Optional.empty();
         }
-        if (definition.getCatalogValue() != null && Math.abs(definition.getCatalogValue() - value) > 0.0001d) {
-            return parsedRange;
-        }
-        String normalizedSource = normalize(sourceText);
-        String expectedMin = formatValue(definition.getRollRangeMin()).replace(",", ".");
-        String expectedMax = formatValue(definition.getRollRangeMax()).replace(",", ".");
-        boolean sourceMentionsExpectedRangeBoundary = containsNumber(normalizedSource, expectedMin)
-                || containsNumber(normalizedSource, expectedMax);
-        if (!sourceMentionsExpectedRangeBoundary) {
-            return parsedRange;
-        }
-        if (parsedRange.isEmpty()
-                || Math.abs(parsedRange.get().min() - definition.getRollRangeMin()) > 0.0001d
-                || Math.abs(parsedRange.get().max() - definition.getRollRangeMax()) > 0.0001d) {
-            return Optional.of(new RollRange(definition.getRollRangeMin(), definition.getRollRangeMax()));
+        RollRange range = parsedRange.get();
+        if (sameValue(range.min(), range.max())
+                && !sameValue(range.min(), value)
+                && !sameValue(range.max() * 1.25d, value)) {
+            return Optional.empty();
         }
         return parsedRange;
     }
 
-    private static Optional<RollRange> repairDamageReductionRollRange(AffixDefinition definition,
-                                                                      double value,
-                                                                      String sourceText,
-                                                                      Optional<RollRange> parsedRange) {
-        if (definition == null
-                || definition.getFormType() != ImportedItemAffixType.DAMAGE_REDUCTION
-                || definition.getRollRangeMin() == null
-                || definition.getRollRangeMax() == null) {
-            return parsedRange;
+    private static Optional<Double> mythicReferenceValue(boolean mythicUniqueContext, Optional<RollRange> parsedRange) {
+        if (!mythicUniqueContext || parsedRange.isEmpty()) {
+            return Optional.empty();
         }
-        if (parsedRange.isPresent()) {
-            return parsedRange;
-        }
-        String normalizedSource = normalize(sourceText);
-        boolean damageReductionLine = normalizedSource.contains("REDUKCJI OBRAZEN")
-                || normalizedSource.contains("REDUKCJA OBRAZEN")
-                || normalizedSource.contains("DAMAGE REDUCTION");
-        boolean damagedRangeFragment = normalizedSource.contains("[")
-                || containsNumber(normalizedSource, formatValue(definition.getRollRangeMin()).replace(",", "."))
-                || containsNumber(normalizedSource, formatValue(definition.getRollRangeMax()).replace(",", "."));
-        boolean valueInsideCatalogRange = value >= definition.getRollRangeMin() && value <= definition.getRollRangeMax();
-        if (damageReductionLine && damagedRangeFragment && valueInsideCatalogRange) {
-            return Optional.of(new RollRange(definition.getRollRangeMin(), definition.getRollRangeMax()));
-        }
-        return parsedRange;
+        RollRange range = parsedRange.get();
+        return sameValue(range.min(), range.max()) ? Optional.of(range.min()) : Optional.empty();
     }
 
-    private static boolean containsNumber(String normalizedText, String expectedNumber) {
-        String compactText = normalizedText == null ? "" : normalizedText.replace(" ", "");
-        String compactNumber = expectedNumber == null ? "" : expectedNumber.replace(" ", "");
-        return !compactNumber.isBlank() && compactText.contains(compactNumber);
+    private static boolean isGreaterAffixFromRollRange(double displayedValue, Optional<RollRange> parsedRange) {
+        return parsedRange.isPresent()
+                && sameValue(displayedValue, parsedRange.get().max() * 1.25d);
     }
 
     private static Optional<Double> parseChancePercent(String text) {
@@ -529,7 +515,7 @@ public final class ImportedItemAffixExtractor {
             case BLOCK_CHANCE, RETRIBUTION_CHANCE, CRITICAL_STRIKE_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
                  MOVEMENT_SPEED, DODGE_CHANCE, DAMAGE_REDUCTION, DAMAGE_OVER_TIME_MULTIPLIER -> "%";
             case STRENGTH, INTELLIGENCE, THORNS, ALL_RESISTANCE, FIRE_RESISTANCE, WEAPON_DAMAGE_FLAT, MAXIMUM_LIFE, LIFE_ON_HIT,
-                 LIFE_ON_KILL, LUCKY_HIT_PRIMARY_RESOURCE -> "";
+                 LIFE_ON_KILL, LUCKY_HIT_PRIMARY_RESOURCE, CORE_SKILL_RANKS -> "";
         };
     }
 

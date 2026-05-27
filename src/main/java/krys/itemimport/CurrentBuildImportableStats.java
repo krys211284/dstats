@@ -8,6 +8,7 @@ public final class CurrentBuildImportableStats {
     private final double thorns;
     private final double blockChance;
     private final double retributionChance;
+    private final double criticalChancePercent;
 
     public CurrentBuildImportableStats(long weaponDamage,
                                        double strength,
@@ -15,12 +16,23 @@ public final class CurrentBuildImportableStats {
                                        double thorns,
                                        double blockChance,
                                        double retributionChance) {
+        this(weaponDamage, strength, intelligence, thorns, blockChance, retributionChance, 0.0d);
+    }
+
+    public CurrentBuildImportableStats(long weaponDamage,
+                                       double strength,
+                                       double intelligence,
+                                       double thorns,
+                                       double blockChance,
+                                       double retributionChance,
+                                       double criticalChancePercent) {
         this.weaponDamage = weaponDamage;
         this.strength = strength;
         this.intelligence = intelligence;
         this.thorns = thorns;
         this.blockChance = blockChance;
         this.retributionChance = retributionChance;
+        this.criticalChancePercent = criticalChancePercent;
     }
 
     public long getWeaponDamage() {
@@ -45,5 +57,9 @@ public final class CurrentBuildImportableStats {
 
     public double getRetributionChance() {
         return retributionChance;
+    }
+
+    public double getCriticalChancePercent() {
+        return criticalChancePercent;
     }
 }

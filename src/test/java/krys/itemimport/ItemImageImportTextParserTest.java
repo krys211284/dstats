@@ -33,6 +33,22 @@ class ItemImageImportTextParserTest {
     private final ItemImageMetadata metadata = new ItemImageMetadata("shield.png", "image/png", "PNG", 1200, 1600);
 
     @Test
+    void shouldDetectMythicUniqueHelmetFromTypeLine() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                Dziedzic Zatracenia
+                Starożytny mityczny unikatowy hełm
+                Moc przedmiotu: 900
+                +15,0% szansy na trafienie krytyczne [12,0]%
+                """);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(EquipmentSlot.HELMET, result.getSlotCandidate().getSuggestedValue());
+        assertEquals(EquipmentSlot.HELMET, result.getFullItemRead().getDetails().getEquipmentSlot());
+        assertTrue(result.getFullItemRead().getDetails().isMythicUnique());
+        assertTrue(form.isMythicUnique());
+    }
+
+    @Test
     void shouldRecognizePolishShieldSlotAndFoundationAffixes() {
         String ocrText = """
                 Tarcza
@@ -939,6 +955,116 @@ class ItemImageImportTextParserTest {
     }
 
     @Test
+    void shouldExtractRollRangeFromGenericOcrDamagedPercentClosing() {
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parser.parse(
+                metadata,
+                "Mnożnik xl 6% obrażeń z upływem czasu [15 - 3010/0"
+        ));
+
+        assertEquals(1, form.getAffixes().size());
+        assertAffix(form, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d, 15.0d, 30.0d);
+    }
+
+    @Test
+    void shouldExtractFixedRollRangeFromGenericOcrDamagedBracketToken() {
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parser.parse(
+                metadata,
+                "+300 zdrowia za zabicie +13001"
+        ));
+
+        assertEquals(1, form.getAffixes().size());
+        assertAffix(form, ImportedItemAffixType.LIFE_ON_KILL, 300.0d, 300.0d, 300.0d);
+    }
+
+    @Test
+    void shouldNotFillRollRangeFromSingleBoundaryNumbersWithoutBracketFragment() {
+        for (String text : List.of(
+                "Mnożnik x16% obrażeń z upływem czasu 15",
+                "Mnożnik x16% obrażeń z upływem czasu 30"
+        )) {
+            ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parser.parse(metadata, text));
+
+            assertEquals(1, form.getAffixes().size(), text);
+            assertAffixWithoutRange(form, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d);
+        }
+    }
+
+    @Test
+    void shouldKeepInlineRollRangeForGenericAffix() {
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parser.parse(
+                metadata,
+                "+172 siły [150 - 180]"
+        ));
+
+        assertEquals(1, form.getAffixes().size());
+        assertAffix(form, ImportedItemAffixType.STRENGTH, 172.0d, 150.0d, 180.0d);
+    }
+
+    @Test
+    void shouldAttachStandaloneOrphanRollRangeToSinglePreviousGenericAffix() {
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parser.parse(
+                metadata,
+                """
+                        +172 siły
+                        [150 - 180]
+                        """
+        ));
+
+        assertEquals(1, form.getAffixes().size());
+        assertAffix(form, ImportedItemAffixType.STRENGTH, 172.0d, 150.0d, 180.0d);
+    }
+
+    @Test
+    void shouldAttachMultipleOrphanRollRangesOnlyWhenOrderAndAdjacencyAreUnambiguous() {
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parser.parse(
+                metadata,
+                """
+                        +172 siły
+                        [150 - 180]
+                        +11,0% szansy na trafienie krytyczne
+                        [6,5 - 8,5]%
+                        """
+        ));
+
+        assertEquals(2, form.getAffixes().size());
+        assertAffix(form, ImportedItemAffixType.STRENGTH, 172.0d, 150.0d, 180.0d);
+        assertAffix(form, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 11.0d, 6.5d, 8.5d);
+    }
+
+    @Test
+    void shouldNotAttachOrphanRollRangeWhenSeveralPreviousAffixesCouldOwnIt() {
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parser.parse(
+                metadata,
+                """
+                        +172 siły
+                        +300 zdrowia za zabicie
+                        [300 - 300]
+                        """
+        ));
+
+        assertEquals(2, form.getAffixes().size());
+        assertAffixWithoutRange(form, ImportedItemAffixType.STRENGTH, 172.0d);
+        assertAffixWithoutRange(form, ImportedItemAffixType.LIFE_ON_KILL, 300.0d);
+    }
+
+    @Test
+    void shouldNotFillCatalogRollRangeWhenRangeIsMissingFromOcr() {
+        ItemImageImportCandidateParseResult result = parser.parse(
+                new ItemImageMetadata("verathiel-missing-dot-range.png", "image/png", "PNG", 447, 736),
+                """
+                        Odłamek Verathiela
+                        Starożytny unikatowy miecz
+                        Moc przedmiotu: 900
+                        Mnożnik x16% obrażeń z upływem czasu
+                        """
+        );
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(1, form.getAffixes().size());
+        assertAffixWithoutRange(form, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d);
+    }
+
+    @Test
     void shouldRenderAllVerathielPresentationAffixesInManualVerification() {
         ItemImageImportCandidateParseResult result = parser.parse(
                 new ItemImageMetadata("verathiel-confirmation.png", "image/png", "PNG", 447, 736),
@@ -1143,6 +1269,19 @@ class ItemImageImportTextParserTest {
         assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
         assertEquals(expectedRangeMin, affix.getRollRangeMin(), 0.0001d, expectedType.getDisplayName());
         assertEquals(expectedRangeMax, affix.getRollRangeMax(), 0.0001d, expectedType.getDisplayName());
+        assertFalse(affix.isGreaterAffix(), expectedType.getDisplayName());
+    }
+
+    private static void assertAffixWithoutRange(ItemImportEditableForm form,
+                                                ImportedItemAffixType expectedType,
+                                                double expectedValue) {
+        ImportedItemAffix affix = form.getAffixes().stream()
+                .filter(candidate -> candidate.getType() == expectedType)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Brak affixu: " + expectedType.getDisplayName()));
+        assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
+        assertNull(affix.getRollRangeMin(), expectedType.getDisplayName());
+        assertNull(affix.getRollRangeMax(), expectedType.getDisplayName());
         assertFalse(affix.isGreaterAffix(), expectedType.getDisplayName());
     }
 

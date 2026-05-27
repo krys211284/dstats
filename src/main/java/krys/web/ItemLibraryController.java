@@ -273,7 +273,7 @@ public final class ItemLibraryController implements HttpHandler {
             case BLOCK_CHANCE, RETRIBUTION_CHANCE, CRITICAL_STRIKE_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
                  MOVEMENT_SPEED, DODGE_CHANCE, DAMAGE_REDUCTION, DAMAGE_OVER_TIME_MULTIPLIER -> "%";
             case STRENGTH, INTELLIGENCE, THORNS, WEAPON_DAMAGE_FLAT, MAXIMUM_LIFE, LIFE_ON_HIT, LIFE_ON_KILL,
-                 LUCKY_HIT_PRIMARY_RESOURCE, ALL_RESISTANCE, FIRE_RESISTANCE -> "";
+                 LUCKY_HIT_PRIMARY_RESOURCE, ALL_RESISTANCE, FIRE_RESISTANCE, CORE_SKILL_RANKS -> "";
         };
         affixes.add(new ImportedItemAffix(type, value, unit, false, affixes.size(), "", ImportedItemAffixSource.MANUAL));
     }

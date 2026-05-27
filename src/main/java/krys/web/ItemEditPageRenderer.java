@@ -202,6 +202,7 @@ final class ItemEditPageRenderer {
                 renderSlotSelect(form.getSlot()),
                 renderRaritySelect(form.getItemRarity()),
                 renderAncientCheckbox(form.isAncient()),
+                renderMythicUniqueCheckbox(form.isMythicUnique()),
                 renderNumberField("itemPower", "Moc przedmiotu", form.getItemPower(), "1"),
                 renderItemTypeFieldSet(form),
                 renderAspectSelect(form),
@@ -278,6 +279,15 @@ final class ItemEditPageRenderer {
                     <input type="checkbox" name="isAncient" value="true"%s> Ancient / starożytny
                 </label>
                 """.formatted(ancient ? " checked" : "");
+    }
+
+    private static String renderMythicUniqueCheckbox(boolean mythicUnique) {
+        return """
+                <label class="checkbox-label">
+                    <input type="hidden" name="isMythicUniqueSubmitted" value="true">
+                    <input type="checkbox" name="isMythicUnique" value="true"%s> Mityczny unikat
+                </label>
+                """.formatted(mythicUnique ? " checked" : "");
     }
 
     private static String renderItemTypeFieldSet(ItemImportEditableForm form) {
@@ -435,10 +445,11 @@ final class ItemEditPageRenderer {
                             <input type="hidden" name="affixDefinitionId_%s" value="%s">
                             <input type="hidden" name="affixRangeMin_%s" value="%s">
                             <input type="hidden" name="affixRangeMax_%s" value="%s">
+                            <input type="hidden" name="affixReferenceValue_%s" value="%s">
                             <input type="hidden" name="affixDisplayValue_%s" value="%s">
                         </td>
                         <td class="affix-value-cell">%s<label class="masterworking-source-value-field">%s</label></td>
-                        <td class="affix-range-cell">%s</td>
+                        <td class="affix-range-cell">%s%s</td>
                         <td class="affix-greater-cell"><label class="checkbox-label"><input type="checkbox" name="affixGreater_%s" value="true"%s> Gwiazdka</label></td>
                         <td class="affix-action-cell"><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
                     </tr>
@@ -460,10 +471,13 @@ final class ItemEditPageRenderer {
                     index,
                     affix.getRollRangeMax() == null ? "" : formatDecimal(affix.getRollRangeMax()),
                     index,
+                    affix.getReferenceValue() == null ? "" : formatDecimal(affix.getReferenceValue()),
+                    index,
                     escapeHtml(affix.getDisplayValue()),
                     MasterworkingSectionRenderer.renderAffixEditorHint(form.getMasterworking(), affix),
                     renderAffixValueControl(index, affix),
                     escapeHtml(rollRangeLabel(affix)),
+                    referenceValueLabel(affix),
                     index,
                     affix.isGreaterAffix() ? " checked" : ""
             ));
@@ -508,7 +522,7 @@ final class ItemEditPageRenderer {
                     </div>
                     <template id="affixRowTemplate">
                         <tr>
-                            <td class="affix-type-cell"><select name="affixType___INDEX__">%s</select><input type="hidden" name="affixSourceText___INDEX__" value=""><input type="hidden" name="affixSource___INDEX__" value="MANUAL"><input type="hidden" name="affixOriginalType___INDEX__" value=""><input type="hidden" name="affixOriginalValue___INDEX__" value=""><input type="hidden" name="affixDefinitionId___INDEX__" value=""><input type="hidden" name="affixRangeMin___INDEX__" value=""><input type="hidden" name="affixRangeMax___INDEX__" value=""><input type="hidden" name="affixDisplayValue___INDEX__" value=""></td>
+                            <td class="affix-type-cell"><select name="affixType___INDEX__">%s</select><input type="hidden" name="affixSourceText___INDEX__" value=""><input type="hidden" name="affixSource___INDEX__" value="MANUAL"><input type="hidden" name="affixOriginalType___INDEX__" value=""><input type="hidden" name="affixOriginalValue___INDEX__" value=""><input type="hidden" name="affixDefinitionId___INDEX__" value=""><input type="hidden" name="affixRangeMin___INDEX__" value=""><input type="hidden" name="affixRangeMax___INDEX__" value=""><input type="hidden" name="affixReferenceValue___INDEX__" value=""><input type="hidden" name="affixDisplayValue___INDEX__" value=""></td>
                             <td class="affix-value-cell"><input type="number" min="0" step="0.01" name="affixValue___INDEX__" value="__VALUE__"></td>
                             <td class="affix-range-cell"><span class="helper">Brak zakresu</span></td>
                             <td class="affix-greater-cell"><label class="checkbox-label"><input type="checkbox" name="affixGreater___INDEX__" value="true"> Gwiazdka</label></td>
@@ -537,7 +551,7 @@ final class ItemEditPageRenderer {
                     if (!rows || !count) return;
                     const renumberRows = () => {
                         Array.from(rows.querySelectorAll('tr')).forEach((row, index) => {
-                            row.querySelectorAll('select[name^="affixType_"], input[name^="affixValue_"], input[name^="affixGreater_"], input[name^="affixSourceText_"], input[name^="affixSource_"], input[name^="affixOriginalType_"], input[name^="affixOriginalValue_"], input[name^="affixDefinitionId_"], input[name^="affixRangeMin_"], input[name^="affixRangeMax_"], input[name^="affixDisplayValue_"]').forEach(control => {
+                            row.querySelectorAll('select[name^="affixType_"], input[name^="affixValue_"], input[name^="affixGreater_"], input[name^="affixSourceText_"], input[name^="affixSource_"], input[name^="affixOriginalType_"], input[name^="affixOriginalValue_"], input[name^="affixDefinitionId_"], input[name^="affixRangeMin_"], input[name^="affixRangeMax_"], input[name^="affixReferenceValue_"], input[name^="affixDisplayValue_"]').forEach(control => {
                                 const base = control.name.substring(0, control.name.lastIndexOf('_'));
                                 control.name = `${base}_${index}`;
                             });
@@ -704,6 +718,13 @@ final class ItemEditPageRenderer {
         }
         String value = affix == null ? "" : affix.getRollRangeLabel();
         return value == null || value.isBlank() ? "Brak zakresu" : value;
+    }
+
+    private static String referenceValueLabel(ImportedItemAffix affix) {
+        if (affix == null || affix.getReferenceValue() == null) {
+            return "";
+        }
+        return "<div class=\"helper\">Wartość bazowa: " + escapeHtml(affix.getReferenceValueLabel()) + "</div>";
     }
 
     private static String emptyNumberLabel(String value) {

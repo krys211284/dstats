@@ -15,8 +15,8 @@ import java.util.regex.Pattern;
 /** Scala wyniki z wielu wariantów OCR w jeden deterministyczny candidate parse result. */
 final class ItemImageImportCandidateMerger {
     private static final Pattern ROLL_RANGE_PATTERN = Pattern.compile(
-            "\\[\\s*\\+?\\s*[0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?"
-                    + "(?:\\s*[-–—−]\\s*\\+?\\s*[0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?)?"
+            "\\[\\s*\\+?\\s*([0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?)"
+                    + "(?:\\s*[-–—−]\\s*\\+?\\s*([0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?))?"
                     + "\\s*]\\s*%?"
     );
 
@@ -141,7 +141,21 @@ final class ItemImageImportCandidateMerger {
     }
 
     private static boolean hasActualRollRange(String text) {
-        return ROLL_RANGE_PATTERN.matcher(text == null ? "" : text).find();
+        Matcher matcher = ROLL_RANGE_PATTERN.matcher(text == null ? "" : text);
+        if (!matcher.find()) {
+            return false;
+        }
+        double min = parseRollRangeNumber(matcher.group(1));
+        double max = matcher.group(2) == null ? min : parseRollRangeNumber(matcher.group(2));
+        return min <= max;
+    }
+
+    private static double parseRollRangeNumber(String token) {
+        try {
+            return Double.parseDouble((token == null ? "" : token).replace(" ", "").replace(',', '.'));
+        } catch (NumberFormatException exception) {
+            return Double.NaN;
+        }
     }
 
     private static ItemImportDetails mergeDetails(ItemImportDetails rebuiltDetails, List<ItemImportDetails> sourceDetails) {
@@ -168,8 +182,18 @@ final class ItemImageImportCandidateMerger {
                 firstLong(details, DetailLongField.AVERAGE_WEAPON_DAMAGE),
                 firstDouble(details),
                 firstLong(details, DetailLongField.ITEM_ARMOR),
-                firstText(details, DetailTextField.UNIQUE_EFFECT_TEXT)
+                firstText(details, DetailTextField.UNIQUE_EFFECT_TEXT),
+                firstMythicUnique(details, safeRebuiltDetails.isMythicUnique())
         );
+    }
+
+    private static boolean firstMythicUnique(List<ItemImportDetails> details, boolean fallback) {
+        for (ItemImportDetails detail : details) {
+            if (detail.isMythicUnique()) {
+                return true;
+            }
+        }
+        return fallback;
     }
 
     private static String firstText(List<ItemImportDetails> details, DetailTextField field) {

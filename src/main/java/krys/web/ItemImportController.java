@@ -352,7 +352,8 @@ public final class ItemImportController implements HttpHandler {
                 parseNullableLong(fields.get("averageWeaponDamage")),
                 parseNullableDouble(fields.get("attacksPerSecond")),
                 parseNullableLong(fields.get("itemArmor")),
-                fields.getOrDefault("uniqueEffectText", "")
+                fields.getOrDefault("uniqueEffectText", ""),
+                "true".equals(fields.get("isMythicUnique"))
         );
     }
 
@@ -379,16 +380,18 @@ public final class ItemImportController implements HttpHandler {
         String affixDefinitionId = fields.getOrDefault("affixDefinitionId_" + index, "");
         Double rollRangeMin = parseNullableDouble(fields.get("affixRangeMin_" + index));
         Double rollRangeMax = parseNullableDouble(fields.get("affixRangeMax_" + index));
+        Double referenceValue = parseNullableDouble(fields.get("affixReferenceValue_" + index));
         String displayValue = fields.getOrDefault("affixDisplayValue_" + index, "");
         if (!typeValue.equals(originalType) || !normalizeNumber(value).equals(normalizeNumber(originalValue))) {
             sourceText = "";
             affixDefinitionId = "";
             rollRangeMin = null;
             rollRangeMax = null;
+            referenceValue = null;
             displayValue = "";
         }
         return parseAffix(typeValue, value, greaterAffix, sourceText, index, ImportedItemAffixSource.CORRECTED,
-                affixDefinitionId, rollRangeMin, rollRangeMax, displayValue, errors);
+                affixDefinitionId, rollRangeMin, rollRangeMax, referenceValue, displayValue, errors);
     }
 
     private static java.util.Optional<ImportedItemAffix> parseNewAffix(Map<String, String> fields, List<String> errors) {
@@ -400,6 +403,7 @@ public final class ItemImportController implements HttpHandler {
                 parseAffixCount(fields.get("affixCount")),
                 ImportedItemAffixSource.MANUAL,
                 "",
+                null,
                 null,
                 null,
                 "",
@@ -416,6 +420,7 @@ public final class ItemImportController implements HttpHandler {
                                                                      String affixDefinitionId,
                                                                      Double rollRangeMin,
                                                                      Double rollRangeMax,
+                                                                     Double referenceValue,
                                                                      String displayValue,
                                                                      List<String> errors) {
         boolean missingType = rawType == null || rawType.isBlank();
@@ -439,7 +444,8 @@ public final class ItemImportController implements HttpHandler {
                 return java.util.Optional.empty();
             }
             return java.util.Optional.of(new ImportedItemAffix(type, value, defaultUnit(type), greaterAffix,
-                    displayOrder, sourceText, source, affixDefinitionId, rollRangeMin, rollRangeMax, displayValue));
+                    displayOrder, sourceText, source, affixDefinitionId, rollRangeMin, rollRangeMax,
+                    referenceValue, displayValue));
         } catch (IllegalArgumentException exception) {
             errors.add("Affix #" + (displayOrder + 1) + ": affix ma niepoprawny typ albo wartość.");
             return java.util.Optional.empty();
@@ -462,7 +468,7 @@ public final class ItemImportController implements HttpHandler {
             case BLOCK_CHANCE, RETRIBUTION_CHANCE, CRITICAL_STRIKE_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
                  MOVEMENT_SPEED, DODGE_CHANCE, DAMAGE_REDUCTION, DAMAGE_OVER_TIME_MULTIPLIER -> "%";
             case STRENGTH, INTELLIGENCE, THORNS, WEAPON_DAMAGE_FLAT, MAXIMUM_LIFE, LIFE_ON_HIT, LIFE_ON_KILL,
-                 LUCKY_HIT_PRIMARY_RESOURCE, ALL_RESISTANCE, FIRE_RESISTANCE -> "";
+                 LUCKY_HIT_PRIMARY_RESOURCE, ALL_RESISTANCE, FIRE_RESISTANCE, CORE_SKILL_RANKS -> "";
         };
     }
 

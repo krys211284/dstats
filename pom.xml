@@ -2,11 +2,13 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>krys</groupId>
     <artifactId>dstats</artifactId>
     <version>0.1.0-SNAPSHOT</version>
+
     <name>Diablo 4 DPS Engine</name>
     <description>Minimalny foundation projektu Diablo 4 DPS Engine / Build WebApp</description>
 
@@ -27,6 +29,28 @@
 
     <build>
         <plugins>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.6.1</version>
+                <executions>
+                    <execution>
+                        <id>set-build-date</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>timestamp-property</goal>
+                        </goals>
+                        <configuration>
+                            <name>build.date</name>
+                            <pattern>yyyy-MM-dd-HH-mm</pattern>
+                            <timeZone>Europe/Warsaw</timeZone>
+                            <timeSource>current</timeSource>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -35,6 +59,54 @@
                     <useModulePath>false</useModulePath>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.8.0</version>
+                <configuration>
+                    <finalName>${project.artifactId}-${build.date}</finalName>
+                    <appendAssemblyId>false</appendAssemblyId>
+
+                    <inlineDescriptors>
+                        <inlineDescriptor>
+                            <id>package</id>
+
+                            <formats>
+                                <format>zip</format>
+                            </formats>
+
+                            <includeBaseDirectory>true</includeBaseDirectory>
+
+                            <fileSets>
+                                <fileSet>
+                                    <directory>${project.basedir}</directory>
+                                    <outputDirectory>/</outputDirectory>
+                                    <useDefaultExcludes>true</useDefaultExcludes>
+                                    <excludes>
+                                        <exclude>target/**</exclude>
+                                        <exclude>.git/**</exclude>
+                                        <exclude>.idea/**</exclude>
+                                        <exclude>*.iml</exclude>
+                                    </excludes>
+                                </fileSet>
+                            </fileSets>
+                        </inlineDescriptor>
+                    </inlineDescriptors>
+                </configuration>
+
+                <executions>
+                    <execution>
+                        <id>make-zip-package</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
     </build>
+
 </project>

@@ -6,6 +6,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Testuje rozpoznawanie strukturalnych affixów z pełnego odczytu OCR itemu. */
@@ -39,6 +40,48 @@ class ImportedItemAffixExtractorTest {
     void shouldNotRecognizeGreaterAffixWhenDamagedRollRangeFragmentIsPresent() {
         assertNotGreaterAffix("+7,0% szansy na szczęśliwy traf [7,0", FullItemReadLineType.AFFIX);
         assertNotGreaterAffix("+114 siły [107", FullItemReadLineType.AFFIX);
+    }
+
+    @Test
+    void shouldRecognizeSingleValueRollRangesAndGreaterAffixFromDisplayedValue() {
+        ImportedItemAffix criticalChance = extractSingle("+15,0% szansy na trafienie krytyczne [12,0]%", FullItemReadLineType.AFFIX);
+        ImportedItemAffix luckyHit = extractSingle("+25,0% szansy na szczęśliwy traf [20,0]%", FullItemReadLineType.AFFIX);
+        ImportedItemAffix movementSpeed = extractSingle("+25% szybkości ruchu [20]%", FullItemReadLineType.AFFIX);
+        ImportedItemAffix coreRanks = extractSingle("+3 do umiejętności: Główne [3]", FullItemReadLineType.AFFIX);
+
+        assertEquals(ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, criticalChance.getType());
+        assertEquals(15.0d, criticalChance.getValue(), 0.0001d);
+        assertEquals(12.0d, criticalChance.getRollRangeMin(), 0.0001d);
+        assertEquals(12.0d, criticalChance.getRollRangeMax(), 0.0001d);
+        assertTrue(criticalChance.isGreaterAffix());
+        assertEquals(ImportedItemAffixType.LUCKY_HIT_CHANCE, luckyHit.getType());
+        assertEquals(25.0d, luckyHit.getValue(), 0.0001d);
+        assertEquals(20.0d, luckyHit.getRollRangeMin(), 0.0001d);
+        assertEquals(20.0d, luckyHit.getRollRangeMax(), 0.0001d);
+        assertTrue(luckyHit.isGreaterAffix());
+        assertEquals(ImportedItemAffixType.MOVEMENT_SPEED, movementSpeed.getType());
+        assertEquals(25.0d, movementSpeed.getValue(), 0.0001d);
+        assertEquals(20.0d, movementSpeed.getRollRangeMin(), 0.0001d);
+        assertEquals(20.0d, movementSpeed.getRollRangeMax(), 0.0001d);
+        assertTrue(movementSpeed.isGreaterAffix());
+        assertEquals(ImportedItemAffixType.CORE_SKILL_RANKS, coreRanks.getType());
+        assertEquals(3.0d, coreRanks.getValue(), 0.0001d);
+        assertEquals(3.0d, coreRanks.getRollRangeMin(), 0.0001d);
+        assertEquals(3.0d, coreRanks.getRollRangeMax(), 0.0001d);
+        assertFalse(coreRanks.isGreaterAffix());
+    }
+
+    @Test
+    void shouldTreatMythicSingleValueBracketsAsReferenceValuesWithoutGreaterAffix() {
+        ImportedItemAffix criticalChance = extractSingleMythic("+15,0% szansy na trafienie krytyczne [12,0]%", FullItemReadLineType.AFFIX);
+        ImportedItemAffix luckyHit = extractSingleMythic("+25,0% szansy na szczęśliwy traf [20,0]%", FullItemReadLineType.AFFIX);
+        ImportedItemAffix movementSpeed = extractSingleMythic("+25% szybkości ruchu [20]%", FullItemReadLineType.AFFIX);
+        ImportedItemAffix coreRanks = extractSingleMythic("+3 do umiejętności: Główne [3]", FullItemReadLineType.AFFIX);
+
+        assertMythicReferenceAffix(criticalChance, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, 12.0d);
+        assertMythicReferenceAffix(luckyHit, ImportedItemAffixType.LUCKY_HIT_CHANCE, 25.0d, 20.0d);
+        assertMythicReferenceAffix(movementSpeed, ImportedItemAffixType.MOVEMENT_SPEED, 25.0d, 20.0d);
+        assertMythicReferenceAffix(coreRanks, ImportedItemAffixType.CORE_SKILL_RANKS, 3.0d, 3.0d);
     }
 
     @Test
@@ -85,12 +128,9 @@ class ImportedItemAffixExtractorTest {
     }
 
     @Test
-    void shouldRepairVerathielLifeOnHitRangeFromDamagedOcrUsingCatalogContext() {
+    void shouldKeepVerathielLifeOnHitRangeOnlyWhenOcrContainsParsedRange() {
         for (String sourceLine : List.of(
                 "+545 pkt. zdrowia przy trafieniu [526 - 632]",
-                "+545 pkt. zdrowia przy trafieniu [5 - 632]",
-                "+545 pkt. zdrowia przy trafieniu [632]",
-                "+545 pkt. zdrowia przy trafieniu 526 632",
                 "+545 pkt. zdrowia przy trafieniu [526 – 632]"
         )) {
             ImportedItemAffix affix = extractSingleVerathiel(sourceLine);
@@ -99,6 +139,23 @@ class ImportedItemAffixExtractorTest {
             assertEquals(545.0d, affix.getValue(), sourceLine);
             assertEquals(526.0d, affix.getRollRangeMin(), sourceLine);
             assertEquals(632.0d, affix.getRollRangeMax(), sourceLine);
+        }
+    }
+
+    @Test
+    void shouldNotFillVerathielLifeOnHitRangeFromCatalogWhenOcrRangeIsMissingOrSingleBoundary() {
+        for (String sourceLine : List.of(
+                "+545 pkt. zdrowia przy trafieniu [632]",
+                "+545 pkt. zdrowia przy trafieniu 526 632",
+                "+545 pkt. zdrowia przy trafieniu 526",
+                "+545 pkt. zdrowia przy trafieniu 632"
+        )) {
+            ImportedItemAffix affix = extractSingleVerathiel(sourceLine);
+
+            assertEquals(ImportedItemAffixType.LIFE_ON_HIT, affix.getType(), sourceLine);
+            assertEquals(545.0d, affix.getValue(), sourceLine);
+            assertEquals(null, affix.getRollRangeMin(), sourceLine);
+            assertEquals(null, affix.getRollRangeMax(), sourceLine);
         }
     }
 
@@ -203,6 +260,33 @@ class ImportedItemAffixExtractorTest {
         List<ImportedItemAffix> affixes = extract(text, type);
         assertEquals(1, affixes.size(), text);
         return affixes.getFirst();
+    }
+
+    private ImportedItemAffix extractSingleMythic(String text, FullItemReadLineType type) {
+        List<ImportedItemAffix> affixes = extractor.extractEditableAffixes(new FullItemRead(
+                "Dziedzic Zatracenia",
+                "Starożytny mityczny unikatowy hełm",
+                "UNIQUE",
+                "900 mocy przedmiotu",
+                "2 004 pkt. pancerza",
+                List.of(new FullItemReadLine(type, text)),
+                new ItemImportDetails("Dziedzic Zatracenia", "Hełm", "UNIQUE", true, krys.item.EquipmentSlot.HELMET,
+                        900L, null, null, null, null, null, 2004L, "", true)
+        ));
+        assertEquals(1, affixes.size(), text);
+        return affixes.getFirst();
+    }
+
+    private static void assertMythicReferenceAffix(ImportedItemAffix affix,
+                                                   ImportedItemAffixType expectedType,
+                                                   double expectedValue,
+                                                   double expectedReferenceValue) {
+        assertEquals(expectedType, affix.getType());
+        assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
+        assertEquals(expectedReferenceValue, affix.getReferenceValue(), 0.0001d, expectedType.getDisplayName());
+        assertNull(affix.getRollRangeMin(), expectedType.getDisplayName());
+        assertNull(affix.getRollRangeMax(), expectedType.getDisplayName());
+        assertFalse(affix.isGreaterAffix(), expectedType.getDisplayName());
     }
 
     private List<ImportedItemAffix> extract(String text, FullItemReadLineType type) {

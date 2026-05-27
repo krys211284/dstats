@@ -28,6 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SplittableRandom;
 
 /**
  * Tickowa ręczna symulacja dla M7.
@@ -77,6 +78,8 @@ public final class ManualSimulationService {
         int molochBuffExpiresAtSecond = 0;
         int molochBuffActivationCount = 0;
         double totalClashAnimusGenerated = 0.0d;
+        double criticalChancePercent = clampCriticalChance(snapshot.getCriticalChancePercent());
+        SplittableRandom criticalRollRandom = new SplittableRandom(snapshot.getSimulationSeed());
 
         for (int second = 1; second <= horizonSeconds; second++) {
             double primaryResourceBefore = currentPrimaryResource;
@@ -129,7 +132,11 @@ public final class ManualSimulationService {
             }
 
             SkillSelectionResult selectionResult = selectSkillForTick(snapshot, second, lastUsedSeconds, cooldownState, primaryResourceBefore);
-            long directDamage = 0L;
+            long normalDirectDamage = 0L;
+            long criticalDirectDamage = 0L;
+            double criticalRollPercent = Double.NaN;
+            boolean criticalHit = false;
+            long appliedDirectDamage = 0L;
             SimulationActionType actionType = SimulationActionType.WAIT;
             String actionName = "WAIT";
             double primaryResourceCost = 0.0d;
@@ -169,8 +176,12 @@ public final class ManualSimulationService {
                         activeTargetStatuses,
                         molochMultiplier
                 );
-                directDamage = directHitBreakdown.getFinalDamage();
-                totalDamage += directDamage;
+                normalDirectDamage = directHitBreakdown.getFinalDamage();
+                criticalDirectDamage = directHitBreakdown.getCriticalDamage();
+                criticalRollPercent = criticalRollRandom.nextDouble(100.0d);
+                criticalHit = criticalRollPercent < criticalChancePercent;
+                appliedDirectDamage = criticalHit ? criticalDirectDamage : normalDirectDamage;
+                totalDamage += appliedDirectDamage;
                 lastUsedSeconds.put(selectionResult.selectedSkillId, second);
                 directHitDebugBySkill.putIfAbsent(
                         selectionResult.selectedSkillId,
@@ -222,13 +233,18 @@ public final class ManualSimulationService {
                 totalClashAnimusGenerated += animusGenerated;
             }
 
-            long totalStepDamage = delayedDamage + reactiveDamage + directDamage;
+            long totalStepDamage = delayedDamage + reactiveDamage + appliedDirectDamage;
             boolean molochBuffActiveInStep = molochRuntimeActive && second <= molochBuffExpiresAtSecond;
             stepTrace.add(new SimulationStepTrace(
                     second,
                     actionType,
                     actionName,
-                    directDamage,
+                    normalDirectDamage,
+                    criticalDirectDamage,
+                    criticalChancePercent,
+                    criticalRollPercent,
+                    criticalHit,
+                    appliedDirectDamage,
                     delayedDamage,
                     reactiveDamage,
                     totalStepDamage,
@@ -490,6 +506,10 @@ public final class ManualSimulationService {
 
     private static double clampResource(double value, double maxPrimaryResource) {
         return Math.max(0.0d, Math.min(value, maxPrimaryResource));
+    }
+
+    private static double clampCriticalChance(double value) {
+        return Math.max(0.0d, Math.min(value, 100.0d));
     }
 
     private static double clampAnimus(double value, double maxAnimus, double minAnimus) {

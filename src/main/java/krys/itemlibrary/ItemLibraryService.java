@@ -218,6 +218,7 @@ public final class ItemLibraryService {
         double thorns = 0.0d;
         double blockChance = 0.0d;
         double retributionChance = 0.0d;
+        double criticalChancePercent = 0.0d;
         for (HeroSlotItemAssignment assignment : items) {
             ImportedItemCurrentBuildContribution contribution = contributionMapper.map(assignment.getItem());
             weaponDamage += contribution.getWeaponDamage();
@@ -226,6 +227,7 @@ public final class ItemLibraryService {
             thorns += contribution.getThorns();
             blockChance += contribution.getBlockChance();
             retributionChance += contribution.getRetributionChance();
+            criticalChancePercent += contribution.getCriticalChancePercent();
         }
         return new CurrentBuildImportableStats(
                 weaponDamage,
@@ -233,7 +235,8 @@ public final class ItemLibraryService {
                 intelligence,
                 thorns,
                 blockChance,
-                retributionChance
+                retributionChance,
+                criticalChancePercent
         );
     }
 
@@ -252,6 +255,7 @@ public final class ItemLibraryService {
         double thorns = 0.0d;
         double blockChance = 0.0d;
         double retributionChance = 0.0d;
+        double criticalChancePercent = 0.0d;
         long itemArmor = 0L;
         double fireResistance = 0.0d;
         double allResistance = 0.0d;
@@ -270,6 +274,7 @@ public final class ItemLibraryService {
             thorns += contribution.getThorns();
             blockChance += contribution.getBlockChance();
             retributionChance += contribution.getRetributionChance();
+            criticalChancePercent += contribution.getCriticalChancePercent();
             if (item.getItemArmor() != null && item.getItemArmor() > 0L) {
                 itemArmor += masterworkingValueResolver.resolveArmor(item.getItemArmor(), item.getMasterworking());
             }
@@ -320,6 +325,9 @@ public final class ItemLibraryService {
                     damageReduction += masterworkingValueResolver.resolveAffixValue(affix, item.getMasterworking());
                     descriptiveAffixes.add(formattedAffix);
                     statisticalAffixes.add(formattedAffix);
+                } else if (affix.getType() == ImportedItemAffixType.CRITICAL_STRIKE_CHANCE) {
+                    descriptiveAffixes.add(formattedAffix);
+                    statisticalAffixes.add(formattedAffix);
                 } else if (isScalarPresentationAffix(affix.getType())) {
                     descriptiveAffixes.add(formattedAffix);
                     statisticalAffixes.add(formattedAffix);
@@ -350,6 +358,7 @@ public final class ItemLibraryService {
                 thorns,
                 blockChance,
                 retributionChance,
+                criticalChancePercent,
                 itemArmor,
                 fireResistance,
                 allResistance,
@@ -411,7 +420,8 @@ public final class ItemLibraryService {
                         contribution.getIntelligence(),
                         contribution.getThorns(),
                         contribution.getBlockChance(),
-                        contribution.getRetributionChance()
+                        contribution.getRetributionChance(),
+                        contribution.getCriticalChancePercent()
                 ),
                 krys.itemimport.CurrentBuildItemApplicationMode.ADD_CONTRIBUTION
         );

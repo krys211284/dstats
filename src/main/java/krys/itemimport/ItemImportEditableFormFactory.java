@@ -235,7 +235,7 @@ public final class ItemImportEditableFormFactory {
             }
         }
         double displayedValue = Double.parseDouble(matcher.group(1).replace(',', '.'));
-        if (displayedValue < 75.0d || displayedValue > 100.0d) {
+        if (displayedValue < 75.0d || displayedValue > 125.0d) {
             return Optional.empty();
         }
         return Optional.of(displayedValue);

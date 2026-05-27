@@ -3,13 +3,18 @@ package krys.itemimport;
 /** Mapuje zatwierdzony item do agregowanych pól aktualnego modelu buildu. */
 public final class ImportedItemCurrentBuildContributionMapper {
     public ImportedItemCurrentBuildContribution map(ValidatedImportedItem importedItem) {
+        double criticalChancePercent = importedItem.getAffixes().stream()
+                .filter(affix -> affix.getType() == ImportedItemAffixType.CRITICAL_STRIKE_CHANCE)
+                .mapToDouble(ImportedItemAffix::getValue)
+                .sum();
         return new ImportedItemCurrentBuildContribution(
                 importedItem.getWeaponDamage(),
                 importedItem.getStrength(),
                 importedItem.getIntelligence(),
                 importedItem.getThorns(),
                 importedItem.getBlockChance(),
-                importedItem.getRetributionChance()
+                importedItem.getRetributionChance(),
+                criticalChancePercent
         );
     }
 }

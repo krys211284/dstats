@@ -87,4 +87,65 @@ final class ItemImportTextFixtures {
                 + "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100]%, "
                 + "ale dodatkowo zużywają 25 pkt. podstawowego zasobu.";
     }
+
+    static String heirOfPerditionTopText() {
+        return """
+                DZIEDZIC
+                ZATRACENIA
+                Starożytny mityczny
+                unikatowy hełm
+                Moc przedmiotu: 900
+                25 (* +25) jakości
+                Rynsztunek w Zbrojowni
+                Przeistoczony
+                2 004 pkt. pancerza
+                (Wytrzymałość: +32,8%)
+                +15,0% szansy na trafienie
+                krytyczne [12,0]%
+                +25,0% szansy na szczęśliwy traf
+                [20,0]%
+                +25% szybkości ruchu [20]%
+                +3 do umiejętności: Główne [3]
+                +115 pkt. do wszystkich
+                współczynników +[75 - 100]
+                +12 do maksymalnej liczby
+                kumulacji Animuszu
+                Poddaj się nienawiści i doświadcz
+                Łaski Matki, która zwiększy
+                zadawane przez ciebie obrażenia o
+                80%[x]. Zabijaj wrogów, aby na
+                chwilę ukraść pobliskim
+                sojusznikom efekt Łaski Matki.
+                Puste gniazdo
+                """;
+    }
+
+    static String heirOfPerditionBottomText() {
+        return """
+                Przewiń do góry
+                +25,0% szansy na szczęśliwy traf
+                [20,0]%
+                +25% szybkości ruchu [20]%
+                +3 do umiejętności: Główne [3]
+                +115 pkt. do wszystkich
+                współczynników +[75 - 100]
+                +12 do maksymalnej liczby
+                kumulacji Animuszu
+                Poddaj się nienawiści i doświadcz
+                Łaski Matki, która zwiększy
+                zadawane przez ciebie obrażenia o
+                80%[x]. Zabijaj wrogów, aby na
+                chwilę ukraść pobliskim
+                sojusznikom efekt Łaski Matki.
+                Puste gniazdo
+                Puste gniazdo
+                Wymaga 70 poziomu
+                Przypisano do konta
+                Unikatowe wyposażenie
+                Przedmiot z dodatku Lord of Hatred
+                Brak możliwości modyfikacji
+                Wartość sprzedaży: 115 350
+                Trwałość: 70/100
+                """;
+    }
 }

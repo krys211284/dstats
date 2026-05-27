@@ -291,6 +291,10 @@ public final class ItemImportEditableForm {
         return details.isAncient();
     }
 
+    public boolean isMythicUnique() {
+        return details.isMythicUnique();
+    }
+
     public String getItemPower() {
         return details.getItemPower() == null ? "" : Long.toString(details.getItemPower());
     }

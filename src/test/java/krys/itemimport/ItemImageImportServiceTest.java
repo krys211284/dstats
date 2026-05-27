@@ -1,7 +1,9 @@
 package krys.itemimport;
 
-import krys.item.HeroEquipmentSlot;
 import krys.hero.HeroClass;
+import krys.item.EquipmentSlot;
+import krys.item.HeroEquipmentSlot;
+import krys.itemlibrary.EffectiveCurrentBuildResolution;
 import krys.itemlibrary.FileItemLibraryRepository;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
@@ -36,6 +38,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static krys.itemimport.ItemImportTextFixtures.realShieldBottomText;
 import static krys.itemimport.ItemImportTextFixtures.realShieldTopText;
+import static krys.itemimport.ItemImportTextFixtures.heirOfPerditionBottomText;
+import static krys.itemimport.ItemImportTextFixtures.heirOfPerditionTopText;
 import static krys.itemimport.ItemImportTextFixtures.stormMoonShieldBottomText;
 import static krys.itemimport.ItemImportTextFixtures.stormMoonShieldTopText;
 import static krys.itemimport.ItemImportTextFixtures.verathielCondensedTextWithDamagedRollRanges;
@@ -117,6 +121,94 @@ class ItemImageImportServiceTest {
         assertEquals("defense_max_animus", form.getMasterworking().getPerfectedAffix().getKey());
         assertEquals("ALL_STATS", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
         assertEquals(96.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue());
+    }
+
+    @Test
+    void shouldImportHeirOfPerditionHelmetFromTwoRealImageFixturesWithSingleValueRanges() throws Exception {
+        byte[] topImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-1.png"));
+        byte[] bottomImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-2.png"));
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new QueuedOcrTextReader(List.of(
+                        heirOfPerditionTopText(),
+                        heirOfPerditionBottomText()
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(List.of(
+                new ItemImageImportRequest("dziedzic-zatracenia-helm-1.png", "image/png", topImageBytes),
+                new ItemImageImportRequest("dziedzic-zatracenia-helm-2.png", "image/png", bottomImageBytes)
+        ));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(EquipmentSlot.HELMET, result.getSlotCandidate().getSuggestedValue());
+        assertEquals("Dziedzic Zatracenia", form.getItemName());
+        assertEquals("Hełm", form.getItemType());
+        assertEquals("UNIQUE", form.getItemRarity());
+        assertTrue(form.isMythicUnique());
+        assertEquals("900", form.getItemPower());
+        assertEquals("2004", form.getItemArmor());
+        assertEquals(25, form.getMasterworking().getQualityCurrent());
+        assertEquals(4, form.getAffixes().size());
+        assertAffixValueReferenceNoRange(form, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, 12.0d);
+        assertAffixValueReferenceNoRange(form, ImportedItemAffixType.LUCKY_HIT_CHANCE, 25.0d, 20.0d);
+        assertAffixValueReferenceNoRange(form, ImportedItemAffixType.MOVEMENT_SPEED, 25.0d, 20.0d);
+        assertAffixValueReferenceNoRange(form, ImportedItemAffixType.CORE_SKILL_RANKS, 3.0d, 3.0d);
+        assertEquals("ALL_STATS", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(115.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0001d);
+        assertEquals(1, form.getTemperingAffixes().size());
+        assertEquals("defense_max_animus", form.getTemperingAffixes().get(0).getDefinitionId());
+        assertEquals(5.0d, form.getTemperingAffixes().get(0).getValue(), 0.0001d);
+        assertTrue(form.getTemperingAffixes().get(0).isGreaterAffix());
+        assertEquals("defense_max_animus", form.getMasterworking().getPerfectedAffix().getKey());
+        assertEquals("heir_of_perdition", form.getSelectedAspectId());
+        assertTrue(form.getUniqueEffectText().contains("Łaski Matki"));
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                result,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "Import testowy",
+                ""
+        ));
+        String critRow = affixRow(html, "Szansa na trafienie krytyczne");
+        String luckyRow = affixRow(html, "Szansa na szczęśliwy traf");
+        String moveRow = affixRow(html, "Szybkość ruchu");
+        String ranksRow = affixRow(html, "Rangi umiejętności: Główne");
+        assertTrue(critRow.contains("Brak zakresu"), critRow);
+        assertTrue(luckyRow.contains("Brak zakresu"), luckyRow);
+        assertTrue(moveRow.contains("Brak zakresu"), moveRow);
+        assertTrue(ranksRow.contains("Brak zakresu"), ranksRow);
+        assertTrue(critRow.contains("Wartość bazowa: 12"), critRow);
+        assertTrue(luckyRow.contains("Wartość bazowa: 20"), luckyRow);
+        assertTrue(moveRow.contains("Wartość bazowa: 20"), moveRow);
+        assertTrue(ranksRow.contains("Wartość bazowa: 3"), ranksRow);
+        assertFalse(critRow.contains("12 - 12"), critRow);
+        assertFalse(luckyRow.contains("20 - 20"), luckyRow);
+        assertFalse(moveRow.contains("20 - 20"), moveRow);
+        assertFalse(ranksRow.contains("3 - 3"), ranksRow);
+        assertEquals(0, countCheckedGreaterAffixes(html));
+        assertTrue(html.contains("Dziedzic Zatracenia"));
+        assertTrue(html.contains("value=\"heir_of_perdition\""));
+        assertFalse(html.contains("+7 do maksymalnej liczby kumulacji Animuszu"));
+
+        ItemImportFormMapper.MappingResult mappingResult = new ItemImportFormMapper().map(form);
+        assertTrue(mappingResult.getErrors().isEmpty(), () -> String.join(", ", mappingResult.getErrors()));
+        Path tempDirectory = Files.createTempDirectory("heir-runtime-import");
+        ItemLibraryService libraryService = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+        SavedImportedItem savedHelmet = libraryService.saveImportedItem(mappingResult.getItem());
+        HeroItemSelection selection = HeroItemSelection.empty()
+                .withSelectedItem(HeroEquipmentSlot.HELMET, savedHelmet.getItemId());
+        EffectiveCurrentBuildResolution resolution = libraryService.resolveEffectiveCurrentBuild(
+                new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d),
+                selection
+        );
+        assertEquals(15.0d, resolution.getActiveItemsContribution().getCriticalChancePercent(), 0.0001d);
+        assertNotEquals(18.0d, resolution.getActiveItemsContribution().getCriticalChancePercent(), 0.0001d);
     }
 
     @Test
@@ -443,7 +535,9 @@ class ItemImageImportServiceTest {
 
     @Test
     void shouldKeepVerathielDotMultiplierRangeFromWrappedSingleScreenOcrInFinalHtml() throws Exception {
-        byte[] imageBytes = buildShieldLikeScreenshot();
+        Path imagePath = Path.of("src/test/resources/items/verathiel-miecz-v2.png");
+        assertTrue(Files.exists(imagePath));
+        byte[] imageBytes = Files.readAllBytes(imagePath);
         ItemImageImportService service = new ItemImageImportService(
                 new ItemImageOcrPreprocessor(),
                 new QueuedOcrTextReader(List.of("""
@@ -488,6 +582,85 @@ class ItemImageImportServiceTest {
         assertTrue(damageOverTimeRow.contains("value=\"16\""), damageOverTimeRow);
         assertTrue(damageOverTimeRow.contains("15 - 30"), damageOverTimeRow);
         assertFalse(damageOverTimeRow.contains("Brak zakresu"), damageOverTimeRow);
+    }
+
+    @Test
+    void shouldKeepVerathielV2DotRangeFromCapturedSingleScreenOcrFlow() throws Exception {
+        Path imagePath = Path.of("src/test/resources/items/verathiel-miecz-v2.png");
+        assertTrue(Files.exists(imagePath), "Fixture obrazu verathiel-miecz-v2.png musi istnieć.");
+        byte[] imageBytes = Files.readAllBytes(imagePath);
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new FakeOcrTextReader(Map.of(
+                        "original", """
+                                ODLAmEK VERATHIEL Starożytny unikatowy miecz Moc przedmiotu: 900 1 874 pkt. obrażeń na sek. 11 390 - 2 018] pkt. obrażeń za trafienie 1,10 ataku na sekundę (Szybka) o +134 obrażeń od broni [94-1571 0 +172 siły +[150- 1801 o +300 zdrowia za zabicie o Mnożnik x16% obrażeń z upływem czasu - 301% + Umiejętności Podstawowe zadają obrażenia zwiększone 0 170 - 1001%, ale dodatkowo zużywają 25 pkt. podstawowego zasobu.
+                                """,
+                        "weapon-stats-crop-x4", """
+                                Starożytny unikatowy miecz Moc przedmiotu: 900 1 874 pkt. obrażeń na sek. [1 390 - 2 0181 pkt. obrażeń za trafienie 1,10 ataku na sekundę (Szybka) +134 obrażeń od broni 194 - 1571 +172 siły +1150-1801 +300 zdrowia za zabicie +13001 Mnożnik xl 6% obrażeń z upływem czasu [15 - 301%
+                                """,
+                        "weapon-stats-crop-gray-x4-contrast", """
+                                Starożytny unikatowy miecz Moc przedmiotu: 900 1 874 pkt. obrażeń na sek. • [1 39() -2 018] pkt. obrażeń za trafienie • 1,10 ataku na sekundę (Szybka) 134 obrażeń od broni 194 - 1571 +172 siły 1801 o +300 zdrowia za zabicie Mnożnik x16% obrażeń z upływem czasu 115 - 301%
+                                """,
+                        "shield-affix-crop-gray-x4-sharpen", """
+                                +300 zdrowia za zabicie Mnożnik XI 6% obrażeń z upływem czasu [15 - 3010/0 Umiejętności Podstawowe zadają obrażenia zwiększone 0 100%[x] 170 1001%, ale dodatkowo zużywają 25 pkt. podstawowego zasobu.
+                                """
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(
+                new ItemImageImportRequest("verathiel-miecz-v2.png", "image/png", imageBytes)
+        );
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                result,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "Import testowy",
+                ""
+        ));
+
+        assertEquals(4, form.getAffixes().size());
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 134.0d, 94.0d, 157.0d, false);
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.LIFE_ON_KILL, 300.0d, 300.0d, 300.0d, false);
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.STRENGTH, 172.0d, 150.0d, 180.0d, false);
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d, 15.0d, 30.0d, false);
+
+        String damageOverTimeRow = affixRow(html, "Mnożnik obrażeń z upływem czasu");
+        assertTrue(damageOverTimeRow.contains("value=\"16\""), damageOverTimeRow);
+        assertTrue(damageOverTimeRow.contains("15 - 30"), damageOverTimeRow);
+        assertFalse(damageOverTimeRow.contains("Brak zakresu"), damageOverTimeRow);
+    }
+
+    @Test
+    void shouldNotFillVerathielV2DotRangeWhenCapturedOcrHasOnlySingleBoundary() throws Exception {
+        byte[] imageBytes = Files.readAllBytes(Path.of("src/test/resources/items/verathiel-miecz-v2.png"));
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new FakeOcrTextReader(Map.of(
+                        "original", """
+                                Odłamek Verathiela
+                                Starożytny unikatowy miecz
+                                Moc przedmiotu: 900
+                                Mnożnik x16% obrażeń z upływem czasu 30
+                                """
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(
+                new ItemImageImportRequest("verathiel-miecz-v2.png", "image/png", imageBytes)
+        );
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+        ImportedItemAffix affix = affix(form, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER);
+
+        assertEquals(16.0d, affix.getValue(), 0.0001d);
+        assertNull(affix.getRollRangeMin());
+        assertNull(affix.getRollRangeMax());
     }
 
     @Test
@@ -725,7 +898,7 @@ class ItemImageImportServiceTest {
                                 Gdy masz umocnienie, zadajesz obrażenia zwiększone 0 610/01x] [45 - 651%. 70 poziomu
                                 """,
                         "text-crop", "MIAŻDŻĄCA TARCZA KOŚCIANYCH ŁUSEK\nStarożytna legendarna tarcza\nMoc przedmiotu: 900\nPancerz: 1 202 pkt.",
-                        "shield-affix-crop-gray-x4-sharpen", "• +225 siły\n• +490 do odporności na wszystkie żywioły\n• +787 do odporności na: Ogień\n11,4% redukcji obrażeń [11 - 0]",
+                        "shield-affix-crop-gray-x4-sharpen", "• +225 siły\n• +490 do odporności na wszystkie żywioły\n• +787 do odporności na: Ogień\n11,4% redukcji obrażeń [11,0 - 15,0]",
                         "shield-aspect-crop-gray-x4-sharpen", "Gdy masz umocnienie, zadajesz obrażenia zwiększone 0 610/01x] [45 - 651%. 70 poziomu"
                 )),
                 new ItemImageImportTextParser(),
@@ -1076,6 +1249,18 @@ class ItemImageImportServiceTest {
         assertEquals(expectedRangeMin, affix.getRollRangeMin(), 0.0001d, expectedType.getDisplayName());
         assertEquals(expectedRangeMax, affix.getRollRangeMax(), 0.0001d, expectedType.getDisplayName());
         assertEquals(expectedGreaterAffix, affix.isGreaterAffix(), expectedType.getDisplayName());
+    }
+
+    private static void assertAffixValueReferenceNoRange(ItemImportEditableForm form,
+                                                         ImportedItemAffixType expectedType,
+                                                         double expectedValue,
+                                                         double expectedReferenceValue) {
+        ImportedItemAffix affix = affix(form, expectedType);
+        assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
+        assertEquals(expectedReferenceValue, affix.getReferenceValue(), 0.0001d, expectedType.getDisplayName());
+        assertNull(affix.getRollRangeMin(), expectedType.getDisplayName());
+        assertNull(affix.getRollRangeMax(), expectedType.getDisplayName());
+        assertFalse(affix.isGreaterAffix(), expectedType.getDisplayName());
     }
 
     private static long countFullReadLines(ItemImageImportCandidateParseResult result,

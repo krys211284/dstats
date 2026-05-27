@@ -230,13 +230,18 @@ final class CurrentBuildCalculationSectionsRenderer {
         StringBuilder html = new StringBuilder("""
                 <section class="panel result-panel">
                     <h2>Ślad kroków symulacji</h2>
-                    <p class="helper">Liczba kroków symulacji: %s</p>
+                    <p class="helper">Liczba kroków symulacji: %s. Seed krytów: %s.</p>
                     <table class="data-table trace-table">
                         <thead>
                             <tr>
                                 <th>Sekunda</th>
                                 <th>Akcja</th>
-                                <th>Bezpośrednie</th>
+                                <th>Zwykłe</th>
+                                <th>Krytyczne</th>
+                                <th>Szansa kryta</th>
+                                <th>Roll kryta</th>
+                                <th>Kryt?</th>
+                                <th>Zastosowane</th>
                                 <th>Opóźnione</th>
                                 <th>Reaktywne</th>
                                 <th>Krok</th>
@@ -250,12 +255,17 @@ final class CurrentBuildCalculationSectionsRenderer {
                             </tr>
                         </thead>
                         <tbody>
-                """.formatted(calculation.getResult().getStepTrace().size()));
+                """.formatted(calculation.getResult().getStepTrace().size(), calculation.getSnapshot().getSimulationSeed()));
         for (SimulationStepTrace step : calculation.getResult().getStepTrace()) {
             html.append("<tr>")
                     .append("<td>").append(step.getSecond()).append("</td>")
                     .append("<td>").append(escapeHtml(HeroSkillCatalogAdapter.displayName(step.getActionName()))).append("</td>")
-                    .append("<td>").append(step.getDirectDamage()).append("</td>")
+                    .append("<td>").append(step.getNormalDirectDamage()).append("</td>")
+                    .append("<td>").append(step.getCriticalDirectDamage()).append("</td>")
+                    .append("<td>").append(step.hasCriticalRoll() ? escapeHtml(CurrentBuildNumberFormatter.percentOneDecimal(step.getCriticalChancePercent()) + "%") : "-").append("</td>")
+                    .append("<td>").append(step.hasCriticalRoll() ? escapeHtml(CurrentBuildNumberFormatter.percentOneDecimal(step.getCriticalRollPercent()) + "%") : "-").append("</td>")
+                    .append("<td>").append(step.hasCriticalRoll() ? (step.isCriticalHit() ? "Tak" : "Nie") : "-").append("</td>")
+                    .append("<td>").append(step.getAppliedDirectDamage()).append("</td>")
                     .append("<td>").append(step.getDelayedDamage()).append("</td>")
                     .append("<td>").append(step.getReactiveDamage()).append("</td>")
                     .append("<td>").append(step.getTotalStepDamage()).append("</td>")

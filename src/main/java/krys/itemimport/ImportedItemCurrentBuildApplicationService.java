@@ -12,7 +12,8 @@ public final class ImportedItemCurrentBuildApplicationService {
                     applyAdditiveDouble(baseStats.getIntelligence(), contribution.getIntelligence()),
                     applyAdditiveDouble(baseStats.getThorns(), contribution.getThorns()),
                     applyAdditiveDouble(baseStats.getBlockChance(), contribution.getBlockChance()),
-                    applyAdditiveDouble(baseStats.getRetributionChance(), contribution.getRetributionChance())
+                    applyAdditiveDouble(baseStats.getRetributionChance(), contribution.getRetributionChance()),
+                    applyAdditiveDouble(baseStats.getCriticalChancePercent(), contribution.getCriticalChancePercent())
             );
         }
 
@@ -22,7 +23,8 @@ public final class ImportedItemCurrentBuildApplicationService {
                 applyOverwriteDouble(baseStats.getIntelligence(), contribution.getIntelligence()),
                 applyOverwriteDouble(baseStats.getThorns(), contribution.getThorns()),
                 applyOverwriteDouble(baseStats.getBlockChance(), contribution.getBlockChance()),
-                applyOverwriteDouble(baseStats.getRetributionChance(), contribution.getRetributionChance())
+                applyOverwriteDouble(baseStats.getRetributionChance(), contribution.getRetributionChance()),
+                applyOverwriteDouble(baseStats.getCriticalChancePercent(), contribution.getCriticalChancePercent())
         );
     }
 

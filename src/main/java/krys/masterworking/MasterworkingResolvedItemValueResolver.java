@@ -24,6 +24,9 @@ public final class MasterworkingResolvedItemValueResolver {
         }
         int quality = quality(masterworking);
         ImportedItemAffixType type = affix.getType();
+        if (affix.getReferenceValue() != null) {
+            return affix.getValue();
+        }
         if (type == ImportedItemAffixType.STRENGTH && affix.isGreaterAffix()) {
             if (isPerfectedOrdinary(masterworking, type) && quality == ItemMasterworking.DEFAULT_QUALITY_MAX) {
                 return 360.0d;
@@ -164,7 +167,7 @@ public final class MasterworkingResolvedItemValueResolver {
     private static boolean integerLikeAffix(ImportedItemAffixType type) {
         return switch (type) {
             case STRENGTH, INTELLIGENCE, THORNS, ALL_RESISTANCE, FIRE_RESISTANCE, WEAPON_DAMAGE_FLAT,
-                 MAXIMUM_LIFE, LIFE_ON_HIT, LIFE_ON_KILL, LUCKY_HIT_PRIMARY_RESOURCE -> true;
+                 MAXIMUM_LIFE, LIFE_ON_HIT, LIFE_ON_KILL, LUCKY_HIT_PRIMARY_RESOURCE, CORE_SKILL_RANKS -> true;
             case DAMAGE_REDUCTION, BLOCK_CHANCE, RETRIBUTION_CHANCE, CRITICAL_STRIKE_CHANCE, LUCKY_HIT_CHANCE,
                  COOLDOWN_REDUCTION, MOVEMENT_SPEED, DODGE_CHANCE, DAMAGE_OVER_TIME_MULTIPLIER -> false;
         };
@@ -175,7 +178,8 @@ public final class MasterworkingResolvedItemValueResolver {
             case STRENGTH, INTELLIGENCE, THORNS, BLOCK_CHANCE, RETRIBUTION_CHANCE, CRITICAL_STRIKE_CHANCE,
                  LUCKY_HIT_CHANCE, WEAPON_DAMAGE_FLAT, MAXIMUM_LIFE, LIFE_ON_HIT, LUCKY_HIT_PRIMARY_RESOURCE,
                  COOLDOWN_REDUCTION, MOVEMENT_SPEED, DODGE_CHANCE -> true;
-            case ALL_RESISTANCE, FIRE_RESISTANCE, DAMAGE_REDUCTION, LIFE_ON_KILL, DAMAGE_OVER_TIME_MULTIPLIER -> false;
+            case ALL_RESISTANCE, FIRE_RESISTANCE, DAMAGE_REDUCTION, LIFE_ON_KILL, DAMAGE_OVER_TIME_MULTIPLIER,
+                 CORE_SKILL_RANKS -> false;
         };
     }
 }

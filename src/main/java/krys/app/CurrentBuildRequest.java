@@ -1,5 +1,7 @@
 package krys.app;
 
+import krys.hero.HeroClass;
+import krys.hero.HeroClassStatBaselines;
 import krys.skill.SkillId;
 import krys.skill.SkillState;
 
@@ -18,6 +20,7 @@ public final class CurrentBuildRequest {
     public static final double DEFAULT_INITIAL_ANIMUS = 8.0d;
     public static final double DEFAULT_MAX_ANIMUS = 8.0d;
     public static final String DEFAULT_SELECTED_PALADIN_OATH_ID = "NONE";
+    public static final long DEFAULT_SIMULATION_SEED = 1L;
     public static final int MIN_SIMULATION_STEP_COUNT = 1;
     public static final int MAX_SIMULATION_STEP_COUNT = 200;
 
@@ -40,6 +43,8 @@ public final class CurrentBuildRequest {
     private final double initialAnimus;
     private final double maxAnimus;
     private final List<String> activeAspectIds;
+    private final double criticalChancePercent;
+    private final long simulationSeed;
 
     public CurrentBuildRequest(int level,
                                long weaponDamage,
@@ -147,6 +152,34 @@ public final class CurrentBuildRequest {
                                double initialAnimus,
                                double maxAnimus,
                                List<String> activeAspectIds) {
+        this(level, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
+                hasActiveWeapon, hasActiveShield, learnedSkills, actionBar, horizonSeconds,
+                initialPrimaryResource, maxPrimaryResource, primaryResourceRegenPerSecond,
+                selectedPaladinOathId, initialAnimus, maxAnimus, activeAspectIds,
+                resolveDefaultCriticalChancePercent(level), DEFAULT_SIMULATION_SEED);
+    }
+
+    public CurrentBuildRequest(int level,
+                               long weaponDamage,
+                               double strength,
+                               double intelligence,
+                               double thorns,
+                               double blockChance,
+                               double retributionChance,
+                               boolean hasActiveWeapon,
+                               boolean hasActiveShield,
+                               Map<SkillId, SkillState> learnedSkills,
+                               List<SkillId> actionBar,
+                               int horizonSeconds,
+                               double initialPrimaryResource,
+                               double maxPrimaryResource,
+                               double primaryResourceRegenPerSecond,
+                               String selectedPaladinOathId,
+                               double initialAnimus,
+                               double maxAnimus,
+                               List<String> activeAspectIds,
+                               double criticalChancePercent,
+                               long simulationSeed) {
         if (level <= 0) {
             throw new IllegalArgumentException("Level bohatera musi być dodatni");
         }
@@ -169,6 +202,7 @@ public final class CurrentBuildRequest {
         }
         validateNonNegative("Początkowy Animusz", initialAnimus);
         validateNonNegative("Maksymalny Animusz", maxAnimus);
+        validateCriticalChance(criticalChancePercent);
         if (initialAnimus > maxAnimus) {
             throw new IllegalArgumentException("Początkowy Animusz nie może być większy niż Maksymalny Animusz.");
         }
@@ -200,12 +234,26 @@ public final class CurrentBuildRequest {
         this.initialAnimus = initialAnimus;
         this.maxAnimus = maxAnimus;
         this.activeAspectIds = Collections.unmodifiableList(new ArrayList<>(new LinkedHashSet<>(activeAspectIds == null ? List.of() : activeAspectIds)));
+        this.criticalChancePercent = criticalChancePercent;
+        this.simulationSeed = simulationSeed;
     }
 
     private static void validateNonNegative(String label, double value) {
         if (value < 0.0d) {
             throw new IllegalArgumentException(label + " nie może być ujemny");
         }
+    }
+
+    private static void validateCriticalChance(double value) {
+        if (value < 0.0d || value > 100.0d) {
+            throw new IllegalArgumentException("Szansa kryta musi być w zakresie 0-100%.");
+        }
+    }
+
+    private static double resolveDefaultCriticalChancePercent(int level) {
+        return HeroClassStatBaselines.find(HeroClass.PALADIN, level)
+                .map(baseline -> baseline.getCriticalChancePercent().doubleValue())
+                .orElse(0.0d);
     }
 
     private static void validateActionBarAgainstLearnedSkills(List<SkillId> actionBar, Map<SkillId, SkillState> learnedSkills) {
@@ -300,6 +348,14 @@ public final class CurrentBuildRequest {
         return activeAspectIds;
     }
 
+    public double getCriticalChancePercent() {
+        return criticalChancePercent;
+    }
+
+    public long getSimulationSeed() {
+        return simulationSeed;
+    }
+
     public CurrentBuildRequest withActiveAspectIds(List<String> activeAspectIds) {
         return new CurrentBuildRequest(
                 level,
@@ -320,7 +376,35 @@ public final class CurrentBuildRequest {
                 selectedPaladinOathId,
                 initialAnimus,
                 maxAnimus,
-                activeAspectIds
+                activeAspectIds,
+                criticalChancePercent,
+                simulationSeed
+        );
+    }
+
+    public CurrentBuildRequest withCriticalChancePercent(double criticalChancePercent) {
+        return new CurrentBuildRequest(
+                level,
+                weaponDamage,
+                strength,
+                intelligence,
+                thorns,
+                blockChance,
+                retributionChance,
+                hasActiveWeapon,
+                hasActiveShield,
+                learnedSkills,
+                actionBar,
+                horizonSeconds,
+                initialPrimaryResource,
+                maxPrimaryResource,
+                primaryResourceRegenPerSecond,
+                selectedPaladinOathId,
+                initialAnimus,
+                maxAnimus,
+                activeAspectIds,
+                criticalChancePercent,
+                simulationSeed
         );
     }
 }

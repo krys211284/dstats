@@ -62,6 +62,10 @@ public final class AspectRegistry {
             return findById("verathiel_shard")
                     .map(definition -> new AspectMatch(definition.getId(), ItemImportFieldConfidence.HIGH));
         }
+        if (looksLikeHeirOfPerditionUniqueAspect(normalizedAll)) {
+            return findById("heir_of_perdition")
+                    .map(definition -> new AspectMatch(definition.getId(), ItemImportFieldConfidence.HIGH));
+        }
         for (AspectDefinition definition : definitions) {
             String normalizedName = normalize(definition.getDisplayName());
             if (!normalizedName.isBlank() && normalizedAll.contains(normalizedName)) {
@@ -91,6 +95,16 @@ public final class AspectRegistry {
                 && collapsed.contains("25")
                 && collapsed.contains("70")
                 && collapsed.contains("100");
+        return itemContext && effectContext;
+    }
+
+    private static boolean looksLikeHeirOfPerditionUniqueAspect(String normalizedAll) {
+        String collapsed = normalizedAll.replaceAll("[^A-Z0-9]", "");
+        boolean itemContext = collapsed.contains("DZIEDZICZATRACENIA")
+                || (collapsed.contains("HELM") && collapsed.contains("MITYCZNY") && collapsed.contains("UNIKAT"));
+        boolean effectContext = collapsed.contains("LASKIMATKI")
+                && collapsed.contains("PODDAJSIENIENAWISCI")
+                && collapsed.contains("80");
         return itemContext && effectContext;
     }
 

@@ -24,6 +24,9 @@ public final class TemperingEligibilityRegistry {
                     TemperingCategory.OFFENSE
             );
         }
+        if (isHelmet(slot, itemType)) {
+            return List.of(TemperingCategory.DEFENSE);
+        }
         return List.of();
     }
 
@@ -42,6 +45,13 @@ public final class TemperingEligibilityRegistry {
                 || normalizedType.contains("SWORD")
                 || normalizedType.contains("BRON GLOWNA")
                 || normalizedType.contains("MAIN HAND"));
+    }
+
+    private static boolean isHelmet(EquipmentSlot slot, String itemType) {
+        String normalizedType = normalize(itemType);
+        return slot == EquipmentSlot.HELMET
+                || normalizedType.contains("HELM")
+                || normalizedType.contains("HELMET");
     }
 
     private static String normalize(String value) {

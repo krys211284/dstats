@@ -727,7 +727,9 @@ public final class CurrentBuildPageRenderer {
                 offenseCards.append(renderSummaryCard("Podstawowe obrażenia od broni", Long.toString(stats.getWeaponDamage())))
                         .append(renderSummaryCard("Szybkość broni", formatDecimalComma(baseline.getWeaponSpeed(), 2)));
             }
-            offenseCards.append(renderSummaryCardWithTooltip("Szansa na trafienie krytyczne", formatPercentComma(criticalChance.getTotalCriticalChancePercent(), 1), buildCriticalChanceBreakdownLabel(criticalChance)))
+            BigDecimal activeItemCriticalChance = BigDecimal.valueOf(stats.getActiveHeroItemStats().getCriticalChancePercent());
+            BigDecimal totalCriticalChance = criticalChance.getTotalCriticalChancePercent().add(activeItemCriticalChance);
+            offenseCards.append(renderSummaryCardWithTooltip("Szansa na trafienie krytyczne", formatPercentComma(totalCriticalChance, 1), buildCriticalChanceBreakdownLabel(criticalChance, activeItemCriticalChance)))
                     .append(renderSummaryCard("Obrażenia od trafień krytycznych", formatPercentComma(baseline.getCriticalDamagePercent(), 1)))
                     .append(renderSummaryCard("Obrażenia zadawane odsłoniętym celom", formatPercentComma(baseline.getVulnerableDamagePercent(), 1)))
                     .append(renderSummaryCard("Ciernie", ItemLibraryPresentationSupport.formatWhole(stats.getThorns())));
@@ -797,12 +799,13 @@ public final class CurrentBuildPageRenderer {
                 + (armor.getTotalArmor() + stats.getActiveHeroItemStats().getItemArmor()) + ".";
     }
 
-    private static String buildCriticalChanceBreakdownLabel(HeroCriticalChanceBreakdown criticalChance) {
+    private static String buildCriticalChanceBreakdownLabel(HeroCriticalChanceBreakdown criticalChance,
+                                                            BigDecimal activeItemCriticalChance) {
         return "bazowo " + formatPercentComma(criticalChance.getBaseCriticalChancePercent(), 1)
                 + ", +" + formatPercentComma(criticalChance.getCriticalChanceFromIntelligencePercent(), 1) + " z Inteligencji"
-                + ", +" + formatPercentComma(criticalChance.getCriticalChanceFromItemsPercent(), 1) + " z itemów"
+                + ", +" + formatPercentComma(criticalChance.getCriticalChanceFromItemsPercent().add(activeItemCriticalChance), 1) + " z itemów"
                 + ", +" + formatPercentComma(criticalChance.getCriticalChanceFromOtherSourcesPercent(), 1) + " z innych źródeł"
-                + ", razem " + formatPercentComma(criticalChance.getTotalCriticalChancePercent(), 1) + ".";
+                + ", razem " + formatPercentComma(criticalChance.getTotalCriticalChancePercent().add(activeItemCriticalChance), 1) + ".";
     }
 
     private static String buildMaxHealthBreakdownLabel(HeroClassStatBaseline baseline, CurrentHeroStatsPresentation stats) {

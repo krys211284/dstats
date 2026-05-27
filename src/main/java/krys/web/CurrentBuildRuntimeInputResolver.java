@@ -26,6 +26,8 @@ final class CurrentBuildRuntimeInputResolver {
         double thorns = baseline.map(HeroClassStatBaseline::getThorns).orElse(0) + libraryResolution.getActiveItemsContribution().getThorns();
         double blockChance = libraryResolution.getActiveItemsContribution().getBlockChance();
         double retributionChance = libraryResolution.getActiveItemsContribution().getRetributionChance();
+        double criticalChancePercent = baseline.map(base -> base.getCriticalChancePercent().doubleValue()).orElse(0.0d)
+                + libraryResolution.getActiveItemsContribution().getCriticalChancePercent();
 
         return new CurrentBuildImportableStats(
                 weaponDamage,
@@ -33,7 +35,8 @@ final class CurrentBuildRuntimeInputResolver {
                 intelligence,
                 thorns,
                 blockChance,
-                retributionChance
+                retributionChance,
+                criticalChancePercent
         );
     }
 

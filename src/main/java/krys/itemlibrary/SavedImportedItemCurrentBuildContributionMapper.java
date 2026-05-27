@@ -16,7 +16,8 @@ public final class SavedImportedItemCurrentBuildContributionMapper {
                 effectiveScalarContribution(item, ImportedItemAffixType.INTELLIGENCE, item.getIntelligence()),
                 effectiveScalarContribution(item, ImportedItemAffixType.THORNS, item.getThorns()),
                 effectiveScalarContribution(item, ImportedItemAffixType.BLOCK_CHANCE, item.getBlockChance()),
-                effectiveScalarContribution(item, ImportedItemAffixType.RETRIBUTION_CHANCE, item.getRetributionChance())
+                effectiveScalarContribution(item, ImportedItemAffixType.RETRIBUTION_CHANCE, item.getRetributionChance()),
+                effectiveScalarContribution(item, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 0.0d)
         );
     }
 

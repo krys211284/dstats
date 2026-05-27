@@ -14,7 +14,7 @@ public enum ImportedItemAffixType {
     DAMAGE_REDUCTION("Redukcja obrażeń", "%s%% redukcji obrażeń", RuntimeProjection.NONE),
     BLOCK_CHANCE("Szansa na blok", "%s%% szansy na blok", RuntimeProjection.BLOCK_CHANCE),
     RETRIBUTION_CHANCE("Szansa retribution", "%s%% szansy retribution", RuntimeProjection.RETRIBUTION_CHANCE),
-    CRITICAL_STRIKE_CHANCE("Szansa na trafienie krytyczne", "+%s%% szansy na trafienie krytyczne", RuntimeProjection.NONE),
+    CRITICAL_STRIKE_CHANCE("Szansa na trafienie krytyczne", "+%s%% szansy na trafienie krytyczne", RuntimeProjection.CRITICAL_STRIKE_CHANCE),
     LUCKY_HIT_CHANCE("Szansa na szczęśliwy traf", "+%s%% szansy na szczęśliwy traf", RuntimeProjection.NONE),
     WEAPON_DAMAGE_FLAT("Obrażenia od broni", "+%s obrażeń od broni", RuntimeProjection.NONE),
     MAXIMUM_LIFE("Maksymalne zdrowie", "+%s maksymalnego zdrowia", RuntimeProjection.NONE),
@@ -24,7 +24,8 @@ public enum ImportedItemAffixType {
     LUCKY_HIT_PRIMARY_RESOURCE("Szczęśliwy traf: podstawowy zasób", "Szczęśliwy traf: +%s podstawowego zasobu", RuntimeProjection.NONE),
     COOLDOWN_REDUCTION("Redukcja czasu odnowienia", "%s%% redukcji czasu odnowienia", RuntimeProjection.NONE),
     MOVEMENT_SPEED("Szybkość ruchu", "+%s%% szybkości ruchu", RuntimeProjection.NONE),
-    DODGE_CHANCE("Unik", "+%s%% uniku", RuntimeProjection.NONE);
+    DODGE_CHANCE("Unik", "+%s%% uniku", RuntimeProjection.NONE),
+    CORE_SKILL_RANKS("Rangi umiejętności: Główne", "+%s do umiejętności: Główne", RuntimeProjection.NONE);
 
     private final String displayName;
     private final String linePattern;
@@ -108,6 +109,10 @@ public enum ImportedItemAffixType {
         if (normalized.contains("SZYBKOSCI RUCHU") || normalized.contains("MOVEMENT SPEED")) {
             return Optional.of(MOVEMENT_SPEED);
         }
+        if ((normalized.contains("UMIEJETNOSCI") && normalized.contains("GLOWNE"))
+                || normalized.contains("CORE SKILL")) {
+            return Optional.of(CORE_SKILL_RANKS);
+        }
         if (normalized.contains("UNIKU") || normalized.contains("DODGE")) {
             return Optional.of(DODGE_CHANCE);
         }
@@ -138,6 +143,7 @@ public enum ImportedItemAffixType {
         INTELLIGENCE,
         THORNS,
         BLOCK_CHANCE,
-        RETRIBUTION_CHANCE
+        RETRIBUTION_CHANCE,
+        CRITICAL_STRIKE_CHANCE
     }
 }

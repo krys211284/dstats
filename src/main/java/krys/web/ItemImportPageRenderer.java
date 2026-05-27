@@ -146,6 +146,7 @@ public final class ItemImportPageRenderer {
                 .append(renderSlotSelect(form.getSlot(), isShield(form.getDetails())))
                 .append(renderRaritySelect(form.getItemRarity()))
                 .append(renderAncientCheckbox(form.isAncient()))
+                .append(renderMythicUniqueCheckbox(form.isMythicUnique()))
                 .append(renderNumberField("itemPower", "Moc przedmiotu", form.getItemPower(), "1"))
                 .append(renderItemTypeFieldSet(form))
                 .append(renderAspectSelect(form))
@@ -447,6 +448,13 @@ public final class ItemImportPageRenderer {
         return value == null || value.isBlank() ? "Brak zakresu" : value;
     }
 
+    private static String referenceValueLabel(ImportedItemAffix affix) {
+        if (affix == null || affix.getReferenceValue() == null) {
+            return "";
+        }
+        return "<div class=\"helper\">Wartość bazowa: " + escapeHtml(affix.getReferenceValueLabel()) + "</div>";
+    }
+
     private static String normalizeForDisplayRules(String value) {
         if (value == null) {
             return "";
@@ -519,6 +527,7 @@ public final class ItemImportPageRenderer {
                             <input type="hidden" name="affixDefinitionId_%s" value="%s">
                             <input type="hidden" name="affixRangeMin_%s" value="%s">
                             <input type="hidden" name="affixRangeMax_%s" value="%s">
+                            <input type="hidden" name="affixReferenceValue_%s" value="%s">
                             <input type="hidden" name="affixDisplayValue_%s" value="%s">
                         </td>
                         <td class="affix-value-cell">
@@ -526,6 +535,7 @@ public final class ItemImportPageRenderer {
                             <label class="masterworking-source-value-field">%s</label>
                         </td>
                         <td class="affix-range-cell">
+                            %s
                             %s
                         </td>
                         <td class="affix-greater-cell">
@@ -549,10 +559,13 @@ public final class ItemImportPageRenderer {
                     index,
                     affix.getRollRangeMax() == null ? "" : formatDecimal(affix.getRollRangeMax()),
                     index,
+                    affix.getReferenceValue() == null ? "" : formatDecimal(affix.getReferenceValue()),
+                    index,
                     escapeHtml(affix.getDisplayValue()),
                     MasterworkingSectionRenderer.renderAffixEditorHint(form.getMasterworking(), affix),
                     renderAffixValueControl(index, affix),
                     escapeHtml(rollRangeLabel(affix)),
+                    referenceValueLabel(affix),
                     index,
                     affix.isGreaterAffix() ? " checked" : ""
             ));
@@ -597,7 +610,7 @@ public final class ItemImportPageRenderer {
                     </div>
                     <template id="affixRowTemplate">
                         <tr>
-                            <td class="affix-type-cell"><select name="affixType___INDEX__">%s</select><input type="hidden" name="affixSourceText___INDEX__" value=""><input type="hidden" name="affixDefinitionId___INDEX__" value=""><input type="hidden" name="affixRangeMin___INDEX__" value=""><input type="hidden" name="affixRangeMax___INDEX__" value=""><input type="hidden" name="affixDisplayValue___INDEX__" value=""></td>
+                            <td class="affix-type-cell"><select name="affixType___INDEX__">%s</select><input type="hidden" name="affixSourceText___INDEX__" value=""><input type="hidden" name="affixDefinitionId___INDEX__" value=""><input type="hidden" name="affixRangeMin___INDEX__" value=""><input type="hidden" name="affixRangeMax___INDEX__" value=""><input type="hidden" name="affixReferenceValue___INDEX__" value=""><input type="hidden" name="affixDisplayValue___INDEX__" value=""></td>
                             <td class="affix-value-cell"><input type="number" min="0" step="0.01" name="affixValue___INDEX__" value="__VALUE__"></td>
                             <td class="affix-range-cell"><span class="helper">Brak zakresu</span></td>
                             <td class="affix-greater-cell"><label class="checkbox-label"><input type="checkbox" name="affixGreater___INDEX__" value="true"> Gwiazdka</label></td>
@@ -782,6 +795,14 @@ public final class ItemImportPageRenderer {
                     <input type="checkbox" name="isAncient" value="true"%s> Ancient / starożytny
                 </label>
                 """.formatted(ancient ? " checked" : "");
+    }
+
+    private static String renderMythicUniqueCheckbox(boolean mythicUnique) {
+        return """
+                <label class="checkbox-label">
+                    <input type="checkbox" name="isMythicUnique" value="true"%s> Mityczny unikat
+                </label>
+                """.formatted(mythicUnique ? " checked" : "");
     }
 
     private static String renderItemTypeFieldSet(ItemImportEditableForm form) {

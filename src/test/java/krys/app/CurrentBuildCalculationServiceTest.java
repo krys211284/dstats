@@ -153,6 +153,48 @@ class CurrentBuildCalculationServiceTest {
     }
 
     @Test
+    void current_build_z_verathielem_i_tarcza_pokazuje_zwykly_krytyczny_i_zastosowany_hit() {
+        CurrentBuildRequest request = new CurrentBuildRequest(
+                70,
+                1664,
+                304.0d,
+                76.0d,
+                0.0d,
+                20.0d,
+                0.0d,
+                true,
+                true,
+                Map.of(SkillId.CLASH, new SkillState(SkillId.CLASH, 1, false, SkillUpgradeChoice.NONE)),
+                List.of(SkillId.CLASH),
+                10,
+                CurrentBuildRequest.DEFAULT_INITIAL_PRIMARY_RESOURCE,
+                CurrentBuildRequest.DEFAULT_MAX_PRIMARY_RESOURCE,
+                CurrentBuildRequest.DEFAULT_PRIMARY_RESOURCE_REGEN_PER_SECOND,
+                CurrentBuildRequest.DEFAULT_SELECTED_PALADIN_OATH_ID,
+                CurrentBuildRequest.DEFAULT_INITIAL_ANIMUS,
+                CurrentBuildRequest.DEFAULT_MAX_ANIMUS,
+                List.of("verathiel_shard"),
+                100.0d,
+                1L
+        );
+
+        CurrentBuildCalculation calculation = calculationService.calculate(request);
+
+        DamageBreakdown breakdown = calculation.getResult().getDirectHitDebugSnapshots().getFirst().getBreakdown();
+        SimulationStepTrace firstStep = calculation.getResult().getStepTrace().getFirst();
+        assertEquals(breakdown.getFinalDamage(), firstStep.getNormalDirectDamage());
+        assertEquals(breakdown.getCriticalDamage(), firstStep.getCriticalDirectDamage());
+        assertTrue(firstStep.isCriticalHit());
+        assertEquals(firstStep.getCriticalDirectDamage(), firstStep.getAppliedDirectDamage());
+        assertEquals(firstStep.getAppliedDirectDamage() + firstStep.getDelayedDamage() + firstStep.getReactiveDamage(),
+                firstStep.getTotalStepDamage());
+        assertEquals(calculation.getResult().getStepTrace().stream()
+                        .mapToLong(SimulationStepTrace::getTotalStepDamage)
+                        .sum(),
+                calculation.getResult().getTotalDamage());
+    }
+
+    @Test
     void current_build_z_verathielem_i_zerowa_wiara_czeka_bez_obrazen_przez_10s() {
         CurrentBuildRequest request = new CurrentBuildRequest(
                 70,

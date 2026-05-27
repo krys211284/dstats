@@ -10,6 +10,12 @@ public final class SimulationStepTrace {
     private final SimulationActionType actionType;
     private final String actionName;
     private final long directDamage;
+    private final long normalDirectDamage;
+    private final long criticalDirectDamage;
+    private final double criticalChancePercent;
+    private final double criticalRollPercent;
+    private final boolean criticalHit;
+    private final long appliedDirectDamage;
     private final long delayedDamage;
     private final long reactiveDamage;
     private final long totalStepDamage;
@@ -124,10 +130,53 @@ public final class SimulationStepTrace {
                                boolean molochBuffActivated,
                                boolean molochBuffActive,
                                int molochBuffRemainingSeconds) {
+        this(second, actionType, actionName, directDamage, directDamage, 0.0d, Double.NaN,
+                false, directDamage, delayedDamage, reactiveDamage, totalStepDamage, cumulativeDamage,
+                skillBarStates, selectionReason, tickOrderLabel,
+                primaryResourceBefore, primaryResourceCost, primaryResourceGenerated, primaryResourceRegenerated,
+                primaryResourceAfter, animusBefore, animusSpent, animusMinimum, animusGenerated, animusAfter,
+                molochBuffActivated, molochBuffActive, molochBuffRemainingSeconds);
+    }
+
+    public SimulationStepTrace(int second,
+                               SimulationActionType actionType,
+                               String actionName,
+                               long normalDirectDamage,
+                               long criticalDirectDamage,
+                               double criticalChancePercent,
+                               double criticalRollPercent,
+                               boolean criticalHit,
+                               long appliedDirectDamage,
+                               long delayedDamage,
+                               long reactiveDamage,
+                               long totalStepDamage,
+                               long cumulativeDamage,
+                               List<SkillBarStateTrace> skillBarStates,
+                               String selectionReason,
+                               String tickOrderLabel,
+                               double primaryResourceBefore,
+                               double primaryResourceCost,
+                               double primaryResourceGenerated,
+                               double primaryResourceRegenerated,
+                               double primaryResourceAfter,
+                               double animusBefore,
+                               double animusSpent,
+                               double animusMinimum,
+                               double animusGenerated,
+                               double animusAfter,
+                               boolean molochBuffActivated,
+                               boolean molochBuffActive,
+                               int molochBuffRemainingSeconds) {
         this.second = second;
         this.actionType = actionType;
         this.actionName = actionName;
-        this.directDamage = directDamage;
+        this.directDamage = appliedDirectDamage;
+        this.normalDirectDamage = normalDirectDamage;
+        this.criticalDirectDamage = criticalDirectDamage;
+        this.criticalChancePercent = criticalChancePercent;
+        this.criticalRollPercent = criticalRollPercent;
+        this.criticalHit = criticalHit;
+        this.appliedDirectDamage = appliedDirectDamage;
         this.delayedDamage = delayedDamage;
         this.reactiveDamage = reactiveDamage;
         this.totalStepDamage = totalStepDamage;
@@ -164,6 +213,34 @@ public final class SimulationStepTrace {
 
     public long getDirectDamage() {
         return directDamage;
+    }
+
+    public long getNormalDirectDamage() {
+        return normalDirectDamage;
+    }
+
+    public long getCriticalDirectDamage() {
+        return criticalDirectDamage;
+    }
+
+    public double getCriticalChancePercent() {
+        return criticalChancePercent;
+    }
+
+    public double getCriticalRollPercent() {
+        return criticalRollPercent;
+    }
+
+    public boolean hasCriticalRoll() {
+        return !Double.isNaN(criticalRollPercent);
+    }
+
+    public boolean isCriticalHit() {
+        return criticalHit;
+    }
+
+    public long getAppliedDirectDamage() {
+        return appliedDirectDamage;
     }
 
     public long getDelayedDamage() {

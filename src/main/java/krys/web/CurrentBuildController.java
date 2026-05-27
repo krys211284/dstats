@@ -167,7 +167,9 @@ public final class CurrentBuildController implements HttpHandler {
         }
 
         try {
-            return calculationService.calculate(mappingResult.getRequest().withActiveAspectIds(activeAspectIds(resolution)));
+            return calculationService.calculate(mappingResult.getRequest()
+                    .withCriticalChancePercent(resolution.getEffectiveStats().getCriticalChancePercent())
+                    .withActiveAspectIds(activeAspectIds(resolution)));
         } catch (IllegalArgumentException exception) {
             errors.add(exception.getMessage());
             return null;

@@ -183,6 +183,50 @@ class ItemImageImportCandidateMergerTest {
         assertTrue(form.getAffixes().stream().noneMatch(affix -> affix.getSourceText().contains("Umiejętności Podstawowe")));
     }
 
+    @Test
+    void shouldPreferAffixVariantWithActualRollRangeBeforeLineQualityScore() {
+        ItemImageImportCandidateParseResult polishWithoutRange = parseResult(
+                ItemImageImportTextParser.buildFullItemRead(List.of("+172 siły"))
+        );
+        ItemImageImportCandidateParseResult plainWithRange = parseResult(
+                ItemImageImportTextParser.buildFullItemRead(List.of("+172 sily [150 - 180]"))
+        );
+
+        ItemImageImportCandidateParseResult merged = new ItemImageImportCandidateMerger()
+                .merge(metadata, 2, List.of(polishWithoutRange, plainWithRange));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(merged);
+        ImportedItemAffix strength = form.getAffixes().stream()
+                .filter(affix -> affix.getType() == ImportedItemAffixType.STRENGTH)
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(172.0d, strength.getValue());
+        assertEquals(150.0d, strength.getRollRangeMin());
+        assertEquals(180.0d, strength.getRollRangeMax());
+    }
+
+    @Test
+    void shouldPreferAffixVariantWithOrphanRollRangeAfterParserAttachedIt() {
+        ItemImageImportTextParser parser = new ItemImageImportTextParser();
+        ItemImageImportCandidateParseResult polishWithoutRange = parser.parse(metadata, "+172 siły");
+        ItemImageImportCandidateParseResult plainWithOrphanRange = parser.parse(metadata, """
+                +172 sily
+                [150 - 180]
+                """);
+
+        ItemImageImportCandidateParseResult merged = new ItemImageImportCandidateMerger()
+                .merge(metadata, 2, List.of(polishWithoutRange, plainWithOrphanRange));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(merged);
+        ImportedItemAffix strength = form.getAffixes().stream()
+                .filter(affix -> affix.getType() == ImportedItemAffixType.STRENGTH)
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(172.0d, strength.getValue());
+        assertEquals(150.0d, strength.getRollRangeMin());
+        assertEquals(180.0d, strength.getRollRangeMax());
+    }
+
     private ItemImageImportCandidateParseResult parseResult(ItemImportFieldCandidate<EquipmentSlot> slotCandidate,
                                                             ItemImportFieldCandidate<Long> weaponDamageCandidate,
                                                             ItemImportFieldCandidate<Double> strengthCandidate,

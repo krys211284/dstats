@@ -61,6 +61,8 @@ public final class CalculateCurrentBuildCli {
         System.out.println("Początkowa Wiara: " + formatResource(result.getInitialPrimaryResource()));
         System.out.println("Maksymalna Wiara: " + formatResource(result.getMaxPrimaryResource()));
         System.out.println("Regeneracja Wiary/s: " + formatResource(result.getPrimaryResourceRegenPerSecond()));
+        System.out.println("Szansa kryta runtime: " + String.format(Locale.US, "%.1f%%", calculation.getSnapshot().getCriticalChancePercent()));
+        System.out.println("Seed symulacji: " + calculation.getSnapshot().getSimulationSeed());
         System.out.println();
         System.out.println("Total damage: " + result.getTotalDamage());
         System.out.println("DPS: " + String.format(Locale.US, "%.4f", result.getDps()));
@@ -145,7 +147,12 @@ public final class CalculateCurrentBuildCli {
             for (SimulationStepTrace step : result.getStepTrace()) {
                 System.out.println("- t=" + step.getSecond()
                         + " | action=" + step.getActionName()
-                        + " | direct=" + step.getDirectDamage()
+                        + " | normal=" + step.getNormalDirectDamage()
+                        + " | critical=" + step.getCriticalDirectDamage()
+                        + " | critChance=" + String.format(Locale.US, "%.1f%%", step.getCriticalChancePercent())
+                        + " | critRoll=" + (step.hasCriticalRoll() ? String.format(Locale.US, "%.1f%%", step.getCriticalRollPercent()) : "-")
+                        + " | crit=" + (step.hasCriticalRoll() ? step.isCriticalHit() : "-")
+                        + " | applied=" + step.getAppliedDirectDamage()
                         + " | delayed=" + step.getDelayedDamage()
                         + " | reactive=" + step.getReactiveDamage()
                         + " | step=" + step.getTotalStepDamage()

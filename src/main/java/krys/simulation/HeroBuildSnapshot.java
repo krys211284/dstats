@@ -1,6 +1,7 @@
 package krys.simulation;
 
 import krys.hero.Hero;
+import krys.hero.HeroClassStatBaselines;
 import krys.item.EquipmentSlot;
 import krys.item.Item;
 import krys.skill.SkillId;
@@ -24,6 +25,7 @@ public final class HeroBuildSnapshot {
     public static final double DEFAULT_INITIAL_ANIMUS = 8.0d;
     public static final double DEFAULT_MAX_ANIMUS = 8.0d;
     public static final String DEFAULT_SELECTED_PALADIN_OATH_ID = "NONE";
+    public static final long DEFAULT_SIMULATION_SEED = 1L;
 
     private final Hero hero;
     private final int bonusSkillPoints;
@@ -41,6 +43,8 @@ public final class HeroBuildSnapshot {
     private final double initialAnimus;
     private final double maxAnimus;
     private final List<String> activeAspectIds;
+    private final double criticalChancePercent;
+    private final long simulationSeed;
 
     public HeroBuildSnapshot(Hero hero,
                              int bonusSkillPoints,
@@ -82,7 +86,8 @@ public final class HeroBuildSnapshot {
                 hasActiveWeapon, hasActiveShield, learnedSkills, selectedSkillBar,
                 DEFAULT_INITIAL_PRIMARY_RESOURCE, DEFAULT_MAX_PRIMARY_RESOURCE,
                 DEFAULT_PRIMARY_RESOURCE_REGEN_PER_SECOND, DEFAULT_SELECTED_PALADIN_OATH_ID,
-                DEFAULT_INITIAL_ANIMUS, DEFAULT_MAX_ANIMUS, activeAspectIds);
+                DEFAULT_INITIAL_ANIMUS, DEFAULT_MAX_ANIMUS, activeAspectIds,
+                resolveDefaultCriticalChancePercent(hero), DEFAULT_SIMULATION_SEED);
     }
 
     public HeroBuildSnapshot(Hero hero,
@@ -101,7 +106,8 @@ public final class HeroBuildSnapshot {
         this(hero, bonusSkillPoints, averageWeaponDamage, totalPercentDamageBonus, equippedItems,
                 hasActiveWeapon, hasActiveShield, learnedSkills, selectedSkillBar,
                 initialPrimaryResource, maxPrimaryResource, primaryResourceRegenPerSecond,
-                DEFAULT_SELECTED_PALADIN_OATH_ID, DEFAULT_INITIAL_ANIMUS, DEFAULT_MAX_ANIMUS, activeAspectIds);
+                DEFAULT_SELECTED_PALADIN_OATH_ID, DEFAULT_INITIAL_ANIMUS, DEFAULT_MAX_ANIMUS, activeAspectIds,
+                resolveDefaultCriticalChancePercent(hero), DEFAULT_SIMULATION_SEED);
     }
 
     public HeroBuildSnapshot(Hero hero,
@@ -120,6 +126,34 @@ public final class HeroBuildSnapshot {
                              double initialAnimus,
                              double maxAnimus,
                              List<String> activeAspectIds) {
+        this(hero, bonusSkillPoints, averageWeaponDamage, totalPercentDamageBonus, equippedItems,
+                hasActiveWeapon, hasActiveShield, learnedSkills, selectedSkillBar,
+                initialPrimaryResource, maxPrimaryResource, primaryResourceRegenPerSecond,
+                selectedPaladinOathId, initialAnimus, maxAnimus, activeAspectIds,
+                resolveDefaultCriticalChancePercent(hero), DEFAULT_SIMULATION_SEED);
+    }
+
+    public HeroBuildSnapshot(Hero hero,
+                             int bonusSkillPoints,
+                             long averageWeaponDamage,
+                             double totalPercentDamageBonus,
+                             List<Item> equippedItems,
+                             boolean hasActiveWeapon,
+                             boolean hasActiveShield,
+                             Map<SkillId, SkillState> learnedSkills,
+                             List<SkillId> selectedSkillBar,
+                             double initialPrimaryResource,
+                             double maxPrimaryResource,
+                             double primaryResourceRegenPerSecond,
+                             String selectedPaladinOathId,
+                             double initialAnimus,
+                             double maxAnimus,
+                             List<String> activeAspectIds,
+                             double criticalChancePercent,
+                             long simulationSeed) {
+        if (criticalChancePercent < 0.0d || criticalChancePercent > 100.0d) {
+            throw new IllegalArgumentException("Szansa kryta musi być w zakresie 0-100%.");
+        }
         this.hero = hero;
         this.bonusSkillPoints = bonusSkillPoints;
         this.averageWeaponDamage = averageWeaponDamage;
@@ -145,6 +179,8 @@ public final class HeroBuildSnapshot {
         this.initialAnimus = initialAnimus;
         this.maxAnimus = maxAnimus;
         this.activeAspectIds = Collections.unmodifiableList(new ArrayList<>(new LinkedHashSet<>(activeAspectIds == null ? List.of() : activeAspectIds)));
+        this.criticalChancePercent = criticalChancePercent;
+        this.simulationSeed = simulationSeed;
     }
 
     public Hero getHero() {
@@ -215,6 +251,14 @@ public final class HeroBuildSnapshot {
         return maxAnimus;
     }
 
+    public double getCriticalChancePercent() {
+        return criticalChancePercent;
+    }
+
+    public long getSimulationSeed() {
+        return simulationSeed;
+    }
+
     public boolean hasActiveAspect(String aspectId) {
         return activeAspectIds.contains(aspectId);
     }
@@ -229,5 +273,14 @@ public final class HeroBuildSnapshot {
             }
         }
         return false;
+    }
+
+    private static double resolveDefaultCriticalChancePercent(Hero hero) {
+        if (hero == null) {
+            return 0.0d;
+        }
+        return HeroClassStatBaselines.find(hero.getHeroClass(), hero.getLevel())
+                .map(baseline -> baseline.getCriticalChancePercent().doubleValue())
+                .orElse(0.0d);
     }
 }

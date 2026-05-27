@@ -13,6 +13,7 @@ public final class ImportedItemAffix {
     private final String affixDefinitionId;
     private final Double rollRangeMin;
     private final Double rollRangeMax;
+    private final Double referenceValue;
     private final String displayValue;
 
     public ImportedItemAffix(ImportedItemAffixType type, double value) {
@@ -44,6 +45,22 @@ public final class ImportedItemAffix {
                              Double rollRangeMin,
                              Double rollRangeMax,
                              String displayValue) {
+        this(type, value, unit, greaterAffix, displayOrder, rawOcrLine, source, affixDefinitionId,
+                rollRangeMin, rollRangeMax, null, displayValue);
+    }
+
+    public ImportedItemAffix(ImportedItemAffixType type,
+                             double value,
+                             String unit,
+                             boolean greaterAffix,
+                             int displayOrder,
+                             String rawOcrLine,
+                             ImportedItemAffixSource source,
+                             String affixDefinitionId,
+                             Double rollRangeMin,
+                             Double rollRangeMax,
+                             Double referenceValue,
+                             String displayValue) {
         if (type == null) {
             throw new IllegalArgumentException("Typ affixu jest wymagany.");
         }
@@ -61,6 +78,7 @@ public final class ImportedItemAffix {
         this.affixDefinitionId = affixDefinitionId == null ? "" : affixDefinitionId;
         this.rollRangeMin = nonNegativeRangeValue(rollRangeMin);
         this.rollRangeMax = nonNegativeRangeValue(rollRangeMax);
+        this.referenceValue = nonNegativeRangeValue(referenceValue);
         this.displayValue = displayValue == null ? "" : displayValue;
     }
 
@@ -116,6 +134,10 @@ public final class ImportedItemAffix {
         return rollRangeMax;
     }
 
+    public Double getReferenceValue() {
+        return referenceValue;
+    }
+
     public String getDisplayValue() {
         return displayValue;
     }
@@ -129,6 +151,13 @@ public final class ImportedItemAffix {
             return "";
         }
         return formatRangeValue(rollRangeMin, type) + " - " + formatRangeValue(rollRangeMax, type);
+    }
+
+    public String getReferenceValueLabel() {
+        if (referenceValue == null) {
+            return "";
+        }
+        return formatRangeValue(referenceValue, type);
     }
 
     public String toDisplayLine() {
@@ -152,7 +181,7 @@ public final class ImportedItemAffix {
             case BLOCK_CHANCE, RETRIBUTION_CHANCE, CRITICAL_STRIKE_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
                  MOVEMENT_SPEED, DODGE_CHANCE, DAMAGE_REDUCTION, DAMAGE_OVER_TIME_MULTIPLIER -> "%";
             case STRENGTH, INTELLIGENCE, THORNS, ALL_RESISTANCE, FIRE_RESISTANCE, WEAPON_DAMAGE_FLAT, MAXIMUM_LIFE, LIFE_ON_HIT,
-                 LIFE_ON_KILL, LUCKY_HIT_PRIMARY_RESOURCE -> "";
+                 LIFE_ON_KILL, LUCKY_HIT_PRIMARY_RESOURCE, CORE_SKILL_RANKS -> "";
         };
     }
 
