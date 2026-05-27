@@ -14,6 +14,12 @@ import java.util.regex.Pattern;
 
 /** Scala wyniki z wielu wariantów OCR w jeden deterministyczny candidate parse result. */
 final class ItemImageImportCandidateMerger {
+    private static final Pattern ROLL_RANGE_PATTERN = Pattern.compile(
+            "\\[\\s*\\+?\\s*[0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?"
+                    + "(?:\\s*[-–—−]\\s*\\+?\\s*[0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?)?"
+                    + "\\s*]\\s*%?"
+    );
+
     ItemImageImportCandidateParseResult merge(ItemImageMetadata metadata,
                                               int analyzedVariantCount,
                                               List<ItemImageImportCandidateParseResult> parseResults) {
@@ -98,7 +104,7 @@ final class ItemImageImportCandidateMerger {
                 }
                 String key = fullReadLineDeduplicationKey(line);
                 FullItemReadLine existingLine = mergedLines.get(key);
-                if (existingLine == null || lineQualityScore(line) > lineQualityScore(existingLine)) {
+                if (existingLine == null || shouldReplaceMergedLine(key, existingLine, line)) {
                     mergedLines.put(key, line);
                 }
             }
@@ -118,6 +124,24 @@ final class ItemImageImportCandidateMerger {
                 List.copyOf(mergedLines.values()),
                 mergeDetails(mergedRead.getDetails(), sourceDetails)
         );
+    }
+
+    private static boolean shouldReplaceMergedLine(String key, FullItemReadLine existingLine, FullItemReadLine candidateLine) {
+        if (key != null && key.startsWith("AFFIX:")) {
+            boolean existingHasRollRange = hasActualRollRange(existingLine.getText());
+            boolean candidateHasRollRange = hasActualRollRange(candidateLine.getText());
+            if (candidateHasRollRange && !existingHasRollRange) {
+                return true;
+            }
+            if (existingHasRollRange && !candidateHasRollRange) {
+                return false;
+            }
+        }
+        return lineQualityScore(candidateLine) > lineQualityScore(existingLine);
+    }
+
+    private static boolean hasActualRollRange(String text) {
+        return ROLL_RANGE_PATTERN.matcher(text == null ? "" : text).find();
     }
 
     private static ItemImportDetails mergeDetails(ItemImportDetails rebuiltDetails, List<ItemImportDetails> sourceDetails) {

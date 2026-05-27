@@ -920,6 +920,25 @@ class ItemImageImportTextParserTest {
     }
 
     @Test
+    void shouldExtractVerathielDotRangeFromStandaloneRollRangeLine() {
+        ItemImageImportCandidateParseResult result = parser.parse(
+                new ItemImageMetadata("verathiel-dot-range-next-line.png", "image/png", "PNG", 447, 736),
+                """
+                        Odłamek Verathiela
+                        Starożytny unikatowy miecz
+                        Moc przedmiotu: 900
+                        Mnożnik x16% obrażeń z upływem czasu
+                        [15 - 30]%
+                        """
+        );
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(1, form.getAffixes().size());
+        assertAffix(form, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d, 15.0d, 30.0d);
+    }
+
+    @Test
     void shouldRenderAllVerathielPresentationAffixesInManualVerification() {
         ItemImageImportCandidateParseResult result = parser.parse(
                 new ItemImageMetadata("verathiel-confirmation.png", "image/png", "PNG", 447, 736),

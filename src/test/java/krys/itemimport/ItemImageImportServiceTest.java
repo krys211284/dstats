@@ -491,6 +491,61 @@ class ItemImageImportServiceTest {
     }
 
     @Test
+    void shouldPreferVerathielDotMultiplierVariantWithRollRangeDuringSingleScreenMerge() throws Exception {
+        byte[] imageBytes = buildShieldLikeScreenshot();
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new FakeOcrTextReader(Map.of(
+                        "original", """
+                                Odłamek Verathiela
+                                Starożytny unikatowy miecz
+                                Moc przedmiotu: 900
+                                +134 obrażeń od broni [94 - 157]
+                                +172 siły [150 - 180]
+                                +300 zdrowia za zabicie [+300]
+                                Mnożnik x16% obrażeń z upływem czasu
+                                """,
+                        "text-crop", """
+                                Odlamek Verathiela
+                                Starozytny unikatowy miecz
+                                Moc przedmiotu: 900
+                                +134 obrazen od broni [94 - 157]
+                                +172 sily [150 - 180]
+                                +300 zdrowia za zabicie [+300]
+                                Mnoznik x16% obrazen z uplywem czasu [15 - 30]%
+                                """
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(
+                new ItemImageImportRequest("verathiel-variants.png", "image/png", imageBytes)
+        );
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                result,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "Import testowy",
+                ""
+        ));
+
+        assertEquals(4, form.getAffixes().size());
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 134.0d, 94.0d, 157.0d, false);
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.LIFE_ON_KILL, 300.0d, 300.0d, 300.0d, false);
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.STRENGTH, 172.0d, 150.0d, 180.0d, false);
+        assertAffixValueRangeAndGreaterFlag(form, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d, 15.0d, 30.0d, false);
+
+        String damageOverTimeRow = affixRow(html, "Mnożnik obrażeń z upływem czasu");
+        assertTrue(damageOverTimeRow.contains("value=\"16\""), damageOverTimeRow);
+        assertTrue(damageOverTimeRow.contains("15 - 30"), damageOverTimeRow);
+        assertFalse(damageOverTimeRow.contains("Brak zakresu"), damageOverTimeRow);
+    }
+
+    @Test
     void shouldMergeFieldsAcrossPreparedVariantsWithoutChangingImportFlow() throws Exception {
         byte[] imageBytes = buildShieldLikeScreenshot();
         ItemImageImportService service = new ItemImageImportService(

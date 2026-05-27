@@ -1425,6 +1425,14 @@ final class ItemImageImportTextParser {
                     continue;
                 }
             }
+            if (index + 1 < lines.size() && isDamageOverTimeMultiplierLineWithoutRollRange(line)) {
+                String nextLine = lines.get(index + 1);
+                if (isStandaloneRollRangeLine(nextLine)) {
+                    joinedLines.add((line + " " + nextLine).replaceAll("\\s+", " ").trim());
+                    index++;
+                    continue;
+                }
+            }
             joinedLines.add(line);
         }
         return joinedLines;
@@ -1440,6 +1448,25 @@ final class ItemImageImportTextParser {
     private static boolean isWrappedDamageOverTimeMultiplierSuffix(String line) {
         String collapsed = collapse(line);
         return collapsed.startsWith("CZASU") && collapsed.contains("15") && collapsed.contains("30");
+    }
+
+    private static boolean isDamageOverTimeMultiplierLineWithoutRollRange(String line) {
+        String collapsed = collapse(line);
+        return collapsed.startsWith("MNOZNIK")
+                && collapsed.contains("OBRAZENZUPLYWEMCZASU")
+                && !hasActualRollRange(line);
+    }
+
+    private static boolean isStandaloneRollRangeLine(String line) {
+        return Pattern.compile("^\\s*" + ROLL_RANGE_FRAGMENT + "\\s*$", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE)
+                .matcher(line == null ? "" : line)
+                .matches();
+    }
+
+    private static boolean hasActualRollRange(String line) {
+        return Pattern.compile(ROLL_RANGE_FRAGMENT, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE)
+                .matcher(line == null ? "" : line)
+                .find();
     }
 
     private static String normalizeDamagedRollRangeClosings(String line) {
