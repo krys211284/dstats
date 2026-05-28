@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Testuje deterministyczne scalanie wyników z wielu wariantów OCR. */
@@ -203,6 +204,34 @@ class ItemImageImportCandidateMergerTest {
         assertEquals(172.0d, strength.getValue());
         assertEquals(150.0d, strength.getRollRangeMin());
         assertEquals(180.0d, strength.getRollRangeMax());
+    }
+
+    @Test
+    void shouldPreferSameAffixVariantWithSingleValueBracketBeforeLineQualityScore() {
+        ItemImageImportTextParser parser = new ItemImageImportTextParser();
+        ItemImageImportCandidateParseResult plainVariant = parser.parse(metadata, """
+                Generyczny Helm Testowy
+                Starożytny mityczny unikatowy hełm
+                +15,0% szansy na trafienie krytyczne
+                """);
+        ItemImageImportCandidateParseResult richerVariant = parser.parse(metadata, """
+                Generyczny Helm Testowy
+                Starożytny mityczny unikatowy hełm
+                +15,0% szansy na trafienie krytyczne [12,0]%
+                """);
+
+        ItemImageImportCandidateParseResult merged = new ItemImageImportCandidateMerger()
+                .merge(metadata, 2, List.of(plainVariant, richerVariant));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(merged);
+        ImportedItemAffix criticalChance = form.getAffixes().stream()
+                .filter(affix -> affix.getType() == ImportedItemAffixType.CRITICAL_STRIKE_CHANCE)
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(15.0d, criticalChance.getValue());
+        assertEquals(12.0d, criticalChance.getReferenceValue());
+        assertNull(criticalChance.getRollRangeMin());
+        assertNull(criticalChance.getRollRangeMax());
     }
 
     @Test

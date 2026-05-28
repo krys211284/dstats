@@ -67,6 +67,7 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - realny odczyt OCR pojedynczego screena itemu jako pełniejszego rekordu itemu oraz osobną projekcję kompatybilności do pól foundation,
 - preprocessing obrazu itemu przed OCR z heurystycznym wycięciem obszaru tekstowego oraz kilkoma wariantami obrazu,
 - deterministyczne scalanie wyników OCR z kilku wariantów bez zmiany runtime current build, simulation i searcha,
+- kontrolowany techniczny debug log pipeline'u importu itemów, domyślnie wyłączony i włączany parametrem aplikacji, bez zmiany logiki OCR, importu, UI ani DPS,
 - parser polskich affixów foundation dla rozpoznawalnych fraz slotu i statów,
 - model wstępnego rozpoznania z poziomem pewności i uwagami per pole,
 - walidowany formularz zatwierdzonego itemu z edytowalną listą affixów jako główną warstwą ręcznej korekty oraz osobnym mapowaniem do aktualnego modelu buildu,
@@ -1783,6 +1784,10 @@ Kontrakt prezentacji dla smoke testu importu itemu:
 - mityczne unikaty są odróżniane od zwykłych unikatów przez osobną flagę metadanych; podstawowym sygnałem jest tekst OCR `mityczny unikatowy`, a kolor/tło tooltipa może w przyszłości służyć tylko jako pomocniczy klasyfikator obrazu, nie jako jedyne źródło prawdy. Ta iteracja nie wdraża analizy tła, bo obecna regresja ma stabilny sygnał tekstowy i testy używają stub OCR bez danych wizualnych,
 - importer obsługuje single-value bracketed values, np. `[12,0]%`, `[20,0]%`, `[20]%` i `[3]`; dla zwykłych niemitycznych itemów pozostają one klasycznym stałym roll range, natomiast dla mitycznych unikatów są zapisywane jako `referenceValue` / wartość bazowa i nie tworzą `rollRangeMin` / `rollRangeMax`,
 - brak bracketowego zakresu w OCR nadal oznacza brak zakresu i katalog affixów nie tworzy brakujących `rollRangeMin` / `rollRangeMax`; bracketowa wartość referencyjna mityka pochodzi wyłącznie z OCR,
+- OCR Dziedzica Zatracenia ma regresję na uszkodzone warianty typu `+15,0% ... 112,01%`, `[12,01%`, `[201%`, `[31` oraz `szansy szczęsnwy traf`; importer normalizuje tylko takie bracketowe fragmenty, które rzeczywiście wystąpiły w OCR, preferuje kandydat z `referenceValue` dla tego samego affixu i odrzuca przypadkowe sąsiednie single bracket, jeśli nie jest zgodne z widoczną wartością affixu,
+- wieloscreenowa ścieżka `ItemImageImportService.analyze(List<ItemImageImportRequest>) -> ItemScreenshotTextMerger -> ItemImageImportTextParser` nie może ucinać uszkodzonego reference przed parserem: przykładowy fragment OCR `+15,0% szansy na trafienie krytyczne 112,01%` musi po merge zachować informację wystarczającą do `referenceValue = 12`, a warianty Lucky Hit `szansy traf` / `szansy szczęsnwy traf` pozostają kandydatem `LUCKY_HIT_CHANCE`,
+- reguły merge/parser/candidate merger są generyczne: nie dopisują brakujących affixów ani wartości po nazwie itemu, nie odtwarzają `referenceValue` z katalogu i preferują bogatszy wariant wyłącznie wtedy, gdy bracket/reference/range został realnie odczytany albo bezpiecznie znormalizowany z fragmentu OCR dla tej samej logicznej linii,
+- fuzzy matching affixów ignoruje polskie znaki, typowe literówki i rozbite słowa tylko w granicach semantyki affixu; `LUCKY_HIT_CHANCE` wymaga kontekstu `szansa/lucky/szczęśliwy/traf` bez `podstawowego zasobu`, więc nie jest mylony z `LUCKY_HIT_PRIMARY_RESOURCE`,
 - `Greater Affix` na mitycznym unikacie wymaga rzeczywistego markera/gwiazdki przy konkretnej linii affixu; importer nie oznacza GA wyłącznie dlatego, że displayed value równa się `referenceValue × 1,25`. Gwiazdka przy nazwie itemu albo ikonografia mitycznego unikatu nie oznacza automatycznie GA dla ordinary affixów,
 - zwykłe affixy Dziedzica Zatracenia importują się jako: `Szansa na trafienie krytyczne = 15,0`, reference `12,0`, bez roll range i bez Greater Affix; `Szansa na szczęśliwy traf = 25,0`, reference `20,0`, bez roll range i bez Greater Affix; `Szybkość ruchu = 25,0`, reference `20`, bez roll range i bez Greater Affix; `Rangi umiejętności: Główne = 3`, reference `3`, bez roll range i bez Greater Affix,
 - UI importu mitycznego unikatu pokazuje w kolumnie zakresu `Brak zakresu` oraz pomocniczą `Wartość bazowa`, zamiast sztucznego zakresu `12 - 12`, `20 - 20` albo `3 - 3`,
@@ -1796,6 +1801,25 @@ Kontrakt prezentacji dla smoke testu importu itemu:
 - import Odłamka Verathiela nie implementuje `effectiveRank`; runtime current build używa `averageWeaponDamage` aktywnej broni jako `weaponDamage`, aktywuje mnożnik obrażeniowy `verathiel_shard` dla umiejętności `Podstawowe` oraz koszt `+25` Wiary w modelu zasobu, bez Lucky Hit i bez opisowych affixów,
 - flow nie obiecuje pełnej bezbłędności OCR i wymaga ręcznego potwierdzenia użytkownika przed użyciem danych,
 - poza zakresem pozostają pełny wielo-itemowy workflow i pełny OCR całej postaci.
+
+Kontrakt diagnostyczny importu itemów:
+- import itemów ma kontrolowany tryb technicznych debug logów, wyłączony domyślnie,
+- tryb można włączyć parametrem JVM `-Ddstats.itemImport.debug=true`; równoważnie obsługiwany jest klucz konfiguracyjny `dstats.item-import.debug=true`,
+- logger diagnostyczny używa kategorii `krys.itemimport.debug` i prefixu `[ITEM_IMPORT_DEBUG]`; jeżeli nie zmieniono ścieżki parametrem `-Ddstats.itemImport.debug.file=...`, te same wpisy są dopisywane do `logs/item-import-debug.log`,
+- każdy import obrazu dostaje correlation id w formacie `ITEM-IMPORT-...`, które jest propagowane przez OCR, parser, candidate merger i finalny formularz zbudowany z tego samego `ItemImageImportCandidateParseResult`; runtime resolver może użyć osobnego id `ITEM-RUNTIME-...`, ale loguje item id, nazwę i slot, żeby dało się powiązać dane,
+- logi techniczne obejmują sekcje `IMPORT_REQUEST`, `FILE`, `OCR_RAW_VARIANTS`, `OCR_NORMALIZED_LINES`, `SCREEN_MERGER_INPUT`, `SCREEN_MERGER_OUTPUT`, `MERGE_DECISION`, `MERGE_REJECTED`, `MERGE_NUMERIC_TOKENS`, `ITEM_DETAILS`, `AFFIX_CANDIDATE`, `AFFIX_REJECTED`, `AFFIX_MERGE`, `FINAL_IMPORT_FORM`, `FORM_SUBMIT_MAPPING`, `ITEM_LIBRARY_SAVE_READ` i `RUNTIME_CONTRIBUTION`,
+- `IMPORT_REQUEST` zapisuje liczbę screenów, tryb `SINGLE` / `MULTI`, nazwy plików bez pełnych lokalnych ścieżek, content type, rozmiary obrazów, timestamp i informację, że debug jest aktywny,
+- sekcje OCR i mergera zachowują widoczność linii zawierających cyfry, procenty, plusy, nawiasy kwadratowe i bracketopodobne tokeny; jeżeli linia z tokenem liczbowym/bracketowym zostaje odrzucona przez aktualne reguły, log musi pokazać źródło, wybraną linię i powód decyzji, ale samo logowanie nie naprawia ani nie zmienia tej decyzji,
+- `ITEM_DETAILS` zapisuje nazwę, typ, slot, rarity, `ancient`, `mythicUnique`, moc itemu, armor / dane broni i tekst efektu, jeżeli są dostępne w obecnym odczycie,
+- `AFFIX_CANDIDATE`, `AFFIX_REJECTED` i `AFFIX_MERGE` zapisują typ affixu, wartość, `referenceValue`, `rollRangeMin`, `rollRangeMax`, `greaterAffix`, source line, klucz deduplikacji, punktację albo powód wyboru, jeżeli dana warstwa je posiada,
+- `FINAL_IMPORT_FORM` zapisuje finalne metadane itemu, ordinary affixy, hartowanie, przeistoczenie, aspekt / efekt i pola `value`, `referenceValue`, `rollRangeMin`, `rollRangeMax`, `greaterAffix` dla affixów,
+- `FORM_SUBMIT_MAPPING` zapisuje domenowe pola formularza i wynik mapowania do `ValidatedImportedItem`, bez dumpowania całego requestu HTTP,
+- `ITEM_LIBRARY_SAVE_READ` zapisuje zapis i odczyt itemu z biblioteki razem z `mythicUnique`, affixami, `referenceValue`, zakresami, hartowaniem i przeistoczeniem, żeby sprawdzić roundtrip danych,
+- `RUNTIME_CONTRIBUTION` zapisuje aktywne itemy, slot, item id / nazwę, affix type, stored value, `referenceValue`, roll range, `greaterAffix`, resolved runtime value, informację czy resolver Doskonalenia zmienił wartość oraz finalne `criticalChanceFromItemsPercent` i `criticalChancePercent`, jeśli dotyczy,
+- logi diagnostyczne nie są renderowane w UI importu, biblioteki ani edycji itemu; nie dodają panelu debug i nie zmieniają UX,
+- logi diagnostyczne nie zmieniają OCR, fuzzy matchingu, semantyki mityków, range/reference, masterworkingu, rendererów ani DPS; służą wyłącznie do ustalenia, na którym etapie dane zostały utracone albo zinterpretowane inaczej niż oczekiwano,
+- przy problemach z realnym importem pierwszym krokiem jest zebranie logu debug dla aktualnego przypadku, a dopiero potem poprawka parsera, mergera albo runtime na podstawie danych z logu,
+- logi mogą zawierać OCR tooltipu itemu i dane domenowe itemu, ale nie powinny zapisywać pełnych lokalnych ścieżek użytkownika; wystarczy nazwa pliku albo indeks screena.
 
 Smoke test GUI biblioteki itemów:
 

@@ -25,6 +25,7 @@ final class ItemImageImportTextParser {
 
     ItemImageImportCandidateParseResult parse(ItemImageMetadata metadata, String ocrText) {
         List<String> lines = normalizedLines(ocrText);
+        logNormalizedLines(lines);
         ItemImportFieldCandidate<EquipmentSlot> slotCandidate = detectSlot(lines);
         ItemImportFieldCandidate<Long> weaponDamageCandidate = detectLong(lines, "WEAPON DAMAGE",
                 List.of("WEAPON\\s*DAMAGE"), List.of("DAMAGE"));
@@ -53,7 +54,7 @@ final class ItemImageImportTextParser {
             );
         }
 
-        return new ItemImageImportCandidateParseResult(
+        ItemImageImportCandidateParseResult result = new ItemImageImportCandidateParseResult(
                 metadata,
                 buildFullItemRead(lines),
                 slotCandidate,
@@ -66,6 +67,10 @@ final class ItemImageImportTextParser {
                 buildImportNotice(lines, slotCandidate, weaponDamageCandidate, strengthCandidate,
                         intelligenceCandidate, thornsCandidate, blockChanceCandidate, retributionChanceCandidate)
         );
+        ItemImportDebugTrace.log("ITEM_DETAILS", () -> ItemImportDebugTrace.formatDetails(result.getFullItemRead().getDetails())
+                + " aspectId=" + ItemImportDebugTrace.quote("")
+                + " sourceLines=" + result.getFullItemRead().getLines().size());
+        return result;
     }
 
     private static ItemImportFieldCandidate<EquipmentSlot> detectSlot(List<String> lines) {
@@ -227,9 +232,6 @@ final class ItemImageImportTextParser {
                 && (collapsed.contains("VERATHEL") || collapsed.contains("VERATHIEL"))
                 && (collapsed.contains("ODLAMEK") || collapsed.contains("ODLFIK") || collapsed.contains("ODLAMFK") || collapsed.contains("ODL")) ) {
             return "Odłamek Verathiela";
-        }
-        if (collapsed.contains("DZIEDZICZATRACENIA") && containsAny(collapsed, List.of("HELM", "HELMET"))) {
-            return "Dziedzic Zatracenia";
         }
         return fallbackName;
     }
@@ -943,8 +945,6 @@ final class ItemImageImportTextParser {
                 "GDYMASZUMOCNIENIE",
                 "ZADAJESZOBRAZENIA",
                 "VERATHIEL",
-                "DZIEDZICZATRACENIA",
-                "LASKIMATKI",
                 "OBRAZENNASEK",
                 "OBRAZENZATRAFIENIE",
                 "MAKSYMALNEGOZDROWIA",
@@ -1023,6 +1023,8 @@ final class ItemImageImportTextParser {
                 "(\\+[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?cierni(?:\\s*\\+?\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
                 "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+szcz(?:ę|e)(?:ś|s)liwy\\s+traf(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
+        appendFirstMatch(extractedLines, line,
+                "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+(?:na\\s+)?(?:szcz\\S*\\s+)?traf\\b(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
                 "(Mno(?:ż|z)nik\\s*[x×]?\\s*[0-9]+(?:[,.][0-9]+)?%\\s+obra(?:ż|z)e(?:ń|n)\\s+z\\s+up(?:ł|l)ywem\\s+czasu(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
@@ -1572,6 +1574,10 @@ final class ItemImageImportTextParser {
                 "1$1%"
         );
         normalized = normalized.replaceAll(
+                "(\\+[0-9]+(?:[,.][0-9]+)?%?\\s+[^+\\[]+?)\\s+1([0-9]{1,2}(?:[,.][0-9])?)1\\s*%",
+                "$1 [$2]%"
+        );
+        normalized = normalized.replaceAll(
                 "(?<![0-9\\[])\\+1([0-9]{2,3}\\s*[-–—−]\\s*[0-9]{2,3})1(?=\\s|$|%)",
                 "[$1]"
         );
@@ -1592,10 +1598,28 @@ final class ItemImageImportTextParser {
                 "$1]"
         );
         normalized = normalized.replaceAll(
+                "(\\[\\s*\\+?\\s*[0-9]{1,3}(?:[,.][0-9])?)1(?=\\s*%?(?:\\s|$|\\+))",
+                "$1]"
+        );
+        normalized = normalized.replaceAll(
                 "(\\[\\s*\\+?\\s*[0-9]{1,3})1(?!\\s*[-–—−])(?=\\s*%?(?:\\s|$|\\+))",
                 "$1]"
         );
         return normalized;
+    }
+
+    private static void logNormalizedLines(List<String> lines) {
+        if (!ItemImportDebugTrace.isEnabled()) {
+            return;
+        }
+        List<String> safeLines = lines == null ? List.of() : lines;
+        for (int index = 0; index < safeLines.size(); index++) {
+            String line = safeLines.get(index);
+            int lineIndex = index;
+            ItemImportDebugTrace.log("OCR_NORMALIZED_LINES", () -> "line=" + lineIndex
+                    + " raw=" + ItemImportDebugTrace.compactText(line)
+                    + " normalized=" + ItemImportDebugTrace.compactText(line));
+        }
     }
 
     private static String buildImportNotice(List<String> lines,

@@ -33,29 +33,42 @@ public final class ItemImportEditableFormFactory {
     }
 
     public ItemImportEditableForm create(ItemImageImportCandidateParseResult parseResult) {
-        ItemImportDraft draft = createDraft(parseResult);
-        return new ItemImportEditableForm(
-                parseResult.getImageMetadata().getOriginalFilename(),
-                toSlotValue(parseResult.getSlotCandidate().getSuggestedValue() == null
-                        ? parseResult.getFullItemRead().getDetails().getEquipmentSlot()
-                        : parseResult.getSlotCandidate().getSuggestedValue()),
-                "0",
-                toDoubleValue(parseResult.getStrengthCandidate().getSuggestedValue()),
-                toDoubleValue(parseResult.getIntelligenceCandidate().getSuggestedValue()),
-                toDoubleValue(parseResult.getThornsCandidate().getSuggestedValue()),
-                toDoubleValue(parseResult.getBlockChanceCandidate().getSuggestedValue()),
-                toDoubleValue(parseResult.getRetributionChanceCandidate().getSuggestedValue()),
-                parseResult.getFullItemRead(),
-                draft.getAffixes(),
-                draft.getOcrSuggestedAspectId(),
-                draft.getOcrAspectConfidence(),
-                draft.getOcrSuggestedAspectId(),
-                parseResult.getFullItemRead().getDetails(),
-                draft.getTemperingAffixes(),
-                draft.getMasterworking(),
-                draft.getTransfiguration(),
-                draft.getSocketing()
-        );
+        try (ItemImportDebugTrace.Scope ignored = ItemImportDebugTrace.withMetadata(parseResult.getImageMetadata())) {
+            ItemImportDraft draft = createDraft(parseResult);
+            ItemImportEditableForm form = new ItemImportEditableForm(
+                    parseResult.getImageMetadata().getOriginalFilename(),
+                    toSlotValue(parseResult.getSlotCandidate().getSuggestedValue() == null
+                            ? parseResult.getFullItemRead().getDetails().getEquipmentSlot()
+                            : parseResult.getSlotCandidate().getSuggestedValue()),
+                    "0",
+                    toDoubleValue(parseResult.getStrengthCandidate().getSuggestedValue()),
+                    toDoubleValue(parseResult.getIntelligenceCandidate().getSuggestedValue()),
+                    toDoubleValue(parseResult.getThornsCandidate().getSuggestedValue()),
+                    toDoubleValue(parseResult.getBlockChanceCandidate().getSuggestedValue()),
+                    toDoubleValue(parseResult.getRetributionChanceCandidate().getSuggestedValue()),
+                    parseResult.getFullItemRead(),
+                    draft.getAffixes(),
+                    draft.getOcrSuggestedAspectId(),
+                    draft.getOcrAspectConfidence(),
+                    draft.getOcrSuggestedAspectId(),
+                    parseResult.getFullItemRead().getDetails(),
+                    draft.getTemperingAffixes(),
+                    draft.getMasterworking(),
+                    draft.getTransfiguration(),
+                    draft.getSocketing()
+            );
+            ItemImportDebugTrace.log("FINAL_IMPORT_FORM", () -> ItemImportDebugTrace.formatForm(form)
+                    + " " + ItemImportDebugTrace.formatDetails(form.getDetails()));
+            ItemImportDebugTrace.logAffixList("FINAL_IMPORT_FORM", form.getAffixes());
+            for (int index = 0; index < form.getTemperingAffixes().size(); index++) {
+                int finalIndex = index;
+                ItemTemperingAffix affix = form.getTemperingAffixes().get(index);
+                ItemImportDebugTrace.log("FINAL_IMPORT_FORM", () -> "temperingIndex=" + finalIndex
+                        + " sourceCategory=tempering "
+                        + ItemImportDebugTrace.formatTempering(affix));
+            }
+            return form;
+        }
     }
 
     public ItemImportDraft createDraft(ItemImageImportCandidateParseResult parseResult) {

@@ -6,6 +6,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ItemScreenshotTextMergerTest {
@@ -110,6 +111,49 @@ class ItemScreenshotTextMergerTest {
     }
 
     @Test
+    void shouldPreserveBracketDataFromRicherGenericAffixVariant() {
+        String merged = merger.merge(List.of(
+                """
+                        Generyczny Helm Testowy
+                        Starożytny mityczny unikatowy hełm
+                        +15,0% szansy na trafienie krytyczne
+                        """,
+                "+15,0% szansy na trafienie krytyczne [12,0]%"
+        ));
+
+        assertTrue(merged.contains("+15,0% szansy na trafienie krytyczne [12,0]%"), merged);
+    }
+
+    @Test
+    void shouldPreserveDamagedMythicReferenceBeforeParserNormalizesIt() {
+        String merged = merger.merge(List.of(
+                """
+                        Dziedzic Zatracenia
+                        Starożytny mityczny unikatowy hełm
+                        Moc przedmiotu: 900
+                        +15,0% szansy na trafienie krytyczne 112,01% +25,0% szansy szczęsnwy traf [20,01% +25% szybkości ruchu 1201% +3 do umiejętności: Główne [31
+                        """,
+                "+15,0% szansy na trafienie krytyczne"
+        ));
+
+        assertTrue(merged.contains("+15,0% szansy na trafienie krytyczne [12]%"), merged);
+        assertTrue(merged.contains("+25,0% szansy na szczęśliwy traf [20,0]%"), merged);
+        assertTrue(merged.contains("+25% szybkości ruchu [20]%"), merged);
+        assertTrue(merged.contains("+3 do umiejętności: Główne [3]"), merged);
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(new ItemImageImportTextParser().parse(
+                new ItemImageMetadata("dziedzic-merged.png", "image/png", "MULTI", 327, 1444),
+                merged
+        ));
+
+        assertEquals(4, form.getAffixes().size());
+        assertMythicReferenceAffix(form, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, 12.0d);
+        assertMythicReferenceAffix(form, ImportedItemAffixType.LUCKY_HIT_CHANCE, 25.0d, 20.0d);
+        assertMythicReferenceAffix(form, ImportedItemAffixType.MOVEMENT_SPEED, 25.0d, 20.0d);
+        assertMythicReferenceAffix(form, ImportedItemAffixType.CORE_SKILL_RANKS, 3.0d, 3.0d);
+    }
+
+    @Test
     void shouldNormalizeFortifyAspectOcrVariantsDuringCanonicalMerge() {
         for (String rawAspect : List.of(
                 "Gdy masz umocnienie, zadajesz obrażenia zwiększone o61%[x] [45 - 65]%.",
@@ -156,6 +200,21 @@ class ItemScreenshotTextMergerTest {
         )) {
             assertFalse(merged.contains(forbidden), forbidden + "\n" + merged);
         }
+    }
+
+    private static void assertMythicReferenceAffix(ItemImportEditableForm form,
+                                                   ImportedItemAffixType expectedType,
+                                                   double expectedValue,
+                                                   double expectedReferenceValue) {
+        ImportedItemAffix affix = form.getAffixes().stream()
+                .filter(candidate -> candidate.getType() == expectedType)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Brak affixu: " + expectedType.getDisplayName()));
+        assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
+        assertEquals(expectedReferenceValue, affix.getReferenceValue(), 0.0001d, expectedType.getDisplayName());
+        assertNull(affix.getRollRangeMin(), expectedType.getDisplayName());
+        assertNull(affix.getRollRangeMax(), expectedType.getDisplayName());
+        assertFalse(affix.isGreaterAffix(), expectedType.getDisplayName());
     }
 
 }

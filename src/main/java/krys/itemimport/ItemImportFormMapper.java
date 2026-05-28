@@ -45,53 +45,65 @@ public final class ItemImportFormMapper {
     }
 
     public MappingResult map(ItemImportEditableForm form) {
-        List<String> errors = new ArrayList<>();
-        EquipmentSlot slot = parseSlot(form.getSlot(), errors);
-        Long weaponDamage = parseLong(resolveVisibleWeaponDamage(form), "Weapon damage", errors);
-        RuntimeProjection projection = projectAffixes(form.getAffixes());
-        Double strength = projection.strength();
-        Double intelligence = projection.intelligence();
-        Double thorns = projection.thorns();
-        Double blockChance = projection.blockChance() + visibleImplicitBlockChance(form.getFullItemRead());
-        Double retributionChance = projection.retributionChance();
-        Double criticalChancePercent = projection.criticalChancePercent();
+        try (ItemImportDebugTrace.Scope ignored = ItemImportDebugTrace.startOperation("ITEM-FORM-SUBMIT")) {
+            ItemImportDebugTrace.log("FORM_SUBMIT_MAPPING", () -> "input "
+                    + ItemImportDebugTrace.formatForm(form)
+                    + " details=" + ItemImportDebugTrace.formatDetails(form.getDetails()));
+            ItemImportDebugTrace.logAffixList("FORM_SUBMIT_MAPPING", form.getAffixes());
+            List<String> errors = new ArrayList<>();
+            EquipmentSlot slot = parseSlot(form.getSlot(), errors);
+            Long weaponDamage = parseLong(resolveVisibleWeaponDamage(form), "Weapon damage", errors);
+            RuntimeProjection projection = projectAffixes(form.getAffixes());
+            Double strength = projection.strength();
+            Double intelligence = projection.intelligence();
+            Double thorns = projection.thorns();
+            Double blockChance = projection.blockChance() + visibleImplicitBlockChance(form.getFullItemRead());
+            Double retributionChance = projection.retributionChance();
+            Double criticalChancePercent = projection.criticalChancePercent();
 
-        if (slot == null || weaponDamage == null || strength == null || intelligence == null
-                || thorns == null || blockChance == null || retributionChance == null || criticalChancePercent == null) {
-            return new MappingResult(null, errors);
+            if (slot == null || weaponDamage == null || strength == null || intelligence == null
+                    || thorns == null || blockChance == null || retributionChance == null || criticalChancePercent == null) {
+                MappingResult result = new MappingResult(null, errors);
+                logMappingResult(result);
+                return result;
+            }
+
+            if (slot != EquipmentSlot.MAIN_HAND && weaponDamage > 0L) {
+                errors.add("Weapon damage można ustawić wyłącznie dla slotu MAIN_HAND.");
+            }
+            String selectedAspectId = validateAspect(form.getSelectedAspectId(), slot, errors);
+            ItemImportDetails details = buildDetails(form, slot, errors);
+            List<ItemTemperingAffix> temperingAffixes = validateTempering(form.getTemperingAffixes(), slot, details.getItemType(), details.getItemPower(), errors);
+            ItemMasterworking masterworking = validateMasterworking(form.getMasterworking(), form.getAffixes(), temperingAffixes, errors);
+            ItemTransfiguration transfiguration = validateTransfiguration(form.getTransfiguration(), form.getAffixes(), masterworking, errors);
+            ItemSocketing socketing = validateSocketing(form.getSocketing(), errors);
+
+            if (!errors.isEmpty()) {
+                MappingResult result = new MappingResult(null, errors);
+                logMappingResult(result);
+                return result;
+            }
+
+            MappingResult result = new MappingResult(new ValidatedImportedItem(
+                    form.getSourceImageName(),
+                    slot,
+                    weaponDamage,
+                    strength,
+                    intelligence,
+                    thorns,
+                    blockChance,
+                    retributionChance,
+                    form.getAffixes(),
+                    selectedAspectId,
+                    details,
+                    temperingAffixes,
+                    masterworking,
+                    transfiguration,
+                    socketing
+            ), errors);
+            logMappingResult(result);
+            return result;
         }
-
-        if (slot != EquipmentSlot.MAIN_HAND && weaponDamage > 0L) {
-            errors.add("Weapon damage można ustawić wyłącznie dla slotu MAIN_HAND.");
-        }
-        String selectedAspectId = validateAspect(form.getSelectedAspectId(), slot, errors);
-        ItemImportDetails details = buildDetails(form, slot, errors);
-        List<ItemTemperingAffix> temperingAffixes = validateTempering(form.getTemperingAffixes(), slot, details.getItemType(), details.getItemPower(), errors);
-        ItemMasterworking masterworking = validateMasterworking(form.getMasterworking(), form.getAffixes(), temperingAffixes, errors);
-        ItemTransfiguration transfiguration = validateTransfiguration(form.getTransfiguration(), form.getAffixes(), masterworking, errors);
-        ItemSocketing socketing = validateSocketing(form.getSocketing(), errors);
-
-        if (!errors.isEmpty()) {
-            return new MappingResult(null, errors);
-        }
-
-        return new MappingResult(new ValidatedImportedItem(
-                form.getSourceImageName(),
-                slot,
-                weaponDamage,
-                strength,
-                intelligence,
-                thorns,
-                blockChance,
-                retributionChance,
-                form.getAffixes(),
-                selectedAspectId,
-                details,
-                temperingAffixes,
-                masterworking,
-                transfiguration,
-                socketing
-        ), errors);
     }
 
     private static ItemSocketing validateSocketing(ItemSocketing socketing, List<String> errors) {
@@ -628,6 +640,24 @@ public final class ItemImportFormMapper {
                 .replace('ł', 'l')
                 .replaceAll("\\p{M}", "")
                 .toUpperCase(Locale.ROOT);
+    }
+
+    private static void logMappingResult(MappingResult result) {
+        ItemImportDebugTrace.log("FORM_SUBMIT_MAPPING", () -> {
+            if (result.getItem() == null) {
+                return "result=ERROR errors=" + result.getErrors();
+            }
+            ValidatedImportedItem item = result.getItem();
+            return "result=OK source=" + ItemImportDebugTrace.quote(item.getSourceImageName())
+                    + " slot=" + item.getSlot()
+                    + " mythicUnique=" + item.getDetails().isMythicUnique()
+                    + " affixes=" + item.getAffixes().size()
+                    + " tempering=" + item.getTemperingAffixes().size()
+                    + " details=" + ItemImportDebugTrace.formatDetails(item.getDetails());
+        });
+        if (result.getItem() != null) {
+            ItemImportDebugTrace.logAffixList("FORM_SUBMIT_MAPPING", result.getItem().getAffixes());
+        }
     }
 
     public static final class MappingResult {

@@ -49,6 +49,21 @@ class ItemImageImportTextParserTest {
     }
 
     @Test
+    void shouldFuzzyMatchLuckyHitChanceForGenericMythicWithoutResourceAffix() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                Generyczny Helm Testowy
+                Starożytny mityczny unikatowy hełm
+                +25,0% szansy szczęsnwy traf [20,0]%
+                """);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(1, form.getAffixes().size());
+        assertAffixReferenceNoRange(form, ImportedItemAffixType.LUCKY_HIT_CHANCE, 25.0d, 20.0d);
+        assertFalse(form.getAffixes().stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE));
+    }
+
+    @Test
     void shouldRecognizePolishShieldSlotAndFoundationAffixes() {
         String ocrText = """
                 Tarcza
@@ -977,6 +992,28 @@ class ItemImageImportTextParserTest {
     }
 
     @Test
+    void shouldNormalizeDamagedMythicSingleValueReferencesFromRealOcrFragments() {
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parser.parse(
+                new ItemImageMetadata("dziedzic-zatracenia-damaged-ocr.png", "image/png", "PNG", 327, 766),
+                """
+                        DZIEDZIC ZATRACENIA
+                        Starożytny mityczny unikatowy hełm
+                        Moc przedmiotu: 900
+                        +15,0% szansy na trafienie krytyczne 112,01%
+                        +25,0% szansy szczęsnwy traf [20,01%
+                        +25% szybkości ruchu 1201%
+                        +3 do umiejętności: Główne [31
+                        """
+        ));
+
+        assertEquals(4, form.getAffixes().size());
+        assertAffixReferenceNoRange(form, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, 12.0d);
+        assertAffixReferenceNoRange(form, ImportedItemAffixType.LUCKY_HIT_CHANCE, 25.0d, 20.0d);
+        assertAffixReferenceNoRange(form, ImportedItemAffixType.MOVEMENT_SPEED, 25.0d, 20.0d);
+        assertAffixReferenceNoRange(form, ImportedItemAffixType.CORE_SKILL_RANKS, 3.0d, 3.0d);
+    }
+
+    @Test
     void shouldNotFillRollRangeFromSingleBoundaryNumbersWithoutBracketFragment() {
         for (String text : List.of(
                 "Mnożnik x16% obrażeń z upływem czasu 15",
@@ -1280,6 +1317,21 @@ class ItemImageImportTextParserTest {
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Brak affixu: " + expectedType.getDisplayName()));
         assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
+        assertNull(affix.getRollRangeMin(), expectedType.getDisplayName());
+        assertNull(affix.getRollRangeMax(), expectedType.getDisplayName());
+        assertFalse(affix.isGreaterAffix(), expectedType.getDisplayName());
+    }
+
+    private static void assertAffixReferenceNoRange(ItemImportEditableForm form,
+                                                    ImportedItemAffixType expectedType,
+                                                    double expectedValue,
+                                                    double expectedReferenceValue) {
+        ImportedItemAffix affix = form.getAffixes().stream()
+                .filter(candidate -> candidate.getType() == expectedType)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Brak affixu: " + expectedType.getDisplayName()));
+        assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
+        assertEquals(expectedReferenceValue, affix.getReferenceValue(), 0.0001d, expectedType.getDisplayName());
         assertNull(affix.getRollRangeMin(), expectedType.getDisplayName());
         assertNull(affix.getRollRangeMax(), expectedType.getDisplayName());
         assertFalse(affix.isGreaterAffix(), expectedType.getDisplayName());

@@ -104,8 +104,14 @@ final class ItemImageImportCandidateMerger {
                 }
                 String key = fullReadLineDeduplicationKey(line);
                 FullItemReadLine existingLine = mergedLines.get(key);
-                if (existingLine == null || shouldReplaceMergedLine(key, existingLine, line)) {
+                if (existingLine == null) {
+                    logAffixMerge(key, null, line, line, "first candidate for dedup key");
                     mergedLines.put(key, line);
+                } else if (shouldReplaceMergedLine(key, existingLine, line)) {
+                    logAffixMerge(key, existingLine, line, line, mergeReplacementReason(key, existingLine, line));
+                    mergedLines.put(key, line);
+                } else {
+                    logAffixMerge(key, existingLine, line, existingLine, mergeKeepReason(key, existingLine, line));
                 }
             }
         }
@@ -128,6 +134,14 @@ final class ItemImageImportCandidateMerger {
 
     private static boolean shouldReplaceMergedLine(String key, FullItemReadLine existingLine, FullItemReadLine candidateLine) {
         if (key != null && key.startsWith("AFFIX:")) {
+            boolean existingHasCompatibleSingleReference = hasCompatibleSingleReference(key, existingLine.getText());
+            boolean candidateHasCompatibleSingleReference = hasCompatibleSingleReference(key, candidateLine.getText());
+            if (candidateHasCompatibleSingleReference && !existingHasCompatibleSingleReference) {
+                return true;
+            }
+            if (existingHasCompatibleSingleReference && !candidateHasCompatibleSingleReference) {
+                return false;
+            }
             boolean existingHasRollRange = hasActualRollRange(existingLine.getText());
             boolean candidateHasRollRange = hasActualRollRange(candidateLine.getText());
             if (candidateHasRollRange && !existingHasRollRange) {
@@ -138,6 +152,85 @@ final class ItemImageImportCandidateMerger {
             }
         }
         return lineQualityScore(candidateLine) > lineQualityScore(existingLine);
+    }
+
+    private static void logAffixMerge(String key,
+                                      FullItemReadLine existingLine,
+                                      FullItemReadLine candidateLine,
+                                      FullItemReadLine selectedLine,
+                                      String reason) {
+        if (!ItemImportDebugTrace.isEnabled() || key == null || !key.startsWith("AFFIX:")) {
+            return;
+        }
+        ItemImportDebugTrace.log("AFFIX_MERGE", () -> "dedupKey=" + ItemImportDebugTrace.quote(key)
+                + " existing=" + formatLineCandidate(existingLine)
+                + " candidate=" + formatLineCandidate(candidateLine)
+                + " selected=" + formatLineCandidate(selectedLine)
+                + " reason=" + ItemImportDebugTrace.quote(reason)
+                + " candidateHasReferenceOrRange=" + hasActualRollRange(candidateLine == null ? "" : candidateLine.getText())
+                + " selectedHasReferenceOrRange=" + hasActualRollRange(selectedLine == null ? "" : selectedLine.getText()));
+    }
+
+    private static String formatLineCandidate(FullItemReadLine line) {
+        if (line == null) {
+            return "null";
+        }
+        return "{type=" + line.getType()
+                + ", score=" + lineQualityScore(line)
+                + ", text=" + ItemImportDebugTrace.compactText(line.getText())
+                + ", tokens=" + ItemImportDebugTrace.numericTokens(line.getText())
+                + "}";
+    }
+
+    private static String mergeReplacementReason(String key, FullItemReadLine existingLine, FullItemReadLine candidateLine) {
+        if (key != null && key.startsWith("AFFIX:")) {
+            boolean existingHasCompatibleSingleReference = hasCompatibleSingleReference(key, existingLine.getText());
+            boolean candidateHasCompatibleSingleReference = hasCompatibleSingleReference(key, candidateLine.getText());
+            if (candidateHasCompatibleSingleReference && !existingHasCompatibleSingleReference) {
+                return "candidate has compatible single reference from OCR";
+            }
+            boolean existingHasRollRange = hasActualRollRange(existingLine.getText());
+            boolean candidateHasRollRange = hasActualRollRange(candidateLine.getText());
+            if (candidateHasRollRange && !existingHasRollRange) {
+                return "candidate has OCR range/reference fragment";
+            }
+        }
+        return "candidate has higher line quality score";
+    }
+
+    private static String mergeKeepReason(String key, FullItemReadLine existingLine, FullItemReadLine candidateLine) {
+        if (key != null && key.startsWith("AFFIX:")) {
+            boolean existingHasCompatibleSingleReference = hasCompatibleSingleReference(key, existingLine.getText());
+            boolean candidateHasCompatibleSingleReference = hasCompatibleSingleReference(key, candidateLine.getText());
+            if (existingHasCompatibleSingleReference && !candidateHasCompatibleSingleReference) {
+                return "existing candidate keeps compatible single reference from OCR";
+            }
+            boolean existingHasRollRange = hasActualRollRange(existingLine.getText());
+            boolean candidateHasRollRange = hasActualRollRange(candidateLine.getText());
+            if (existingHasRollRange && !candidateHasRollRange) {
+                return "existing candidate keeps OCR range/reference fragment";
+            }
+        }
+        return "existing candidate has equal or higher line quality score";
+    }
+
+    private static boolean hasCompatibleSingleReference(String key, String text) {
+        String[] keyParts = key == null ? new String[0] : key.split(":");
+        if (keyParts.length < 3) {
+            return false;
+        }
+        double displayedValue = parseRollRangeNumber(keyParts[2]);
+        if (Double.isNaN(displayedValue)) {
+            return false;
+        }
+        Matcher matcher = ROLL_RANGE_PATTERN.matcher(text == null ? "" : text);
+        if (!matcher.find() || matcher.group(2) != null) {
+            return false;
+        }
+        double referenceValue = parseRollRangeNumber(matcher.group(1));
+        return !Double.isNaN(referenceValue)
+                && referenceValue <= displayedValue + 0.0001d
+                && displayedValue <= referenceValue * 1.25d + 0.25d;
     }
 
     private static boolean hasActualRollRange(String text) {
@@ -343,8 +436,18 @@ final class ItemImageImportCandidateMerger {
         if (normalized.contains("CIERNI")) {
             return "AFFIX:THORNS:" + firstNumber(normalized);
         }
-        if (normalized.contains("SZCZESLIWY TRAF")) {
-            return "AFFIX:LUCKY_HIT:" + firstNumber(normalized);
+        String collapsed = normalized.replaceAll("[^A-Z0-9]", "");
+        if (normalized.contains("SZANSY NA TRAFIENIE KRYTYCZNE") || normalized.contains("SZANSA NA TRAFIENIE KRYTYCZNE")) {
+            return "AFFIX:CRITICAL_STRIKE_CHANCE:" + firstNumber(normalized);
+        }
+        if (isLuckyHitChanceLine(normalized, collapsed)) {
+            return "AFFIX:LUCKY_HIT_CHANCE:" + firstNumber(normalized);
+        }
+        if (normalized.contains("SZYBKOSCI RUCHU")) {
+            return "AFFIX:MOVEMENT_SPEED:" + firstNumber(normalized);
+        }
+        if (normalized.contains("UMIEJETNOSCI") && normalized.contains("GLOWNE")) {
+            return "AFFIX:CORE_SKILL_RANKS:" + firstNumber(normalized);
         }
         if (normalized.contains("CZASU ODNOWIENIA")) {
             return "AFFIX:COOLDOWN_REDUCTION:" + firstNumber(normalized);
@@ -365,6 +468,19 @@ final class ItemImageImportCandidateMerger {
             return "SEASONAL:ROZJUSZENIE:" + firstNumber(normalized);
         }
         return type.name() + ":" + normalized.replaceAll("\\s+", " ").trim();
+    }
+
+    private static boolean isLuckyHitChanceLine(String normalized, String collapsed) {
+        if (collapsed.contains("PODSTAWOWEGOZASOBU")
+                || collapsed.contains("PODSTAWOWYZASOB")
+                || collapsed.contains("ODZYSKANIE")) {
+            return false;
+        }
+        return normalized.contains("SZCZESLIWY TRAF")
+                || normalized.contains("SZCZESNWY TRAF")
+                || normalized.contains("SZANSY TRAF")
+                || normalized.contains("SZANSY WY TRAF")
+                || (collapsed.contains("SZANS") && collapsed.contains("TRAF") && !collapsed.contains("TRAFIENIEKRYTYCZNE"));
     }
 
     private static int lineQualityScore(FullItemReadLine line) {

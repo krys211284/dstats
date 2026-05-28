@@ -237,6 +237,8 @@ public final class ApplicationAffixRegistry {
                     AffixCategory.UTILITY,
                     List.of("szansy na szczęśliwy traf", "szansa na szczęśliwy traf",
                             "szansy na szczesliwy traf", "szansa na szczesliwy traf",
+                            "szansy szczesliwy traf", "szansy szczesnwy traf",
+                            "szansy traf", "szansy wy traf",
                             "lucky hit chance"),
                     AffixValueUnit.PERCENT,
                     null,

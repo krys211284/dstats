@@ -191,6 +191,7 @@ class ItemImageImportServiceTest {
         assertFalse(luckyRow.contains("20 - 20"), luckyRow);
         assertFalse(moveRow.contains("20 - 20"), moveRow);
         assertFalse(ranksRow.contains("3 - 3"), ranksRow);
+        assertFalse(critRow.contains("18,8"), critRow);
         assertEquals(0, countCheckedGreaterAffixes(html));
         assertTrue(html.contains("Dziedzic Zatracenia"));
         assertTrue(html.contains("value=\"heir_of_perdition\""));
@@ -209,6 +210,85 @@ class ItemImageImportServiceTest {
         );
         assertEquals(15.0d, resolution.getActiveItemsContribution().getCriticalChancePercent(), 0.0001d);
         assertNotEquals(18.0d, resolution.getActiveItemsContribution().getCriticalChancePercent(), 0.0001d);
+    }
+
+    @Test
+    void shouldImportHeirOfPerditionReferencesFromDamagedRealOcrVariants() throws Exception {
+        byte[] topImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-1.png"));
+        byte[] bottomImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-2.png"));
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new QueuedVariantOcrTextReader(List.of(
+                        Map.of(
+                                "original", """
+                                        DZIEDZIC ZATRACENIA
+                                        Starożytny mityczny unikatowy hełm
+                                        Moc przedmiotu: 900 25 +25) jakości Przeistoczony 2 004 pkt. pancerza
+                                        +25,0% szansy na szczęśliwy traf 425% szybkości ruchu [201% +3 do umiejętności: Główne [31
+                                        +115 pkt. do wszystkich współczynników +175 - 1001 +12 do maksymalnej liczby kumulacji Animuszu
+                                        Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x].
+                                        """,
+                                "text-crop-gray-x2-contrast", """
+                                        DZIEDZIC ZATRACENIA
+                                        Starożytny mityczny unikatowy hełm
+                                        Moc przedmiotu: 900 25 (o +25) jakości Przeistoczony 2 004 pkt. pancerza
+                                        +15,0% szansy na trafienie krytyczne 112,01% +25,0% szansy na szczęśliwy traf +25% szybkości ruchu 1201% +3 do umiejętności: Główne [31
+                                        +115 pkt. do wszystkich współczynników +175 - 1001 +12 do maksymalnej liczby kumulacji Animuszu
+                                        """,
+                                "weapon-stats-crop-gray-x4-sharpen", """
+                                        Starożytny mityczny unikatowy hełm
+                                        Moc przedmiotu: 900 25 (c +25) jakości Przeistoczony 2 004 pkt. pancerza
+                                        +15,0% szansy na trafienie krytyczne [12,01% +25,0% szansy na szczęśliwy traf [20,01%
+                                        """
+                        ),
+                        Map.of(
+                                "text-crop", """
+                                        kryty O Przewiń do góry +25,0% szansy traf +25% szybkości ruchu [201% 43 do umiejętności: Główne [31
+                                        +115 pkt. do wszystkich współczynników +175 - 1001 +12 do maksymalnej liczby kumulacji Animuszu
+                                        Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x].
+                                        """,
+                                "text-crop-gray-x3-sharpen", """
+                                        O Przewiń do góry o +25,0% szansy szczęsnwy traf [20,01% +25% szybkości ruchu [201% o +3 do umiejętności: Główne [31
+                                        +115 pkt. do wszystkich współczynników +175 - 1001 +12 do maksymalnej liczby kumulacji Animuszu
+                                        Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x].
+                                        """
+                        )
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(List.of(
+                new ItemImageImportRequest("dziedzic-zatracenia-helm-1.png", "image/png", topImageBytes),
+                new ItemImageImportRequest("dziedzic-zatracenia-helm-2.png", "image/png", bottomImageBytes)
+        ));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertTrue(form.isMythicUnique());
+        assertEquals("HELMET", form.getSlot());
+        assertEquals(4, form.getAffixes().size());
+        assertAffixValueReferenceNoRange(form, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, 12.0d);
+        assertAffixValueReferenceNoRange(form, ImportedItemAffixType.LUCKY_HIT_CHANCE, 25.0d, 20.0d);
+        assertAffixValueReferenceNoRange(form, ImportedItemAffixType.MOVEMENT_SPEED, 25.0d, 20.0d);
+        assertAffixValueReferenceNoRange(form, ImportedItemAffixType.CORE_SKILL_RANKS, 3.0d, 3.0d);
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                result,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "Import testowy",
+                ""
+        ));
+        String critRow = affixRow(html, "Szansa na trafienie krytyczne");
+        String luckyRow = affixRow(html, "Szansa na szczęśliwy traf");
+        assertTrue(critRow.contains("Wartość bazowa: 12"), critRow);
+        assertTrue(luckyRow.contains("Wartość bazowa: 20"), luckyRow);
+        assertTrue(critRow.contains("Brak zakresu"), critRow);
+        assertTrue(luckyRow.contains("Brak zakresu"), luckyRow);
+        assertFalse(critRow.contains("18,8"), critRow);
+        assertEquals(0, countCheckedGreaterAffixes(html));
     }
 
     @Test
@@ -1257,7 +1337,9 @@ class ItemImageImportServiceTest {
                                                          double expectedReferenceValue) {
         ImportedItemAffix affix = affix(form, expectedType);
         assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
-        assertEquals(expectedReferenceValue, affix.getReferenceValue(), 0.0001d, expectedType.getDisplayName());
+        assertNotNull(affix.getReferenceValue(), expectedType.getDisplayName() + " source=" + affix.getSourceText());
+        assertEquals(expectedReferenceValue, affix.getReferenceValue(), 0.0001d,
+                expectedType.getDisplayName() + " source=" + affix.getSourceText());
         assertNull(affix.getRollRangeMin(), expectedType.getDisplayName());
         assertNull(affix.getRollRangeMax(), expectedType.getDisplayName());
         assertFalse(affix.isGreaterAffix(), expectedType.getDisplayName());

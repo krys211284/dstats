@@ -58,14 +58,34 @@ public final class ImportedItemAffixExtractor {
                     koscianychLusekShieldContext, koscianychLusekQuality25Context,
                     moonFrenzyShieldContext, moonFrenzyQuality25Context, mythicUniqueContext)) {
                 String key = editableAffixDeduplicationKey(affix);
+                int score = affixQualityScore(affix);
+                int candidateIndex = displayOrder;
+                ItemImportDebugTrace.log("AFFIX_CANDIDATE", () -> "index=" + candidateIndex
+                        + " score=" + score
+                        + " dedupKey=" + ItemImportDebugTrace.quote(key)
+                        + " sourceCategory=ordinary "
+                        + ItemImportDebugTrace.formatAffix(affix));
                 ImportedItemAffix existing = affixes.get(key);
                 if (existing == null || affixQualityScore(affix) > affixQualityScore(existing)) {
+                    if (existing != null) {
+                        ImportedItemAffix rejected = existing;
+                        ItemImportDebugTrace.log("AFFIX_REJECTED", () -> "reason="
+                                + ItemImportDebugTrace.quote("replaced by higher quality OCR candidate")
+                                + " replacedBy=" + ItemImportDebugTrace.formatAffix(affix)
+                                + " rejected=" + ItemImportDebugTrace.formatAffix(rejected));
+                    }
                     affixes.put(key, affix);
+                } else {
+                    ImportedItemAffix selected = existing;
+                    ItemImportDebugTrace.log("AFFIX_REJECTED", () -> "reason="
+                            + ItemImportDebugTrace.quote("lower quality OCR candidate for same dedup key")
+                            + " replacedBy=" + ItemImportDebugTrace.formatAffix(selected)
+                            + " rejected=" + ItemImportDebugTrace.formatAffix(affix));
                 }
                 displayOrder++;
             }
         }
-        List<ImportedItemAffix> result = new ArrayList<>(affixes.values());
+        List<ImportedItemAffix> result = preferBestPerAffixDefinition(new ArrayList<>(affixes.values()));
         if (koscianychLusekQuality25Context) {
             return stableKoscianychLusekShieldAffixes(result);
         }
@@ -73,6 +93,30 @@ public final class ImportedItemAffixExtractor {
             return stableMoonFrenzyShieldAffixes(result);
         }
         return result;
+    }
+
+    private List<ImportedItemAffix> preferBestPerAffixDefinition(List<ImportedItemAffix> affixes) {
+        Map<String, ImportedItemAffix> preferred = new LinkedHashMap<>();
+        for (ImportedItemAffix affix : affixes) {
+            ImportedItemAffix existing = preferred.get(affix.getAffixDefinitionId());
+            if (existing == null || affixQualityScore(affix) > affixQualityScore(existing)) {
+                if (existing != null) {
+                    ImportedItemAffix rejected = existing;
+                    ItemImportDebugTrace.log("AFFIX_REJECTED", () -> "reason="
+                            + ItemImportDebugTrace.quote("replaced by better candidate for same affix definition")
+                            + " replacedBy=" + ItemImportDebugTrace.formatAffix(affix)
+                            + " rejected=" + ItemImportDebugTrace.formatAffix(rejected));
+                }
+                preferred.put(affix.getAffixDefinitionId(), affix);
+            } else {
+                ImportedItemAffix selected = existing;
+                ItemImportDebugTrace.log("AFFIX_REJECTED", () -> "reason="
+                        + ItemImportDebugTrace.quote("lower quality candidate for same affix definition")
+                        + " replacedBy=" + ItemImportDebugTrace.formatAffix(selected)
+                        + " rejected=" + ItemImportDebugTrace.formatAffix(affix));
+            }
+        }
+        return new ArrayList<>(preferred.values());
     }
 
     static boolean isEditableAffixLine(FullItemReadLine line) {
@@ -210,7 +254,7 @@ public final class ImportedItemAffixExtractor {
         resolved = resolveMoonFrenzySourceValue(moonFrenzyShieldContext, moonFrenzyQuality25Context, type.get(), value.get())
                 .orElse(resolved);
         Optional<RollRange> parsedRange = parseRollRange(text);
-        Double referenceValue = mythicReferenceValue(mythicUniqueContext, parsedRange).orElse(null);
+        Double referenceValue = mythicReferenceValue(mythicUniqueContext, resolved.value(), parsedRange).orElse(null);
         Optional<RollRange> rollRange = referenceValue == null
                 ? validateParsedRollRange(resolved.value(), parsedRange)
                 : Optional.empty();
@@ -257,7 +301,7 @@ public final class ImportedItemAffixExtractor {
             resolved = resolveMoonFrenzySourceValue(moonFrenzyShieldContext, moonFrenzyQuality25Context, definition.getFormType(), resource.get())
                     .orElse(resolved);
             Optional<RollRange> parsedRange = parseRollRange(segment);
-            Double referenceValue = mythicReferenceValue(mythicUniqueContext, parsedRange).orElse(null);
+            Double referenceValue = mythicReferenceValue(mythicUniqueContext, resolved.value(), parsedRange).orElse(null);
             Optional<RollRange> rollRange = referenceValue == null
                     ? validateParsedRollRange(resolved.value(), parsedRange)
                     : Optional.empty();
@@ -296,7 +340,7 @@ public final class ImportedItemAffixExtractor {
         resolved = resolveMoonFrenzySourceValue(moonFrenzyShieldContext, moonFrenzyQuality25Context, definition.getFormType(), value.get())
                 .orElse(resolved);
         Optional<RollRange> parsedRange = parseRollRange(segment);
-        Double referenceValue = mythicReferenceValue(mythicUniqueContext, parsedRange).orElse(null);
+        Double referenceValue = mythicReferenceValue(mythicUniqueContext, resolved.value(), parsedRange).orElse(null);
         Optional<RollRange> rollRange = referenceValue == null
                 ? validateParsedRollRange(resolved.value(), parsedRange)
                 : Optional.empty();
@@ -407,12 +451,20 @@ public final class ImportedItemAffixExtractor {
         return parsedRange;
     }
 
-    private static Optional<Double> mythicReferenceValue(boolean mythicUniqueContext, Optional<RollRange> parsedRange) {
+    private static Optional<Double> mythicReferenceValue(boolean mythicUniqueContext,
+                                                         double displayedValue,
+                                                         Optional<RollRange> parsedRange) {
         if (!mythicUniqueContext || parsedRange.isEmpty()) {
             return Optional.empty();
         }
         RollRange range = parsedRange.get();
-        return sameValue(range.min(), range.max()) ? Optional.of(range.min()) : Optional.empty();
+        if (!sameValue(range.min(), range.max())) {
+            return Optional.empty();
+        }
+        if (range.min() > displayedValue + 0.0001d || displayedValue > range.max() * 1.25d + 0.0001d) {
+            return Optional.empty();
+        }
+        return Optional.of(range.min());
     }
 
     private static boolean isGreaterAffixFromRollRange(double displayedValue, Optional<RollRange> parsedRange) {
@@ -478,6 +530,9 @@ public final class ImportedItemAffixExtractor {
                     && Math.abs(definition.getRollRangeMax() - affix.getRollRangeMax()) < 0.0001d) {
                 score += 100;
             }
+        }
+        if (affix.getReferenceValue() != null) {
+            score += 600;
         }
         if (affix.getSourceText().contains("[")) {
             score += 10;

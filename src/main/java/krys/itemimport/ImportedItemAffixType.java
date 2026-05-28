@@ -51,6 +51,7 @@ public enum ImportedItemAffixType {
 
     public static Optional<ImportedItemAffixType> detectFromLine(String line) {
         String normalized = normalize(line);
+        String collapsed = normalized.replaceAll("[^A-Z0-9]", "");
         if (normalized.contains("SILY") || normalized.contains("STRENGTH")) {
             return Optional.of(STRENGTH);
         }
@@ -80,8 +81,15 @@ public enum ImportedItemAffixType {
                 || normalized.contains("CRITICAL STRIKE CHANCE")) {
             return Optional.of(CRITICAL_STRIKE_CHANCE);
         }
-        if (normalized.contains("SZCZESLIWY TRAF") || normalized.contains("LUCKY HIT")) {
-            if (normalized.contains("PODSTAWOWEGO ZASOBU") || normalized.contains("PODSTAWOWY ZASOB")) {
+        if (normalized.contains("SZCZESLIWY TRAF")
+                || normalized.contains("SZCZESNWY TRAF")
+                || normalized.contains("SZANSY TRAF")
+                || normalized.contains("SZANSY WY TRAF")
+                || normalized.contains("LUCKY HIT")
+                || (collapsed.contains("SZANS") && collapsed.contains("TRAF") && !collapsed.contains("TRAFIENIEKRYTYCZNE"))) {
+            if (collapsed.contains("PODSTAWOWEGOZASOBU")
+                    || collapsed.contains("PODSTAWOWYZASOB")
+                    || collapsed.contains("ODZYSKANIE")) {
                 return Optional.of(LUCKY_HIT_PRIMARY_RESOURCE);
             }
             return Optional.of(LUCKY_HIT_CHANCE);

@@ -37,13 +37,19 @@ public final class ItemScreenshotTextMerger {
                         continue;
                     }
                     if (isRejectedKnownOcrNoise(normalizedLine, context)) {
+                        logMergeRejected(normalizedLine, "known OCR noise in current context", null);
                         continue;
                     }
                     CanonicalLineCandidate candidate = canonicalLine(normalizedLine, context);
                     keyOrder.add(candidate.key());
                     CanonicalLineCandidate existing = bestByKey.get(candidate.key());
                     if (existing == null || candidate.score() > existing.score()) {
+                        if (existing != null) {
+                            logMergeRejected(existing.text(), "replaced by higher score candidate", candidate);
+                        }
                         bestByKey.put(candidate.key(), candidate);
+                    } else {
+                        logMergeRejected(candidate.text(), "lower text score", existing);
                     }
                 }
             }
@@ -52,6 +58,7 @@ public final class ItemScreenshotTextMerger {
         for (String key : keyOrder) {
             CanonicalLineCandidate candidate = bestByKey.get(key);
             if (candidate != null) {
+                logMergeDecision(key, candidate);
                 mergedLines.add(candidate.text());
             }
         }
@@ -95,6 +102,12 @@ public final class ItemScreenshotTextMerger {
                 "obrazenodbroni",
                 "zdrowiazazabicie",
                 "obrazenzuplywemczasu",
+                "szczesliwytraf",
+                "szansytraf",
+                "szybkosci ruchu".replace(" ", ""),
+                "umiejetnosciglowne",
+                "mitycznyunikatowy",
+                "unikatowyhelm",
                 "umiejetnoscipodstawowe",
                 "szansynablok",
                 "obrazenodbroniwglownejrece",
@@ -116,10 +129,11 @@ public final class ItemScreenshotTextMerger {
         }
         boolean allStatsJoinedWithOtherLine = key.contains("wszystkichwspolczynnikow") && anchors >= 2;
         boolean fortifyAspectLine = key.contains("gdymaszumocnienie") && key.contains("zadajeszobrazeniazwiekszone");
-        if (line.length() < 120 && !allStatsJoinedWithOtherLine && !fortifyAspectLine) {
+        boolean joinedAffixLine = countAffixStarts(line) >= 2;
+        if (line.length() < 120 && !allStatsJoinedWithOtherLine && !fortifyAspectLine && !joinedAffixLine) {
             return List.of(line);
         }
-        if (anchors < 3 && !allStatsJoinedWithOtherLine && !fortifyAspectLine) {
+        if (anchors < 3 && !allStatsJoinedWithOtherLine && !fortifyAspectLine && !joinedAffixLine) {
             return List.of(line);
         }
 
@@ -129,6 +143,7 @@ public final class ItemScreenshotTextMerger {
         appendFirst(extracted, line, "((?:Odłamek|Odlamek)\\s+Verathi?el)");
         appendFirst(extracted, line, "(Starożytna\\s+legendarna\\s+tarcza)");
         appendFirst(extracted, line, "(Staro(?:ż|z)ytny\\s+unikatowy\\s+miecz)");
+        appendFirst(extracted, line, "(Staro(?:ż|z)ytny\\s+mityczny\\s+unikatowy\\s+he(?:ł|l)m)");
         appendFirst(extracted, line, "(Moc\\s+przedmiotu\\s*[:.\\-–—]?\\s*[0-9]+)");
         appendFirst(extracted, line, "([0-9]+(?:\\s[0-9]{3})*\\s+pkt\\.\\s+obra(?:ż|z)e(?:ń|n)\\s+na\\s+sek\\.)");
         appendFirst(extracted, line, "(\\[?\\s*[0-9]+(?:\\s[0-9]{3})*\\s*[-–—−]\\s*[0-9]+(?:\\s[0-9]{3})*\\s*]?\\s+pkt\\.\\s+obra(?:ż|z)e(?:ń|n)\\s+za\\s+trafienie)");
@@ -139,7 +154,10 @@ public final class ItemScreenshotTextMerger {
         appendFirst(extracted, line, "([0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+blok(?:\\s*\\[[^\\]]+])?%?)");
         appendFirst(extracted, line, "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+obrażeń\\s+od\\s+broni\\s+w\\s+głównej\\s+ręce(?:\\s*\\[[^\\]]+])?%?)");
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?siły(?:\\s*\\[[^\\]]+])?)");
-        appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+trafienie\\s+krytyczne(?:\\s*\\[[^\\]]+])?)");
+        appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+trafienie\\s+krytyczne(?:\\s*\\[[^\\]+]+]?%?|\\s+1[0-9]{1,2}(?:[,.][0-9])?1\\s*%?)?)");
+        appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+(?:na\\s+)?(?:szcz\\S*\\s+)?traf\\b(?:\\s*\\[[^\\]+]+]?%?|\\s+1[0-9]{1,2}(?:[,.][0-9])?1\\s*%?)?)");
+        appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?%\\s+szybko(?:ś|s)ci\\s+ruchu(?:\\s*\\[[^\\]+]+]?%?|\\s+1[0-9]{1,2}(?:[,.][0-9])?1\\s*%?)?)");
+        appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+do\\s+umiej(?:ę|e)tno(?:ś|s)ci:?\\s+G(?:ł|l)(?:ó|o)wne(?:\\s*\\[[^\\]+]+]?%?|\\s+1[0-9]{1,2}1)?)");
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+do\\s+odporności\\s+na\\s+wszystkie\\s+żywioły(?:\\s*\\[[^\\]]+])?)");
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+do\\s+odporności\\s+na:?\\s+Ogień(?:\\s*\\[[^\\]]+])?)");
         appendFirst(extracted, line, "([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+obrażeń(?:\\s*\\[[^\\]]+])?%?)");
@@ -161,6 +179,15 @@ public final class ItemScreenshotTextMerger {
         appendFirst(extracted, line, "\\b(Przedmiot\\s+z\\s+dodatku\\s+Lord\\s+of\\s+Hatred)\\b");
         appendFirst(extracted, line, "\\b(Brak\\s+możliwości\\s+modyfikacji)\\b");
         return extracted.isEmpty() ? List.of(line) : extracted;
+    }
+
+    private static int countAffixStarts(String line) {
+        Matcher matcher = Pattern.compile("\\+\\s*[0-9]").matcher(line == null ? "" : line);
+        int count = 0;
+        while (matcher.find()) {
+            count++;
+        }
+        return count;
     }
 
     private static void appendFirst(List<String> target, String line, String pattern) {
@@ -325,8 +352,29 @@ public final class ItemScreenshotTextMerger {
             return firstNumber(line)
                     .filter(value -> value <= 100.0d)
                     .map(value -> new CanonicalLineCandidate("affix:critical-strike-chance",
-                            "+" + formatPercentOne(value) + "% szansy na trafienie krytyczne" + rollRangeSuffix(line),
+                            "+" + formatPercentOne(value) + "% szansy na trafienie krytyczne" + referenceOrRollSuffix(line, value),
                             lineQualityScore(line, context.moonFrenzyQuality25() ? 11.0d : null, context)));
+        }
+        if (isLuckyHitChanceKey(key)) {
+            return firstNumber(line)
+                    .filter(value -> value <= 100.0d)
+                    .map(value -> new CanonicalLineCandidate("affix:lucky-hit-chance",
+                            "+" + formatPercentOne(value) + "% szansy na szczęśliwy traf" + referenceOrRollSuffix(line, value),
+                            lineQualityScore(line, null, context)));
+        }
+        if (key.contains("szybkosciruchu")) {
+            return firstNumber(line)
+                    .filter(value -> value <= 100.0d)
+                    .map(value -> new CanonicalLineCandidate("affix:movement-speed",
+                            "+" + formatValue(value) + "% szybkości ruchu" + referenceOrRollSuffix(line, value),
+                            lineQualityScore(line, null, context)));
+        }
+        if (key.contains("umiejetnosci") && key.contains("glowne")) {
+            return firstNumber(line)
+                    .filter(value -> value <= 20.0d)
+                    .map(value -> new CanonicalLineCandidate("affix:core-skill-ranks",
+                            "+" + formatValue(value) + " do umiejętności: Główne" + referenceOrRollSuffix(line, value),
+                            lineQualityScore(line, null, context)));
         }
         if (key.contains("redukcjiobrazen")) {
             return firstNumber(line)
@@ -350,6 +398,52 @@ public final class ItemScreenshotTextMerger {
                             lineQualityScore(line, 16.0d, context)));
         }
         return Optional.empty();
+    }
+
+    private static boolean isLuckyHitChanceKey(String key) {
+        if (key.contains("podstawowegozasobu") || key.contains("podstawowyzasob")) {
+            return false;
+        }
+        return key.contains("szczesliwytraf")
+                || key.contains("szczesnwytraf")
+                || key.contains("szansytraf")
+                || key.contains("szansywytraf");
+    }
+
+    private static String referenceOrRollSuffix(String line, double displayedValue) {
+        String rollSuffix = rollRangeSuffix(line);
+        if (!rollSuffix.isBlank() && (rollSuffix.contains("-") || isCompatibleSingleReferenceSuffix(displayedValue, rollSuffix))) {
+            return rollSuffix;
+        }
+        Matcher percentReference = Pattern.compile("\\b1([0-9]{1,2}(?:[,.][0-9])?)1\\s*%").matcher(line == null ? "" : line);
+        while (percentReference.find()) {
+            Optional<Double> reference = parseNumber(percentReference.group(1));
+            if (reference.isPresent() && isCompatibleSingleReference(displayedValue, reference.get())) {
+                return " [" + formatValue(reference.get()) + "]%";
+            }
+        }
+        Matcher plainReference = Pattern.compile("\\b1([0-9]{1,2})1(?=\\s|$|\\+)").matcher(line == null ? "" : line);
+        while (plainReference.find()) {
+            Optional<Double> reference = parseNumber(plainReference.group(1));
+            if (reference.isPresent() && isCompatibleSingleReference(displayedValue, reference.get())) {
+                return " [" + formatValue(reference.get()) + "]";
+            }
+        }
+        return "";
+    }
+
+    private static boolean isCompatibleSingleReferenceSuffix(double displayedValue, String suffix) {
+        Matcher matcher = Pattern.compile("\\[\\s*\\+?\\s*([0-9]{1,3}(?:[,.][0-9]+)?)\\s*]").matcher(suffix == null ? "" : suffix);
+        if (!matcher.find()) {
+            return false;
+        }
+        Optional<Double> reference = parseNumber(matcher.group(1));
+        return reference.isPresent() && isCompatibleSingleReference(displayedValue, reference.get());
+    }
+
+    private static boolean isCompatibleSingleReference(double displayedValue, double referenceValue) {
+        return referenceValue <= displayedValue + 0.0001d
+                && displayedValue <= referenceValue * 1.25d + 0.25d;
     }
 
     private static String rollRangeSuffix(String line) {
@@ -490,6 +584,32 @@ public final class ItemScreenshotTextMerger {
                 .toLowerCase(Locale.ROOT)
                 .replaceAll("\\s+", " ")
                 .trim();
+    }
+
+    private static void logMergeDecision(String key, CanonicalLineCandidate selected) {
+        if (!ItemImportDebugTrace.isEnabled()) {
+            return;
+        }
+        ItemImportDebugTrace.log("MERGE_DECISION", () -> "logicalLine=" + ItemImportDebugTrace.quote(key)
+                + " selected=" + ItemImportDebugTrace.compactText(selected.text())
+                + " selectedScore=" + selected.score()
+                + " selectedTokens=" + ItemImportDebugTrace.numericTokens(selected.text()));
+    }
+
+    private static void logMergeRejected(String source, String reason, CanonicalLineCandidate selected) {
+        if (!ItemImportDebugTrace.isEnabled()) {
+            return;
+        }
+        ItemImportDebugTrace.log("MERGE_REJECTED", () -> "source=" + ItemImportDebugTrace.compactText(source)
+                + " reason=" + ItemImportDebugTrace.quote(reason)
+                + (selected == null ? "" : " selected=" + ItemImportDebugTrace.compactText(selected.text()))
+                + " sourceTokens=" + ItemImportDebugTrace.numericTokens(source)
+                + (selected == null ? "" : " selectedTokens=" + ItemImportDebugTrace.numericTokens(selected.text())));
+        if (selected != null) {
+            ItemImportDebugTrace.log("MERGE_NUMERIC_TOKENS", () -> "selectedTokens="
+                    + ItemImportDebugTrace.numericTokens(selected.text())
+                    + " rejectedTokens=" + ItemImportDebugTrace.numericTokens(source));
+        }
     }
 
     private record CanonicalLineCandidate(String key, String text, int score) {

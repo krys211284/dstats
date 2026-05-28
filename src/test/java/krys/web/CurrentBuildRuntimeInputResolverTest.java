@@ -7,6 +7,7 @@ import krys.itemimport.CurrentBuildImportableStats;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
+import krys.itemimport.ItemImportDebugTrace;
 import krys.itemimport.ItemImportDetails;
 import krys.itemimport.ValidatedImportedItem;
 import krys.itemlibrary.EffectiveCurrentBuildResolution;
@@ -18,11 +19,16 @@ import krys.masterworking.MasterworkedAffixSelection;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -30,6 +36,13 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 /** Testuje mapowanie aktywnego bohatera i aktywnej broni do wejścia istniejącego runtime current build. */
 class CurrentBuildRuntimeInputResolverTest {
     private final CurrentBuildRuntimeInputResolver resolver = new CurrentBuildRuntimeInputResolver();
+
+    @AfterEach
+    void clearItemImportDebugProperties() {
+        System.clearProperty(ItemImportDebugTrace.JVM_PROPERTY);
+        System.clearProperty(ItemImportDebugTrace.CONFIG_PROPERTY);
+        System.clearProperty(ItemImportDebugTrace.FILE_PROPERTY);
+    }
 
     @Test
     void shouldUseActiveWeaponAverageDamageAsRuntimeWeaponDamage() throws Exception {
@@ -165,6 +178,37 @@ class CurrentBuildRuntimeInputResolverTest {
         assertEquals(20.2d, runtimeStats.getCriticalChancePercent(), 0.0000001d);
         assertNotEquals(23.2d, runtimeStats.getCriticalChancePercent(), 0.0000001d);
         assertEquals(15.0d, resolution.getActiveHeroItemStats().getCriticalChancePercent(), 0.0000001d);
+    }
+
+    @Test
+    void shouldLogRuntimeContributionWhenItemImportDebugIsEnabled() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("runtime-input-debug-trace");
+        ItemLibraryService service = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+        SavedImportedItem helmet = service.saveImportedItem(heirOfPerditionHelmet());
+        CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(java.util.Map.of(
+                "level", "70",
+                "intelligence", "999"
+        ));
+        HeroItemSelection selection = HeroItemSelection.empty().withSelectedItem(HeroEquipmentSlot.HELMET, helmet.getItemId());
+        EffectiveCurrentBuildResolution resolution = service.resolveEffectiveCurrentBuild(legacyStats(), selection);
+        System.setProperty(ItemImportDebugTrace.JVM_PROPERTY, "true");
+        System.setProperty(ItemImportDebugTrace.FILE_PROPERTY,
+                Path.of("target", "item-import-debug-runtime-test.log").toString());
+
+        final CurrentBuildImportableStats[] runtimeStats = new CurrentBuildImportableStats[1];
+        String logs = captureItemImportDebugLogs(() ->
+                runtimeStats[0] = resolver.resolve(hero(selection, formData), formData, resolution));
+
+        assertEquals(20.2d, runtimeStats[0].getCriticalChancePercent(), 0.0000001d);
+        assertLogsContain(logs, "RUNTIME_CONTRIBUTION");
+        assertLogsContain(logs, "activeItem slot=HELMET");
+        assertLogsContain(logs, "RUNTIME_AFFIX");
+        assertLogsContain(logs, "type=CRITICAL_STRIKE_CHANCE");
+        assertLogsContain(logs, "stored=15.0000");
+        assertLogsContain(logs, "referenceValue=12.0000");
+        assertLogsContain(logs, "resolved=15.0000");
+        assertLogsContain(logs, "RUNTIME_SUM");
+        assertLogsContain(logs, "criticalChancePercent=20.2");
     }
 
     private static HeroProfile hero(HeroItemSelection selection, CurrentBuildFormData formData) {
@@ -334,5 +378,54 @@ class CurrentBuildRuntimeInputResolverTest {
                 )),
                 masterworking
         );
+    }
+
+    private static String captureItemImportDebugLogs(ThrowingRunnable runnable) throws Exception {
+        Logger logger = Logger.getLogger(ItemImportDebugTrace.LOGGER_NAME);
+        CapturingHandler handler = new CapturingHandler();
+        handler.setLevel(Level.ALL);
+        boolean previousUseParentHandlers = logger.getUseParentHandlers();
+        Level previousLevel = logger.getLevel();
+        logger.setUseParentHandlers(false);
+        logger.setLevel(Level.INFO);
+        logger.addHandler(handler);
+        try {
+            runnable.run();
+            return handler.contents();
+        } finally {
+            logger.removeHandler(handler);
+            logger.setUseParentHandlers(previousUseParentHandlers);
+            logger.setLevel(previousLevel);
+        }
+    }
+
+    private static void assertLogsContain(String logs, String expected) {
+        org.junit.jupiter.api.Assertions.assertTrue(logs.contains(expected), () -> "Brak w logu: " + expected + "\n" + logs);
+    }
+
+    private static final class CapturingHandler extends Handler {
+        private final StringBuilder builder = new StringBuilder();
+
+        @Override
+        public void publish(LogRecord record) {
+            builder.append(record.getMessage()).append('\n');
+        }
+
+        @Override
+        public void flush() {
+        }
+
+        @Override
+        public void close() {
+        }
+
+        private String contents() {
+            return builder.toString();
+        }
+    }
+
+    @FunctionalInterface
+    private interface ThrowingRunnable {
+        void run() throws Exception;
     }
 }

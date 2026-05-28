@@ -51,13 +51,25 @@ public final class AffixRegistry {
             if (!definition.isAutomaticMatchingAllowed()) {
                 continue;
             }
+            if (!semanticDefinitionAllowsMatch(definition, normalizedText)) {
+                continue;
+            }
+            boolean matched = false;
             for (String alias : definition.getOcrAliases()) {
                 String normalizedAlias = normalize(alias);
                 int start = normalizedText.indexOf(normalizedAlias);
                 if (start >= 0) {
                     matches.add(new AffixTextMatch(definition, start, start + normalizedAlias.length()));
+                    matched = true;
                     break;
                 }
+            }
+            if (matched) {
+                continue;
+            }
+            if (allowsFuzzyFallback(definition)) {
+                fuzzyAliasStart(definition, normalizedText)
+                        .ifPresent(start -> matches.add(new AffixTextMatch(definition, start, start + 1)));
             }
         }
         return matches.stream()
@@ -65,6 +77,119 @@ public final class AffixRegistry {
                         .comparingInt(AffixTextMatch::start)
                         .thenComparing(match -> match.definition().getId()))
                 .toList();
+    }
+
+    private static boolean semanticDefinitionAllowsMatch(AffixDefinition definition, String normalizedText) {
+        String collapsed = normalizedText.replaceAll("[^A-Z0-9]", "");
+        if (definition.getFormType() == ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE) {
+            return collapsed.contains("PODSTAWOWEGOZASOBU")
+                    || collapsed.contains("PODSTAWOWYZASOB")
+                    || collapsed.contains("ODZYSKANIE");
+        }
+        if (definition.getFormType() == ImportedItemAffixType.LUCKY_HIT_CHANCE) {
+            boolean resourceContext = collapsed.contains("PODSTAWOWEGOZASOBU")
+                    || collapsed.contains("PODSTAWOWYZASOB")
+                    || collapsed.contains("ODZYSKANIE");
+            boolean criticalContext = collapsed.contains("TRAFIENIEKRYTYCZNE")
+                    || collapsed.contains("KRYTYCZNE");
+            boolean chanceContext = collapsed.contains("SZANS")
+                    || collapsed.contains("LUCKYHITCHANCE")
+                    || collapsed.contains("SZCZESLIWYTRAF")
+                    || collapsed.contains("TRAF");
+            return chanceContext && !resourceContext && !criticalContext;
+        }
+        return true;
+    }
+
+    private static boolean allowsFuzzyFallback(AffixDefinition definition) {
+        return definition.getFormType() == ImportedItemAffixType.LUCKY_HIT_CHANCE
+                || definition.getFormType() == ImportedItemAffixType.CRITICAL_STRIKE_CHANCE
+                || definition.getFormType() == ImportedItemAffixType.MOVEMENT_SPEED
+                || definition.getFormType() == ImportedItemAffixType.CORE_SKILL_RANKS;
+    }
+
+    private static Optional<Integer> fuzzyAliasStart(AffixDefinition definition, String normalizedText) {
+        String[] textTokens = normalizedText.split("\\s+");
+        Optional<Integer> bestStart = Optional.empty();
+        for (String alias : definition.getOcrAliases()) {
+            List<String> aliasTokens = significantTokens(normalize(alias));
+            if (aliasTokens.isEmpty()) {
+                continue;
+            }
+            int start = fuzzyTokensStart(textTokens, aliasTokens);
+            if (start >= 0 && (bestStart.isEmpty() || start < bestStart.get())) {
+                bestStart = Optional.of(start);
+            }
+        }
+        return bestStart;
+    }
+
+    private static List<String> significantTokens(String normalizedAlias) {
+        List<String> tokens = new ArrayList<>();
+        for (String token : normalizedAlias.split("\\s+")) {
+            if (token.length() < 4 || token.matches("[0-9]+")) {
+                continue;
+            }
+            tokens.add(token);
+        }
+        return tokens;
+    }
+
+    private static int fuzzyTokensStart(String[] textTokens, List<String> aliasTokens) {
+        int firstMatch = -1;
+        int nextTextIndex = 0;
+        for (String aliasToken : aliasTokens) {
+            boolean tokenMatched = false;
+            for (int index = nextTextIndex; index < textTokens.length; index++) {
+                if (tokensCompatible(textTokens[index], aliasToken)) {
+                    if (firstMatch < 0) {
+                        firstMatch = index;
+                    }
+                    nextTextIndex = index + 1;
+                    tokenMatched = true;
+                    break;
+                }
+            }
+            if (!tokenMatched) {
+                return -1;
+            }
+        }
+        return firstMatch;
+    }
+
+    private static boolean tokensCompatible(String textToken, String aliasToken) {
+        if (textToken.equals(aliasToken) || textToken.contains(aliasToken) || aliasToken.contains(textToken)) {
+            return true;
+        }
+        int tolerance = aliasToken.length() >= 8 ? 2 : 1;
+        return levenshteinDistance(textToken, aliasToken, tolerance) <= tolerance;
+    }
+
+    private static int levenshteinDistance(String left, String right, int maxDistance) {
+        int[] previous = new int[right.length() + 1];
+        int[] current = new int[right.length() + 1];
+        for (int index = 0; index <= right.length(); index++) {
+            previous[index] = index;
+        }
+        for (int leftIndex = 1; leftIndex <= left.length(); leftIndex++) {
+            current[0] = leftIndex;
+            int rowMin = current[0];
+            for (int rightIndex = 1; rightIndex <= right.length(); rightIndex++) {
+                int substitutionCost = left.charAt(leftIndex - 1) == right.charAt(rightIndex - 1) ? 0 : 1;
+                current[rightIndex] = Math.min(
+                        Math.min(current[rightIndex - 1] + 1, previous[rightIndex] + 1),
+                        previous[rightIndex - 1] + substitutionCost
+                );
+                rowMin = Math.min(rowMin, current[rightIndex]);
+            }
+            if (rowMin > maxDistance) {
+                return maxDistance + 1;
+            }
+            int[] swap = previous;
+            previous = current;
+            current = swap;
+        }
+        return previous[right.length()];
     }
 
     static String normalize(String value) {

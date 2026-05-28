@@ -50,27 +50,40 @@ public final class ItemImageImportService {
     }
 
     public ItemImageImportCandidateParseResult analyze(ItemImageImportRequest request) {
-        BufferedImage image = readImage(request.getImageBytes());
-        ItemImageMetadata metadata = new ItemImageMetadata(
-                request.getOriginalFilename(),
-                request.getContentType(),
-                resolveFormat(request.getImageBytes()),
-                image.getWidth(),
-                image.getHeight()
-        );
-        var variants = ocrPreprocessor.prepareVariants(image);
-        var ocrTexts = ocrTextReader.readTextVariants(variants);
-        if (ocrTexts.isEmpty()) {
-            return candidateMerger.merge(metadata, variants.size(), List.of(textParser.parse(metadata, "")));
-        }
+        try (ItemImportDebugTrace.Scope ignored = ItemImportDebugTrace.startImport()) {
+            BufferedImage image = readImage(request.getImageBytes());
+            ItemImageMetadata metadata = new ItemImageMetadata(
+                    request.getOriginalFilename(),
+                    request.getContentType(),
+                    resolveFormat(request.getImageBytes()),
+                    image.getWidth(),
+                    image.getHeight()
+            );
+            ItemImportDebugTrace.bindMetadata(metadata);
+            logImportRequest(List.of(request), List.of(image), "SINGLE");
+            var variants = ocrPreprocessor.prepareVariants(image);
+            var ocrTexts = ocrTextReader.readTextVariants(variants);
+            logOcrRawVariants(0, ocrTexts);
+            List<String> variantTexts = ocrTexts.stream()
+                    .map(ItemImageOcrTextVariant::getText)
+                    .toList();
+            logMergerInput("SCREEN_MERGER_INPUT", 0, variantTexts);
+            logMergerOutput("SCREEN_MERGER_OUTPUT", "screen=0 scope=single-no-merge", String.join(System.lineSeparator(), variantTexts));
+            if (ocrTexts.isEmpty()) {
+                try (ItemImportDebugTrace.Scope variantScope = ItemImportDebugTrace.withOcrVariant(0, 0, "EMPTY")) {
+                    return candidateMerger.merge(metadata, variants.size(), List.of(textParser.parse(metadata, "")));
+                }
+            }
 
-        return candidateMerger.merge(
-                metadata,
-                variants.size(),
-                ocrTexts.stream()
-                        .map(ocrText -> textParser.parse(metadata, ocrText.getText()))
-                        .toList()
-        );
+            List<ItemImageImportCandidateParseResult> parsedVariants = new ArrayList<>();
+            for (int index = 0; index < ocrTexts.size(); index++) {
+                ItemImageOcrTextVariant ocrText = ocrTexts.get(index);
+                try (ItemImportDebugTrace.Scope variantScope = ItemImportDebugTrace.withOcrVariant(0, index, ocrText.getVariantId())) {
+                    parsedVariants.add(textParser.parse(metadata, ocrText.getText()));
+                }
+            }
+            return candidateMerger.merge(metadata, variants.size(), parsedVariants);
+        }
     }
 
     public ItemImageImportCandidateParseResult analyze(List<ItemImageImportRequest> requests) {
@@ -84,52 +97,68 @@ public final class ItemImageImportService {
             return analyze(requests.getFirst());
         }
 
-        List<String> ocrTexts = new ArrayList<>();
-        int analyzedVariantCount = 0;
-        int totalHeight = 0;
-        int maxWidth = 0;
-        StringBuilder fileNames = new StringBuilder();
-        String contentType = requests.getFirst().getContentType();
-        for (ItemImageImportRequest request : requests) {
-            BufferedImage image = readImage(request.getImageBytes());
-            totalHeight += image.getHeight();
-            maxWidth = Math.max(maxWidth, image.getWidth());
-            if (!fileNames.isEmpty()) {
-                fileNames.append(", ");
+        try (ItemImportDebugTrace.Scope ignored = ItemImportDebugTrace.startImport()) {
+            List<String> ocrTexts = new ArrayList<>();
+            List<BufferedImage> images = new ArrayList<>();
+            int analyzedVariantCount = 0;
+            int totalHeight = 0;
+            int maxWidth = 0;
+            StringBuilder fileNames = new StringBuilder();
+            String contentType = requests.getFirst().getContentType();
+            for (int requestIndex = 0; requestIndex < requests.size(); requestIndex++) {
+                ItemImageImportRequest request = requests.get(requestIndex);
+                BufferedImage image = readImage(request.getImageBytes());
+                images.add(image);
+                totalHeight += image.getHeight();
+                maxWidth = Math.max(maxWidth, image.getWidth());
+                if (!fileNames.isEmpty()) {
+                    fileNames.append(", ");
+                }
+                fileNames.append(request.getOriginalFilename());
+
+                var variants = ocrPreprocessor.prepareVariants(image);
+                analyzedVariantCount += variants.size();
+                var textVariants = ocrTextReader.readTextVariants(variants);
+                logOcrRawVariants(requestIndex, textVariants);
+                List<String> variantTexts = textVariants.stream()
+                        .map(ItemImageOcrTextVariant::getText)
+                        .toList();
+                logMergerInput("SCREEN_MERGER_INPUT", requestIndex, variantTexts);
+                String mergedScreenText = textMerger.merge(variantTexts);
+                logMergerOutput("SCREEN_MERGER_OUTPUT", "screen=" + requestIndex + " scope=per-screen", mergedScreenText);
+                ocrTexts.add(mergedScreenText);
             }
-            fileNames.append(request.getOriginalFilename());
+            logImportRequest(requests, images, "MULTI");
 
-            var variants = ocrPreprocessor.prepareVariants(image);
-            analyzedVariantCount += variants.size();
-            var textVariants = ocrTextReader.readTextVariants(variants);
-            List<String> variantTexts = textVariants.stream()
-                    .map(ItemImageOcrTextVariant::getText)
-                    .toList();
-            ocrTexts.add(textMerger.merge(variantTexts));
+            ItemImageMetadata metadata = new ItemImageMetadata(
+                    fileNames.toString(),
+                    contentType,
+                    "MULTI",
+                    maxWidth,
+                    totalHeight
+            );
+            ItemImportDebugTrace.bindMetadata(metadata);
+            logMergerInput("SCREEN_MERGER_INPUT", -1, ocrTexts);
+            String mergedText = textMerger.merge(ocrTexts);
+            logMergerOutput("SCREEN_MERGER_OUTPUT", "scope=multi-final", mergedText);
+            ItemImageImportCandidateParseResult parsed;
+            try (ItemImportDebugTrace.Scope variantScope = ItemImportDebugTrace.withOcrVariant(-1, -1, "MULTI_MERGED")) {
+                parsed = textParser.parse(metadata, mergedText);
+            }
+            return new ItemImageImportCandidateParseResult(
+                    metadata,
+                    parsed.getFullItemRead(),
+                    parsed.getSlotCandidate(),
+                    parsed.getWeaponDamageCandidate(),
+                    parsed.getStrengthCandidate(),
+                    parsed.getIntelligenceCandidate(),
+                    parsed.getThornsCandidate(),
+                    parsed.getBlockChanceCandidate(),
+                    parsed.getRetributionChanceCandidate(),
+                    "Import wieloscreenowy: " + requests.size() + " obrazy scalone jako jeden item. "
+                            + "OCR analizował " + analyzedVariantCount + " wariantów obrazu."
+            );
         }
-
-        ItemImageMetadata metadata = new ItemImageMetadata(
-                fileNames.toString(),
-                contentType,
-                "MULTI",
-                maxWidth,
-                totalHeight
-        );
-        String mergedText = textMerger.merge(ocrTexts);
-        ItemImageImportCandidateParseResult parsed = textParser.parse(metadata, mergedText);
-        return new ItemImageImportCandidateParseResult(
-                metadata,
-                parsed.getFullItemRead(),
-                parsed.getSlotCandidate(),
-                parsed.getWeaponDamageCandidate(),
-                parsed.getStrengthCandidate(),
-                parsed.getIntelligenceCandidate(),
-                parsed.getThornsCandidate(),
-                parsed.getBlockChanceCandidate(),
-                parsed.getRetributionChanceCandidate(),
-                "Import wieloscreenowy: " + requests.size() + " obrazy scalone jako jeden item. "
-                        + "OCR analizował " + analyzedVariantCount + " wariantów obrazu."
-        );
     }
 
     private static BufferedImage readImage(byte[] imageBytes) {
@@ -196,5 +225,88 @@ public final class ItemImageImportService {
             }
         }
         return count;
+    }
+
+    private static void logImportRequest(List<ItemImageImportRequest> requests, List<BufferedImage> images, String mode) {
+        if (!ItemImportDebugTrace.isEnabled()) {
+            return;
+        }
+        ItemImportDebugTrace.log("IMPORT_REQUEST", () -> "files=" + requests.size()
+                + " mode=" + mode
+                + " timestamp=" + java.time.LocalDateTime.now()
+                + " debugActive=true");
+        for (int index = 0; index < requests.size(); index++) {
+            ItemImageImportRequest request = requests.get(index);
+            BufferedImage image = index < images.size() ? images.get(index) : null;
+            int fileIndex = index;
+            ItemImportDebugTrace.log("FILE", () -> "index=" + fileIndex
+                    + " name=" + ItemImportDebugTrace.quote(ItemImportDebugTrace.safeFileName(request.getOriginalFilename()))
+                    + " contentType=" + ItemImportDebugTrace.quote(request.getContentType())
+                    + " width=" + (image == null ? "null" : image.getWidth())
+                    + " height=" + (image == null ? "null" : image.getHeight()));
+        }
+    }
+
+    private static void logOcrRawVariants(int screenIndex, List<ItemImageOcrTextVariant> variants) {
+        if (!ItemImportDebugTrace.isEnabled()) {
+            return;
+        }
+        if (variants == null || variants.isEmpty()) {
+            ItemImportDebugTrace.log("OCR_RAW_VARIANTS", () -> "screen=" + screenIndex + " variants=0");
+            return;
+        }
+        for (int index = 0; index < variants.size(); index++) {
+            ItemImageOcrTextVariant variant = variants.get(index);
+            int variantIndex = index;
+            ItemImportDebugTrace.log("OCR_RAW_VARIANTS", () -> "screen=" + screenIndex
+                    + " variant=" + variantIndex
+                    + " variantId=" + ItemImportDebugTrace.quote(variant.getVariantId())
+                    + " raw=" + ItemImportDebugTrace.compactText(variant.getText()));
+        }
+    }
+
+    private static void logMergerInput(String section, int screenIndex, List<String> variantTexts) {
+        if (!ItemImportDebugTrace.isEnabled()) {
+            return;
+        }
+        List<String> texts = variantTexts == null ? List.of() : variantTexts;
+        for (int variantIndex = 0; variantIndex < texts.size(); variantIndex++) {
+            String text = texts.get(variantIndex);
+            String[] lines = text == null ? new String[0] : text.split("\\R");
+            for (int lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+                String line = lines[lineIndex] == null ? "" : lines[lineIndex].trim();
+                if (line.isBlank()) {
+                    continue;
+                }
+                int finalVariantIndex = variantIndex;
+                int finalLineIndex = lineIndex;
+                ItemImportDebugTrace.log(section, () -> "screen=" + screenIndex
+                        + " variant=" + finalVariantIndex
+                        + " line=" + finalLineIndex
+                        + " hasNumeric=" + ItemImportDebugTrace.hasNumericOrBracketTokens(line)
+                        + " tokens=" + ItemImportDebugTrace.numericTokens(line)
+                        + " source=" + ItemImportDebugTrace.compactText(line));
+            }
+        }
+    }
+
+    private static void logMergerOutput(String section, String scope, String mergedText) {
+        if (!ItemImportDebugTrace.isEnabled()) {
+            return;
+        }
+        ItemImportDebugTrace.log(section, () -> scope + " merged=" + ItemImportDebugTrace.compactText(mergedText));
+        String[] lines = mergedText == null ? new String[0] : mergedText.split("\\R");
+        for (int index = 0; index < lines.length; index++) {
+            String line = lines[index];
+            if (line == null || line.isBlank()) {
+                continue;
+            }
+            int finalIndex = index;
+            ItemImportDebugTrace.log(section, () -> scope
+                    + " line=" + finalIndex
+                    + " hasNumeric=" + ItemImportDebugTrace.hasNumericOrBracketTokens(line)
+                    + " tokens=" + ItemImportDebugTrace.numericTokens(line)
+                    + " text=" + ItemImportDebugTrace.compactText(line));
+        }
     }
 }
