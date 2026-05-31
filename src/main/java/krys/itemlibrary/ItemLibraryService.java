@@ -314,15 +314,15 @@ public final class ItemLibraryService {
                     descriptiveAffixes.add(formattedAffix);
                     descriptiveEffectAffixes.add(formattedAffix);
                 } else if (affix.getType() == ImportedItemAffixType.FIRE_RESISTANCE) {
-                    fireResistance += masterworkingValueResolver.resolveAffixValue(affix, item.getMasterworking());
+                    fireResistance += masterworkingValueResolver.resolveAffixValue(affix, item.getMasterworking(), item.getDetails().isMythicUnique());
                     descriptiveAffixes.add(formattedAffix);
                     statisticalAffixes.add(formattedAffix);
                 } else if (affix.getType() == ImportedItemAffixType.ALL_RESISTANCE) {
-                    allResistance += masterworkingValueResolver.resolveAffixValue(affix, item.getMasterworking());
+                    allResistance += masterworkingValueResolver.resolveAffixValue(affix, item.getMasterworking(), item.getDetails().isMythicUnique());
                     descriptiveAffixes.add(formattedAffix);
                     statisticalAffixes.add(formattedAffix);
                 } else if (affix.getType() == ImportedItemAffixType.DAMAGE_REDUCTION) {
-                    damageReduction += masterworkingValueResolver.resolveAffixValue(affix, item.getMasterworking());
+                    damageReduction += masterworkingValueResolver.resolveAffixValue(affix, item.getMasterworking(), item.getDetails().isMythicUnique());
                     descriptiveAffixes.add(formattedAffix);
                     statisticalAffixes.add(formattedAffix);
                 } else if (affix.getType() == ImportedItemAffixType.CRITICAL_STRIKE_CHANCE) {
@@ -376,7 +376,7 @@ public final class ItemLibraryService {
                 || !masterworkingValueResolver.supportsAffix(affix)) {
             return ItemLibraryPresentationSupport.formatAffixForDetails(affix);
         }
-        MasterworkingPresentationValue value = masterworkingPresentationResolver.resolveAffix(affix, item.getMasterworking());
+        MasterworkingPresentationValue value = masterworkingPresentationResolver.resolveAffix(affix, item.getMasterworking(), item.getDetails().isMythicUnique());
         String line = value.getLabel() + " " + value.getDisplayValueLabel();
         if (!value.getSuffixLabel().isBlank()) {
             line += " " + value.getSuffixLabel();

@@ -988,7 +988,7 @@ public final class CurrentBuildPageRenderer {
 
     private static String formatSlotAffixChip(SavedImportedItem item, ImportedItemAffix affix) {
         if (item.getMasterworking() != null && item.getMasterworking().hasVisibleProgress()) {
-            return MasterworkingSectionRenderer.formatAffixReadonlyLine(item.getMasterworking(), affix);
+            return MasterworkingSectionRenderer.formatAffixReadonlyLine(item.getMasterworking(), affix, item.getDetails().isMythicUnique());
         }
         return ItemLibraryPresentationSupport.formatAffixForDetails(affix);
     }

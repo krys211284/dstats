@@ -82,7 +82,8 @@ public final class ItemImportDetails {
                 averageWeaponDamage == null ? calculateAverage(weaponDamageMin, weaponDamageMax) : averageWeaponDamage);
         this.attacksPerSecond = nonNegativeOrNull("Ataki na sekundę", attacksPerSecond);
         this.itemArmor = nonNegativeOrNull("Pancerz", itemArmor);
-        this.uniqueEffectText = normalizeFortifyLegendaryEffect(uniqueEffectText).orElse(normalize(uniqueEffectText));
+        this.uniqueEffectText = normalizeFortifyLegendaryEffect(uniqueEffectText)
+                .orElse(EffectTextTokenNormalizer.normalizeMultiplierTokens(normalize(uniqueEffectText)));
         this.mythicUnique = mythicUnique;
     }
 

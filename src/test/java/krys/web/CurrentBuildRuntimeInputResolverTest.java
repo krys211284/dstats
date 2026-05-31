@@ -207,8 +207,13 @@ class CurrentBuildRuntimeInputResolverTest {
         assertLogsContain(logs, "stored=15.0000");
         assertLogsContain(logs, "referenceValue=12.0000");
         assertLogsContain(logs, "resolved=15.0000");
+        assertLogsContain(logs, "type=LUCKY_HIT_CHANCE");
+        assertLogsContain(logs, "stored=25.0000");
+        assertLogsContain(logs, "referenceValue=null");
+        assertLogsContain(logs, "resolved=25.0000");
         assertLogsContain(logs, "RUNTIME_SUM");
         assertLogsContain(logs, "criticalChancePercent=20.2");
+        org.junit.jupiter.api.Assertions.assertFalse(logs.contains("resolved=31.2500"), logs);
     }
 
     private static HeroProfile hero(HeroItemSelection selection, CurrentBuildFormData formData) {
@@ -313,9 +318,14 @@ class CurrentBuildRuntimeInputResolverTest {
                 0.0d,
                 0.0d,
                 0.0d,
-                List.of(new ImportedItemAffix(ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, "%", false, 0,
-                        "+15,0% szansy na trafienie krytyczne [12,0]%", ImportedItemAffixSource.CORRECTED,
-                        "critical_strike_chance", null, null, 12.0d, "")),
+                List.of(
+                        new ImportedItemAffix(ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, "%", false, 0,
+                                "+15,0% szansy na trafienie krytyczne [12,0]%", ImportedItemAffixSource.CORRECTED,
+                                "critical_strike_chance", null, null, 12.0d, ""),
+                        new ImportedItemAffix(ImportedItemAffixType.LUCKY_HIT_CHANCE, 25.0d, "%", false, 1,
+                                "+25,0% szansy na szczęśliwy traf", ImportedItemAffixSource.CORRECTED,
+                                "lucky_hit_chance", null, null, null, "")
+                ),
                 "heir_of_perdition",
                 new ItemImportDetails(
                         "Dziedzic Zatracenia",

@@ -275,7 +275,7 @@ final class ItemImageImportCandidateMerger {
                 firstLong(details, DetailLongField.AVERAGE_WEAPON_DAMAGE),
                 firstDouble(details),
                 firstLong(details, DetailLongField.ITEM_ARMOR),
-                firstText(details, DetailTextField.UNIQUE_EFFECT_TEXT),
+                bestEffectText(details),
                 firstMythicUnique(details, safeRebuiltDetails.isMythicUnique())
         );
     }
@@ -309,6 +309,32 @@ final class ItemImageImportCandidateMerger {
             }
         }
         return "";
+    }
+
+    private static String bestEffectText(List<ItemImportDetails> details) {
+        String best = "";
+        int bestScore = Integer.MIN_VALUE;
+        int bestIndex = Integer.MAX_VALUE;
+        for (int index = 0; index < details.size(); index++) {
+            ItemImportDetails detail = details.get(index);
+            String value = detail.getUniqueEffectText();
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            String normalized = EffectTextTokenNormalizer.normalizeMultiplierTokens(value);
+            int score = effectTextScore(normalized);
+            if (score > bestScore || (score == bestScore && index < bestIndex)) {
+                best = normalized;
+                bestScore = score;
+                bestIndex = index;
+            }
+        }
+        return best;
+    }
+
+    private static int effectTextScore(String text) {
+        String safeText = text == null ? "" : text;
+        return safeText.length() + EffectTextTokenNormalizer.semanticTokenScore(safeText);
     }
 
     private static String chooseBetterItemName(String current, String candidate) {
@@ -523,6 +549,7 @@ final class ItemImageImportCandidateMerger {
         if (text.contains("%[x]")) {
             score += 30;
         }
+        score += EffectTextTokenNormalizer.semanticTokenScore(text);
         if (text.contains("+[")) {
             score -= 3;
         }

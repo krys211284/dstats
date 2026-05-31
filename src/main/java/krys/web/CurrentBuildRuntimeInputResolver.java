@@ -107,7 +107,11 @@ final class CurrentBuildRuntimeInputResolver {
             ItemImportDebugTrace.log("RUNTIME_CONTRIBUTION", () -> "activeItem slot=" + assignment.getHeroSlot()
                     + " " + ItemImportDebugTrace.formatSavedItem(assignment.getItem()));
             for (ImportedItemAffix affix : assignment.getItem().getAffixes()) {
-                double resolvedValue = ItemImportDebugTrace.resolveRuntimeAffixValue(affix, assignment.getItem().getMasterworking());
+                double resolvedValue = ItemImportDebugTrace.resolveRuntimeAffixValue(
+                        affix,
+                        assignment.getItem().getMasterworking(),
+                        assignment.getItem().getDetails().isMythicUnique()
+                );
                 ItemImportDebugTrace.log("RUNTIME_CONTRIBUTION", () -> "RUNTIME_AFFIX "
                         + ItemImportDebugTrace.formatRuntimeAssignment(
                         assignment,

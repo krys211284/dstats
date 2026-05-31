@@ -373,7 +373,7 @@ public final class ItemScreenshotTextMerger {
             return firstNumber(line)
                     .filter(value -> value <= 20.0d)
                     .map(value -> new CanonicalLineCandidate("affix:core-skill-ranks",
-                            "+" + formatValue(value) + " do umiejętności: Główne" + referenceOrRollSuffix(line, value),
+                            "+" + formatValue(value) + " do umiejętności: Główne" + conservativeSingleReferenceSuffix(line, value),
                             lineQualityScore(line, null, context)));
         }
         if (key.contains("redukcjiobrazen")) {
@@ -430,6 +430,18 @@ public final class ItemScreenshotTextMerger {
             }
         }
         return "";
+    }
+
+    private static String conservativeSingleReferenceSuffix(String line, double displayedValue) {
+        Matcher matcher = Pattern.compile("\\[\\s*\\+?\\s*([0-9]{1,3}(?:[,.][0-9]+)?)\\s*]").matcher(line == null ? "" : line);
+        if (!matcher.find()) {
+            return "";
+        }
+        Optional<Double> reference = parseNumber(matcher.group(1));
+        if (reference.isEmpty() || !isCompatibleSingleReference(displayedValue, reference.get())) {
+            return "";
+        }
+        return " [" + formatValue(reference.get()) + "]";
     }
 
     private static boolean isCompatibleSingleReferenceSuffix(double displayedValue, String suffix) {

@@ -31,7 +31,7 @@ public final class SavedImportedItemCurrentBuildContributionMapper {
                 continue;
             }
             found = true;
-            value += masterworkingValueResolver.resolveAffixValue(affix, item.getMasterworking());
+            value += masterworkingValueResolver.resolveAffixValue(affix, item.getMasterworking(), item.getDetails().isMythicUnique());
         }
         return found ? value : sourceContribution;
     }

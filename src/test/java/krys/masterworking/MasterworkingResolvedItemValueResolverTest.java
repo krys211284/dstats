@@ -36,6 +36,24 @@ class MasterworkingResolvedItemValueResolverTest {
     }
 
     @Test
+    void shouldKeepMythicDisplayedValueWithoutReferenceAtQualityTwentyFive() {
+        ItemMasterworking masterworking = new ItemMasterworking(25, 25);
+        ImportedItemAffix affix = affix(ImportedItemAffixType.LUCKY_HIT_CHANCE, 25.0d, false);
+
+        assertEquals(25.0d, resolver.resolveAffixValue(affix, masterworking, true), 0.0000001d);
+    }
+
+    @Test
+    void shouldKeepMythicDisplayedValueWithReferenceAtQualityTwentyFive() {
+        ItemMasterworking masterworking = new ItemMasterworking(25, 25);
+        ImportedItemAffix affix = new ImportedItemAffix(ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, "%", false, 0,
+                "+15,0% szansy na trafienie krytyczne [12,0]%", ImportedItemAffixSource.OCR,
+                "critical_strike_chance", null, null, 12.0d, "");
+
+        assertEquals(15.0d, resolver.resolveAffixValue(affix, masterworking, true), 0.0000001d);
+    }
+
+    @Test
     void shouldResolveReferenceShieldValuesAtQualityTwentyFiveWithPerfectedMaxAnimus() {
         ItemMasterworking masterworking = new ItemMasterworking(25, 25,
                 MasterworkedAffixSelection.temperingAffix("defense_max_animus"));

@@ -562,7 +562,7 @@ public final class ItemImportPageRenderer {
                     affix.getReferenceValue() == null ? "" : formatDecimal(affix.getReferenceValue()),
                     index,
                     escapeHtml(affix.getDisplayValue()),
-                    MasterworkingSectionRenderer.renderAffixEditorHint(form.getMasterworking(), affix),
+                    MasterworkingSectionRenderer.renderAffixEditorHint(form.getMasterworking(), affix, form.isMythicUnique()),
                     renderAffixValueControl(index, affix),
                     escapeHtml(rollRangeLabel(affix)),
                     referenceValueLabel(affix),

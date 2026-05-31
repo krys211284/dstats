@@ -192,6 +192,7 @@ class ItemImageImportServiceTest {
         assertFalse(moveRow.contains("20 - 20"), moveRow);
         assertFalse(ranksRow.contains("3 - 3"), ranksRow);
         assertFalse(critRow.contains("18,8"), critRow);
+        assertFalse(luckyRow.contains("31,3"), luckyRow);
         assertEquals(0, countCheckedGreaterAffixes(html));
         assertTrue(html.contains("Dziedzic Zatracenia"));
         assertTrue(html.contains("value=\"heir_of_perdition\""));

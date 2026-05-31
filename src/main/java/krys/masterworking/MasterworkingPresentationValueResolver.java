@@ -29,8 +29,17 @@ public final class MasterworkingPresentationValueResolver {
     }
 
     public MasterworkingPresentationValue resolveAffix(ImportedItemAffix affix, ItemMasterworking masterworking) {
+        return resolveAffix(affix, masterworking, false);
+    }
+
+    public MasterworkingPresentationValue resolveAffix(ImportedItemAffix affix,
+                                                       ItemMasterworking masterworking,
+                                                       boolean displayedValueAlreadyCurrent) {
         if (affix == null) {
             return unsupported("", "", "");
+        }
+        if (displayedValueAlreadyCurrent) {
+            return displayedCurrentAffix(affix);
         }
         int quality = quality(masterworking);
         ImportedItemAffixType type = affix.getType();
@@ -148,6 +157,21 @@ public final class MasterworkingPresentationValueResolver {
 
     private static MasterworkingPresentationValue unsupported(String label, String baseValue, String note) {
         return new MasterworkingPresentationValue(label, baseValue, baseValue, "", false, false, note);
+    }
+
+    private static MasterworkingPresentationValue displayedCurrentAffix(ImportedItemAffix affix) {
+        ImportedItemAffixType type = affix.getType();
+        String unit = percentAffix(type) ? "%" : "";
+        String value = formatDisplayValue(type, affix.getValue()) + unit;
+        return new MasterworkingPresentationValue(
+                type.getDisplayName(),
+                value,
+                value,
+                "",
+                true,
+                false,
+                "Mityczny unikat: wartość z tooltipa jest już wartością aktualną."
+        );
     }
 
     private static String qualityNote(ItemMasterworking masterworking) {

@@ -19,8 +19,15 @@ public final class MasterworkingResolvedItemValueResolver {
     }
 
     public double resolveAffixValue(ImportedItemAffix affix, ItemMasterworking masterworking) {
+        return resolveAffixValue(affix, masterworking, false);
+    }
+
+    public double resolveAffixValue(ImportedItemAffix affix, ItemMasterworking masterworking, boolean displayedValueAlreadyCurrent) {
         if (affix == null) {
             return 0.0d;
+        }
+        if (displayedValueAlreadyCurrent) {
+            return affix.getValue();
         }
         int quality = quality(masterworking);
         ImportedItemAffixType type = affix.getType();

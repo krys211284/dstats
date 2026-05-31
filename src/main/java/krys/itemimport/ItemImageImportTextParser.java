@@ -216,7 +216,109 @@ final class ItemImageImportTextParser {
         if (!verathielName.equals(fallbackName)) {
             return verathielName;
         }
+        Optional<String> headerName = detectHeaderItemName(lines);
+        if (headerName.isPresent()) {
+            return headerName.get();
+        }
         return detectStructuredItemName(lines).orElse(fallbackName);
+    }
+
+    private static Optional<String> detectHeaderItemName(List<String> lines) {
+        HeaderNameCandidate bestCandidate = null;
+        for (int index = 0; index < lines.size(); index++) {
+            Optional<String> name = extractHeaderNameFromLine(lines.get(index));
+            if (name.isEmpty()) {
+                continue;
+            }
+            String normalizedName = toUserFacingItemName(name.get());
+            if (!isPlausibleHeaderItemName(normalizedName)) {
+                continue;
+            }
+            HeaderNameCandidate candidate = new HeaderNameCandidate(normalizedName, headerNameScore(normalizedName, index), index);
+            if (bestCandidate == null
+                    || candidate.score() > bestCandidate.score()
+                    || candidate.score() == bestCandidate.score() && candidate.firstIndex() < bestCandidate.firstIndex()) {
+                bestCandidate = candidate;
+            }
+        }
+        return bestCandidate == null ? Optional.empty() : Optional.of(bestCandidate.name());
+    }
+
+    private static Optional<String> extractHeaderNameFromLine(String line) {
+        if (line == null || line.isBlank()) {
+            return Optional.empty();
+        }
+        Matcher matcher = Pattern.compile(
+                "(?:^|\\s)(?:[*★⭐✦✧✱✳✴✵✶✷✸✹✺✻✼✽✾❋❂◆◇♦●•]\\s*)?"
+                        + "(?:(?:Staro(?:ż|z)ytn(?:y|a|e)|Ancestral)\\s+)?"
+                        + "(?:(?:Mityczn(?:y|a|e)|Mythic)\\s+)?"
+                        + "(?:Unikatow(?:y|a|e)|Legendarn(?:y|a|e)|Rzadk(?:i|a|ie)|Magiczn(?:y|a|e)|Unique|Legendary|Rare|Magic)"
+                        + "\\s+(?:he(?:ł|l)m(?:u)?|helmet|miecz|sword|tarcza|shield|buty|boots|focus|pier(?:ś|s)cien|ring|zbroja|armor|chest)",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+        ).matcher(line);
+        if (!matcher.find()) {
+            return Optional.empty();
+        }
+        String candidate = line.substring(0, matcher.start())
+                .replaceAll("\\s+", " ")
+                .trim();
+        candidate = stripLeadingOcrMarkers(stripTrailingOcrMarkers(candidate));
+        return candidate.isBlank() ? Optional.empty() : Optional.of(candidate);
+    }
+
+    private static String stripLeadingOcrMarkers(String value) {
+        return value == null ? "" : value
+                .replaceAll("^[\\s*★⭐✦✧✱✳✴✵✶✷✸✹✺✻✼✽✾❋❂◆◇♦●•]+", "")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private static boolean isPlausibleHeaderItemName(String name) {
+        if (name == null || name.isBlank()) {
+            return false;
+        }
+        String trimmed = name.trim();
+        String collapsed = collapse(trimmed);
+        if (trimmed.length() < 3 || trimmed.length() > 64) {
+            return false;
+        }
+        if (trimmed.matches(".*\\d.*")) {
+            return false;
+        }
+        if (trimmed.contains("[") || trimmed.contains("]") || trimmed.contains("%")) {
+            return false;
+        }
+        if (containsAny(collapsed, List.of(
+                "ZADAJESZ",
+                "OBRAZENIA",
+                "PODDAJSIE",
+                "DOSWIADCZ",
+                "ZABIJ",
+                "EFEKT",
+                "SOJUSZNIK",
+                "UMIEJETNOSCI",
+                "PODSTAWOWE",
+                "GDYMASZ",
+                "ZWIEKSZA"
+        ))) {
+            return false;
+        }
+        return trimmed.replaceAll("[^\\p{L}]", "").length() >= 3;
+    }
+
+    private static int headerNameScore(String name, int index) {
+        int score = 2_000 - index * 10;
+        int wordCount = name.trim().split("\\s+").length;
+        if (wordCount >= 2 && wordCount <= 4) {
+            score += 100;
+        }
+        if (containsPolishDiacritics(name)) {
+            score += 30;
+        }
+        if (name.equals(name.toUpperCase(Locale.ROOT))) {
+            score += 20;
+        }
+        return score - Math.abs(name.length() - 24);
     }
 
     private static String detectVerathielName(List<String> lines, String fallbackName) {
@@ -749,7 +851,8 @@ final class ItemImageImportTextParser {
 
     private static String normalizeFullReadLine(FullItemReadLineType type, String line) {
         return switch (type) {
-            case ASPECT -> normalizeFortifyLegendaryEffect(line).orElse(line);
+            case ASPECT -> normalizeFortifyLegendaryEffect(line)
+                    .orElse(EffectTextTokenNormalizer.normalizeMultiplierTokens(line));
             case IMPLICIT -> normalizeShieldImplicitLine(line).orElse(line);
             case AFFIX -> normalizeDamageReductionAffixLine(line).orElse(line);
             case TEMPERING -> ImportedItemTemperingExtractor.normalizeKnownTemperingLine(line).orElse(line);
@@ -849,7 +952,9 @@ final class ItemImageImportTextParser {
                 collectingUniqueEffect = false;
             }
         }
-        String joined = String.join(" ", effectParts).replaceAll("\\s+", " ").trim();
+        String joined = EffectTextTokenNormalizer.normalizeMultiplierTokens(
+                String.join(" ", effectParts).replaceAll("\\s+", " ").trim()
+        );
         if (joined.isBlank()) {
             return "";
         }
@@ -1568,6 +1673,8 @@ final class ItemImageImportTextParser {
         if (line == null || line.isBlank()) {
             return "";
         }
+        boolean coreSkillRanksLine = collapse(line).contains("UMIEJETNOSCI")
+                && collapse(line).contains("GLOWNE");
         String normalized = line;
         normalized = normalized.replaceAll(
                 "(?i)(?<=[x×])\\s*[iIlL|]\\s+([0-9]+(?:[,.][0-9]+)?)\\s*%",
@@ -1597,14 +1704,16 @@ final class ItemImageImportTextParser {
                 "(\\[\\s*\\+?\\s*[0-9]{1,3}(?:[,.][0-9]+)?\\s*[-–—−]\\s*[0-9]{1,3})1(?=\\s*%?(?:\\s|$|\\+))",
                 "$1]"
         );
-        normalized = normalized.replaceAll(
-                "(\\[\\s*\\+?\\s*[0-9]{1,3}(?:[,.][0-9])?)1(?=\\s*%?(?:\\s|$|\\+))",
-                "$1]"
-        );
-        normalized = normalized.replaceAll(
-                "(\\[\\s*\\+?\\s*[0-9]{1,3})1(?!\\s*[-–—−])(?=\\s*%?(?:\\s|$|\\+))",
-                "$1]"
-        );
+        if (!coreSkillRanksLine) {
+            normalized = normalized.replaceAll(
+                    "(\\[\\s*\\+?\\s*[0-9]{1,3}(?:[,.][0-9])?)1(?=\\s*%?(?:\\s|$|\\+))",
+                    "$1]"
+            );
+            normalized = normalized.replaceAll(
+                    "(\\[\\s*\\+?\\s*[0-9]{1,3})1(?!\\s*[-–—−])(?=\\s*%?(?:\\s|$|\\+))",
+                    "$1]"
+            );
+        }
         return normalized;
     }
 
@@ -1676,5 +1785,8 @@ final class ItemImageImportTextParser {
     }
 
     private record StructuredNameCandidate(String name, int score, int firstIndex) {
+    }
+
+    private record HeaderNameCandidate(String name, int score, int firstIndex) {
     }
 }

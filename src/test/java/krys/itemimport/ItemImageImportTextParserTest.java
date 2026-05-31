@@ -209,6 +209,38 @@ class ItemImageImportTextParserTest {
     }
 
     @Test
+    void shouldExtractGenericItemNameFromHeaderLineWithTypeAndPower() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                Srebrny Wizjer * Starozytny mityczny unikatowy helm Moc przedmiotu: 900
+                Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x].
+                """);
+
+        ItemImportDetails details = result.getFullItemRead().getDetails();
+        assertEquals("Srebrny Wizjer", details.getItemName());
+        assertEquals("Hełm", details.getItemType());
+        assertEquals(EquipmentSlot.HELMET, details.getEquipmentSlot());
+        assertEquals("UNIQUE", details.getItemRarity());
+        assertTrue(details.isMythicUnique());
+        assertEquals(900L, details.getItemPower());
+    }
+
+    @Test
+    void shouldNotUseLongEffectTextAsItemNameWhenHeaderNameExists() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                Krótka Korona * Starożytny mityczny unikatowy hełm Moc przedmiotu: 900
+                Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x].
+                Zabijaj wrogów, aby na chwilę ukraść pobliskim sojusznikom efekt Łaski Matki.
+                """);
+
+        ItemImportDetails details = result.getFullItemRead().getDetails();
+        assertEquals("Krótka Korona", details.getItemName());
+        assertTrue(details.getUniqueEffectText().contains("Łaski Matki"));
+        assertTrue(details.getUniqueEffectText().contains("80%[x]"));
+        assertFalse(details.getItemName().contains("Poddaj się"));
+        assertFalse(details.getItemName().contains("80%"));
+    }
+
+    @Test
     void shouldPreserveGreaterAffixFromAnyOcrVariantWithoutFixtureName() {
         ItemImageImportCandidateParseResult plainVariant = parser.parse(metadata, """
                 Generyczna Tarcza Testowa

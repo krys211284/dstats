@@ -259,6 +259,12 @@ public final class ItemImportDebugTrace {
         return new MasterworkingResolvedItemValueResolver().resolveAffixValue(affix, masterworking);
     }
 
+    public static double resolveRuntimeAffixValue(ImportedItemAffix affix,
+                                                  ItemMasterworking masterworking,
+                                                  boolean displayedValueAlreadyCurrent) {
+        return new MasterworkingResolvedItemValueResolver().resolveAffixValue(affix, masterworking, displayedValueAlreadyCurrent);
+    }
+
     public static String formatTempering(ItemTemperingAffix affix) {
         if (affix == null) {
             return "tempering=null";

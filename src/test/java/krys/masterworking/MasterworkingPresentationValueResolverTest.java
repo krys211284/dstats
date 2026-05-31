@@ -114,6 +114,35 @@ class MasterworkingPresentationValueResolverTest {
     }
 
     @Test
+    void shouldPresentMythicDisplayedValueWithoutReferenceWithoutRemastering() {
+        MasterworkingPresentationValue value = resolver.resolveAffix(
+                new ImportedItemAffix(ImportedItemAffixType.LUCKY_HIT_CHANCE, 25.0d, "%", false, 0,
+                        "+25,0% szansy na szczęśliwy traf", ImportedItemAffixSource.OCR),
+                new ItemMasterworking(25, 25),
+                true
+        );
+
+        assertEquals("25,0%", value.getDisplayValueLabel());
+        assertEquals("25,0%", value.getBaseValueLabel());
+        assertEquals(false, value.hasChangedValue());
+    }
+
+    @Test
+    void shouldPresentMythicDisplayedValueWithReferenceWithoutRemastering() {
+        MasterworkingPresentationValue value = resolver.resolveAffix(
+                new ImportedItemAffix(ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, "%", false, 0,
+                        "+15,0% szansy na trafienie krytyczne [12,0]%", ImportedItemAffixSource.OCR,
+                        "critical_strike_chance", null, null, 12.0d, ""),
+                new ItemMasterworking(25, 25),
+                true
+        );
+
+        assertEquals("15,0%", value.getDisplayValueLabel());
+        assertEquals("15,0%", value.getBaseValueLabel());
+        assertEquals(false, value.hasChangedValue());
+    }
+
+    @Test
     void shouldResolveMaxAnimusTemperingGoldenValues() {
         ItemTemperingAffix affix = maxAnimusTempering();
         for (int quality : new int[]{0, 3, 6, 9, 12, 15, 17, 20, 21}) {

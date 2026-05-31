@@ -93,10 +93,14 @@ final class MasterworkingSectionRenderer {
     }
 
     static String renderAffixEditorHint(ItemMasterworking masterworking, ImportedItemAffix affix) {
+        return renderAffixEditorHint(masterworking, affix, false);
+    }
+
+    static String renderAffixEditorHint(ItemMasterworking masterworking, ImportedItemAffix affix, boolean displayedValueAlreadyCurrent) {
         if (masterworking == null || !masterworking.hasVisibleProgress()) {
             return "";
         }
-        return renderEditorCurrentValue(VALUE_RESOLVER.resolveAffix(affix, masterworking));
+        return renderEditorCurrentValue(VALUE_RESOLVER.resolveAffix(affix, masterworking, displayedValueAlreadyCurrent));
     }
 
     static String renderTemperingEditorHint(ItemMasterworking masterworking, ItemTemperingAffix affix) {
@@ -122,10 +126,14 @@ final class MasterworkingSectionRenderer {
     }
 
     static String formatAffixReadonlyLine(ItemMasterworking masterworking, ImportedItemAffix affix) {
+        return formatAffixReadonlyLine(masterworking, affix, false);
+    }
+
+    static String formatAffixReadonlyLine(ItemMasterworking masterworking, ImportedItemAffix affix, boolean displayedValueAlreadyCurrent) {
         if (masterworking == null || !masterworking.hasVisibleProgress()) {
             return escapeHtml(krys.itemlibrary.ItemLibraryPresentationSupport.formatAffixForDetails(affix));
         }
-        return formatValueLine(VALUE_RESOLVER.resolveAffix(affix, masterworking), affix.isGreaterAffix());
+        return formatValueLine(VALUE_RESOLVER.resolveAffix(affix, masterworking, displayedValueAlreadyCurrent), affix.isGreaterAffix());
     }
 
     static String formatTemperingReadonlyLine(ItemMasterworking masterworking, ItemTemperingAffix affix) {

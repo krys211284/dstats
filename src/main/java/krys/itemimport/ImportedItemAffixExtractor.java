@@ -253,7 +253,7 @@ public final class ImportedItemAffixExtractor {
         );
         resolved = resolveMoonFrenzySourceValue(moonFrenzyShieldContext, moonFrenzyQuality25Context, type.get(), value.get())
                 .orElse(resolved);
-        Optional<RollRange> parsedRange = parseRollRange(text);
+        Optional<RollRange> parsedRange = parseRollRange(text, type.get());
         Double referenceValue = mythicReferenceValue(mythicUniqueContext, resolved.value(), parsedRange).orElse(null);
         Optional<RollRange> rollRange = referenceValue == null
                 ? validateParsedRollRange(resolved.value(), parsedRange)
@@ -300,7 +300,7 @@ public final class ImportedItemAffixExtractor {
             );
             resolved = resolveMoonFrenzySourceValue(moonFrenzyShieldContext, moonFrenzyQuality25Context, definition.getFormType(), resource.get())
                     .orElse(resolved);
-            Optional<RollRange> parsedRange = parseRollRange(segment);
+            Optional<RollRange> parsedRange = parseRollRange(segment, definition.getFormType());
             Double referenceValue = mythicReferenceValue(mythicUniqueContext, resolved.value(), parsedRange).orElse(null);
             Optional<RollRange> rollRange = referenceValue == null
                     ? validateParsedRollRange(resolved.value(), parsedRange)
@@ -339,7 +339,7 @@ public final class ImportedItemAffixExtractor {
         );
         resolved = resolveMoonFrenzySourceValue(moonFrenzyShieldContext, moonFrenzyQuality25Context, definition.getFormType(), value.get())
                 .orElse(resolved);
-        Optional<RollRange> parsedRange = parseRollRange(segment);
+        Optional<RollRange> parsedRange = parseRollRange(segment, definition.getFormType());
         Double referenceValue = mythicReferenceValue(mythicUniqueContext, resolved.value(), parsedRange).orElse(null);
         Optional<RollRange> rollRange = referenceValue == null
                 ? validateParsedRollRange(resolved.value(), parsedRange)
@@ -425,7 +425,10 @@ public final class ImportedItemAffixExtractor {
         return parseDouble(token);
     }
 
-    private static Optional<RollRange> parseRollRange(String text) {
+    private static Optional<RollRange> parseRollRange(String text, ImportedItemAffixType type) {
+        if (type == ImportedItemAffixType.CORE_SKILL_RANKS && !hasClosedSingleValueBracket(text)) {
+            return Optional.empty();
+        }
         Matcher matcher = ROLL_RANGE_PATTERN.matcher(text == null ? "" : text);
         if (!matcher.find()) {
             return Optional.empty();
@@ -436,6 +439,11 @@ public final class ImportedItemAffixExtractor {
             return Optional.empty();
         }
         return Optional.of(new RollRange(min.get(), max.get()));
+    }
+
+    private static boolean hasClosedSingleValueBracket(String text) {
+        Matcher matcher = Pattern.compile("\\[\\s*\\+?\\s*[0-9]+(?:[,.][0-9]+)?\\s*]").matcher(text == null ? "" : text);
+        return matcher.find();
     }
 
     private static Optional<RollRange> validateParsedRollRange(double value, Optional<RollRange> parsedRange) {

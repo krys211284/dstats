@@ -2,6 +2,9 @@ package krys.web;
 
 import krys.item.EquipmentSlot;
 import krys.itemimport.FullItemRead;
+import krys.itemimport.ImportedItemAffix;
+import krys.itemimport.ImportedItemAffixSource;
+import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ItemImportDetails;
 import krys.itemimport.ItemImportEditableForm;
 import krys.itemimport.ItemImportFieldConfidence;
@@ -157,6 +160,89 @@ class ItemEditPageRendererTest {
         assertTrue(weaponFields.contains("name=\"attacksPerSecond\" value=\"1.10\""));
     }
 
+    @Test
+    void shouldRenderMythicEditAffixWithoutReferenceWithoutRemasteredPreview() {
+        SavedImportedItem item = mythicHelmetItem();
+        ItemImportEditableForm form = mythicHelmetForm(item, List.of(
+                new ImportedItemAffix(ImportedItemAffixType.LUCKY_HIT_CHANCE, 25.0d, "%", false, 0,
+                        "+25,0% szansy na szczęśliwy traf", ImportedItemAffixSource.OCR)
+        ));
+
+        String html = renderEditPage(item, form);
+        String row = affixRowByOriginalType(html, "LUCKY_HIT_CHANCE");
+
+        assertTrue(row.contains("name=\"affixValue_0\" value=\"25\""));
+        assertTrue(row.contains("Brak zakresu"));
+        assertFalse(row.contains("Wartość bazowa"));
+        assertFalse(html.contains("31,3"));
+        assertFalse(html.contains("31.3"));
+    }
+
+    @Test
+    void shouldRenderMythicEditAffixWithReferenceWithoutRemasteredPreview() {
+        SavedImportedItem item = mythicHelmetItem();
+        ItemImportEditableForm form = mythicHelmetForm(item, List.of(
+                new ImportedItemAffix(ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, "%", false, 0,
+                        "+15,0% szansy na trafienie krytyczne [12,0]%", ImportedItemAffixSource.OCR,
+                        "critical_strike_chance", null, null, 12.0d, "")
+        ));
+
+        String html = renderEditPage(item, form);
+        String row = affixRowByOriginalType(html, "CRITICAL_STRIKE_CHANCE");
+
+        assertTrue(row.contains("name=\"affixValue_0\" value=\"15\""));
+        assertTrue(row.contains("Wartość bazowa: 12"));
+        assertFalse(html.contains("18,8"));
+        assertFalse(html.contains("18.8"));
+    }
+
+    private static SavedImportedItem mythicHelmetItem() {
+        return new SavedImportedItem(
+                1L,
+                "Generyczny Hełm Mityczny",
+                "helm.png",
+                EquipmentSlot.HELMET,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d
+        );
+    }
+
+    private static ItemImportEditableForm mythicHelmetForm(SavedImportedItem item, List<ImportedItemAffix> affixes) {
+        return new ItemImportEditableForm(
+                item.getSourceImageName(),
+                item.getSlot().name(),
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                affixes,
+                "heir_of_perdition",
+                ItemImportFieldConfidence.UNKNOWN,
+                "heir_of_perdition",
+                new ItemImportDetails("Generyczny Hełm Mityczny", "Hełm", "UNIQUE", true, EquipmentSlot.HELMET,
+                        900L, null, null, null, null, null, 2004L, "Opisowy efekt 80%[x].", true),
+                List.of(),
+                ItemMasterworking.quality(25)
+        );
+    }
+
+    private static String renderEditPage(SavedImportedItem item, ItemImportEditableForm form) {
+        return new ItemEditPageRenderer().render(new ItemEditPageModel(
+                item,
+                form,
+                List.of(),
+                List.of(),
+                ItemLibraryFilter.empty()
+        ));
+    }
+
     private static String fieldSetByLegend(String html, String legend) {
         int legendIndex = html.indexOf("<legend>" + legend + "</legend>");
         if (legendIndex < 0) {
@@ -168,5 +254,22 @@ class ItemEditPageRendererTest {
             throw new AssertionError("Nie udało się wyciąć fieldsetu: " + legend);
         }
         return html.substring(start, end + "</fieldset>".length());
+    }
+
+    private static String affixRowByOriginalType(String html, String originalType) {
+        String marker = "name=\"affixOriginalType_";
+        int sourceIndex = html.indexOf(marker);
+        while (sourceIndex >= 0) {
+            int inputEnd = html.indexOf(">", sourceIndex);
+            if (inputEnd >= 0 && html.substring(sourceIndex, inputEnd).contains("value=\"" + originalType + "\"")) {
+                int rowStart = html.lastIndexOf("<tr>", sourceIndex);
+                int rowEnd = html.indexOf("</tr>", sourceIndex);
+                if (rowStart >= 0 && rowEnd >= 0) {
+                    return html.substring(rowStart, rowEnd + "</tr>".length());
+                }
+            }
+            sourceIndex = html.indexOf(marker, sourceIndex + marker.length());
+        }
+        throw new AssertionError("Brak wiersza affixu: " + originalType);
     }
 }

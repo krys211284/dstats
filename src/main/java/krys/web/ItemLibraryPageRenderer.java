@@ -287,7 +287,7 @@ public final class ItemLibraryPageRenderer {
 
     private static String formatAffixSummaryLine(SavedImportedItem item, ImportedItemAffix affix) {
         if (item.getMasterworking() != null && item.getMasterworking().hasVisibleProgress()) {
-            return MasterworkingSectionRenderer.formatAffixReadonlyLine(item.getMasterworking(), affix);
+            return MasterworkingSectionRenderer.formatAffixReadonlyLine(item.getMasterworking(), affix, item.getDetails().isMythicUnique());
         }
         return escapeHtml(ItemLibraryPresentationSupport.formatAffixForList(affix));
     }
@@ -399,7 +399,7 @@ public final class ItemLibraryPageRenderer {
 
     private static String formatAffixDetailsLine(SavedImportedItem item, ImportedItemAffix affix) {
         if (item.getMasterworking() != null && item.getMasterworking().hasVisibleProgress()) {
-            return MasterworkingSectionRenderer.formatAffixReadonlyLine(item.getMasterworking(), affix);
+            return MasterworkingSectionRenderer.formatAffixReadonlyLine(item.getMasterworking(), affix, item.getDetails().isMythicUnique());
         }
         return escapeHtml(ItemLibraryPresentationSupport.formatAffixForDetails(affix));
     }
