@@ -1706,7 +1706,7 @@ final class ItemImageImportTextParser {
         );
         if (!coreSkillRanksLine) {
             normalized = normalized.replaceAll(
-                    "(\\[\\s*\\+?\\s*[0-9]{1,3}(?:[,.][0-9])?)1(?=\\s*%?(?:\\s|$|\\+))",
+                    "(\\[\\s*\\+?\\s*[0-9]{1,3}(?:[,.][0-9])?)1(?!\\s*[-–—−])(?=\\s*%?(?:\\s|$|\\+))",
                     "$1]"
             );
             normalized = normalized.replaceAll(
