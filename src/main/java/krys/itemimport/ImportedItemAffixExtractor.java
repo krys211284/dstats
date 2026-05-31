@@ -25,6 +25,8 @@ public final class ImportedItemAffixExtractor {
     private final AffixRegistry affixRegistry;
     private static final MasterworkingResolvedItemValueResolver MASTERWORKING_RESOLVER =
             new MasterworkingResolvedItemValueResolver();
+    private static final ImportedItemDisplayedValueReverseResolver REVERSE_RESOLVER =
+            new ImportedItemDisplayedValueReverseResolver();
 
     public ImportedItemAffixExtractor() {
         this(ApplicationAffixRegistry.get());
@@ -48,6 +50,11 @@ public final class ImportedItemAffixExtractor {
         boolean moonFrenzyQuality25Context = moonFrenzyShieldContext
                 && ItemImageImportTextParser.containsQuality25(
                 fullItemRead.getLines().stream().map(FullItemReadLine::getText).toList());
+        boolean quality25Context = ItemImageImportTextParser.containsQuality25(
+                fullItemRead.getLines().stream().map(FullItemReadLine::getText).toList());
+        ItemMasterworking importedMasterworking = quality25Context
+                ? new ItemMasterworking(25, 25)
+                : ItemMasterworking.defaultState();
         Map<String, ImportedItemAffix> affixes = new LinkedHashMap<>();
         int displayOrder = 0;
         for (FullItemReadLine line : fullItemRead.getLines()) {
@@ -56,7 +63,8 @@ public final class ImportedItemAffixExtractor {
             }
             for (ImportedItemAffix affix : extractAffixesFromLine(line, displayOrder, verathielContext,
                     koscianychLusekShieldContext, koscianychLusekQuality25Context,
-                    moonFrenzyShieldContext, moonFrenzyQuality25Context, mythicUniqueContext)) {
+                    moonFrenzyShieldContext, moonFrenzyQuality25Context, mythicUniqueContext,
+                    importedMasterworking)) {
                 String key = editableAffixDeduplicationKey(affix);
                 int score = affixQualityScore(affix);
                 int candidateIndex = displayOrder;
@@ -182,16 +190,17 @@ public final class ImportedItemAffixExtractor {
                                                            int baseDisplayOrder,
                                                            boolean verathielContext,
                                                            boolean koscianychLusekShieldContext,
-                                                           boolean koscianychLusekQuality25Context,
-                                                           boolean moonFrenzyShieldContext,
-                                                           boolean moonFrenzyQuality25Context,
-                                                           boolean mythicUniqueContext) {
+                                                            boolean koscianychLusekQuality25Context,
+                                                            boolean moonFrenzyShieldContext,
+                                                            boolean moonFrenzyQuality25Context,
+                                                            boolean mythicUniqueContext,
+                                                            ItemMasterworking importedMasterworking) {
         String text = line.getText();
         List<AffixRegistry.AffixTextMatch> matches = affixRegistry.findMatches(text);
         if (matches.isEmpty()) {
             return fallbackExtract(text, baseDisplayOrder, verathielContext, koscianychLusekShieldContext,
                     koscianychLusekQuality25Context, moonFrenzyShieldContext, moonFrenzyQuality25Context,
-                    mythicUniqueContext);
+                    mythicUniqueContext, importedMasterworking);
         }
 
         List<AffixRegistry.AffixTextMatch> compactMatches = removeContainedMatches(matches);
@@ -205,7 +214,8 @@ public final class ImportedItemAffixExtractor {
             String segment = text.substring(Math.max(0, segmentStart), Math.max(segmentStart, segmentEnd)).trim();
             buildAffix(match.definition(), segment, text, baseDisplayOrder + affixes.size(), verathielContext,
                     koscianychLusekShieldContext, koscianychLusekQuality25Context,
-                    moonFrenzyShieldContext, moonFrenzyQuality25Context, mythicUniqueContext)
+                    moonFrenzyShieldContext, moonFrenzyQuality25Context, mythicUniqueContext,
+                    importedMasterworking)
                     .ifPresent(affixes::add);
         }
         return affixes;
@@ -241,7 +251,8 @@ public final class ImportedItemAffixExtractor {
                                                     boolean koscianychLusekQuality25Context,
                                                     boolean moonFrenzyShieldContext,
                                                     boolean moonFrenzyQuality25Context,
-                                                    boolean mythicUniqueContext) {
+                                                    boolean mythicUniqueContext,
+                                                    ItemMasterworking importedMasterworking) {
         Optional<ImportedItemAffixType> type = ImportedItemAffixType.detectFromLine(text);
         Optional<Double> value = firstNumber(text);
         if (type.isEmpty() || value.isEmpty()) {
@@ -255,14 +266,19 @@ public final class ImportedItemAffixExtractor {
                 .orElse(resolved);
         Optional<RollRange> parsedRange = parseRollRange(text, type.get());
         Double referenceValue = mythicReferenceValue(mythicUniqueContext, resolved.value(), parsedRange).orElse(null);
-        Optional<RollRange> rollRange = referenceValue == null
-                ? validateParsedRollRange(resolved.value(), parsedRange)
-                : Optional.empty();
+        Optional<RollRange> validatedRangeForGreaterAffix = validateParsedRollRange(resolved.value(), parsedRange);
         boolean greaterAffix = isGreaterAffixLine(text)
                 || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, type.get(), resolved.value())
                 || isMoonFrenzyGreaterAffix(moonFrenzyShieldContext, type.get(), resolved.value())
                 || resolved.greaterAffix()
-                || (!mythicUniqueContext && isGreaterAffixFromRollRange(resolved.value(), rollRange));
+                || (!mythicUniqueContext && isGreaterAffixFromRollRange(resolved.value(), validatedRangeForGreaterAffix));
+        if (referenceValue == null && validatedRangeForGreaterAffix.isEmpty()) {
+            referenceValue = reverseResolvedReferenceValue(type.get(), resolved.value(), greaterAffix, importedMasterworking)
+                    .orElse(null);
+        }
+        Optional<RollRange> rollRange = referenceValue == null
+                ? validatedRangeForGreaterAffix
+                : Optional.empty();
         return List.of(new ImportedItemAffix(
                 type.get(),
                 resolved.value(),
@@ -288,7 +304,8 @@ public final class ImportedItemAffixExtractor {
                                                           boolean koscianychLusekQuality25Context,
                                                           boolean moonFrenzyShieldContext,
                                                           boolean moonFrenzyQuality25Context,
-                                                          boolean mythicUniqueContext) {
+                                                          boolean mythicUniqueContext,
+                                                          ItemMasterworking importedMasterworking) {
         if (definition.getFormType() == ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE) {
             Optional<Double> chance = parseChancePercent(segment);
             Optional<Double> resource = parseResourceAmount(segment);
@@ -302,14 +319,19 @@ public final class ImportedItemAffixExtractor {
                     .orElse(resolved);
             Optional<RollRange> parsedRange = parseRollRange(segment, definition.getFormType());
             Double referenceValue = mythicReferenceValue(mythicUniqueContext, resolved.value(), parsedRange).orElse(null);
-            Optional<RollRange> rollRange = referenceValue == null
-                    ? validateParsedRollRange(resolved.value(), parsedRange)
-                    : Optional.empty();
+            Optional<RollRange> validatedRangeForGreaterAffix = validateParsedRollRange(resolved.value(), parsedRange);
             boolean greaterAffix = isGreaterAffixLine(segment)
                     || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, definition.getFormType(), resolved.value())
                     || isMoonFrenzyGreaterAffix(moonFrenzyShieldContext, definition.getFormType(), resolved.value())
                     || resolved.greaterAffix()
-                    || (!mythicUniqueContext && isGreaterAffixFromRollRange(resolved.value(), rollRange));
+                    || (!mythicUniqueContext && isGreaterAffixFromRollRange(resolved.value(), validatedRangeForGreaterAffix));
+            if (referenceValue == null && validatedRangeForGreaterAffix.isEmpty()) {
+                referenceValue = reverseResolvedReferenceValue(definition.getFormType(), resolved.value(), greaterAffix, importedMasterworking)
+                        .orElse(null);
+            }
+            Optional<RollRange> rollRange = referenceValue == null
+                    ? validatedRangeForGreaterAffix
+                    : Optional.empty();
             String displayValue = "+" + formatValue(resolved.value());
             return Optional.of(new ImportedItemAffix(
                     definition.getFormType(),
@@ -341,14 +363,19 @@ public final class ImportedItemAffixExtractor {
                 .orElse(resolved);
         Optional<RollRange> parsedRange = parseRollRange(segment, definition.getFormType());
         Double referenceValue = mythicReferenceValue(mythicUniqueContext, resolved.value(), parsedRange).orElse(null);
-        Optional<RollRange> rollRange = referenceValue == null
-                ? validateParsedRollRange(resolved.value(), parsedRange)
-                : Optional.empty();
+        Optional<RollRange> validatedRangeForGreaterAffix = validateParsedRollRange(resolved.value(), parsedRange);
         boolean greaterAffix = isGreaterAffixLine(segment)
                 || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, definition.getFormType(), resolved.value())
                 || isMoonFrenzyGreaterAffix(moonFrenzyShieldContext, definition.getFormType(), resolved.value())
                 || resolved.greaterAffix()
-                || (!mythicUniqueContext && isGreaterAffixFromRollRange(resolved.value(), rollRange));
+                || (!mythicUniqueContext && isGreaterAffixFromRollRange(resolved.value(), validatedRangeForGreaterAffix));
+        if (referenceValue == null && validatedRangeForGreaterAffix.isEmpty()) {
+            referenceValue = reverseResolvedReferenceValue(definition.getFormType(), resolved.value(), greaterAffix, importedMasterworking)
+                    .orElse(null);
+        }
+        Optional<RollRange> rollRange = referenceValue == null
+                ? validatedRangeForGreaterAffix
+                : Optional.empty();
         return Optional.of(new ImportedItemAffix(
                 definition.getFormType(),
                 resolved.value(),
@@ -478,6 +505,20 @@ public final class ImportedItemAffixExtractor {
     private static boolean isGreaterAffixFromRollRange(double displayedValue, Optional<RollRange> parsedRange) {
         return parsedRange.isPresent()
                 && sameValue(displayedValue, parsedRange.get().max() * 1.25d);
+    }
+
+    private static Optional<Double> reverseResolvedReferenceValue(ImportedItemAffixType type,
+                                                                  double displayedValue,
+                                                                  boolean greaterAffix,
+                                                                  ItemMasterworking importedMasterworking) {
+        Optional<ImportedItemDisplayedValueReverseResolver.ReverseResolvedReferenceValue> resolved =
+                REVERSE_RESOLVER.resolveReferenceValue(type, displayedValue, greaterAffix, importedMasterworking);
+        resolved.ifPresent(value -> ItemImportDebugTrace.log("AFFIX_CANDIDATE", () -> "reverseResolvedReferenceValue="
+                + value.referenceValue()
+                + " type=" + type
+                + " displayedValue=" + displayedValue
+                + " reason=" + ItemImportDebugTrace.quote(value.reason())));
+        return resolved.map(ImportedItemDisplayedValueReverseResolver.ReverseResolvedReferenceValue::referenceValue);
     }
 
     private static Optional<Double> parseChancePercent(String text) {

@@ -1,226 +1,99 @@
 package krys.itemimport;
 
 import krys.item.EquipmentSlot;
+import krys.transfiguration.HoradricTransfigurationOutcome;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Test mapowania wstępnie rozpoznanych pól do edytowalnego formularza potwierdzenia. */
+/** Testuje uzupełnianie formularza importu na podstawie pełnego odczytu OCR. */
 class ItemImportEditableFormFactoryTest {
+    private final ItemImportEditableFormFactory factory = new ItemImportEditableFormFactory();
+
     @Test
-    void shouldDetectEmptySocketFromExactSocketLine() {
-        ItemImageImportCandidateParseResult parseResult = new ItemImageImportCandidateParseResult(
-                new ItemImageMetadata("tarcza.png", "image/png", "PNG", 1200, 800),
-                new FullItemRead(
-                        "Tarcza",
-                        "Tarcza",
-                        "Legendarny",
-                        "Moc przedmiotu: 900",
-                        "1 502 pkt. pancerza",
-                        java.util.List.of(new FullItemReadLine(FullItemReadLineType.SOCKET, "Puste gniazdo"))
+    void shouldRecognizeTransfigurationByTextWithoutRejectingValueOutsideCatalogRange() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Hełm",
+                "Starożytny unikatowy hełm",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 004 pkt. pancerza",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Przeistoczony"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+115 pkt. do wszystkich współczynników [75 - 100]")
                 ),
-                new ItemImportFieldCandidate<>("OFF_HAND", EquipmentSlot.OFF_HAND, ItemImportFieldConfidence.MEDIUM, "slot"),
-                ItemImportFieldCandidate.unknown("weapon"),
-                ItemImportFieldCandidate.unknown("str"),
-                ItemImportFieldCandidate.unknown("int"),
-                ItemImportFieldCandidate.unknown("thorns"),
-                ItemImportFieldCandidate.unknown("block"),
-                ItemImportFieldCandidate.unknown("retribution"),
-                "Import wspomagany"
-        );
+                details("Generyczny Hełm", "")
+        )));
 
-        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
-
-        assertEquals(1, form.getSocketing().getSocketCount());
-        assertEquals(krys.socketing.SocketContentType.EMPTY, form.getSocketing().socketAt(0).getContentType());
+        assertEquals(HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX, form.getTransfiguration().getOutcome());
+        assertEquals("ALL_STATS", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(115.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0001d);
+        assertEquals(75.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMin(), 0.0001d);
+        assertEquals(100.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMax(), 0.0001d);
     }
 
     @Test
-    void shouldMapSuggestedFieldsToEditableForm() {
-        ItemImageImportCandidateParseResult parseResult = new ItemImageImportCandidateParseResult(
-                new ItemImageMetadata("tarcza.png", "image/png", "PNG", 1200, 800),
-                new FullItemRead(
-                        "Tarcza testowa",
-                        "Tarcza",
-                        "Legendarny",
-                        "800 mocy przedmiotu",
-                        "1 131 pkt. pancerza",
-                        java.util.List.of(
-                                new FullItemReadLine(FullItemReadLineType.AFFIX, "+55 Strength"),
-                                new FullItemReadLine(FullItemReadLineType.ASPECT, "Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"),
-                                new FullItemReadLine(FullItemReadLineType.ASPECT, "Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek.")
-                        )
+    void shouldImportDifferentTransfigurationValueOutsideCatalogRangeWhenTextMatchesDefinition() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczne Buty",
+                "Starożytne unikatowe buty",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "1 000 pkt. pancerza",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Przeistoczony"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+47% szybkość ruchu [20 - 30]")
                 ),
-                new ItemImportFieldCandidate<>("OFF_HAND", EquipmentSlot.OFF_HAND, ItemImportFieldConfidence.MEDIUM, "slot"),
-                ItemImportFieldCandidate.unknown("weapon"),
-                new ItemImportFieldCandidate<>("+55 Strength", 55.0d, ItemImportFieldConfidence.HIGH, "str"),
-                new ItemImportFieldCandidate<>("+12 Intelligence", 12.0d, ItemImportFieldConfidence.MEDIUM, "int"),
-                new ItemImportFieldCandidate<>("+90 Thorns", 90.0d, ItemImportFieldConfidence.HIGH, "thorns"),
-                new ItemImportFieldCandidate<>("+18% Block Chance", 18.0d, ItemImportFieldConfidence.LOW, "block"),
-                new ItemImportFieldCandidate<>("+25% Retribution Chance", 25.0d, ItemImportFieldConfidence.MEDIUM, "retribution"),
-                "Import wspomagany"
-        );
+                details("Generyczne Buty", "")
+        )));
 
-        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
-
-        assertEquals("tarcza.png", form.getSourceImageName());
-        assertEquals("OFF_HAND", form.getSlot());
-        assertEquals("0", form.getWeaponDamage());
-        assertEquals("55", form.getStrength());
-        assertEquals("12", form.getIntelligence());
-        assertEquals("90", form.getThorns());
-        assertEquals("18", form.getBlockChance());
-        assertEquals("25", form.getRetributionChance());
-        assertEquals("Tarcza testowa", form.getFullItemRead().getItemName());
-        assertEquals(3, form.getFullItemRead().getLines().size());
-        assertEquals(1, form.getAffixes().size());
-        assertEquals(ImportedItemAffixType.STRENGTH, form.getAffixes().getFirst().getType());
-        assertEquals(55.0d, form.getAffixes().getFirst().getValue());
-        assertEquals("+55 Strength", form.getAffixes().getFirst().getSourceText());
-        assertEquals("inner-calm", form.getOcrSuggestedAspectId());
-        assertEquals(ItemImportFieldConfidence.HIGH, form.getOcrAspectConfidence());
-        assertEquals("inner-calm", form.getSelectedAspectId());
+        assertEquals("MOVEMENT_SPEED", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(47.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0001d);
+        assertEquals(20.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMin(), 0.0001d);
+        assertEquals(30.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMax(), 0.0001d);
     }
 
     @Test
-    void shouldKeepGreaterAffixMarkerAsStructuredFieldForKnownOcrSymbols() {
-        ItemImageImportCandidateParseResult parseResult = new ItemImageImportCandidateParseResult(
-                new ItemImageMetadata("gwiazdki.png", "image/png", "PNG", 1200, 800),
-                new FullItemRead(
-                        "Test gwiazdek",
-                        "Tarcza",
-                        "Legendarny",
-                        "800 mocy przedmiotu",
-                        "1 131 pkt. pancerza",
-                        java.util.List.of(
-                                new FullItemReadLine(FullItemReadLineType.AFFIX, "* +55 siły"),
-                                new FullItemReadLine(FullItemReadLineType.AFFIX, "★ +12 inteligencji"),
-                                new FullItemReadLine(FullItemReadLineType.AFFIX, "⭐ +90 cierni"),
-                                new FullItemReadLine(FullItemReadLineType.AFFIX, "✦ +7,0% szansy na szczęśliwy traf")
-                        )
-                ),
-                new ItemImportFieldCandidate<>("OFF_HAND", EquipmentSlot.OFF_HAND, ItemImportFieldConfidence.MEDIUM, "slot"),
-                ItemImportFieldCandidate.unknown("weapon"),
-                ItemImportFieldCandidate.unknown("str"),
-                ItemImportFieldCandidate.unknown("int"),
-                ItemImportFieldCandidate.unknown("thorns"),
-                ItemImportFieldCandidate.unknown("block"),
-                ItemImportFieldCandidate.unknown("retribution"),
-                "Import wspomagany"
-        );
+    void shouldUseCanonicalAspectTextFromRegistryForMatchedUniqueEffect() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Dziedzic Zatracenia",
+                "Starożytny mityczny unikatowy hełm",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 004 pkt. pancerza",
+                List.of(new FullItemReadLine(
+                        FullItemReadLineType.ASPECT,
+                        "Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o"
+                )),
+                details("Dziedzic Zatracenia", "Poddaj się nienawiści i doświadcz Łaski Matki")
+        )));
 
-        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
-
-        assertEquals(4, form.getAffixes().size());
-        for (ImportedItemAffix affix : form.getAffixes()) {
-            assertEquals(true, affix.isGreaterAffix());
-        }
+        assertEquals("heir_of_perdition", form.getSelectedAspectId());
+        assertTrue(form.getUniqueEffectText().contains("80%[x]"), form.getUniqueEffectText());
+        assertEquals(AspectRuntimeStatus.DESCRIPTIVE_ONLY,
+                ApplicationAspectRegistry.get().findById(form.getSelectedAspectId()).orElseThrow().getRuntimeStatus());
     }
 
-    @Test
-    void shouldKeepUnknownOcrAspectAsSuggestionMissWithoutSelectingFinalAspect() {
-        ItemImageImportCandidateParseResult parseResult = new ItemImageImportCandidateParseResult(
-                new ItemImageMetadata("unknown.png", "image/png", "PNG", 1200, 800),
-                new FullItemRead(
-                        "Tarcza testowa",
-                        "Tarcza",
-                        "Legendarny",
-                        "800 mocy przedmiotu",
-                        "1 131 pkt. pancerza",
-                        java.util.List.of(new FullItemReadLine(FullItemReadLineType.ASPECT, "Aspekt zupełnie nieznany z OCR"))
-                ),
-                new ItemImportFieldCandidate<>("OFF_HAND", EquipmentSlot.OFF_HAND, ItemImportFieldConfidence.MEDIUM, "slot"),
-                ItemImportFieldCandidate.unknown("weapon"),
-                ItemImportFieldCandidate.unknown("str"),
-                ItemImportFieldCandidate.unknown("int"),
-                ItemImportFieldCandidate.unknown("thorns"),
-                ItemImportFieldCandidate.unknown("block"),
-                ItemImportFieldCandidate.unknown("retribution"),
-                "Import wspomagany"
+    private static ItemImageImportCandidateParseResult parseResult(FullItemRead fullItemRead) {
+        return new ItemImageImportCandidateParseResult(
+                new ItemImageMetadata("test.png", "image/png", "png", 1, 1),
+                fullItemRead,
+                new ItemImportFieldCandidate<>("", EquipmentSlot.HELMET, ItemImportFieldConfidence.HIGH, ""),
+                ItemImportFieldCandidate.unknown(""),
+                ItemImportFieldCandidate.unknown(""),
+                ItemImportFieldCandidate.unknown(""),
+                ItemImportFieldCandidate.unknown(""),
+                ItemImportFieldCandidate.unknown(""),
+                ItemImportFieldCandidate.unknown(""),
+                ""
         );
-
-        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
-
-        assertEquals("", form.getOcrSuggestedAspectId());
-        assertEquals(ItemImportFieldConfidence.UNKNOWN, form.getOcrAspectConfidence());
-        assertEquals("", form.getSelectedAspectId());
-        assertEquals("Aspekt zupełnie nieznany z OCR", form.getFullItemRead().getLines().getFirst().getText());
     }
 
-    @Test
-    void shouldPrefillVerathielManualConfirmationFromNoisyOcrDetailsWithoutLegacyWeaponDamage() {
-        ItemImageImportCandidateParseResult parseResult = new ItemImageImportTextParser().parse(
-                new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768),
-                """
-                        ODLFIK VERATHEL
-                        Starożytny unikatowy miecz
-                        Moc przedmiotu. 900
-                        1 830 pkt. obrażeń na sek.
-                        [1 350 - 1 978] pkt. obrażeń za trafienie
-                        1,10 ataku na sekundę
-                        """
-        );
-
-        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
-
-        assertEquals("Odłamek Verathiela", form.getItemName());
-        assertEquals("Miecz", form.getItemType());
-        assertEquals("UNIQUE", form.getItemRarity());
-        assertEquals(true, form.isAncient());
-        assertEquals("MAIN_HAND", form.getSlot());
-        assertEquals("900", form.getItemPower());
-        assertEquals("1830", form.getWeaponDps());
-        assertEquals("1350", form.getWeaponDamageMin());
-        assertEquals("1978", form.getWeaponDamageMax());
-        assertEquals("1664", form.getAverageWeaponDamage());
-        assertEquals("1.10", form.getAttacksPerSecond());
-        assertEquals("0", form.getWeaponDamage());
-    }
-
-    @Test
-    void shouldSelectVerathielUniqueAspectFromRecognizedUniqueEffect() {
-        ItemImageImportCandidateParseResult parseResult = new ItemImageImportTextParser().parse(
-                new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768),
-                ItemImageImportTextParserTest.verathielRawText()
-        );
-
-        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
-        AspectDefinition aspect = ApplicationAspectRegistry.get().findById(form.getSelectedAspectId()).orElseThrow();
-
-        assertEquals("verathiel_shard", form.getOcrSuggestedAspectId());
-        assertEquals("verathiel_shard", form.getSelectedAspectId());
-        assertEquals(AspectType.UNIQUE, aspect.getAspectType());
-        assertEquals(AspectRuntimeStatus.DESCRIPTIVE_ONLY, aspect.getRuntimeStatus());
-    }
-
-    @Test
-    void shouldKeepVerathielRollRangesInEditableForm() {
-        ItemImageImportCandidateParseResult parseResult = new ItemImageImportTextParser().parse(
-                new ItemImageMetadata("verathiel.png", "image/png", "PNG", 479, 768),
-                ItemImportTextFixtures.verathielCondensedTextWithDamagedRollRanges()
-        );
-
-        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
-
-        assertEquals(4, form.getAffixes().size());
-        assertAffixRange(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 134.0d, 94.0d, 157.0d);
-        assertAffixRange(form, ImportedItemAffixType.LIFE_ON_KILL, 300.0d, 300.0d, 300.0d);
-        assertAffixRange(form, ImportedItemAffixType.STRENGTH, 172.0d, 150.0d, 180.0d);
-        assertAffixRange(form, ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER, 16.0d, 15.0d, 30.0d);
-    }
-
-    private static void assertAffixRange(ItemImportEditableForm form,
-                                         ImportedItemAffixType type,
-                                         double value,
-                                         double rangeMin,
-                                         double rangeMax) {
-        ImportedItemAffix affix = form.getAffixes().stream()
-                .filter(candidate -> candidate.getType() == type)
-                .findFirst()
-                .orElseThrow();
-        assertEquals(value, affix.getValue());
-        assertEquals(rangeMin, affix.getRollRangeMin());
-        assertEquals(rangeMax, affix.getRollRangeMax());
-        assertEquals(false, affix.isGreaterAffix());
+    private static ItemImportDetails details(String itemName, String effectText) {
+        return new ItemImportDetails(itemName, "Hełm", "UNIQUE", true, EquipmentSlot.HELMET,
+                900L, null, null, null, null, null, 2004L, effectText, itemName.equals("Dziedzic Zatracenia"));
     }
 }

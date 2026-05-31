@@ -166,7 +166,7 @@ public final class ItemScreenshotTextMerger {
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+zdrowia\\s+za\\s+zabicie(?:\\s*\\[[^\\]]+])?%?)");
         appendFirst(extracted, line, "(Mno(?:ż|z)nik\\s*[x×]?\\s*[0-9]+(?:[,.][0-9]+)?%\\s+obra(?:ż|z)e(?:ń|n)\\s+z\\s+up(?:ł|l)ywem\\s+czasu(?:\\s*\\[[^\\]]+])?%?)");
         extractAllStatsDisplayedValue(line)
-                .map(value -> "+" + formatValue(value) + " pkt. do wszystkich współczynników [+75 - 100]")
+                .map(value -> canonicalAllStatsLine(line, value))
                 .ifPresent(value -> appendIfMissing(extracted, value));
         extractBonusItemQualityDisplayedValue(line)
                 .map(value -> "+" + formatValue(value) + " do jakości przedmiotu [1 - 15]")
@@ -264,7 +264,7 @@ public final class ItemScreenshotTextMerger {
             if (value.isEmpty()) {
                 return Optional.empty();
             }
-            String text = value.map(number -> "+" + formatValue(number) + " pkt. do wszystkich współczynników [+75 - 100]")
+            String text = value.map(number -> canonicalAllStatsLine(line, number))
                     .orElse(line);
             return Optional.of(new CanonicalLineCandidate("transfiguration:all-stats",
                     text, lineQualityScore(line, context.koscianychLusekQuality25() ? 96.0d : null, context)));
@@ -515,7 +515,34 @@ public final class ItemScreenshotTextMerger {
             }
         }
         Optional<Double> value = parseNumber(matcher.group(1));
-        return value.filter(number -> number >= 75.0d && number <= 100.0d);
+        return value;
+    }
+
+    private static String canonicalAllStatsLine(String sourceLine, double displayedValue) {
+        Optional<RangeText> sourceRange = extractDisplayedSourceRange(sourceLine);
+        return "+" + formatValue(displayedValue)
+                + " pkt. do wszystkich współczynników"
+                + sourceRange.map(range -> " [" + formatValue(range.min()) + " - " + formatValue(range.max()) + "]")
+                .orElse("");
+    }
+
+    private static Optional<RangeText> extractDisplayedSourceRange(String line) {
+        String normalized = comparisonKey(line);
+        int anchorIndex = normalized.indexOf("wszystkich wspolczynnikow");
+        if (anchorIndex >= 0) {
+            normalized = normalized.substring(anchorIndex + "wszystkich wspolczynnikow".length());
+        }
+        Matcher matcher = Pattern.compile("\\[?\\s*\\+?\\s*1?([0-9]{1,3}(?:[,.][0-9]+)?)\\s*[-–—−]\\s*([0-9]{1,3}(?:[,.][0-9]+)?)1?\\s*]?")
+                .matcher(normalized);
+        if (!matcher.find()) {
+            return Optional.empty();
+        }
+        Optional<Double> min = parseNumber(matcher.group(1));
+        Optional<Double> max = parseNumber(matcher.group(2));
+        if (min.isEmpty() || max.isEmpty() || min.get() > max.get()) {
+            return Optional.empty();
+        }
+        return Optional.of(new RangeText(min.get(), max.get()));
     }
 
     private static Optional<Double> extractBonusItemQualityDisplayedValue(String line) {
@@ -625,6 +652,9 @@ public final class ItemScreenshotTextMerger {
     }
 
     private record CanonicalLineCandidate(String key, String text, int score) {
+    }
+
+    private record RangeText(double min, double max) {
     }
 
     private record MergeContext(boolean koscianychLusekQuality25, boolean moonFrenzyQuality25) {

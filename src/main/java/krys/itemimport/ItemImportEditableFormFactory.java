@@ -8,6 +8,8 @@ import krys.tempering.ItemTemperingAffix;
 import krys.transfiguration.HoradricTransfigurationOutcome;
 import krys.transfiguration.HoradricTuningPrism;
 import krys.transfiguration.ItemTransfiguration;
+import krys.transfiguration.TransfigurationAffixCatalog;
+import krys.transfiguration.TransfigurationAffixDefinition;
 import krys.transfiguration.TransfigurationAffixRoll;
 import krys.transfiguration.TransfigurationValueProvenance;
 
@@ -35,6 +37,7 @@ public final class ItemImportEditableFormFactory {
     public ItemImportEditableForm create(ItemImageImportCandidateParseResult parseResult) {
         try (ItemImportDebugTrace.Scope ignored = ItemImportDebugTrace.withMetadata(parseResult.getImageMetadata())) {
             ItemImportDraft draft = createDraft(parseResult);
+            ItemImportDetails details = detailsWithCanonicalAspectEffect(parseResult, draft);
             ItemImportEditableForm form = new ItemImportEditableForm(
                     parseResult.getImageMetadata().getOriginalFilename(),
                     toSlotValue(parseResult.getSlotCandidate().getSuggestedValue() == null
@@ -51,7 +54,7 @@ public final class ItemImportEditableFormFactory {
                     draft.getOcrSuggestedAspectId(),
                     draft.getOcrAspectConfidence(),
                     draft.getOcrSuggestedAspectId(),
-                    parseResult.getFullItemRead().getDetails(),
+                    details,
                     draft.getTemperingAffixes(),
                     draft.getMasterworking(),
                     draft.getTransfiguration(),
@@ -100,6 +103,64 @@ public final class ItemImportEditableFormFactory {
         );
     }
 
+    private ItemImportDetails detailsWithCanonicalAspectEffect(ItemImageImportCandidateParseResult parseResult,
+                                                               ItemImportDraft draft) {
+        ItemImportDetails details = parseResult.getFullItemRead().getDetails();
+        if (draft == null || draft.getOcrSuggestedAspectId().isBlank()) {
+            return details;
+        }
+        Optional<AspectDefinition> definition = aspectRegistry.findById(draft.getOcrSuggestedAspectId());
+        if (definition.isEmpty()) {
+            return details;
+        }
+        AspectDefinition aspect = definition.get();
+        String canonicalEffectText = canonicalEffectText(aspect, parseResult.getFullItemRead());
+        ItemImportDebugTrace.log("ASPECT_MATCH", () -> "selectedAspectId=" + ItemImportDebugTrace.quote(aspect.getId())
+                + " runtimeStatus=" + aspect.getRuntimeStatus()
+                + " canonicalEffectText=" + ItemImportDebugTrace.compactText(canonicalEffectText)
+                + " ocrEffectText=" + ItemImportDebugTrace.compactText(details.getUniqueEffectText()));
+        return new ItemImportDetails(
+                details.getItemName(),
+                details.getItemType(),
+                details.getItemRarity(),
+                details.isAncient(),
+                details.getEquipmentSlot(),
+                details.getItemPower(),
+                details.getWeaponDps(),
+                details.getWeaponDamageMin(),
+                details.getWeaponDamageMax(),
+                details.getAverageWeaponDamage(),
+                details.getAttacksPerSecond(),
+                details.getItemArmor(),
+                canonicalEffectText,
+                details.isMythicUnique()
+        );
+    }
+
+    private static String canonicalEffectText(AspectDefinition aspect, FullItemRead fullItemRead) {
+        String canonical = EffectTextTokenNormalizer.normalizeMultiplierTokens(aspect.getEffectDescription());
+        Optional<String> ocrMultiplier = extractOcrMultiplierToken(fullItemRead);
+        if (ocrMultiplier.isPresent() && canonical.contains("X%[x]")) {
+            return canonical.replace("X%[x]", ocrMultiplier.get());
+        }
+        return canonical;
+    }
+
+    private static Optional<String> extractOcrMultiplierToken(FullItemRead fullItemRead) {
+        if (fullItemRead == null) {
+            return Optional.empty();
+        }
+        String joined = EffectTextTokenNormalizer.normalizeMultiplierTokens(
+                fullItemRead.getDetails().getUniqueEffectText()
+                        + " "
+                        + fullItemRead.getLines().stream()
+                        .map(FullItemReadLine::getText)
+                        .reduce("", (left, right) -> left + " " + right)
+        );
+        Matcher matcher = Pattern.compile("([0-9]+(?:[,.][0-9]+)?%\\[x])").matcher(joined);
+        return matcher.find() ? Optional.of(matcher.group(1)) : Optional.empty();
+    }
+
     private static ItemSocketing detectSocketing(FullItemRead fullItemRead) {
         if (fullItemRead == null || !fullItemRead.hasAnyData()) {
             return ItemSocketing.empty();
@@ -141,7 +202,7 @@ public final class ItemImportEditableFormFactory {
         }
         boolean transfigured = hasLineContaining(fullItemRead, "PRZEISTOCZONY");
         boolean locked = hasLineContaining(fullItemRead, "BRAK MOZLIWOSCI MODYFIKACJI");
-        Optional<TransfigurationAffixRoll> allStatsRoll = detectAllStatsTransfigurationRoll(fullItemRead);
+        Optional<TransfigurationAffixRoll> allStatsRoll = detectTransfigurationAffixRoll(fullItemRead);
         Optional<Integer> bonusQuality = detectBonusItemQuality(fullItemRead);
         if (!transfigured && allStatsRoll.isEmpty() && bonusQuality.isEmpty()) {
             return ItemTransfiguration.none();
@@ -213,45 +274,67 @@ public final class ItemImportEditableFormFactory {
         return bonus >= 1 && bonus <= 15 ? Optional.of(bonus) : Optional.empty();
     }
 
-    private static Optional<TransfigurationAffixRoll> detectAllStatsTransfigurationRoll(FullItemRead fullItemRead) {
+    private static Optional<TransfigurationAffixRoll> detectTransfigurationAffixRoll(FullItemRead fullItemRead) {
         for (FullItemReadLine line : fullItemRead.getLines()) {
-            Optional<Double> displayedValue = extractAllStatsDisplayedValue(line.getText());
-            if (displayedValue.isEmpty()) {
-                continue;
+            for (TransfigurationAffixDefinition definition : TransfigurationAffixCatalog.definitions()) {
+                Optional<ParsedTransfigurationAffixRoll> roll = extractTransfigurationDisplayedValue(line.getText(), definition);
+                if (roll.isPresent()) {
+                    ParsedTransfigurationAffixRoll parsed = roll.get();
+                    TransfigurationAffixRoll result = new TransfigurationAffixRoll(
+                            definition.getId(),
+                            parsed.displayedValue(),
+                            TransfigurationValueProvenance.GAME_DISPLAYED_VALUE,
+                            "",
+                            parsed.sourceRangeMin(),
+                            parsed.sourceRangeMax()
+                    );
+                    ItemImportDebugTrace.log("TRANSFIGURATION_CANDIDATE", () -> "definitionId="
+                            + ItemImportDebugTrace.quote(definition.getId())
+                            + " displayedValue=" + parsed.displayedValue()
+                            + " sourceRangeMin=" + parsed.sourceRangeMin()
+                            + " sourceRangeMax=" + parsed.sourceRangeMax()
+                            + " sourceLine=" + ItemImportDebugTrace.compactText(line.getText()));
+                    return Optional.of(result);
+                }
             }
-            return Optional.of(new TransfigurationAffixRoll(
-                    "ALL_STATS",
-                    displayedValue.get(),
-                    TransfigurationValueProvenance.GAME_DISPLAYED_VALUE,
-                    ""
-            ));
         }
         return Optional.empty();
     }
 
-    private static Optional<Double> extractAllStatsDisplayedValue(String line) {
+    private static Optional<ParsedTransfigurationAffixRoll> extractTransfigurationDisplayedValue(String line,
+                                                                                                 TransfigurationAffixDefinition definition) {
         String normalized = normalize(line);
-        if (normalized.contains("ODPORNOSCI")) {
+        String normalizedAnchor = normalize(definition.getDisplayName());
+        int anchorIndex = normalized.indexOf(normalizedAnchor);
+        if (anchorIndex < 0) {
             return Optional.empty();
         }
-        Matcher matcher = Pattern.compile(
-                "\\+\\s*([0-9]+(?:[,.][0-9]+)?)\\s*(?:PKT\\.?|PT\\.?)?\\s*(?:DO\\s+)?WSZYSTKICH\\s+WSPOLCZYNNIKOW",
-                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
-        ).matcher(normalized);
-        if (!matcher.find()) {
-            matcher = Pattern.compile(
-                    "\\+\\s*([0-9]+(?:[,.][0-9]+)?)\\s*(?:PKT\\.?|PT\\.?)?\\s*DO\\s+WSZYSTKICH",
-                    Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
-            ).matcher(normalized);
-            if (!matcher.find()) {
-                return Optional.empty();
+        String prefix = normalized.substring(0, anchorIndex);
+        Matcher valueMatcher = Pattern.compile("\\+\\s*([0-9]+(?:[,.][0-9]+)?)").matcher(prefix);
+        Double displayedValue = null;
+        while (valueMatcher.find()) {
+            displayedValue = Double.parseDouble(valueMatcher.group(1).replace(',', '.'));
+        }
+        if (displayedValue == null) {
+            return Optional.empty();
+        }
+        Double sourceRangeMin = null;
+        Double sourceRangeMax = null;
+        String suffix = normalized.substring(anchorIndex + normalizedAnchor.length());
+        Matcher rangeMatcher = Pattern.compile("\\[?\\s*\\+?\\s*1?([0-9]{1,3}(?:[,.][0-9]+)?)\\s*[-–—−]\\s*([0-9]{1,3}(?:[,.][0-9]+)?)1?\\s*]?")
+                .matcher(suffix);
+        if (rangeMatcher.find()) {
+            sourceRangeMin = Double.parseDouble(rangeMatcher.group(1).replace(',', '.'));
+            sourceRangeMax = Double.parseDouble(rangeMatcher.group(2).replace(',', '.'));
+            if (sourceRangeMin > sourceRangeMax) {
+                sourceRangeMin = null;
+                sourceRangeMax = null;
             }
         }
-        double displayedValue = Double.parseDouble(matcher.group(1).replace(',', '.'));
-        if (displayedValue < 75.0d || displayedValue > 125.0d) {
-            return Optional.empty();
-        }
-        return Optional.of(displayedValue);
+        return Optional.of(new ParsedTransfigurationAffixRoll(displayedValue, sourceRangeMin, sourceRangeMax));
+    }
+
+    private record ParsedTransfigurationAffixRoll(double displayedValue, Double sourceRangeMin, Double sourceRangeMax) {
     }
 
     private static boolean hasLineContaining(FullItemRead fullItemRead, String normalizedNeedle) {

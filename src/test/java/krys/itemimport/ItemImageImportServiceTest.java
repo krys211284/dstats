@@ -160,6 +160,8 @@ class ItemImageImportServiceTest {
         assertAffixValueReferenceNoRange(form, ImportedItemAffixType.CORE_SKILL_RANKS, 3.0d, 3.0d);
         assertEquals("ALL_STATS", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
         assertEquals(115.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0001d);
+        assertEquals(75.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMin(), 0.0001d);
+        assertEquals(100.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMax(), 0.0001d);
         assertEquals(1, form.getTemperingAffixes().size());
         assertEquals("defense_max_animus", form.getTemperingAffixes().get(0).getDefinitionId());
         assertEquals(5.0d, form.getTemperingAffixes().get(0).getValue(), 0.0001d);
@@ -315,10 +317,14 @@ class ItemImageImportServiceTest {
         assertAffixValueReferenceNoRange(form, ImportedItemAffixType.MOVEMENT_SPEED, 25.0d, 20.0d);
         ImportedItemAffix coreRanks = affix(form, ImportedItemAffixType.CORE_SKILL_RANKS);
         assertEquals(3.0d, coreRanks.getValue(), 0.0001d);
-        assertNull(coreRanks.getReferenceValue());
+        assertEquals(2.0d, coreRanks.getReferenceValue(), 0.0001d);
         assertNull(coreRanks.getRollRangeMin());
         assertNull(coreRanks.getRollRangeMax());
         assertFalse(coreRanks.isGreaterAffix());
+        assertEquals("ALL_STATS", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(115.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0001d);
+        assertEquals(75.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMin(), 0.0001d);
+        assertEquals(100.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMax(), 0.0001d);
         assertTrue(form.getUniqueEffectText().contains("80%[x]"), form.getUniqueEffectText());
 
         String html = new ItemImportPageRenderer().render(new ItemImportPageModel(

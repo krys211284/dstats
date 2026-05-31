@@ -1561,6 +1561,7 @@ final class ItemImageImportTextParser {
                 lines.add(trimmedLine);
             }
         }
+        lines = new ItemOcrBlockSegmenter().segmentLines(lines);
         lines = joinWrappedKnownItemLines(lines);
         lines = attachOrphanRollRangeLines(lines);
         return lines;

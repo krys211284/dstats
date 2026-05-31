@@ -96,8 +96,19 @@ class ItemScreenshotTextMergerTest {
         ));
 
         assertTrue(merged.contains("14,3% redukcji obrażeń [11,0 - 15,0]%"), merged);
-        assertTrue(merged.contains("+96 pkt. do wszystkich współczynników [+75 - 100]"), merged);
+        assertTrue(merged.contains("+96 pkt. do wszystkich współczynników [75 - 100]"), merged);
         assertFalse(merged.contains("+14,3 pkt. do wszystkich współczynników"), merged);
+    }
+
+    @Test
+    void shouldKeepTransfigurationDisplayedValueOutsideSourceRangeDuringCanonicalMerge() {
+        String merged = merger.merge(List.of(
+                "+115 pkt. do wszystkich współczynników +175 - 1001 +12 do maksymalnej liczby kumulacji Animuszu"
+        ));
+
+        assertTrue(merged.contains("+115 pkt. do wszystkich współczynników [75 - 100]"), merged);
+        assertTrue(merged.contains("+12 do maksymalnej liczby kumulacji Animuszu"), merged);
+        assertFalse(merged.contains("+75 pkt. do wszystkich współczynników"), merged);
     }
 
     @Test
