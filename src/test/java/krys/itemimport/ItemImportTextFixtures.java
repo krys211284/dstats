@@ -148,4 +148,14 @@ final class ItemImportTextFixtures {
                 Trwałość: 70/100
                 """;
     }
+
+    static String heirOfPerditionCurrentScreenTopTextWithCoreRanks2() {
+        return heirOfPerditionTopText()
+                .replace("+3 do umiejętności: Główne [3]", "+2 do umiejętności: Główne [2]");
+    }
+
+    static String heirOfPerditionCurrentScreenBottomTextWithCoreRanks2() {
+        return heirOfPerditionBottomText()
+                .replace("+3 do umiejętności: Główne [3]", "+2 do umiejętności: Główne [2]");
+    }
 }

@@ -39,6 +39,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static krys.itemimport.ItemImportTextFixtures.realShieldBottomText;
 import static krys.itemimport.ItemImportTextFixtures.realShieldTopText;
 import static krys.itemimport.ItemImportTextFixtures.heirOfPerditionBottomText;
+import static krys.itemimport.ItemImportTextFixtures.heirOfPerditionCurrentScreenBottomTextWithCoreRanks2;
+import static krys.itemimport.ItemImportTextFixtures.heirOfPerditionCurrentScreenTopTextWithCoreRanks2;
 import static krys.itemimport.ItemImportTextFixtures.heirOfPerditionTopText;
 import static krys.itemimport.ItemImportTextFixtures.stormMoonShieldBottomText;
 import static krys.itemimport.ItemImportTextFixtures.stormMoonShieldTopText;
@@ -165,6 +167,7 @@ class ItemImageImportServiceTest {
         assertEquals("defense_max_animus", form.getMasterworking().getPerfectedAffix().getKey());
         assertEquals("heir_of_perdition", form.getSelectedAspectId());
         assertTrue(form.getUniqueEffectText().contains("Łaski Matki"));
+        assertTrue(form.getUniqueEffectText().contains("80%[x]"));
 
         String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
                 form,
@@ -211,6 +214,45 @@ class ItemImageImportServiceTest {
         );
         assertEquals(15.0d, resolution.getActiveItemsContribution().getCriticalChancePercent(), 0.0001d);
         assertNotEquals(18.0d, resolution.getActiveItemsContribution().getCriticalChancePercent(), 0.0001d);
+    }
+
+    @Test
+    void shouldImportHeirOfPerditionCurrentScreenVariantWithCoreSkillRanksTwo() throws Exception {
+        byte[] topImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-1.png"));
+        byte[] bottomImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-2.png"));
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new QueuedOcrTextReader(List.of(
+                        heirOfPerditionCurrentScreenTopTextWithCoreRanks2(),
+                        heirOfPerditionCurrentScreenBottomTextWithCoreRanks2()
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(List.of(
+                new ItemImageImportRequest("dziedzic-zatracenia-helm-current-1.png", "image/png", topImageBytes),
+                new ItemImageImportRequest("dziedzic-zatracenia-helm-current-2.png", "image/png", bottomImageBytes)
+        ));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals("Dziedzic Zatracenia", form.getItemName());
+        assertTrue(form.isMythicUnique());
+        assertAffixValueReferenceNoRange(form, ImportedItemAffixType.LUCKY_HIT_CHANCE, 25.0d, 20.0d);
+        assertAffixValueReferenceNoRange(form, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, 12.0d);
+        assertAffixValueReferenceNoRange(form, ImportedItemAffixType.MOVEMENT_SPEED, 25.0d, 20.0d);
+        assertAffixValueReferenceNoRange(form, ImportedItemAffixType.CORE_SKILL_RANKS, 2.0d, 2.0d);
+        assertEquals("heir_of_perdition", form.getSelectedAspectId());
+        assertTrue(form.getUniqueEffectText().contains("80%[x]"), form.getUniqueEffectText());
+        assertEquals(0, countCheckedGreaterAffixes(new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                result,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "Import testowy",
+                ""
+        ))));
     }
 
     @Test
@@ -271,7 +313,13 @@ class ItemImageImportServiceTest {
         assertAffixValueReferenceNoRange(form, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, 12.0d);
         assertAffixValueReferenceNoRange(form, ImportedItemAffixType.LUCKY_HIT_CHANCE, 25.0d, 20.0d);
         assertAffixValueReferenceNoRange(form, ImportedItemAffixType.MOVEMENT_SPEED, 25.0d, 20.0d);
-        assertAffixValueReferenceNoRange(form, ImportedItemAffixType.CORE_SKILL_RANKS, 3.0d, 3.0d);
+        ImportedItemAffix coreRanks = affix(form, ImportedItemAffixType.CORE_SKILL_RANKS);
+        assertEquals(3.0d, coreRanks.getValue(), 0.0001d);
+        assertNull(coreRanks.getReferenceValue());
+        assertNull(coreRanks.getRollRangeMin());
+        assertNull(coreRanks.getRollRangeMax());
+        assertFalse(coreRanks.isGreaterAffix());
+        assertTrue(form.getUniqueEffectText().contains("80%[x]"), form.getUniqueEffectText());
 
         String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
                 form,

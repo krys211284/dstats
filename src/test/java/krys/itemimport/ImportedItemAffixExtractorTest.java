@@ -85,6 +85,34 @@ class ImportedItemAffixExtractorTest {
     }
 
     @Test
+    void shouldImportCoreSkillRanksFromOcrValueAndReferenceConservativelyForGenericMythic() {
+        ImportedItemAffix coreRanks = extractSingleGenericMythic("+2 do umiejętności: Główne [2]");
+
+        assertMythicReferenceAffix(coreRanks, ImportedItemAffixType.CORE_SKILL_RANKS, 2.0d, 2.0d);
+    }
+
+    @Test
+    void shouldNotTurnCoreSkillRanksTwoIntoThreeWithoutOcrEvidence() {
+        ImportedItemAffix coreRanks = extractSingleGenericMythic("+2 do umiejętności: Główne [2]");
+
+        assertEquals(2.0d, coreRanks.getValue(), 0.0001d);
+        assertEquals(2.0d, coreRanks.getReferenceValue(), 0.0001d);
+        assertFalse(coreRanks.getSourceText().contains("+3"), coreRanks.getSourceText());
+    }
+
+    @Test
+    void shouldNotCreateCertainCoreSkillRankReferenceFromDamagedBracket() {
+        ImportedItemAffix coreRanks = extractSingleGenericMythic("+2 do umiejętności: Główne [31");
+
+        assertEquals(ImportedItemAffixType.CORE_SKILL_RANKS, coreRanks.getType());
+        assertEquals(2.0d, coreRanks.getValue(), 0.0001d);
+        assertNull(coreRanks.getReferenceValue());
+        assertNull(coreRanks.getRollRangeMin());
+        assertNull(coreRanks.getRollRangeMax());
+        assertFalse(coreRanks.isGreaterAffix());
+    }
+
+    @Test
     void shouldAvoidGreaterAffixFalsePositivesOutsideEditableRecognizedAffixes() {
         assertNoGreaterAffix("1 131 pkt. pancerza", FullItemReadLineType.BASE_STAT);
         assertNoGreaterAffix("20,0% szansy na blok [20,0]%", FullItemReadLineType.BASE_STAT);
@@ -271,6 +299,21 @@ class ImportedItemAffixExtractorTest {
                 "2 004 pkt. pancerza",
                 List.of(new FullItemReadLine(type, text)),
                 new ItemImportDetails("Dziedzic Zatracenia", "Hełm", "UNIQUE", true, krys.item.EquipmentSlot.HELMET,
+                        900L, null, null, null, null, null, 2004L, "", true)
+        ));
+        assertEquals(1, affixes.size(), text);
+        return affixes.getFirst();
+    }
+
+    private ImportedItemAffix extractSingleGenericMythic(String text) {
+        List<ImportedItemAffix> affixes = extractor.extractEditableAffixes(new FullItemRead(
+                "Generyczny Mythic Helm",
+                "Starożytny mityczny unikatowy hełm",
+                "UNIQUE",
+                "900 mocy przedmiotu",
+                "2 004 pkt. pancerza",
+                List.of(new FullItemReadLine(FullItemReadLineType.AFFIX, text)),
+                new ItemImportDetails("Generyczny Mythic Helm", "Hełm", "UNIQUE", true, krys.item.EquipmentSlot.HELMET,
                         900L, null, null, null, null, null, 2004L, "", true)
         ));
         assertEquals(1, affixes.size(), text);

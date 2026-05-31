@@ -256,6 +256,37 @@ class ItemImageImportCandidateMergerTest {
         assertEquals(180.0d, strength.getRollRangeMax());
     }
 
+    @Test
+    void shouldPreferEffectTextVariantThatPreservesMultiplierTokens() {
+        ItemImageImportCandidateParseResult poorVariant = parseResult(fullReadWithEffect(
+                "zwiększy zadawane przez ciebie obrażenia o"
+        ));
+        ItemImageImportCandidateParseResult richVariant = parseResult(fullReadWithEffect(
+                "zwiększy zadawane przez ciebie obrażenia o 809ó[x]"
+        ));
+
+        ItemImageImportCandidateParseResult merged = new ItemImageImportCandidateMerger()
+                .merge(metadata, 2, List.of(poorVariant, richVariant));
+        String effectText = merged.getFullItemRead().getDetails().getUniqueEffectText();
+
+        assertTrue(effectText.contains("80%[x]"), effectText);
+        assertTrue(effectText.contains("[x]"), effectText);
+    }
+
+    @Test
+    void shouldKeepOrdinaryEffectMultiplierTokensAndOtherPercents() {
+        ItemImageImportCandidateParseResult variant = parseResult(fullReadWithEffect(
+                "Zadajesz obrażenia zwiększone o 80%[x] i masz 15% szansy na dodatkowy efekt."
+        ));
+
+        ItemImageImportCandidateParseResult merged = new ItemImageImportCandidateMerger()
+                .merge(metadata, 1, List.of(variant));
+        String effectText = merged.getFullItemRead().getDetails().getUniqueEffectText();
+
+        assertTrue(effectText.contains("80%[x]"), effectText);
+        assertTrue(effectText.contains("15%"), effectText);
+    }
+
     private ItemImageImportCandidateParseResult parseResult(ItemImportFieldCandidate<EquipmentSlot> slotCandidate,
                                                             ItemImportFieldCandidate<Long> weaponDamageCandidate,
                                                             ItemImportFieldCandidate<Double> strengthCandidate,
@@ -289,6 +320,34 @@ class ItemImageImportCandidateMergerTest {
                 ItemImportFieldCandidate.unknown("block"),
                 ItemImportFieldCandidate.unknown("retribution"),
                 "test"
+        );
+    }
+
+    private static FullItemRead fullReadWithEffect(String effectText) {
+        String normalizedEffectText = EffectTextTokenNormalizer.normalizeMultiplierTokens(effectText);
+        return new FullItemRead(
+                "Generyczny Item",
+                "Starożytny unikatowy hełm",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "",
+                List.of(new FullItemReadLine(FullItemReadLineType.ASPECT, normalizedEffectText)),
+                new ItemImportDetails(
+                        "Generyczny Item",
+                        "Hełm",
+                        "UNIQUE",
+                        true,
+                        EquipmentSlot.HELMET,
+                        900L,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        normalizedEffectText,
+                        true
+                )
         );
     }
 

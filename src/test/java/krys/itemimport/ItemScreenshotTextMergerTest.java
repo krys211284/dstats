@@ -139,7 +139,8 @@ class ItemScreenshotTextMergerTest {
         assertTrue(merged.contains("+15,0% szansy na trafienie krytyczne [12]%"), merged);
         assertTrue(merged.contains("+25,0% szansy na szczęśliwy traf [20,0]%"), merged);
         assertTrue(merged.contains("+25% szybkości ruchu [20]%"), merged);
-        assertTrue(merged.contains("+3 do umiejętności: Główne [3]"), merged);
+        assertTrue(merged.contains("+3 do umiejętności: Główne"), merged);
+        assertFalse(merged.contains("+3 do umiejętności: Główne [3]"), merged);
 
         ItemImportEditableForm form = new ItemImportEditableFormFactory().create(new ItemImageImportTextParser().parse(
                 new ItemImageMetadata("dziedzic-merged.png", "image/png", "MULTI", 327, 1444),
@@ -150,7 +151,42 @@ class ItemScreenshotTextMergerTest {
         assertMythicReferenceAffix(form, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, 12.0d);
         assertMythicReferenceAffix(form, ImportedItemAffixType.LUCKY_HIT_CHANCE, 25.0d, 20.0d);
         assertMythicReferenceAffix(form, ImportedItemAffixType.MOVEMENT_SPEED, 25.0d, 20.0d);
-        assertMythicReferenceAffix(form, ImportedItemAffixType.CORE_SKILL_RANKS, 3.0d, 3.0d);
+        ImportedItemAffix coreRanks = form.getAffixes().stream()
+                .filter(candidate -> candidate.getType() == ImportedItemAffixType.CORE_SKILL_RANKS)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(3.0d, coreRanks.getValue(), 0.0001d);
+        assertNull(coreRanks.getReferenceValue());
+        assertNull(coreRanks.getRollRangeMin());
+        assertNull(coreRanks.getRollRangeMax());
+        assertFalse(coreRanks.isGreaterAffix());
+    }
+
+    @Test
+    void shouldNotRepairDamagedCoreSkillRankBracketIntoCertainReference() {
+        String merged = merger.merge(List.of(
+                """
+                        Generyczny Helm Testowy
+                        Starożytny mityczny unikatowy hełm
+                        +2 do umiejętności: Główne [31
+                        """
+        ));
+
+        assertTrue(merged.contains("+2 do umiejętności: Główne"), merged);
+        assertFalse(merged.contains("[3]"), merged);
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(new ItemImageImportTextParser().parse(
+                new ItemImageMetadata("core-ranks-damaged.png", "image/png", "MULTI", 327, 1444),
+                merged
+        ));
+        ImportedItemAffix coreRanks = form.getAffixes().stream()
+                .filter(candidate -> candidate.getType() == ImportedItemAffixType.CORE_SKILL_RANKS)
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(2.0d, coreRanks.getValue(), 0.0001d);
+        assertNull(coreRanks.getReferenceValue());
+        assertFalse(coreRanks.isGreaterAffix());
     }
 
     @Test

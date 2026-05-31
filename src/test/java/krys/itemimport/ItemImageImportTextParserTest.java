@@ -64,6 +64,39 @@ class ItemImageImportTextParserTest {
     }
 
     @Test
+    void shouldImportGenericMythicCoreSkillRanksTwoFromSingleValueBracket() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                Generyczny Helm Testowy
+                Starożytny mityczny unikatowy hełm
+                +2 do umiejętności: Główne [2]
+                """);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(1, form.getAffixes().size());
+        assertAffixReferenceNoRange(form, ImportedItemAffixType.CORE_SKILL_RANKS, 2.0d, 2.0d);
+    }
+
+    @Test
+    void shouldLeaveAmbiguousCoreSkillRankReferenceEmptyWhenBracketIsDamaged() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                Generyczny Helm Testowy
+                Starożytny mityczny unikatowy hełm
+                +2 do umiejętności: Główne [31
+                """);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+        ImportedItemAffix coreRanks = form.getAffixes().stream()
+                .filter(affix -> affix.getType() == ImportedItemAffixType.CORE_SKILL_RANKS)
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(2.0d, coreRanks.getValue(), 0.0001d);
+        assertNull(coreRanks.getReferenceValue());
+        assertNull(coreRanks.getRollRangeMin());
+        assertNull(coreRanks.getRollRangeMax());
+        assertFalse(coreRanks.isGreaterAffix());
+    }
+
+    @Test
     void shouldRecognizePolishShieldSlotAndFoundationAffixes() {
         String ocrText = """
                 Tarcza
@@ -1042,7 +1075,15 @@ class ItemImageImportTextParserTest {
         assertAffixReferenceNoRange(form, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, 12.0d);
         assertAffixReferenceNoRange(form, ImportedItemAffixType.LUCKY_HIT_CHANCE, 25.0d, 20.0d);
         assertAffixReferenceNoRange(form, ImportedItemAffixType.MOVEMENT_SPEED, 25.0d, 20.0d);
-        assertAffixReferenceNoRange(form, ImportedItemAffixType.CORE_SKILL_RANKS, 3.0d, 3.0d);
+        ImportedItemAffix coreRanks = form.getAffixes().stream()
+                .filter(affix -> affix.getType() == ImportedItemAffixType.CORE_SKILL_RANKS)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(3.0d, coreRanks.getValue(), 0.0001d);
+        assertNull(coreRanks.getReferenceValue());
+        assertNull(coreRanks.getRollRangeMin());
+        assertNull(coreRanks.getRollRangeMax());
+        assertFalse(coreRanks.isGreaterAffix());
     }
 
     @Test

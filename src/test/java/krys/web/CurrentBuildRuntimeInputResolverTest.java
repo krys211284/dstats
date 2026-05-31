@@ -4,6 +4,8 @@ import krys.hero.HeroClass;
 import krys.item.EquipmentSlot;
 import krys.item.HeroEquipmentSlot;
 import krys.itemimport.CurrentBuildImportableStats;
+import krys.itemimport.ApplicationAspectRegistry;
+import krys.itemimport.AspectRuntimeStatus;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
@@ -178,6 +180,9 @@ class CurrentBuildRuntimeInputResolverTest {
         assertEquals(20.2d, runtimeStats.getCriticalChancePercent(), 0.0000001d);
         assertNotEquals(23.2d, runtimeStats.getCriticalChancePercent(), 0.0000001d);
         assertEquals(15.0d, resolution.getActiveHeroItemStats().getCriticalChancePercent(), 0.0000001d);
+        assertEquals(AspectRuntimeStatus.DESCRIPTIVE_ONLY,
+                ApplicationAspectRegistry.get().findById("heir_of_perdition").orElseThrow().getRuntimeStatus());
+        assertNotEquals(36.36d, runtimeStats.getCriticalChancePercent(), 0.0000001d);
     }
 
     @Test
