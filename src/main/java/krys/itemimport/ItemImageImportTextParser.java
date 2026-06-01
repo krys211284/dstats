@@ -28,6 +28,27 @@ final class ItemImageImportTextParser {
     ItemImageImportCandidateParseResult parse(ItemImageMetadata metadata, String ocrText) {
         List<String> lines = normalizedLines(ocrText);
         logNormalizedLines(lines);
+        return parseLines(metadata, lines, buildFullItemRead(lines), lines);
+    }
+
+    ItemImageImportCandidateParseResult parse(ItemImageMetadata metadata, ItemScreenshotMergedText mergedText) {
+        ItemScreenshotMergedText safe = mergedText == null ? new ItemScreenshotMergedText(List.of()) : mergedText;
+        List<String> lines = normalizedLines(safe.asPlainText());
+        List<String> runtimeCandidateLines = safe.getLines().stream()
+                .filter(line -> !line.isSocketGemRuneData())
+                .map(MergedOcrLine::getText)
+                .reduce((left, right) -> left + System.lineSeparator() + right)
+                .map(ItemImageImportTextParser::normalizedLines)
+                .orElse(List.of());
+        logNormalizedLines(lines);
+        return parseLines(metadata, runtimeCandidateLines, buildFullItemReadFromMergedLines(safe.getLines()), lines);
+    }
+
+    private ItemImageImportCandidateParseResult parseLines(ItemImageMetadata metadata,
+                                                           List<String> candidateLines,
+                                                           FullItemRead fullItemRead,
+                                                           List<String> noticeLines) {
+        List<String> lines = candidateLines == null ? List.of() : candidateLines;
         ItemImportFieldCandidate<EquipmentSlot> slotCandidate = detectSlot(lines);
         ItemImportFieldCandidate<Long> weaponDamageCandidate = detectLong(lines, "WEAPON DAMAGE",
                 List.of("WEAPON\\s*DAMAGE"), List.of("DAMAGE"));
@@ -58,7 +79,7 @@ final class ItemImageImportTextParser {
 
         ItemImageImportCandidateParseResult result = new ItemImageImportCandidateParseResult(
                 metadata,
-                buildFullItemRead(lines),
+                fullItemRead,
                 slotCandidate,
                 weaponDamageCandidate,
                 strengthCandidate,
@@ -66,7 +87,7 @@ final class ItemImageImportTextParser {
                 thornsCandidate,
                 blockChanceCandidate,
                 retributionChanceCandidate,
-                buildImportNotice(lines, slotCandidate, weaponDamageCandidate, strengthCandidate,
+                buildImportNotice(noticeLines, slotCandidate, weaponDamageCandidate, strengthCandidate,
                         intelligenceCandidate, thornsCandidate, blockChanceCandidate, retributionChanceCandidate)
         );
         ItemImportDebugTrace.log("ITEM_DETAILS", () -> ItemImportDebugTrace.formatDetails(result.getFullItemRead().getDetails())
@@ -127,7 +148,46 @@ final class ItemImageImportTextParser {
     }
 
     static FullItemRead buildFullItemRead(List<String> lines) {
-        List<String> fullReadSourceLines = expandFullItemReadLines(lines);
+        List<FullReadSourceLine> fullReadSourceLines = expandFullItemReadLines(lines).stream()
+                .map(line -> new FullReadSourceLine(line, null, "plain:" + collapse(line)))
+                .toList();
+        return buildFullItemReadFromSourceLines(lines, fullReadSourceLines);
+    }
+
+    private static FullItemRead buildFullItemReadFromMergedLines(List<MergedOcrLine> lines) {
+        List<MergedOcrLine> safeLines = lines == null ? List.of() : lines;
+        List<String> textLines = safeLines.stream()
+                .map(MergedOcrLine::getText)
+                .toList();
+        List<String> normalizedNonSocketLines = safeLines.stream()
+                .filter(line -> !line.isSocketGemRuneData())
+                .map(MergedOcrLine::getText)
+                .reduce((left, right) -> left + System.lineSeparator() + right)
+                .map(ItemImageImportTextParser::normalizedLines)
+                .orElse(List.of());
+        List<FullReadSourceLine> fullReadSourceLines = new ArrayList<>();
+        for (String line : expandFullItemReadLines(normalizedNonSocketLines)) {
+            fullReadSourceLines.add(new FullReadSourceLine(
+                    line,
+                    null,
+                    "typed:" + collapse(line)
+            ));
+        }
+        for (int index = 0; index < safeLines.size(); index++) {
+            MergedOcrLine line = safeLines.get(index);
+            if (line.isSocketGemRuneData()) {
+                fullReadSourceLines.add(new FullReadSourceLine(
+                        line.getText(),
+                        FullItemReadLineType.SOCKET,
+                        "typed-socket:" + index + ":" + line.occurrenceKey()
+                ));
+            }
+        }
+        return buildFullItemReadFromSourceLines(textLines, fullReadSourceLines);
+    }
+
+    private static FullItemRead buildFullItemReadFromSourceLines(List<String> lines,
+                                                                 List<FullReadSourceLine> fullReadSourceLines) {
         List<FullItemReadLine> readLines = new ArrayList<>();
         Set<String> readLineKeys = new LinkedHashSet<>();
         String itemName = "";
@@ -137,16 +197,22 @@ final class ItemImageImportTextParser {
         String baseItemValue = "";
         SocketGemRuneRegionState socketGemRuneRegion = SocketGemRuneRegionState.inactive();
 
-        for (String line : fullReadSourceLines) {
+        for (FullReadSourceLine source : fullReadSourceLines) {
+            String line = source.text();
             if (isLevelRequirementNoiseLine(line) || isComparisonNoiseLine(line)) {
                 continue;
             }
             FullItemReadLineType baseType = classifyFullReadLine(line);
-            FullItemReadLineType type = classifyFullReadLineWithRegion(line, baseType, socketGemRuneRegion);
+            FullItemReadLineType type = source.forcedType() == null
+                    ? classifyFullReadLineWithRegion(line, baseType, socketGemRuneRegion)
+                    : source.forcedType();
             String readLineText = normalizeFullReadLine(type, line);
             String collapsedLine = collapse(line);
             socketGemRuneRegion = nextSocketGemRuneRegion(line, baseType, type, socketGemRuneRegion);
-            if (!readLineKeys.add(type.name() + ":" + collapse(readLineText))) {
+            String readLineKey = type == FullItemReadLineType.SOCKET && source.forcedType() == FullItemReadLineType.SOCKET
+                    ? type.name() + ":" + source.occurrenceKey()
+                    : type.name() + ":" + collapse(readLineText);
+            if (!readLineKeys.add(readLineKey)) {
                 continue;
             }
             readLines.add(new FullItemReadLine(type, readLineText));
@@ -167,7 +233,7 @@ final class ItemImageImportTextParser {
             }
         }
         List<String> detailSourceLines = new ArrayList<>(lines);
-        detailSourceLines.addAll(fullReadSourceLines);
+        detailSourceLines.addAll(fullReadSourceLines.stream().map(FullReadSourceLine::text).toList());
         ItemImportDetails details = detectItemDetails(detailSourceLines, itemName, itemTypeLine, rarity, itemPower, readLines);
         if (!details.getUniqueEffectText().isBlank()
                 && collapse(details.getUniqueEffectText()).contains("GDYMASZUMOCNIENIE")
@@ -175,6 +241,13 @@ final class ItemImageImportTextParser {
             readLines.add(new FullItemReadLine(FullItemReadLineType.ASPECT, details.getUniqueEffectText()));
         }
         return new FullItemRead(itemName, itemTypeLine, rarity, itemPower, baseItemValue, readLines, details);
+    }
+
+    private record FullReadSourceLine(String text, FullItemReadLineType forcedType, String occurrenceKey) {
+        private FullReadSourceLine {
+            text = text == null ? "" : text;
+            occurrenceKey = occurrenceKey == null ? "" : occurrenceKey;
+        }
     }
 
     private static FullItemReadLineType classifyFullReadLineWithRegion(String line,

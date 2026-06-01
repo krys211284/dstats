@@ -115,6 +115,20 @@ class ItemImportPageRendererTest {
 
     @Test
     void shouldRenderDetectedSocketGemRuneStatsInImportSocketSection() {
+        FullItemRead fullItemRead = new FullItemRead(
+                "Dziedzic Zatracenia",
+                "Starożytny mityczny unikatowy hełm",
+                "MYTHIC_UNIQUE",
+                "Moc przedmiotu: 900",
+                "Pancerz: 2004",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.SOCKET, "Socket / gniazdo"),
+                        new FullItemReadLine(FullItemReadLineType.SOCKET, "+150 siły"),
+                        new FullItemReadLine(FullItemReadLineType.SOCKET, "+120 siły"),
+                        new FullItemReadLine(FullItemReadLineType.SOCKET, "+150 siły"),
+                        new FullItemReadLine(FullItemReadLineType.SOCKET, "+120 siły")
+                )
+        );
         ItemImportEditableForm form = new ItemImportEditableForm(
                 "helm.png",
                 "HELMET",
@@ -124,16 +138,41 @@ class ItemImportPageRendererTest {
                 "0",
                 "0",
                 "0",
-                FullItemRead.empty(),
-                List.of(new ImportedItemAffix(ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, "+15% kryt")),
+                fullItemRead,
+                List.of(
+                        new ImportedItemAffix(ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, "+15% kryt"),
+                        new ImportedItemAffix(ImportedItemAffixType.LUCKY_HIT_CHANCE, 25.0d, "+25% szczęśliwy traf"),
+                        new ImportedItemAffix(ImportedItemAffixType.MAXIMUM_LIFE, 1244.0d, "+1244 maksymalnego zdrowia"),
+                        new ImportedItemAffix(ImportedItemAffixType.COOLDOWN_REDUCTION, 12.0d, "12% redukcji czasu odnowienia")
+                ),
                 "",
                 ItemImportFieldConfidence.UNKNOWN,
                 "",
                 new ItemImportDetails("Dziedzic Zatracenia", "Hełm", "UNIQUE", true, EquipmentSlot.HELMET,
-                        900L, null, null, null, null, null, 2004L, "", true),
-                List.of(),
+                        900L, null, null, null, null, null, 2004L,
+                        "Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x].", true),
+                List.of(new ItemTemperingAffix(
+                        "defense_max_animus",
+                        TemperingCategory.DEFENSE,
+                        12.0d,
+                        "+12 do maksymalnej liczby kumulacji Animuszu",
+                        TemperingRuntimeStatus.DATA_ONLY,
+                        true
+                )),
                 ItemMasterworking.defaultState(),
-                ItemTransfiguration.none(),
+                new ItemTransfiguration(
+                        true,
+                        true,
+                        HoradricTuningPrism.NONE,
+                        HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                        "",
+                        new TransfigurationAffixRoll("ALL_STATS", 115.0d, TransfigurationValueProvenance.GAME_DISPLAYED_VALUE, ""),
+                        "",
+                        null,
+                        null,
+                        false,
+                        ""
+                ),
                 new ItemSocketing(2, List.of(
                         ItemSocket.detectedStat(0, SocketGemRuneStat.fromDetectedLine("+150 siły")),
                         ItemSocket.detectedStat(1, SocketGemRuneStat.fromDetectedLine("+120 siły"))
@@ -150,11 +189,25 @@ class ItemImportPageRendererTest {
                 ""
         ));
 
+        String socketSection = fieldSetByLegend(html, "Gniazda");
+        String affixSection = sectionByHeading(html, "Ręczna weryfikacja affixów");
+        String temperingSection = sectionByHeading(html, "Hartowanie");
+        String transfigurationSection = sectionByHeading(html, "Przeistoczenie / Kostka Horadrimów");
+
+        assertFalse(html.contains("Pełny zapis itemu"));
+        assertFalse(html.contains("Pełny odczyt widocznego itemu"));
+        assertFalse(html.contains("Socket / gniazdo"));
         assertTrue(html.contains("Liczba gniazd: 2"));
-        assertTrue(html.contains("+150 siły"));
-        assertTrue(html.contains("+120 siły"));
-        assertTrue(html.contains("Wykryty stat"));
-        assertTrue(html.contains("Runtime nieaktywny"));
+        assertTrue(socketSection.contains("+150 siły"));
+        assertTrue(socketSection.contains("+120 siły"));
+        assertTrue(socketSection.contains("Wykryty stat"));
+        assertTrue(socketSection.contains("Runtime nieaktywny"));
+        assertTrue(affixSection.contains("Ręczna weryfikacja affixów"));
+        assertEquals(4, countOccurrences(affixSection, "affix-row"));
+        assertTrue(temperingSection.contains("★ +12 do maksymalnej liczby kumulacji Animuszu"));
+        assertTrue(transfigurationSection.contains("Bonusowy affix Przeistoczenia"));
+        assertTrue(transfigurationSection.contains("115"));
+        assertTrue(html.contains("80%[x]"));
         assertFalse(html.contains("<option value=\"STRENGTH\" selected"));
     }
 
@@ -651,12 +704,8 @@ class ItemImportPageRendererTest {
         ));
 
         assertTrue(html.contains("Odłamek Verathiela"));
-        String fullReadHeader = itemReadHeaderByHeading(html, "Pełny odczyt widocznego itemu");
-        assertFalse(fullReadHeader.contains("DPS broni"), fullReadHeader);
-        assertFalse(fullReadHeader.contains("Obrażenia za trafienie min"), fullReadHeader);
-        assertFalse(fullReadHeader.contains("Obrażenia za trafienie max"), fullReadHeader);
-        assertFalse(fullReadHeader.contains("Średnie obrażenia trafienia"), fullReadHeader);
-        assertFalse(fullReadHeader.contains("Ataki na sekundę"), fullReadHeader);
+        assertFalse(html.contains("Pełny odczyt widocznego itemu"));
+        assertFalse(html.contains("Pełny zapis itemu"));
         String weaponFields = fieldSetByLegend(html, "Dane broni");
         assertTrue(weaponFields.contains("name=\"weaponDps\" value=\"1830\""));
         assertTrue(weaponFields.contains("name=\"weaponDamageMin\" value=\"1350\""));
@@ -773,12 +822,8 @@ class ItemImportPageRendererTest {
                 ""
         ));
 
-        String fullReadHeader = itemReadHeaderByHeading(html, "Pełny odczyt zapisany w bibliotece");
-        assertFalse(fullReadHeader.contains("DPS broni"), fullReadHeader);
-        assertFalse(fullReadHeader.contains("Obrażenia za trafienie min"), fullReadHeader);
-        assertFalse(fullReadHeader.contains("Obrażenia za trafienie max"), fullReadHeader);
-        assertFalse(fullReadHeader.contains("Średnie obrażenia trafienia"), fullReadHeader);
-        assertFalse(fullReadHeader.contains("Ataki na sekundę"), fullReadHeader);
+        assertFalse(html.contains("Pełny odczyt zapisany w bibliotece"));
+        assertFalse(html.contains("Pełny zapis itemu"));
     }
 
     @Test

@@ -15,8 +15,12 @@ import java.util.regex.Pattern;
 /** Scala tekst OCR z kilku screenów tego samego itemu bez sortowania linii tooltipa. */
 public final class ItemScreenshotTextMerger {
     public String merge(List<String> ocrTexts) {
+        return mergeTyped(ocrTexts).asPlainText();
+    }
+
+    ItemScreenshotMergedText mergeTyped(List<String> ocrTexts) {
         if (ocrTexts == null || ocrTexts.isEmpty()) {
-            return "";
+            return new ItemScreenshotMergedText(List.of());
         }
         List<SourceText> sourceTexts = new ArrayList<>();
         for (int index = 0; index < ocrTexts.size(); index++) {
@@ -26,8 +30,12 @@ public final class ItemScreenshotTextMerger {
     }
 
     String mergeTextVariants(List<ItemImageOcrTextVariant> ocrTexts) {
+        return mergeTextVariantsTyped(ocrTexts).asPlainText();
+    }
+
+    ItemScreenshotMergedText mergeTextVariantsTyped(List<ItemImageOcrTextVariant> ocrTexts) {
         if (ocrTexts == null || ocrTexts.isEmpty()) {
-            return "";
+            return new ItemScreenshotMergedText(List.of());
         }
         List<SourceText> sourceTexts = new ArrayList<>();
         for (int index = 0; index < ocrTexts.size(); index++) {
@@ -37,15 +45,45 @@ public final class ItemScreenshotTextMerger {
         return mergeSourceTexts(sourceTexts);
     }
 
-    private String mergeSourceTexts(List<SourceText> sourceTexts) {
+    ItemScreenshotMergedText mergeMergedTexts(List<ItemScreenshotMergedText> mergedTexts) {
+        if (mergedTexts == null || mergedTexts.isEmpty()) {
+            return new ItemScreenshotMergedText(List.of());
+        }
+        Map<String, CanonicalLineCandidate> bestByKey = new LinkedHashMap<>();
+        Set<String> keyOrder = new LinkedHashSet<>();
+        for (int sourceIndex = 0; sourceIndex < mergedTexts.size(); sourceIndex++) {
+            ItemScreenshotMergedText mergedText = mergedTexts.get(sourceIndex);
+            if (mergedText == null || mergedText.isBlank()) {
+                continue;
+            }
+            for (MergedOcrLine line : mergedText.getLines()) {
+                CanonicalLineCandidate candidate = CanonicalLineCandidate.fromMergedLine(line, sourceIndex);
+                if (line.isSocketGemRuneData()) {
+                    logTypedSocketPreserved(sourceIndex, line, candidate.key());
+                }
+                keyOrder.add(candidate.key());
+                CanonicalLineCandidate existing = bestByKey.get(candidate.key());
+                if (existing == null || candidate.score() > existing.score()) {
+                    if (existing != null) {
+                        logMergeRejected(existing.text(), "replaced by higher score typed candidate", candidate);
+                    }
+                    bestByKey.put(candidate.key(), candidate);
+                } else {
+                    logMergeRejected(candidate.text(), "lower typed text score", existing);
+                }
+            }
+        }
+        return buildMergedText(keyOrder, bestByKey);
+    }
+
+    private ItemScreenshotMergedText mergeSourceTexts(List<SourceText> sourceTexts) {
         if (sourceTexts == null || sourceTexts.isEmpty()) {
-            return "";
+            return new ItemScreenshotMergedText(List.of());
         }
         String joinedSource = String.join("\n", sourceTexts.stream().map(SourceText::text).toList());
         MergeContext context = MergeContext.from(joinedSource);
         Map<String, CanonicalLineCandidate> bestByKey = new LinkedHashMap<>();
         Set<String> keyOrder = new LinkedHashSet<>();
-        Set<String> emittedSocketStatSourceLines = new LinkedHashSet<>();
         for (SourceText sourceText : sourceTexts) {
             String ocrText = sourceText.text();
             if (ocrText == null || ocrText.isBlank()) {
@@ -87,13 +125,7 @@ public final class ItemScreenshotTextMerger {
                     }
                     CanonicalLineCandidate candidate = optionalCandidate.get();
                     if (isSocketStatCandidateKey(candidate.key())) {
-                        String sourceLineKey = logicalLine.sourceLine().sourceIndex()
-                                + ":" + logicalLine.sourceLine().variantId()
-                                + ":" + logicalLine.sourceLine().rawLineOrder();
-                        if (!emittedSocketStatSourceLines.add(sourceLineKey)) {
-                            logMergeRejected(candidate.text(), "same raw socket/gem/rune line already emitted as occupied socket stat", null);
-                            continue;
-                        }
+                        logSocketStatOccurrence(candidate);
                     }
                     keyOrder.add(candidate.key());
                     CanonicalLineCandidate existing = bestByKey.get(candidate.key());
@@ -109,15 +141,24 @@ public final class ItemScreenshotTextMerger {
                 rawLineOrder++;
             }
         }
-        List<String> mergedLines = new ArrayList<>();
+        return buildMergedText(keyOrder, bestByKey);
+    }
+
+    private static ItemScreenshotMergedText buildMergedText(Set<String> keyOrder,
+                                                            Map<String, CanonicalLineCandidate> bestByKey) {
+        List<MergedOcrLine> mergedLines = new ArrayList<>();
         for (String key : keyOrder) {
             CanonicalLineCandidate candidate = bestByKey.get(key);
             if (candidate != null) {
                 logMergeDecision(key, candidate);
-                mergedLines.add(candidate.text());
+                MergedOcrLine line = candidate.toMergedLine();
+                logTypedLine(line);
+                mergedLines.add(line);
             }
         }
-        return String.join(System.lineSeparator(), mergedLines);
+        ItemScreenshotMergedText mergedText = new ItemScreenshotMergedText(mergedLines);
+        logTypedOutput(mergedText);
+        return mergedText;
     }
 
     public boolean isUiOnlyLine(String line) {
@@ -283,8 +324,11 @@ public final class ItemScreenshotTextMerger {
         appendFirst(extracted, line, "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+obrażeń\\s+od\\s+broni\\s+w\\s+głównej\\s+ręce(?:\\s*\\[[^\\]]+])?%?)");
         extractHeirOfPerditionEffectLine(line)
                 .ifPresent(value -> appendGeneratedAtKeyAnchor(extracted, line, value, "poddaj sie nienawisci", "laski matki"));
-        appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?siły(?:\\s*\\[[^\\]]+])?)");
-        appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?inteligencji(?:\\s*\\[[^\\]]+])?)");
+        appendAll(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?siły(?:\\s*\\[[^\\]]+])?)");
+        appendAll(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?inteligencji(?:\\s*\\[[^\\]]+])?)");
+        appendAll(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?zręczności(?:\\s*\\[[^\\]]+])?)");
+        appendAll(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?siły\\s+woli(?:\\s*\\[[^\\]]+])?)");
+        appendAll(extracted, line, "(\\+\\s*[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+(?:pkt\\.\\s+)?pancerza(?:\\s*\\[[^\\]]+])?)");
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+trafienie\\s+krytyczne(?:\\s*\\[[^\\]+]+]?%?|\\s+1[0-9]{1,2}(?:[,.][0-9])?1\\s*%?)?)");
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+(?:na\\s+)?(?:szcz\\S*\\s+)?traf\\b(?:\\s*\\[[^\\]+]+]?%?|\\s+1[0-9]{1,2}(?:[,.][0-9])?1\\s*%?)?)");
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?%\\s+szybko(?:ś|s)ci\\s+ruchu(?:\\s*\\[[^\\]+]+]?%?|\\s+1[0-9]{1,2}(?:[,.][0-9])?1\\s*%?)?)");
@@ -506,6 +550,14 @@ public final class ItemScreenshotTextMerger {
         }
     }
 
+    private static void appendAll(List<SplitLineSegment> target, String line, String pattern) {
+        Matcher matcher = Pattern.compile(pattern, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(line);
+        while (matcher.find()) {
+            String value = matcher.group(1).replaceAll("\\s+", " ").trim();
+            appendIfMissing(target, value, matcher.start(1), matcher.end(1));
+        }
+    }
+
     private static void appendGeneratedWithKeyAnchor(List<SplitLineSegment> target,
                                                      String line,
                                                      String value,
@@ -548,7 +600,8 @@ public final class ItemScreenshotTextMerger {
     }
 
     private static void appendIfMissing(List<SplitLineSegment> target, String value, int startOffset, int endOffset) {
-        if (value != null && !value.isBlank() && target.stream().noneMatch(segment -> segment.text().equals(value))) {
+        if (value != null && !value.isBlank() && target.stream().noneMatch(segment ->
+                segment.text().equals(value) && segment.startOffset() == startOffset && segment.endOffset() == endOffset)) {
             target.add(new SplitLineSegment(value, startOffset, endOffset));
         }
     }
@@ -558,17 +611,18 @@ public final class ItemScreenshotTextMerger {
                 && isSocketGemRuneStatLine(logicalLine.text())) {
             logSocketGemRuneIgnored(logicalLine, "source line belongs to socket/gem/rune region before merger");
             CanonicalLineCandidate candidate = new CanonicalLineCandidate(
-                    "socket-stat:" + comparisonKey(logicalLine.text()),
+                    socketStatMergeKey(logicalLine),
                     logicalLine.text(),
                     lineQualityScore(logicalLine.text(), null, context)
-            );
+            ).withMetadata(logicalLine);
             logSegmentDecision(logicalLine, candidate);
             return Optional.of(candidate);
         }
         Optional<CanonicalLineCandidate> known = canonicalKnownLine(logicalLine, context);
         if (known.isPresent()) {
-            logSegmentDecision(logicalLine, known.get());
-            return known;
+            CanonicalLineCandidate candidate = known.get().withMetadata(logicalLine);
+            logSegmentDecision(logicalLine, candidate);
+            return Optional.of(candidate);
         }
         if (isBottomNonOrdinaryRegion(logicalLine.sourceRegion()) && isLowerRegionStatOrBaseLine(logicalLine.text())) {
             logSocketGemRuneIgnored(logicalLine, "source line belongs to non-ordinary region before merger");
@@ -580,9 +634,18 @@ public final class ItemScreenshotTextMerger {
         }
         String line = logicalLine.text();
         String key = comparisonKey(line);
-        CanonicalLineCandidate candidate = new CanonicalLineCandidate(key, line, lineQualityScore(line, null, context));
+        CanonicalLineCandidate candidate = new CanonicalLineCandidate(key, line, lineQualityScore(line, null, context))
+                .withMetadata(logicalLine);
         logSegmentDecision(logicalLine, candidate);
         return Optional.of(candidate);
+    }
+
+    private static String socketStatMergeKey(LogicalLine logicalLine) {
+        return "socket-stat:"
+                + logicalLine.sourceLine().rawLineOrder()
+                + ":" + logicalLine.segmentStart()
+                + ":" + logicalLine.segmentEnd()
+                + ":" + comparisonKey(logicalLine.text());
     }
 
     private static Optional<CanonicalLineCandidate> canonicalKnownLine(LogicalLine logicalLine, MergeContext context) {
@@ -1126,6 +1189,68 @@ public final class ItemScreenshotTextMerger {
         return key != null && key.startsWith("socket-stat:");
     }
 
+    private static void logSocketStatOccurrence(CanonicalLineCandidate candidate) {
+        if (!ItemImportDebugTrace.isEnabled()) {
+            return;
+        }
+        ItemImportDebugTrace.log("SOCKET_STAT_OCCURRENCE", () -> "canonicalKey="
+                + ItemImportDebugTrace.quote(candidate.key())
+                + " dedupKey=" + ItemImportDebugTrace.quote(candidate.socketStatDedupKey())
+                + " sourceIndex=" + candidate.sourceIndex()
+                + " sourceVariant=" + ItemImportDebugTrace.quote(candidate.sourceVariant())
+                + " sourceLineOrder=" + candidate.sourceLineOrder()
+                + " segmentStart=" + candidate.segmentStart()
+                + " segmentEnd=" + candidate.segmentEnd()
+                + " normalizedText=" + ItemImportDebugTrace.quote(comparisonKey(candidate.text()))
+                + " value=" + (candidate.value() == null ? "" : candidate.value()));
+        ItemImportDebugTrace.log("SOCKET_STAT_DEDUP_KEY", () -> "dedupKey="
+                + ItemImportDebugTrace.quote(candidate.socketStatDedupKey())
+                + " note=" + ItemImportDebugTrace.quote("merge identity includes raw-line occurrence and segment offsets, not only raw line or matched type"));
+    }
+
+    private static void logTypedSocketPreserved(int sourceIndex, MergedOcrLine line, String finalKey) {
+        if (!ItemImportDebugTrace.isEnabled()) {
+            return;
+        }
+        ItemImportDebugTrace.log("SOCKET_STAT_PRESERVED_ACROSS_MERGE", () -> "sourceIndex=" + sourceIndex
+                + " sourceCanonicalKey=" + ItemImportDebugTrace.quote(line.getCanonicalKey())
+                + " finalCanonicalKey=" + ItemImportDebugTrace.quote(finalKey)
+                + " occurrenceKey=" + ItemImportDebugTrace.quote(line.occurrenceKey())
+                + " sourceRegion=" + line.getSourceRegion()
+                + " runtimeStatus=" + line.getRuntimeStatus()
+                + " text=" + ItemImportDebugTrace.compactText(line.getText()));
+    }
+
+    private static void logTypedLine(MergedOcrLine line) {
+        if (!ItemImportDebugTrace.isEnabled()) {
+            return;
+        }
+        ItemImportDebugTrace.log("MERGE_TYPED_LINE", () -> "canonicalKey=" + ItemImportDebugTrace.quote(line.getCanonicalKey())
+                + " sourceCategory=" + line.getSourceCategory()
+                + " sourceRegion=" + line.getSourceRegion()
+                + " sourceVariant=" + ItemImportDebugTrace.quote(line.getSourceVariant())
+                + " sourceLineOrder=" + line.getSourceLineOrder()
+                + " segmentStart=" + line.getSegmentStart()
+                + " segmentEnd=" + line.getSegmentEnd()
+                + " localAnchorType=" + line.getLocalAnchorType()
+                + " matchedType=" + line.getMatchedType()
+                + " value=" + (line.getValue() == null ? "" : line.getValue())
+                + " runtimeStatus=" + line.getRuntimeStatus()
+                + " text=" + ItemImportDebugTrace.compactText(line.getText()));
+    }
+
+    private static void logTypedOutput(ItemScreenshotMergedText mergedText) {
+        if (!ItemImportDebugTrace.isEnabled()) {
+            return;
+        }
+        long socketStats = mergedText.getLines().stream()
+                .filter(MergedOcrLine::isSocketGemRuneData)
+                .count();
+        ItemImportDebugTrace.log("MERGE_TYPED_OUTPUT", () -> "lineCount=" + mergedText.getLines().size()
+                + " socketGemRuneStats=" + socketStats
+                + " text=" + ItemImportDebugTrace.compactText(mergedText.asPlainText()));
+    }
+
     private static void logSocketGemRuneIgnored(LogicalLine line, String reason) {
         if (!ItemImportDebugTrace.isEnabled()) {
             return;
@@ -1295,13 +1420,155 @@ public final class ItemScreenshotTextMerger {
         }
     }
 
-    private record CanonicalLineCandidate(String key, String text, int score) {
+    private record CanonicalLineCandidate(String key,
+                                          String text,
+                                          int score,
+                                          String sourceCategory,
+                                          int sourceIndex,
+                                          String sourceRegion,
+                                          String sourceRawLine,
+                                          String sourceVariant,
+                                          int sourceLineOrder,
+                                          int segmentStart,
+                                          int segmentEnd,
+                                          String localAnchorType,
+                                          String matchedType,
+                                          Double value,
+                                          String runtimeStatus) {
+        private CanonicalLineCandidate(String key, String text, int score) {
+            this(key, text, score, sourceCategoryFromKey(key), -1, SourceRegion.UNKNOWN.name(), "",
+                    "", -1, -1, -1, LocalAnchorType.UNKNOWN.name(), "", firstNumber(text).orElse(null),
+                    runtimeStatusFromKey(key));
+        }
+
+        private CanonicalLineCandidate {
+            key = key == null ? "" : key;
+            text = text == null ? "" : text;
+            sourceCategory = sourceCategory == null ? "" : sourceCategory;
+            sourceRegion = sourceRegion == null ? SourceRegion.UNKNOWN.name() : sourceRegion;
+            sourceRawLine = sourceRawLine == null ? "" : sourceRawLine;
+            sourceVariant = sourceVariant == null ? "" : sourceVariant;
+            localAnchorType = localAnchorType == null ? LocalAnchorType.UNKNOWN.name() : localAnchorType;
+            matchedType = matchedType == null ? "" : matchedType;
+            runtimeStatus = runtimeStatus == null ? "" : runtimeStatus;
+        }
+
+        private CanonicalLineCandidate withMetadata(LogicalLine line) {
+            SourceLine sourceLine = line.sourceLine();
+            String matched = ImportedItemAffixType.detectFromLine(text)
+                    .map(Enum::name)
+                    .orElse("");
+            return new CanonicalLineCandidate(
+                    key,
+                    text,
+                    score,
+                    sourceCategoryFromKey(key),
+                    sourceLine.sourceIndex(),
+                    line.sourceRegion().name(),
+                    sourceLine.rawLine(),
+                    sourceLine.variantId(),
+                    sourceLine.rawLineOrder(),
+                    line.segmentStart(),
+                    line.segmentEnd(),
+                    line.localAnchorType().name(),
+                    matched,
+                    firstNumber(text).orElse(null),
+                    runtimeStatusFromKey(key)
+            );
+        }
+
+        private MergedOcrLine toMergedLine() {
+            return new MergedOcrLine(
+                    text,
+                    key,
+                    sourceCategory,
+                    sourceRegion,
+                    sourceRawLine,
+                    sourceVariant,
+                    sourceLineOrder,
+                    segmentStart,
+                    segmentEnd,
+                    localAnchorType,
+                    matchedType,
+                    value,
+                    runtimeStatus
+            );
+        }
+
+        private String socketStatDedupKey() {
+            return sourceIndex
+                    + ":" + sourceVariant
+                    + ":" + sourceLineOrder
+                    + ":" + segmentStart
+                    + ":" + segmentEnd
+                    + ":" + comparisonKey(text)
+                    + ":" + (value == null ? "" : value);
+        }
+
+        private static CanonicalLineCandidate fromMergedLine(MergedOcrLine line, int sourceIndex) {
+            String key = line.isSocketGemRuneData()
+                    ? "socket-stat:screen:" + sourceIndex + ":" + line.occurrenceKey()
+                    : line.getCanonicalKey();
+            return new CanonicalLineCandidate(
+                    key,
+                    line.getText(),
+                    lineQualityScore(line.getText(), line.getValue(), MergeContext.empty()),
+                    line.getSourceCategory().isBlank() ? sourceCategoryFromKey(key) : line.getSourceCategory(),
+                    sourceIndex,
+                    line.getSourceRegion(),
+                    line.getSourceRawLine(),
+                    line.getSourceVariant(),
+                    line.getSourceLineOrder(),
+                    line.getSegmentStart(),
+                    line.getSegmentEnd(),
+                    line.getLocalAnchorType(),
+                    line.getMatchedType(),
+                    line.getValue(),
+                    line.isSocketGemRuneData() ? MergedOcrLine.DATA_ONLY : line.getRuntimeStatus()
+            );
+        }
+    }
+
+    private static String sourceCategoryFromKey(String key) {
+        if (key == null) {
+            return "UNKNOWN";
+        }
+        if (key.startsWith("socket-stat:")) {
+            return MergedOcrLine.SOCKET_GEM_RUNE;
+        }
+        if (key.startsWith("socket:")) {
+            return "SOCKET";
+        }
+        if (key.startsWith("affix:")) {
+            return "ORDINARY_AFFIX";
+        }
+        if (key.startsWith("transfiguration:")) {
+            return "TRANSFIGURATION";
+        }
+        if (key.startsWith("tempering:")) {
+            return "TEMPERING";
+        }
+        if (key.startsWith("aspect:")) {
+            return "ASPECT";
+        }
+        if (key.startsWith("implicit:") || key.equals("armor")) {
+            return "BASE_OR_IMPLICIT";
+        }
+        return "UNKNOWN";
+    }
+
+    private static String runtimeStatusFromKey(String key) {
+        return isSocketStatCandidateKey(key) ? MergedOcrLine.DATA_ONLY : "";
     }
 
     private record RangeText(double min, double max) {
     }
 
     private record MergeContext(boolean koscianychLusekQuality25, boolean moonFrenzyQuality25) {
+        private static MergeContext empty() {
+            return new MergeContext(false, false);
+        }
+
         private static MergeContext from(String source) {
             String key = comparisonKey(source).replace(" ", "");
             return new MergeContext(key.contains("koscianychlusek")

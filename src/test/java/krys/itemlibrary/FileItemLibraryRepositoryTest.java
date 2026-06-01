@@ -178,6 +178,13 @@ class FileItemLibraryRepositoryTest {
         assertEquals(ImportedItemAffixType.STRENGTH, reloaded.getSocketing().socketAt(0).getDetectedStat().getMatchedAffixType());
         assertEquals("+120 siły", reloaded.getSocketing().socketAt(1).getDetectedStat().getDisplayText());
         assertEquals("DATA_ONLY", reloaded.getSocketing().socketAt(1).getDetectedStat().getRuntimeStatus());
+
+        repository.save(reloaded);
+        SavedImportedItem resaved = new FileItemLibraryRepository(tempDirectory).findAll().getFirst();
+
+        assertEquals(2, resaved.getSocketing().getOccupiedSocketCount());
+        assertEquals("+150 siły", resaved.getSocketing().socketAt(0).getDetectedStat().getDisplayText());
+        assertEquals("+120 siły", resaved.getSocketing().socketAt(1).getDetectedStat().getDisplayText());
     }
 
     @Test

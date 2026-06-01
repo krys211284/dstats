@@ -735,12 +735,9 @@ class ItemImageImportTextParserTest {
         assertFalse(temperingSection.contains("name=\"newTemperingDefinitionId\""));
         assertFalse(temperingSection.contains("name=\"newTemperingValue\""));
         assertFalse(form.getUniqueEffectText().contains("maksymalnej liczby kumulacji Animuszu"));
-
-        String readSection = sectionByHeading(html, "Pełny odczyt widocznego itemu");
-        String additionalLines = optionalLineGroupByHeading(readSection, "Dodatkowe / sezonowe linie");
-        assertFalse(additionalLines.contains("maksymalnej liczby kumulacji Animuszu"));
-        assertFalse(additionalLines.contains("+5"));
-        assertFalse(additionalLines.contains("★ +5"));
+        assertFalse(html.contains("Pełny odczyt widocznego itemu"));
+        assertFalse(html.contains("Pełny zapis itemu"));
+        assertFalse(html.contains("Dodatkowe / sezonowe linie"));
     }
 
     @Test

@@ -122,10 +122,7 @@ public final class ItemImportPageRenderer {
                     .append("</div>")
                     .append("<p class=\"helper\">")
                     .append(escapeHtml(parseResult.getImportNotice()))
-                    .append("</p>")
-                    .append(renderFullItemReadSection(parseResult.getFullItemRead(), "Pełny odczyt widocznego itemu"));
-        } else if (form.getFullItemRead().hasAnyData()) {
-            html.append(renderFullItemReadSection(form.getFullItemRead(), "Pełny odczyt widocznego itemu"));
+                    .append("</p>");
         }
 
         html.append("""
@@ -191,7 +188,6 @@ public final class ItemImportPageRenderer {
                 .append(renderSummaryCard("Identyfikator biblioteki", ItemLibraryPresentationSupport.userItemIdentifier(savedItem)))
                 .append(renderSummaryCard("Wybrany aspekt", selectedAspectLabel(importedItem.getSelectedAspectId())))
                 .append("</div>")
-                .append(renderFullItemReadSection(savedItem.getFullItemRead(), "Pełny odczyt zapisany w bibliotece"))
                 .append("""
                     <section class="subpanel">
                         <h3>Dalsze akcje</h3>

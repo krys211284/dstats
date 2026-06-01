@@ -221,6 +221,12 @@ class ItemImportDebugTraceTest {
         assertTrue(logs.contains("localAnchorType=SOCKET_GEM_RUNE"), logs);
         assertTrue(logs.contains("decision=ignoredAsSocketGemRune"), logs);
         assertTrue(logs.contains("decision=acceptedAsOrdinary"), logs);
+        assertTrue(logs.contains("MERGE_TYPED_LINE"), logs);
+        assertTrue(logs.contains("MERGE_TYPED_OUTPUT"), logs);
+        assertTrue(logs.contains("SOCKET_STAT_PRESERVED_ACROSS_MERGE"), logs);
+        assertTrue(logs.contains("SOCKET_STAT_DEDUP_KEY"), logs);
+        assertTrue(logs.contains("SOCKET_STAT_OCCURRENCE"), logs);
+        assertTrue(logs.contains("runtimeStatus=DATA_ONLY"), logs);
         assertTrue(logs.contains("logicalLine=\"+150 siły\""), logs);
         assertTrue(logs.contains("matchedAffixType=STRENGTH"), logs);
         assertTrue(logs.contains("logicalLine=\"+120 siły\""), logs);

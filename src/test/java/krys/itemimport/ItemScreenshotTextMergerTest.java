@@ -190,11 +190,8 @@ class ItemScreenshotTextMergerTest {
         ));
 
         assertTrue(merged.contains("+120 siły"), merged);
-        assertFalse(merged.contains("+120 inteligencji"), merged);
-        assertFalse(merged.contains("+120 zręczności"), merged);
-        assertFalse(merged.contains("+120 siły woli"), merged);
-        assertFalse(merged.contains("+500 pkt. pancerza"), merged);
-        assertFalse(merged.contains("500 pkt. pancerza"), merged);
+        assertTrue(merged.contains("+120 inteligencji"), merged);
+        assertTrue(merged.contains("Puste gniazdo"), merged);
     }
 
     @Test
@@ -207,7 +204,7 @@ class ItemScreenshotTextMergerTest {
         assertTrue(merged.contains("Poddaj się nienawiści"), merged);
         assertTrue(merged.contains("+150 siły"), merged);
         assertTrue(merged.contains("+120 siły"), merged);
-        assertFalse(merged.contains("+120 inteligencji"), merged);
+        assertTrue(merged.contains("+120 inteligencji"), merged);
     }
 
     @Test
@@ -253,8 +250,82 @@ class ItemScreenshotTextMergerTest {
         assertTrue(merged.contains("Poddaj się nienawiści"), merged);
         assertTrue(merged.contains("Puste gniazdo"), merged);
         assertTrue(merged.contains("+150 siły"), merged);
-        assertFalse(merged.contains("+120 inteligencji"), merged);
-        assertFalse(merged.contains("+500 pkt. pancerza"), merged);
+        assertTrue(merged.contains("+120 inteligencji"), merged);
+        assertTrue(merged.contains("+500 pkt. pancerza"), merged);
+    }
+
+    @Test
+    void shouldPreserveTypedSocketStatAcrossPerScreenAndMultiScreenMerge() {
+        ItemScreenshotMergedText perScreen = merger.mergeTyped(List.of(
+                """
+                        Dziedzic Zatracenia
+                        Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x].
+                        +150 siły
+                        """
+        ));
+
+        ItemScreenshotMergedText multiScreen = merger.mergeMergedTexts(List.of(perScreen));
+        MergedOcrLine socketLine = multiScreen.getLines().stream()
+                .filter(line -> line.getText().equals("+150 siły"))
+                .findFirst()
+                .orElseThrow();
+
+        assertTrue(socketLine.isSocketGemRuneData());
+        assertTrue(socketLine.getCanonicalKey().startsWith("socket-stat:"), socketLine.getCanonicalKey());
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(new ItemImageImportTextParser().parse(
+                new ItemImageMetadata("typed-socket.png", "image/png", "MULTI", 327, 1444),
+                multiScreen
+        ));
+        assertFalse(form.getAffixes().stream().anyMatch(affix -> affix.getType() == ImportedItemAffixType.STRENGTH));
+        assertEquals(1, form.getSocketing().getOccupiedSocketCount());
+        assertEquals("+150 siły", form.getSocketing().socketAt(0).getDetectedStat().getDisplayText());
+    }
+
+    @Test
+    void shouldPreserveTwoSocketStatsFromOneRawOcrLine() {
+        ItemScreenshotMergedText merged = merger.mergeTyped(List.of(
+                "Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x]. +150 siły +120 siły"
+        ));
+
+        List<String> socketStats = merged.getLines().stream()
+                .filter(MergedOcrLine::isSocketGemRuneData)
+                .map(MergedOcrLine::getText)
+                .toList();
+
+        assertTrue(socketStats.contains("+150 siły"), socketStats.toString());
+        assertTrue(socketStats.contains("+120 siły"), socketStats.toString());
+    }
+
+    @Test
+    void shouldNotDeduplicateSocketStatsOnlyByMatchedAffixTypeOrValue() {
+        ItemScreenshotMergedText merged = merger.mergeTyped(List.of(
+                "Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x]. +120 siły +120 siły"
+        ));
+
+        long repeatedStrengthStats = merged.getLines().stream()
+                .filter(MergedOcrLine::isSocketGemRuneData)
+                .filter(line -> line.getText().equals("+120 siły"))
+                .count();
+
+        assertEquals(2L, repeatedStrengthStats);
+    }
+
+    @Test
+    void shouldKeepNonStrengthSocketStatsTyped() {
+        ItemScreenshotMergedText merged = merger.mergeTyped(List.of(
+                "Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x]. "
+                        + "+120 inteligencji +120 zręczności +120 siły woli +500 pkt. pancerza"
+        ));
+
+        List<String> socketStats = merged.getLines().stream()
+                .filter(MergedOcrLine::isSocketGemRuneData)
+                .map(MergedOcrLine::getText)
+                .toList();
+
+        assertTrue(socketStats.contains("+120 inteligencji"), socketStats.toString());
+        assertTrue(socketStats.contains("+120 zręczności"), socketStats.toString());
+        assertTrue(socketStats.contains("+120 siły woli"), socketStats.toString());
+        assertTrue(socketStats.contains("+500 pkt. pancerza"), socketStats.toString());
     }
 
     @Test

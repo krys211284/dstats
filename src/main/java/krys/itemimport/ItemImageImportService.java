@@ -98,7 +98,7 @@ public final class ItemImageImportService {
         }
 
         try (ItemImportDebugTrace.Scope ignored = ItemImportDebugTrace.startImport()) {
-            List<String> ocrTexts = new ArrayList<>();
+            List<ItemScreenshotMergedText> ocrTexts = new ArrayList<>();
             List<BufferedImage> images = new ArrayList<>();
             int analyzedVariantCount = 0;
             int totalHeight = 0;
@@ -124,8 +124,8 @@ public final class ItemImageImportService {
                         .map(ItemImageOcrTextVariant::getText)
                         .toList();
                 logMergerInput("SCREEN_MERGER_INPUT", requestIndex, variantTexts);
-                String mergedScreenText = textMerger.mergeTextVariants(textVariants);
-                logMergerOutput("SCREEN_MERGER_OUTPUT", "screen=" + requestIndex + " scope=per-screen", mergedScreenText);
+                ItemScreenshotMergedText mergedScreenText = textMerger.mergeTextVariantsTyped(textVariants);
+                logMergerOutput("SCREEN_MERGER_OUTPUT", "screen=" + requestIndex + " scope=per-screen", mergedScreenText.asPlainText());
                 ocrTexts.add(mergedScreenText);
             }
             logImportRequest(requests, images, "MULTI");
@@ -138,9 +138,11 @@ public final class ItemImageImportService {
                     totalHeight
             );
             ItemImportDebugTrace.bindMetadata(metadata);
-            logMergerInput("SCREEN_MERGER_INPUT", -1, ocrTexts);
-            String mergedText = textMerger.merge(ocrTexts);
-            logMergerOutput("SCREEN_MERGER_OUTPUT", "scope=multi-final", mergedText);
+            logMergerInput("SCREEN_MERGER_INPUT", -1, ocrTexts.stream()
+                    .map(ItemScreenshotMergedText::asPlainText)
+                    .toList());
+            ItemScreenshotMergedText mergedText = textMerger.mergeMergedTexts(ocrTexts);
+            logMergerOutput("SCREEN_MERGER_OUTPUT", "scope=multi-final", mergedText.asPlainText());
             ItemImageImportCandidateParseResult parsed;
             try (ItemImportDebugTrace.Scope variantScope = ItemImportDebugTrace.withOcrVariant(-1, -1, "MULTI_MERGED")) {
                 parsed = textParser.parse(metadata, mergedText);

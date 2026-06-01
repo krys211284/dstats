@@ -340,6 +340,80 @@ class ItemImageImportServiceTest {
     }
 
     @Test
+    void shouldKeepNonStrengthSocketStatsTypedThroughMultiScreenImport() throws Exception {
+        byte[] topImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-1.png"));
+        byte[] bottomImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-2.png"));
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new QueuedOcrTextReader(List.of(
+                        """
+                                Generyczny Hełm Testowy
+                                Starożytny unikatowy hełm
+                                Moc przedmiotu: 900
+                                +15,0% szansy na trafienie krytyczne [12,0]%
+                                Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x].
+                                Puste gniazdo
+                                """,
+                        """
+                                Przewiń do góry
+                                Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x]. +120 inteligencji +500 pkt. pancerza Puste gniazdo
+                                Wymaga 70 poziomu
+                                """
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(List.of(
+                new ItemImageImportRequest("generic-helmet-top.png", "image/png", topImageBytes),
+                new ItemImageImportRequest("generic-helmet-bottom.png", "image/png", bottomImageBytes)
+        ));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertFalse(form.getAffixes().stream().anyMatch(affix -> affix.getType() == ImportedItemAffixType.INTELLIGENCE));
+        assertFalse(form.getAffixes().stream().anyMatch(affix -> affix.getSourceText().contains("pancerza")));
+        assertEquals(2, form.getSocketing().getOccupiedSocketCount());
+        assertEquals("+120 inteligencji", form.getSocketing().socketAt(0).getDetectedStat().getDisplayText());
+        assertEquals("+500 pkt. pancerza", form.getSocketing().socketAt(1).getDetectedStat().getDisplayText());
+    }
+
+    @Test
+    void shouldKeepTwoEqualSocketStatsFromOneRawLineThroughMultiScreenImport() throws Exception {
+        byte[] topImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-1.png"));
+        byte[] bottomImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-2.png"));
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new QueuedOcrTextReader(List.of(
+                        """
+                                Generyczny Hełm Testowy
+                                Starożytny unikatowy hełm
+                                Moc przedmiotu: 900
+                                Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x].
+                                Puste gniazdo
+                                """,
+                        """
+                                Przewiń do góry
+                                Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x]. +120 siły +120 siły Puste gniazdo
+                                Wymaga 70 poziomu
+                                """
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(List.of(
+                new ItemImageImportRequest("generic-helmet-top.png", "image/png", topImageBytes),
+                new ItemImageImportRequest("generic-helmet-bottom.png", "image/png", bottomImageBytes)
+        ));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(2, form.getSocketing().getOccupiedSocketCount());
+        assertEquals("+120 siły", form.getSocketing().socketAt(0).getDetectedStat().getDisplayText());
+        assertEquals("+120 siły", form.getSocketing().socketAt(1).getDetectedStat().getDisplayText());
+        assertFalse(form.getAffixes().stream().anyMatch(affix -> affix.getType() == ImportedItemAffixType.STRENGTH));
+    }
+
+    @Test
     void shouldImportHeirOfPerditionCurrentScreenVariantWithCoreSkillRanksTwo() throws Exception {
         byte[] topImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-1.png"));
         byte[] bottomImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-2.png"));
@@ -640,8 +714,8 @@ class ItemImageImportServiceTest {
         assertTrue(html.contains("Tarcza Burzy Księżycowego Szału"));
         assertTrue(html.contains("Naznaczenie"));
         assertTrue(html.contains("name=\"transfigurationBonusQuality\" min=\"1\" max=\"15\" step=\"1\" value=\"4\""));
-        String stormFullReadHeader = itemReadHeaderByHeading(html, "Pełny odczyt widocznego itemu");
-        assertFalse(stormFullReadHeader.contains("<div class=\"summary-label\">Pancerz</div>"), stormFullReadHeader);
+        assertFalse(html.contains("Pełny odczyt widocznego itemu"));
+        assertFalse(html.contains("Pełny zapis itemu"));
         String stormShieldFields = fieldSetByLegend(html, "Dane tarczy");
         assertTrue(stormShieldFields.contains("name=\"itemArmor\" value=\"1202\""), stormShieldFields);
         assertTrue(stormShieldFields.contains("<span class=\"masterworking-value masterworking-value--upgraded\">1502</span>"), stormShieldFields);
@@ -1053,16 +1127,16 @@ class ItemImageImportServiceTest {
         assertTrue(html.contains("Miażdżąca Tarcza Kościanych Łusek"));
         assertTrue(html.contains("LEGENDARY / Legendarny"));
         assertTrue(html.contains("name=\"itemPower\" value=\"900\""));
-        String fullReadHeader = itemReadHeaderByHeading(html, "Pełny odczyt widocznego itemu");
-        assertFalse(fullReadHeader.contains("<div class=\"summary-label\">Pancerz</div>"), fullReadHeader);
+        assertFalse(html.contains("Pełny odczyt widocznego itemu"));
+        assertFalse(html.contains("Pełny zapis itemu"));
         assertTrue(html.contains("Dane tarczy"));
         String shieldFields = fieldSetByLegend(html, "Dane tarczy");
         assertTrue(shieldFields.contains("name=\"itemArmor\" value=\"1202\""), shieldFields);
-        assertTrue(html.contains("Linie bazowe"));
+        assertFalse(html.contains("Linie bazowe"));
         assertFalse(html.contains("Linie bazowe / implicit"));
         assertFalse(html.contains("Linie bazowe / implicity"));
-        assertTrue(html.contains("20,0% szansy na blok [20,0]%"));
-        assertTrue(html.contains("+100% obrażeń od broni w głównej ręce [100]%"));
+        assertFalse(html.contains("20,0% szansy na blok [20,0]%"));
+        assertFalse(html.contains("+100% obrażeń od broni w głównej ręce [100]%"));
         assertTrue(html.contains("Odporność na wszystkie żywioły"));
         assertTrue(html.contains("Odporność na Ogień"));
         assertTrue(html.contains("Redukcja obrażeń"));

@@ -211,7 +211,8 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("bulawa.png"));
         assertTrue(response.body().contains("Identyfikator biblioteki"));
         assertFalse(response.body().contains("Wkład itemu"));
-        assertTrue(response.body().contains("Pełny odczyt zapisany w bibliotece"));
+        assertFalse(response.body().contains("Pełny odczyt zapisany w bibliotece"));
+        assertFalse(response.body().contains("Pełny zapis itemu"));
         assertFalse(response.body().contains("Aspekt testowego impetu"));
         assertTrue(response.body().contains("Załóż bohaterowi: Broń"));
         assertTrue(response.body().contains("Przejdź do biblioteki"));
@@ -240,7 +241,7 @@ class ItemImportWebServerTest {
     }
 
     @Test
-    void shouldRenderFullItemReadAsProductPreviewSeparateFromFoundationMapping() throws Exception {
+    void shouldNotRenderFullItemReadDumpInImportConfirmation() throws Exception {
         createHero("Importer", "13");
         String fullShieldRead = FullItemReadFormCodec.encode(new FullItemRead(
                 "NESTORSKA EGIDA WEWNĘTRZNEGO SPOKOJU",
@@ -286,18 +287,12 @@ class ItemImportWebServerTest {
         HttpResponse<String> response = sendUrlEncodedPost("/importuj-item-ze-screena", fields);
 
         assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("Pełny odczyt zapisany w bibliotece"));
-        String fullReadHeader = itemReadHeaderByHeading(response.body(), "Pełny odczyt zapisany w bibliotece");
-        assertFalse(fullReadHeader.contains("<div class=\"summary-label\">Nazwa</div>"), fullReadHeader);
-        assertFalse(fullReadHeader.contains("<div class=\"summary-label\">Typ</div>"), fullReadHeader);
-        assertFalse(fullReadHeader.contains("<div class=\"summary-label\">Rzadkość</div>"), fullReadHeader);
-        assertFalse(fullReadHeader.contains("<div class=\"summary-label\">Moc przedmiotu</div>"), fullReadHeader);
-        assertFalse(fullReadHeader.contains("<div class=\"summary-label\">Pancerz</div>"), fullReadHeader);
-        assertTrue(response.body().contains("Pełny zapis itemu"));
-        assertTrue(response.body().contains("Linie bazowe"));
-        assertTrue(response.body().contains("45% redukcji blokowanych obrażeń [45]%"));
-        assertTrue(response.body().contains("20,0% szansy na blok [20,01]%"));
-        assertTrue(response.body().contains("+100% obrażeń od broni w głównej ręce [100]%"));
+        assertFalse(response.body().contains("Pełny odczyt zapisany w bibliotece"));
+        assertFalse(response.body().contains("Pełny zapis itemu"));
+        assertFalse(response.body().contains("Linie bazowe"));
+        assertFalse(response.body().contains("45% redukcji blokowanych obrażeń [45]%"));
+        assertFalse(response.body().contains("20,0% szansy na blok [20,01]%"));
+        assertFalse(response.body().contains("+100% obrażeń od broni w głównej ręce [100]%"));
         assertFalse(response.body().contains("Affixy"));
         assertFalse(response.body().contains("+114 siły"));
         assertFalse(response.body().contains("+494 cierni"));
@@ -306,12 +301,10 @@ class ItemImportWebServerTest {
         assertFalse(response.body().contains("Aspekt / efekt legendarny"));
         assertFalse(response.body().contains("Zadajesz obrażenia zwiększone o 11,0%[x] [5,0 - 13,0]%"));
         assertFalse(response.body().contains("Ta premia jest trzy razy większa, jeśli stoisz w bezruchu przez co najmniej 3 sek."));
-        assertTrue(response.body().contains("Dodatkowe / sezonowe linie"));
-        assertTrue(response.body().contains("Rozjuszenie: +8%"));
-        assertTrue(response.body().contains("Socket / gniazdo"));
-        assertTrue(response.body().contains("Puste gniazdo"));
-        assertTrue(response.body().indexOf("Linie bazowe") < response.body().indexOf("Dodatkowe / sezonowe linie"));
-        assertTrue(response.body().indexOf("Dodatkowe / sezonowe linie") < response.body().indexOf("Socket / gniazdo"));
+        assertFalse(response.body().contains("Dodatkowe / sezonowe linie"));
+        assertFalse(response.body().contains("Rozjuszenie: +8%"));
+        assertFalse(response.body().contains("Socket / gniazdo"));
+        assertFalse(response.body().contains("Puste gniazdo"));
         assertFalse(response.body().contains("Szczegóły techniczne OCR"));
         assertFalse(response.body().contains("Typ linii"));
         assertFalse(response.body().contains("Mapowanie do aktualnego modelu buildu"));
