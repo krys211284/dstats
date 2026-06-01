@@ -14,6 +14,7 @@ import krys.transfiguration.TransfigurationAffixRoll;
 import krys.transfiguration.TransfigurationValueProvenance;
 
 import java.text.Normalizer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -290,9 +291,12 @@ public final class ItemImportEditableFormFactory {
                     );
                     ItemImportDebugTrace.log("TRANSFIGURATION_CANDIDATE", () -> "definitionId="
                             + ItemImportDebugTrace.quote(definition.getId())
+                            + " anchor=" + ItemImportDebugTrace.quote(parsed.anchor())
+                            + " localValueWindow=" + ItemImportDebugTrace.compactText(parsed.localValueWindow())
                             + " displayedValue=" + parsed.displayedValue()
                             + " sourceRangeMin=" + parsed.sourceRangeMin()
                             + " sourceRangeMax=" + parsed.sourceRangeMax()
+                            + " rejectedNumericTokens=" + ItemImportDebugTrace.compactText(parsed.rejectedNumericTokens())
                             + " sourceLine=" + ItemImportDebugTrace.compactText(line.getText()));
                     return Optional.of(result);
                 }
@@ -304,23 +308,40 @@ public final class ItemImportEditableFormFactory {
     private static Optional<ParsedTransfigurationAffixRoll> extractTransfigurationDisplayedValue(String line,
                                                                                                  TransfigurationAffixDefinition definition) {
         String normalized = normalize(line);
-        String normalizedAnchor = normalize(definition.getDisplayName());
-        int anchorIndex = normalized.indexOf(normalizedAnchor);
-        if (anchorIndex < 0) {
+        Optional<TransfigurationAnchor> anchor = findTransfigurationAnchor(normalized, definition);
+        if (anchor.isEmpty()) {
             return Optional.empty();
         }
-        String prefix = normalized.substring(0, anchorIndex);
-        Matcher valueMatcher = Pattern.compile("\\+\\s*([0-9]+(?:[,.][0-9]+)?)").matcher(prefix);
-        Double displayedValue = null;
-        while (valueMatcher.find()) {
-            displayedValue = Double.parseDouble(valueMatcher.group(1).replace(',', '.'));
+        int windowStart = localValueWindowStart(normalized, anchor.get().start());
+        String localValueWindow = normalized.substring(windowStart, anchor.get().start());
+        List<TransfigurationNumericToken> numericTokens = numericTokens(localValueWindow);
+        List<String> rejectedTokens = new ArrayList<>();
+        TransfigurationNumericToken selectedToken = null;
+        for (int index = numericTokens.size() - 1; index >= 0; index--) {
+            TransfigurationNumericToken token = numericTokens.get(index);
+            Optional<Double> parsedValue = displayedTransfigurationValue(token, localValueWindow);
+            if (parsedValue.isPresent()) {
+                selectedToken = token.withDisplayedValue(parsedValue.get());
+                break;
+            }
+            rejectedTokens.add(0, token.raw() + ": " + rejectionReason(token, localValueWindow));
         }
-        if (displayedValue == null) {
+        if (selectedToken == null) {
+            if (ItemImportDebugTrace.isEnabled()) {
+                ItemImportDebugTrace.log("TRANSFIGURATION_CANDIDATE", () -> "definitionId="
+                        + ItemImportDebugTrace.quote(definition.getId())
+                        + " anchor=" + ItemImportDebugTrace.quote(anchor.get().text())
+                        + " localValueWindow=" + ItemImportDebugTrace.compactText(localValueWindow)
+                        + " displayedValue=UNKNOWN"
+                        + " rejectedNumericTokens=" + ItemImportDebugTrace.compactText(String.join(" | ", rejectedTokens))
+                        + " reason=\"no safe local value\""
+                        + " sourceLine=" + ItemImportDebugTrace.compactText(line));
+            }
             return Optional.empty();
         }
         Double sourceRangeMin = null;
         Double sourceRangeMax = null;
-        String suffix = normalized.substring(anchorIndex + normalizedAnchor.length());
+        String suffix = normalized.substring(anchor.get().end());
         Matcher rangeMatcher = Pattern.compile("\\[?\\s*\\+?\\s*1?([0-9]{1,3}(?:[,.][0-9]+)?)\\s*[-–—−]\\s*([0-9]{1,3}(?:[,.][0-9]+)?)1?\\s*]?")
                 .matcher(suffix);
         if (rangeMatcher.find()) {
@@ -331,10 +352,176 @@ public final class ItemImportEditableFormFactory {
                 sourceRangeMax = null;
             }
         }
-        return Optional.of(new ParsedTransfigurationAffixRoll(displayedValue, sourceRangeMin, sourceRangeMax));
+        return Optional.of(new ParsedTransfigurationAffixRoll(
+                selectedToken.displayedValue(),
+                sourceRangeMin,
+                sourceRangeMax,
+                anchor.get().text(),
+                localValueWindow,
+                String.join(" | ", rejectedTokens)
+        ));
     }
 
-    private record ParsedTransfigurationAffixRoll(double displayedValue, Double sourceRangeMin, Double sourceRangeMax) {
+    private static Optional<TransfigurationAnchor> findTransfigurationAnchor(String normalized,
+                                                                             TransfigurationAffixDefinition definition) {
+        List<String> aliases = new ArrayList<>();
+        aliases.add(definition.getDisplayName());
+        aliases.add(definition.getSourceName());
+        if (definition.getDisplayName().startsWith("do ")) {
+            aliases.add(definition.getDisplayName().substring(3));
+        }
+        TransfigurationAnchor best = null;
+        for (String alias : aliases) {
+            String normalizedAlias = normalize(alias)
+                    .replace("[+]", "")
+                    .replace("[X]", "")
+                    .trim();
+            if (normalizedAlias.length() < 5) {
+                continue;
+            }
+            int index = normalized.indexOf(normalizedAlias);
+            if (index < 0) {
+                continue;
+            }
+            TransfigurationAnchor candidate = new TransfigurationAnchor(normalizedAlias, index, index + normalizedAlias.length());
+            if (best == null
+                    || candidate.start() < best.start()
+                    || candidate.start() == best.start() && candidate.text().length() > best.text().length()) {
+                best = candidate;
+            }
+        }
+        return Optional.ofNullable(best);
+    }
+
+    private static int localValueWindowStart(String normalizedLine, int anchorStart) {
+        int latestPreviousAnchorEnd = 0;
+        for (AffixDefinition definition : ApplicationAffixRegistry.get().all()) {
+            latestPreviousAnchorEnd = Math.max(latestPreviousAnchorEnd,
+                    previousAnchorEnd(normalizedLine, anchorStart, normalize(definition.getDisplayName())));
+            for (String alias : definition.getOcrAliases()) {
+                latestPreviousAnchorEnd = Math.max(latestPreviousAnchorEnd,
+                        previousAnchorEnd(normalizedLine, anchorStart, normalize(alias)));
+            }
+        }
+        for (TransfigurationAffixDefinition definition : TransfigurationAffixCatalog.definitions()) {
+            latestPreviousAnchorEnd = Math.max(latestPreviousAnchorEnd,
+                    previousAnchorEnd(normalizedLine, anchorStart, normalize(definition.getDisplayName())));
+        }
+        return Math.max(latestPreviousAnchorEnd, Math.max(0, anchorStart - 64));
+    }
+
+    private static int previousAnchorEnd(String normalizedLine, int anchorStart, String normalizedAnchor) {
+        if (normalizedAnchor == null || normalizedAnchor.length() < 5) {
+            return 0;
+        }
+        int index = normalizedLine.indexOf(normalizedAnchor);
+        int latest = 0;
+        while (index >= 0 && index < anchorStart) {
+            latest = Math.max(latest, index + normalizedAnchor.length());
+            index = normalizedLine.indexOf(normalizedAnchor, index + 1);
+        }
+        return latest;
+    }
+
+    private static List<TransfigurationNumericToken> numericTokens(String localValueWindow) {
+        List<TransfigurationNumericToken> result = new ArrayList<>();
+        Matcher matcher = Pattern.compile("(\\+)?\\s*([0-9]+(?:[,.][0-9]+)?)(?:\\s*(PKT\\.?|PT\\.?|%))?")
+                .matcher(localValueWindow);
+        while (matcher.find()) {
+            Optional<Double> value = parseNumber(matcher.group(2));
+            if (value.isEmpty()) {
+                continue;
+            }
+            result.add(new TransfigurationNumericToken(
+                    matcher.group().trim(),
+                    matcher.group(2),
+                    value.get(),
+                    matcher.start(),
+                    matcher.end(),
+                    matcher.group(1) != null,
+                    matcher.group(3) == null ? "" : matcher.group(3),
+                    value.get()
+            ));
+        }
+        return result;
+    }
+
+    private static Optional<Double> displayedTransfigurationValue(TransfigurationNumericToken token,
+                                                                  String localValueWindow) {
+        if (isBracketReferenceToken(token, localValueWindow)) {
+            return Optional.empty();
+        }
+        if (token.hasPlus() || !token.unit().isBlank()) {
+            Optional<Double> recovered = recoverGluedFlatDisplayedValue(token, localValueWindow);
+            return recovered.or(() -> Optional.of(token.value()));
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<Double> recoverGluedFlatDisplayedValue(TransfigurationNumericToken token,
+                                                                   String localValueWindow) {
+        String unit = token.unit();
+        if (!unit.startsWith("PKT") && !unit.startsWith("PT")) {
+            return Optional.empty();
+        }
+        String digits = token.number().replaceAll("[^0-9]", "");
+        if (token.hasPlus() || digits.length() <= 3 || !hasPreviousBracketArtifact(token, localValueWindow)) {
+            return Optional.empty();
+        }
+        String suffix = digits.substring(digits.length() - 3);
+        return parseNumber(suffix);
+    }
+
+    private static boolean hasPreviousBracketArtifact(TransfigurationNumericToken token, String localValueWindow) {
+        String prefix = localValueWindow.substring(0, Math.min(localValueWindow.length(), Math.max(0, token.start())));
+        return prefix.lastIndexOf('[') >= 0 || Pattern.compile("[0-9]\\s+$").matcher(prefix).find();
+    }
+
+    private static boolean isBracketReferenceToken(TransfigurationNumericToken token, String localValueWindow) {
+        int before = token.start() - 1;
+        while (before >= 0 && Character.isWhitespace(localValueWindow.charAt(before))) {
+            before--;
+        }
+        int after = token.end();
+        while (after < localValueWindow.length() && Character.isWhitespace(localValueWindow.charAt(after))) {
+            after++;
+        }
+        return (before >= 0 && localValueWindow.charAt(before) == '[')
+                || (after < localValueWindow.length() && localValueWindow.charAt(after) == ']');
+    }
+
+    private static String rejectionReason(TransfigurationNumericToken token, String localValueWindow) {
+        if (isBracketReferenceToken(token, localValueWindow)) {
+            return "belongs to previous bracket/reference";
+        }
+        if (!token.hasPlus() && token.unit().isBlank()) {
+            return "has no local affix sign or unit";
+        }
+        return "not selected";
+    }
+
+    private record ParsedTransfigurationAffixRoll(double displayedValue,
+                                                  Double sourceRangeMin,
+                                                  Double sourceRangeMax,
+                                                  String anchor,
+                                                  String localValueWindow,
+                                                  String rejectedNumericTokens) {
+    }
+
+    private record TransfigurationAnchor(String text, int start, int end) {
+    }
+
+    private record TransfigurationNumericToken(String raw,
+                                               String number,
+                                               double value,
+                                               int start,
+                                               int end,
+                                               boolean hasPlus,
+                                               String unit,
+                                               double displayedValue) {
+        private TransfigurationNumericToken withDisplayedValue(double newDisplayedValue) {
+            return new TransfigurationNumericToken(raw, number, value, start, end, hasPlus, unit, newDisplayedValue);
+        }
     }
 
     private static boolean hasLineContaining(FullItemRead fullItemRead, String normalizedNeedle) {
@@ -363,5 +550,13 @@ public final class ItemImportEditableFormFactory {
 
     private static String toDoubleValue(Double value) {
         return value == null ? "" : String.format(Locale.US, "%.0f", value);
+    }
+
+    private static Optional<Double> parseNumber(String rawToken) {
+        try {
+            return Optional.of(Double.parseDouble((rawToken == null ? "" : rawToken).replace(',', '.')));
+        } catch (NumberFormatException exception) {
+            return Optional.empty();
+        }
     }
 }

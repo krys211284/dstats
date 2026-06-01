@@ -343,6 +343,8 @@ class ItemImageImportServiceTest {
         assertTrue(critRow.contains("Brak zakresu"), critRow);
         assertTrue(luckyRow.contains("Brak zakresu"), luckyRow);
         assertFalse(critRow.contains("18,8"), critRow);
+        assertTrue(html.contains("name=\"transfigurationAddedDisplayedValue\" step=\"0.1\" value=\"115\""), html);
+        assertFalse(html.contains("name=\"transfigurationAddedDisplayedValue\" step=\"0.1\" value=\"3\""), html);
         assertEquals(0, countCheckedGreaterAffixes(html));
     }
 

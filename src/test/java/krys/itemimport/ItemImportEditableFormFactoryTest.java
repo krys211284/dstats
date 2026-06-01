@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Testuje uzupełnianie formularza importu na podstawie pełnego odczytu OCR. */
@@ -31,6 +32,94 @@ class ItemImportEditableFormFactoryTest {
         assertEquals(HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX, form.getTransfiguration().getOutcome());
         assertEquals("ALL_STATS", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
         assertEquals(115.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0001d);
+        assertEquals(75.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMin(), 0.0001d);
+        assertEquals(100.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMax(), 0.0001d);
+    }
+
+    @Test
+    void shouldUseTransfigurationValueLocalToAnchorInJoinedOcrLine() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Hełm",
+                "Starożytny unikatowy hełm",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 004 pkt. pancerza",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Przeistoczony"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX,
+                                "+3 do umiejętności: Główne [3] +115 pkt. do wszystkich współczynników [75 - 100]")
+                ),
+                details("Generyczny Hełm", "")
+        )));
+
+        assertEquals(3.0d, affix(form, ImportedItemAffixType.CORE_SKILL_RANKS).getValue(), 0.0001d);
+        assertEquals("ALL_STATS", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(115.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0001d);
+        assertEquals(75.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMin(), 0.0001d);
+        assertEquals(100.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMax(), 0.0001d);
+    }
+
+    @Test
+    void shouldRecoverGluedFlatTransfigurationValueFromLocalOcrToken() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Hełm",
+                "Starożytny unikatowy hełm",
+                "UNIQUE",
+                "Moc przedmiotu: 900 25 (+25) jakości",
+                "2 004 pkt. pancerza",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Przeistoczony"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX,
+                                "+3 do umiejętności: Główne [31 4115 pkt. do wszystkich współczynników +175 - 1001")
+                ),
+                details("Generyczny Hełm", "")
+        )));
+
+        assertEquals(3.0d, affix(form, ImportedItemAffixType.CORE_SKILL_RANKS).getValue(), 0.0001d);
+        assertEquals("ALL_STATS", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(115.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0001d);
+        assertEquals(75.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMin(), 0.0001d);
+        assertEquals(100.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMax(), 0.0001d);
+    }
+
+    @Test
+    void shouldNotUsePreviousAffixValueWhenTransfigurationLocalValueIsUnsafe() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Hełm",
+                "Starożytny unikatowy hełm",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 004 pkt. pancerza",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Przeistoczony"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX,
+                                "+3 do umiejętności: Główne [3] do wszystkich współczynników [75 - 100]")
+                ),
+                details("Generyczny Hełm", "")
+        )));
+
+        assertEquals(3.0d, affix(form, ImportedItemAffixType.CORE_SKILL_RANKS).getValue(), 0.0001d);
+        assertEquals(HoradricTransfigurationOutcome.UNKNOWN, form.getTransfiguration().getOutcome());
+        assertNull(form.getTransfiguration().getAddedTransfigurationAffix());
+    }
+
+    @Test
+    void shouldKeepArbitraryAllStatsTransfigurationValueOutsideCatalogRange() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Hełm",
+                "Starożytny unikatowy hełm",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 004 pkt. pancerza",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Przeistoczony"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+999 pkt. do wszystkich współczynników [75 - 100]")
+                ),
+                details("Generyczny Hełm", "")
+        )));
+
+        assertEquals("ALL_STATS", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(999.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0001d);
         assertEquals(75.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMin(), 0.0001d);
         assertEquals(100.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMax(), 0.0001d);
     }
@@ -95,5 +184,12 @@ class ItemImportEditableFormFactoryTest {
     private static ItemImportDetails details(String itemName, String effectText) {
         return new ItemImportDetails(itemName, "Hełm", "UNIQUE", true, EquipmentSlot.HELMET,
                 900L, null, null, null, null, null, 2004L, effectText, itemName.equals("Dziedzic Zatracenia"));
+    }
+
+    private static ImportedItemAffix affix(ItemImportEditableForm form, ImportedItemAffixType type) {
+        return form.getAffixes().stream()
+                .filter(affix -> affix.getType() == type)
+                .findFirst()
+                .orElseThrow();
     }
 }

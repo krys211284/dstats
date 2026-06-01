@@ -24,6 +24,17 @@ class ItemOcrBlockSegmenterTest {
     }
 
     @Test
+    void shouldRecoverGluedFlatTransfigurationSegmentValueNearAnchor() {
+        String block = "+3 do umiejętności: Główne [31 4115 pkt. do wszystkich współczynników +175 - 1001 "
+                + "+12 do maksymalnej liczby kumulacji Animuszu";
+
+        List<String> lines = segmenter.segmentLines(List.of(block));
+
+        assertTrue(lines.contains(block));
+        assertContains(lines, "+115 PKT. DO WSZYSTKICH WSPOLCZYNNIKOW [75 - 100]");
+    }
+
+    @Test
     void shouldPreserveOriginalTextWhenAddingCandidates() {
         String block = "+9 szybkość ruchu +12 do maksymalnej liczby kumulacji Animuszu";
 

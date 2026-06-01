@@ -195,12 +195,23 @@ final class ItemOcrBlockSegmenter {
 
     private static String normalizeSegment(String segment) {
         String value = segment == null ? "" : segment.replaceAll("\\s+", " ").trim();
+        value = recoverLeadingGluedFlatTransfigurationValue(value);
         value = value.replaceAll(
                 "(?<!\\[)\\+\\s*1?([0-9]{2,3}(?:[,.][0-9]+)?)\\s*[-–—−]\\s*([0-9]{2,3}(?:[,.][0-9]+)?)1?(?=\\s|$|%)",
                 "[$1 - $2]"
         );
         value = value.replaceAll("\\[\\s*\\+", "[");
         return value.trim();
+    }
+
+    private static String recoverLeadingGluedFlatTransfigurationValue(String segment) {
+        Matcher matcher = Pattern.compile("^([0-9]{4,})\\s+(PKT\\.?|PT\\.?)\\s+(.+)$").matcher(segment == null ? "" : segment);
+        if (!matcher.find()) {
+            return segment;
+        }
+        String digits = matcher.group(1);
+        String localValue = digits.substring(digits.length() - 3);
+        return "+" + localValue + " " + matcher.group(2) + " " + matcher.group(3);
     }
 
     private static boolean isUsefulSegment(String segment) {
