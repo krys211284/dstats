@@ -129,6 +129,32 @@ class ItemImportDebugTraceTest {
     }
 
     @Test
+    void traceFinalnegoFormularzaHartowaniaRozdzielaWartoscZapisanaOcrIResolved() throws Exception {
+        enableDebugForTest();
+
+        String logs = captureLogs(() -> {
+            ItemImageImportCandidateParseResult result = multiScreenService(
+                    List.of(variant("helm-top", ItemImportTextFixtures.heirOfPerditionTopText())),
+                    List.of(variant("helm-bottom", ItemImportTextFixtures.heirOfPerditionBottomText()))
+            ).analyze(List.of(request("dziedzic-top.png"), request("dziedzic-bottom.png")));
+            new ItemImportEditableFormFactory().create(result);
+        });
+
+        assertTrue(logs.contains("TEMPERING_FORM definitionId=\"defense_max_animus\""), logs);
+        assertTrue(logs.contains("sourceLine=\"+12 do maksymalnej liczby kumulacji Animuszu\""), logs);
+        assertTrue(logs.contains("ocrDisplayedValue=12"), logs);
+        assertTrue(logs.contains("storedValue=5"), logs);
+        assertTrue(logs.contains("greaterAffix=true"), logs);
+        assertTrue(logs.contains("masterworkingQuality=25/25"), logs);
+        assertTrue(logs.contains("perfectedAffix=\"TEMPERING_AFFIX:defense_max_animus\""), logs);
+        assertTrue(logs.contains("resolvedValue=12"), logs);
+        assertTrue(logs.contains("resolvedDisplayText=\"+12 do maksymalnej liczby kumulacji Animuszu\""), logs);
+        assertTrue(logs.contains("runtimeStatus=DATA_ONLY"), logs);
+        assertTrue(logs.contains("stored value is GA/base import value; resolved value uses masterworking perfected tempering"), logs);
+        assertFalse(logs.contains("displayText=\"+5 do maksymalnej liczby kumulacji Animuszu\""), logs);
+    }
+
+    @Test
     void rendererImportuNiePokazujeTechnicznegoDebugOutput() throws Exception {
         enableDebugForTest();
         final ItemImageImportCandidateParseResult[] resultHolder = new ItemImageImportCandidateParseResult[1];

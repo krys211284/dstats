@@ -8,6 +8,7 @@ import krys.itemimport.ItemImportDebugTrace;
 import krys.itemlibrary.CurrentHeroActiveItemStats;
 import krys.itemlibrary.EffectiveCurrentBuildResolution;
 import krys.itemlibrary.HeroSlotItemAssignment;
+import krys.tempering.ItemTemperingAffix;
 
 import java.util.Optional;
 
@@ -114,6 +115,19 @@ final class CurrentBuildRuntimeInputResolver {
                 );
                 ItemImportDebugTrace.log("RUNTIME_CONTRIBUTION", () -> "RUNTIME_AFFIX "
                         + ItemImportDebugTrace.formatRuntimeAssignment(
+                        assignment,
+                        affix,
+                        assignment.getItem().getMasterworking(),
+                        resolvedValue
+                ));
+            }
+            for (ItemTemperingAffix affix : assignment.getItem().getTemperingAffixes()) {
+                double resolvedValue = ItemImportDebugTrace.resolveRuntimeTemperingValue(
+                        affix,
+                        assignment.getItem().getMasterworking()
+                );
+                ItemImportDebugTrace.log("RUNTIME_CONTRIBUTION", () -> "RUNTIME_TEMPERING "
+                        + ItemImportDebugTrace.formatRuntimeTemperingAssignment(
                         assignment,
                         affix,
                         assignment.getItem().getMasterworking(),

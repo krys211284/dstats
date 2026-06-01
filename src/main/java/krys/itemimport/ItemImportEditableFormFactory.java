@@ -69,7 +69,11 @@ public final class ItemImportEditableFormFactory {
                 ItemTemperingAffix affix = form.getTemperingAffixes().get(index);
                 ItemImportDebugTrace.log("FINAL_IMPORT_FORM", () -> "temperingIndex=" + finalIndex
                         + " sourceCategory=tempering "
-                        + ItemImportDebugTrace.formatTempering(affix));
+                        + ItemImportDebugTrace.formatTemperingForm(
+                        affix,
+                        form.getFullItemRead(),
+                        form.getMasterworking()
+                ));
             }
             return form;
         }

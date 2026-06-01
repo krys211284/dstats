@@ -221,6 +221,37 @@ class CurrentBuildRuntimeInputResolverTest {
         org.junit.jupiter.api.Assertions.assertFalse(logs.contains("resolved=31.2500"), logs);
     }
 
+    @Test
+    void shouldLogRuntimeTemperingContributionWithStoredAndResolvedValues() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("runtime-input-debug-tempering-trace");
+        ItemLibraryService service = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+        SavedImportedItem shield = service.saveImportedItem(referenceShield(
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.temperingAffix("defense_max_animus"))
+        ));
+        CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(java.util.Map.of(
+                "level", "70",
+                "maxAnimus", "8",
+                "initialAnimus", "20"
+        ));
+        HeroItemSelection selection = HeroItemSelection.empty().withSelectedItem(HeroEquipmentSlot.OFF_HAND, shield.getItemId());
+        EffectiveCurrentBuildResolution resolution = service.resolveEffectiveCurrentBuild(legacyStats(), selection);
+        System.setProperty(ItemImportDebugTrace.JVM_PROPERTY, "true");
+        System.setProperty(ItemImportDebugTrace.FILE_PROPERTY,
+                Path.of("target", "item-import-debug-runtime-tempering-test.log").toString());
+
+        String logs = captureItemImportDebugLogs(() ->
+                resolver.resolve(hero(selection, formData), formData, resolution));
+
+        assertLogsContain(logs, "RUNTIME_TEMPERING");
+        assertLogsContain(logs, "definitionId=\"defense_max_animus\"");
+        assertLogsContain(logs, "storedValue=5");
+        assertLogsContain(logs, "resolvedValue=12");
+        assertLogsContain(logs, "resolvedDisplayText=\"+12 do maksymalnej liczby kumulacji Animuszu\"");
+        assertLogsContain(logs, "masterworkingQuality=25/25");
+        assertLogsContain(logs, "perfectedAffix=\"TEMPERING_AFFIX:defense_max_animus\"");
+        assertLogsContain(logs, "reason=\"stored value is GA/base import value; resolved value uses masterworking perfected tempering\"");
+    }
+
     private static HeroProfile hero(HeroItemSelection selection, CurrentBuildFormData formData) {
         return new HeroProfile(
                 1L,

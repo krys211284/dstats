@@ -3,8 +3,13 @@ package krys.itemimport;
 import krys.itemlibrary.HeroSlotItemAssignment;
 import krys.itemlibrary.SavedImportedItem;
 import krys.masterworking.ItemMasterworking;
+import krys.masterworking.MasterworkedAffixSelection;
 import krys.masterworking.MasterworkingResolvedItemValueResolver;
+import krys.tempering.ApplicationTemperingAffixRegistry;
 import krys.tempering.ItemTemperingAffix;
+import krys.tempering.TemperingAffixDefinition;
+import krys.tempering.TemperingAffixRegistry;
+import krys.tempering.TemperingValueUnit;
 import krys.transfiguration.ItemTransfiguration;
 
 import java.io.IOException;
@@ -12,12 +17,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.Map;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.WeakHashMap;
 import java.util.function.Supplier;
@@ -35,9 +42,12 @@ public final class ItemImportDebugTrace {
 
     private static final Logger LOGGER = Logger.getLogger(LOGGER_NAME);
     private static final DateTimeFormatter ID_TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
+    private static final TemperingAffixRegistry TEMPERING_REGISTRY = ApplicationTemperingAffixRegistry.get();
+    private static final MasterworkingResolvedItemValueResolver MASTERWORKING_RESOLVER = new MasterworkingResolvedItemValueResolver();
     private static final Pattern NUMERIC_TOKEN_PATTERN = Pattern.compile(
             "\\+?\\s*[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?%?|\\[[^\\]]*]|\\([^)]*[0-9][^)]*\\)"
     );
+    private static final Pattern LEADING_DISPLAY_VALUE_PATTERN = Pattern.compile("\\+\\s*([0-9]+(?:[,.][0-9]+)?)");
     private static final ThreadLocal<TraceContext> CURRENT = new ThreadLocal<>();
     private static final Map<ItemImageMetadata, String> METADATA_TRACE_IDS =
             Collections.synchronizedMap(new WeakHashMap<>());
@@ -256,13 +266,17 @@ public final class ItemImportDebugTrace {
     }
 
     public static double resolveRuntimeAffixValue(ImportedItemAffix affix, ItemMasterworking masterworking) {
-        return new MasterworkingResolvedItemValueResolver().resolveAffixValue(affix, masterworking);
+        return MASTERWORKING_RESOLVER.resolveAffixValue(affix, masterworking);
     }
 
     public static double resolveRuntimeAffixValue(ImportedItemAffix affix,
                                                   ItemMasterworking masterworking,
                                                   boolean displayedValueAlreadyCurrent) {
-        return new MasterworkingResolvedItemValueResolver().resolveAffixValue(affix, masterworking, displayedValueAlreadyCurrent);
+        return MASTERWORKING_RESOLVER.resolveAffixValue(affix, masterworking, displayedValueAlreadyCurrent);
+    }
+
+    public static double resolveRuntimeTemperingValue(ItemTemperingAffix affix, ItemMasterworking masterworking) {
+        return MASTERWORKING_RESOLVER.resolveTemperingValue(affix, masterworking);
     }
 
     public static String formatTempering(ItemTemperingAffix affix) {
@@ -275,6 +289,55 @@ public final class ItemImportDebugTrace {
                 + " runtimeStatus=" + affix.getRuntimeStatus()
                 + " greaterAffix=" + affix.isGreaterAffix()
                 + " displayText=" + compactText(affix.getDisplayText());
+    }
+
+    public static String formatTemperingForm(ItemTemperingAffix affix,
+                                             FullItemRead fullItemRead,
+                                             ItemMasterworking masterworking) {
+        if (affix == null) {
+            return "TEMPERING_FORM tempering=null";
+        }
+        Optional<String> sourceLine = findTemperingSourceLine(affix, fullItemRead);
+        Optional<Double> ocrDisplayedValue = sourceLine.flatMap(ItemImportDebugTrace::parseDisplayedValue);
+        Optional<Double> importedDisplayedValue = ocrDisplayedValue.isPresent()
+                ? Optional.empty()
+                : parseDisplayedValue(affix.getDisplayText());
+        double resolvedValue = MASTERWORKING_RESOLVER.resolveTemperingValue(affix, masterworking);
+        StringBuilder builder = new StringBuilder("TEMPERING_FORM definitionId=")
+                .append(quote(affix.getDefinitionId()))
+                .append(" category=").append(affix.getCategory())
+                .append(sourceLine.map(line -> " sourceLine=" + compactText(line)).orElse(""))
+                .append(ocrDisplayedValue.map(displayed -> " ocrDisplayedValue=" + value(displayed)).orElse(""))
+                .append(importedDisplayedValue.map(displayed -> " importedDisplayedValue=" + value(displayed)).orElse(""))
+                .append(" storedValue=").append(value(affix.getValue()))
+                .append(" greaterAffix=").append(affix.isGreaterAffix())
+                .append(" masterworkingQuality=").append(masterworkingQuality(masterworking))
+                .append(" perfectedAffix=").append(quote(perfectedAffixLabel(masterworking)))
+                .append(" resolvedValue=").append(value(resolvedValue))
+                .append(" resolvedDisplayText=").append(compactText(resolvedTemperingDisplayText(affix, resolvedValue)))
+                .append(" runtimeStatus=").append(affix.getRuntimeStatus())
+                .append(" reason=").append(quote(temperingReason(affix, masterworking, resolvedValue)));
+        return builder.toString();
+    }
+
+    public static String formatRuntimeTemperingAssignment(HeroSlotItemAssignment assignment,
+                                                         ItemTemperingAffix affix,
+                                                         ItemMasterworking masterworking,
+                                                         double resolvedValue) {
+        SavedImportedItem item = assignment.getItem();
+        return "slot=" + assignment.getHeroSlot()
+                + " itemId=" + item.getItemId()
+                + " item=" + quote(item.getDisplayName())
+                + " definitionId=" + quote(affix.getDefinitionId())
+                + " category=" + affix.getCategory()
+                + " storedValue=" + value(affix.getValue())
+                + " greaterAffix=" + affix.isGreaterAffix()
+                + " resolvedValue=" + value(resolvedValue)
+                + " resolvedDisplayText=" + compactText(resolvedTemperingDisplayText(affix, resolvedValue))
+                + " masterworkingQuality=" + masterworkingQuality(masterworking)
+                + " perfectedAffix=" + quote(perfectedAffixLabel(masterworking))
+                + " runtimeStatus=" + affix.getRuntimeStatus()
+                + " reason=" + quote(temperingReason(affix, masterworking, resolvedValue));
     }
 
     public static void logAffixList(String section, List<ImportedItemAffix> affixes) {
@@ -351,6 +414,106 @@ public final class ItemImportDebugTrace {
             return "stored value used by runtime";
         }
         return "masterworking resolver adjusted stored value";
+    }
+
+    private static Optional<String> findTemperingSourceLine(ItemTemperingAffix affix, FullItemRead fullItemRead) {
+        if (affix == null || fullItemRead == null || !fullItemRead.hasAnyData()) {
+            return Optional.empty();
+        }
+        Optional<TemperingAffixDefinition> definition = TEMPERING_REGISTRY.findById(affix.getDefinitionId());
+        if (definition.isEmpty()) {
+            return Optional.empty();
+        }
+        String normalizedDisplayName = normalize(definition.get().getDisplayName());
+        List<String> lines = fullItemRead.getLines().stream()
+                .map(FullItemReadLine::getText)
+                .toList();
+        String best = "";
+        for (int index = 0; index < lines.size(); index++) {
+            StringBuilder candidate = new StringBuilder();
+            for (int offset = 0; offset < 3 && index + offset < lines.size(); offset++) {
+                if (!candidate.isEmpty()) {
+                    candidate.append(' ');
+                }
+                candidate.append(lines.get(index + offset));
+                if (normalize(candidate.toString()).contains(normalizedDisplayName)) {
+                    String compactCandidate = stripLeadingTemperingMarker(candidate.toString().replaceAll("\\s+", " ").trim());
+                    if (best.isBlank() || compactCandidate.length() < best.length()) {
+                        best = compactCandidate;
+                    }
+                }
+            }
+        }
+        return best.isBlank() ? Optional.empty() : Optional.of(best);
+    }
+
+    private static Optional<Double> parseDisplayedValue(String text) {
+        Matcher matcher = LEADING_DISPLAY_VALUE_PATTERN.matcher(safe(text));
+        if (!matcher.find()) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(Double.parseDouble(matcher.group(1).replace(',', '.')));
+        } catch (NumberFormatException exception) {
+            return Optional.empty();
+        }
+    }
+
+    private static String stripLeadingTemperingMarker(String line) {
+        return safe(line).replaceFirst("^[\\s*★⭐✦✧✱✳✴✵✶✷✸✹✺✻✼✽✾❋❂◆◇♦●•]+", "").trim();
+    }
+
+    private static String resolvedTemperingDisplayText(ItemTemperingAffix affix, double resolvedValue) {
+        return TEMPERING_REGISTRY.findById(affix.getDefinitionId())
+                .map(definition -> "+" + formatTemperingValue(resolvedValue, definition.getUnit())
+                        + (definition.getUnit() == TemperingValueUnit.PERCENT ? "% " : " ")
+                        + definition.getDisplayName())
+                .orElse("+" + formatTemperingValue(resolvedValue, TemperingValueUnit.FLAT) + " " + affix.getDefinitionId());
+    }
+
+    private static String formatTemperingValue(double value, TemperingValueUnit unit) {
+        int scale = unit == TemperingValueUnit.PERCENT ? 1 : 0;
+        return java.math.BigDecimal.valueOf(value)
+                .setScale(scale, java.math.RoundingMode.HALF_UP)
+                .toPlainString()
+                .replace('.', ',');
+    }
+
+    private static String masterworkingQuality(ItemMasterworking masterworking) {
+        return masterworking == null ? "null" : masterworking.qualityLabel();
+    }
+
+    private static String perfectedAffixLabel(ItemMasterworking masterworking) {
+        MasterworkedAffixSelection selection = masterworking == null ? null : masterworking.getPerfectedAffix();
+        if (selection == null) {
+            return "null";
+        }
+        String source = selection.getSource() == null ? selection.getRawSource() : selection.getSource().name();
+        return source + ":" + selection.getKey();
+    }
+
+    private static String temperingReason(ItemTemperingAffix affix, ItemMasterworking masterworking, double resolvedValue) {
+        if (affix == null) {
+            return "no tempering affix";
+        }
+        if (Math.abs(affix.getValue() - resolvedValue) < 0.0000001d) {
+            return "stored value is used as resolved value";
+        }
+        if (masterworking != null
+                && MASTERWORKING_RESOLVER.isPerfectedTempering(masterworking, affix.getDefinitionId())) {
+            return "stored value is GA/base import value; resolved value uses masterworking perfected tempering";
+        }
+        return "stored value is GA/base import value; resolved value uses masterworking tempering";
+    }
+
+    private static String normalize(String value) {
+        return Normalizer.normalize(safe(value), Normalizer.Form.NFD)
+                .replace('Ł', 'L')
+                .replace('ł', 'l')
+                .replaceAll("\\p{M}", "")
+                .toUpperCase(Locale.ROOT)
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     private static String value(Object value) {
