@@ -203,7 +203,7 @@ class ItemImportPageRendererTest {
         assertTrue(socketSection.contains("Wykryty stat"));
         assertTrue(socketSection.contains("Runtime nieaktywny"));
         assertTrue(affixSection.contains("Ręczna weryfikacja affixów"));
-        assertEquals(4, countOccurrences(affixSection, "affix-row"));
+        assertEquals(4, countOccurrences(affixSection, "name=\"affixType_"));
         assertTrue(temperingSection.contains("★ +12 do maksymalnej liczby kumulacji Animuszu"));
         assertTrue(transfigurationSection.contains("Bonusowy affix Przeistoczenia"));
         assertTrue(transfigurationSection.contains("115"));
@@ -1488,19 +1488,6 @@ class ItemImportPageRendererTest {
             throw new AssertionError("Nie udało się wyciąć sekcji: " + heading);
         }
         return html.substring(start, end + "</section>".length());
-    }
-
-    private static String itemReadHeaderByHeading(String html, String heading) {
-        int headingIndex = html.indexOf("<h3>" + heading + "</h3>");
-        if (headingIndex < 0) {
-            throw new AssertionError("Brak sekcji pełnego odczytu: " + heading);
-        }
-        int start = html.indexOf("<div class=\"item-read-header\">", headingIndex);
-        int end = html.indexOf("<div class=\"item-read-groups\">", start);
-        if (start < 0 || end < 0) {
-            throw new AssertionError("Nie udało się wyciąć nagłówka pełnego odczytu: " + heading);
-        }
-        return html.substring(start, end);
     }
 
     private static String fieldSetByLegend(String html, String legend) {

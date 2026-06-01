@@ -1132,11 +1132,11 @@ class ItemImageImportServiceTest {
         assertTrue(html.contains("Dane tarczy"));
         String shieldFields = fieldSetByLegend(html, "Dane tarczy");
         assertTrue(shieldFields.contains("name=\"itemArmor\" value=\"1202\""), shieldFields);
-        assertFalse(html.contains("Linie bazowe"));
+        assertTrue(html.contains("Linie bazowe"));
         assertFalse(html.contains("Linie bazowe / implicit"));
         assertFalse(html.contains("Linie bazowe / implicity"));
-        assertFalse(html.contains("20,0% szansy na blok [20,0]%"));
-        assertFalse(html.contains("+100% obrażeń od broni w głównej ręce [100]%"));
+        assertTrue(html.contains("20,0% szansy na blok [20,0]%"));
+        assertTrue(html.contains("+100% obrażeń od broni w głównej ręce [100]%"));
         assertTrue(html.contains("Odporność na wszystkie żywioły"));
         assertTrue(html.contains("Odporność na Ogień"));
         assertTrue(html.contains("Redukcja obrażeń"));
@@ -1615,19 +1615,6 @@ class ItemImageImportServiceTest {
             index += expectedText.length();
         }
         return count;
-    }
-
-    private static String itemReadHeaderByHeading(String html, String heading) {
-        int headingIndex = html.indexOf("<h3>" + heading + "</h3>");
-        if (headingIndex < 0) {
-            throw new AssertionError("Brak sekcji pełnego odczytu: " + heading);
-        }
-        int start = html.indexOf("<div class=\"item-read-header\">", headingIndex);
-        int end = html.indexOf("<div class=\"item-read-groups\">", headingIndex);
-        if (start < 0 || end < 0 || end <= start) {
-            throw new AssertionError("Nie udało się wyciąć nagłówka pełnego odczytu: " + heading);
-        }
-        return html.substring(start, end);
     }
 
     private static String fieldSetByLegend(String html, String legend) {

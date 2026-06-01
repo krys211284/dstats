@@ -592,16 +592,4 @@ class ItemImportWebServerTest {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
-    private static String itemReadHeaderByHeading(String html, String heading) {
-        int headingIndex = html.indexOf("<h3>" + heading + "</h3>");
-        if (headingIndex < 0) {
-            throw new AssertionError("Brak sekcji pełnego odczytu: " + heading);
-        }
-        int start = html.indexOf("<div class=\"item-read-header\">", headingIndex);
-        int end = html.indexOf("<div class=\"item-read-groups\">", headingIndex);
-        if (start < 0 || end < 0 || end <= start) {
-            throw new AssertionError("Nie udało się wyciąć nagłówka pełnego odczytu: " + heading);
-        }
-        return html.substring(start, end);
-    }
 }

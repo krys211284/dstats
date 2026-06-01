@@ -1569,19 +1569,6 @@ class ItemImageImportTextParserTest {
         return html.substring(start, end + "</section>".length());
     }
 
-    private static String optionalLineGroupByHeading(String html, String heading) {
-        int headingIndex = html.indexOf("<h5>" + heading + "</h5>");
-        if (headingIndex < 0) {
-            return "";
-        }
-        int start = html.lastIndexOf("<section", headingIndex);
-        int end = html.indexOf("</section>", headingIndex);
-        if (start < 0 || end < 0) {
-            throw new AssertionError("Nie udało się wyciąć grupy linii: " + heading);
-        }
-        return html.substring(start, end + "</section>".length());
-    }
-
     private static FullItemReadLineType typeOf(ItemImageImportCandidateParseResult result, String lineText) {
         return result.getFullItemRead().getLines().stream()
                 .filter(line -> line.getText().equals(lineText))

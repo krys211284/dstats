@@ -218,90 +218,6 @@ public final class ItemImportPageRenderer {
         return html.toString();
     }
 
-    private static String renderFullItemReadSection(FullItemRead fullItemRead, String heading) {
-        if (fullItemRead == null || !fullItemRead.hasAnyData()) {
-            return """
-                    <section class="subpanel">
-                        <h3>%s</h3>
-                        <div class="empty-state">
-                            <p>OCR nie dostarczył stabilnych linii pełnego odczytu itemu. Foundation mapping nadal można potwierdzić ręcznie.</p>
-                        </div>
-                    </section>
-                    """.formatted(escapeHtml(heading));
-        }
-        List<FullItemReadLine> implicitLines = groupedLines(fullItemRead, ItemReadLineGroup.IMPLICIT);
-        List<FullItemReadLine> otherLines = groupedLines(fullItemRead, ItemReadLineGroup.OTHER);
-        List<FullItemReadLine> socketLines = groupedLines(fullItemRead, ItemReadLineGroup.SOCKET);
-        StringBuilder html = new StringBuilder("""
-                <section class="subpanel">
-                    <h3>%s</h3>
-                    <div class="item-read-header"></div>
-                    <div class="item-read-groups">
-                        <h4>Pełny zapis itemu</h4>
-                    """.formatted(escapeHtml(heading)));
-        html.append(renderLineGroup("Linie bazowe", implicitLines))
-                .append(renderLineGroup("Dodatkowe / sezonowe linie", otherLines))
-                .append(renderLineGroup("Socket / gniazdo", socketLines))
-                .append("</div>")
-                .append("</section>");
-        return html.toString();
-    }
-
-    private static String renderItemHeaderField(String label, String value) {
-        return """
-                <div class="item-header-field">
-                    <div class="summary-label">%s</div>
-                    <div class="summary-value">%s</div>
-                </div>
-                """.formatted(escapeHtml(label), escapeHtml(value));
-    }
-
-    private static String renderBaseValueHeader(FullItemRead fullItemRead) {
-        if (fullItemRead == null || fullItemRead.getBaseItemValue().isBlank()) {
-            return "";
-        }
-        if (isArmorBaseValue(fullItemRead.getBaseItemValue())) {
-            return "";
-        }
-        if (fullItemRead.getDetails().getWeaponDps() != null
-                || fullItemRead.getDetails().getWeaponDamageMin() != null
-                || fullItemRead.getDetails().getWeaponDamageMax() != null
-                || fullItemRead.getDetails().getItemArmor() != null) {
-            return "";
-        }
-        return renderItemHeaderField(baseValueLabel(fullItemRead.getBaseItemValue()), simplifyBaseValue(fullItemRead.getBaseItemValue()));
-    }
-
-    private static String renderLineGroup(String heading, List<FullItemReadLine> lines) {
-        return renderLineGroup(heading, lines, false);
-    }
-
-    private static String renderLineGroup(String heading, List<FullItemReadLine> lines, boolean primary) {
-        if (lines.isEmpty()) {
-            return "";
-        }
-        StringBuilder html = new StringBuilder("""
-                <section class="item-line-group%s">
-                    <h5>%s</h5>
-                    <ul class="item-line-list">
-                """.formatted(primary ? " item-line-group-primary" : "", escapeHtml(heading)));
-        for (FullItemReadLine line : lines) {
-            html.append("<li>").append(escapeHtml(line.getText())).append("</li>");
-        }
-        html.append("</ul></section>");
-        return html.toString();
-    }
-
-    private static List<FullItemReadLine> groupedLines(FullItemRead fullItemRead, ItemReadLineGroup group) {
-        List<FullItemReadLine> lines = new ArrayList<>();
-        for (FullItemReadLine line : fullItemRead.getLines()) {
-            if (classifyPresentationLine(line) == group) {
-                lines.add(line);
-            }
-        }
-        return lines;
-    }
-
     private static ItemReadLineGroup classifyPresentationLine(FullItemReadLine line) {
         String normalized = normalizeForDisplayRules(line.getText());
         if (line.getType() == FullItemReadLineType.ITEM_NAME
@@ -380,31 +296,6 @@ public final class ItemImportPageRenderer {
             return "Brak pewnego odczytu";
         }
         return value.isBlank() ? emptyLabel(itemPower) : value;
-    }
-
-    private static String baseValueLabel(String baseItemValue) {
-        String normalized = normalizeForDisplayRules(baseItemValue);
-        if (normalized.contains("PANCERZ") || normalized.contains("ARMOR")) {
-            return "Pancerz";
-        }
-        if (normalized.contains("OBRAZEN") || normalized.contains("DAMAGE")) {
-            return "Bazowe obrażenia";
-        }
-        return "Bazowa wartość";
-    }
-
-    private static boolean isArmorBaseValue(String baseItemValue) {
-        String normalized = normalizeForDisplayRules(baseItemValue);
-        return normalized.contains("PANCERZ") || normalized.contains("ARMOR");
-    }
-
-    private static String simplifyBaseValue(String baseItemValue) {
-        String value = firstNumber(baseItemValue);
-        String normalized = normalizeForDisplayRules(baseItemValue);
-        if ("1".equals(value) && (normalized.contains("OBRAZEN") || normalized.contains("DAMAGE"))) {
-            return "Brak pewnego odczytu";
-        }
-        return value.isBlank() ? emptyLabel(baseItemValue) : value;
     }
 
     private static String firstNumber(String value) {
