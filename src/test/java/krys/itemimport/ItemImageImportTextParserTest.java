@@ -24,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static krys.itemimport.ItemImportTextFixtures.heirOfPerditionBottomTextWithSocketGemStats;
+import static krys.itemimport.ItemImportTextFixtures.heirOfPerditionTopText;
 import static krys.itemimport.ItemImportTextFixtures.realShieldBottomText;
 import static krys.itemimport.ItemImportTextFixtures.realShieldTopText;
 
@@ -46,6 +48,37 @@ class ItemImageImportTextParserTest {
         assertEquals(EquipmentSlot.HELMET, result.getFullItemRead().getDetails().getEquipmentSlot());
         assertTrue(result.getFullItemRead().getDetails().isMythicUnique());
         assertTrue(form.isMythicUnique());
+    }
+
+    @Test
+    void shouldClassifyNumericLinesAfterUniqueEffectAsSocketGemRuneRegion() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata,
+                heirOfPerditionTopText() + "\n" + heirOfPerditionBottomTextWithSocketGemStats());
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(4, form.getAffixes().size());
+        assertFalse(form.getAffixes().stream().anyMatch(affix -> affix.getType() == ImportedItemAffixType.STRENGTH));
+        assertFalse(form.getAffixes().stream().anyMatch(affix -> affix.getType() == ImportedItemAffixType.INTELLIGENCE));
+        assertEquals(FullItemReadLineType.SOCKET, typeOf(result, "+150 siły"));
+        assertEquals(FullItemReadLineType.SOCKET, typeOf(result, "+120 siły"));
+        assertEquals(FullItemReadLineType.SOCKET, typeOf(result, "+120 inteligencji"));
+        assertEquals(FullItemReadLineType.SOCKET, typeOf(result, "+500 pkt. pancerza"));
+    }
+
+    @Test
+    void shouldStillTreatSameStatTextAsOrdinaryAffixBeforeEffectRegion() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                Testowy hełm
+                Starożytny legendarny hełm
+                Moc przedmiotu: 900
+                +120 inteligencji
+                Aspekt testowy
+                Zadajesz obrażenia zwiększone o 10%[x].
+                """);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(FullItemReadLineType.AFFIX, typeOf(result, "+120 inteligencji"));
+        assertTrue(form.getAffixes().stream().anyMatch(affix -> affix.getType() == ImportedItemAffixType.INTELLIGENCE));
     }
 
     @Test
@@ -1550,6 +1583,14 @@ class ItemImageImportTextParserTest {
             throw new AssertionError("Nie udało się wyciąć grupy linii: " + heading);
         }
         return html.substring(start, end + "</section>".length());
+    }
+
+    private static FullItemReadLineType typeOf(ItemImageImportCandidateParseResult result, String lineText) {
+        return result.getFullItemRead().getLines().stream()
+                .filter(line -> line.getText().equals(lineText))
+                .map(FullItemReadLine::getType)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Brak linii w pełnym odczycie: " + lineText));
     }
 
 }

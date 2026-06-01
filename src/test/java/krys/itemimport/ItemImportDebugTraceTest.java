@@ -15,6 +15,7 @@ import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -103,9 +104,45 @@ class ItemImportDebugTraceTest {
         )));
 
         assertTrue(logs.contains("MERGE_DECISION"));
+        assertTrue(logs.contains("MERGE_SEGMENT_DECISION"));
+        assertTrue(logs.contains("decision=acceptedAsOrdinary"));
         assertTrue(logs.contains("MERGE_REJECTED"));
         assertTrue(logs.contains("MERGE_NUMERIC_TOKENS"));
         assertTrue(logs.contains("[12,0]"));
+    }
+
+    @Test
+    void traceMergeraPokazujeDecyzjeRegionowDlaSegmentowZDlugiejLinii() throws Exception {
+        enableDebugForTest();
+
+        String logs = captureLogs(() -> new ItemScreenshotTextMerger().merge(List.of(
+                "+25,0% szansy na szczęśliwy traf [20,0]% "
+                        + "+3 do umiejętności: Główne [3] "
+                        + "+115 pkt. do wszystkich współczynników "
+                        + "+12 do maksymalnej liczby kumulacji Animuszu "
+                        + "Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x]. "
+                        + "+150 siły Puste gniazdo Wymaga 70 poziomu"
+        )));
+
+        assertTrue(logs.contains("MERGE_SEGMENT_DECISION"), logs);
+        assertTrue(logs.contains("decision=acceptedAsOrdinary"), logs);
+        assertTrue(logs.contains("decision=acceptedAsTransfiguration"), logs);
+        assertTrue(logs.contains("decision=acceptedAsTempering"), logs);
+        assertTrue(logs.contains("decision=acceptedAsAspect"), logs);
+        assertTrue(logs.contains("SOCKET_GEM_RUNE_CANDIDATE"), logs);
+        assertTrue(logs.contains("decision=ignoredAsSocketGemRune"), logs);
+        assertTrue(logs.contains("segmentStart="), logs);
+        assertTrue(logs.contains("segmentEnd="), logs);
+        assertTrue(logs.contains("firstAspectEffectStart="), logs);
+        assertTrue(logs.contains("firstSocketGemRuneStart="), logs);
+        assertTrue(logs.contains("firstLoreVendorRequirementStart="), logs);
+        assertTrue(logs.contains("effectiveSegmentRegion=ORDINARY_AFFIX_REGION"), logs);
+        assertTrue(logs.contains("effectiveSegmentRegion=TRANSFIGURATION_REGION"), logs);
+        assertTrue(logs.contains("effectiveSegmentRegion=TEMPERING_REGION"), logs);
+        assertTrue(logs.contains("effectiveSegmentRegion=SOCKET_GEM_RUNE_REGION"), logs);
+        assertTrue(logs.contains("localAnchorType=ORDINARY_AFFIX"), logs);
+        assertTrue(logs.contains("localAnchorType=TRANSFIGURATION"), logs);
+        assertTrue(logs.contains("localAnchorType=TEMPERING"), logs);
     }
 
     @Test
@@ -152,6 +189,59 @@ class ItemImportDebugTraceTest {
         assertTrue(logs.contains("runtimeStatus=DATA_ONLY"), logs);
         assertTrue(logs.contains("stored value is GA/base import value; resolved value uses masterworking perfected tempering"), logs);
         assertFalse(logs.contains("displayText=\"+5 do maksymalnej liczby kumulacji Animuszu\""), logs);
+    }
+
+    @Test
+    void tracePokazujeIgnorowanieStatowZGniazdBezAffixCandidate() throws Exception {
+        enableDebugForTest();
+
+        String logs = captureLogs(() -> {
+            ItemImageImportCandidateParseResult result = multiScreenService(
+                    List.of(variant("helm-top", ItemImportTextFixtures.heirOfPerditionTopText())),
+                    List.of(variant("helm-bottom", ItemImportTextFixtures.heirOfPerditionBottomTextWithJoinedSocketGemStatsAndFooter()))
+            ).analyze(List.of(request("dziedzic-top.png"), request("dziedzic-bottom.png")));
+            ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+            assertTrue(form.getAffixes().stream().noneMatch(affix -> affix.getType() == ImportedItemAffixType.STRENGTH));
+            assertTrue(form.getAffixes().stream().noneMatch(affix -> affix.getType() == ImportedItemAffixType.INTELLIGENCE));
+            assertEquals(2, form.getSocketing().getOccupiedSocketCount());
+        });
+
+        assertTrue(logs.contains("SOCKET_GEM_RUNE_CANDIDATE"), logs);
+        assertTrue(logs.contains("variantId=\"helm-bottom\""), logs);
+        assertTrue(logs.contains("sourceRawLine=\". SIŁY +120 siły"), logs);
+        assertTrue(logs.contains("sourceRegion=SOCKET_GEM_RUNE_REGION"), logs);
+        assertTrue(logs.contains("parentLineRegion=ASPECT_EFFECT_REGION"), logs);
+        assertTrue(logs.contains("parentLineRegion=LORE_VENDOR_REQUIREMENT_REGION"), logs);
+        assertTrue(logs.contains("derivedFromSplit=true"), logs);
+        assertTrue(logs.contains("segmentStart="), logs);
+        assertTrue(logs.contains("segmentEnd="), logs);
+        assertTrue(logs.contains("firstAspectEffectStart="), logs);
+        assertTrue(logs.contains("firstLoreVendorRequirementStart="), logs);
+        assertTrue(logs.contains("effectiveSegmentRegion=SOCKET_GEM_RUNE_REGION"), logs);
+        assertTrue(logs.contains("localAnchorType=SOCKET_GEM_RUNE"), logs);
+        assertTrue(logs.contains("decision=ignoredAsSocketGemRune"), logs);
+        assertTrue(logs.contains("decision=acceptedAsOrdinary"), logs);
+        assertTrue(logs.contains("logicalLine=\"+150 siły\""), logs);
+        assertTrue(logs.contains("matchedAffixType=STRENGTH"), logs);
+        assertTrue(logs.contains("logicalLine=\"+120 siły\""), logs);
+        assertTrue(logs.contains("logicalLine=\"+120 inteligencji\""), logs);
+        assertTrue(logs.contains("matchedAffixType=INTELLIGENCE"), logs);
+        assertTrue(logs.contains("ignoredForOrdinaryAffixes=true"), logs);
+        assertTrue(logs.contains("reason=\"source line belongs to socket/gem/rune region before merger\""), logs);
+        assertFalse(logs.contains("MERGE_DECISION logicalLine=\"affix:strength\" selected=\"+150 siły\""), logs);
+        assertFalse(logs.contains("MERGE_DECISION logicalLine=\"affix:strength\" selected=\"+120 siły\""), logs);
+        assertTrue(logs.contains("SOCKET_GEM_RUNE_MODEL"), logs);
+        assertTrue(logs.contains("occupiedSocketCount=2"), logs);
+        assertTrue(logs.contains("emptySocketCount=0"), logs);
+        assertTrue(logs.contains("totalSocketCount=2"), logs);
+        assertTrue(logs.contains("sourceCategory=socketGemRune"), logs);
+        assertTrue(logs.contains("displayText=\"+150 siły\""), logs);
+        assertTrue(logs.contains("displayText=\"+120 siły\""), logs);
+        assertTrue(logs.contains("FINAL_IMPORT_FORM"), logs);
+        assertTrue(logs.contains("ordinaryAffixes=4"), logs);
+        assertFalse(logs.contains("sourceCategory=ordinary type=STRENGTH value=150.0000"), logs);
+        assertFalse(logs.contains("sourceCategory=ordinary type=STRENGTH value=120.0000"), logs);
+        assertFalse(logs.contains("sourceCategory=ordinary type=INTELLIGENCE value=120.0000"), logs);
     }
 
     @Test

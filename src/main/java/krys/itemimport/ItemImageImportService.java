@@ -124,7 +124,7 @@ public final class ItemImageImportService {
                         .map(ItemImageOcrTextVariant::getText)
                         .toList();
                 logMergerInput("SCREEN_MERGER_INPUT", requestIndex, variantTexts);
-                String mergedScreenText = textMerger.merge(variantTexts);
+                String mergedScreenText = textMerger.mergeTextVariants(textVariants);
                 logMergerOutput("SCREEN_MERGER_OUTPUT", "screen=" + requestIndex + " scope=per-screen", mergedScreenText);
                 ocrTexts.add(mergedScreenText);
             }

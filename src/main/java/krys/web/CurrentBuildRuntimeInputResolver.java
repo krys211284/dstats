@@ -9,6 +9,8 @@ import krys.itemlibrary.CurrentHeroActiveItemStats;
 import krys.itemlibrary.EffectiveCurrentBuildResolution;
 import krys.itemlibrary.HeroSlotItemAssignment;
 import krys.tempering.ItemTemperingAffix;
+import krys.socketing.ItemSocket;
+import krys.socketing.SocketContentType;
 
 import java.util.Optional;
 
@@ -133,6 +135,16 @@ final class CurrentBuildRuntimeInputResolver {
                         assignment.getItem().getMasterworking(),
                         resolvedValue
                 ));
+            }
+            for (ItemSocket socket : assignment.getItem().getSocketing().getSockets()) {
+                if (socket.getContentType() == SocketContentType.DETECTED_STAT) {
+                    ItemImportDebugTrace.log("RUNTIME_CONTRIBUTION", () -> "RUNTIME_SOCKET_GEM_RUNE "
+                            + "slot=" + assignment.getHeroSlot()
+                            + " itemId=" + assignment.getItem().getItemId()
+                            + " item=" + ItemImportDebugTrace.quote(assignment.getItem().getDisplayName())
+                            + " socketIndex=" + socket.getIndex()
+                            + " " + ItemImportDebugTrace.formatSocketGemRuneStat(socket.getDetectedStat()));
+                }
             }
         }
         ItemImportDebugTrace.log("RUNTIME_CONTRIBUTION", () -> "RUNTIME_SUM criticalChanceFromItemsPercent="

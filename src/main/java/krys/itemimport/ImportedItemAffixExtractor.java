@@ -58,7 +58,12 @@ public final class ImportedItemAffixExtractor {
         Map<String, ImportedItemAffix> affixes = new LinkedHashMap<>();
         int displayOrder = 0;
         for (FullItemReadLine line : fullItemRead.getLines()) {
+            logSocketGemRuneRegionLine(line);
             if (!isEditableAffixLine(line)) {
+                continue;
+            }
+            if (isObviousNonOrdinaryAffixLeak(line)) {
+                logIgnoredNonOrdinaryAffixLeak(line);
                 continue;
             }
             for (ImportedItemAffix affix : extractAffixesFromLine(line, displayOrder, verathielContext,
@@ -127,6 +132,37 @@ public final class ImportedItemAffixExtractor {
         return new ArrayList<>(preferred.values());
     }
 
+    private void logSocketGemRuneRegionLine(FullItemReadLine line) {
+        if (line == null || line.getType() != FullItemReadLineType.SOCKET) {
+            return;
+        }
+        List<AffixRegistry.AffixTextMatch> matches = affixRegistry.findMatches(line.getText());
+        if (matches.isEmpty()) {
+            ItemImportDebugTrace.log("SOCKET_REGION_LINE", () -> "regionCategory=SOCKET_GEM_RUNE_REGION"
+                    + " sourceLine=" + ItemImportDebugTrace.compactText(line.getText())
+                    + " ignoredForOrdinaryAffixes=true"
+                    + " reason=" + ItemImportDebugTrace.quote("line belongs to socket/gem/rune region"));
+            return;
+        }
+        List<AffixRegistry.AffixTextMatch> compactMatches = removeContainedMatches(matches);
+        String matchedAffixType = compactMatches.stream()
+                .map(match -> match.definition().getFormType().name())
+                .distinct()
+                .reduce((left, right) -> left + "," + right)
+                .orElse("");
+        String matchedDefinitionIds = compactMatches.stream()
+                .map(match -> match.definition().getId())
+                .distinct()
+                .reduce((left, right) -> left + "," + right)
+                .orElse("");
+        ItemImportDebugTrace.log("SOCKET_GEM_RUNE_CANDIDATE", () -> "regionCategory=SOCKET_GEM_RUNE_REGION"
+                + " sourceLine=" + ItemImportDebugTrace.compactText(line.getText())
+                + " matchedAffixType=" + matchedAffixType
+                + " matchedDefinitionIds=" + ItemImportDebugTrace.quote(matchedDefinitionIds)
+                + " ignoredForOrdinaryAffixes=true"
+                + " reason=" + ItemImportDebugTrace.quote("line belongs to socket/gem/rune region"));
+    }
+
     static boolean isEditableAffixLine(FullItemReadLine line) {
         if (line == null || line.getType() != FullItemReadLineType.AFFIX) {
             return false;
@@ -142,6 +178,48 @@ public final class ImportedItemAffixExtractor {
                 && !normalized.contains("RYNSZTUNEK W ZBROJOWNI")
                 && !normalized.contains("ROZJUSZENIE")
                 && !normalized.contains("UMIEJETNOSCI PODSTAWOWE");
+    }
+
+    private static boolean isObviousNonOrdinaryAffixLeak(FullItemReadLine line) {
+        if (line == null || line.getType() != FullItemReadLineType.AFFIX) {
+            return false;
+        }
+        String text = line.getText();
+        if (ImportedItemAffixType.detectFromLine(text).isEmpty() || firstNumber(text).isEmpty()) {
+            return false;
+        }
+        String normalized = normalize(text);
+        String collapsed = normalized.replaceAll("[^A-Z0-9]", "");
+        return containsAny(collapsed, List.of(
+                "WYMAGA",
+                "POZIOMU",
+                "WARTOSCSPRZEDAZY",
+                "PRZYPISANODOKONTA",
+                "STRZEZ",
+                "PODDAJSIENIENAWISCI",
+                "LASKIMATKI",
+                "EFEKTLASKIMATKI",
+                "BRAKMOZLIWOSCIMODYFIKACJI",
+                "PRZEDMIOTZDODATKU"
+        ));
+    }
+
+    private static boolean containsAny(String value, List<String> needles) {
+        for (String needle : needles) {
+            if (value.contains(needle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void logIgnoredNonOrdinaryAffixLeak(FullItemReadLine line) {
+        ImportedItemAffixType.detectFromLine(line.getText()).ifPresent(type ->
+                ItemImportDebugTrace.log("SOCKET_GEM_RUNE_CANDIDATE", () -> "regionCategory=NON_ORDINARY_LEAK_GUARD"
+                        + " sourceLine=" + ItemImportDebugTrace.compactText(line.getText())
+                        + " matchedAffixType=" + type.name()
+                        + " ignoredForOrdinaryAffixes=true"
+                        + " reason=" + ItemImportDebugTrace.quote("line contains footer/effect markers and is not ordinary affix region")));
     }
 
     private static List<ImportedItemAffix> stableKoscianychLusekShieldAffixes(List<ImportedItemAffix> candidates) {

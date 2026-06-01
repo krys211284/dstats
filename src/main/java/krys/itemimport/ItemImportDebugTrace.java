@@ -5,6 +5,9 @@ import krys.itemlibrary.SavedImportedItem;
 import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkedAffixSelection;
 import krys.masterworking.MasterworkingResolvedItemValueResolver;
+import krys.socketing.ItemSocket;
+import krys.socketing.ItemSocketing;
+import krys.socketing.SocketGemRuneStat;
 import krys.tempering.ApplicationTemperingAffixRegistry;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingAffixDefinition;
@@ -229,7 +232,8 @@ public final class ItemImportDebugTrace {
                 + " selectedAspectId=" + quote(form.getSelectedAspectId())
                 + " ordinaryAffixes=" + form.getAffixes().size()
                 + " tempering=" + form.getTemperingAffixes().size()
-                + " transfiguration=" + formatTransfiguration(form.getTransfiguration());
+                + " transfiguration=" + formatTransfiguration(form.getTransfiguration())
+                + " " + formatSocketing(form.getSocketing());
     }
 
     public static String formatSavedItem(SavedImportedItem item) {
@@ -243,7 +247,43 @@ public final class ItemImportDebugTrace {
                 + " mythicUnique=" + item.getDetails().isMythicUnique()
                 + " affixes=" + item.getAffixes().size()
                 + " tempering=" + item.getTemperingAffixes().size()
-                + " transfiguration=" + formatTransfiguration(item.getTransfiguration());
+                + " transfiguration=" + formatTransfiguration(item.getTransfiguration())
+                + " " + formatSocketing(item.getSocketing());
+    }
+
+    public static String formatSocketing(ItemSocketing socketing) {
+        ItemSocketing safe = socketing == null ? ItemSocketing.empty() : socketing;
+        return "emptySocketCount=" + safe.getEmptySocketCount()
+                + " occupiedSocketCount=" + safe.getOccupiedSocketCount()
+                + " totalSocketCount=" + safe.getTotalSocketCount()
+                + " socketGemRuneStats=" + safe.getDetectedStats().size();
+    }
+
+    public static String formatSocket(ItemSocket socket) {
+        if (socket == null) {
+            return "socket=null";
+        }
+        SocketGemRuneStat stat = socket.getDetectedStat();
+        return "socketIndex=" + socket.getIndex()
+                + " contentType=" + socket.getContentType()
+                + " gemId=" + quote(socket.getGemId())
+                + (stat == null ? "" : " " + formatSocketGemRuneStat(stat));
+    }
+
+    public static String formatSocketGemRuneStat(SocketGemRuneStat stat) {
+        if (stat == null) {
+            return "socketGemRuneStat=null";
+        }
+        return "sourceCategory=socketGemRune"
+                + " displayText=" + compactText(stat.getDisplayText())
+                + " normalizedText=" + quote(stat.getNormalizedText())
+                + " value=" + value(stat.getValue())
+                + " matchedAffixType=" + value(stat.getMatchedAffixType())
+                + " sourceRegion=" + quote(stat.getSourceRegion())
+                + " runtimeStatus=" + quote(stat.getRuntimeStatus())
+                + " ignoredForRuntime=true"
+                + " reason=" + quote("socket/gem/rune runtime is not implemented/verified")
+                + " sourceLine=" + compactText(stat.getSourceLine());
     }
 
     public static String formatRuntimeAssignment(HeroSlotItemAssignment assignment,

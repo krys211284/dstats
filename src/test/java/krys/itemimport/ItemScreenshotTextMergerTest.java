@@ -136,6 +136,128 @@ class ItemScreenshotTextMergerTest {
     }
 
     @Test
+    void shouldNotPromoteSocketGemRuneStatsAfterEffectToOrdinaryAffixKeys() {
+        String merged = merger.merge(List.of(
+                """
+                        Dziedzic Zatracenia
+                        Starożytny mityczny unikatowy hełm
+                        Moc przedmiotu: 900
+                        +15,0% szansy na trafienie krytyczne [12,0]%
+                        +25,0% szansy na szczęśliwy traf [20,0]%
+                        +25% szybkości ruchu [20]%
+                        +3 do umiejętności: Główne [3]
+                        Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x].
+                        +150 siły
+                        +120 siły
+                        +120 inteligencji
+                        +120 zręczności
+                        +120 siły woli
+                        +500 pkt. pancerza
+                        +35 do odporności na wszystkie żywioły
+                        Wymaga 70 poziomu
+                        """
+        ));
+
+        assertTrue(merged.contains("+15,0% szansy na trafienie krytyczne [12,0]%"), merged);
+        assertTrue(merged.contains("+25,0% szansy na szczęśliwy traf [20,0]%"), merged);
+        assertTrue(merged.contains("+25% szybkości ruchu [20]%"), merged);
+        assertTrue(merged.contains("+3 do umiejętności: Główne [3]"), merged);
+        assertTrue(merged.contains("+150 siły"), merged);
+        assertTrue(merged.contains("+120 siły"), merged);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(new ItemImageImportTextParser().parse(
+                new ItemImageMetadata("socket-region.png", "image/png", "MULTI", 327, 1444),
+                merged
+        ));
+        assertFalse(form.getAffixes().stream().anyMatch(affix -> affix.getType() == ImportedItemAffixType.STRENGTH));
+        assertFalse(form.getAffixes().stream().anyMatch(affix -> affix.getType() == ImportedItemAffixType.INTELLIGENCE));
+        assertEquals(2, form.getSocketing().getOccupiedSocketCount());
+    }
+
+    @Test
+    void shouldProtectSplitLogicalLinesFromBottomSocketStatsInJoinedEffectCrop() {
+        String merged = merger.merge(List.of(
+                "Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x]. +120 siły"
+        ));
+
+        assertTrue(merged.contains("Poddaj się nienawiści"), merged);
+        assertTrue(merged.contains("+120 siły"), merged);
+    }
+
+    @Test
+    void shouldInheritLoreRegionForSplitStatsFromFooterLine() {
+        String merged = merger.merge(List.of(
+                ". SIŁY +120 siły +120 inteligencji +120 zręczności +120 siły woli +500 pkt. pancerza Puste gniazdo Wymaga 70 poziomu Przypisano do konta"
+        ));
+
+        assertTrue(merged.contains("+120 siły"), merged);
+        assertFalse(merged.contains("+120 inteligencji"), merged);
+        assertFalse(merged.contains("+120 zręczności"), merged);
+        assertFalse(merged.contains("+120 siły woli"), merged);
+        assertFalse(merged.contains("+500 pkt. pancerza"), merged);
+        assertFalse(merged.contains("500 pkt. pancerza"), merged);
+    }
+
+    @Test
+    void shouldNotCreateStrengthMergeDecisionFromSplitBottomRegionShape() {
+        String merged = merger.merge(List.of(
+                "Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x]. Zabijaj wrogów, aby na chwilę ukraść pobliskim sojusznikom efekt Łaski Matki. Ę +150 siły",
+                ". SIŁY +120 siły +120 inteligencji +500 pkt. pancerza Puste gniazdo Wymaga 70 poziomu"
+        ));
+
+        assertTrue(merged.contains("Poddaj się nienawiści"), merged);
+        assertTrue(merged.contains("+150 siły"), merged);
+        assertTrue(merged.contains("+120 siły"), merged);
+        assertFalse(merged.contains("+120 inteligencji"), merged);
+    }
+
+    @Test
+    void shouldKeepSameStatAsOrdinaryAffixBeforeEffectRegion() {
+        String merged = merger.merge(List.of(
+                """
+                        Generyczna tarcza
+                        Starożytna legendarna tarcza
+                        Moc przedmiotu: 900
+                        +120 siły
+                        Gdy masz umocnienie, zadajesz obrażenia zwiększone o 61%[x] [45 - 65]%.
+                        """
+        ));
+
+        assertTrue(merged.contains("+120 siły"), merged);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(new ItemImageImportTextParser().parse(
+                new ItemImageMetadata("ordinary-strength.png", "image/png", "MULTI", 327, 1444),
+                merged
+        ));
+        assertTrue(form.getAffixes().stream().anyMatch(affix -> affix.getType() == ImportedItemAffixType.STRENGTH));
+    }
+
+    @Test
+    void shouldKeepOrdinaryTransfigurationAndTemperingSegmentsBeforeEffectInLongRawLine() {
+        String merged = merger.merge(List.of(
+                "Dziedzic Zatracenia Starożytny mityczny unikatowy hełm Moc przedmiotu: 900 "
+                        + "+15,0% szansy na trafienie krytyczne [12,0]% "
+                        + "+25,0% szansy na szczęśliwy traf [20,0]% "
+                        + "+25% szybkości ruchu [20]% "
+                        + "+3 do umiejętności: Główne [3] "
+                        + "+115 pkt. do wszystkich współczynników "
+                        + "+12 do maksymalnej liczby kumulacji Animuszu "
+                        + "Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x]. "
+                        + "+150 siły +120 inteligencji +500 pkt. pancerza Puste gniazdo Wymaga 70 poziomu"
+        ));
+
+        assertTrue(merged.contains("+15,0% szansy na trafienie krytyczne [12,0]%"), merged);
+        assertTrue(merged.contains("+25,0% szansy na szczęśliwy traf [20,0]%"), merged);
+        assertTrue(merged.contains("+25% szybkości ruchu [20]%"), merged);
+        assertTrue(merged.contains("+3 do umiejętności: Główne [3]"), merged);
+        assertTrue(merged.contains("+115 pkt. do wszystkich współczynników"), merged);
+        assertTrue(merged.contains("+12 do maksymalnej liczby kumulacji Animuszu"), merged);
+        assertTrue(merged.contains("Poddaj się nienawiści"), merged);
+        assertTrue(merged.contains("Puste gniazdo"), merged);
+        assertTrue(merged.contains("+150 siły"), merged);
+        assertFalse(merged.contains("+120 inteligencji"), merged);
+        assertFalse(merged.contains("+500 pkt. pancerza"), merged);
+    }
+
+    @Test
     void shouldPreserveDamagedMythicReferenceBeforeParserNormalizesIt() {
         String merged = merger.merge(List.of(
                 """

@@ -149,6 +149,39 @@ final class ItemImportTextFixtures {
                 """;
     }
 
+    static String heirOfPerditionBottomTextWithSocketGemStats() {
+        return heirOfPerditionBottomText()
+                .replace("Puste gniazdo\nPuste gniazdo",
+                        """
+                        +150 siły
+                        +120 siły
+                        +120 inteligencji
+                        +500 pkt. pancerza
+                        Puste gniazdo
+                        Puste gniazdo""");
+    }
+
+    static String heirOfPerditionBottomTextWithJoinedSocketGemStatsAndFooter() {
+        return """
+                Przewiń do góry
+                +25,0% szansy na szczęśliwy traf
+                [20,0]%
+                +25% szybkości ruchu [20]%
+                +3 do umiejętności: Główne [3]
+                +115 pkt. do wszystkich
+                współczynników +[75 - 100]
+                +12 do maksymalnej liczby
+                kumulacji Animuszu
+                Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x]. Zabijaj wrogów, aby na chwilę ukraść pobliskim sojusznikom efekt Łaski Matki. Ę +150 siły
+                . SIŁY +120 siły +120 inteligencji +120 zręczności +120 siły woli +500 pkt. pancerza Puste gniazdo Wymaga 70 poziomu Przypisano do konta
+                Unikatowe wyposażenie
+                Przedmiot z dodatku Lord of Hatred
+                Brak możliwości modyfikacji
+                Wartość sprzedaży: 115 350
+                Trwałość: 70/100
+                """;
+    }
+
     static String heirOfPerditionCurrentScreenTopTextWithCoreRanks2() {
         return heirOfPerditionTopText()
                 .replace("+3 do umiejętności: Główne [3]", "+2 do umiejętności: Główne [2]");

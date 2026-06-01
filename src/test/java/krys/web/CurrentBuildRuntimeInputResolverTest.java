@@ -18,6 +18,9 @@ import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
 import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkedAffixSelection;
+import krys.socketing.ItemSocket;
+import krys.socketing.ItemSocketing;
+import krys.socketing.SocketGemRuneStat;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
@@ -177,6 +180,8 @@ class CurrentBuildRuntimeInputResolverTest {
         CurrentBuildImportableStats runtimeStats = resolver.resolve(hero(selection, formData), formData, resolution);
 
         assertEquals(15.0d, resolution.getActiveItemsContribution().getCriticalChancePercent(), 0.0000001d);
+        assertEquals(0.0d, resolution.getActiveItemsContribution().getStrength(), 0.0000001d);
+        assertEquals(0.0d, resolution.getActiveItemsContribution().getIntelligence(), 0.0000001d);
         assertEquals(20.2d, runtimeStats.getCriticalChancePercent(), 0.0000001d);
         assertNotEquals(23.2d, runtimeStats.getCriticalChancePercent(), 0.0000001d);
         assertEquals(15.0d, resolution.getActiveHeroItemStats().getCriticalChancePercent(), 0.0000001d);
@@ -250,6 +255,32 @@ class CurrentBuildRuntimeInputResolverTest {
         assertLogsContain(logs, "masterworkingQuality=25/25");
         assertLogsContain(logs, "perfectedAffix=\"TEMPERING_AFFIX:defense_max_animus\"");
         assertLogsContain(logs, "reason=\"stored value is GA/base import value; resolved value uses masterworking perfected tempering\"");
+    }
+
+    @Test
+    void shouldKeepDetectedSocketGemRuneStatsRuntimeInactive() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("runtime-input-socket-stat");
+        ItemLibraryService service = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+        SavedImportedItem helmet = service.saveImportedItem(heirOfPerditionHelmetWithDetectedSocketStats());
+        CurrentBuildFormData formData = level70FormData();
+        HeroItemSelection selection = HeroItemSelection.empty().withSelectedItem(HeroEquipmentSlot.HELMET, helmet.getItemId());
+        EffectiveCurrentBuildResolution resolution = service.resolveEffectiveCurrentBuild(legacyStats(), selection);
+        System.setProperty(ItemImportDebugTrace.JVM_PROPERTY, "true");
+        System.setProperty(ItemImportDebugTrace.FILE_PROPERTY, "");
+
+        final CurrentBuildImportableStats[] runtimeStats = new CurrentBuildImportableStats[1];
+        String logs = captureItemImportDebugLogs(() ->
+                runtimeStats[0] = resolver.resolve(hero(selection, formData), formData, resolution));
+
+        assertEquals(79.0d, runtimeStats[0].getStrength(), 0.0001d);
+        assertEquals(76.0d, runtimeStats[0].getIntelligence(), 0.0001d);
+        assertEquals(0.0d, resolution.getActiveItemsContribution().getStrength(), 0.0001d);
+        assertEquals(0.0d, resolution.getActiveItemsContribution().getIntelligence(), 0.0001d);
+        assertLogsContain(logs, "RUNTIME_SOCKET_GEM_RUNE");
+        assertLogsContain(logs, "displayText=\"+150 siły\"");
+        assertLogsContain(logs, "displayText=\"+120 siły\"");
+        assertLogsContain(logs, "ignoredForRuntime=true");
+        assertLogsContain(logs, "socket/gem/rune runtime is not implemented/verified");
     }
 
     private static HeroProfile hero(HeroItemSelection selection, CurrentBuildFormData formData) {
@@ -379,6 +410,30 @@ class CurrentBuildRuntimeInputResolverTest {
                         "Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x]. Zabijaj wrogów, aby na chwilę ukraść pobliskim sojusznikom efekt Łaski Matki.",
                         true
                 )
+        );
+    }
+
+    private static ValidatedImportedItem heirOfPerditionHelmetWithDetectedSocketStats() {
+        ValidatedImportedItem base = heirOfPerditionHelmet();
+        return new ValidatedImportedItem(
+                base.getSourceImageName(),
+                base.getSlot(),
+                base.getWeaponDamage(),
+                base.getStrength(),
+                base.getIntelligence(),
+                base.getThorns(),
+                base.getBlockChance(),
+                base.getRetributionChance(),
+                base.getAffixes(),
+                base.getSelectedAspectId(),
+                base.getDetails(),
+                base.getTemperingAffixes(),
+                base.getMasterworking(),
+                base.getTransfiguration(),
+                new ItemSocketing(2, List.of(
+                        ItemSocket.detectedStat(0, SocketGemRuneStat.fromDetectedLine("+150 siły")),
+                        ItemSocket.detectedStat(1, SocketGemRuneStat.fromDetectedLine("+120 siły"))
+                ))
         );
     }
 

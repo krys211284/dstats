@@ -15,6 +15,7 @@ import krys.masterworking.MasterworkedAffixSource;
 import krys.socketing.ItemSocket;
 import krys.socketing.ItemSocketing;
 import krys.socketing.SocketContentType;
+import krys.socketing.SocketGemRuneStat;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
@@ -276,6 +277,13 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                     + " temperingIndex=" + finalIndex
                     + " " + ItemImportDebugTrace.formatTempering(affix));
         }
+        for (int index = 0; index < item.getSocketing().getSockets().size(); index++) {
+            int finalIndex = index;
+            ItemSocket socket = item.getSocketing().getSockets().get(index);
+            ItemImportDebugTrace.log(section, () -> "operation=" + operation
+                    + " socketIndex=" + finalIndex
+                    + " " + ItemImportDebugTrace.formatSocket(socket));
+        }
     }
 
     private static String decode(String value) {
@@ -408,11 +416,20 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
         List<String> payloadLines = new ArrayList<>();
         payloadLines.add("COUNT|" + safe.getSocketCount());
         for (ItemSocket socket : safe.getSockets()) {
+            SocketGemRuneStat stat = socket.getDetectedStat();
             payloadLines.add(String.join("|",
                     "SOCKET",
                     Integer.toString(socket.getIndex()),
                     socket.getContentType().name(),
-                    encode(socket.getGemId())
+                    encode(socket.getGemId()),
+                    encode(stat == null ? "" : stat.getDisplayText()),
+                    encode(stat == null ? "" : stat.getNormalizedText()),
+                    encodeDouble(stat == null ? null : stat.getValue()),
+                    stat == null || stat.getMatchedAffixType() == null ? "" : stat.getMatchedAffixType().name(),
+                    encode(stat == null ? "" : stat.getSourceLine()),
+                    encode(stat == null ? "SOCKET_GEM_RUNE_REGION" : stat.getSourceRegion()),
+                    encode(stat == null ? SocketGemRuneStat.RUNTIME_STATUS : stat.getRuntimeStatus()),
+                    Boolean.toString(stat != null && stat.isNeedsReview())
             ));
         }
         return encode(String.join("\n", payloadLines));
@@ -658,10 +675,24 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                 continue;
             }
             if ("SOCKET".equals(tokens[0]) && tokens.length >= 4) {
+                SocketGemRuneStat detectedStat = null;
+                if (tokens.length >= 12) {
+                    detectedStat = new SocketGemRuneStat(
+                            decode(tokens[4]),
+                            decode(tokens[5]),
+                            decodeDouble(tokens[6]),
+                            tokens[7].isBlank() ? null : ImportedItemAffixType.valueOf(tokens[7]),
+                            decode(tokens[8]),
+                            decode(tokens[9]),
+                            decode(tokens[10]),
+                            Boolean.parseBoolean(tokens[11])
+                    );
+                }
                 sockets.add(new ItemSocket(
                         Integer.parseInt(tokens[1]),
                         SocketContentType.valueOf(tokens[2]),
-                        decode(tokens[3])
+                        decode(tokens[3]),
+                        detectedStat
                 ));
             }
         }

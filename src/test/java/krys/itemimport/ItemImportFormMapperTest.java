@@ -10,6 +10,7 @@ import krys.masterworking.MasterworkedAffixSource;
 import krys.socketing.ItemSocket;
 import krys.socketing.ItemSocketing;
 import krys.socketing.SocketContentType;
+import krys.socketing.SocketGemRuneStat;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
@@ -63,6 +64,24 @@ class ItemImportFormMapperTest {
         assertEquals(1, result.getItem().getSocketing().getSocketCount());
         assertEquals(SocketContentType.GEM, result.getItem().getSocketing().socketAt(0).getContentType());
         assertEquals("diamond_grand", result.getItem().getSocketing().socketAt(0).getGemId());
+    }
+
+    @Test
+    void shouldValidateDetectedSocketGemRuneStatAsRuntimeInactiveSocketData() {
+        ItemImportEditableForm form = socketedForm(new ItemSocketing(
+                1,
+                List.of(ItemSocket.detectedStat(0, SocketGemRuneStat.fromDetectedLine("+120 inteligencji")))
+        ));
+
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+
+        assertTrue(result.getErrors().isEmpty());
+        assertEquals(1, result.getItem().getSocketing().getSocketCount());
+        assertEquals(1, result.getItem().getSocketing().getOccupiedSocketCount());
+        assertEquals(SocketContentType.DETECTED_STAT, result.getItem().getSocketing().socketAt(0).getContentType());
+        assertEquals("+120 inteligencji", result.getItem().getSocketing().socketAt(0).getDetectedStat().getDisplayText());
+        assertEquals("DATA_ONLY", result.getItem().getSocketing().socketAt(0).getDetectedStat().getRuntimeStatus());
+        assertEquals(0.0d, result.getItem().getIntelligence(), 0.0001d);
     }
 
     @Test

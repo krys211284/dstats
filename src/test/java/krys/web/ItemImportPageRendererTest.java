@@ -20,6 +20,7 @@ import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkedAffixSelection;
 import krys.socketing.ItemSocket;
 import krys.socketing.ItemSocketing;
+import krys.socketing.SocketGemRuneStat;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
@@ -110,6 +111,51 @@ class ItemImportPageRendererTest {
         assertTrue(html.contains("+30 pkt. do wszystkich współczynników"));
         assertTrue(html.contains("Runtime nieaktywny"));
         assertTrue(html.contains("data-socketing-section"));
+    }
+
+    @Test
+    void shouldRenderDetectedSocketGemRuneStatsInImportSocketSection() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "helm.png",
+                "HELMET",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(new ImportedItemAffix(ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 15.0d, "+15% kryt")),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Dziedzic Zatracenia", "Hełm", "UNIQUE", true, EquipmentSlot.HELMET,
+                        900L, null, null, null, null, null, 2004L, "", true),
+                List.of(),
+                ItemMasterworking.defaultState(),
+                ItemTransfiguration.none(),
+                new ItemSocketing(2, List.of(
+                        ItemSocket.detectedStat(0, SocketGemRuneStat.fromDetectedLine("+150 siły")),
+                        ItemSocket.detectedStat(1, SocketGemRuneStat.fromDetectedLine("+120 siły"))
+                ))
+        );
+
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                null,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "",
+                ""
+        ));
+
+        assertTrue(html.contains("Liczba gniazd: 2"));
+        assertTrue(html.contains("+150 siły"));
+        assertTrue(html.contains("+120 siły"));
+        assertTrue(html.contains("Wykryty stat"));
+        assertTrue(html.contains("Runtime nieaktywny"));
+        assertFalse(html.contains("<option value=\"STRENGTH\" selected"));
     }
 
     @Test

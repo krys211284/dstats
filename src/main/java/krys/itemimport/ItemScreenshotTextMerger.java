@@ -18,21 +18,57 @@ public final class ItemScreenshotTextMerger {
         if (ocrTexts == null || ocrTexts.isEmpty()) {
             return "";
         }
-        String joinedSource = String.join("\n", ocrTexts);
+        List<SourceText> sourceTexts = new ArrayList<>();
+        for (int index = 0; index < ocrTexts.size(); index++) {
+            sourceTexts.add(new SourceText(index, "", ocrTexts.get(index)));
+        }
+        return mergeSourceTexts(sourceTexts);
+    }
+
+    String mergeTextVariants(List<ItemImageOcrTextVariant> ocrTexts) {
+        if (ocrTexts == null || ocrTexts.isEmpty()) {
+            return "";
+        }
+        List<SourceText> sourceTexts = new ArrayList<>();
+        for (int index = 0; index < ocrTexts.size(); index++) {
+            ItemImageOcrTextVariant variant = ocrTexts.get(index);
+            sourceTexts.add(new SourceText(index, variant.getVariantId(), variant.getText()));
+        }
+        return mergeSourceTexts(sourceTexts);
+    }
+
+    private String mergeSourceTexts(List<SourceText> sourceTexts) {
+        if (sourceTexts == null || sourceTexts.isEmpty()) {
+            return "";
+        }
+        String joinedSource = String.join("\n", sourceTexts.stream().map(SourceText::text).toList());
         MergeContext context = MergeContext.from(joinedSource);
         Map<String, CanonicalLineCandidate> bestByKey = new LinkedHashMap<>();
         Set<String> keyOrder = new LinkedHashSet<>();
-        for (String ocrText : ocrTexts) {
+        Set<String> emittedSocketStatSourceLines = new LinkedHashSet<>();
+        for (SourceText sourceText : sourceTexts) {
+            String ocrText = sourceText.text();
             if (ocrText == null || ocrText.isBlank()) {
                 continue;
             }
+            SourceRegionTracker regionTracker = new SourceRegionTracker();
+            int rawLineOrder = 0;
             for (String rawLine : ocrText.split("\\R")) {
                 String line = rawLine == null ? "" : rawLine.trim().replaceAll("\\s+", " ");
-                if (line.isBlank() || isUiOnlyLine(line)) {
+                if (line.isBlank()) {
+                    rawLineOrder++;
                     continue;
                 }
-                for (String logicalLine : splitLogicalLines(line)) {
-                    String normalizedLine = logicalLine == null ? "" : logicalLine.trim().replaceAll("\\s+", " ");
+                if (isUiOnlyLine(line)) {
+                    regionTracker.acceptIgnoredLine(line);
+                    rawLineOrder++;
+                    continue;
+                }
+                SourceRegion parentRegion = inferParentLineRegion(line, regionTracker.currentRegion());
+                SourceLine sourceLine = new SourceLine(sourceText.sourceIndex(), sourceText.variantId(), rawLineOrder,
+                        rawLine, line, parentRegion);
+                for (LogicalLine logicalLine : splitLogicalLines(line, sourceLine, regionTracker)) {
+                    String normalizedLine = logicalLine.text() == null ? "" : logicalLine.text().trim().replaceAll("\\s+", " ");
                     if (normalizedLine.isBlank() || isUiOnlyLine(normalizedLine)) {
                         continue;
                     }
@@ -40,7 +76,25 @@ public final class ItemScreenshotTextMerger {
                         logMergeRejected(normalizedLine, "known OCR noise in current context", null);
                         continue;
                     }
-                    CanonicalLineCandidate candidate = canonicalLine(normalizedLine, context);
+                    Optional<CanonicalLineCandidate> optionalCandidate = canonicalLine(
+                            new LogicalLine(normalizedLine, logicalLine.sourceRegion(), logicalLine.sourceLine(),
+                                    logicalLine.derivedFromSplit(), logicalLine.parentLineRegion(),
+                                    logicalLine.segmentStart(), logicalLine.segmentEnd(), logicalLine.rawLineBoundaries(),
+                                    logicalLine.localAnchorType()),
+                            context);
+                    if (optionalCandidate.isEmpty()) {
+                        continue;
+                    }
+                    CanonicalLineCandidate candidate = optionalCandidate.get();
+                    if (isSocketStatCandidateKey(candidate.key())) {
+                        String sourceLineKey = logicalLine.sourceLine().sourceIndex()
+                                + ":" + logicalLine.sourceLine().variantId()
+                                + ":" + logicalLine.sourceLine().rawLineOrder();
+                        if (!emittedSocketStatSourceLines.add(sourceLineKey)) {
+                            logMergeRejected(candidate.text(), "same raw socket/gem/rune line already emitted as occupied socket stat", null);
+                            continue;
+                        }
+                    }
                     keyOrder.add(candidate.key());
                     CanonicalLineCandidate existing = bestByKey.get(candidate.key());
                     if (existing == null || candidate.score() > existing.score()) {
@@ -52,6 +106,7 @@ public final class ItemScreenshotTextMerger {
                         logMergeRejected(candidate.text(), "lower text score", existing);
                     }
                 }
+                rawLineOrder++;
             }
         }
         List<String> mergedLines = new ArrayList<>();
@@ -85,9 +140,81 @@ public final class ItemScreenshotTextMerger {
         return key.startsWith("(wytrzymalosc:") && key.endsWith(")");
     }
 
-    private static List<String> splitLogicalLines(String line) {
+    private static List<LogicalLine> splitLogicalLines(String line,
+                                                       SourceLine sourceLine,
+                                                       SourceRegionTracker regionTracker) {
+        List<LogicalLine> result = new ArrayList<>();
+        RawLineBoundaries rawLineBoundaries = RawLineBoundaries.from(line);
+        List<SplitLineSegment> splitSegments = splitLogicalLineSegments(line);
+        boolean derivedFromSplit = splitSegments.size() > 1
+                || splitSegments.stream().noneMatch(segment -> segment.text().equals(line));
+        for (SplitLineSegment segment : splitSegments) {
+            String text = segment.text();
+            SourceRegion localRegion = inferSourceRegion(text, regionTracker.currentRegion());
+            LocalAnchorType localAnchorType = inferLocalAnchorType(text, localRegion);
+            SourceRegion region = effectiveSegmentRegion(segment, sourceLine.sourceRegion(), localRegion,
+                    rawLineBoundaries, localAnchorType);
+            result.add(new LogicalLine(text, region, sourceLine, derivedFromSplit, sourceLine.sourceRegion(),
+                    segment.startOffset(), segment.endOffset(), rawLineBoundaries, localAnchorType));
+            regionTracker.acceptRegion(region);
+        }
+        return result;
+    }
+
+    private static SourceRegion effectiveSegmentRegion(SplitLineSegment segment,
+                                                       SourceRegion parentRegion,
+                                                       SourceRegion localRegion,
+                                                       RawLineBoundaries rawLineBoundaries,
+                                                       LocalAnchorType localAnchorType) {
+        SourceRegion safeParentRegion = parentRegion == null ? SourceRegion.UNKNOWN : parentRegion;
+        SourceRegion safeLocalRegion = localRegion == null ? SourceRegion.UNKNOWN : localRegion;
+        RawLineBoundaries boundaries = rawLineBoundaries == null ? RawLineBoundaries.empty() : rawLineBoundaries;
+        boolean beforeAspectEffect = segment.startOffset() >= 0
+                && boundaries.firstAspectEffectStart() >= 0
+                && segment.startOffset() < boundaries.firstAspectEffectStart();
+        boolean beforeAnyBlockingBoundary = segment.startOffset() >= 0
+                && boundaries.firstBlockingStart() >= 0
+                && segment.startOffset() < boundaries.firstBlockingStart();
+        boolean hasNoBlockingBoundary = boundaries.firstBlockingStart() < 0;
+        if (localAnchorType == LocalAnchorType.ASPECT_EFFECT) {
+            return SourceRegion.ASPECT_EFFECT_REGION;
+        }
+        if (localAnchorType == LocalAnchorType.SOCKET_GEM_RUNE) {
+            return SourceRegion.SOCKET_GEM_RUNE_REGION;
+        }
+        if (localAnchorType == LocalAnchorType.LORE_VENDOR_REQUIREMENT) {
+            return SourceRegion.LORE_VENDOR_REQUIREMENT_REGION;
+        }
+        if (localAnchorType == LocalAnchorType.TRANSFIGURATION || localAnchorType == LocalAnchorType.TEMPERING) {
+            if (hasNoBlockingBoundary || beforeAnyBlockingBoundary || beforeAspectEffect) {
+                return safeLocalRegion;
+            }
+            return SourceRegion.SOCKET_GEM_RUNE_REGION;
+        }
+        if (localAnchorType == LocalAnchorType.ORDINARY_AFFIX) {
+            if (safeParentRegion == SourceRegion.UNKNOWN
+                    || safeParentRegion == SourceRegion.ORDINARY_AFFIX_REGION
+                    || beforeAspectEffect) {
+                return SourceRegion.ORDINARY_AFFIX_REGION;
+            }
+            return SourceRegion.SOCKET_GEM_RUNE_REGION;
+        }
+        if (isLowerRegionStatOrBaseLine(segment.text())
+                && (safeParentRegion == SourceRegion.ASPECT_EFFECT_REGION
+                || safeParentRegion == SourceRegion.SOCKET_GEM_RUNE_REGION
+                || safeParentRegion == SourceRegion.LORE_VENDOR_REQUIREMENT_REGION
+                || !hasNoBlockingBoundary && !beforeAnyBlockingBoundary)) {
+            return SourceRegion.SOCKET_GEM_RUNE_REGION;
+        }
+        if (safeParentRegion == SourceRegion.UNKNOWN || safeParentRegion == SourceRegion.ORDINARY_AFFIX_REGION) {
+            return safeLocalRegion;
+        }
+        return safeParentRegion;
+    }
+
+    private static List<SplitLineSegment> splitLogicalLineSegments(String line) {
         if (line == null) {
-            return List.of("");
+            return List.of(new SplitLineSegment("", 0, 0));
         }
         String key = comparisonKey(line).replace(" ", "");
         int anchors = 0;
@@ -130,14 +257,15 @@ public final class ItemScreenshotTextMerger {
         boolean allStatsJoinedWithOtherLine = key.contains("wszystkichwspolczynnikow") && anchors >= 2;
         boolean fortifyAspectLine = key.contains("gdymaszumocnienie") && key.contains("zadajeszobrazeniazwiekszone");
         boolean joinedAffixLine = countAffixStarts(line) >= 2;
-        if (line.length() < 120 && !allStatsJoinedWithOtherLine && !fortifyAspectLine && !joinedAffixLine) {
-            return List.of(line);
+        boolean aspectJoinedWithStatLine = isAspectEffectKey(key) && countAffixStarts(line) >= 1;
+        if (line.length() < 120 && !allStatsJoinedWithOtherLine && !fortifyAspectLine && !joinedAffixLine && !aspectJoinedWithStatLine) {
+            return List.of(new SplitLineSegment(line, 0, line.length()));
         }
-        if (anchors < 3 && !allStatsJoinedWithOtherLine && !fortifyAspectLine && !joinedAffixLine) {
-            return List.of(line);
+        if (anchors < 3 && !allStatsJoinedWithOtherLine && !fortifyAspectLine && !joinedAffixLine && !aspectJoinedWithStatLine) {
+            return List.of(new SplitLineSegment(line, 0, line.length()));
         }
 
-        List<String> extracted = new ArrayList<>();
+        List<SplitLineSegment> extracted = new ArrayList<>();
         appendFirst(extracted, line, "(Miażdżąca\\s+Tarcza\\s+Kościanych\\s+Łusek)");
         appendFirst(extracted, line, "(Tarcza\\s+Burzy\\s+Księżycowego\\s+Szału)");
         appendFirst(extracted, line, "((?:Odłamek|Odlamek)\\s+Verathi?el)");
@@ -153,7 +281,10 @@ public final class ItemScreenshotTextMerger {
         appendFirst(extracted, line, "([0-9]+(?:\\s[0-9]{3})*\\s+pkt\\.\\s+pancerza)");
         appendFirst(extracted, line, "([0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+blok(?:\\s*\\[[^\\]]+])?%?)");
         appendFirst(extracted, line, "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+obrażeń\\s+od\\s+broni\\s+w\\s+głównej\\s+ręce(?:\\s*\\[[^\\]]+])?%?)");
+        extractHeirOfPerditionEffectLine(line)
+                .ifPresent(value -> appendGeneratedAtKeyAnchor(extracted, line, value, "poddaj sie nienawisci", "laski matki"));
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?siły(?:\\s*\\[[^\\]]+])?)");
+        appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+(?:do\\s+)?inteligencji(?:\\s*\\[[^\\]]+])?)");
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+na\\s+trafienie\\s+krytyczne(?:\\s*\\[[^\\]+]+]?%?|\\s+1[0-9]{1,2}(?:[,.][0-9])?1\\s*%?)?)");
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+(?:na\\s+)?(?:szcz\\S*\\s+)?traf\\b(?:\\s*\\[[^\\]+]+]?%?|\\s+1[0-9]{1,2}(?:[,.][0-9])?1\\s*%?)?)");
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?%\\s+szybko(?:ś|s)ci\\s+ruchu(?:\\s*\\[[^\\]+]+]?%?|\\s+1[0-9]{1,2}(?:[,.][0-9])?1\\s*%?)?)");
@@ -167,18 +298,165 @@ public final class ItemScreenshotTextMerger {
         appendFirst(extracted, line, "(Mno(?:ż|z)nik\\s*[x×]?\\s*[0-9]+(?:[,.][0-9]+)?%\\s+obra(?:ż|z)e(?:ń|n)\\s+z\\s+up(?:ł|l)ywem\\s+czasu(?:\\s*\\[[^\\]]+])?%?)");
         extractAllStatsDisplayedValue(line)
                 .map(value -> canonicalAllStatsLine(line, value))
-                .ifPresent(value -> appendIfMissing(extracted, value));
+                .ifPresent(value -> appendGeneratedWithKeyAnchor(extracted, line, value, "wszystkich wspolczynnikow", "wszystkich"));
         extractBonusItemQualityDisplayedValue(line)
                 .map(value -> "+" + formatValue(value) + " do jakości przedmiotu [1 - 15]")
-                .ifPresent(value -> appendIfMissing(extracted, value));
+                .ifPresent(value -> appendGeneratedWithKeyAnchor(extracted, line, value, "jakosci przedmiotu"));
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s+do\\s+maksymalnej\\s+liczby\\s+kumulacji\\s+Animuszu)");
-        extractFortifyAspectLine(line).ifPresent(value -> appendIfMissing(extracted, value));
-        extractMarkingAspectLine(line).ifPresent(value -> appendIfMissing(extracted, value));
+        extractFortifyAspectLine(line)
+                .ifPresent(value -> appendGeneratedAtKeyAnchor(extracted, line, value, "gdy masz umocnienie"));
+        extractMarkingAspectLine(line)
+                .ifPresent(value -> appendGeneratedAtKeyAnchor(extracted, line, value, "wampirycznego szalu krwi", "zadanie"));
         appendFirst(extracted, line, "\\b(Naznaczenie)\\b");
         appendFirst(extracted, line, "\\b(Puste\\s+gniazdo)\\b");
         appendFirst(extracted, line, "\\b(Przedmiot\\s+z\\s+dodatku\\s+Lord\\s+of\\s+Hatred)\\b");
         appendFirst(extracted, line, "\\b(Brak\\s+możliwości\\s+modyfikacji)\\b");
-        return extracted.isEmpty() ? List.of(line) : extracted;
+        if (extracted.isEmpty()) {
+            return List.of(new SplitLineSegment(line, 0, line.length()));
+        }
+        return extracted.stream()
+                .sorted(java.util.Comparator.comparingInt(segment -> segment.startOffset() < 0 ? Integer.MAX_VALUE : segment.startOffset()))
+                .toList();
+    }
+
+    private static SourceRegion inferSourceRegion(String line, SourceRegion currentRegion) {
+        String key = comparisonKey(line).replace(" ", "");
+        if (isLoreVendorRequirementKey(key)) {
+            return SourceRegion.LORE_VENDOR_REQUIREMENT_REGION;
+        }
+        if (key.contains("pustegniazdo") || key.equals("puste") || key.contains("gniazda") || key.contains("socket")) {
+            return SourceRegion.SOCKET_GEM_RUNE_REGION;
+        }
+        if (key.contains("maksymalnejliczbykumulacjianimuszu")) {
+            return SourceRegion.TEMPERING_REGION;
+        }
+        if (key.contains("wszystkichwspolczynnikow") || key.contains("jakosciprzedmiotu")) {
+            return SourceRegion.TRANSFIGURATION_REGION;
+        }
+        if (isAspectEffectKey(key)) {
+            return SourceRegion.ASPECT_EFFECT_REGION;
+        }
+        if (currentRegion == SourceRegion.ASPECT_EFFECT_REGION
+                || currentRegion == SourceRegion.SOCKET_GEM_RUNE_REGION) {
+            if (isSocketGemRuneStatLine(line)) {
+                return SourceRegion.SOCKET_GEM_RUNE_REGION;
+            }
+        }
+        if (looksLikeOrdinaryAffixLine(key)) {
+            return SourceRegion.ORDINARY_AFFIX_REGION;
+        }
+        return SourceRegion.UNKNOWN;
+    }
+
+    private static SourceRegion inferParentLineRegion(String line, SourceRegion currentRegion) {
+        String key = comparisonKey(line).replace(" ", "");
+        if (isLoreVendorRequirementKey(key)) {
+            return SourceRegion.LORE_VENDOR_REQUIREMENT_REGION;
+        }
+        if (key.contains("pustegniazdo") || key.equals("puste") || key.contains("gniazda") || key.contains("socket")) {
+            return SourceRegion.SOCKET_GEM_RUNE_REGION;
+        }
+        if (isAspectEffectKey(key)) {
+            return SourceRegion.ASPECT_EFFECT_REGION;
+        }
+        SourceRegion localRegion = inferSourceRegion(line, currentRegion);
+        if ((localRegion == SourceRegion.TRANSFIGURATION_REGION || localRegion == SourceRegion.TEMPERING_REGION)
+                && hasMixedOrdinaryAndSpecialAnchors(key)) {
+            return SourceRegion.UNKNOWN;
+        }
+        return localRegion;
+    }
+
+    private static boolean hasMixedOrdinaryAndSpecialAnchors(String key) {
+        return (key.contains("wszystkichwspolczynnikow")
+                || key.contains("jakosciprzedmiotu")
+                || key.contains("maksymalnejliczbykumulacjianimuszu"))
+                && isKnownOrdinaryAffixKey(key);
+    }
+
+    private static boolean isLoreVendorRequirementKey(String key) {
+        return key.contains("wymaga")
+                || key.contains("poziomu")
+                || key.contains("przypisanodokonta")
+                || key.contains("unikatowewyposazenie")
+                || key.contains("przedmiotzdodatku")
+                || key.contains("brakmozliwoscimodyfikacji")
+                || key.contains("wartoscsprzedazy")
+                || key.contains("trwalosc")
+                || key.contains("oznacz")
+                || key.contains("upusc")
+                || key.contains("wyposaz")
+                || key.contains("porownaj");
+    }
+
+    private static boolean isAspectEffectKey(String key) {
+        return key.contains("aspekt")
+                || key.contains("legendarypower")
+                || key.contains("poddajsienienawisci")
+                || key.contains("laskimatki")
+                || key.contains("efektlaskimatki")
+                || key.contains("gdymaszumocnienie")
+                || key.contains("zadajeszobrazeniazwiekszone")
+                || key.contains("naznaczenie")
+                || key.contains("wampirycznego")
+                || key.contains("umiejetnoscipodstawowe")
+                || key.contains("podstawowegozasobu");
+    }
+
+    private static boolean isSocketGemRuneStatLine(String line) {
+        String normalized = comparisonKey(line);
+        String key = normalized.replace(" ", "");
+        if (!normalized.startsWith("+")) {
+            return false;
+        }
+        if (isKnownOrdinaryAffixKey(key)) {
+            return false;
+        }
+        return firstNumber(line).isPresent();
+    }
+
+    private static boolean isPotentialOrdinaryAffixLine(String line) {
+        String normalized = comparisonKey(line);
+        if (ImportedItemAffixType.detectFromLine(line).isPresent()) {
+            return true;
+        }
+        return normalized.startsWith("+") && firstNumber(line).isPresent();
+    }
+
+    private static boolean isKnownOrdinaryAffixKey(String key) {
+        return key.contains("szansynatrafieniekrytyczne")
+                || key.contains("trafieniekrytyczne")
+                || key.contains("szansynaszczesliwytraf")
+                || key.contains("szczesliwytraf")
+                || key.contains("szansytraf")
+                || key.contains("szybkosciruchu")
+                || key.contains("umiejetnosciglowne")
+                || key.contains("umiejetnosci:glowne")
+                || key.contains("umiejetnoscipodstawowe")
+                || key.contains("umiejetnosci:podstawowe")
+                || key.contains("redukcjiczasuodnowienia")
+                || key.contains("redukcjiobrazen")
+                || key.contains("obrazenodbroni")
+                || key.contains("maksymalnegozdrowia")
+                || key.contains("zdrowiaprzytrafieniu")
+                || key.contains("zdrowiazazabicie")
+                || key.contains("podstawowegozasobu")
+                || key.contains("wszystkichwspolczynnikow")
+                || key.contains("jakosciprzedmiotu")
+                || key.contains("maksymalnejliczbykumulacjianimuszu");
+    }
+
+    private static boolean looksLikeOrdinaryAffixLine(String key) {
+        return key.contains("sily")
+                || key.contains("inteligencji")
+                || key.contains("cierni")
+                || key.contains("odpornosci")
+                || key.contains("szansy")
+                || key.contains("szybkosciruchu")
+                || key.contains("umiejetnosci")
+                || key.contains("redukcji")
+                || key.contains("obrazen")
+                || key.contains("zdrowia");
     }
 
     private static int countAffixStarts(String line) {
@@ -190,31 +468,130 @@ public final class ItemScreenshotTextMerger {
         return count;
     }
 
-    private static void appendFirst(List<String> target, String line, String pattern) {
+    private static LocalAnchorType inferLocalAnchorType(String line, SourceRegion localRegion) {
+        String key = comparisonKey(line).replace(" ", "");
+        if (localRegion == SourceRegion.LORE_VENDOR_REQUIREMENT_REGION || isLoreVendorRequirementKey(key)) {
+            return LocalAnchorType.LORE_VENDOR_REQUIREMENT;
+        }
+        if (localRegion == SourceRegion.SOCKET_GEM_RUNE_REGION
+                || key.contains("pustegniazdo")
+                || key.equals("puste")
+                || key.contains("gniazda")
+                || key.contains("socket")) {
+            return LocalAnchorType.SOCKET_GEM_RUNE;
+        }
+        if (key.contains("maksymalnejliczbykumulacjianimuszu")) {
+            return LocalAnchorType.TEMPERING;
+        }
+        if (key.contains("wszystkichwspolczynnikow") || key.contains("jakosciprzedmiotu")) {
+            return LocalAnchorType.TRANSFIGURATION;
+        }
+        if (isAspectEffectKey(key)) {
+            return LocalAnchorType.ASPECT_EFFECT;
+        }
+        if (ImportedItemAffixType.detectFromLine(line).isPresent() || looksLikeOrdinaryAffixLine(key)) {
+            return LocalAnchorType.ORDINARY_AFFIX;
+        }
+        if (key.contains("pancerza") && firstNumber(line).isPresent()) {
+            return LocalAnchorType.BASE_STAT;
+        }
+        return LocalAnchorType.UNKNOWN;
+    }
+
+    private static void appendFirst(List<SplitLineSegment> target, String line, String pattern) {
         Matcher matcher = Pattern.compile(pattern, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(line);
         if (matcher.find()) {
             String value = matcher.group(1).replaceAll("\\s+", " ").trim();
-            appendIfMissing(target, value);
+            appendIfMissing(target, value, matcher.start(1), matcher.end(1));
         }
     }
 
-    private static void appendIfMissing(List<String> target, String value) {
-        if (value != null && !value.isBlank() && !target.contains(value)) {
-            target.add(value);
+    private static void appendGeneratedWithKeyAnchor(List<SplitLineSegment> target,
+                                                     String line,
+                                                     String value,
+                                                     String... keyAnchors) {
+        int startOffset = findGeneratedSegmentStart(line, keyAnchors);
+        int endOffset = startOffset < 0 ? -1 : Math.min(line.length(), startOffset + value.length());
+        appendIfMissing(target, value, startOffset, endOffset);
+    }
+
+    private static void appendGeneratedAtKeyAnchor(List<SplitLineSegment> target,
+                                                   String line,
+                                                   String value,
+                                                   String... keyAnchors) {
+        int startOffset = findKeyAnchorStart(line, keyAnchors);
+        int endOffset = startOffset < 0 ? -1 : Math.min(line.length(), startOffset + value.length());
+        appendIfMissing(target, value, startOffset, endOffset);
+    }
+
+    private static int findGeneratedSegmentStart(String line, String... keyAnchors) {
+        String normalized = comparisonKey(line);
+        for (String keyAnchor : keyAnchors) {
+            int anchor = normalized.indexOf(keyAnchor);
+            if (anchor >= 0) {
+                int start = normalized.lastIndexOf("+", anchor);
+                return start >= 0 ? start : anchor;
+            }
+        }
+        return -1;
+    }
+
+    private static int findKeyAnchorStart(String line, String... keyAnchors) {
+        String normalized = comparisonKey(line);
+        for (String keyAnchor : keyAnchors) {
+            int anchor = normalized.indexOf(keyAnchor);
+            if (anchor >= 0) {
+                return anchor;
+            }
+        }
+        return -1;
+    }
+
+    private static void appendIfMissing(List<SplitLineSegment> target, String value, int startOffset, int endOffset) {
+        if (value != null && !value.isBlank() && target.stream().noneMatch(segment -> segment.text().equals(value))) {
+            target.add(new SplitLineSegment(value, startOffset, endOffset));
         }
     }
 
-    private static CanonicalLineCandidate canonicalLine(String line, MergeContext context) {
-        Optional<CanonicalLineCandidate> known = canonicalKnownLine(line, context);
+    private static Optional<CanonicalLineCandidate> canonicalLine(LogicalLine logicalLine, MergeContext context) {
+        if (logicalLine.sourceRegion() == SourceRegion.SOCKET_GEM_RUNE_REGION
+                && isSocketGemRuneStatLine(logicalLine.text())) {
+            logSocketGemRuneIgnored(logicalLine, "source line belongs to socket/gem/rune region before merger");
+            CanonicalLineCandidate candidate = new CanonicalLineCandidate(
+                    "socket-stat:" + comparisonKey(logicalLine.text()),
+                    logicalLine.text(),
+                    lineQualityScore(logicalLine.text(), null, context)
+            );
+            logSegmentDecision(logicalLine, candidate);
+            return Optional.of(candidate);
+        }
+        Optional<CanonicalLineCandidate> known = canonicalKnownLine(logicalLine, context);
         if (known.isPresent()) {
-            return known.get();
+            logSegmentDecision(logicalLine, known.get());
+            return known;
         }
+        if (isBottomNonOrdinaryRegion(logicalLine.sourceRegion()) && isLowerRegionStatOrBaseLine(logicalLine.text())) {
+            logSocketGemRuneIgnored(logicalLine, "source line belongs to non-ordinary region before merger");
+            return Optional.empty();
+        }
+        if (isNonOrdinaryRegion(logicalLine.sourceRegion()) && isPotentialOrdinaryAffixLine(logicalLine.text())) {
+            logSocketGemRuneIgnored(logicalLine, "source line belongs to non-ordinary region before merger");
+            return Optional.empty();
+        }
+        String line = logicalLine.text();
         String key = comparisonKey(line);
-        return new CanonicalLineCandidate(key, line, lineQualityScore(line, null, context));
+        CanonicalLineCandidate candidate = new CanonicalLineCandidate(key, line, lineQualityScore(line, null, context));
+        logSegmentDecision(logicalLine, candidate);
+        return Optional.of(candidate);
     }
 
-    private static Optional<CanonicalLineCandidate> canonicalKnownLine(String line, MergeContext context) {
+    private static Optional<CanonicalLineCandidate> canonicalKnownLine(LogicalLine logicalLine, MergeContext context) {
+        String line = logicalLine.text();
         String key = comparisonKey(line).replace(" ", "");
+        if (isBottomNonOrdinaryRegion(logicalLine.sourceRegion()) && isLowerRegionStatOrBaseLine(line)) {
+            logSocketGemRuneIgnored(logicalLine, "source line belongs to non-ordinary region before merger");
+            return Optional.empty();
+        }
         if (key.contains("miazdzacatarczakoscianychlusek")) {
             return Optional.of(new CanonicalLineCandidate("known-name:koscianych-lusek",
                     "Miażdżąca Tarcza Kościanych Łusek", 10_000));
@@ -288,6 +665,11 @@ public final class ItemScreenshotTextMerger {
             return Optional.of(new CanonicalLineCandidate("aspect:fortify-damage",
                     normalizedAspect, lineQualityScore(normalizedAspect, 61.0d, context) + 400));
         }
+        if ((key.contains("poddajsienienawisci") || key.contains("laskimatki"))
+                && key.contains("80")) {
+            return Optional.of(new CanonicalLineCandidate("aspect:heir-of-perdition",
+                    heirOfPerditionEffectText(), lineQualityScore(line, 80.0d, context) + 400));
+        }
         if (key.equals("naznaczenie")) {
             return Optional.of(new CanonicalLineCandidate("aspect:naznaczenie-name", "Naznaczenie", 6_000));
         }
@@ -304,7 +686,7 @@ public final class ItemScreenshotTextMerger {
         if (key.contains("brakmozliwoscimodyfikacji")) {
             return Optional.of(new CanonicalLineCandidate("transfiguration:locked", "Brak możliwości modyfikacji", 5_000));
         }
-        Optional<CanonicalLineCandidate> affix = canonicalKnownAffixLine(line, key, context);
+        Optional<CanonicalLineCandidate> affix = canonicalKnownAffixLine(logicalLine, key, context);
         if (affix.isPresent()) {
             return affix;
         }
@@ -326,7 +708,14 @@ public final class ItemScreenshotTextMerger {
         return key.contains("redukcjiobrazen") && value.get() > 100.0d;
     }
 
-    private static Optional<CanonicalLineCandidate> canonicalKnownAffixLine(String line, String key, MergeContext context) {
+    private static Optional<CanonicalLineCandidate> canonicalKnownAffixLine(LogicalLine logicalLine, String key, MergeContext context) {
+        String line = logicalLine.text();
+        if (isNonOrdinaryRegion(logicalLine.sourceRegion())) {
+            if (ImportedItemAffixType.detectFromLine(line).isPresent()) {
+                logSocketGemRuneIgnored(logicalLine, "source line belongs to socket/gem/rune region before merger");
+            }
+            return Optional.empty();
+        }
         if (key.contains("odpornosci") && key.contains("wszystkiezywioly")) {
             return firstNumber(line)
                     .filter(value -> value <= 1200.0d)
@@ -398,6 +787,23 @@ public final class ItemScreenshotTextMerger {
                             lineQualityScore(line, 16.0d, context)));
         }
         return Optional.empty();
+    }
+
+    private static boolean isNonOrdinaryRegion(SourceRegion region) {
+        return region != SourceRegion.ORDINARY_AFFIX_REGION && region != SourceRegion.UNKNOWN;
+    }
+
+    private static boolean isBottomNonOrdinaryRegion(SourceRegion region) {
+        return region == SourceRegion.ASPECT_EFFECT_REGION
+                || region == SourceRegion.SOCKET_GEM_RUNE_REGION
+                || region == SourceRegion.LORE_VENDOR_REQUIREMENT_REGION;
+    }
+
+    private static boolean isLowerRegionStatOrBaseLine(String line) {
+        String normalized = comparisonKey(line);
+        String key = comparisonKey(line).replace(" ", "");
+        return (normalized.startsWith("+") && firstNumber(line).isPresent())
+                || (key.contains("pancerza") && firstNumber(line).isPresent());
     }
 
     private static boolean isLuckyHitChanceKey(String key) {
@@ -590,10 +996,23 @@ public final class ItemScreenshotTextMerger {
         return Optional.of(markingAspectText());
     }
 
+    private static Optional<String> extractHeirOfPerditionEffectLine(String line) {
+        String key = comparisonKey(line).replace(" ", "");
+        if ((key.contains("poddajsienienawisci") || key.contains("laskimatki")) && key.contains("80")) {
+            return Optional.of(heirOfPerditionEffectText());
+        }
+        return Optional.empty();
+    }
+
     private static String markingAspectText() {
         return "Zadanie wrogowi obrażeń umiejętnością Podstawową zwiększa twoją szybkość ataku o 4% na 10 sek. "
                 + "Efekt kumuluje się maksymalnie 5 razy. Przy maksymalnej kumulacji wchodzisz w stan Wampirycznego Szału Krwi, "
                 + "który zapewnia zwiększenie obrażeń od umiejętności Podstawowych o 60%[x] oraz zwiększenie szybkości ruchu o 15% przez 10 sek.";
+    }
+
+    private static String heirOfPerditionEffectText() {
+        return "Poddaj się nienawiści i doświadcz Łaski Matki, która zwiększy zadawane przez ciebie obrażenia o 80%[x]. "
+                + "Zabijaj wrogów, aby na chwilę ukraść pobliskim sojusznikom efekt Łaski Matki.";
     }
 
     private static Optional<Double> parseNumber(String rawToken) {
@@ -648,6 +1067,231 @@ public final class ItemScreenshotTextMerger {
             ItemImportDebugTrace.log("MERGE_NUMERIC_TOKENS", () -> "selectedTokens="
                     + ItemImportDebugTrace.numericTokens(selected.text())
                     + " rejectedTokens=" + ItemImportDebugTrace.numericTokens(source));
+        }
+    }
+
+    private static void logSegmentDecision(LogicalLine line, CanonicalLineCandidate candidate) {
+        if (!ItemImportDebugTrace.isEnabled()) {
+            return;
+        }
+        String decision = acceptedDecision(candidate.key());
+        if (decision.isBlank()) {
+            return;
+        }
+        SourceLine sourceLine = line.sourceLine();
+        RawLineBoundaries boundaries = line.rawLineBoundaries();
+        ItemImportDebugTrace.log("MERGE_SEGMENT_DECISION", () -> "sourceIndex=" + sourceLine.sourceIndex()
+                + " sourceVariant=" + ItemImportDebugTrace.quote(sourceLine.variantId())
+                + " sourceLineOrder=" + sourceLine.rawLineOrder()
+                + " parentLineRegion=" + line.parentLineRegion()
+                + " segmentStart=" + line.segmentStart()
+                + " segmentEnd=" + line.segmentEnd()
+                + " firstAspectEffectStart=" + boundaries.firstAspectEffectStart()
+                + " firstSocketGemRuneStart=" + boundaries.firstSocketGemRuneStart()
+                + " firstLoreVendorRequirementStart=" + boundaries.firstLoreVendorRequirementStart()
+                + " effectiveSegmentRegion=" + line.sourceRegion()
+                + " localAnchorType=" + line.localAnchorType()
+                + " decision=" + decision
+                + " logicalLine=" + ItemImportDebugTrace.compactText(line.text())
+                + " canonicalKey=" + ItemImportDebugTrace.quote(candidate.key())
+                + " selected=" + ItemImportDebugTrace.compactText(candidate.text()));
+    }
+
+    private static String acceptedDecision(String key) {
+        if (key == null) {
+            return "";
+        }
+        if (key.startsWith("affix:")) {
+            return "acceptedAsOrdinary";
+        }
+        if (key.startsWith("transfiguration:")) {
+            return "acceptedAsTransfiguration";
+        }
+        if (key.startsWith("tempering:")) {
+            return "acceptedAsTempering";
+        }
+        if (key.startsWith("aspect:")) {
+            return "acceptedAsAspect";
+        }
+        if (key.startsWith("socket:")) {
+            return "acceptedAsSocket";
+        }
+        if (key.startsWith("socket-stat:")) {
+            return "acceptedAsSocketGemRuneData";
+        }
+        return "";
+    }
+
+    private static boolean isSocketStatCandidateKey(String key) {
+        return key != null && key.startsWith("socket-stat:");
+    }
+
+    private static void logSocketGemRuneIgnored(LogicalLine line, String reason) {
+        if (!ItemImportDebugTrace.isEnabled()) {
+            return;
+        }
+        SourceLine sourceLine = line.sourceLine();
+        RawLineBoundaries boundaries = line.rawLineBoundaries();
+        String matchedAffixType = ImportedItemAffixType.detectFromLine(line.text())
+                .map(Enum::name)
+                .orElse("");
+        ItemImportDebugTrace.log("SOCKET_GEM_RUNE_CANDIDATE", () -> "sourceIndex=" + sourceLine.sourceIndex()
+                + " sourceVariant=" + ItemImportDebugTrace.quote(sourceLine.variantId())
+                + " sourceLineOrder=" + sourceLine.rawLineOrder()
+                + " sourceRegion=" + line.sourceRegion()
+                + " parentLineRegion=" + line.parentLineRegion()
+                + " derivedFromSplit=" + line.derivedFromSplit()
+                + " segmentStart=" + line.segmentStart()
+                + " segmentEnd=" + line.segmentEnd()
+                + " firstAspectEffectStart=" + boundaries.firstAspectEffectStart()
+                + " firstSocketGemRuneStart=" + boundaries.firstSocketGemRuneStart()
+                + " firstLoreVendorRequirementStart=" + boundaries.firstLoreVendorRequirementStart()
+                + " effectiveSegmentRegion=" + line.sourceRegion()
+                + " localAnchorType=" + line.localAnchorType()
+                + " decision=ignoredAsSocketGemRune"
+                + " sourceRawLine=" + ItemImportDebugTrace.compactText(sourceLine.rawLine())
+                + " logicalLine=" + ItemImportDebugTrace.compactText(line.text())
+                + (matchedAffixType.isBlank() ? "" : " matchedAffixType=" + matchedAffixType)
+                + " ignoredForOrdinaryAffixes=true"
+                + " reason=" + ItemImportDebugTrace.quote(reason));
+    }
+
+    private enum SourceRegion {
+        ORDINARY_AFFIX_REGION,
+        TRANSFIGURATION_REGION,
+        TEMPERING_REGION,
+        ASPECT_EFFECT_REGION,
+        SOCKET_GEM_RUNE_REGION,
+        LORE_VENDOR_REQUIREMENT_REGION,
+        UNKNOWN
+    }
+
+    private enum LocalAnchorType {
+        ORDINARY_AFFIX,
+        TRANSFIGURATION,
+        TEMPERING,
+        ASPECT_EFFECT,
+        SOCKET_GEM_RUNE,
+        LORE_VENDOR_REQUIREMENT,
+        BASE_STAT,
+        UNKNOWN
+    }
+
+    private static final class SourceRegionTracker {
+        private SourceRegion currentRegion = SourceRegion.UNKNOWN;
+
+        SourceRegion currentRegion() {
+            return currentRegion;
+        }
+
+        void acceptRegion(SourceRegion region) {
+            if (region == SourceRegion.LORE_VENDOR_REQUIREMENT_REGION) {
+                currentRegion = SourceRegion.LORE_VENDOR_REQUIREMENT_REGION;
+                return;
+            }
+            if (region == SourceRegion.ASPECT_EFFECT_REGION || region == SourceRegion.SOCKET_GEM_RUNE_REGION) {
+                currentRegion = region;
+            }
+        }
+
+        void acceptIgnoredLine(String line) {
+            String key = comparisonKey(line).replace(" ", "");
+            if (isLoreVendorRequirementKey(key)) {
+                currentRegion = SourceRegion.LORE_VENDOR_REQUIREMENT_REGION;
+            }
+        }
+    }
+
+    private record SourceText(int sourceIndex, String variantId, String text) {
+        private SourceText {
+            variantId = variantId == null ? "" : variantId;
+            text = text == null ? "" : text;
+        }
+    }
+
+    private record SourceLine(int sourceIndex, String variantId, int rawLineOrder, String rawLine, String normalizedLine,
+                              SourceRegion sourceRegion) {
+        private SourceLine {
+            variantId = variantId == null ? "" : variantId;
+            rawLine = rawLine == null ? "" : rawLine;
+            normalizedLine = normalizedLine == null ? "" : normalizedLine;
+            sourceRegion = sourceRegion == null ? SourceRegion.UNKNOWN : sourceRegion;
+        }
+    }
+
+    private record LogicalLine(String text, SourceRegion sourceRegion, SourceLine sourceLine,
+                               boolean derivedFromSplit, SourceRegion parentLineRegion,
+                               int segmentStart, int segmentEnd, RawLineBoundaries rawLineBoundaries,
+                               LocalAnchorType localAnchorType) {
+        private LogicalLine {
+            text = text == null ? "" : text;
+            sourceRegion = sourceRegion == null ? SourceRegion.UNKNOWN : sourceRegion;
+            parentLineRegion = parentLineRegion == null ? SourceRegion.UNKNOWN : parentLineRegion;
+            rawLineBoundaries = rawLineBoundaries == null ? RawLineBoundaries.empty() : rawLineBoundaries;
+            localAnchorType = localAnchorType == null ? LocalAnchorType.UNKNOWN : localAnchorType;
+        }
+    }
+
+    private record SplitLineSegment(String text, int startOffset, int endOffset) {
+        private SplitLineSegment {
+            text = text == null ? "" : text;
+        }
+    }
+
+    private record RawLineBoundaries(int firstAspectEffectStart,
+                                     int firstSocketGemRuneStart,
+                                     int firstLoreVendorRequirementStart) {
+        private static RawLineBoundaries from(String line) {
+            return new RawLineBoundaries(
+                    firstPatternStart(line,
+                            "\\b[Pp]oddaj\\s+si[eę]\\s+nienawi[sś]ci",
+                            "\\b[Gg]dy\\s+masz\\s+umocnienie",
+                            "\\b[Nn]aznaczenie",
+                            "\\b[Aa]spekt\\b",
+                            "\\b[Ww]ampirycznego\\b"),
+                    firstPatternStart(line,
+                            "\\b[Pp]uste\\s+gniazdo\\b",
+                            "\\bgniazda\\b",
+                            "\\bsocket\\b"),
+                    firstPatternStart(line,
+                            "\\b[Ww]ymaga\\s+[0-9]+\\s+poziomu\\b",
+                            "\\b[Pp]rzypisano\\s+do\\s+konta\\b",
+                            "\\b[Uu]nikatowe\\s+wyposa[żz]enie\\b",
+                            "\\b[Pp]rzedmiot\\s+z\\s+dodatku\\b",
+                            "\\b[Bb]rak\\s+mo[żz]liwo[śs]ci\\s+modyfikacji\\b",
+                            "\\b[Ww]arto[śs][ćc]\\s+sprzeda[żz]y\\b",
+                            "\\b[Tt]rwa[łl]o[śs][ćc]\\b",
+                            "\\b[Oo]znacz\\b",
+                            "\\b[Uu]pu[śs][ćc]\\b",
+                            "\\b[Ww]yposa[żz]\\b",
+                            "\\b[Pp]or[oó]wnaj\\b")
+            );
+        }
+
+        private static RawLineBoundaries empty() {
+            return new RawLineBoundaries(-1, -1, -1);
+        }
+
+        private int firstBlockingStart() {
+            int first = -1;
+            for (int value : List.of(firstAspectEffectStart, firstSocketGemRuneStart, firstLoreVendorRequirementStart)) {
+                if (value >= 0 && (first < 0 || value < first)) {
+                    first = value;
+                }
+            }
+            return first;
+        }
+
+        private static int firstPatternStart(String line, String... patterns) {
+            int first = -1;
+            String safeLine = line == null ? "" : line;
+            for (String pattern : patterns) {
+                Matcher matcher = Pattern.compile(pattern, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(safeLine);
+                if (matcher.find() && (first < 0 || matcher.start() < first)) {
+                    first = matcher.start();
+                }
+            }
+            return first;
         }
     }
 

@@ -11,6 +11,9 @@ import krys.itemimport.ItemImportFieldConfidence;
 import krys.itemlibrary.ItemLibraryFilter;
 import krys.itemlibrary.SavedImportedItem;
 import krys.masterworking.ItemMasterworking;
+import krys.socketing.ItemSocket;
+import krys.socketing.ItemSocketing;
+import krys.socketing.SocketGemRuneStat;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -158,6 +161,67 @@ class ItemEditPageRendererTest {
         assertTrue(weaponFields.contains("name=\"weaponDamageMax\" value=\"2018\""));
         assertTrue(weaponFields.contains("name=\"averageWeaponDamage\" value=\"1704\""));
         assertTrue(weaponFields.contains("name=\"attacksPerSecond\" value=\"1.10\""));
+    }
+
+    @Test
+    void shouldRenderDetectedSocketGemRuneStatsInEditForm() {
+        SavedImportedItem item = new SavedImportedItem(
+                1L,
+                "Dziedzic Zatracenia",
+                "helm.png",
+                EquipmentSlot.HELMET,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                new ItemImportDetails("Dziedzic Zatracenia", "Hełm", "UNIQUE", true, EquipmentSlot.HELMET,
+                        900L, null, null, null, null, null, 2004L, "", true),
+                List.of(),
+                ItemMasterworking.defaultState(),
+                krys.transfiguration.ItemTransfiguration.none(),
+                new ItemSocketing(2, List.of(
+                        ItemSocket.detectedStat(0, SocketGemRuneStat.fromDetectedLine("+150 siły")),
+                        ItemSocket.detectedStat(1, SocketGemRuneStat.fromDetectedLine("+120 siły"))
+                ))
+        );
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                item.getSourceImageName(),
+                item.getSlot().name(),
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                item.getDetails(),
+                List.of(),
+                ItemMasterworking.defaultState(),
+                krys.transfiguration.ItemTransfiguration.none(),
+                item.getSocketing()
+        );
+
+        String html = new ItemEditPageRenderer().render(new ItemEditPageModel(
+                item,
+                form,
+                List.of(),
+                List.of(),
+                ItemLibraryFilter.empty()
+        ));
+
+        assertTrue(html.contains("Liczba gniazd: 2"));
+        assertTrue(html.contains("+150 siły"));
+        assertTrue(html.contains("+120 siły"));
+        assertTrue(html.contains("Runtime nieaktywny"));
     }
 
     @Test

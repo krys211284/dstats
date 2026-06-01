@@ -21,6 +21,7 @@ import krys.masterworking.MasterworkedAffixSelection;
 import krys.socketing.ItemSocket;
 import krys.socketing.ItemSocketing;
 import krys.socketing.SocketContentType;
+import krys.socketing.SocketGemRuneStat;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingCategory;
 import krys.tempering.TemperingRuntimeStatus;
@@ -137,6 +138,46 @@ class FileItemLibraryRepositoryTest {
         assertEquals(2, reloaded.getSocketing().getSocketCount());
         assertEquals("ruby_royal", reloaded.getSocketing().socketAt(0).getGemId());
         assertEquals("diamond_grand", reloaded.getSocketing().socketAt(1).getGemId());
+    }
+
+    @Test
+    void shouldPersistDetectedSocketGemRuneStatsOnDisk() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-library-detected-socket-stats");
+        FileItemLibraryRepository repository = new FileItemLibraryRepository(tempDirectory);
+
+        repository.save(new SavedImportedItem(
+                0L,
+                "Hełm z wykrytymi gemami",
+                "helm.png",
+                EquipmentSlot.HELMET,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                ItemImportDetails.empty(),
+                List.of(),
+                ItemMasterworking.defaultState(),
+                ItemTransfiguration.none(),
+                new ItemSocketing(2, List.of(
+                        ItemSocket.detectedStat(0, SocketGemRuneStat.fromDetectedLine("+150 siły")),
+                        ItemSocket.detectedStat(1, SocketGemRuneStat.fromDetectedLine("+120 siły"))
+                ))
+        ));
+
+        SavedImportedItem reloaded = new FileItemLibraryRepository(tempDirectory).findAll().getFirst();
+
+        assertEquals(2, reloaded.getSocketing().getSocketCount());
+        assertEquals(2, reloaded.getSocketing().getOccupiedSocketCount());
+        assertEquals(SocketContentType.DETECTED_STAT, reloaded.getSocketing().socketAt(0).getContentType());
+        assertEquals("+150 siły", reloaded.getSocketing().socketAt(0).getDetectedStat().getDisplayText());
+        assertEquals(ImportedItemAffixType.STRENGTH, reloaded.getSocketing().socketAt(0).getDetectedStat().getMatchedAffixType());
+        assertEquals("+120 siły", reloaded.getSocketing().socketAt(1).getDetectedStat().getDisplayText());
+        assertEquals("DATA_ONLY", reloaded.getSocketing().socketAt(1).getDetectedStat().getRuntimeStatus());
     }
 
     @Test

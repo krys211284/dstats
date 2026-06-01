@@ -63,6 +63,12 @@ public final class SocketingPresentationSupport {
     }
 
     public static String socketLine(ItemSocket socket, Optional<SocketEffectContext> context) {
+        if (socket != null && socket.getContentType() == SocketContentType.DETECTED_STAT) {
+            SocketGemRuneStat stat = socket.getDetectedStat();
+            String text = stat == null ? "" : stat.getDisplayText();
+            return (socket.getIndex() + 1) + ": " + (text.isBlank() ? "Wykryty stat gema/runy" : text)
+                    + " · Runtime nieaktywny";
+        }
         if (socket == null || socket.getContentType() != SocketContentType.GEM || socket.getGemId().isBlank()) {
             return (socket == null ? "1" : Integer.toString(socket.getIndex() + 1)) + ": Puste";
         }
@@ -80,7 +86,8 @@ public final class SocketingPresentationSupport {
         if (lines.isEmpty()) {
             return "";
         }
-        return "Gniazda · " + String.join(" · ", lines);
+        ItemSocketing safe = socketing == null ? ItemSocketing.empty() : socketing;
+        return "Gniazda · Liczba gniazd: " + safe.getSocketCount() + " · " + String.join(" · ", lines);
     }
 
     private static String normalize(String value) {

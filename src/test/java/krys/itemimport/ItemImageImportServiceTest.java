@@ -39,6 +39,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static krys.itemimport.ItemImportTextFixtures.realShieldBottomText;
 import static krys.itemimport.ItemImportTextFixtures.realShieldTopText;
 import static krys.itemimport.ItemImportTextFixtures.heirOfPerditionBottomText;
+import static krys.itemimport.ItemImportTextFixtures.heirOfPerditionBottomTextWithSocketGemStats;
+import static krys.itemimport.ItemImportTextFixtures.heirOfPerditionBottomTextWithJoinedSocketGemStatsAndFooter;
 import static krys.itemimport.ItemImportTextFixtures.heirOfPerditionCurrentScreenBottomTextWithCoreRanks2;
 import static krys.itemimport.ItemImportTextFixtures.heirOfPerditionCurrentScreenTopTextWithCoreRanks2;
 import static krys.itemimport.ItemImportTextFixtures.heirOfPerditionTopText;
@@ -216,6 +218,125 @@ class ItemImageImportServiceTest {
         );
         assertEquals(15.0d, resolution.getActiveItemsContribution().getCriticalChancePercent(), 0.0001d);
         assertNotEquals(18.0d, resolution.getActiveItemsContribution().getCriticalChancePercent(), 0.0001d);
+    }
+
+    @Test
+    void shouldKeepSocketGemRuneStatsOutOfHeirOrdinaryAffixesAndRuntime() throws Exception {
+        byte[] topImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-1.png"));
+        byte[] bottomImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-2.png"));
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new QueuedOcrTextReader(List.of(
+                        heirOfPerditionTopText(),
+                        heirOfPerditionBottomTextWithSocketGemStats()
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(List.of(
+                new ItemImageImportRequest("dziedzic-zatracenia-helm-1.png", "image/png", topImageBytes),
+                new ItemImageImportRequest("dziedzic-zatracenia-helm-2.png", "image/png", bottomImageBytes)
+        ));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(4, form.getAffixes().size());
+        assertFalse(form.getAffixes().stream().anyMatch(affix -> affix.getType() == ImportedItemAffixType.STRENGTH));
+        assertFalse(form.getAffixes().stream().anyMatch(affix -> affix.getType() == ImportedItemAffixType.INTELLIGENCE));
+        assertTrue(result.getFullItemRead().getLines().stream()
+                .anyMatch(line -> line.getType() == FullItemReadLineType.SOCKET && line.getText().equals("+150 siły")));
+        assertTrue(result.getFullItemRead().getLines().stream()
+                .anyMatch(line -> line.getType() == FullItemReadLineType.SOCKET && line.getText().equals("+120 siły")));
+        assertTrue(result.getFullItemRead().getLines().stream()
+                .anyMatch(line -> line.getType() == FullItemReadLineType.SOCKET && line.getText().equals("+120 inteligencji")));
+        assertFalse(form.getAffixes().stream().anyMatch(affix -> affix.getSourceText().contains("+500 pkt. pancerza")));
+        assertEquals("heir_of_perdition", form.getSelectedAspectId());
+        assertTrue(form.getUniqueEffectText().contains("80%[x]"));
+        assertEquals("ALL_STATS", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(115.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0001d);
+        assertEquals(2, form.getSocketing().getSocketCount());
+        assertEquals(2, form.getSocketing().getOccupiedSocketCount());
+        assertEquals("+150 siły", form.getSocketing().socketAt(0).getDetectedStat().getDisplayText());
+        assertEquals("+120 siły", form.getSocketing().socketAt(1).getDetectedStat().getDisplayText());
+
+        ItemImportFormMapper.MappingResult mappingResult = new ItemImportFormMapper().map(form);
+        assertTrue(mappingResult.getErrors().isEmpty(), () -> String.join(", ", mappingResult.getErrors()));
+        Path tempDirectory = Files.createTempDirectory("heir-gem-runtime-import");
+        ItemLibraryService libraryService = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+        SavedImportedItem savedHelmet = libraryService.saveImportedItem(mappingResult.getItem());
+        HeroItemSelection selection = HeroItemSelection.empty()
+                .withSelectedItem(HeroEquipmentSlot.HELMET, savedHelmet.getItemId());
+        EffectiveCurrentBuildResolution resolution = libraryService.resolveEffectiveCurrentBuild(
+                new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d),
+                selection
+        );
+        assertEquals(0.0d, resolution.getActiveItemsContribution().getStrength(), 0.0001d);
+        assertEquals(0.0d, resolution.getActiveItemsContribution().getIntelligence(), 0.0001d);
+        assertEquals(15.0d, resolution.getActiveItemsContribution().getCriticalChancePercent(), 0.0001d);
+    }
+
+    @Test
+    void shouldKeepJoinedBottomSocketGemRuneStatsOutOfHeirOrdinaryAffixesAndRuntime() throws Exception {
+        byte[] topImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-1.png"));
+        byte[] bottomImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-2.png"));
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new QueuedOcrTextReader(List.of(
+                        heirOfPerditionTopText(),
+                        heirOfPerditionBottomTextWithJoinedSocketGemStatsAndFooter()
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(List.of(
+                new ItemImageImportRequest("dziedzic-zatracenia-helm-1.png", "image/png", topImageBytes),
+                new ItemImageImportRequest("dziedzic-zatracenia-helm-2.png", "image/png", bottomImageBytes)
+        ));
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals("Dziedzic Zatracenia", form.getItemName());
+        assertTrue(form.isMythicUnique());
+        assertEquals(4, form.getAffixes().size());
+        assertAffixTypeOccursOnce(form, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE);
+        assertAffixTypeOccursOnce(form, ImportedItemAffixType.LUCKY_HIT_CHANCE);
+        assertAffixTypeOccursOnce(form, ImportedItemAffixType.MOVEMENT_SPEED);
+        assertAffixTypeOccursOnce(form, ImportedItemAffixType.CORE_SKILL_RANKS);
+        assertFalse(form.getAffixes().stream().anyMatch(affix -> affix.getType() == ImportedItemAffixType.STRENGTH));
+        assertFalse(form.getAffixes().stream().anyMatch(affix -> affix.getType() == ImportedItemAffixType.INTELLIGENCE));
+        assertFalse(form.getAffixes().stream().anyMatch(affix -> affix.getSourceText().contains("+500")));
+        assertEquals("ALL_STATS", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(115.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0001d);
+        assertEquals(75.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMin(), 0.0001d);
+        assertEquals(100.0d, form.getTransfiguration().getAddedTransfigurationAffix().getSourceRangeMax(), 0.0001d);
+        assertEquals(1, form.getTemperingAffixes().size());
+        assertEquals("defense_max_animus", form.getTemperingAffixes().getFirst().getDefinitionId());
+        assertEquals(5.0d, form.getTemperingAffixes().getFirst().getValue(), 0.0001d);
+        assertEquals("heir_of_perdition", form.getSelectedAspectId());
+        assertTrue(form.getUniqueEffectText().contains("80%[x]"));
+        assertEquals(2, form.getSocketing().getSocketCount());
+        assertEquals(2, form.getSocketing().getOccupiedSocketCount());
+        assertEquals(0, form.getSocketing().getEmptySocketCount());
+        assertEquals("+150 siły", form.getSocketing().socketAt(0).getDetectedStat().getDisplayText());
+        assertEquals("+120 siły", form.getSocketing().socketAt(1).getDetectedStat().getDisplayText());
+
+        ItemImportFormMapper.MappingResult mappingResult = new ItemImportFormMapper().map(form);
+        assertTrue(mappingResult.getErrors().isEmpty(), () -> String.join(", ", mappingResult.getErrors()));
+        Path tempDirectory = Files.createTempDirectory("heir-joined-gem-runtime-import");
+        ItemLibraryService libraryService = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+        SavedImportedItem savedHelmet = libraryService.saveImportedItem(mappingResult.getItem());
+        assertEquals(2, savedHelmet.getSocketing().getSocketCount());
+        assertEquals("+150 siły", savedHelmet.getSocketing().socketAt(0).getDetectedStat().getDisplayText());
+        assertEquals("+120 siły", savedHelmet.getSocketing().socketAt(1).getDetectedStat().getDisplayText());
+        HeroItemSelection selection = HeroItemSelection.empty()
+                .withSelectedItem(HeroEquipmentSlot.HELMET, savedHelmet.getItemId());
+        EffectiveCurrentBuildResolution resolution = libraryService.resolveEffectiveCurrentBuild(
+                new CurrentBuildImportableStats(0L, 0.0d, 0.0d, 0.0d, 0.0d, 0.0d),
+                selection
+        );
+        assertEquals(0.0d, resolution.getActiveItemsContribution().getStrength(), 0.0001d);
+        assertEquals(0.0d, resolution.getActiveItemsContribution().getIntelligence(), 0.0001d);
+        assertEquals(15.0d, resolution.getActiveItemsContribution().getCriticalChancePercent(), 0.0001d);
     }
 
     @Test

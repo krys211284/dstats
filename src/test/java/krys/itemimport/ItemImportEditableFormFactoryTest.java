@@ -1,6 +1,7 @@
 package krys.itemimport;
 
 import krys.item.EquipmentSlot;
+import krys.socketing.SocketContentType;
 import krys.transfiguration.HoradricTransfigurationOutcome;
 import org.junit.jupiter.api.Test;
 
@@ -164,6 +165,72 @@ class ItemImportEditableFormFactoryTest {
         assertTrue(form.getUniqueEffectText().contains("80%[x]"), form.getUniqueEffectText());
         assertEquals(AspectRuntimeStatus.DESCRIPTIVE_ONLY,
                 ApplicationAspectRegistry.get().findById(form.getSelectedAspectId()).orElseThrow().getRuntimeStatus());
+    }
+
+    @Test
+    void shouldPreserveSocketGemRuneStatsAsOccupiedSocketData() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Hełm",
+                "Starożytny unikatowy hełm",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 004 pkt. pancerza",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.SOCKET, "+150 siły"),
+                        new FullItemReadLine(FullItemReadLineType.SOCKET, "+120 siły")
+                ),
+                details("Generyczny Hełm", "")
+        )));
+
+        assertTrue(form.getAffixes().stream().noneMatch(affix -> affix.getType() == ImportedItemAffixType.STRENGTH));
+        assertEquals(2, form.getSocketing().getSocketCount());
+        assertEquals(2, form.getSocketing().getOccupiedSocketCount());
+        assertEquals(0, form.getSocketing().getEmptySocketCount());
+        assertEquals(SocketContentType.DETECTED_STAT, form.getSocketing().socketAt(0).getContentType());
+        assertEquals("+150 siły", form.getSocketing().socketAt(0).getDetectedStat().getDisplayText());
+        assertEquals(ImportedItemAffixType.STRENGTH, form.getSocketing().socketAt(0).getDetectedStat().getMatchedAffixType());
+        assertEquals("DATA_ONLY", form.getSocketing().socketAt(0).getDetectedStat().getRuntimeStatus());
+        assertEquals("+120 siły", form.getSocketing().socketAt(1).getDetectedStat().getDisplayText());
+    }
+
+    @Test
+    void shouldSumEmptyAndOccupiedSockets() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Hełm",
+                "Starożytny unikatowy hełm",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 004 pkt. pancerza",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.SOCKET, "Puste gniazdo"),
+                        new FullItemReadLine(FullItemReadLineType.SOCKET, "+120 inteligencji")
+                ),
+                details("Generyczny Hełm", "")
+        )));
+
+        assertEquals(2, form.getSocketing().getSocketCount());
+        assertEquals(1, form.getSocketing().getOccupiedSocketCount());
+        assertEquals(1, form.getSocketing().getEmptySocketCount());
+        assertEquals("+120 inteligencji", form.getSocketing().socketAt(0).getDetectedStat().getDisplayText());
+    }
+
+    @Test
+    void shouldPreserveNonStrengthSocketGemRuneStats() {
+        for (String text : List.of("+120 inteligencji", "+120 zręczności", "+120 siły woli", "+500 pkt. pancerza")) {
+            ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                    "Generyczny Hełm",
+                    "Starożytny unikatowy hełm",
+                    "UNIQUE",
+                    "Moc przedmiotu: 900",
+                    "2 004 pkt. pancerza",
+                    List.of(new FullItemReadLine(FullItemReadLineType.SOCKET, text)),
+                    details("Generyczny Hełm", "")
+            )));
+
+            assertTrue(form.getAffixes().isEmpty(), text);
+            assertEquals(1, form.getSocketing().getOccupiedSocketCount(), text);
+            assertEquals(text, form.getSocketing().socketAt(0).getDetectedStat().getDisplayText(), text);
+        }
     }
 
     private static ItemImageImportCandidateParseResult parseResult(FullItemRead fullItemRead) {

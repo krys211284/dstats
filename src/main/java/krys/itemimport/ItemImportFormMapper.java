@@ -8,6 +8,7 @@ import krys.socketing.GemCatalog;
 import krys.socketing.ItemSocket;
 import krys.socketing.ItemSocketing;
 import krys.socketing.SocketContentType;
+import krys.socketing.SocketGemRuneStat;
 import krys.tempering.ApplicationTemperingAffixRegistry;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingAffixDefinition;
@@ -127,6 +128,16 @@ public final class ItemImportFormMapper {
                     errors.add("Gniazdo " + (index + 1) + ": puste gniazdo nie może mieć wybranego gema.");
                 }
                 validated.add(ItemSocket.empty(index));
+                continue;
+            }
+            if (contentType == SocketContentType.DETECTED_STAT) {
+                SocketGemRuneStat detectedStat = socket.getDetectedStat();
+                if (detectedStat == null || detectedStat.getDisplayText().isBlank()) {
+                    errors.add("Gniazdo " + (index + 1) + ": wykryty stat gema/runy wymaga tekstu.");
+                    validated.add(new ItemSocket(index, contentType, gemId, detectedStat));
+                    continue;
+                }
+                validated.add(ItemSocket.detectedStat(index, detectedStat));
                 continue;
             }
             if (gemId.isBlank()) {
@@ -657,6 +668,12 @@ public final class ItemImportFormMapper {
         });
         if (result.getItem() != null) {
             ItemImportDebugTrace.logAffixList("FORM_SUBMIT_MAPPING", result.getItem().getAffixes());
+            for (int index = 0; index < result.getItem().getSocketing().getSockets().size(); index++) {
+                int finalIndex = index;
+                krys.socketing.ItemSocket socket = result.getItem().getSocketing().getSockets().get(index);
+                ItemImportDebugTrace.log("FORM_SUBMIT_MAPPING", () -> "socketIndex=" + finalIndex
+                        + " " + ItemImportDebugTrace.formatSocket(socket));
+            }
         }
     }
 

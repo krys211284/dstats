@@ -121,6 +121,36 @@ class ImportedItemAffixExtractorTest {
     }
 
     @Test
+    void shouldIgnoreRegistryMatchesFromSocketGemRuneRegion() {
+        assertTrue(extract("+120 siły", FullItemReadLineType.SOCKET).isEmpty());
+        assertTrue(extract("+120 inteligencji", FullItemReadLineType.SOCKET).isEmpty());
+        assertTrue(extract("+900 cierni", FullItemReadLineType.SOCKET).isEmpty());
+
+        ImportedItemAffix ordinaryStrength = extractSingle("+120 siły", FullItemReadLineType.AFFIX);
+        ImportedItemAffix ordinaryIntelligence = extractSingle("+120 inteligencji", FullItemReadLineType.AFFIX);
+
+        assertEquals(ImportedItemAffixType.STRENGTH, ordinaryStrength.getType());
+        assertEquals(120.0d, ordinaryStrength.getValue(), 0.0001d);
+        assertEquals(ImportedItemAffixType.INTELLIGENCE, ordinaryIntelligence.getType());
+        assertEquals(120.0d, ordinaryIntelligence.getValue(), 0.0001d);
+    }
+
+    @Test
+    void shouldIgnoreSimpleStatAffixLineWhenFooterOrEffectMarkersLeakIntoExtractor() {
+        List<ImportedItemAffix> affixes = extractor.extractEditableAffixes(new FullItemRead(
+                "Dziedzic Zatracenia",
+                "Starożytny mityczny unikatowy hełm",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 004 pkt. pancerza",
+                List.of(new FullItemReadLine(FullItemReadLineType.AFFIX,
+                        ". SIŁY +120 siły +120 inteligencji +500 pkt. pancerza Wymaga 70 poziomu Przypisano do konta"))
+        ));
+
+        assertTrue(affixes.isEmpty());
+    }
+
+    @Test
     void shouldKeepGreaterMarkerOutOfAffixLabelAndMissingRangeMarkerOutOfRawLine() {
         ImportedItemAffix markedAffix = extractSingle("* +55 siły", FullItemReadLineType.AFFIX);
         ImportedItemAffix missingRangeAffix = extractSingle("13,2% redukcji czasu odnowienia", FullItemReadLineType.AFFIX);

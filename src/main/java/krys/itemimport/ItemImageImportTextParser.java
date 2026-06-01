@@ -3,6 +3,8 @@ package krys.itemimport;
 import krys.item.EquipmentSlot;
 import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkingResolvedItemValueResolver;
+import krys.transfiguration.TransfigurationAffixCatalog;
+import krys.transfiguration.TransfigurationAffixDefinition;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
@@ -133,14 +135,17 @@ final class ItemImageImportTextParser {
         String rarity = "";
         String itemPower = "";
         String baseItemValue = "";
+        SocketGemRuneRegionState socketGemRuneRegion = SocketGemRuneRegionState.inactive();
 
         for (String line : fullReadSourceLines) {
             if (isLevelRequirementNoiseLine(line) || isComparisonNoiseLine(line)) {
                 continue;
             }
-            FullItemReadLineType type = classifyFullReadLine(line);
+            FullItemReadLineType baseType = classifyFullReadLine(line);
+            FullItemReadLineType type = classifyFullReadLineWithRegion(line, baseType, socketGemRuneRegion);
             String readLineText = normalizeFullReadLine(type, line);
             String collapsedLine = collapse(line);
+            socketGemRuneRegion = nextSocketGemRuneRegion(line, baseType, type, socketGemRuneRegion);
             if (!readLineKeys.add(type.name() + ":" + collapse(readLineText))) {
                 continue;
             }
@@ -170,6 +175,122 @@ final class ItemImageImportTextParser {
             readLines.add(new FullItemReadLine(FullItemReadLineType.ASPECT, details.getUniqueEffectText()));
         }
         return new FullItemRead(itemName, itemTypeLine, rarity, itemPower, baseItemValue, readLines, details);
+    }
+
+    private static FullItemReadLineType classifyFullReadLineWithRegion(String line,
+                                                                       FullItemReadLineType baseType,
+                                                                       SocketGemRuneRegionState socketGemRuneRegion) {
+        if (socketGemRuneRegion.active()
+                && isSocketGemRuneRegionStatLine(line, baseType, socketGemRuneRegion.scrollCarry())) {
+            return FullItemReadLineType.SOCKET;
+        }
+        return baseType;
+    }
+
+    private static SocketGemRuneRegionState nextSocketGemRuneRegion(String line,
+                                                                    FullItemReadLineType baseType,
+                                                                    FullItemReadLineType finalType,
+                                                                    SocketGemRuneRegionState currentRegion) {
+        String collapsedLine = collapse(line);
+        if (isTooltipFooterLine(collapsedLine)) {
+            return SocketGemRuneRegionState.inactive();
+        }
+        if (isScrollBoundaryLine(collapsedLine) && currentRegion.active()) {
+            return new SocketGemRuneRegionState(true, true);
+        }
+        if (finalType == FullItemReadLineType.SOCKET || baseType == FullItemReadLineType.SOCKET) {
+            return new SocketGemRuneRegionState(true, false);
+        }
+        if (baseType == FullItemReadLineType.ASPECT && isLowerTooltipEffectLine(collapsedLine)) {
+            return new SocketGemRuneRegionState(true, false);
+        }
+        return currentRegion;
+    }
+
+    private static boolean isSocketGemRuneRegionStatLine(String line,
+                                                        FullItemReadLineType baseType,
+                                                        boolean scrollCarry) {
+        if (baseType == FullItemReadLineType.ASPECT || baseType == FullItemReadLineType.TEMPERING) {
+            return false;
+        }
+        if (isTransfigurationCatalogLine(line)) {
+            return false;
+        }
+        if (isKnownOrdinaryAffixStatLine(line)) {
+            return false;
+        }
+        String normalizedLine = normalizeLineForPatternKeepingPlus(line);
+        if (!normalizedLine.startsWith("+")) {
+            return false;
+        }
+        return baseType == FullItemReadLineType.AFFIX
+                || baseType == FullItemReadLineType.BASE_STAT
+                || baseType == FullItemReadLineType.IMPLICIT;
+    }
+
+    private static boolean isKnownOrdinaryAffixStatLine(String line) {
+        String collapsedLine = collapse(line);
+        return containsAny(collapsedLine, List.of(
+                "SZANSYNATRAFIENIEKRYTYCZNE",
+                "TRAFIENIEKRYTYCZNE",
+                "SZANSYNASZCZESLIWYTRAF",
+                "SZCZESLIWYTRAF",
+                "SZYBKOSCIRUCHU",
+                "UMIEJETNOSCIGLOWNE",
+                "UMIEJETNOSCIPODSTAWOWE",
+                "REDUKCJICZASUODNOWIENIA",
+                "REDUKCJIOBRAZEN",
+                "OBRAZENODBRONI",
+                "MAKSYMALNEGOZDROWIA",
+                "ZDROWIAPRZYTRAFIENIU",
+                "ZDROWIAZAZABICIE",
+                "PODSTAWOWEGOZASOBU"
+        ));
+    }
+
+    private static boolean isScrollBoundaryLine(String collapsedLine) {
+        return collapsedLine.contains("PRZEWIN");
+    }
+
+    private static boolean isLowerTooltipEffectLine(String collapsedLine) {
+        return containsAny(collapsedLine, List.of(
+                "ASPEKT",
+                "ASPECT",
+                "LEGENDARYPOWER",
+                "PODDAJSIENIENAWISCI",
+                "LASKIMATKI",
+                "NAZNACZENIE",
+                "ZADAJESZOBRAZENIAZWIEKSZONE",
+                "GDYMASZUMOCNIENIE"
+        ));
+    }
+
+    private static boolean isTooltipFooterLine(String collapsedLine) {
+        return containsAny(collapsedLine, List.of(
+                "WYMAGA",
+                "POZIOMU",
+                "PRZYPISANODOKONTA",
+                "UNIKATOWEWYPOSAZENIE",
+                "PRZEDMIOTZDODATKU",
+                "BRAKMOZLIWOSCIMODYFIKACJI",
+                "WARTOSCSPRZEDAZY",
+                "TRWALOSC",
+                "OZNACZ",
+                "UPUSC",
+                "WYPOSAZ",
+                "POROWNAJ"
+        ));
+    }
+
+    private static boolean isTransfigurationCatalogLine(String line) {
+        String collapsedLine = collapse(line);
+        for (TransfigurationAffixDefinition definition : TransfigurationAffixCatalog.definitions()) {
+            if (collapsedLine.contains(collapse(definition.getDisplayName()))
+                    || collapsedLine.contains(collapse(definition.getSourceName()))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static ItemImportDetails detectItemDetails(List<String> lines,
@@ -1789,5 +1910,11 @@ final class ItemImageImportTextParser {
     }
 
     private record HeaderNameCandidate(String name, int score, int firstIndex) {
+    }
+
+    private record SocketGemRuneRegionState(boolean active, boolean scrollCarry) {
+        private static SocketGemRuneRegionState inactive() {
+            return new SocketGemRuneRegionState(false, false);
+        }
     }
 }

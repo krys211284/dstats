@@ -37,6 +37,32 @@ public final class ItemSocketing {
         return socketCount;
     }
 
+    public int getTotalSocketCount() {
+        return socketCount;
+    }
+
+    public int getEmptySocketCount() {
+        return (int) sockets.stream()
+                .limit(Math.max(0, socketCount))
+                .filter(socket -> socket.getContentType() == SocketContentType.EMPTY)
+                .count();
+    }
+
+    public int getOccupiedSocketCount() {
+        return (int) sockets.stream()
+                .limit(Math.max(0, socketCount))
+                .filter(ItemSocket::isOccupied)
+                .count();
+    }
+
+    public List<SocketGemRuneStat> getDetectedStats() {
+        return sockets.stream()
+                .filter(socket -> socket.getContentType() == SocketContentType.DETECTED_STAT)
+                .map(ItemSocket::getDetectedStat)
+                .filter(stat -> stat != null && stat.hasDisplayText())
+                .toList();
+    }
+
     public List<ItemSocket> getSockets() {
         return sockets;
     }

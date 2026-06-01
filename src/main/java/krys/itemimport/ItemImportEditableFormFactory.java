@@ -3,7 +3,9 @@ package krys.itemimport;
 import krys.item.EquipmentSlot;
 import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkedAffixSelection;
+import krys.socketing.ItemSocket;
 import krys.socketing.ItemSocketing;
+import krys.socketing.SocketGemRuneStat;
 import krys.tempering.ItemTemperingAffix;
 import krys.transfiguration.HoradricTransfigurationOutcome;
 import krys.transfiguration.HoradricTuningPrism;
@@ -74,6 +76,12 @@ public final class ItemImportEditableFormFactory {
                         form.getFullItemRead(),
                         form.getMasterworking()
                 ));
+            }
+            for (int index = 0; index < form.getSocketing().getSockets().size(); index++) {
+                int finalIndex = index;
+                krys.socketing.ItemSocket socket = form.getSocketing().getSockets().get(index);
+                ItemImportDebugTrace.log("FINAL_IMPORT_FORM", () -> "socketIndex=" + finalIndex
+                        + " " + ItemImportDebugTrace.formatSocket(socket));
             }
             return form;
         }
@@ -170,10 +178,47 @@ public final class ItemImportEditableFormFactory {
         if (fullItemRead == null || !fullItemRead.hasAnyData()) {
             return ItemSocketing.empty();
         }
-        boolean hasEmptySocket = fullItemRead.getLines().stream()
-                .anyMatch(line -> line.getType() == FullItemReadLineType.SOCKET
-                        && normalize(line.getText()).equals("PUSTE GNIAZDO"));
-        return hasEmptySocket ? ItemSocketing.emptySockets(1) : ItemSocketing.empty();
+        List<SocketGemRuneStat> detectedStats = fullItemRead.getLines().stream()
+                .filter(line -> line.getType() == FullItemReadLineType.SOCKET)
+                .map(FullItemReadLine::getText)
+                .filter(ItemImportEditableFormFactory::isDetectedSocketStatLine)
+                .map(SocketGemRuneStat::fromDetectedLine)
+                .limit(ItemSocketing.MAX_SOCKET_COUNT)
+                .toList();
+        long rawEmptySocketCount = fullItemRead.getLines().stream()
+                .filter(line -> line.getType() == FullItemReadLineType.SOCKET)
+                .map(FullItemReadLine::getText)
+                .filter(text -> normalize(text).equals("PUSTE GNIAZDO"))
+                .count();
+        int occupiedSocketCount = detectedStats.size();
+        int emptySocketCount = Math.min((int) rawEmptySocketCount, Math.max(0, ItemSocketing.MAX_SOCKET_COUNT - occupiedSocketCount));
+        int totalSocketCount = Math.min(ItemSocketing.MAX_SOCKET_COUNT, occupiedSocketCount + emptySocketCount);
+        if (totalSocketCount <= 0) {
+            return ItemSocketing.empty();
+        }
+        List<ItemSocket> sockets = new ArrayList<>();
+        int index = 0;
+        for (SocketGemRuneStat stat : detectedStats) {
+            sockets.add(ItemSocket.detectedStat(index, stat));
+            index++;
+        }
+        while (index < totalSocketCount) {
+            sockets.add(ItemSocket.empty(index));
+            index++;
+        }
+        ItemImportDebugTrace.log("FINAL_IMPORT_FORM", () -> "SOCKET_GEM_RUNE_MODEL occupiedSocketCount="
+                + occupiedSocketCount
+                + " emptySocketCount=" + emptySocketCount
+                + " totalSocketCount=" + totalSocketCount
+                + " stats=" + detectedStats.stream()
+                .map(SocketGemRuneStat::getDisplayText)
+                .toList());
+        return new ItemSocketing(totalSocketCount, sockets);
+    }
+
+    private static boolean isDetectedSocketStatLine(String text) {
+        String normalized = normalize(text);
+        return normalized.startsWith("+") && normalized.matches(".*[0-9].*");
     }
 
     private static ItemMasterworking detectMasterworking(FullItemRead fullItemRead, List<ItemTemperingAffix> temperingAffixes) {

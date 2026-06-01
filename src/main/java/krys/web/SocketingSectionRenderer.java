@@ -9,6 +9,7 @@ import krys.socketing.ItemSocket;
 import krys.socketing.ItemSocketing;
 import krys.socketing.SocketContentType;
 import krys.socketing.SocketEffectContext;
+import krys.socketing.SocketGemRuneStat;
 import krys.socketing.SocketingPresentationSupport;
 
 import java.util.List;
@@ -41,9 +42,10 @@ final class SocketingSectionRenderer {
         }
         html.append("""
                             </select>
+                            <span class="helper">Liczba gniazd: %d</span>
                         </label>
                     </div>
-                """);
+                """.formatted(socketing.getSocketCount()));
         for (int index = 0; index < ItemSocketing.MAX_SOCKET_COUNT; index++) {
             html.append(renderSocketRow(index, socketing.socketAt(index), index >= socketing.getSocketCount(), context));
         }
@@ -133,6 +135,7 @@ final class SocketingSectionRenderer {
                         <select name="socketContent_%d" data-socket-content>
                             <option value="EMPTY"%s>Puste</option>
                             <option value="GEM"%s>Gem</option>
+                            <option value="DETECTED_STAT"%s>Wykryty stat gema/runy</option>
                         </select>
                     </label>
                     <label%s>
@@ -141,6 +144,7 @@ final class SocketingSectionRenderer {
                             %s
                         </select>
                     </label>
+                    %s
                     <p class="helper socketing-effect" data-socket-effect%s>%s</p>
                 </div>
                 """.formatted(
@@ -150,13 +154,62 @@ final class SocketingSectionRenderer {
                 index,
                 contentType == SocketContentType.EMPTY ? " selected" : "",
                 gemSelected ? " selected" : "",
+                contentType == SocketContentType.DETECTED_STAT ? " selected" : "",
                 gemSelected ? "" : " hidden",
                 index,
                 gemSelected ? "" : " disabled",
                 renderGemOptions(selectedGemId, context),
+                renderDetectedStatFields(index, socket),
                 gemSelected ? "" : " hidden",
                 escape(selectedGemEffect(selectedGemId, context))
         );
+    }
+
+    private static String renderDetectedStatFields(int index, ItemSocket socket) {
+        if (socket == null || socket.getContentType() != SocketContentType.DETECTED_STAT) {
+            return """
+                    <input type="hidden" name="socketDetectedDisplayText_%d" value="">
+                    <input type="hidden" name="socketDetectedNormalizedText_%d" value="">
+                    <input type="hidden" name="socketDetectedValue_%d" value="">
+                    <input type="hidden" name="socketDetectedMatchedAffixType_%d" value="">
+                    <input type="hidden" name="socketDetectedSourceLine_%d" value="">
+                    """.formatted(index, index, index, index, index);
+        }
+        SocketGemRuneStat stat = socket.getDetectedStat();
+        String displayText = stat == null ? "" : stat.getDisplayText();
+        String normalizedText = stat == null ? "" : stat.getNormalizedText();
+        String value = stat == null || stat.getValue() == null ? "" : formatStatValue(stat.getValue());
+        String matchedType = stat == null || stat.getMatchedAffixType() == null ? "" : stat.getMatchedAffixType().name();
+        String sourceLine = stat == null ? "" : stat.getSourceLine();
+        return """
+                <div class="helper">
+                    Wykryty stat: %s · Runtime nieaktywny
+                    <input type="hidden" name="socketDetectedDisplayText_%d" value="%s">
+                    <input type="hidden" name="socketDetectedNormalizedText_%d" value="%s">
+                    <input type="hidden" name="socketDetectedValue_%d" value="%s">
+                    <input type="hidden" name="socketDetectedMatchedAffixType_%d" value="%s">
+                    <input type="hidden" name="socketDetectedSourceLine_%d" value="%s">
+                </div>
+                """.formatted(
+                escape(displayText),
+                index,
+                escape(displayText),
+                index,
+                escape(normalizedText),
+                index,
+                escape(value),
+                index,
+                escape(matchedType),
+                index,
+                escape(sourceLine)
+        );
+    }
+
+    private static String formatStatValue(double value) {
+        if (Math.rint(value) == value) {
+            return Long.toString(Math.round(value));
+        }
+        return Double.toString(value);
     }
 
     private static String renderGemOptions(String selectedGemId, Optional<SocketEffectContext> context) {
