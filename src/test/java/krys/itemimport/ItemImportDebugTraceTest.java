@@ -1,5 +1,6 @@
 package krys.itemimport;
 
+import krys.item.EquipmentSlot;
 import krys.web.ItemImportPageModel;
 import krys.web.ItemImportPageRenderer;
 import org.junit.jupiter.api.AfterEach;
@@ -210,7 +211,7 @@ class ItemImportDebugTraceTest {
         assertTrue(logs.contains("resolvedDisplayText=\"+12 do maksymalnej liczby kumulacji Animuszu\""), logs);
         assertTrue(logs.contains("runtimeStatus=DATA_ONLY"), logs);
         assertTrue(logs.contains("stored value is GA/base import value; resolved value uses masterworking perfected tempering"), logs);
-        assertFalse(logs.contains("displayText=\"+5 do maksymalnej liczby kumulacji Animuszu\""), logs);
+        assertFalse(logs.contains("resolvedDisplayText=\"+5 do maksymalnej liczby kumulacji Animuszu\""), logs);
     }
 
     @Test
@@ -273,6 +274,69 @@ class ItemImportDebugTraceTest {
     }
 
     @Test
+    void tracePokazujeOsobnySelectedValueSourceIVisualAnchorSource() throws Exception {
+        enableDebugForTest();
+
+        String logs = captureLogs(() -> new ItemImportEditableFormFactory().create(parseResult(new FullItemRead(
+                "Generyczny Miecz",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "★ +314 obrażeń od broni uszkodzony wariant 999 888"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+270 siły"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+948 pkt. zdrowia przy trafieniu"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Mnożnik x15% wszystkich obrażeń"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+314 obrażeń od broni")
+                )
+        ))));
+
+        assertTrue(logs.contains("AFFIX_VISUAL_ANCHOR"), logs);
+        assertTrue(logs.contains("selectedValueSource=\"+314 obrażeń od broni\""), logs);
+        assertTrue(logs.contains("visualAnchorSource=\"★ +314 obrażeń od broni uszkodzony wariant 999 888\""), logs);
+        assertTrue(logs.contains("finalRenderedOrder=[WEAPON_DAMAGE_FLAT, STRENGTH, LIFE_ON_HIT, ALL_DAMAGE_MULTIPLIER]"), logs);
+        assertTrue(logs.contains("GA marker propagated from visual anchor candidate"), logs);
+    }
+
+    @Test
+    void tracePokazujeLokalneWiazanieSocketMultiplierIOdrzucenieArtifactTempering() throws Exception {
+        enableDebugForTest();
+
+        String logs = captureLogs(() -> {
+            ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult(new FullItemRead(
+                    "Generyczny Miecz",
+                    "Starożytny unikatowy miecz",
+                    "UNIQUE",
+                    "Moc przedmiotu: 900",
+                    "2 417 pkt. obrażeń na sek.",
+                    List.of(
+                            new FullItemReadLine(FullItemReadLineType.AFFIX, "+314 obrażeń od broni"),
+                            new FullItemReadLine(FullItemReadLineType.AFFIX, "+270 siły"),
+                            new FullItemReadLine(FullItemReadLineType.AFFIX, "+948 pkt. zdrowia przy trafieniu"),
+                            new FullItemReadLine(FullItemReadLineType.AFFIX, "Mnożnik x15% wszystkich obrażeń"),
+                            new FullItemReadLine(FullItemReadLineType.AFFIX, "+47,5% szansy na trafienie krytyczne"),
+                            new FullItemReadLine(FullItemReadLineType.AFFIX, "+7,5% szansy na trafienie krytyczne"),
+                            new FullItemReadLine(FullItemReadLineType.AFFIX, "Przeistoczony"),
+                            new FullItemReadLine(FullItemReadLineType.OTHER, "Niezniszczalność"),
+                            new FullItemReadLine(FullItemReadLineType.AFFIX,
+                                    "zwiększone 0 170 przez efekt unikatowy MNOZNIK X32% OBRAZEN (FIZYCZNE)")
+                    )
+            )));
+            assertEquals(32.0d, form.getSocketing().socketAt(0).getDetectedStat().getValue(), 0.0001d);
+            assertEquals("+7,5% szansy na trafienie krytyczne", form.getTemperingAffixes().getFirst().getSourceLine());
+        });
+
+        assertTrue(logs.contains("physical socket multiplier value bound to local Mnożnik x...% anchor"), logs);
+        assertTrue(logs.contains("value=32.0000"), logs);
+        assertTrue(logs.contains("decision=rejected"), logs);
+        assertTrue(logs.contains("sourceLine=\"+47,5% szansy na trafienie krytyczne\""), logs);
+        assertTrue(logs.contains("value outside tempering catalog range"), logs);
+        assertTrue(logs.contains("decision=selected"), logs);
+        assertTrue(logs.contains("sourceLine=\"+7,5% szansy na trafienie krytyczne\""), logs);
+    }
+
+    @Test
     void rendererImportuNiePokazujeTechnicznegoDebugOutput() throws Exception {
         enableDebugForTest();
         final ItemImageImportCandidateParseResult[] resultHolder = new ItemImageImportCandidateParseResult[1];
@@ -323,6 +387,21 @@ class ItemImportDebugTraceTest {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         ImageIO.write(new BufferedImage(32, 32, BufferedImage.TYPE_INT_RGB), "png", output);
         return new ItemImageImportRequest(fileName, "image/png", output.toByteArray());
+    }
+
+    private static ItemImageImportCandidateParseResult parseResult(FullItemRead fullItemRead) {
+        return new ItemImageImportCandidateParseResult(
+                new ItemImageMetadata("debug-test.png", "image/png", "png", 1, 1),
+                fullItemRead,
+                new ItemImportFieldCandidate<>("", EquipmentSlot.MAIN_HAND, ItemImportFieldConfidence.HIGH, ""),
+                ItemImportFieldCandidate.unknown(""),
+                ItemImportFieldCandidate.unknown(""),
+                ItemImportFieldCandidate.unknown(""),
+                ItemImportFieldCandidate.unknown(""),
+                ItemImportFieldCandidate.unknown(""),
+                ItemImportFieldCandidate.unknown(""),
+                ""
+        );
     }
 
     private static void enableDebugForTest() {

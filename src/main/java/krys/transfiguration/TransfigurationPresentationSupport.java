@@ -65,7 +65,7 @@ public final class TransfigurationPresentationSupport {
 
     private static String outcomeSummary(ItemTransfiguration transfiguration, List<ImportedItemAffix> itemAffixes) {
         return switch (transfiguration.getOutcome()) {
-            case INDESTRUCTIBLE -> "Niezniszczalny";
+            case INDESTRUCTIBLE -> "Niezniszczalność";
             case UPGRADE_TO_GREATER_AFFIX -> "Ulepszono do Greater Affix: "
                     + affixRefLabel(transfiguration.getUpgradedAffixRef(), itemAffixes);
             case BONUS_TRANSFIGURATION_AFFIX -> "Bonusowy affix: "

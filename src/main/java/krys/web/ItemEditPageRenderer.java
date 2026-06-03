@@ -420,6 +420,7 @@ final class ItemEditPageRenderer {
         StringBuilder html = new StringBuilder("""
                 <section class="subpanel">
                     <h3>Affixy</h3>
+                    %s
                     <input type="hidden" id="affixCount" name="affixCount" value="%s">
                     <div class="affix-table-wrap">
                     <table class="data-table affix-table" id="affixTable">
@@ -440,7 +441,7 @@ final class ItemEditPageRenderer {
                             </tr>
                         </thead>
                         <tbody id="affixRows">
-                """.formatted(form.getAffixes().size()));
+                """.formatted(renderAmbiguousGaNotice(form), form.getAffixes().size()));
         for (int index = 0; index < form.getAffixes().size(); index++) {
             ImportedItemAffix affix = form.getAffixes().get(index);
             html.append("""
@@ -457,9 +458,9 @@ final class ItemEditPageRenderer {
                             <input type="hidden" name="affixReferenceValue_%s" value="%s">
                             <input type="hidden" name="affixDisplayValue_%s" value="%s">
                         </td>
-                        <td class="affix-value-cell">%s<label class="masterworking-source-value-field">%s</label></td>
+                        <td class="affix-value-cell">%s%s<label class="masterworking-source-value-field">Wartość edytowalna %s</label></td>
                         <td class="affix-range-cell">%s%s</td>
-                        <td class="affix-greater-cell"><label class="checkbox-label"><input type="checkbox" name="affixGreater_%s" value="true"%s> Gwiazdka</label></td>
+                        <td class="affix-greater-cell"><label class="checkbox-label"><input type="checkbox" name="affixGreater_%s" value="true"%s> Gwiazdka</label>%s</td>
                         <td class="affix-action-cell"><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
                     </tr>
                     """.formatted(
@@ -483,12 +484,14 @@ final class ItemEditPageRenderer {
                     affix.getReferenceValue() == null ? "" : formatDecimal(affix.getReferenceValue()),
                     index,
                     escapeHtml(affix.getDisplayValue()),
+                    renderAffixDisplayValue(affix),
                     MasterworkingSectionRenderer.renderAffixEditorHint(form.getMasterworking(), affix, form.isMythicUnique()),
                     renderAffixValueControl(index, affix),
                     escapeHtml(rollRangeLabel(affix)),
                     referenceValueLabel(affix),
                     index,
-                    affix.isGreaterAffix() ? " checked" : ""
+                    affix.isGreaterAffix() ? " checked" : "",
+                    renderAffixGaConfirmationState(affix)
             ));
         }
         html.append("""
@@ -627,6 +630,28 @@ final class ItemEditPageRenderer {
                 + SocketingSectionRenderer.renderScript());
     }
 
+    private static String renderAmbiguousGaNotice(ItemImportEditableForm form) {
+        if (!requiresGaConfirmation(form)) {
+            return "";
+        }
+        return "<p class=\"helper status-warning\">Wykryto markery GA / gwiazdek - wymagają potwierdzenia przy affixach.</p>";
+    }
+
+    private static String renderAffixGaConfirmationState(ImportedItemAffix affix) {
+        if (affix == null || !affix.isGreaterAffixConfirmationRequired()) {
+            return "";
+        }
+        return "<div class=\"helper status-warning\">GA do potwierdzenia</div>";
+    }
+
+    private static boolean requiresGaConfirmation(ItemImportEditableForm form) {
+        return form != null
+                && form.getMasterworking() != null
+                && form.getMasterworking().getPerfectedAffix() != null
+                && !form.getMasterworking().getPerfectedAffix().hasRecognizedSource()
+                && "REQUIRES_CONFIRMATION".equals(form.getMasterworking().getPerfectedAffix().getRawSource());
+    }
+
     private static String renderAffixTypeOptions(ImportedItemAffixType selectedType) {
         StringBuilder html = new StringBuilder();
         for (AffixDefinition definition : AFFIX_REGISTRY.all()) {
@@ -666,6 +691,16 @@ final class ItemEditPageRenderer {
                 + "\" value=\""
                 + escapeHtml(formatDecimal(affix == null ? 0.0d : affix.getValue()))
                 + "\">";
+    }
+
+    private static String renderAffixDisplayValue(ImportedItemAffix affix) {
+        if (affix == null) {
+            return "";
+        }
+        String displayValue = affix.getDisplayValue().isBlank()
+                ? affix.getType().formatLine(affix.getValue())
+                : affix.getDisplayValue();
+        return "<div class=\"helper\">Wartość z tooltipa: " + escapeHtml(displayValue) + "</div>";
     }
 
     private static String aspectEffectText(ItemImportEditableForm form, AspectDefinition selectedAspect) {

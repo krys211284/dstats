@@ -430,6 +430,36 @@ class ImportedItemAffixExtractorTest {
         assertTrue(affixes.stream().noneMatch(affix -> affix.getType() == ImportedItemAffixType.CORE_SKILL_RANKS));
     }
 
+    @Test
+    void shouldSortDeduplicatedAffixesBySelectedCandidateVisualOrder() {
+        List<ImportedItemAffix> affixes = extractor.extractEditableAffixes(new FullItemRead(
+                "Item testowy",
+                "Miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+47,5% szansy na trafienie krytyczne"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+314 obrażeń od broni"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+7,5% szansy na trafienie krytyczne [6,5 - 8,5]%")
+                )
+        ));
+
+        ImportedItemAffix weaponDamage = affixes.stream()
+                .filter(affix -> affix.getType() == ImportedItemAffixType.WEAPON_DAMAGE_FLAT)
+                .findFirst()
+                .orElseThrow();
+        ImportedItemAffix criticalChance = affixes.stream()
+                .filter(affix -> affix.getType() == ImportedItemAffixType.CRITICAL_STRIKE_CHANCE)
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(314.0d, weaponDamage.getValue(), 0.0001d);
+        assertEquals(7.5d, criticalChance.getValue(), 0.0001d);
+        assertTrue(weaponDamage.getDisplayOrder() < criticalChance.getDisplayOrder());
+        assertTrue(affixes.indexOf(weaponDamage) < affixes.indexOf(criticalChance));
+    }
+
     private void assertGreaterAffix(String text, FullItemReadLineType type) {
         assertTrue(extractSingle(text, type).isGreaterAffix(), text);
     }

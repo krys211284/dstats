@@ -949,6 +949,44 @@ class ItemImportPageRendererTest {
     }
 
     @Test
+    void shouldRenderCriticalStrikeChanceTemperingWithUserFacingLabelAndDecimalValue() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "miecz.png",
+                "MAIN_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Miecz testowy", "Miecz", "UNIQUE", true, EquipmentSlot.MAIN_HAND,
+                        900L, 2417L, 1884L, 2512L, 2198L, 1.10d, null, ""),
+                List.of(new ItemTemperingAffix(
+                        "offense_critical_strike_chance",
+                        TemperingCategory.OFFENSE,
+                        7.5d,
+                        "+7,5% szansy na trafienie krytyczne",
+                        TemperingRuntimeStatus.DATA_ONLY,
+                        false
+                )),
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.unknown("REQUIRES_CONFIRMATION", "ambiguous_ga_markers"))
+        );
+
+        String tempering = sectionByHeading(renderFullPage(form), "Hartowanie");
+
+        assertTrue(tempering.contains("Ofensywa"));
+        assertTrue(tempering.contains("+7,5% szansy na trafienie krytyczne"));
+        assertTrue(tempering.contains("Runtime nieaktywny"));
+        assertFalse(tempering.contains("offense_critical_strike_chance +8"));
+        assertFalse(tempering.contains("Doskonalenie: brak reguły"));
+    }
+
+    @Test
     void shouldRenderShieldTemperingCategoriesAndDefenseCatalog() {
         ItemImportEditableForm form = new ItemImportEditableForm(
                 "tarcza.png",
@@ -992,7 +1030,8 @@ class ItemImportPageRendererTest {
         assertTrue(tempering.contains("Katalog affixów tej kategorii nie został jeszcze uzupełniony."));
         assertTrue(tempering.contains("\"DEFENSE\""));
         assertTrue(tempering.contains("\"UTILITY\":[]"));
-        assertTrue(tempering.contains("\"OFFENSE\":[]"));
+        assertTrue(tempering.contains("\"OFFENSE\":["));
+        assertTrue(tempering.contains("\"id\":\"offense_critical_strike_chance\""));
         assertTrue(tempering.contains("\"id\":\"defense_maximum_life\""));
         assertTrue(tempering.contains("\"rangeMin\":\"1000\""));
         assertTrue(tempering.contains("\"rangeMax\":\"1500\""));
@@ -1118,6 +1157,66 @@ class ItemImportPageRendererTest {
     }
 
     @Test
+    void shouldShowRequiresConfirmationWhenQualityTwentyFiveHasMarkersWithoutSelectedPerfectedAffix() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "miecz.png",
+                "MAIN_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 270.0d, "", true, 0, "★ +270 siły", krys.itemimport.ImportedItemAffixSource.OCR)),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Miecz testowy", "Miecz", "UNIQUE", true, EquipmentSlot.MAIN_HAND,
+                        900L, 2417L, 1884L, 2512L, 2198L, 1.10d, null, ""),
+                List.of(),
+                new ItemMasterworking(25, 25, null)
+        );
+
+        String masterworking = sectionByHeading(renderFullPage(form), "Doskonalenie");
+        String selector = selectByName(masterworking, "masterworkingPerfectedAffix");
+
+        assertTrue(masterworking.contains("Aktualny doskonalony afiks"));
+        assertTrue(selector.contains("<option value=\"\" selected>Wymaga potwierdzenia</option>"));
+    }
+
+    @Test
+    void shouldShowRequiresConfirmationForUnknownPerfectedAffixSelection() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "miecz.png",
+                "MAIN_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 270.0d)),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Miecz testowy", "Miecz", "UNIQUE", true, EquipmentSlot.MAIN_HAND,
+                        900L, 2417L, 1884L, 2512L, 2198L, 1.10d, null, ""),
+                List.of(),
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.unknown("REQUIRES_CONFIRMATION", "ambiguous_ga_markers"))
+        );
+
+        String masterworking = sectionByHeading(renderFullPage(form), "Doskonalenie");
+        String selector = selectByName(masterworking, "masterworkingPerfectedAffix");
+
+        assertTrue(masterworking.contains("Aktualny doskonalony afiks"));
+        assertTrue(selector.contains("<option value=\"\" selected>Wymaga potwierdzenia</option>"));
+        assertTrue(sectionByHeading(renderFullPage(form), "Ręczna weryfikacja affixów")
+                .contains("Wykryto markery GA / gwiazdek - wymagają potwierdzenia przy affixach."));
+    }
+
+    @Test
     void shouldRenderMasterworkingValuesInlineWithoutReplacingSourceInputs() {
         ItemImportEditableForm form = new ItemImportEditableForm(
                 "tarcza.png",
@@ -1205,6 +1304,131 @@ class ItemImportPageRendererTest {
         assertTrue(row.contains("Wartość bazowa: 12"));
         assertFalse(html.contains("18,8"));
         assertFalse(html.contains("18.8"));
+    }
+
+    @Test
+    void shouldRenderAllDamageMultiplierAsReadableTooltipValueAndEditableSourceValue() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "miecz.png",
+                "MAIN_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(new ImportedItemAffix(ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER, 15.0d, "%", false, 0,
+                        "Mnożnik x15% wszystkich obrażeń", krys.itemimport.ImportedItemAffixSource.OCR)),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Miecz testowy", "Miecz", "UNIQUE", true, EquipmentSlot.MAIN_HAND,
+                        900L, 2417L, 1884L, 2512L, 2198L, 1.10d, null, ""),
+                List.of(),
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.unknown("REQUIRES_CONFIRMATION", "ambiguous_ga_markers"))
+        );
+
+        String row = affixRowByOriginalType(renderFullPage(form), "ALL_DAMAGE_MULTIPLIER");
+
+        assertTrue(row.contains("Wartość z tooltipa: Mnożnik x15% wszystkich obrażeń"));
+        assertTrue(row.contains("Wartość edytowalna <input type=\"number\" min=\"0\" step=\"0.01\" name=\"affixValue_0\" value=\"15\""));
+        assertFalse(row.contains("Doskonalenie: brak reguły"));
+    }
+
+    @Test
+    void shouldRenderAffixesInFormOrderWithoutRendererSorting() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "miecz.png",
+                "MAIN_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(
+                        new ImportedItemAffix(ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 314.0d, "+314 obrażeń od broni"),
+                        new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 270.0d, "+270 siły"),
+                        new ImportedItemAffix(ImportedItemAffixType.LIFE_ON_HIT, 948.0d, "+948 pkt. zdrowia przy trafieniu"),
+                        new ImportedItemAffix(ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER, 15.0d, "%", false, 9,
+                                "Mnożnik x15% wszystkich obrażeń", krys.itemimport.ImportedItemAffixSource.OCR)
+                ),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Miecz testowy", "Miecz", "UNIQUE", true, EquipmentSlot.MAIN_HAND,
+                        900L, 2417L, 1884L, 2512L, 2198L, 1.10d, null, "")
+        );
+
+        String section = sectionByHeading(renderFullPage(form), "Ręczna weryfikacja affixów");
+
+        assertTrue(section.indexOf("name=\"affixOriginalType_0\" value=\"WEAPON_DAMAGE_FLAT\"")
+                < section.indexOf("name=\"affixOriginalType_1\" value=\"STRENGTH\""));
+        assertTrue(section.indexOf("name=\"affixOriginalType_1\" value=\"STRENGTH\"")
+                < section.indexOf("name=\"affixOriginalType_2\" value=\"LIFE_ON_HIT\""));
+        assertTrue(section.indexOf("name=\"affixOriginalType_2\" value=\"LIFE_ON_HIT\"")
+                < section.indexOf("name=\"affixOriginalType_3\" value=\"ALL_DAMAGE_MULTIPLIER\""));
+    }
+
+    @Test
+    void shouldRenderCheckedGreaterAffixWhenLocalMarkerWasAssigned() {
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "miecz.png",
+                "MAIN_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 270.0d, "", true, 0,
+                        "★ +270 siły", krys.itemimport.ImportedItemAffixSource.OCR)),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Miecz testowy", "Miecz", "UNIQUE", true, EquipmentSlot.MAIN_HAND,
+                        900L, 2417L, 1884L, 2512L, 2198L, 1.10d, null, "")
+        );
+
+        String row = affixRowByOriginalType(renderFullPage(form), "STRENGTH");
+
+        assertTrue(row.contains("name=\"affixGreater_0\" value=\"true\" checked"));
+        assertFalse(row.contains("GA do potwierdzenia"));
+    }
+
+    @Test
+    void shouldRenderPerAffixGaConfirmationWhenMarkersAreAmbiguous() {
+        ImportedItemAffix affix = new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 270.0d, "+270 siły")
+                .withVisualAnchor("+270 siły", 0, false, true);
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "miecz.png",
+                "MAIN_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(affix),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Miecz testowy", "Miecz", "UNIQUE", true, EquipmentSlot.MAIN_HAND,
+                        900L, 2417L, 1884L, 2512L, 2198L, 1.10d, null, ""),
+                List.of(),
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.unknown("REQUIRES_CONFIRMATION", "ambiguous_ga_markers"))
+        );
+
+        String section = sectionByHeading(renderFullPage(form), "Ręczna weryfikacja affixów");
+        String row = affixRowByOriginalType(section, "STRENGTH");
+
+        assertTrue(section.contains("Wykryto markery GA / gwiazdek"));
+        assertFalse(row.contains("name=\"affixGreater_0\" value=\"true\" checked"));
+        assertTrue(row.contains("GA do potwierdzenia"));
     }
 
     @Test

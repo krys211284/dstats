@@ -212,11 +212,14 @@ public final class ItemImportDebugTrace {
                 + " rollRangeMin=" + value(affix.getRollRangeMin())
                 + " rollRangeMax=" + value(affix.getRollRangeMax())
                 + " greaterAffix=" + affix.isGreaterAffix()
+                + " greaterAffixConfirmationRequired=" + affix.isGreaterAffixConfirmationRequired()
                 + " displayOrder=" + affix.getDisplayOrder()
+                + " visualSourceOrder=" + affix.getVisualDisplayOrder()
                 + " source=" + affix.getSource()
                 + " dedupKey=" + quote(affix.getAffixDefinitionId())
                 + " displayValue=" + quote(affix.getDisplayValue())
-                + " sourceLine=" + compactText(affix.getSourceText());
+                + " selectedValueSource=" + compactText(affix.getSourceText())
+                + " visualAnchorSource=" + compactText(affix.getVisualSourceText());
     }
 
     public static String formatForm(ItemImportEditableForm form) {
@@ -331,7 +334,8 @@ public final class ItemImportDebugTrace {
                 + " value=" + value(affix.getValue())
                 + " runtimeStatus=" + affix.getRuntimeStatus()
                 + " greaterAffix=" + affix.isGreaterAffix()
-                + " displayText=" + compactText(affix.getDisplayText());
+                + " displayText=" + compactText(affix.getDisplayText())
+                + " sourceLine=" + compactText(affix.getSourceLine());
     }
 
     public static String formatTemperingForm(ItemTemperingAffix affix,
@@ -468,7 +472,13 @@ public final class ItemImportDebugTrace {
     }
 
     private static Optional<String> findTemperingSourceLine(ItemTemperingAffix affix, FullItemRead fullItemRead) {
-        if (affix == null || fullItemRead == null || !fullItemRead.hasAnyData()) {
+        if (affix == null) {
+            return Optional.empty();
+        }
+        if (!affix.getSourceLine().isBlank()) {
+            return Optional.of(affix.getSourceLine());
+        }
+        if (fullItemRead == null || !fullItemRead.hasAnyData()) {
             return Optional.empty();
         }
         Optional<TemperingAffixDefinition> definition = TEMPERING_REGISTRY.findById(affix.getDefinitionId());

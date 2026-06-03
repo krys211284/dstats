@@ -82,6 +82,24 @@ class ItemImageImportTextParserTest {
     }
 
     @Test
+    void shouldClassifyPhysicalMultiplierAfterSocketMarkerAsSocketGemRuneData() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                Generyczny Miecz
+                Starożytny unikatowy miecz
+                Moc przedmiotu: 900
+                Rynsztunek
+                Mnożnik x32% obrażeń (Fizyczne)
+                """);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(FullItemReadLineType.SOCKET, typeOf(result, "Mnożnik x32% obrażeń (Fizyczne)"));
+        assertEquals(1, form.getSocketing().getOccupiedSocketCount());
+        assertEquals(32.0d, form.getSocketing().socketAt(0).getDetectedStat().getValue(), 0.0001d);
+        assertEquals("PHYSICAL", form.getSocketing().socketAt(0).getDetectedStat().getDamageType());
+        assertFalse(form.getTransfiguration().getOutcome() == HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX);
+    }
+
+    @Test
     void shouldFuzzyMatchLuckyHitChanceForGenericMythicWithoutResourceAffix() {
         ItemImageImportCandidateParseResult result = parser.parse(metadata, """
                 Generyczny Helm Testowy

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -231,6 +232,234 @@ class ItemImportEditableFormFactoryTest {
             assertEquals(1, form.getSocketing().getOccupiedSocketCount(), text);
             assertEquals(text, form.getSocketing().socketAt(0).getDetectedStat().getDisplayText(), text);
         }
+    }
+
+    @Test
+    void shouldMoveCatalogTemperingLineAfterOrdinaryAffixCapOutOfOrdinaryAffixes() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Miecz",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+314 obrażeń od broni"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "★ +270 siły"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "★ +948 pkt. zdrowia przy trafieniu"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Mnożnik x15% wszystkich obrażeń"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+7,5% szansy na trafienie krytyczne")
+                ),
+                details("Generyczny Miecz", "")
+        )));
+
+        assertEquals(4, form.getAffixes().size());
+        assertEquals(ImportedItemAffixType.WEAPON_DAMAGE_FLAT, form.getAffixes().get(0).getType());
+        assertEquals(ImportedItemAffixType.STRENGTH, form.getAffixes().get(1).getType());
+        assertEquals(ImportedItemAffixType.LIFE_ON_HIT, form.getAffixes().get(2).getType());
+        assertEquals(ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER, form.getAffixes().get(3).getType());
+        assertTrue(form.getAffixes().get(1).isGreaterAffix());
+        assertTrue(form.getAffixes().get(2).isGreaterAffix());
+        assertFalse(form.getAffixes().stream().anyMatch(affix -> affix.getType() == ImportedItemAffixType.CRITICAL_STRIKE_CHANCE));
+        assertEquals(1, form.getTemperingAffixes().size());
+        assertEquals("offense_critical_strike_chance", form.getTemperingAffixes().getFirst().getDefinitionId());
+        assertEquals(7.5d, form.getTemperingAffixes().getFirst().getValue(), 0.0001d);
+    }
+
+    @Test
+    void shouldUseVisualAnchorOrderInsteadOfSelectedTextCandidateOrder() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Miecz",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "★ +314 obrażeń od broni uszkodzony wariant 999 888"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+270 siły"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+948 pkt. zdrowia przy trafieniu"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Mnożnik x15% wszystkich obrażeń"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+314 obrażeń od broni")
+                ),
+                details("Generyczny Miecz", "")
+        )));
+
+        assertEquals(4, form.getAffixes().size());
+        assertEquals(ImportedItemAffixType.WEAPON_DAMAGE_FLAT, form.getAffixes().get(0).getType());
+        assertEquals(ImportedItemAffixType.STRENGTH, form.getAffixes().get(1).getType());
+        assertEquals(ImportedItemAffixType.LIFE_ON_HIT, form.getAffixes().get(2).getType());
+        assertEquals(ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER, form.getAffixes().get(3).getType());
+        ImportedItemAffix weaponDamage = form.getAffixes().getFirst();
+        assertEquals("+314 obrażeń od broni", weaponDamage.getSourceText());
+        assertTrue(weaponDamage.getVisualSourceText().contains("uszkodzony wariant"));
+        assertTrue(weaponDamage.isGreaterAffix());
+    }
+
+    @Test
+    void shouldPropagateLocalGreaterAffixMarkerFromDirectLine() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Miecz",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(new FullItemReadLine(FullItemReadLineType.AFFIX, "★ +270 siły")),
+                details("Generyczny Miecz", "")
+        )));
+
+        assertEquals(1, form.getAffixes().size());
+        assertEquals(ImportedItemAffixType.STRENGTH, form.getAffixes().getFirst().getType());
+        assertTrue(form.getAffixes().getFirst().isGreaterAffix());
+        assertFalse(form.getAffixes().getFirst().isGreaterAffixConfirmationRequired());
+    }
+
+    @Test
+    void shouldKeepIndestructibleAsTransfigurationAndPhysicalMultiplierAsSocketGemRuneData() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Miecz",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Przeistoczony"),
+                        new FullItemReadLine(FullItemReadLineType.OTHER, "Niezniszczalność"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Mnożnik x32% obrażeń (Fizyczne)")
+                ),
+                details("Generyczny Miecz", "")
+        )));
+
+        assertTrue(form.getTransfiguration().isTransfigured());
+        assertEquals(HoradricTransfigurationOutcome.INDESTRUCTIBLE, form.getTransfiguration().getOutcome());
+        assertNull(form.getTransfiguration().getAddedTransfigurationAffix());
+        assertEquals(1, form.getSocketing().getOccupiedSocketCount());
+        assertEquals("Mnożnik x32% obrażeń (Fizyczne)", form.getSocketing().socketAt(0).getDetectedStat().getDisplayText());
+        assertEquals(32.0d, form.getSocketing().socketAt(0).getDetectedStat().getValue(), 0.0001d);
+        assertEquals("PHYSICAL", form.getSocketing().socketAt(0).getDetectedStat().getDamageType());
+        assertTrue(form.getAffixes().isEmpty());
+    }
+
+    @Test
+    void shouldDeduplicatePhysicalSocketGemRuneStatsBySemanticKeyAndPreferCleanSourceLine() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Miecz",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Przeistoczony"),
+                        new FullItemReadLine(FullItemReadLineType.OTHER, "Niezniszczalność"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Mnożnik x32% obrażeń (Fizyczne)"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "MNOZNIK X32% OBRAZEN (FIZYCZNE) TO OSTRZE W REKACH ANIOLA")
+                ),
+                details("Generyczny Miecz", "")
+        )));
+
+        assertEquals(1, form.getSocketing().getSocketCount());
+        assertEquals(1, form.getSocketing().getOccupiedSocketCount());
+        assertEquals(1, form.getSocketing().getDetectedStats().size());
+        assertEquals("Mnożnik x32% obrażeń (Fizyczne)", form.getSocketing().socketAt(0).getDetectedStat().getDisplayText());
+        assertEquals("PHYSICAL_DAMAGE_MULTIPLIER|32|PHYSICAL|DATA_ONLY",
+                form.getSocketing().socketAt(0).getDetectedStat().getSemanticKey());
+    }
+
+    @Test
+    void shouldBindPhysicalSocketMultiplierToLocalXValueOnly() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Miecz",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Przeistoczony"),
+                        new FullItemReadLine(FullItemReadLineType.OTHER, "Niezniszczalność"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX,
+                                "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100] ale dodatkowo Mnożnik x32% obrażeń (Fizyczne)")
+                ),
+                details("Generyczny Miecz", "")
+        )));
+
+        assertEquals(1, form.getSocketing().getDetectedStats().size());
+        assertEquals(32.0d, form.getSocketing().socketAt(0).getDetectedStat().getValue(), 0.0001d);
+        assertEquals("Mnożnik x32% obrażeń (Fizyczne)", form.getSocketing().socketAt(0).getDetectedStat().getDisplayText());
+        assertFalse(form.getSocketing().getDetectedStats().stream().anyMatch(stat -> stat.getValue() == 100.0d));
+        assertFalse(form.getSocketing().getDetectedStats().stream().anyMatch(stat -> stat.getValue() == 70.0d));
+        assertFalse(form.getSocketing().getDetectedStats().stream().anyMatch(stat -> stat.getValue() == 170.0d));
+    }
+
+    @Test
+    void shouldRejectSocketX170FalsePositiveFromUniqueEffectTail() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Miecz",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Przeistoczony"),
+                        new FullItemReadLine(FullItemReadLineType.OTHER, "Niezniszczalność"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX,
+                                "zwiększone 0 170 przez efekt unikatowy MNOZNIK X32% OBRAZEN (FIZYCZNE) TO OSTRZE W REKACH ANIOLA")
+                ),
+                details("Generyczny Miecz", "")
+        )));
+
+        assertEquals(1, form.getSocketing().getSocketCount());
+        assertEquals(1, form.getSocketing().getOccupiedSocketCount());
+        assertEquals(1, form.getSocketing().getDetectedStats().size());
+        assertEquals(32.0d, form.getSocketing().socketAt(0).getDetectedStat().getValue(), 0.0001d);
+        assertEquals("PHYSICAL", form.getSocketing().socketAt(0).getDetectedStat().getDamageType());
+        assertFalse(form.getSocketing().getDetectedStats().stream().anyMatch(stat -> stat.getValue() == 170.0d));
+    }
+
+    @Test
+    void shouldMarkMasterworkingAsRequiringConfirmationWhenGaMarkersAreGlobalOnly() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Miecz",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.OTHER, "25 (+25) jakości"),
+                        new FullItemReadLine(FullItemReadLineType.OTHER, "★"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+270 siły")
+                ),
+                details("Generyczny Miecz", "")
+        )));
+
+        assertEquals(1, form.getAffixes().size());
+        assertFalse(form.getAffixes().getFirst().isGreaterAffix());
+        assertEquals("REQUIRES_CONFIRMATION", form.getMasterworking().getPerfectedAffix().getRawSource());
+        assertEquals("ambiguous_ga_markers", form.getMasterworking().getPerfectedAffix().getKey());
+        assertTrue(form.getAffixes().getFirst().isGreaterAffixConfirmationRequired());
+    }
+
+    @Test
+    void shouldUseSelectedTemperingSourceLineAndRejectArtifactCandidate() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Miecz",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+314 obrażeń od broni"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+270 siły"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+948 pkt. zdrowia przy trafieniu"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Mnożnik x15% wszystkich obrażeń"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+47,5% szansy na trafienie krytyczne"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+7,5% szansy na trafienie krytyczne")
+                ),
+                details("Generyczny Miecz", "")
+        )));
+
+        assertEquals(1, form.getTemperingAffixes().size());
+        assertEquals("offense_critical_strike_chance", form.getTemperingAffixes().getFirst().getDefinitionId());
+        assertEquals(7.5d, form.getTemperingAffixes().getFirst().getValue(), 0.0001d);
+        assertEquals("+7,5% szansy na trafienie krytyczne", form.getTemperingAffixes().getFirst().getSourceLine());
+        assertFalse(form.getTemperingAffixes().getFirst().getSourceLine().contains("47,5"));
     }
 
     private static ItemImageImportCandidateParseResult parseResult(FullItemRead fullItemRead) {

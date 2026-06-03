@@ -25,6 +25,8 @@ import java.util.regex.Pattern;
 
 /** Buduje formularz ręcznego potwierdzenia z wstępnie rozpoznanych pól. */
 public final class ItemImportEditableFormFactory {
+    private static final int ORDINARY_AFFIX_LIMIT = 4;
+
     private final ImportedItemAffixExtractor affixExtractor = new ImportedItemAffixExtractor();
     private final ImportedItemTemperingExtractor temperingExtractor = new ImportedItemTemperingExtractor();
     private final AspectRegistry aspectRegistry;
@@ -65,6 +67,9 @@ public final class ItemImportEditableFormFactory {
             );
             ItemImportDebugTrace.log("FINAL_IMPORT_FORM", () -> ItemImportDebugTrace.formatForm(form)
                     + " " + ItemImportDebugTrace.formatDetails(form.getDetails()));
+            ItemImportDebugTrace.log("FINAL_IMPORT_FORM", () -> "finalRenderedOrder=" + form.getAffixes().stream()
+                    .map(affix -> affix.getType().name())
+                    .toList());
             ItemImportDebugTrace.logAffixList("FINAL_IMPORT_FORM", form.getAffixes());
             for (int index = 0; index < form.getTemperingAffixes().size(); index++) {
                 int finalIndex = index;
@@ -99,9 +104,19 @@ public final class ItemImportEditableFormFactory {
                 .isEmpty()) {
             aspectMatch = new AspectRegistry.AspectMatch("", ItemImportFieldConfidence.UNKNOWN);
         }
-        List<ImportedItemAffix> affixes = affixExtractor.extractEditableAffixes(parseResult.getFullItemRead());
-        List<ItemTemperingAffix> temperingAffixes = temperingExtractor.extractTemperingAffixes(parseResult.getFullItemRead());
-        ItemMasterworking masterworking = detectMasterworking(parseResult.getFullItemRead(), temperingAffixes);
+        List<ImportedItemAffix> extractedAffixes = affixExtractor.extractEditableAffixes(parseResult.getFullItemRead());
+        OrdinaryClassification ordinaryClassification = classifyOrdinaryAndOverflow(
+                extractedAffixes,
+                parseResult.getFullItemRead()
+        );
+        List<ImportedItemAffix> affixes = ordinaryClassification.ordinaryAffixes();
+        List<ItemTemperingAffix> temperingAffixes = mergeTempering(
+                temperingExtractor.extractTemperingAffixes(parseResult.getFullItemRead()),
+                ordinaryClassification.overflowTemperingAffixes()
+        );
+        GreaterAffixMarkerSummary markerSummary = greaterAffixMarkerSummary(parseResult.getFullItemRead(), affixes, temperingAffixes);
+        affixes = applyGreaterAffixConfirmationState(affixes, markerSummary);
+        ItemMasterworking masterworking = detectMasterworking(parseResult.getFullItemRead(), affixes, temperingAffixes, markerSummary);
         ItemTransfiguration transfiguration = detectTransfiguration(parseResult.getFullItemRead());
         ItemSocketing socketing = detectSocketing(parseResult.getFullItemRead());
         return new ItemImportDraft(
@@ -114,6 +129,178 @@ public final class ItemImportEditableFormFactory {
                 transfiguration,
                 socketing
         );
+    }
+
+    private OrdinaryClassification classifyOrdinaryAndOverflow(List<ImportedItemAffix> extractedAffixes,
+                                                               FullItemRead fullItemRead) {
+        List<ImportedItemAffix> ordinary = new ArrayList<>();
+        List<ItemTemperingAffix> overflowTempering = new ArrayList<>();
+        Long itemPower = fullItemRead == null ? null : fullItemRead.getDetails().getItemPower();
+        List<ImportedItemAffix> affixesByVisualOrder = (extractedAffixes == null ? List.<ImportedItemAffix>of() : extractedAffixes)
+                .stream()
+                .sorted(java.util.Comparator
+                        .comparingInt(ImportedItemAffix::getVisualDisplayOrder)
+                        .thenComparingInt(ImportedItemAffix::getDisplayOrder)
+                        .thenComparing(ImportedItemAffix::getAffixDefinitionId)
+                        .thenComparingDouble(ImportedItemAffix::getValue))
+                .toList();
+        long nonTemperingCandidateCount = affixesByVisualOrder.stream()
+                .filter(affix -> temperingExtractor.parseCatalogTemperingLine(affix.getSourceText(), itemPower).isEmpty())
+                .count();
+        boolean deferredCatalogTempering = false;
+        for (ImportedItemAffix affix : affixesByVisualOrder) {
+            Optional<ItemTemperingAffix> catalogTempering = temperingExtractor.parseCatalogTemperingLine(affix.getSourceText(), itemPower);
+            if (catalogTempering.isPresent() && nonTemperingCandidateCount >= ORDINARY_AFFIX_LIMIT) {
+                deferredCatalogTempering = true;
+                ItemImportDebugTrace.log("LINE_CLASSIFICATION", () -> "decision=temperingCandidateDeferred"
+                        + " selectedVisualOrder=" + affix.getDisplayOrder()
+                        + " sourceLine=" + ItemImportDebugTrace.compactText(affix.getSourceText())
+                        + " matchedDefinitionId=" + ItemImportDebugTrace.quote(catalogTempering.get().getDefinitionId())
+                        + " reason=" + ItemImportDebugTrace.quote("catalog tempering candidate does not reserve ordinary cap while ordinary set can be filled by non-tempering affixes"));
+                continue;
+            }
+            if (ordinary.size() < ORDINARY_AFFIX_LIMIT) {
+                ordinary.add(affix);
+                ItemImportDebugTrace.log("LINE_CLASSIFICATION", () -> "decision=ordinary"
+                        + " ordinaryIndex=" + (ordinary.size() - 1)
+                        + " selectedVisualOrder=" + affix.getDisplayOrder()
+                        + " visualSourceOrder=" + affix.getVisualDisplayOrder()
+                        + " selectedValueSource=" + ItemImportDebugTrace.compactText(affix.getSourceText())
+                        + " visualAnchorSource=" + ItemImportDebugTrace.compactText(affix.getVisualSourceText())
+                        + " reason=" + ItemImportDebugTrace.quote("within ordinary affix cap by visual anchor order"));
+                continue;
+            }
+            if (catalogTempering.isPresent()) {
+                ItemTemperingAffix selected = catalogTempering.get();
+                overflowTempering.add(selected);
+                ItemImportDebugTrace.log("LINE_CLASSIFICATION", () -> "decision=tempering"
+                        + " selectedVisualOrder=" + affix.getDisplayOrder()
+                        + " sourceLine=" + ItemImportDebugTrace.compactText(affix.getSourceText())
+                        + " matchedDefinitionId=" + ItemImportDebugTrace.quote(selected.getDefinitionId())
+                        + " reason=" + ItemImportDebugTrace.quote("classified as tempering after ordinary cap by visual order and tempering catalog match"));
+                continue;
+            }
+            ItemImportDebugTrace.log("LINE_CLASSIFICATION", () -> "decision=ignored"
+                    + " selectedVisualOrder=" + affix.getDisplayOrder()
+                    + " sourceLine=" + ItemImportDebugTrace.compactText(affix.getSourceText())
+                    + " reason=" + ItemImportDebugTrace.quote("ordinary affix cap reached and no non-ordinary catalog matched"));
+        }
+        if (deferredCatalogTempering) {
+            overflowTempering.addAll(detectTemperingAfterOrdinarySet(fullItemRead, ordinary, overflowTempering, itemPower));
+        }
+        List<ImportedItemAffix> ordinaryByVisualOrder = sortOrdinaryByVisualSourceOrder(fullItemRead, ordinary);
+        ItemImportDebugTrace.log("FINAL_IMPORT_FORM", () -> "ordinaryAffixes=" + ordinary.size()
+                + " ordinaryAffixCap=" + ORDINARY_AFFIX_LIMIT
+                + " visualOrderBeforeRender=" + ordinary.stream()
+                .map(affix -> affix.getType().name() + "@" + affix.getVisualDisplayOrder() + ":" + affix.getDisplayOrder())
+                .toList()
+                + " finalOrdinaryVisualOrder=" + ordinaryByVisualOrder.stream()
+                .map(affix -> affix.getType().name() + "@" + visualSourceLineSortIndex(fullItemRead, affix) + ":" + affix.getDisplayOrder())
+                .toList()
+                + " overflowTempering=" + overflowTempering.size());
+        return new OrdinaryClassification(List.copyOf(ordinaryByVisualOrder), List.copyOf(overflowTempering));
+    }
+
+    private static List<ImportedItemAffix> sortOrdinaryByVisualSourceOrder(FullItemRead fullItemRead,
+                                                                           List<ImportedItemAffix> ordinary) {
+        return (ordinary == null ? List.<ImportedItemAffix>of() : ordinary).stream()
+                .sorted(java.util.Comparator
+                        .comparingInt((ImportedItemAffix affix) -> visualSourceLineSortIndex(fullItemRead, affix))
+                        .thenComparingInt(ImportedItemAffix::getVisualDisplayOrder)
+                        .thenComparingInt(ImportedItemAffix::getDisplayOrder)
+                        .thenComparing(ImportedItemAffix::getAffixDefinitionId)
+                        .thenComparingDouble(ImportedItemAffix::getValue))
+                .toList();
+    }
+
+    private static int visualSourceLineSortIndex(FullItemRead fullItemRead, ImportedItemAffix affix) {
+        int index = sourceLineIndex(fullItemRead, affix.getVisualSourceText());
+        return index < 0 ? Integer.MAX_VALUE : index;
+    }
+
+    private List<ItemTemperingAffix> detectTemperingAfterOrdinarySet(FullItemRead fullItemRead,
+                                                                     List<ImportedItemAffix> ordinary,
+                                                                     List<ItemTemperingAffix> alreadyDetected,
+                                                                     Long itemPower) {
+        if (fullItemRead == null || ordinary == null || ordinary.isEmpty()) {
+            return List.of();
+        }
+        int lastOrdinaryLineIndex = lastOrdinarySourceLineIndex(fullItemRead, ordinary);
+        if (lastOrdinaryLineIndex < 0) {
+            return List.of();
+        }
+        List<ItemTemperingAffix> detected = new ArrayList<>();
+        for (int index = lastOrdinaryLineIndex + 1; index < fullItemRead.getLines().size(); index++) {
+            FullItemReadLine line = fullItemRead.getLines().get(index);
+            Optional<ItemTemperingAffix> tempering = temperingExtractor.parseCatalogTemperingLine(line.getText(), itemPower);
+            if (tempering.isEmpty() || containsTemperingDefinition(alreadyDetected, tempering.get().getDefinitionId())
+                    || containsTemperingDefinition(detected, tempering.get().getDefinitionId())) {
+                continue;
+            }
+            ItemTemperingAffix selected = tempering.get();
+            detected.add(selected);
+            int visualOrder = index;
+            ItemImportDebugTrace.log("LINE_CLASSIFICATION", () -> "decision=tempering"
+                    + " selectedVisualOrder=" + visualOrder
+                    + " sourceLine=" + ItemImportDebugTrace.compactText(line.getText())
+                    + " matchedDefinitionId=" + ItemImportDebugTrace.quote(selected.getDefinitionId())
+                    + " reason=" + ItemImportDebugTrace.quote("classified as tempering after ordinary cap by visual order and tempering catalog match"));
+        }
+        return List.copyOf(detected);
+    }
+
+    private static int lastOrdinarySourceLineIndex(FullItemRead fullItemRead, List<ImportedItemAffix> ordinary) {
+        int lastIndex = -1;
+        for (ImportedItemAffix affix : ordinary) {
+            int index = sourceLineIndex(fullItemRead, affix.getVisualSourceText());
+            if (index > lastIndex) {
+                lastIndex = index;
+            }
+        }
+        return lastIndex;
+    }
+
+    private static int sourceLineIndex(FullItemRead fullItemRead, String sourceText) {
+        if (fullItemRead == null) {
+            return -1;
+        }
+        String normalizedSource = normalize(sourceText);
+        if (normalizedSource.isBlank()) {
+            return -1;
+        }
+        for (int index = 0; index < fullItemRead.getLines().size(); index++) {
+            String normalizedLine = normalize(fullItemRead.getLines().get(index).getText());
+            if (normalizedLine.equals(normalizedSource)
+                    || normalizedLine.contains(normalizedSource)
+                    || normalizedSource.contains(normalizedLine)) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean containsTemperingDefinition(List<ItemTemperingAffix> affixes, String definitionId) {
+        return (affixes == null ? List.<ItemTemperingAffix>of() : affixes).stream()
+                .anyMatch(affix -> affix.getDefinitionId().equals(definitionId));
+    }
+
+    private static List<ItemTemperingAffix> mergeTempering(List<ItemTemperingAffix> base,
+                                                           List<ItemTemperingAffix> overflow) {
+        List<ItemTemperingAffix> result = new ArrayList<>();
+        List<String> seen = new ArrayList<>();
+        for (ItemTemperingAffix affix : base == null ? List.<ItemTemperingAffix>of() : base) {
+            if (!seen.contains(affix.getDefinitionId())) {
+                result.add(affix);
+                seen.add(affix.getDefinitionId());
+            }
+        }
+        for (ItemTemperingAffix affix : overflow == null ? List.<ItemTemperingAffix>of() : overflow) {
+            if (!seen.contains(affix.getDefinitionId())) {
+                result.add(affix);
+                seen.add(affix.getDefinitionId());
+            }
+        }
+        return List.copyOf(result);
     }
 
     private ItemImportDetails detailsWithCanonicalAspectEffect(ItemImageImportCandidateParseResult parseResult,
@@ -178,13 +365,28 @@ public final class ItemImportEditableFormFactory {
         if (fullItemRead == null || !fullItemRead.hasAnyData()) {
             return ItemSocketing.empty();
         }
-        List<SocketGemRuneStat> detectedStats = fullItemRead.getLines().stream()
-                .filter(line -> line.getType() == FullItemReadLineType.SOCKET)
-                .map(FullItemReadLine::getText)
-                .filter(ItemImportEditableFormFactory::isDetectedSocketStatLine)
-                .map(SocketGemRuneStat::fromDetectedLine)
-                .limit(ItemSocketing.MAX_SOCKET_COUNT)
-                .toList();
+        List<SocketGemRuneStat> detectedStats = new ArrayList<>();
+        boolean indestructibleTransfiguration = hasIndestructibleLine(fullItemRead);
+        for (FullItemReadLine line : fullItemRead.getLines()) {
+            String text = line.getText();
+            boolean typedSocketStat = line.getType() == FullItemReadLineType.SOCKET
+                    && isDetectedSocketStatLine(text);
+            boolean physicalSocketFallback = line.getType() != FullItemReadLineType.SOCKET
+                    && indestructibleTransfiguration
+                    && isPhysicalDamageMultiplierLine(normalize(text));
+            if (!typedSocketStat && !physicalSocketFallback) {
+                continue;
+            }
+            if (physicalSocketFallback) {
+                ItemImportDebugTrace.log("LINE_CLASSIFICATION", () -> "decision=socketGemRune"
+                        + " sourceLine=" + ItemImportDebugTrace.compactText(text)
+                        + " reason=" + ItemImportDebugTrace.quote("physical damage multiplier classified as socket/gem/rune data because indestructible is the stronger transfiguration result"));
+            }
+            addSocketGemRuneStat(detectedStats, SocketGemRuneStat.fromDetectedLine(text));
+            if (detectedStats.size() >= ItemSocketing.MAX_SOCKET_COUNT) {
+                break;
+            }
+        }
         long rawEmptySocketCount = fullItemRead.getLines().stream()
                 .filter(line -> line.getType() == FullItemReadLineType.SOCKET)
                 .map(FullItemReadLine::getText)
@@ -216,12 +418,89 @@ public final class ItemImportEditableFormFactory {
         return new ItemSocketing(totalSocketCount, sockets);
     }
 
-    private static boolean isDetectedSocketStatLine(String text) {
-        String normalized = normalize(text);
-        return normalized.startsWith("+") && normalized.matches(".*[0-9].*");
+    private static void addSocketGemRuneStat(List<SocketGemRuneStat> detectedStats, SocketGemRuneStat candidate) {
+        ItemImportDebugTrace.log("SOCKET_GEM_RUNE_CANDIDATE", () -> "semanticKey="
+                + ItemImportDebugTrace.quote(candidate.getSemanticKey())
+                + " sourceLine=" + ItemImportDebugTrace.compactText(candidate.getSourceLine())
+                + " displayText=" + ItemImportDebugTrace.compactText(candidate.getDisplayText())
+                + " sourceQualityScore=" + candidate.sourceQualityScore()
+                + " localAnchorBinding=" + candidate.shouldDeduplicateBySemanticKey()
+                + " reason=" + ItemImportDebugTrace.quote(candidate.shouldDeduplicateBySemanticKey()
+                ? "physical socket multiplier value bound to local Mnożnik x...% anchor"
+                : "socket/gem/rune stat parsed from local socket line"));
+        for (int index = 0; index < detectedStats.size(); index++) {
+            SocketGemRuneStat existing = detectedStats.get(index);
+            if (!candidate.shouldDeduplicateBySemanticKey()
+                    || !existing.shouldDeduplicateBySemanticKey()
+                    || !existing.getSemanticKey().equals(candidate.getSemanticKey())) {
+                continue;
+            }
+            if (candidate.sourceQualityScore() > existing.sourceQualityScore()) {
+                detectedStats.set(index, candidate);
+                ItemImportDebugTrace.log("SOCKET_GEM_RUNE_CANDIDATE", () -> "decision=replaceDuplicate"
+                        + " reason=" + ItemImportDebugTrace.quote("duplicate semantic socket stat with cleaner source line")
+                        + " semanticKey=" + ItemImportDebugTrace.quote(candidate.getSemanticKey())
+                        + " selected=" + ItemImportDebugTrace.compactText(candidate.getSourceLine())
+                        + " rejected=" + ItemImportDebugTrace.compactText(existing.getSourceLine()));
+            } else {
+                ItemImportDebugTrace.log("SOCKET_GEM_RUNE_CANDIDATE", () -> "decision=rejectDuplicate"
+                        + " reason=" + ItemImportDebugTrace.quote(candidate.hasLoreTail()
+                        ? "duplicate semantic socket stat / worse source line / contains lore tail"
+                        : "duplicate semantic socket stat / worse source line")
+                        + " semanticKey=" + ItemImportDebugTrace.quote(candidate.getSemanticKey())
+                        + " selected=" + ItemImportDebugTrace.compactText(existing.getSourceLine())
+                        + " rejected=" + ItemImportDebugTrace.compactText(candidate.getSourceLine()));
+            }
+            return;
+        }
+        detectedStats.add(candidate);
     }
 
-    private static ItemMasterworking detectMasterworking(FullItemRead fullItemRead, List<ItemTemperingAffix> temperingAffixes) {
+    private static boolean isDetectedSocketStatLine(String text) {
+        String normalized = normalize(text);
+        return (normalized.startsWith("+") || isPhysicalDamageMultiplierLine(normalized))
+                && normalized.matches(".*[0-9].*");
+    }
+
+    private static boolean isPhysicalDamageMultiplierLine(String normalized) {
+        return normalized.contains("MNOZNIK")
+                && normalized.contains("OBRAZEN")
+                && (normalized.contains("FIZYCZNE") || normalized.contains("PHYSICAL"));
+    }
+
+    private static List<ImportedItemAffix> applyGreaterAffixConfirmationState(List<ImportedItemAffix> affixes,
+                                                                              GreaterAffixMarkerSummary markerSummary) {
+        if (affixes == null || affixes.isEmpty() || markerSummary == null || !markerSummary.requiresConfirmation()) {
+            return affixes == null ? List.of() : affixes;
+        }
+        List<ImportedItemAffix> result = new ArrayList<>();
+        for (ImportedItemAffix affix : affixes) {
+            boolean requiresConfirmation = !affix.isGreaterAffix();
+            ImportedItemAffix updated = requiresConfirmation
+                    ? affix.withVisualAnchor(
+                    affix.getVisualSourceText(),
+                    affix.getVisualDisplayOrder(),
+                    affix.isGreaterAffix(),
+                    true
+            )
+                    : affix;
+            result.add(updated);
+            ItemImportDebugTrace.log("GA_MARKER_FINAL_STATE", () -> "type=" + affix.getType()
+                    + " value=" + affix.getValue()
+                    + " finalGreaterAffix=" + updated.isGreaterAffix()
+                    + " confirmationRequired=" + updated.isGreaterAffixConfirmationRequired()
+                    + " visualAnchorSource=" + ItemImportDebugTrace.compactText(updated.getVisualSourceText())
+                    + " reason=" + ItemImportDebugTrace.quote(requiresConfirmation
+                    ? "global GA marker remains ambiguous for this affix"
+                    : "local GA marker assigned to this affix"));
+        }
+        return List.copyOf(result);
+    }
+
+    private static ItemMasterworking detectMasterworking(FullItemRead fullItemRead,
+                                                         List<ImportedItemAffix> affixes,
+                                                         List<ItemTemperingAffix> temperingAffixes,
+                                                         GreaterAffixMarkerSummary markerSummary) {
         if (fullItemRead == null || !ItemImageImportTextParser.containsQuality25(
                 fullItemRead.getLines().stream().map(FullItemReadLine::getText).toList())) {
             return ItemMasterworking.defaultState();
@@ -230,7 +509,79 @@ public final class ItemImportEditableFormFactory {
         if (hasDisplayedPerfectedMaxAnimus(fullItemRead, temperingAffixes)) {
             perfectedAffix = MasterworkedAffixSelection.temperingAffix("defense_max_animus");
         }
+        ItemImportDebugTrace.log("GA_MARKER_SUMMARY", () -> "globalGaMarkersDetected=" + markerSummary.globalDetected()
+                + " globalGaMarkerCount=" + markerSummary.globalCount()
+                + " localGaMarkersAssignedCount=" + markerSummary.localAssignedCount()
+                + " ambiguousGaMarkersRequiresConfirmation=" + markerSummary.requiresConfirmation());
+        if (perfectedAffix == null && markerSummary.requiresConfirmation()) {
+            perfectedAffix = MasterworkedAffixSelection.unknown("REQUIRES_CONFIRMATION", "ambiguous_ga_markers");
+        }
+        if (perfectedAffix == null && hasMasterworkingMarkers(affixes, temperingAffixes)) {
+            ItemImportDebugTrace.log("MASTERWORKING_CANDIDATE", () -> "quality=25/25"
+                    + " perfectedAffix=REQUIRES_CONFIRMATION"
+                    + " candidates=" + masterworkingCandidateLabels(affixes, temperingAffixes)
+                    + " reason=" + ItemImportDebugTrace.quote("quality 25/25 and GA/masterworking markers detected but selected perfected affix is ambiguous"));
+        }
         return new ItemMasterworking(25, 25, perfectedAffix);
+    }
+
+    private static GreaterAffixMarkerSummary greaterAffixMarkerSummary(FullItemRead fullItemRead,
+                                                                       List<ImportedItemAffix> affixes,
+                                                                       List<ItemTemperingAffix> temperingAffixes) {
+        int globalCount = countGlobalGreaterMarkers(fullItemRead);
+        int localAssigned = (int) (affixes == null ? List.<ImportedItemAffix>of() : affixes).stream()
+                .filter(ImportedItemAffix::isGreaterAffix)
+                .count();
+        localAssigned += (int) (temperingAffixes == null ? List.<ItemTemperingAffix>of() : temperingAffixes).stream()
+                .filter(ItemTemperingAffix::isGreaterAffix)
+                .count();
+        return new GreaterAffixMarkerSummary(globalCount > 0, globalCount, localAssigned, globalCount > localAssigned);
+    }
+
+    private static int countGlobalGreaterMarkers(FullItemRead fullItemRead) {
+        if (fullItemRead == null) {
+            return 0;
+        }
+        int count = 0;
+        for (FullItemReadLine line : fullItemRead.getLines()) {
+            count += countGreaterMarkers(line.getText());
+        }
+        return count;
+    }
+
+    private static int countGreaterMarkers(String text) {
+        String safe = text == null ? "" : text;
+        int count = 0;
+        for (int index = 0; index < safe.length(); index++) {
+            if (isGreaterMarker(safe.charAt(index))) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static boolean isGreaterMarker(char marker) {
+        return "*★⭐✦✧✱✳✴✵✶✷✸✹✺✻✼✽✾❋❂◆◇♦●•".indexOf(marker) >= 0;
+    }
+
+    private static boolean hasMasterworkingMarkers(List<ImportedItemAffix> affixes, List<ItemTemperingAffix> temperingAffixes) {
+        return (affixes == null ? List.<ImportedItemAffix>of() : affixes).stream().anyMatch(ImportedItemAffix::isGreaterAffix)
+                || (temperingAffixes == null ? List.<ItemTemperingAffix>of() : temperingAffixes).stream().anyMatch(ItemTemperingAffix::isGreaterAffix);
+    }
+
+    private static String masterworkingCandidateLabels(List<ImportedItemAffix> affixes, List<ItemTemperingAffix> temperingAffixes) {
+        List<String> labels = new ArrayList<>();
+        for (ImportedItemAffix affix : affixes == null ? List.<ImportedItemAffix>of() : affixes) {
+            if (affix.isGreaterAffix()) {
+                labels.add("ORDINARY_AFFIX:" + affix.getType().name());
+            }
+        }
+        for (ItemTemperingAffix affix : temperingAffixes == null ? List.<ItemTemperingAffix>of() : temperingAffixes) {
+            if (affix.isGreaterAffix()) {
+                labels.add("TEMPERING_AFFIX:" + affix.getDefinitionId());
+            }
+        }
+        return labels.toString();
     }
 
     private static boolean hasDisplayedPerfectedMaxAnimus(FullItemRead fullItemRead, List<ItemTemperingAffix> temperingAffixes) {
@@ -252,13 +603,19 @@ public final class ItemImportEditableFormFactory {
         }
         boolean transfigured = hasLineContaining(fullItemRead, "PRZEISTOCZONY");
         boolean locked = hasLineContaining(fullItemRead, "BRAK MOZLIWOSCI MODYFIKACJI");
+        boolean indestructible = hasIndestructibleLine(fullItemRead);
         Optional<TransfigurationAffixRoll> allStatsRoll = detectTransfigurationAffixRoll(fullItemRead);
         Optional<Integer> bonusQuality = detectBonusItemQuality(fullItemRead);
-        if (!transfigured && allStatsRoll.isEmpty() && bonusQuality.isEmpty()) {
+        if (!transfigured && !indestructible && allStatsRoll.isEmpty() && bonusQuality.isEmpty()) {
             return ItemTransfiguration.none();
         }
         HoradricTransfigurationOutcome outcome;
-        if (allStatsRoll.isPresent()) {
+        if (indestructible) {
+            outcome = HoradricTransfigurationOutcome.INDESTRUCTIBLE;
+            ItemImportDebugTrace.log("LINE_CLASSIFICATION", () -> "decision=transfiguration"
+                    + " result=INDESTRUCTIBLE"
+                    + " reason=" + ItemImportDebugTrace.quote("Niezniszczalność line detected with transfigured item context"));
+        } else if (allStatsRoll.isPresent()) {
             outcome = HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX;
         } else if (bonusQuality.isPresent()) {
             outcome = HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY;
@@ -271,13 +628,22 @@ public final class ItemImportEditableFormFactory {
                 HoradricTuningPrism.NONE,
                 outcome,
                 "",
-                allStatsRoll.orElse(null),
+                outcome == HoradricTransfigurationOutcome.INDESTRUCTIBLE ? null : allStatsRoll.orElse(null),
                 "",
                 null,
                 bonusQuality.orElse(null),
                 false,
                 ""
         );
+    }
+
+    private static boolean hasIndestructibleLine(FullItemRead fullItemRead) {
+        return fullItemRead.getLines().stream()
+                .map(FullItemReadLine::getText)
+                .map(ItemImportEditableFormFactory::normalize)
+                .anyMatch(line -> line.contains("NIEZNISZCZALNOSC")
+                        || line.contains("NIEZNISZCZALNY")
+                        || line.contains("INDESTRUCTIBLE"));
     }
 
     private static Optional<Integer> detectBonusItemQuality(FullItemRead fullItemRead) {
@@ -326,6 +692,13 @@ public final class ItemImportEditableFormFactory {
 
     private static Optional<TransfigurationAffixRoll> detectTransfigurationAffixRoll(FullItemRead fullItemRead) {
         for (FullItemReadLine line : fullItemRead.getLines()) {
+            if (line.getType() == FullItemReadLineType.SOCKET
+                    && isPhysicalDamageMultiplierLine(normalize(line.getText()))) {
+                ItemImportDebugTrace.log("LINE_CLASSIFICATION", () -> "decision=socketGemRune"
+                        + " sourceLine=" + ItemImportDebugTrace.compactText(line.getText())
+                        + " reason=" + ItemImportDebugTrace.quote("physical damage multiplier in socket/gem/rune region is not a transfiguration result"));
+                continue;
+            }
             for (TransfigurationAffixDefinition definition : TransfigurationAffixCatalog.definitions()) {
                 Optional<ParsedTransfigurationAffixRoll> roll = extractTransfigurationDisplayedValue(line.getText(), definition);
                 if (roll.isPresent()) {
@@ -589,6 +962,16 @@ public final class ItemImportEditableFormFactory {
         private TransfigurationNumericToken withDisplayedValue(double newDisplayedValue) {
             return new TransfigurationNumericToken(raw, number, value, start, end, hasPlus, unit, newDisplayedValue);
         }
+    }
+
+    private record OrdinaryClassification(List<ImportedItemAffix> ordinaryAffixes,
+                                          List<ItemTemperingAffix> overflowTemperingAffixes) {
+    }
+
+    private record GreaterAffixMarkerSummary(boolean globalDetected,
+                                             int globalCount,
+                                             int localAssignedCount,
+                                             boolean requiresConfirmation) {
     }
 
     private static boolean hasLineContaining(FullItemRead fullItemRead, String normalizedNeedle) {

@@ -311,10 +311,13 @@ public final class ItemImportPageRenderer {
     }
 
     private static String renderAffixDisplayValue(ImportedItemAffix affix) {
-        if (affix == null || affix.getDisplayValue().isBlank()) {
+        if (affix == null) {
             return "";
         }
-        return "<div class=\"helper\">" + escapeHtml(affix.getDisplayValue()) + "</div>";
+        String displayValue = affix.getDisplayValue().isBlank()
+                ? affix.getType().formatLine(affix.getValue())
+                : affix.getDisplayValue();
+        return "<div class=\"helper\">Wartość z tooltipa: " + escapeHtml(displayValue) + "</div>";
     }
 
     private static String renderAffixValueControl(int index, ImportedItemAffix affix) {
@@ -381,6 +384,7 @@ public final class ItemImportPageRenderer {
         StringBuilder html = new StringBuilder("""
                 <section class="subpanel">
                     <h3>Ręczna weryfikacja affixów</h3>
+                    %s
                     <input type="hidden" id="affixCount" name="affixCount" value="%s">
                     <div class="affix-table-wrap">
                     <table class="data-table affix-table" id="affixTable">
@@ -401,7 +405,7 @@ public final class ItemImportPageRenderer {
                             </tr>
                         </thead>
                         <tbody id="affixRows">
-                """.formatted(form.getAffixes().size()));
+                """.formatted(renderAmbiguousGaNotice(form), form.getAffixes().size()));
         for (int index = 0; index < form.getAffixes().size(); index++) {
             ImportedItemAffix affix = form.getAffixes().get(index);
             html.append("""
@@ -419,7 +423,8 @@ public final class ItemImportPageRenderer {
                         </td>
                         <td class="affix-value-cell">
                             %s
-                            <label class="masterworking-source-value-field">%s</label>
+                            %s
+                            <label class="masterworking-source-value-field">Wartość edytowalna %s</label>
                         </td>
                         <td class="affix-range-cell">
                             %s
@@ -427,6 +432,7 @@ public final class ItemImportPageRenderer {
                         </td>
                         <td class="affix-greater-cell">
                             <label class="checkbox-label"><input type="checkbox" name="affixGreater_%s" value="true"%s> Gwiazdka</label>
+                            %s
                         </td>
                         <td class="affix-action-cell"><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
                     </tr>
@@ -449,12 +455,14 @@ public final class ItemImportPageRenderer {
                     affix.getReferenceValue() == null ? "" : formatDecimal(affix.getReferenceValue()),
                     index,
                     escapeHtml(affix.getDisplayValue()),
+                    renderAffixDisplayValue(affix),
                     MasterworkingSectionRenderer.renderAffixEditorHint(form.getMasterworking(), affix, form.isMythicUnique()),
                     renderAffixValueControl(index, affix),
                     escapeHtml(rollRangeLabel(affix)),
                     referenceValueLabel(affix),
                     index,
-                    affix.isGreaterAffix() ? " checked" : ""
+                    affix.isGreaterAffix() ? " checked" : "",
+                    renderAffixGaConfirmationState(affix)
             ));
         }
         html.append("""
@@ -513,6 +521,28 @@ public final class ItemImportPageRenderer {
                 </section>
                 """);
         return html.toString();
+    }
+
+    private static String renderAmbiguousGaNotice(ItemImportEditableForm form) {
+        if (!requiresGaConfirmation(form)) {
+            return "";
+        }
+        return "<p class=\"helper status-warning\">Wykryto markery GA / gwiazdek - wymagają potwierdzenia przy affixach.</p>";
+    }
+
+    private static String renderAffixGaConfirmationState(ImportedItemAffix affix) {
+        if (affix == null || !affix.isGreaterAffixConfirmationRequired()) {
+            return "";
+        }
+        return "<div class=\"helper status-warning\">GA do potwierdzenia</div>";
+    }
+
+    private static boolean requiresGaConfirmation(ItemImportEditableForm form) {
+        return form != null
+                && form.getMasterworking() != null
+                && form.getMasterworking().getPerfectedAffix() != null
+                && !form.getMasterworking().getPerfectedAffix().hasRecognizedSource()
+                && "REQUIRES_CONFIRMATION".equals(form.getMasterworking().getPerfectedAffix().getRawSource());
     }
 
     private static String renderSavedTemperingSummary(SavedImportedItem item) {

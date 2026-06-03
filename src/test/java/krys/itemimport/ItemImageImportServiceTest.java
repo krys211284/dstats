@@ -7,6 +7,7 @@ import krys.itemlibrary.EffectiveCurrentBuildResolution;
 import krys.itemlibrary.FileItemLibraryRepository;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
+import krys.transfiguration.HoradricTransfigurationOutcome;
 import krys.web.HeroItemSelection;
 import krys.web.HeroProfile;
 import krys.web.ItemImportPageModel;
@@ -968,82 +969,6 @@ class ItemImageImportServiceTest {
     }
 
     @Test
-    void shouldImportVerathielV3AffixesByLocalNumericAnchorBinding() throws Exception {
-        byte[] imageBytes = Files.readAllBytes(Path.of("src/test/resources/items/verathiel-miecz-v2.png"));
-        ItemImageImportService service = new ItemImageImportService(
-                new ItemImageOcrPreprocessor(),
-                new FakeOcrTextReader(Map.of(
-                        "original", """
-                                Odłamek Verathiela
-                                Starożytny unikatowy miecz
-                                Moc przedmiotu: 900
-                                2 417 pkt. obrażeń na sek.
-                                [884 - 2 512] pkt. obrażeń za trafienie
-                                1,10 ataku na sekundę
-                                +314 obrażeń od broni
-                                +270 siły +948 pkt. zdrowia przy trafieniu Mnożnik x15% wszystkich obrażeń
-                                +7,5% szansy na trafienie krytyczne
-                                Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu.
-                                """,
-                        "weapon-stats-crop-x4", """
-                                Starożytny unikatowy miecz Moc przedmiotu: 900 2 417 pkt. obrażeń na sek. [884 - 2 512] pkt. obrażeń za trafienie 1,10 ataku na sekundę
-                                +314 obrażeń od broni
-                                +270 siły
-                                +948 pkt. zdrowia przy trafieniu
-                                MNOZNIK X 15 0 WSZYSTKICH OBRAZEN
-                                +7,5% szansy na trafienie krytyczne
-                                """,
-                        "weapon-stats-crop-gray-x4-contrast", """
-                                14 OBRAZEN OD BRONI + PKT. ZDROWIA PRZY TRAFIENIU
-                                +270 PKT. ZDROWIA PRZY TRAFIENIU +9,18 MNOZNIK X 15 0 WSZYSTKICH OBRAZEN NIEZNISZCZALNOSC
-                                +47,5% szansy na trafienie krytyczne
-                                """,
-                        "shield-affix-crop-gray-x4-sharpen", """
-                                Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu.
-                                """
-                )),
-                new ItemImageImportTextParser(),
-                new ItemImageImportCandidateMerger()
-        );
-
-        ItemImageImportCandidateParseResult result = service.analyze(
-                new ItemImageImportRequest("verathiel-miecz-v3.png", "image/png", imageBytes)
-        );
-        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
-
-        assertEquals("Odłamek Verathiela", form.getItemName());
-        assertEquals("Miecz", form.getItemType());
-        assertEquals("UNIQUE", form.getItemRarity());
-        assertTrue(form.isAncient());
-        assertFalse(form.isMythicUnique());
-        assertEquals("900", form.getItemPower());
-        assertEquals("2417", form.getWeaponDps());
-        assertEquals("884", form.getWeaponDamageMin());
-        assertEquals("2512", form.getWeaponDamageMax());
-        assertEquals("1.10", form.getAttacksPerSecond());
-        assertEquals("verathiel_shard", form.getSelectedAspectId());
-        assertTrue(form.getUniqueEffectText().contains("100%[x]"));
-        assertTrue(form.getUniqueEffectText().contains("[70 - 100]"));
-        assertTrue(form.getUniqueEffectText().contains("25 pkt. podstawowego zasobu"));
-        assertEquals(0, form.getSocketing().getSocketCount());
-
-        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 314.0d, false);
-        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.STRENGTH, 270.0d, false);
-        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.LIFE_ON_HIT, 948.0d, false);
-        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER, 15.0d, false);
-        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 7.5d, false);
-        assertFalse(form.getAffixes().stream()
-                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.LIFE_ON_HIT
-                        && affix.getValue() == 270.0d));
-        assertFalse(form.getAffixes().stream()
-                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.WEAPON_DAMAGE_FLAT
-                        && affix.getValue() == 14.0d));
-        assertFalse(form.getAffixes().stream()
-                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.CRITICAL_STRIKE_CHANCE
-                        && affix.getValue() == 47.5d));
-    }
-
-    @Test
     void shouldImportGenericMechanismFixtureWithoutItemSpecificGolden() throws Exception {
         byte[] imageBytes = buildSyntheticItemScreenshot();
         ItemImageImportService service = new ItemImageImportService(
@@ -1058,8 +983,11 @@ class ItemImageImportServiceTest {
                                 1,10 ataku na sekundę
                                 25 (+25) jakości
                                 Przeistoczony
+                                Niezniszczalność
+                                +47,5% szansy na trafienie krytyczne
                                 +314 obrażeń od broni
                                 +270 siły +948 pkt. zdrowia przy trafieniu Mnożnik x15% wszystkich obrażeń
+                                +7,5% szansy na trafienie krytyczne
                                 14 obrażeń od broni + pkt. zdrowia przy trafieniu
                                 Mnożnik x32% obrażeń (Fizyczne)
                                 To ostrze w rękach anioła Veratiela 0 umiejętności główne
@@ -1100,8 +1028,22 @@ class ItemImageImportServiceTest {
         assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.STRENGTH, 270.0d, false);
         assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.LIFE_ON_HIT, 948.0d, false);
         assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER, 15.0d, false);
-        assertEquals("PHYSICAL_DAMAGE_MULTIPLIER", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
-        assertEquals(32.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0001d);
+        assertEquals(4, form.getAffixes().size());
+        assertEquals(ImportedItemAffixType.WEAPON_DAMAGE_FLAT, form.getAffixes().get(0).getType());
+        assertEquals(ImportedItemAffixType.STRENGTH, form.getAffixes().get(1).getType());
+        assertEquals(ImportedItemAffixType.LIFE_ON_HIT, form.getAffixes().get(2).getType());
+        assertEquals(ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER, form.getAffixes().get(3).getType());
+        assertTrue(form.getAffixes().stream().noneMatch(affix -> affix.getType() == ImportedItemAffixType.CRITICAL_STRIKE_CHANCE));
+        assertEquals(1, form.getTemperingAffixes().size());
+        assertEquals("offense_critical_strike_chance", form.getTemperingAffixes().getFirst().getDefinitionId());
+        assertEquals(7.5d, form.getTemperingAffixes().getFirst().getValue(), 0.0001d);
+        assertEquals(HoradricTransfigurationOutcome.INDESTRUCTIBLE, form.getTransfiguration().getOutcome());
+        assertEquals(1, form.getSocketing().getSocketCount());
+        assertEquals(1, form.getSocketing().getOccupiedSocketCount());
+        assertEquals(1, form.getSocketing().getDetectedStats().size());
+        assertEquals("Mnożnik x32% obrażeń (Fizyczne)", form.getSocketing().socketAt(0).getDetectedStat().getDisplayText());
+        assertEquals(32.0d, form.getSocketing().socketAt(0).getDetectedStat().getValue(), 0.0001d);
+        assertEquals("PHYSICAL", form.getSocketing().socketAt(0).getDetectedStat().getDamageType());
         assertFalse(form.getAffixes().stream()
                 .anyMatch(affix -> affix.getType() == ImportedItemAffixType.CORE_SKILL_RANKS));
         assertFalse(form.getAffixes().stream()

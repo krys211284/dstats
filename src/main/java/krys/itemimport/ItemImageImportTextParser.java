@@ -286,6 +286,9 @@ final class ItemImageImportTextParser {
         if (baseType == FullItemReadLineType.ASPECT || baseType == FullItemReadLineType.TEMPERING) {
             return false;
         }
+        if (isSocketGemRunePhysicalMultiplierLine(line)) {
+            return true;
+        }
         if (isTransfigurationCatalogLine(line)) {
             return false;
         }
@@ -293,12 +296,20 @@ final class ItemImageImportTextParser {
             return false;
         }
         String normalizedLine = normalizeLineForPatternKeepingPlus(line);
-        if (!normalizedLine.startsWith("+")) {
+        if (!normalizedLine.startsWith("+") && !isSocketGemRunePhysicalMultiplierLine(line)) {
             return false;
         }
         return baseType == FullItemReadLineType.AFFIX
                 || baseType == FullItemReadLineType.BASE_STAT
-                || baseType == FullItemReadLineType.IMPLICIT;
+                || baseType == FullItemReadLineType.IMPLICIT
+                || isSocketGemRunePhysicalMultiplierLine(line);
+    }
+
+    private static boolean isSocketGemRunePhysicalMultiplierLine(String line) {
+        String collapsedLine = collapse(line);
+        return collapsedLine.contains("MNOZNIK")
+                && collapsedLine.contains("OBRAZEN")
+                && (collapsedLine.contains("FIZYCZNE") || collapsedLine.contains("PHYSICAL"));
     }
 
     private static boolean isKnownOrdinaryAffixStatLine(String line) {
@@ -1261,6 +1272,7 @@ final class ItemImageImportTextParser {
                 "OBRAZENZATRAFIENIE",
                 "JAKOSCI",
                 "PRZEISTOCZONY",
+                "NIEZNISZCZALNOSC",
                 "MAKSYMALNEGOZDROWIA",
                 "ZDROWIAZAZABICIE",
                 "ZDROWIAPRZYTRAFIENIU",
@@ -1307,6 +1319,8 @@ final class ItemImageImportTextParser {
                 "\\b([0-9]{1,2}\\s*\\([^)]*\\+\\s*[0-9]{1,2}\\s*\\)\\s+jako(?:ś|s)ci)", 1);
         appendFirstMatch(extractedLines, line,
                 "\\b(Przeistoczony)\\b", 1);
+        appendFirstMatch(extractedLines, line,
+                "\\b(Niezniszczalno(?:ść|sc))\\b", 1);
         appendFirstMatch(extractedLines, line,
                 "\\b([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+blokowanych\\s+obrażeń(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
@@ -1478,7 +1492,7 @@ final class ItemImageImportTextParser {
         if (containsAny(collapsedLine, List.of("NAZNACZENIE", "WAMPIRYCZNEGOSZALUKRWI", "UMIEJETNOSCIAPODSTAWOWA", "UMIEJETNOSCIPODSTAWOWYCH"))) {
             return FullItemReadLineType.ASPECT;
         }
-        if (containsAny(collapsedLine, List.of("GNIAZDO", "GNIAZDA", "SOCKET", "SOCKETS", "PUSTE"))) {
+        if (containsAny(collapsedLine, List.of("GNIAZDO", "GNIAZDA", "SOCKET", "SOCKETS", "PUSTE", "RYNSZTUNEK", "RYNEKSUNEK", "RUNE", "RUNA"))) {
             return FullItemReadLineType.SOCKET;
         }
         if (containsAny(collapsedLine, List.of("LEGENDARNA"))) {

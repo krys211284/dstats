@@ -100,7 +100,11 @@ final class MasterworkingSectionRenderer {
         if (masterworking == null || !masterworking.hasVisibleProgress()) {
             return "";
         }
-        return renderEditorCurrentValue(VALUE_RESOLVER.resolveAffix(affix, masterworking, displayedValueAlreadyCurrent));
+        MasterworkingPresentationValue value = VALUE_RESOLVER.resolveAffix(affix, masterworking, displayedValueAlreadyCurrent);
+        if (!value.isSupported()) {
+            return "";
+        }
+        return renderEditorCurrentValue(value);
     }
 
     static String renderTemperingEditorHint(ItemMasterworking masterworking, ItemTemperingAffix affix) {
@@ -114,7 +118,11 @@ final class MasterworkingSectionRenderer {
         if (masterworking == null || !masterworking.hasVisibleProgress()) {
             return escapeHtml(fallbackLabel);
         }
-        return formatValueLine(VALUE_RESOLVER.resolveTempering(affix, masterworking), affix.isGreaterAffix());
+        MasterworkingPresentationValue value = VALUE_RESOLVER.resolveTempering(affix, masterworking);
+        if (!value.isSupported()) {
+            return escapeHtml(fallbackLabel);
+        }
+        return formatValueLine(value, affix.isGreaterAffix());
     }
 
     static String formatArmorReadonlyValue(ItemMasterworking masterworking, Long itemArmor) {
@@ -140,7 +148,11 @@ final class MasterworkingSectionRenderer {
         if (masterworking == null || !masterworking.hasVisibleProgress()) {
             return escapeHtml(krys.tempering.TemperingPresentationSupport.formatAffix(affix, TEMPERING_REGISTRY));
         }
-        return formatValueLine(VALUE_RESOLVER.resolveTempering(affix, masterworking), affix.isGreaterAffix());
+        MasterworkingPresentationValue value = VALUE_RESOLVER.resolveTempering(affix, masterworking);
+        if (!value.isSupported()) {
+            return escapeHtml(krys.tempering.TemperingPresentationSupport.formatAffix(affix, TEMPERING_REGISTRY));
+        }
+        return formatValueLine(value, affix.isGreaterAffix());
     }
 
     private static String renderEditorCurrentValue(MasterworkingPresentationValue value) {
@@ -231,7 +243,11 @@ final class MasterworkingSectionRenderer {
         if (selectedValue.isBlank()) {
             options.append(" selected");
         }
-        options.append(">Brak / nie wybrano</option>");
+        options.append(">")
+                .append(escapeHtml(requiresPerfectedAffixConfirmation(masterworking, affixes, temperingAffixes)
+                        ? "Wymaga potwierdzenia"
+                        : "Brak / nie wybrano"))
+                .append("</option>");
         for (ImportedItemAffix affix : affixes) {
             String value = selectionValue(new MasterworkedAffixSelection(MasterworkedAffixSource.ORDINARY_AFFIX, affix.getType().name()));
             options.append("<option value=\"")
@@ -258,6 +274,23 @@ final class MasterworkingSectionRenderer {
                     <select name="masterworkingPerfectedAffix">%s</select>
                 </label>
                 """.formatted(options);
+    }
+
+    private static boolean requiresPerfectedAffixConfirmation(ItemMasterworking masterworking,
+                                                              List<ImportedItemAffix> affixes,
+                                                              List<ItemTemperingAffix> temperingAffixes) {
+        return masterworking != null
+                && masterworking.getQualityCurrent() == ItemMasterworking.DEFAULT_QUALITY_MAX
+                && (masterworking.getPerfectedAffix() == null || isRequiresConfirmationSelection(masterworking.getPerfectedAffix()))
+                && ((affixes == null ? List.<ImportedItemAffix>of() : affixes).stream().anyMatch(ImportedItemAffix::isGreaterAffix)
+                || (temperingAffixes == null ? List.<ItemTemperingAffix>of() : temperingAffixes).stream().anyMatch(ItemTemperingAffix::isGreaterAffix)
+                || isRequiresConfirmationSelection(masterworking.getPerfectedAffix()));
+    }
+
+    private static boolean isRequiresConfirmationSelection(MasterworkedAffixSelection selection) {
+        return selection != null
+                && !selection.hasRecognizedSource()
+                && "REQUIRES_CONFIRMATION".equals(selection.getRawSource());
     }
 
     private static String selectionValue(MasterworkedAffixSelection selection) {

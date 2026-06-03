@@ -3,7 +3,7 @@ package krys.transfiguration;
 /** Wynik receptury Przeistoczenie przedmiotu z Kostki Horadrimów. */
 public enum HoradricTransfigurationOutcome {
     NONE("Brak"),
-    INDESTRUCTIBLE("Niezniszczalny"),
+    INDESTRUCTIBLE("Niezniszczalność"),
     UPGRADE_TO_GREATER_AFFIX("Ulepszenie do Greater Affix"),
     BONUS_TRANSFIGURATION_AFFIX("Bonusowy affix Przeistoczenia"),
     REPLACE_EXISTING_AFFIX_WITH_TRANSFIGURATION_AFFIX("Zamiana istniejącego affixu na affix Przeistoczenia"),

@@ -12,6 +12,7 @@ public final class ApplicationTemperingAffixRegistry implements TemperingAffixRe
 
     private ApplicationTemperingAffixRegistry() {
         this.definitions = List.of(
+                offense("offense_critical_strike_chance", "szansy na trafienie krytyczne", "+%s%% szansy na trafienie krytyczne", 0, 0, TemperingValueUnit.PERCENT, "Zakres hartowania wymaga weryfikacji; importer używa tej definicji wyłącznie do klasyfikacji dataOnly po limicie ordinary affixów."),
                 defense("defense_maximum_life", "maksymalnego zdrowia", "+[%s - %s] maksymalnego zdrowia", 1000, 1500, TemperingValueUnit.FLAT, ""),
                 defense("defense_armor", "pancerza", "+[%s - %s] pancerza", 1250, 2000, TemperingValueUnit.FLAT, ""),
                 defense("defense_all_resistance", "do odporności na wszystkie żywioły", "+[%s - %s] do odporności na wszystkie żywioły", 60, 70, TemperingValueUnit.FLAT, ""),
@@ -39,6 +40,26 @@ public final class ApplicationTemperingAffixRegistry implements TemperingAffixRe
                                                     TemperingValueUnit unit,
                                                     String notes) {
         return defense(id, displayName, descriptionTemplate, rangeMin, rangeMax, unit, notes, null);
+    }
+
+    private static TemperingAffixDefinition offense(String id,
+                                                    String displayName,
+                                                    String descriptionTemplate,
+                                                    double rangeMin,
+                                                    double rangeMax,
+                                                    TemperingValueUnit unit,
+                                                    String notes) {
+        return new TemperingAffixDefinition(
+                id,
+                TemperingCategory.OFFENSE,
+                displayName,
+                descriptionTemplate,
+                rangeMin,
+                rangeMax,
+                unit,
+                TemperingRuntimeStatus.DATA_ONLY,
+                notes
+        );
     }
 
     private static TemperingAffixDefinition defense(String id,

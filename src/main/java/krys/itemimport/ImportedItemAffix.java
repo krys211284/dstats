@@ -15,6 +15,9 @@ public final class ImportedItemAffix {
     private final Double rollRangeMax;
     private final Double referenceValue;
     private final String displayValue;
+    private final String visualSourceText;
+    private final int visualDisplayOrder;
+    private final boolean greaterAffixConfirmationRequired;
 
     public ImportedItemAffix(ImportedItemAffixType type, double value) {
         this(type, value, "");
@@ -61,6 +64,25 @@ public final class ImportedItemAffix {
                              Double rollRangeMax,
                              Double referenceValue,
                              String displayValue) {
+        this(type, value, unit, greaterAffix, displayOrder, rawOcrLine, source, affixDefinitionId,
+                rollRangeMin, rollRangeMax, referenceValue, displayValue, rawOcrLine, displayOrder, false);
+    }
+
+    private ImportedItemAffix(ImportedItemAffixType type,
+                              double value,
+                              String unit,
+                              boolean greaterAffix,
+                              int displayOrder,
+                              String rawOcrLine,
+                              ImportedItemAffixSource source,
+                              String affixDefinitionId,
+                              Double rollRangeMin,
+                              Double rollRangeMax,
+                              Double referenceValue,
+                              String displayValue,
+                              String visualSourceText,
+                              int visualDisplayOrder,
+                              boolean greaterAffixConfirmationRequired) {
         if (type == null) {
             throw new IllegalArgumentException("Typ affixu jest wymagany.");
         }
@@ -80,6 +102,11 @@ public final class ImportedItemAffix {
         this.rollRangeMax = nonNegativeRangeValue(rollRangeMax);
         this.referenceValue = nonNegativeRangeValue(referenceValue);
         this.displayValue = displayValue == null ? "" : displayValue;
+        this.visualSourceText = visualSourceText == null || visualSourceText.isBlank()
+                ? this.rawOcrLine
+                : visualSourceText;
+        this.visualDisplayOrder = Math.max(0, visualDisplayOrder);
+        this.greaterAffixConfirmationRequired = greaterAffixConfirmationRequired;
     }
 
     public ImportedItemAffixType getType() {
@@ -140,6 +167,41 @@ public final class ImportedItemAffix {
 
     public String getDisplayValue() {
         return displayValue;
+    }
+
+    public String getVisualSourceText() {
+        return visualSourceText;
+    }
+
+    public int getVisualDisplayOrder() {
+        return visualDisplayOrder;
+    }
+
+    public boolean isGreaterAffixConfirmationRequired() {
+        return greaterAffixConfirmationRequired;
+    }
+
+    public ImportedItemAffix withVisualAnchor(String newVisualSourceText,
+                                              int newVisualDisplayOrder,
+                                              boolean newGreaterAffix,
+                                              boolean newGreaterAffixConfirmationRequired) {
+        return new ImportedItemAffix(
+                type,
+                value,
+                unit,
+                newGreaterAffix,
+                displayOrder,
+                rawOcrLine,
+                source,
+                affixDefinitionId,
+                rollRangeMin,
+                rollRangeMax,
+                referenceValue,
+                displayValue,
+                newVisualSourceText,
+                newVisualDisplayOrder,
+                newGreaterAffixConfirmationRequired
+        );
     }
 
     public String getValueLabel() {

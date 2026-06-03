@@ -83,6 +83,9 @@ public final class ImportedItemAffixExtractor {
                         + ItemImportDebugTrace.formatAffix(affix));
                 ImportedItemAffix existing = affixes.get(key);
                 if (existing == null || affixQualityScore(affix) > affixQualityScore(existing)) {
+                    ImportedItemAffix selectedAffix = existing == null
+                            ? affix
+                            : mergeSelectedWithVisualAnchor(affix, existing);
                     if (existing != null) {
                         ImportedItemAffix rejected = existing;
                         ItemImportDebugTrace.log("AFFIX_REJECTED", () -> "reason="
@@ -90,9 +93,10 @@ public final class ImportedItemAffixExtractor {
                                 + " replacedBy=" + ItemImportDebugTrace.formatAffix(affix)
                                 + " rejected=" + ItemImportDebugTrace.formatAffix(rejected));
                     }
-                    affixes.put(key, affix);
+                    affixes.put(key, selectedAffix);
                 } else {
-                    ImportedItemAffix selected = existing;
+                    ImportedItemAffix selected = mergeSelectedWithVisualAnchor(existing, affix);
+                    affixes.put(key, selected);
                     ItemImportDebugTrace.log("AFFIX_REJECTED", () -> "reason="
                             + ItemImportDebugTrace.quote("lower quality OCR candidate for same dedup key")
                             + " replacedBy=" + ItemImportDebugTrace.formatAffix(selected)
@@ -101,13 +105,16 @@ public final class ImportedItemAffixExtractor {
                 displayOrder++;
             }
         }
-        List<ImportedItemAffix> result = preferBestPerAffixDefinition(new ArrayList<>(affixes.values()));
+        List<ImportedItemAffix> result = sortBySelectedVisualOrder(
+                preferBestPerAffixDefinition(new ArrayList<>(affixes.values()))
+        );
         if (koscianychLusekQuality25Context) {
             return stableKoscianychLusekShieldAffixes(result);
         }
         if (moonFrenzyQuality25Context) {
             return stableMoonFrenzyShieldAffixes(result);
         }
+        logPostDedupVisualOrder(result);
         return result;
     }
 
@@ -116,16 +123,22 @@ public final class ImportedItemAffixExtractor {
         for (ImportedItemAffix affix : affixes) {
             ImportedItemAffix existing = preferred.get(affix.getAffixDefinitionId());
             if (existing == null || affixQualityScore(affix) > affixQualityScore(existing)) {
+                ImportedItemAffix selectedAffix = existing == null
+                        ? affix
+                        : mergeSelectedWithVisualAnchor(affix, existing);
                 if (existing != null) {
                     ImportedItemAffix rejected = existing;
                     ItemImportDebugTrace.log("AFFIX_REJECTED", () -> "reason="
                             + ItemImportDebugTrace.quote(replacementReason(affix, rejected))
+                            + " rejectedVisualOrder=" + rejected.getDisplayOrder()
+                            + " selectedVisualOrder=" + affix.getDisplayOrder()
                             + " replacedBy=" + ItemImportDebugTrace.formatAffix(affix)
                             + " rejected=" + ItemImportDebugTrace.formatAffix(rejected));
                 }
-                preferred.put(affix.getAffixDefinitionId(), affix);
+                preferred.put(affix.getAffixDefinitionId(), selectedAffix);
             } else {
-                ImportedItemAffix selected = existing;
+                ImportedItemAffix selected = mergeSelectedWithVisualAnchor(existing, affix);
+                preferred.put(affix.getAffixDefinitionId(), selected);
                 ItemImportDebugTrace.log("AFFIX_REJECTED", () -> "reason="
                         + ItemImportDebugTrace.quote("lower quality candidate for same affix definition")
                         + " replacedBy=" + ItemImportDebugTrace.formatAffix(selected)
@@ -133,6 +146,84 @@ public final class ImportedItemAffixExtractor {
             }
         }
         return new ArrayList<>(preferred.values());
+    }
+
+    private static List<ImportedItemAffix> sortBySelectedVisualOrder(List<ImportedItemAffix> affixes) {
+        return affixes.stream()
+                .sorted(Comparator
+                        .comparingInt(ImportedItemAffix::getVisualDisplayOrder)
+                        .thenComparingInt(ImportedItemAffix::getDisplayOrder)
+                        .thenComparing(affix -> affix.getAffixDefinitionId())
+                        .thenComparingDouble(ImportedItemAffix::getValue))
+                .toList();
+    }
+
+    private static void logPostDedupVisualOrder(List<ImportedItemAffix> affixes) {
+        if (!ItemImportDebugTrace.isEnabled()) {
+            return;
+        }
+        for (int index = 0; index < affixes.size(); index++) {
+            ImportedItemAffix affix = affixes.get(index);
+            int finalIndex = index;
+            ItemImportDebugTrace.log("AFFIX_VISUAL_ORDER", () -> "postDedupIndex=" + finalIndex
+                    + " selectedVisualOrder=" + affix.getDisplayOrder()
+                    + " visualSourceOrder=" + affix.getVisualDisplayOrder()
+                    + " type=" + affix.getType()
+                    + " value=" + String.format(Locale.US, "%.4f", affix.getValue())
+                    + " selectedValueSource=" + ItemImportDebugTrace.compactText(affix.getSourceText())
+                    + " visualAnchorSource=" + ItemImportDebugTrace.compactText(affix.getVisualSourceText()));
+        }
+    }
+
+    private ImportedItemAffix mergeSelectedWithVisualAnchor(ImportedItemAffix selected,
+                                                            ImportedItemAffix otherCandidate) {
+        if (!sameValue(selected.getValue(), otherCandidate.getValue())
+                && !normalizeValueForDeduplication(selected).equals(normalizeValueForDeduplication(otherCandidate))) {
+            return selected;
+        }
+        ImportedItemAffix visualAnchor = betterVisualAnchor(selected, otherCandidate);
+        boolean propagatedGreaterAffix = selected.isGreaterAffix() || otherCandidate.isGreaterAffix();
+        boolean confirmationRequired = selected.isGreaterAffixConfirmationRequired()
+                || otherCandidate.isGreaterAffixConfirmationRequired();
+        boolean changed = visualAnchor != selected
+                || propagatedGreaterAffix != selected.isGreaterAffix()
+                || confirmationRequired != selected.isGreaterAffixConfirmationRequired();
+        if (!changed) {
+            return selected;
+        }
+        ImportedItemAffix merged = selected.withVisualAnchor(
+                visualAnchor.getVisualSourceText(),
+                visualAnchor.getVisualDisplayOrder(),
+                propagatedGreaterAffix,
+                confirmationRequired
+        );
+        AffixCandidateQuality selectedQuality = candidateQualities.get(selected);
+        if (selectedQuality != null) {
+            candidateQualities.put(merged, selectedQuality);
+        }
+        ItemImportDebugTrace.log("AFFIX_VISUAL_ANCHOR", () -> "type=" + selected.getType()
+                + " value=" + String.format(Locale.US, "%.4f", selected.getValue())
+                + " selectedValueSource=" + ItemImportDebugTrace.compactText(selected.getSourceText())
+                + " visualAnchorSource=" + ItemImportDebugTrace.compactText(visualAnchor.getVisualSourceText())
+                + " selectedVisualOrder=" + selected.getDisplayOrder()
+                + " visualSourceOrder=" + visualAnchor.getVisualDisplayOrder()
+                + " propagatedGreaterAffix=" + propagatedGreaterAffix
+                + " reason=" + ItemImportDebugTrace.quote(propagatedGreaterAffix && !selected.isGreaterAffix()
+                ? "GA marker propagated from visual anchor candidate"
+                : "visual anchor kept separately from selected value candidate"));
+        return merged;
+    }
+
+    private static ImportedItemAffix betterVisualAnchor(ImportedItemAffix left, ImportedItemAffix right) {
+        if (right.getVisualDisplayOrder() < left.getVisualDisplayOrder()) {
+            return right;
+        }
+        if (right.getVisualDisplayOrder() == left.getVisualDisplayOrder()
+                && right.isGreaterAffix()
+                && !left.isGreaterAffix()) {
+            return right;
+        }
+        return left;
     }
 
     private String replacementReason(ImportedItemAffix selected, ImportedItemAffix rejected) {
@@ -195,7 +286,14 @@ public final class ImportedItemAffixExtractor {
                 && !normalized.contains("NAZNACZENIE")
                 && !normalized.contains("RYNSZTUNEK W ZBROJOWNI")
                 && !normalized.contains("ROZJUSZENIE")
-                && !normalized.contains("UMIEJETNOSCI PODSTAWOWE");
+                && !normalized.contains("UMIEJETNOSCI PODSTAWOWE")
+                && !isPhysicalDamageMultiplierLine(normalized);
+    }
+
+    private static boolean isPhysicalDamageMultiplierLine(String normalized) {
+        return normalized.contains("MNOZNIK")
+                && normalized.contains("OBRAZEN")
+                && (normalized.contains("FIZYCZNE") || normalized.contains("PHYSICAL"));
     }
 
     private static boolean isObviousNonOrdinaryAffixLeak(FullItemReadLine line) {
@@ -561,6 +659,14 @@ public final class ImportedItemAffixExtractor {
                 matchStartInSourceLine
         );
         candidateQualities.put(affix, quality);
+        ItemImportDebugTrace.log("GA_MARKER_DETECTION", () -> "sourceLine="
+                + ItemImportDebugTrace.compactText(sourceLine)
+                + " segment=" + ItemImportDebugTrace.compactText(segment)
+                + " greaterAffix=" + affix.isGreaterAffix()
+                + " markerLocallyAssigned=" + isGreaterAffixLine(segment)
+                + " reason=" + ItemImportDebugTrace.quote(affix.isGreaterAffix()
+                ? "GA marker or verified GA value is locally assigned to affix candidate"
+                : "no local GA marker assigned to this affix candidate"));
         ItemImportDebugTrace.log("AFFIX_CANDIDATE", () -> "definitionId=" + ItemImportDebugTrace.quote(definition.getId())
                 + " segmentStart=" + segmentStartInSource
                 + " segmentEnd=" + (segmentStartInSource + segment.length())
@@ -952,7 +1058,20 @@ public final class ImportedItemAffixExtractor {
         if (affix.getSourceText().contains("[")) {
             score += 10;
         }
+        if ("%".equals(affix.getUnit()) && hasMultiDigitDecimalPrefix(affix.getSourceText())) {
+            score -= 650;
+        }
         return score;
+    }
+
+    private static boolean hasMultiDigitDecimalPrefix(String text) {
+        Matcher matcher = Pattern.compile("\\+\\s*([0-9]+[,.][0-9]+)").matcher(text == null ? "" : text);
+        if (!matcher.find()) {
+            return false;
+        }
+        String token = matcher.group(1).replace(',', '.');
+        int dot = token.indexOf('.');
+        return dot > 1;
     }
 
     private static boolean hasDecimalRollRange(String text) {

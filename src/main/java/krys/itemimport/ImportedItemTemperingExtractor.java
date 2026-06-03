@@ -87,7 +87,7 @@ public final class ImportedItemTemperingExtractor {
     }
 
     private Optional<ItemTemperingAffix> parseKnownTemperingLine(String line, Long itemPower) {
-        Optional<TemperingAffixDefinition> definition = registry.findById(MAX_ANIMUS_DEFINITION_ID);
+        Optional<TemperingAffixDefinition> definition = findCatalogDefinition(line, registry);
         if (definition.isEmpty()) {
             return Optional.empty();
         }
@@ -103,15 +103,90 @@ public final class ImportedItemTemperingExtractor {
         TemperingAffixDefinition resolvedDefinition = definition.get();
         boolean displayedPerfectedValue = isDisplayedPerfectedMaxAnimus(line);
         double storedValue = displayedPerfectedValue ? resolvedDefinition.greaterAffixValue() : value.get();
+        if (!displayedPerfectedValue && isRejectedTemperingValue(line, storedValue, resolvedDefinition)) {
+            ItemImportDebugTrace.log("TEMPERING_CANDIDATE", () -> "decision=rejected"
+                    + " definitionId=" + ItemImportDebugTrace.quote(resolvedDefinition.getId())
+                    + " selectedCandidate=false"
+                    + " value=" + storedValue
+                    + " sourceLine=" + ItemImportDebugTrace.compactText(line)
+                    + " reason=" + ItemImportDebugTrace.quote("value outside tempering catalog range"));
+            return Optional.empty();
+        }
         boolean greaterAffix = displayedPerfectedValue || isGreaterAffix(line, itemPower, storedValue, resolvedDefinition);
-        return Optional.of(new ItemTemperingAffix(
+        ItemTemperingAffix affix = new ItemTemperingAffix(
                 resolvedDefinition.getId(),
                 resolvedDefinition.getCategory(),
                 storedValue,
-                "+" + formatFlexibleValue(storedValue) + " " + resolvedDefinition.getDisplayName(),
+                formatDisplayText(storedValue, resolvedDefinition),
+                stripLeadingGreaterMarker(line),
                 TemperingRuntimeStatus.DATA_ONLY,
                 greaterAffix
-        ));
+        );
+        ItemImportDebugTrace.log("TEMPERING_CANDIDATE", () -> "decision=selected"
+                + " definitionId=" + ItemImportDebugTrace.quote(resolvedDefinition.getId())
+                + " selectedCandidate=true"
+                + " value=" + storedValue
+                + " sourceLine=" + ItemImportDebugTrace.compactText(line)
+                + " displayText=" + ItemImportDebugTrace.compactText(affix.getDisplayText()));
+        return Optional.of(affix);
+    }
+
+    private static boolean isRejectedTemperingValue(String line,
+                                                    double value,
+                                                    TemperingAffixDefinition definition) {
+        if (definition.accepts(value)) {
+            return false;
+        }
+        if (sameValue(value, definition.greaterAffixValue())) {
+            return false;
+        }
+        if (definition.getRangeMin() == 0.0d
+                && definition.getRangeMax() == 0.0d
+                && definition.getUnit() == krys.tempering.TemperingValueUnit.PERCENT) {
+            return hasMultiDigitDecimalPrefix(line);
+        }
+        return true;
+    }
+
+    private static boolean hasMultiDigitDecimalPrefix(String line) {
+        Matcher matcher = LEADING_VALUE_PATTERN.matcher(stripLeadingGreaterMarker(line == null ? "" : line));
+        if (!matcher.find()) {
+            return false;
+        }
+        String token = matcher.group(1).replace(',', '.');
+        int dot = token.indexOf('.');
+        return dot > 1;
+    }
+
+    Optional<ItemTemperingAffix> parseCatalogTemperingLine(String line, Long itemPower) {
+        return parseKnownTemperingLine(line, itemPower);
+    }
+
+    private static Optional<TemperingAffixDefinition> findCatalogDefinition(String line) {
+        return findCatalogDefinition(line, ApplicationTemperingAffixRegistry.get());
+    }
+
+    private static Optional<TemperingAffixDefinition> findCatalogDefinition(String line, TemperingAffixRegistry registry) {
+        String normalizedLine = normalize(stripLeadingGreaterMarker(line == null ? "" : line));
+        if (normalizedLine.isBlank()) {
+            return Optional.empty();
+        }
+        Optional<TemperingAffixDefinition> maxAnimus = registry.findById(MAX_ANIMUS_DEFINITION_ID)
+                .filter(definition -> normalizedLine.contains(normalize(definition.getDisplayName())));
+        if (maxAnimus.isPresent()) {
+            return maxAnimus;
+        }
+        return registry.all().stream()
+                .filter(definition -> normalizedLine.contains(normalize(definition.getDisplayName())))
+                .findFirst();
+    }
+
+    private static String formatDisplayText(double value, TemperingAffixDefinition definition) {
+        String valueText = formatFlexibleValue(value);
+        if (definition.getUnit() == krys.tempering.TemperingValueUnit.PERCENT) {
+            return "+" + valueText + "% " + definition.getDisplayName();
+        }
+        return "+" + valueText + " " + definition.getDisplayName();
     }
 
     private static boolean isGreaterAffix(String line,
