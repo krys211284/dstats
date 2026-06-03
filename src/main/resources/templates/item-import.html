@@ -342,6 +342,60 @@
             color: var(--muted);
             font-weight: 700;
         }
+        .socketing-fieldset {
+            display: grid;
+            gap: 12px;
+            width: 100%;
+        }
+        .socketing-grid {
+            display: grid;
+            grid-template-columns: minmax(180px, 0.4fr);
+            gap: 12px;
+            align-items: end;
+            max-width: 420px;
+        }
+        .socketing-rows {
+            display: grid;
+            gap: 12px;
+        }
+        .socketing-row {
+            display: grid;
+            grid-template-columns: minmax(180px, 0.35fr) minmax(260px, 0.65fr) minmax(260px, 1fr);
+            gap: 12px;
+            align-items: start;
+        }
+        .socketing-detected-row {
+            display: grid;
+            grid-template-columns: minmax(180px, 0.4fr) minmax(300px, 1fr);
+            gap: 12px;
+            align-items: start;
+        }
+        .socketing-row .socketing-effect {
+            margin: 0;
+            align-self: center;
+        }
+        .socketing-detected-card {
+            min-width: 0;
+            padding: 10px 12px;
+            border: 1px solid rgba(109, 102, 92, 0.18);
+            border-radius: 10px;
+            background: #fff;
+        }
+        .socketing-detected-label {
+            color: var(--muted);
+            font-size: 0.86rem;
+            font-weight: 700;
+        }
+        .socketing-detected-stat {
+            margin-top: 4px;
+            font-weight: 800;
+            overflow-wrap: anywhere;
+        }
+        .socketing-runtime-status {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
         .empty-state {
             padding: 18px;
             border: 1px dashed rgba(109, 102, 92, 0.22);
@@ -392,7 +446,9 @@
             .tempering-add-grid,
             .tempering-readonly-card,
             .tempering-existing-card,
-            .masterworking-grid {
+            .masterworking-grid,
+            .socketing-row,
+            .socketing-detected-row {
                 grid-template-columns: 1fr;
             }
             .item-affix-add-actions,

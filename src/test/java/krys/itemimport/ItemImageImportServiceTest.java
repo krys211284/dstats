@@ -968,6 +968,154 @@ class ItemImageImportServiceTest {
     }
 
     @Test
+    void shouldImportVerathielV3AffixesByLocalNumericAnchorBinding() throws Exception {
+        byte[] imageBytes = Files.readAllBytes(Path.of("src/test/resources/items/verathiel-miecz-v2.png"));
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new FakeOcrTextReader(Map.of(
+                        "original", """
+                                Odłamek Verathiela
+                                Starożytny unikatowy miecz
+                                Moc przedmiotu: 900
+                                2 417 pkt. obrażeń na sek.
+                                [884 - 2 512] pkt. obrażeń za trafienie
+                                1,10 ataku na sekundę
+                                +314 obrażeń od broni
+                                +270 siły +948 pkt. zdrowia przy trafieniu Mnożnik x15% wszystkich obrażeń
+                                +7,5% szansy na trafienie krytyczne
+                                Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu.
+                                """,
+                        "weapon-stats-crop-x4", """
+                                Starożytny unikatowy miecz Moc przedmiotu: 900 2 417 pkt. obrażeń na sek. [884 - 2 512] pkt. obrażeń za trafienie 1,10 ataku na sekundę
+                                +314 obrażeń od broni
+                                +270 siły
+                                +948 pkt. zdrowia przy trafieniu
+                                MNOZNIK X 15 0 WSZYSTKICH OBRAZEN
+                                +7,5% szansy na trafienie krytyczne
+                                """,
+                        "weapon-stats-crop-gray-x4-contrast", """
+                                14 OBRAZEN OD BRONI + PKT. ZDROWIA PRZY TRAFIENIU
+                                +270 PKT. ZDROWIA PRZY TRAFIENIU +9,18 MNOZNIK X 15 0 WSZYSTKICH OBRAZEN NIEZNISZCZALNOSC
+                                +47,5% szansy na trafienie krytyczne
+                                """,
+                        "shield-affix-crop-gray-x4-sharpen", """
+                                Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100], ale dodatkowo zużywają 25 pkt. podstawowego zasobu.
+                                """
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(
+                new ItemImageImportRequest("verathiel-miecz-v3.png", "image/png", imageBytes)
+        );
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals("Odłamek Verathiela", form.getItemName());
+        assertEquals("Miecz", form.getItemType());
+        assertEquals("UNIQUE", form.getItemRarity());
+        assertTrue(form.isAncient());
+        assertFalse(form.isMythicUnique());
+        assertEquals("900", form.getItemPower());
+        assertEquals("2417", form.getWeaponDps());
+        assertEquals("884", form.getWeaponDamageMin());
+        assertEquals("2512", form.getWeaponDamageMax());
+        assertEquals("1.10", form.getAttacksPerSecond());
+        assertEquals("verathiel_shard", form.getSelectedAspectId());
+        assertTrue(form.getUniqueEffectText().contains("100%[x]"));
+        assertTrue(form.getUniqueEffectText().contains("[70 - 100]"));
+        assertTrue(form.getUniqueEffectText().contains("25 pkt. podstawowego zasobu"));
+        assertEquals(0, form.getSocketing().getSocketCount());
+
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 314.0d, false);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.STRENGTH, 270.0d, false);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.LIFE_ON_HIT, 948.0d, false);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER, 15.0d, false);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 7.5d, false);
+        assertFalse(form.getAffixes().stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.LIFE_ON_HIT
+                        && affix.getValue() == 270.0d));
+        assertFalse(form.getAffixes().stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.WEAPON_DAMAGE_FLAT
+                        && affix.getValue() == 14.0d));
+        assertFalse(form.getAffixes().stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.CRITICAL_STRIKE_CHANCE
+                        && affix.getValue() == 47.5d));
+    }
+
+    @Test
+    void shouldImportGenericMechanismFixtureWithoutItemSpecificGolden() throws Exception {
+        byte[] imageBytes = buildSyntheticItemScreenshot();
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new FakeOcrTextReader(Map.of(
+                        "original", """
+                                Testowy miecz
+                                Starożytny unikatowy miecz
+                                Moc przedmiotu: 900
+                                2 417 pkt. obrażeń na sek.
+                                [1 884 - 2 512] pkt. obrażeń za trafienie
+                                1,10 ataku na sekundę
+                                25 (+25) jakości
+                                Przeistoczony
+                                +314 obrażeń od broni
+                                +270 siły +948 pkt. zdrowia przy trafieniu Mnożnik x15% wszystkich obrażeń
+                                14 obrażeń od broni + pkt. zdrowia przy trafieniu
+                                Mnożnik x32% obrażeń (Fizyczne)
+                                To ostrze w rękach anioła Veratiela 0 umiejętności główne
+                                """,
+                        "weapon-stats-crop-x4", """
+                                2 417 pkt. obrażeń na sek.
+                                [884 - 2 512] pkt. obrażeń za trafienie
+                                1,10 ataku na sekundę
+                                """,
+                        "weapon-stats-crop-gray-x4-contrast", """
+                                2 417 pkt. obrażeń na sek.
+                                [II 884 - 2 512] pkt. obrażeń za trafienie
+                                1,10 ataku na sekundę
+                                """,
+                        "text-crop-gray-x3-sharpen", """
+                                +948 wszystkich obrażeń
+                                14 obrażeń od broni + pkt. zdrowia przy trafieniu
+                                Mnożnik x32% obrażeń (Fizyczne)
+                                To ostrze w rękach anioła Veratiela 0 umiejętności główne
+                                """
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(
+                new ItemImageImportRequest("generic-mechanism.png", "image/png", imageBytes)
+        );
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals("2417", form.getWeaponDps());
+        assertEquals("1884", form.getWeaponDamageMin());
+        assertEquals("2512", form.getWeaponDamageMax());
+        assertEquals("2198", form.getAverageWeaponDamage());
+        assertEquals("1.10", form.getAttacksPerSecond());
+        assertEquals(25, form.getMasterworking().getQualityCurrent());
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 314.0d, false);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.STRENGTH, 270.0d, false);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.LIFE_ON_HIT, 948.0d, false);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER, 15.0d, false);
+        assertEquals("PHYSICAL_DAMAGE_MULTIPLIER", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(32.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0001d);
+        assertFalse(form.getAffixes().stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.CORE_SKILL_RANKS));
+        assertFalse(form.getAffixes().stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER
+                        && affix.getValue() == 948.0d));
+        assertFalse(form.getAffixes().stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.LIFE_ON_HIT
+                        && affix.getValue() == 270.0d));
+        assertFalse(form.getAffixes().stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.WEAPON_DAMAGE_FLAT
+                        && affix.getValue() == 14.0d));
+    }
+
+    @Test
     void shouldNotFillVerathielV2DotRangeWhenCapturedOcrHasOnlySingleBoundary() throws Exception {
         byte[] imageBytes = Files.readAllBytes(Path.of("src/test/resources/items/verathiel-miecz-v2.png"));
         ItemImageImportService service = new ItemImageImportService(

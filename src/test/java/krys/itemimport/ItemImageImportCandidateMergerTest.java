@@ -147,6 +147,60 @@ class ItemImageImportCandidateMergerTest {
     }
 
     @Test
+    void shouldChooseDpsApsConsistentWeaponDamageRangeOverTruncatedCandidate() {
+        ItemImageImportCandidateParseResult truncatedVariant = parseResult(weaponRead(2417L, 884L, 2512L, 1.10d));
+        ItemImageImportCandidateParseResult coherentVariant = parseResult(weaponRead(2417L, 1884L, 2512L, 1.10d));
+
+        ItemImageImportCandidateParseResult merged = new ItemImageImportCandidateMerger()
+                .merge(metadata, 2, List.of(truncatedVariant, coherentVariant));
+        ItemImportDetails details = merged.getFullItemRead().getDetails();
+
+        assertEquals(1884L, details.getWeaponDamageMin());
+        assertEquals(2512L, details.getWeaponDamageMax());
+        assertEquals(2198L, details.getAverageWeaponDamage());
+    }
+
+    @Test
+    void shouldPreferValidSpacedThousandsRangeOverTruncatedMergedLine() {
+        ItemImageImportCandidateParseResult truncatedVariant = parseResult(
+                ItemImageImportTextParser.buildFullItemRead(List.of(
+                        "2 417 pkt. obrażeń na sek.",
+                        "[884 - 2 512] pkt. obrażeń za trafienie",
+                        "1,10 ataku na sekundę"
+                ))
+        );
+        ItemImageImportCandidateParseResult spacedThousandsVariant = parseResult(
+                ItemImageImportTextParser.buildFullItemRead(List.of(
+                        "2 417 pkt. obrażeń na sek.",
+                        "[1 884 - 2 512] pkt. obrażeń za trafienie",
+                        "1,10 ataku na sekundę"
+                ))
+        );
+
+        ItemImageImportCandidateParseResult merged = new ItemImageImportCandidateMerger()
+                .merge(metadata, 2, List.of(truncatedVariant, spacedThousandsVariant));
+        ItemImportDetails details = merged.getFullItemRead().getDetails();
+
+        assertEquals(1884L, details.getWeaponDamageMin());
+        assertEquals(2512L, details.getWeaponDamageMax());
+        assertEquals(2198L, details.getAverageWeaponDamage());
+    }
+
+    @Test
+    void shouldNotSelectOcrArtifactRangeWhenValidCandidateExists() {
+        ItemImageImportCandidateParseResult artifactVariant = parseResult(weaponRead(2417L, 11884L, 2512L, 1.10d));
+        ItemImageImportCandidateParseResult coherentVariant = parseResult(weaponRead(2417L, 1884L, 2512L, 1.10d));
+
+        ItemImageImportCandidateParseResult merged = new ItemImageImportCandidateMerger()
+                .merge(metadata, 2, List.of(artifactVariant, coherentVariant));
+        ItemImportDetails details = merged.getFullItemRead().getDetails();
+
+        assertEquals(1884L, details.getWeaponDamageMin());
+        assertEquals(2512L, details.getWeaponDamageMax());
+        assertEquals(2198L, details.getAverageWeaponDamage());
+    }
+
+    @Test
     void shouldMergeVerathielAffixesToFourUniqueRowsAfterOcrVariants() {
         ItemImageImportCandidateParseResult firstVariant = parseResult(
                 ItemImageImportTextParser.buildFullItemRead(List.of(
@@ -320,6 +374,36 @@ class ItemImageImportCandidateMergerTest {
                 ItemImportFieldCandidate.unknown("block"),
                 ItemImportFieldCandidate.unknown("retribution"),
                 "test"
+        );
+    }
+
+    private static FullItemRead weaponRead(long weaponDps, long min, long max, double attacksPerSecond) {
+        long average = Math.round((min + max) / 2.0d);
+        return new FullItemRead(
+                "Generyczny miecz",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                weaponDps + " pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT, weaponDps + " pkt. obrażeń na sek."),
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT, "[" + min + " - " + max + "] pkt. obrażeń za trafienie"),
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT, String.format(java.util.Locale.US, "%.2f ataku na sekundę", attacksPerSecond).replace('.', ','))
+                ),
+                new ItemImportDetails(
+                        "Generyczny miecz",
+                        "Miecz",
+                        "UNIQUE",
+                        true,
+                        EquipmentSlot.MAIN_HAND,
+                        900L,
+                        weaponDps,
+                        min,
+                        max,
+                        average,
+                        attacksPerSecond,
+                        ""
+                )
         );
     }
 

@@ -55,6 +55,18 @@ class AffixRegistryTest {
                 .noneMatch(definition -> definition.getDisplayName().equals("Odłamek Verathiela")));
     }
 
+    @Test
+    void shouldMatchAllDamageMultiplierSeparatelyFromDamageOverTimeMultiplier() {
+        AffixRegistry registry = ApplicationAffixRegistry.get();
+
+        assertMatched(registry, "Mnożnik x15% wszystkich obrażeń", "all_damage_multiplier");
+        assertMatched(registry, "MNOZNIK X 15 0 WSZYSTKICH OBRAZEN", "all_damage_multiplier");
+        assertFalse(registry.findMatches("+948 wszystkich obrażeń").stream()
+                .anyMatch(match -> match.definition().getFormType() == ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER));
+        assertFalse(registry.findMatches("Mnożnik x15% wszystkich obrażeń").stream()
+                .anyMatch(match -> match.definition().getFormType() == ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER));
+    }
+
     private static void assertMatched(AffixRegistry registry, String text, String expectedDefinitionId) {
         assertTrue(registry.findMatches(text).stream()
                 .anyMatch(match -> match.definition().getId().equals(expectedDefinitionId)), text);

@@ -302,6 +302,134 @@ class ImportedItemAffixExtractorTest {
         assertFalse(affixes.getFirst().isGreaterAffix());
     }
 
+    @Test
+    void shouldBindValuesLocallyWhenSeveralAffixesShareOneOcrLine() {
+        List<ImportedItemAffix> affixes = extract("+270 siły +948 pkt. zdrowia przy trafieniu Mnożnik x15% wszystkich obrażeń",
+                FullItemReadLineType.AFFIX);
+
+        assertAffixValue(affixes, ImportedItemAffixType.STRENGTH, 270.0d);
+        assertAffixValue(affixes, ImportedItemAffixType.LIFE_ON_HIT, 948.0d);
+        assertAffixValue(affixes, ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER, 15.0d);
+        assertFalse(affixes.stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.LIFE_ON_HIT
+                        && affix.getValue() == 270.0d));
+    }
+
+    @Test
+    void shouldNotUsePreviousAffixValueAsLifeOnHitPrimaryValue() {
+        List<ImportedItemAffix> affixes = extract("+270 siły +948 pkt. zdrowia przy trafieniu",
+                FullItemReadLineType.AFFIX);
+
+        assertAffixValue(affixes, ImportedItemAffixType.STRENGTH, 270.0d);
+        assertAffixValue(affixes, ImportedItemAffixType.LIFE_ON_HIT, 948.0d);
+        assertFalse(affixes.stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.LIFE_ON_HIT
+                        && affix.getValue() == 270.0d));
+    }
+
+    @Test
+    void shouldPreferCleanWeaponDamageCandidateOverGluedOcrArtifact() {
+        List<ImportedItemAffix> affixes = extractor.extractEditableAffixes(new FullItemRead(
+                "Item testowy",
+                "Miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+314 obrażeń od broni"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "obrażeń od broni +314"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "14 obrażeń od broni + pkt. zdrowia przy trafieniu")
+                )
+        ));
+
+        assertAffixValue(affixes, ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 314.0d);
+        assertFalse(affixes.stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.WEAPON_DAMAGE_FLAT
+                        && affix.getValue() == 14.0d));
+    }
+
+    @Test
+    void shouldPreferCleanLifeOnHitCandidateOverPreviousValueFromGluedLine() {
+        List<ImportedItemAffix> affixes = extractor.extractEditableAffixes(new FullItemRead(
+                "Item testowy",
+                "Miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+948 pkt. zdrowia przy trafieniu"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX,
+                                "+270 pkt. zdrowia przy trafieniu +9,18 Mnożnik x15% wszystkich obrażeń Niezniszczalność")
+                )
+        ));
+
+        assertAffixValue(affixes, ImportedItemAffixType.LIFE_ON_HIT, 948.0d);
+        assertFalse(affixes.stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.LIFE_ON_HIT
+                        && affix.getValue() == 270.0d));
+    }
+
+    @Test
+    void shouldRecognizeAllDamageMultiplierWithoutConfusingItWithDamageOverTime() {
+        for (String text : List.of(
+                "Mnożnik x15% wszystkich obrażeń",
+                "MNOZNIK X 15 0 WSZYSTKICH OBRAZEN",
+                "MNOZNIK X15/ WSZYSTKICH OBRAZEN"
+        )) {
+            List<ImportedItemAffix> affixes = extract(text, FullItemReadLineType.AFFIX);
+
+            assertAffixValue(affixes, ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER, 15.0d);
+            assertFalse(affixes.stream()
+                    .anyMatch(affix -> affix.getType() == ImportedItemAffixType.DAMAGE_OVER_TIME_MULTIPLIER),
+                    text);
+        }
+    }
+
+    @Test
+    void shouldNotCreateAllDamageMultiplierWithoutMultiplierValueShape() {
+        List<ImportedItemAffix> affixes = extract("+948 wszystkich obrażeń", FullItemReadLineType.AFFIX);
+
+        assertFalse(affixes.stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER));
+    }
+
+    @Test
+    void shouldPreferMultiplierPercentShapeOverFlatAllDamagePhrase() {
+        List<ImportedItemAffix> affixes = extractor.extractEditableAffixes(new FullItemRead(
+                "Item testowy",
+                "Miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+948 wszystkich obrażeń"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "MNOZNIK X15% WSZYSTKICH OBRAZEN")
+                )
+        ));
+
+        assertAffixValue(affixes, ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER, 15.0d);
+        assertFalse(affixes.stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER
+                        && affix.getValue() == 948.0d));
+    }
+
+    @Test
+    void shouldRejectCoreSkillRanksWithoutExplicitPositiveRankAnchor() {
+        List<ImportedItemAffix> affixes = extractor.extractEditableAffixes(new FullItemRead(
+                "Item testowy",
+                "Miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(new FullItemReadLine(
+                        FullItemReadLineType.AFFIX,
+                        "TO OSTRZE W REKACH ANIOLA VERATIELA 0 UMIEJETNOSCI GLOWNE"
+                ))
+        ));
+
+        assertTrue(affixes.stream().noneMatch(affix -> affix.getType() == ImportedItemAffixType.CORE_SKILL_RANKS));
+    }
+
     private void assertGreaterAffix(String text, FullItemReadLineType type) {
         assertTrue(extractSingle(text, type).isGreaterAffix(), text);
     }
@@ -391,6 +519,16 @@ class ImportedItemAffixExtractorTest {
         assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
         assertEquals(expectedRangeMin, affix.getRollRangeMin(), 0.0001d, expectedType.getDisplayName());
         assertEquals(expectedRangeMax, affix.getRollRangeMax(), 0.0001d, expectedType.getDisplayName());
+    }
+
+    private static void assertAffixValue(List<ImportedItemAffix> affixes,
+                                         ImportedItemAffixType expectedType,
+                                         double expectedValue) {
+        ImportedItemAffix affix = affixes.stream()
+                .filter(candidate -> candidate.getType() == expectedType)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Brak affixu: " + expectedType.getDisplayName()));
+        assertEquals(expectedValue, affix.getValue(), 0.0001d, expectedType.getDisplayName());
     }
 
     private List<ImportedItemAffix> extractVerathiel(String text) {

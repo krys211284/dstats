@@ -45,11 +45,13 @@ final class SocketingSectionRenderer {
                             <span class="helper">Liczba gniazd: %d</span>
                         </label>
                     </div>
+                    <div class="socketing-rows">
                 """.formatted(socketing.getSocketCount()));
         for (int index = 0; index < ItemSocketing.MAX_SOCKET_COUNT; index++) {
             html.append(renderSocketRow(index, socketing.socketAt(index), index >= socketing.getSocketCount(), context));
         }
         html.append("""
+                    </div>
                     <p class="helper">Gemy są na tym etapie zapisywane i prezentowane, ale runtime pozostaje nieaktywny.</p>
                 </fieldset>
                 """);
@@ -87,12 +89,21 @@ final class SocketingSectionRenderer {
                         if (!countSelect) return;
                         const refreshRow = row => {
                             const content = row.querySelector('[data-socket-content]');
+                            const gemField = row.querySelector('[data-socket-gem-field]');
                             const gem = row.querySelector('[data-socket-gem]');
                             const effect = row.querySelector('[data-socket-effect]');
+                            const detected = row.querySelector('[data-socket-detected-card]');
                             const gemActive = content && content.value === 'GEM';
+                            const detectedActive = content && content.value === 'DETECTED_STAT';
+                            if (gemField) {
+                                gemField.hidden = !gemActive;
+                            }
                             if (gem) {
                                 gem.hidden = !gemActive;
                                 gem.disabled = !gemActive;
+                            }
+                            if (detected) {
+                                detected.hidden = !detectedActive;
                             }
                             if (effect) {
                                 const option = gem && gem.selectedOptions.length ? gem.selectedOptions[0] : null;
@@ -126,6 +137,9 @@ final class SocketingSectionRenderer {
                                           boolean hidden,
                                           Optional<SocketEffectContext> context) {
         SocketContentType contentType = socket.getContentType() == null ? SocketContentType.EMPTY : socket.getContentType();
+        if (contentType == SocketContentType.DETECTED_STAT) {
+            return renderDetectedStatRow(index, socket, hidden, context);
+        }
         String selectedGemId = socket.getGemId() == null ? "" : socket.getGemId();
         boolean gemSelected = contentType == SocketContentType.GEM;
         return """
@@ -138,7 +152,7 @@ final class SocketingSectionRenderer {
                             <option value="DETECTED_STAT"%s>Wykryty stat gema/runy</option>
                         </select>
                     </label>
-                    <label%s>
+                    <label class="socketing-gem-field"%s data-socket-gem-field>
                         Gem
                         <select name="socketGemId_%d" data-socket-gem%s>
                             %s
@@ -165,6 +179,49 @@ final class SocketingSectionRenderer {
         );
     }
 
+    private static String renderDetectedStatRow(int index,
+                                                ItemSocket socket,
+                                                boolean hidden,
+                                                Optional<SocketEffectContext> context) {
+        String selectedGemId = socket.getGemId() == null ? "" : socket.getGemId();
+        SocketGemRuneStat stat = socket.getDetectedStat();
+        String displayText = stat == null ? "" : stat.getDisplayText();
+        return """
+                <div class="socketing-detected-row" data-socket-row data-socket-index="%d"%s>
+                    <label>
+                        Gniazdo %d
+                        <select name="socketContent_%d" data-socket-content>
+                            <option value="EMPTY">Puste</option>
+                            <option value="GEM">Gem</option>
+                            <option value="DETECTED_STAT" selected>Wykryty stat gema/runy</option>
+                        </select>
+                    </label>
+                    <label class="socketing-gem-field" hidden data-socket-gem-field>
+                        Gem
+                        <select name="socketGemId_%d" data-socket-gem disabled>
+                            %s
+                        </select>
+                    </label>
+                    <div class="socketing-detected-card" data-socket-detected-card>
+                        <div class="socketing-detected-label">Wykryty stat gema/runy</div>
+                        <div class="socketing-detected-stat">Wykryty stat gema/runy: %s</div>
+                        <div class="socketing-runtime-status">Runtime nieaktywny</div>
+                        %s
+                    </div>
+                    <p class="helper socketing-effect" data-socket-effect hidden></p>
+                </div>
+                """.formatted(
+                index,
+                hidden ? " hidden" : "",
+                index + 1,
+                index,
+                index,
+                renderGemOptions(selectedGemId, context),
+                escape(displayText),
+                renderDetectedStatFields(index, socket)
+        );
+    }
+
     private static String renderDetectedStatFields(int index, ItemSocket socket) {
         if (socket == null || socket.getContentType() != SocketContentType.DETECTED_STAT) {
             return """
@@ -182,16 +239,12 @@ final class SocketingSectionRenderer {
         String matchedType = stat == null || stat.getMatchedAffixType() == null ? "" : stat.getMatchedAffixType().name();
         String sourceLine = stat == null ? "" : stat.getSourceLine();
         return """
-                <div class="helper">
-                    Wykryty stat: %s · Runtime nieaktywny
-                    <input type="hidden" name="socketDetectedDisplayText_%d" value="%s">
-                    <input type="hidden" name="socketDetectedNormalizedText_%d" value="%s">
-                    <input type="hidden" name="socketDetectedValue_%d" value="%s">
-                    <input type="hidden" name="socketDetectedMatchedAffixType_%d" value="%s">
-                    <input type="hidden" name="socketDetectedSourceLine_%d" value="%s">
-                </div>
+                <input type="hidden" name="socketDetectedDisplayText_%d" value="%s">
+                <input type="hidden" name="socketDetectedNormalizedText_%d" value="%s">
+                <input type="hidden" name="socketDetectedValue_%d" value="%s">
+                <input type="hidden" name="socketDetectedMatchedAffixType_%d" value="%s">
+                <input type="hidden" name="socketDetectedSourceLine_%d" value="%s">
                 """.formatted(
-                escape(displayText),
                 index,
                 escape(displayText),
                 index,

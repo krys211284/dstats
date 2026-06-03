@@ -3,6 +3,7 @@ package krys.itemimport;
 import java.text.Normalizer;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /** Katalog znanych affixów itemu używany przez ręczną walidację i projekcję do runtime. */
 public enum ImportedItemAffixType {
@@ -20,6 +21,7 @@ public enum ImportedItemAffixType {
     MAXIMUM_LIFE("Maksymalne zdrowie", "+%s maksymalnego zdrowia", RuntimeProjection.NONE),
     LIFE_ON_HIT("Zdrowie przy trafieniu", "+%s pkt. zdrowia przy trafieniu", RuntimeProjection.NONE),
     LIFE_ON_KILL("Zdrowie za zabicie", "+%s zdrowia za zabicie", RuntimeProjection.NONE),
+    ALL_DAMAGE_MULTIPLIER("Mnożnik wszystkich obrażeń", "Mnożnik x%s%% wszystkich obrażeń", RuntimeProjection.NONE),
     DAMAGE_OVER_TIME_MULTIPLIER("Mnożnik obrażeń z upływem czasu", "Mnożnik x%s%% obrażeń z upływem czasu", RuntimeProjection.NONE),
     LUCKY_HIT_PRIMARY_RESOURCE("Szczęśliwy traf: podstawowy zasób", "Szczęśliwy traf: +%s podstawowego zasobu", RuntimeProjection.NONE),
     COOLDOWN_REDUCTION("Redukcja czasu odnowienia", "%s%% redukcji czasu odnowienia", RuntimeProjection.NONE),
@@ -106,6 +108,13 @@ public enum ImportedItemAffixType {
         if (normalized.contains("ZDROWIA ZA ZABICIE") || normalized.contains("LIFE ON KILL")) {
             return Optional.of(LIFE_ON_KILL);
         }
+        if (normalized.contains("WSZYSTKICH OBRAZEN")
+                || normalized.contains("ALL DAMAGE")) {
+            if (!hasMultiplierValueShape(normalized)) {
+                return Optional.empty();
+            }
+            return Optional.of(ALL_DAMAGE_MULTIPLIER);
+        }
         if (normalized.contains("OBRAZEN Z UPLYWEM CZASU")
                 || normalized.contains("DAMAGE OVER TIME")
                 || normalized.contains("DOT MULTIPLIER")) {
@@ -119,12 +128,39 @@ public enum ImportedItemAffixType {
         }
         if ((normalized.contains("UMIEJETNOSCI") && normalized.contains("GLOWNE"))
                 || normalized.contains("CORE SKILL")) {
+            if (!hasExplicitRankValueShape(normalized)) {
+                return Optional.empty();
+            }
             return Optional.of(CORE_SKILL_RANKS);
         }
         if (normalized.contains("UNIKU") || normalized.contains("DODGE")) {
             return Optional.of(DODGE_CHANCE);
         }
         return Optional.empty();
+    }
+
+    private static boolean hasMultiplierValueShape(String normalized) {
+        String collapsed = normalized.replaceAll("[^A-Z0-9%]", "");
+        return collapsed.matches(".*MNOZNIKX?[0-9].*")
+                || collapsed.matches(".*X[0-9].*")
+                || collapsed.matches(".*[0-9]+%.*")
+                || collapsed.matches(".*[0-9]+0WSZYSTKICHOBRAZEN.*");
+    }
+
+    private static boolean hasExplicitRankValueShape(String normalized) {
+        String safeText = normalized == null ? "" : normalized;
+        String collapsed = safeText.replaceAll("[^A-Z0-9+]", "");
+        boolean explicitRankValue = Pattern.compile("(^|[^0-9])\\+\\s*[1-9][0-9]?\\s+DO\\s+UMIEJETNOSCI")
+                .matcher(safeText)
+                .find()
+                || Pattern.compile("(^|[^0-9])\\+\\s*[1-9][0-9]?\\s+DO\\s+RANG")
+                .matcher(safeText)
+                .find()
+                || Pattern.compile("\\+[1-9][0-9]?DOUMIEJETNOSCI").matcher(collapsed).find()
+                || Pattern.compile("\\+[1-9][0-9]?DORANG").matcher(collapsed).find();
+        return explicitRankValue
+                && (safeText.contains("GLOWNE") || safeText.contains("CORE"))
+                && !safeText.contains("UMIEJETNOSCI PODSTAWOWE");
     }
 
     private static String formatValue(double value) {

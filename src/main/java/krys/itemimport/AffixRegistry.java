@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /** Katalog znanych affixów używany przez OCR i ręczną walidację itemu. */
 public final class AffixRegistry {
@@ -98,7 +99,42 @@ public final class AffixRegistry {
                     || collapsed.contains("TRAF");
             return chanceContext && !resourceContext && !criticalContext;
         }
+        if (definition.getFormType() == ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER) {
+            boolean allDamageContext = collapsed.contains("WSZYSTKICHOBRAZEN")
+                    || collapsed.contains("ALLDAMAGE");
+            String valueShapeText = normalizedText.replaceAll("[^A-Z0-9%]", "");
+            return allDamageContext && hasMultiplierValueShape(valueShapeText);
+        }
+        if (definition.getFormType() == ImportedItemAffixType.CORE_SKILL_RANKS) {
+            return hasExplicitRankValueShape(normalizedText);
+        }
         return true;
+    }
+
+    private static boolean hasMultiplierValueShape(String collapsedText) {
+        if (collapsedText == null || collapsedText.isBlank()) {
+            return false;
+        }
+        return Pattern.compile("MNOZNIKX?[0-9]+").matcher(collapsedText).find()
+                || Pattern.compile("X[0-9]+").matcher(collapsedText).find()
+                || Pattern.compile("[0-9]+%").matcher(collapsedText).find()
+                || Pattern.compile("[0-9]+0WSZYSTKICHOBRAZEN").matcher(collapsedText).find();
+    }
+
+    private static boolean hasExplicitRankValueShape(String normalizedText) {
+        String safeText = normalizedText == null ? "" : normalizedText;
+        String collapsed = safeText.replaceAll("[^A-Z0-9+]", "");
+        boolean explicitRankValue = Pattern.compile("(^|[^0-9])\\+\\s*[1-9][0-9]?\\s+DO\\s+UMIEJETNOSCI")
+                .matcher(safeText)
+                .find()
+                || Pattern.compile("(^|[^0-9])\\+\\s*[1-9][0-9]?\\s+DO\\s+RANG")
+                .matcher(safeText)
+                .find()
+                || Pattern.compile("\\+[1-9][0-9]?DOUMIEJETNOSCI").matcher(collapsed).find()
+                || Pattern.compile("\\+[1-9][0-9]?DORANG").matcher(collapsed).find();
+        return explicitRankValue
+                && (safeText.contains("GLOWNE") || safeText.contains("CORE"))
+                && !safeText.contains("UMIEJETNOSCI PODSTAWOWE");
     }
 
     private static boolean allowsFuzzyFallback(AffixDefinition definition) {

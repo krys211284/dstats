@@ -23,7 +23,7 @@ final class ItemImageImportTextParser {
     private static final String ROLL_RANGE_NUMBER_FRAGMENT = "\\+?\\s*[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?";
     private static final String ROLL_RANGE_FRAGMENT = "\\[\\s*" + ROLL_RANGE_NUMBER_FRAGMENT
             + "(?:\\s*[-–—−]\\s*" + ROLL_RANGE_NUMBER_FRAGMENT + ")?\\s*]\\s*%?";
-    private static final String DAMAGE_RANGE_NUMBER_PATTERN = "[0-9OISBL]+(?:\\s+[0-9OISBL]{3}[0-9OISBL]?)*";
+    private static final String DAMAGE_RANGE_NUMBER_PATTERN = "(?:[0-9OISBL]{1,3}(?:\\s+[0-9OISBL]{3})+|[0-9OISBL]+)(?:[0-9OISBL])?";
 
     ItemImageImportCandidateParseResult parse(ItemImageMetadata metadata, String ocrText) {
         List<String> lines = normalizedLines(ocrText);
@@ -900,6 +900,9 @@ final class ItemImageImportTextParser {
             if (parentheticalMatcher.find()) {
                 int quality = Integer.parseInt(parentheticalMatcher.group(1));
                 if (ItemMasterworking.ALLOWED_QUALITY_STEPS.contains(quality)) {
+                    ItemImportDebugTrace.log("ITEM_DETAILS", () -> "masterworkingQualityCurrent=" + quality
+                            + " source=" + ItemImportDebugTrace.compactText(line)
+                            + " reason=" + ItemImportDebugTrace.quote("quality parenthetical marker"));
                     return Optional.of(quality);
                 }
             }
@@ -909,6 +912,9 @@ final class ItemImageImportTextParser {
             }
             int quality = Integer.parseInt(matcher.group(1));
             if (ItemMasterworking.ALLOWED_QUALITY_STEPS.contains(quality)) {
+                ItemImportDebugTrace.log("ITEM_DETAILS", () -> "masterworkingQualityCurrent=" + quality
+                        + " source=" + ItemImportDebugTrace.compactText(line)
+                        + " reason=" + ItemImportDebugTrace.quote("quality line leading value"));
                 return Optional.of(quality);
             }
         }
@@ -996,6 +1002,13 @@ final class ItemImageImportTextParser {
     private static Optional<DamageRange> parseDamageRange(String min, String max) {
         Optional<Long> parsedMin = parseDamageRangeNumber(min);
         Optional<Long> parsedMax = parseDamageRangeNumber(max);
+        ItemImportDebugTrace.log("ITEM_DETAILS", () -> "damageRange rawMin=" + ItemImportDebugTrace.quote(min)
+                + " rawMax=" + ItemImportDebugTrace.quote(max)
+                + " normalizedMin=" + ItemImportDebugTrace.quote(normalizeDamageRangeNumberToken(min))
+                + " normalizedMax=" + ItemImportDebugTrace.quote(normalizeDamageRangeNumberToken(max))
+                + " parsedMin=" + parsedMin.map(String::valueOf).orElse("null")
+                + " parsedMax=" + parsedMax.map(String::valueOf).orElse("null")
+                + " averageWeaponDamageSource=" + ItemImportDebugTrace.quote("parsed min/max"));
         if (parsedMin.isEmpty() || parsedMax.isEmpty()) {
             return Optional.empty();
         }
@@ -1024,7 +1037,7 @@ final class ItemImageImportTextParser {
         if (rawToken == null) {
             return "";
         }
-        return rawToken.trim().replaceAll("(?<=\\d)\\s+(?=\\d{3}\\b)", "");
+        return rawToken.trim().replaceAll("(?<=[0-9OISBL])\\s+(?=[0-9OISBL]{3}\\b)", "");
     }
 
     private static Optional<Double> detectAttacksPerSecond(List<String> lines) {
@@ -1246,10 +1259,14 @@ final class ItemImageImportTextParser {
                 "VERATHIEL",
                 "OBRAZENNASEK",
                 "OBRAZENZATRAFIENIE",
+                "JAKOSCI",
+                "PRZEISTOCZONY",
                 "MAKSYMALNEGOZDROWIA",
                 "ZDROWIAZAZABICIE",
                 "ZDROWIAPRZYTRAFIENIU",
+                "WSZYSTKICHOBRAZEN",
                 "OBRAZENZUPLYWEMCZASU",
+                "OBRAZENFIZYCZNE",
                 "UMIEJETNOSCIPODSTAWOWE",
                 "UMIEJETNOSCIAPODSTAWOWA",
                 "WAMPIRYCZNEGOSZALUKRWI",
@@ -1286,6 +1303,10 @@ final class ItemImageImportTextParser {
                 "(\\[?\\s*[0-9]+(?:\\s[0-9]{3})*\\s*[-–—−]\\s*[0-9]+(?:\\s[0-9]{3})*\\s*]?\\s+pkt\\.\\s+obra(?:ż|z)e(?:ń|n)\\s+za\\s+trafienie)", 1);
         appendFirstMatch(extractedLines, line,
                 "\\b([0-9]+,[0-9]+\\s+ataku\\s+na\\s+sekund[eę](?:\\s*\\([^)]*\\))?)", 1);
+        appendFirstMatch(extractedLines, line,
+                "\\b([0-9]{1,2}\\s*\\([^)]*\\+\\s*[0-9]{1,2}\\s*\\)\\s+jako(?:ś|s)ci)", 1);
+        appendFirstMatch(extractedLines, line,
+                "\\b(Przeistoczony)\\b", 1);
         appendFirstMatch(extractedLines, line,
                 "\\b([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+blokowanych\\s+obrażeń(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
@@ -1326,6 +1347,10 @@ final class ItemImageImportTextParser {
                 "(\\+[0-9]+(?:[,.][0-9]+)?%\\s+szansy\\s+(?:na\\s+)?(?:szcz\\S*\\s+)?traf\\b(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendFirstMatch(extractedLines, line,
                 "(Mno(?:ż|z)nik\\s*[x×]?\\s*[0-9]+(?:[,.][0-9]+)?%\\s+obra(?:ż|z)e(?:ń|n)\\s+z\\s+up(?:ł|l)ywem\\s+czasu(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
+        appendFirstMatch(extractedLines, line,
+                "(Mno(?:ż|z)nik\\s*[x×]?\\s*[0-9]+(?:[,.][0-9]+)?%\\s+wszystkich\\s+obra(?:ż|z)e(?:ń|n))", 1);
+        appendFirstMatch(extractedLines, line,
+                "(Mno(?:ż|z)nik\\s*[x×]?\\s*[0-9]+(?:[,.][0-9]+)?%\\s+obra(?:ż|z)e(?:ń|n)\\s*\\(\\s*Fizyczne\\s*\\))", 1);
         appendFirstMatch(extractedLines, line,
                 "\\b([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+czasu\\s+odnowienia(?:\\s*" + ROLL_RANGE_FRAGMENT + ")?)", 1);
         appendVerathielUniqueEffectLine(extractedLines, line);

@@ -98,8 +98,11 @@ public final class TransfigurationPresentationSupport {
         String suffix = switch (kind) {
             case FLAT, RANKS -> "";
             case PERCENT -> "%";
-            case MULTIPLICATIVE_PERCENT -> "%[x]";
+            case MULTIPLICATIVE_PERCENT -> "%";
         };
+        if (kind == TransfigurationAffixValueKind.MULTIPLICATIVE_PERCENT) {
+            return "Mnożnik x" + formatNumber(value) + suffix;
+        }
         return prefix + formatNumber(value) + suffix;
     }
 

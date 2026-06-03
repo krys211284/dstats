@@ -47,9 +47,9 @@ final class ItemEditPageRenderer {
                         .aspect-effect-fieldset { grid-template-columns: minmax(240px, 0.75fr) minmax(320px, 1.25fr); align-items: start; }
                         .aspect-effect-text textarea { min-height: 112px; }
                         .helper { margin-top: 10px; color: var(--muted); font-size: 0.95rem; }
-                        .submit-row { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
-                        button, .link-button, .secondary-link { display: inline-block; border: none; border-radius: 999px; padding: 12px 18px; background: linear-gradient(135deg, #1a4b5a 0%%, #2d7288 100%%); color: #f5fbfd; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
-                        .secondary-button, .secondary-link { background: linear-gradient(135deg, #5b7a86 0%%, #7898a4 100%%); }
+                        .submit-row, .form-actions { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+                        .item-edit-actions { margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(109, 102, 92, 0.18); }
+                        .item-edit-actions button, .item-edit-actions .secondary-link { width: auto; flex: 0 0 auto; }
                         .subpanel { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
                         .add-affix-row { margin-top: 14px; padding: 12px; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 10px; background: rgba(255, 255, 255, 0.72); }
                         .item-affix-add-grid { display: grid; grid-template-columns: minmax(280px, 1.4fr) minmax(120px, 0.55fr) minmax(150px, 0.45fr) auto; gap: 12px; align-items: end; }
@@ -93,10 +93,18 @@ final class ItemEditPageRenderer {
                         .masterworking-runtime-status { display: inline-flex; width: fit-content; align-items: center; padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(109, 102, 92, 0.18); background: #fff; color: var(--muted); font-weight: 700; }
                         .transfiguration-grid { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 12px; align-items: end; }
                         .transfiguration-dynamic-grid { margin-top: 12px; grid-template-columns: repeat(3, minmax(180px, 1fr)); }
-                        .socketing-grid { display: grid; grid-template-columns: minmax(160px, 0.4fr); gap: 12px; align-items: end; }
-                        .socketing-row { display: grid; grid-template-columns: minmax(140px, 0.45fr) minmax(280px, 1fr) minmax(260px, 1fr); gap: 12px; align-items: end; }
+                        .socketing-fieldset { display: grid; gap: 12px; width: 100%%; }
+                        .socketing-grid { display: grid; grid-template-columns: minmax(180px, 0.4fr); gap: 12px; align-items: end; max-width: 420px; }
+                        .socketing-rows { display: grid; gap: 12px; }
+                        .socketing-row { display: grid; grid-template-columns: minmax(180px, 0.35fr) minmax(260px, 0.65fr) minmax(260px, 1fr); gap: 12px; align-items: start; }
+                        .socketing-detected-row { display: grid; grid-template-columns: minmax(180px, 0.4fr) minmax(300px, 1fr); gap: 12px; align-items: start; }
+                        .socketing-row .socketing-effect { margin: 0; align-self: center; }
+                        .socketing-detected-card { min-width: 0; padding: 10px 12px; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 10px; background: #fff; }
+                        .socketing-detected-label { color: var(--muted); font-size: 0.86rem; font-weight: 700; }
+                        .socketing-detected-stat { margin-top: 4px; font-weight: 800; overflow-wrap: anywhere; }
+                        .socketing-runtime-status { margin-top: 6px; color: var(--muted); font-size: 0.9rem; }
                         @media (max-width: 900px) {
-                            .manual-confirm-grid, .aspect-effect-fieldset, .item-affix-add-grid, .tempering-add-grid, .tempering-readonly-card, .tempering-existing-card, .masterworking-grid, .transfiguration-grid, .transfiguration-dynamic-grid, .socketing-row { grid-template-columns: 1fr; }
+                            .manual-confirm-grid, .aspect-effect-fieldset, .item-affix-add-grid, .tempering-add-grid, .tempering-readonly-card, .tempering-existing-card, .masterworking-grid, .transfiguration-grid, .transfiguration-dynamic-grid, .socketing-row, .socketing-detected-row { grid-template-columns: 1fr; }
                             .item-affix-add-actions, .tempering-readonly-actions, .tempering-existing-actions { justify-content: flex-start; }
                             .data-table, .data-table thead, .data-table tbody, .data-table tr, .data-table th, .data-table td { display: block; }
                             .data-table thead { display: none; }
@@ -181,8 +189,9 @@ final class ItemEditPageRenderer {
                         %s
                         %s
                         %s
-                        <div class="submit-row">
-                            <button type="submit">Zapisz zmiany</button>
+                        %s
+                        <div class="form-actions item-edit-actions">
+                            <button type="submit" class="item-edit-save-button">Zapisz zmiany</button>
                             <a class="nav-link secondary-link" href="%s">Anuluj</a>
                         </div>
                     </form>

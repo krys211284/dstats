@@ -160,6 +160,7 @@ final class TransfigurationSectionRenderer {
         String value = roll == null ? "" : krys.itemlibrary.ItemLibraryPresentationSupport.formatDecimal(roll.getDisplayedValue()).replace(',', '.');
         String element = roll == null ? "" : roll.getElement();
         boolean showElement = "ELEMENTAL_SPECIFIC_DAMAGE".equals(selectedId);
+        String valueHelper = transfigurationValueHelper(selectedId);
         return """
                 <label>
                     %s
@@ -168,7 +169,7 @@ final class TransfigurationSectionRenderer {
                 <label>
                     Wartość widoczna na itemie
                     <input type="number" name="%sDisplayedValue" step="0.1" value="%s">
-                    <span class="helper">Przepisz finalną wartość z itemu w grze. Dla realnego bonusu +96 do wszystkich współczynników wpisz 96.</span>
+                    <span class="helper" data-transfiguration-value-helper-for="%s">%s</span>
                 </label>
                 <label>
                     Pochodzenie wartości
@@ -183,9 +184,18 @@ final class TransfigurationSectionRenderer {
                 prefix,
                 escape(value),
                 prefix,
+                escape(valueHelper),
+                prefix,
                 provenanceOptions(roll),
                 elementField(prefix, element, showElement)
         );
+    }
+
+    private static String transfigurationValueHelper(String definitionId) {
+        if ("ALL_STATS".equals(definitionId)) {
+            return "Przepisz finalną wartość z itemu w grze. Dla realnego bonusu +96 do wszystkich współczynników wpisz 96.";
+        }
+        return "Przepisz finalną wartość widoczną na itemie w grze.";
     }
 
     private static String elementField(String prefix, String element, boolean visible) {
@@ -212,7 +222,12 @@ final class TransfigurationSectionRenderer {
         StringBuilder html = new StringBuilder(option("", "Brak", selectedId == null || selectedId.isBlank()));
         for (TransfigurationAffixDefinition definition : TransfigurationAffixCatalog.definitions()) {
             String label = definition.getDisplayName() + " [" + TransfigurationPresentationSupport.formatRange(definition) + "]";
-            html.append(option(definition.getId(), label, definition.getId().equals(selectedId)));
+            html.append(option(
+                    definition.getId(),
+                    label,
+                    definition.getId().equals(selectedId),
+                    transfigurationValueHelper(definition.getId())
+            ));
         }
         return html.toString();
     }
@@ -227,7 +242,13 @@ final class TransfigurationSectionRenderer {
     }
 
     private static String option(String value, String label, boolean selected) {
-        return "<option value=\"" + escape(value) + "\"" + (selected ? " selected" : "") + ">"
+        return option(value, label, selected, null);
+    }
+
+    private static String option(String value, String label, boolean selected, String helper) {
+        return "<option value=\"" + escape(value) + "\""
+                + (helper == null ? "" : " data-helper=\"" + escape(helper) + "\"")
+                + (selected ? " selected" : "") + ">"
                 + escape(label)
                 + "</option>";
     }
@@ -260,12 +281,27 @@ final class TransfigurationSectionRenderer {
                         const group = field.closest('[data-transfiguration-outcome]');
                         field.hidden = group.hidden || select.value !== 'ELEMENTAL_SPECIFIC_DAMAGE';
                     };
+                    const refreshValueHelper = (section, prefix) => {
+                        const select = section.querySelector(`[name="${prefix}AffixId"]`);
+                        const helper = section.querySelector(`[data-transfiguration-value-helper-for="${prefix}"]`);
+                        if (!select || !helper) return;
+                        const option = select.selectedOptions && select.selectedOptions.length ? select.selectedOptions[0] : null;
+                        helper.textContent = option && option.dataset.helper
+                            ? option.dataset.helper
+                            : 'Przepisz finalną wartość widoczną na itemie w grze.';
+                    };
                     document.querySelectorAll('[data-transfiguration-section]').forEach(section => {
                         ['transfigurationState', 'transfigurationOutcome', 'transfigurationAddedAffixId', 'transfigurationReplacementAffixId']
                             .map(name => section.querySelector(`[name="${name}"]`))
                             .filter(Boolean)
-                            .forEach(control => control.addEventListener('change', () => refreshSection(section)));
+                            .forEach(control => control.addEventListener('change', () => {
+                                refreshSection(section);
+                                refreshValueHelper(section, 'transfigurationAdded');
+                                refreshValueHelper(section, 'transfigurationReplacement');
+                            }));
                         refreshSection(section);
+                        refreshValueHelper(section, 'transfigurationAdded');
+                        refreshValueHelper(section, 'transfigurationReplacement');
                     });
                 })();
                 """;

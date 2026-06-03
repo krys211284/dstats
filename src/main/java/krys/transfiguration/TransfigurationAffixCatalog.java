@@ -24,6 +24,7 @@ public final class TransfigurationAffixCatalog {
                     true,
                     "Element może być: Cold, Fire, Holy, Lightning, Physical, Poison, Shadow.",
                     ELEMENT_OPTIONS),
+            definition("PHYSICAL_DAMAGE_MULTIPLIER", "obrażeń (Fizyczne)", "Physical Damage [x]", 16, 32, TransfigurationAffixValueKind.MULTIPLICATIVE_PERCENT),
             definition("GEM_STRENGTH", "moc klejnotu", "Gem Strength for an item [x]", 75, 100, TransfigurationAffixValueKind.MULTIPLICATIVE_PERCENT),
             definition("LIFE_ON_HIT", "zdrowie przy trafieniu", "Life on Hit", 263, 316, TransfigurationAffixValueKind.FLAT),
             definition("LUCKY_HIT_CHANCE", "szansa Lucky Hit", "Lucky Hit Chance", 6, 8, TransfigurationAffixValueKind.PERCENT),

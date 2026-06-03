@@ -165,6 +165,7 @@ public final class ItemLibraryPresentationSupport {
             case MAXIMUM_LIFE -> "+" + formatAffixNumber(affix.getValue()) + " maksymalnego zdrowia";
             case LIFE_ON_HIT -> "+" + formatAffixNumber(affix.getValue()) + " zdrowia przy trafieniu";
             case LIFE_ON_KILL -> "+" + formatAffixNumber(affix.getValue()) + " zdrowia za zabicie";
+            case ALL_DAMAGE_MULTIPLIER -> "Mnożnik x" + formatAffixNumber(affix.getValue()) + "% wszystkich obrażeń";
             case DAMAGE_OVER_TIME_MULTIPLIER -> "Mnożnik x" + formatAffixNumber(affix.getValue()) + "% obrażeń z upływem czasu";
             case LUCKY_HIT_PRIMARY_RESOURCE -> "Szczęśliwy traf: maksymalnie 15% szans na odzyskanie "
                     + rollValueWithPlus(affix)

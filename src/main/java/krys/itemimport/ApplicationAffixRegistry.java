@@ -54,6 +54,22 @@ public final class ApplicationAffixRegistry {
                     true
             ),
             new AffixDefinition(
+                    "all_damage_multiplier",
+                    ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER,
+                    "Mnożnik wszystkich obrażeń",
+                    AffixCategory.OFFENSIVE,
+                    List.of("mnożnik x", "mnoznik x", "mnożnik", "mnoznik", "wszystkich obrażeń", "wszystkich obrazen", "all damage"),
+                    AffixValueUnit.PERCENT,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    AffixRuntimeStatus.DESCRIPTIVE_ONLY,
+                    true,
+                    true
+            ),
+            new AffixDefinition(
                     "verathiel_maximum_life",
                     ImportedItemAffixType.MAXIMUM_LIFE,
                     "Maksymalne zdrowie",

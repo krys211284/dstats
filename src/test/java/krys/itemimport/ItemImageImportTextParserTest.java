@@ -571,6 +571,122 @@ class ItemImageImportTextParserTest {
     }
 
     @Test
+    void shouldParseWeaponDamageRangeWithSpacedThousandsWithoutDroppingLeadingDigit() {
+        for (String rangeLine : List.of(
+                "1 884 - 2 512 pkt. obrażeń za trafienie",
+                "[1 884 - 2 512] pkt. obrażeń za trafienie",
+                "[1 884 - 2 512] PKT. OBRAZEN ZA TRAFIENIE"
+        )) {
+            ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                    Testowy miecz
+                    Starożytny unikatowy miecz
+                    Moc przedmiotu: 900
+                    2 417 pkt. obrażeń na sek.
+                    %s
+                    1,10 ataku na sekundę
+                    """.formatted(rangeLine));
+            ItemImportDetails details = result.getFullItemRead().getDetails();
+
+            assertEquals(1884L, details.getWeaponDamageMin(), rangeLine);
+            assertEquals(2512L, details.getWeaponDamageMax(), rangeLine);
+            assertEquals(2198L, details.getAverageWeaponDamage(), rangeLine);
+            assertFalse(Long.valueOf(884L).equals(details.getWeaponDamageMin()), rangeLine);
+            assertFalse(Long.valueOf(512L).equals(details.getWeaponDamageMax()), rangeLine);
+        }
+    }
+
+    @Test
+    void shouldRenderQuality25FromQualityLineInFormAndUi() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                Testowy miecz
+                Starożytny unikatowy miecz
+                Moc przedmiotu: 900
+                25 ( +25 ) jakości
+                2 417 pkt. obrażeń na sek.
+                [1 884 - 2 512] pkt. obrażeń za trafienie
+                1,10 ataku na sekundę
+                """);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+        String html = new ItemImportPageRenderer().render(new ItemImportPageModel(
+                form,
+                result,
+                List.of(),
+                null,
+                new HeroProfile(1L, "Importer", HeroClass.PALADIN, "level=13", HeroItemSelection.empty()),
+                "Import testowy",
+                ""
+        ));
+
+        assertEquals(25, form.getMasterworking().getQualityCurrent());
+        assertEquals(25, form.getMasterworking().getQualityMax());
+        assertTrue(html.contains("25/25"), html);
+    }
+
+    @Test
+    void shouldRecognizePhysicalDamageMultiplierTransfigurationWithoutOrdinaryAllDamageAffix() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                Testowy miecz
+                Starożytny unikatowy miecz
+                Moc przedmiotu: 900
+                Przeistoczony
+                Mnożnik x32% obrażeń (Fizyczne)
+                """);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertTrue(form.getTransfiguration().isTransfigured());
+        assertEquals(HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX, form.getTransfiguration().getOutcome());
+        assertEquals("PHYSICAL_DAMAGE_MULTIPLIER", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(32.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0001d);
+        assertTrue(form.getAffixes().stream().noneMatch(affix -> affix.getType() == ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER));
+    }
+
+    @Test
+    void shouldImportGenericMechanismFixtureWithLocalAffixBindingAndPhysicalTransfiguration() {
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, """
+                Testowy miecz
+                Starożytny unikatowy miecz
+                Moc przedmiotu: 900
+                2 417 pkt. obrażeń na sek.
+                [1 884 - 2 512] pkt. obrażeń za trafienie
+                1,10 ataku na sekundę
+                25 (+25) jakości
+                Przeistoczony
+                +314 obrażeń od broni
+                +270 siły +948 pkt. zdrowia przy trafieniu Mnożnik x15% wszystkich obrażeń
+                14 obrażeń od broni + pkt. zdrowia przy trafieniu
+                Mnożnik x32% obrażeń (Fizyczne)
+                To ostrze w rękach anioła Veratiela 0 umiejętności główne
+                """);
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+        ItemImportDetails details = result.getFullItemRead().getDetails();
+
+        assertEquals(2417L, details.getWeaponDps());
+        assertEquals(1884L, details.getWeaponDamageMin());
+        assertEquals(2512L, details.getWeaponDamageMax());
+        assertEquals(2198L, details.getAverageWeaponDamage());
+        assertEquals(1.10d, details.getAttacksPerSecond(), 0.0001d);
+        assertEquals(25, form.getMasterworking().getQualityCurrent());
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.STRENGTH, 270.0d, false);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.LIFE_ON_HIT, 948.0d, false);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 314.0d, false);
+        assertAffixValueAndGreaterFlag(form, ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER, 15.0d, false);
+        assertTrue(form.getTransfiguration().isTransfigured());
+        assertEquals("PHYSICAL_DAMAGE_MULTIPLIER", form.getTransfiguration().getAddedTransfigurationAffix().getDefinitionId());
+        assertEquals(32.0d, form.getTransfiguration().getAddedTransfigurationAffix().getDisplayedValue(), 0.0001d);
+        assertFalse(form.getAffixes().stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.CORE_SKILL_RANKS));
+        assertFalse(form.getAffixes().stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER
+                        && affix.getValue() == 948.0d));
+        assertFalse(form.getAffixes().stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.LIFE_ON_HIT
+                        && affix.getValue() == 270.0d));
+        assertFalse(form.getAffixes().stream()
+                .anyMatch(affix -> affix.getType() == ImportedItemAffixType.WEAPON_DAMAGE_FLAT
+                        && affix.getValue() == 14.0d));
+    }
+
+    @Test
     void shouldDropNoisyExtraAffixCandidatesFromRealTransfiguredShieldContext() {
         String mergedText = new ItemScreenshotTextMerger().merge(List.of(
                 """

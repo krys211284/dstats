@@ -357,6 +357,9 @@ public final class ItemImportEditableFormFactory {
     private static Optional<ParsedTransfigurationAffixRoll> extractTransfigurationDisplayedValue(String line,
                                                                                                  TransfigurationAffixDefinition definition) {
         String normalized = normalize(line);
+        if (!transfigurationDefinitionAllowsLine(definition, normalized)) {
+            return Optional.empty();
+        }
         Optional<TransfigurationAnchor> anchor = findTransfigurationAnchor(normalized, definition);
         if (anchor.isEmpty()) {
             return Optional.empty();
@@ -409,6 +412,21 @@ public final class ItemImportEditableFormFactory {
                 localValueWindow,
                 String.join(" | ", rejectedTokens)
         ));
+    }
+
+    private static boolean transfigurationDefinitionAllowsLine(TransfigurationAffixDefinition definition,
+                                                               String normalizedLine) {
+        String collapsed = normalizedLine.replaceAll("[^A-Z0-9]", "");
+        if ("PHYSICAL_DAMAGE_MULTIPLIER".equals(definition.getId())) {
+            return collapsed.contains("FIZYCZNE") || collapsed.contains("PHYSICAL");
+        }
+        if ("ELEMENTAL_SPECIFIC_DAMAGE".equals(definition.getId())) {
+            return definition.getElementOptions().stream()
+                    .map(ItemImportEditableFormFactory::normalize)
+                    .map(value -> value.replaceAll("[^A-Z0-9]", ""))
+                    .anyMatch(collapsed::contains);
+        }
+        return true;
     }
 
     private static Optional<TransfigurationAnchor> findTransfigurationAnchor(String normalized,

@@ -222,6 +222,66 @@ class ItemEditPageRendererTest {
         assertTrue(html.contains("+150 siły"));
         assertTrue(html.contains("+120 siły"));
         assertTrue(html.contains("Runtime nieaktywny"));
+        assertTrue(html.contains("socketing-detected-row"));
+        assertTrue(html.contains("socketing-detected-card"));
+        assertTrue(html.contains("Wykryty stat gema/runy: +150 siły"));
+        assertTrue(html.contains("Wykryty stat gema/runy: +120 siły"));
+    }
+
+    @Test
+    void shouldRenderDetectedSocketGemRuneStatsAsReadableCardsInEditForm() {
+        String html = renderDetectedSocketEditPage();
+        String socketSection = fieldSetByLegend(html, "Gniazda");
+
+        assertTrue(socketSection.contains("Liczba gniazd: 2"));
+        assertTrue(socketSection.contains("Gniazdo 1"));
+        assertTrue(socketSection.contains("Gniazdo 2"));
+        assertTrue(socketSection.contains("socketing-detected-row"));
+        assertTrue(socketSection.contains("socketing-detected-card"));
+        assertTrue(socketSection.contains("Wykryty stat gema/runy: +150 siły"));
+        assertTrue(socketSection.contains("Wykryty stat gema/runy: +120 siły"));
+        assertTrue(socketSection.contains("Runtime nieaktywny"));
+    }
+
+    @Test
+    void shouldHideGemSelectColumnForDetectedSocketStatsInEditForm() {
+        String html = renderDetectedSocketEditPage();
+        String firstDetectedRow = detectedSocketRow(html, 0);
+
+        assertTrue(firstDetectedRow.contains("name=\"socketContent_0\""));
+        assertTrue(firstDetectedRow.contains("value=\"DETECTED_STAT\" selected"));
+        assertTrue(firstDetectedRow.contains("name=\"socketDetectedDisplayText_0\" value=\"+150 siły\""));
+        assertTrue(firstDetectedRow.contains("name=\"socketDetectedNormalizedText_0\""));
+        assertTrue(firstDetectedRow.contains("name=\"socketDetectedValue_0\" value=\"150\""));
+        assertTrue(firstDetectedRow.contains("class=\"socketing-gem-field\" hidden data-socket-gem-field"));
+        assertTrue(firstDetectedRow.contains("name=\"socketGemId_0\" data-socket-gem disabled"));
+        assertTrue(firstDetectedRow.contains("Wykryty stat gema/runy: +150 siły"));
+    }
+
+    @Test
+    void shouldRenderEditFormActionsOutsideSocketingFieldset() {
+        String html = renderDetectedSocketEditPage();
+        String socketSection = fieldSetByLegend(html, "Gniazda");
+        int socketLegend = html.indexOf("<legend>Gniazda</legend>");
+        int socketEnd = html.indexOf("</fieldset>", socketLegend) + "</fieldset>".length();
+        int saveButton = html.indexOf("Zapisz zmiany");
+
+        assertTrue(socketEnd > "</fieldset>".length());
+        assertTrue(socketEnd < saveButton);
+        assertFalse(socketSection.contains("Zapisz zmiany"));
+        assertFalse(socketSection.contains("item-edit-actions"));
+        assertTrue(html.contains("<div class=\"form-actions item-edit-actions\">"));
+    }
+
+    @Test
+    void shouldRenderSaveButtonWithNormalActionMarkup() {
+        String html = renderDetectedSocketEditPage();
+        String saveButton = openingTagBeforeText(html, "Zapisz zmiany", "<button");
+
+        assertTrue(saveButton.contains("class=\"item-edit-save-button\""));
+        assertFalse(saveButton.contains("style="));
+        assertFalse(html.contains("button, .link-button, .secondary-link"));
+        assertFalse(html.contains("button { display: block"));
     }
 
     @Test
@@ -307,6 +367,54 @@ class ItemEditPageRendererTest {
         ));
     }
 
+    private static String renderDetectedSocketEditPage() {
+        SavedImportedItem item = new SavedImportedItem(
+                1L,
+                "Dziedzic Zatracenia",
+                "helm.png",
+                EquipmentSlot.HELMET,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                new ItemImportDetails("Dziedzic Zatracenia", "Hełm", "UNIQUE", true, EquipmentSlot.HELMET,
+                        900L, null, null, null, null, null, 2004L, "", true),
+                List.of(),
+                ItemMasterworking.defaultState(),
+                krys.transfiguration.ItemTransfiguration.none(),
+                new ItemSocketing(2, List.of(
+                        ItemSocket.detectedStat(0, SocketGemRuneStat.fromDetectedLine("+150 siły")),
+                        ItemSocket.detectedStat(1, SocketGemRuneStat.fromDetectedLine("+120 siły"))
+                ))
+        );
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                item.getSourceImageName(),
+                item.getSlot().name(),
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                item.getDetails(),
+                List.of(),
+                ItemMasterworking.defaultState(),
+                krys.transfiguration.ItemTransfiguration.none(),
+                item.getSocketing()
+        );
+        return renderEditPage(item, form);
+    }
+
     private static String fieldSetByLegend(String html, String legend) {
         int legendIndex = html.indexOf("<legend>" + legend + "</legend>");
         if (legendIndex < 0) {
@@ -335,5 +443,34 @@ class ItemEditPageRendererTest {
             sourceIndex = html.indexOf(marker, sourceIndex + marker.length());
         }
         throw new AssertionError("Brak wiersza affixu: " + originalType);
+    }
+
+    private static String detectedSocketRow(String html, int index) {
+        String marker = "data-socket-index=\"" + index + "\"";
+        int markerIndex = html.indexOf(marker);
+        if (markerIndex < 0) {
+            throw new AssertionError("Brak wiersza gniazda: " + index);
+        }
+        int start = html.lastIndexOf("<div class=\"socketing-detected-row\"", markerIndex);
+        int nextRow = html.indexOf("<div class=\"socketing-detected-row\"", start + 1);
+        int fieldsetEnd = html.indexOf("</fieldset>", start);
+        if (start < 0 || fieldsetEnd < 0) {
+            throw new AssertionError("Nie udało się wyciąć wiersza gniazda: " + index);
+        }
+        int end = nextRow >= 0 && nextRow < fieldsetEnd ? nextRow : fieldsetEnd;
+        return html.substring(start, end);
+    }
+
+    private static String openingTagBeforeText(String html, String text, String tagStart) {
+        int textIndex = html.indexOf(text);
+        if (textIndex < 0) {
+            throw new AssertionError("Brak tekstu: " + text);
+        }
+        int start = html.lastIndexOf(tagStart, textIndex);
+        int end = html.indexOf(">", start);
+        if (start < 0 || end < 0) {
+            throw new AssertionError("Nie udało się wyciąć tagu dla: " + text);
+        }
+        return html.substring(start, end + 1);
     }
 }

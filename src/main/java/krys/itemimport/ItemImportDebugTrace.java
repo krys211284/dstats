@@ -45,6 +45,9 @@ public final class ItemImportDebugTrace {
 
     private static final Logger LOGGER = Logger.getLogger(LOGGER_NAME);
     private static final DateTimeFormatter ID_TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
+    private static final DateTimeFormatter DEBUG_FILE_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss");
+    private static final String DEFAULT_DEBUG_FILE = "logs/item-import-debug-"
+            + DEBUG_FILE_TIMESTAMP.format(LocalDateTime.now()) + ".log";
     private static final TemperingAffixRegistry TEMPERING_REGISTRY = ApplicationTemperingAffixRegistry.get();
     private static final MasterworkingResolvedItemValueResolver MASTERWORKING_RESOLVER = new MasterworkingResolvedItemValueResolver();
     private static final Pattern NUMERIC_TOKEN_PATTERN = Pattern.compile(
@@ -398,6 +401,14 @@ public final class ItemImportDebugTrace {
         return slash >= 0 ? value.substring(slash + 1) : value;
     }
 
+    static String debugFilePathForCurrentRun() {
+        String explicit = System.getProperty(FILE_PROPERTY);
+        if (explicit != null) {
+            return explicit;
+        }
+        return DEFAULT_DEBUG_FILE;
+    }
+
     private static Scope push(TraceContext next) {
         TraceContext previous = CURRENT.get();
         CURRENT.set(next);
@@ -414,7 +425,7 @@ public final class ItemImportDebugTrace {
     }
 
     private static void appendToDebugFile(String line) {
-        String fileName = System.getProperty(FILE_PROPERTY, "logs/item-import-debug.log");
+        String fileName = debugFilePathForCurrentRun();
         if (fileName == null || fileName.isBlank()) {
             return;
         }

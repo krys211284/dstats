@@ -14,6 +14,7 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -52,6 +53,27 @@ class ItemImportDebugTraceTest {
 
         assertFalse(logs.contains("[ITEM_IMPORT_DEBUG]"));
         assertFalse(logs.contains("IMPORT_REQUEST"));
+    }
+
+    @Test
+    void domyslnyPlikDebugImportuMaTimestampBezpiecznyDlaWindows() {
+        System.setProperty(ItemImportDebugTrace.JVM_PROPERTY, "true");
+        System.clearProperty(ItemImportDebugTrace.FILE_PROPERTY);
+
+        String path = ItemImportDebugTrace.debugFilePathForCurrentRun();
+
+        assertTrue(Pattern.compile("logs[/\\\\]item-import-debug-\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2}\\.log")
+                .matcher(path)
+                .matches(), path);
+    }
+
+    @Test
+    void jawniePodanyPlikDebugImportuNieDostajeTimestampu() {
+        System.setProperty(ItemImportDebugTrace.JVM_PROPERTY, "true");
+        String customPath = Path.of("target", "custom-debug.log").toString();
+        System.setProperty(ItemImportDebugTrace.FILE_PROPERTY, customPath);
+
+        assertEquals(customPath, ItemImportDebugTrace.debugFilePathForCurrentRun());
     }
 
     @Test

@@ -338,6 +338,8 @@ public final class ItemScreenshotTextMerger {
         appendFirst(extracted, line, "([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+obrażeń(?:\\s*\\[[^\\]]+])?%?)");
         appendFirst(extracted, line, "([0-9]+(?:[,.][0-9]+)?%\\s+redukcji\\s+czasu\\s+odnowienia(?:\\s*\\[[^\\]]+])?%?)");
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+obra(?:ż|z)e(?:ń|n)\\s+od\\s+broni(?:\\s*\\[[^\\]]+])?%?)");
+        appendFirst(extracted, line, "(Mno(?:ż|z)nik\\s*[x×]?\\s*[0-9]+(?:[,.][0-9]+)?%\\s+wszystkich\\s+obra(?:ż|z)e(?:ń|n))");
+        appendFirst(extracted, line, "(Mno(?:ż|z)nik\\s*[x×]?\\s*[0-9]+(?:[,.][0-9]+)?%\\s+obra(?:ż|z)e(?:ń|n)\\s*\\(\\s*Fizyczne\\s*\\))");
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+zdrowia\\s+za\\s+zabicie(?:\\s*\\[[^\\]]+])?%?)");
         appendFirst(extracted, line, "(Mno(?:ż|z)nik\\s*[x×]?\\s*[0-9]+(?:[,.][0-9]+)?%\\s+obra(?:ż|z)e(?:ń|n)\\s+z\\s+up(?:ł|l)ywem\\s+czasu(?:\\s*\\[[^\\]]+])?%?)");
         extractAllStatsDisplayedValue(line)

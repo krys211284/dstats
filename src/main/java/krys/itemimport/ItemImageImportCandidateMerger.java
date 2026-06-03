@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -260,8 +261,7 @@ final class ItemImageImportCandidateMerger {
                 details.add(sourceDetail);
             }
         }
-        Long weaponDamageMin = firstLong(details, DetailLongField.WEAPON_DAMAGE_MIN);
-        Long weaponDamageMax = firstLong(details, DetailLongField.WEAPON_DAMAGE_MAX);
+        WeaponDamageRangeSelection weaponDamageRange = selectBestWeaponDamageRange(details);
         return new ItemImportDetails(
                 firstText(details, DetailTextField.ITEM_NAME),
                 firstText(details, DetailTextField.ITEM_TYPE),
@@ -270,14 +270,113 @@ final class ItemImageImportCandidateMerger {
                 firstSlot(details),
                 firstLong(details, DetailLongField.ITEM_POWER),
                 firstLong(details, DetailLongField.WEAPON_DPS),
-                weaponDamageMin,
-                weaponDamageMax,
-                firstLong(details, DetailLongField.AVERAGE_WEAPON_DAMAGE),
+                weaponDamageRange.min(),
+                weaponDamageRange.max(),
+                weaponDamageRange.average(),
                 firstDouble(details),
                 firstLong(details, DetailLongField.ITEM_ARMOR),
                 bestEffectText(details),
                 firstMythicUnique(details, safeRebuiltDetails.isMythicUnique())
         );
+    }
+
+    private static WeaponDamageRangeSelection selectBestWeaponDamageRange(List<ItemImportDetails> details) {
+        Long bestWeaponDps = firstLong(details, DetailLongField.WEAPON_DPS);
+        Double bestAttacksPerSecond = firstDouble(details);
+        WeaponDamageRangeSelection best = null;
+        for (int index = 0; index < details.size(); index++) {
+            ItemImportDetails detail = details.get(index);
+            WeaponDamageRangeSelection candidate = buildWeaponDamageRangeSelection(detail, index,
+                    bestWeaponDps, bestAttacksPerSecond).orElse(null);
+            if (candidate == null) {
+                continue;
+            }
+            logWeaponDamageRangeCandidate(candidate, bestWeaponDps, bestAttacksPerSecond);
+            if (best == null || candidate.score() > best.score()
+                    || (candidate.score() == best.score() && candidate.sourceIndex() < best.sourceIndex())) {
+                best = candidate;
+            }
+        }
+        if (best == null) {
+            return new WeaponDamageRangeSelection(null, null, null, 0, Integer.MAX_VALUE,
+                    "no complete weapon range candidate", false, null, false);
+        }
+        WeaponDamageRangeSelection selected = best;
+        ItemImportDebugTrace.log("WEAPON_DAMAGE_RANGE_MERGE", () -> "selected=true"
+                + " sourceIndex=" + selected.sourceIndex()
+                + " weaponDamage=" + selected.min() + "-" + selected.max()
+                + " averageWeaponDamage=" + selected.average()
+                + " damageRangeScore=" + selected.score()
+                + " dpsApsCoherent=" + selected.dpsApsCoherent()
+                + " expectedDps=" + selected.expectedDps().map(value -> String.format(Locale.US, "%.2f", value)).orElse("null")
+                + " reason=" + ItemImportDebugTrace.quote(selected.reason()));
+        return best;
+    }
+
+    private static Optional<WeaponDamageRangeSelection> buildWeaponDamageRangeSelection(ItemImportDetails detail,
+                                                                                       int sourceIndex,
+                                                                                       Long bestWeaponDps,
+                                                                                       Double bestAttacksPerSecond) {
+        if (detail == null || detail.getWeaponDamageMin() == null || detail.getWeaponDamageMax() == null) {
+            return Optional.empty();
+        }
+        Long min = detail.getWeaponDamageMin();
+        Long max = detail.getWeaponDamageMax();
+        long average = Math.round((min + max) / 2.0d);
+        if (min <= 0L || max <= 0L || min >= max) {
+            return Optional.of(new WeaponDamageRangeSelection(min, max, average, -10000, sourceIndex,
+                    "rejected: invalid min/max relation", false, null, true));
+        }
+        int score = 1000;
+        String reason = "valid min/max range";
+        if (detail.getAverageWeaponDamage() != null && detail.getAverageWeaponDamage().equals(average)) {
+            score += 250;
+        } else if (detail.getAverageWeaponDamage() != null) {
+            score -= 250;
+            reason += "; average corrected from min/max";
+        }
+        boolean hasGroupedThousandsShape = min >= 1000L || max >= 1000L;
+        if (hasGroupedThousandsShape) {
+            score += 200;
+        }
+        Optional<Double> expectedDps = Optional.empty();
+        boolean coherent = false;
+        if (bestWeaponDps != null && bestWeaponDps > 0L && bestAttacksPerSecond != null && bestAttacksPerSecond > 0.0d) {
+            double expected = average * bestAttacksPerSecond;
+            expectedDps = Optional.of(expected);
+            double tolerance = Math.max(6.0d, bestWeaponDps * 0.015d);
+            double delta = Math.abs(expected - bestWeaponDps);
+            if (delta <= tolerance) {
+                score += 5000;
+                coherent = true;
+                reason += "; DPS/APS coherent";
+            } else {
+                score -= Math.min(4000, (int) Math.round(delta));
+                reason += "; DPS/APS incoherent";
+            }
+        }
+        return Optional.of(new WeaponDamageRangeSelection(min, max, average, score, sourceIndex, reason,
+                coherent, expectedDps, false));
+    }
+
+    private static void logWeaponDamageRangeCandidate(WeaponDamageRangeSelection candidate,
+                                                      Long weaponDps,
+                                                      Double attacksPerSecond) {
+        ItemImportDebugTrace.log("WEAPON_DAMAGE_RANGE_MERGE", () -> "selected=false"
+                + " sourceIndex=" + candidate.sourceIndex()
+                + " weaponDps=" + valueOrNull(weaponDps)
+                + " attacksPerSecond=" + valueOrNull(attacksPerSecond)
+                + " weaponDamage=" + valueOrNull(candidate.min()) + "-" + valueOrNull(candidate.max())
+                + " averageWeaponDamage=" + valueOrNull(candidate.average())
+                + " damageRangeScore=" + candidate.score()
+                + " dpsApsCoherent=" + candidate.dpsApsCoherent()
+                + " expectedDps=" + candidate.expectedDps().map(value -> String.format(Locale.US, "%.2f", value)).orElse("null")
+                + " rejected=" + candidate.rejected()
+                + " reason=" + ItemImportDebugTrace.quote(candidate.reason()));
+    }
+
+    private static String valueOrNull(Object value) {
+        return value == null ? "null" : String.valueOf(value);
     }
 
     private static boolean firstMythicUnique(List<ItemImportDetails> details, boolean fallback) {
@@ -700,6 +799,17 @@ final class ItemImageImportCandidateMerger {
                                       int bestConfidenceScore,
                                       int occurrences,
                                       int firstIndex) {
+    }
+
+    private record WeaponDamageRangeSelection(Long min,
+                                              Long max,
+                                              Long average,
+                                              int score,
+                                              int sourceIndex,
+                                              String reason,
+                                              boolean dpsApsCoherent,
+                                              Optional<Double> expectedDps,
+                                              boolean rejected) {
     }
 
     private enum DetailTextField {

@@ -200,7 +200,10 @@ class ItemImportPageRendererTest {
         assertTrue(html.contains("Liczba gniazd: 2"));
         assertTrue(socketSection.contains("+150 siły"));
         assertTrue(socketSection.contains("+120 siły"));
-        assertTrue(socketSection.contains("Wykryty stat"));
+        assertTrue(socketSection.contains("socketing-detected-row"));
+        assertTrue(socketSection.contains("socketing-detected-card"));
+        assertTrue(socketSection.contains("Wykryty stat gema/runy: +150 siły"));
+        assertTrue(socketSection.contains("Wykryty stat gema/runy: +120 siły"));
         assertTrue(socketSection.contains("Runtime nieaktywny"));
         assertTrue(affixSection.contains("Ręczna weryfikacja affixów"));
         assertEquals(4, countOccurrences(affixSection, "name=\"affixType_"));
@@ -359,7 +362,8 @@ class ItemImportPageRendererTest {
         assertFalse(html.contains("name=\"transfigurationTuningPrism\""));
         assertFalse(html.contains("name=\"transfigurationLockedAfter\""));
         assertTrue(html.contains("name=\"transfigurationAddedAffixId\""));
-        assertTrue(html.contains("value=\"PRIMARY_STAT\" selected"));
+        assertTrue(html.contains("value=\"PRIMARY_STAT\""));
+        assertTrue(html.contains("data-helper=\"Przepisz finalną wartość widoczną na itemie w grze.\" selected"));
         assertTrue(html.contains("name=\"transfigurationAddedDisplayedValue\" step=\"0.1\" value=\"180\""));
         assertTrue(html.contains("Wartość widoczna na itemie"));
         assertTrue(html.contains("name=\"transfigurationAddedValueProvenance\""));
@@ -367,6 +371,47 @@ class ItemImportPageRendererTest {
         assertTrue(html.contains("data-transfiguration-outcome=\"BONUS_TRANSFIGURATION_AFFIX\""));
         assertTrue(html.contains("data-transfiguration-field"));
         assertTrue(html.contains("Wartość widoczna w grze"));
+    }
+
+    @Test
+    void shouldRenderTypeSpecificTransfigurationValueHelperForPhysicalMultiplier() {
+        String section = sectionByHeading(renderFullPage(formWithTransfiguration(new ItemTransfiguration(
+                true,
+                true,
+                HoradricTuningPrism.NONE,
+                HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                "",
+                new TransfigurationAffixRoll("PHYSICAL_DAMAGE_MULTIPLIER", 32.0d),
+                "",
+                null,
+                null,
+                false,
+                ""
+        ))), "Przeistoczenie / Kostka Horadrimów");
+
+        assertTrue(section.contains("Przepisz finalną wartość widoczną na itemie w grze."));
+        assertFalse(section.contains("<span class=\"helper\" data-transfiguration-value-helper-for=\"transfigurationAdded\">Przepisz finalną wartość z itemu w grze. Dla realnego bonusu +96 do wszystkich współczynników wpisz 96.</span>"));
+        assertTrue(section.contains("value=\"PHYSICAL_DAMAGE_MULTIPLIER\""));
+        assertTrue(section.contains("data-helper=\"Przepisz finalną wartość widoczną na itemie w grze.\" selected"));
+    }
+
+    @Test
+    void shouldKeepAllStatsSpecificTransfigurationValueHelperForAllStats() {
+        String section = sectionByHeading(renderFullPage(formWithTransfiguration(new ItemTransfiguration(
+                true,
+                true,
+                HoradricTuningPrism.NONE,
+                HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
+                "",
+                new TransfigurationAffixRoll("ALL_STATS", 96.0d),
+                "",
+                null,
+                null,
+                false,
+                ""
+        ))), "Przeistoczenie / Kostka Horadrimów");
+
+        assertTrue(section.contains("Dla realnego bonusu +96 do wszystkich współczynników wpisz 96."));
     }
 
     @Test
