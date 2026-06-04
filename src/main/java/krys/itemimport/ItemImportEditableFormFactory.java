@@ -115,7 +115,7 @@ public final class ItemImportEditableFormFactory {
                 ordinaryClassification.overflowTemperingAffixes()
         );
         GreaterAffixMarkerSummary markerSummary = greaterAffixMarkerSummary(parseResult.getFullItemRead(), affixes, temperingAffixes);
-        affixes = applyGreaterAffixConfirmationState(affixes, markerSummary);
+        affixes = applyGreaterAffixConfirmationState(affixes, markerSummary, parseResult.getFullItemRead());
         ItemMasterworking masterworking = detectMasterworking(parseResult.getFullItemRead(), affixes, temperingAffixes, markerSummary);
         ItemTransfiguration transfiguration = detectTransfiguration(parseResult.getFullItemRead());
         ItemSocketing socketing = detectSocketing(parseResult.getFullItemRead());
@@ -139,7 +139,8 @@ public final class ItemImportEditableFormFactory {
         List<ImportedItemAffix> affixesByVisualOrder = (extractedAffixes == null ? List.<ImportedItemAffix>of() : extractedAffixes)
                 .stream()
                 .sorted(java.util.Comparator
-                        .comparingInt(ImportedItemAffix::getVisualDisplayOrder)
+                        .comparingInt((ImportedItemAffix affix) -> visualSourceLineSortIndex(fullItemRead, affix))
+                        .thenComparingInt(ImportedItemAffix::getVisualDisplayOrder)
                         .thenComparingInt(ImportedItemAffix::getDisplayOrder)
                         .thenComparing(ImportedItemAffix::getAffixDefinitionId)
                         .thenComparingDouble(ImportedItemAffix::getValue))
@@ -215,7 +216,13 @@ public final class ItemImportEditableFormFactory {
 
     private static int visualSourceLineSortIndex(FullItemRead fullItemRead, ImportedItemAffix affix) {
         int index = sourceLineIndex(fullItemRead, affix.getVisualSourceText());
-        return index < 0 ? Integer.MAX_VALUE : index;
+        if (index >= 0) {
+            return index;
+        }
+        if (affix != null && affix.getVisualDisplayOrder() > 0) {
+            return affix.getVisualDisplayOrder();
+        }
+        return Integer.MAX_VALUE;
     }
 
     private List<ItemTemperingAffix> detectTemperingAfterOrdinarySet(FullItemRead fullItemRead,
@@ -469,10 +476,12 @@ public final class ItemImportEditableFormFactory {
     }
 
     private static List<ImportedItemAffix> applyGreaterAffixConfirmationState(List<ImportedItemAffix> affixes,
-                                                                              GreaterAffixMarkerSummary markerSummary) {
+                                                                              GreaterAffixMarkerSummary markerSummary,
+                                                                              FullItemRead fullItemRead) {
         if (affixes == null || affixes.isEmpty() || markerSummary == null || !markerSummary.requiresConfirmation()) {
             return affixes == null ? List.of() : affixes;
         }
+        boolean probableOrdinaryBlockGa = hasTypedOrdinaryBlockGaMarkers(fullItemRead, affixes);
         List<ImportedItemAffix> result = new ArrayList<>();
         for (ImportedItemAffix affix : affixes) {
             boolean requiresConfirmation = !affix.isGreaterAffix();
@@ -480,7 +489,7 @@ public final class ItemImportEditableFormFactory {
                     ? affix.withVisualAnchor(
                     affix.getVisualSourceText(),
                     affix.getVisualDisplayOrder(),
-                    affix.isGreaterAffix(),
+                    probableOrdinaryBlockGa,
                     true
             )
                     : affix;
@@ -491,10 +500,58 @@ public final class ItemImportEditableFormFactory {
                     + " confirmationRequired=" + updated.isGreaterAffixConfirmationRequired()
                     + " visualAnchorSource=" + ItemImportDebugTrace.compactText(updated.getVisualSourceText())
                     + " reason=" + ItemImportDebugTrace.quote(requiresConfirmation
-                    ? "global GA marker remains ambiguous for this affix"
+                    ? probableOrdinaryBlockGa
+                    ? "probable GA marker assigned from typed ordinary block and requires confirmation"
+                    : "global GA marker remains ambiguous for this affix"
                     : "local GA marker assigned to this affix"));
         }
         return List.copyOf(result);
+    }
+
+    private static boolean hasTypedOrdinaryBlockGaMarkers(FullItemRead fullItemRead, List<ImportedItemAffix> affixes) {
+        if (fullItemRead == null || affixes == null || affixes.size() != ORDINARY_AFFIX_LIMIT) {
+            return false;
+        }
+        int ordinaryBlockMarkers = 0;
+        int matchedTypedAnchors = 0;
+        for (FullItemReadLine line : fullItemRead.getLines()) {
+            if (line.getType() != FullItemReadLineType.AFFIX || !isTypedOrdinaryLine(line)) {
+                continue;
+            }
+            if (countGreaterMarkers(line.getText()) > 0
+                    || countGreaterMarkers(line.getSource().getParentRawLine()) > 0
+                    || countGreaterMarkers(line.getSource().getVisualSourceText()) > 0) {
+                ordinaryBlockMarkers++;
+            }
+            if (matchesAnyAffixAnchor(line, affixes)) {
+                matchedTypedAnchors++;
+            }
+        }
+        return ordinaryBlockMarkers > 0 && matchedTypedAnchors >= ORDINARY_AFFIX_LIMIT;
+    }
+
+    private static boolean isTypedOrdinaryLine(FullItemReadLine line) {
+        FullItemReadLineSource source = line.getSource();
+        if (source == null) {
+            return false;
+        }
+        return "ORDINARY_AFFIX_REGION".equals(source.getSourceRegion())
+                && !source.getSourceVariantId().isBlank()
+                && !"plain".equals(source.getSourceVariantId());
+    }
+
+    private static boolean matchesAnyAffixAnchor(FullItemReadLine line, List<ImportedItemAffix> affixes) {
+        String normalizedLine = normalize(line.getText());
+        String normalizedParent = normalize(line.getSource().getParentRawLine());
+        for (ImportedItemAffix affix : affixes) {
+            String selected = normalize(affix.getSourceText());
+            String visual = normalize(affix.getVisualSourceText());
+            if (!selected.isBlank() && (normalizedLine.contains(selected) || normalizedParent.contains(selected))
+                    || !visual.isBlank() && (normalizedLine.contains(visual) || normalizedParent.contains(visual))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static ItemMasterworking detectMasterworking(FullItemRead fullItemRead,

@@ -1432,6 +1432,34 @@ class ItemImportPageRendererTest {
     }
 
     @Test
+    void shouldRenderCheckedPerAffixGaConfirmationWhenMarkerIsProbable() {
+        ImportedItemAffix affix = new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 270.0d, "+270 siły")
+                .withVisualAnchor("+270 siły", 0, true, true);
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "miecz.png",
+                "MAIN_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(affix),
+                "",
+                ItemImportFieldConfidence.UNKNOWN,
+                "",
+                new ItemImportDetails("Miecz testowy", "Miecz", "UNIQUE", true, EquipmentSlot.MAIN_HAND,
+                        900L, 2417L, 1884L, 2512L, 2198L, 1.10d, null, "")
+        );
+
+        String row = affixRowByOriginalType(renderFullPage(form), "STRENGTH");
+
+        assertTrue(row.contains("name=\"affixGreater_0\" value=\"true\" checked"));
+        assertTrue(row.contains("GA do potwierdzenia"));
+    }
+
+    @Test
     void shouldRenderOnlyDefenseAffixesForSelectedDefenseTemperingCategory() {
         ItemImportEditableForm form = shieldFormWithTempering(new ItemTemperingAffix(
                 "defense_maximum_life",

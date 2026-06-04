@@ -129,6 +129,55 @@ class ItemImageImportServiceTest {
     }
 
     @Test
+    void shouldUseSingleScreenTypedMergeAsAuthoritativeFullReadOrder() throws Exception {
+        byte[] imageBytes = buildShieldLikeScreenshot();
+        String cleanVariant = """
+                Generyczny Miecz
+                Starożytny unikatowy miecz
+                Moc przedmiotu: 900
+                +270 siły
+                +948 pkt. zdrowia przy trafieniu
+                Mnożnik x15% wszystkich obrażeń
+                +314 obrażeń od broni
+                """;
+        String typedAffixBlock = """
+                +314 obrażeń od broni +270 siły +948 pkt. zdrowia przy trafieniu Mnożnik x15% wszystkich obrażeń
+                """;
+        ItemImageImportService service = new ItemImageImportService(
+                new ItemImageOcrPreprocessor(),
+                new FakeOcrTextReader(Map.of(
+                        "original", cleanVariant,
+                        "shield-affix-crop-gray-x4-sharpen", typedAffixBlock
+                )),
+                new ItemImageImportTextParser(),
+                new ItemImageImportCandidateMerger()
+        );
+
+        ItemImageImportCandidateParseResult result = service.analyze(
+                new ItemImageImportRequest("single.png", "image/png", imageBytes)
+        );
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(result);
+
+        assertEquals(4, form.getAffixes().size());
+        assertEquals(ImportedItemAffixType.WEAPON_DAMAGE_FLAT, form.getAffixes().get(0).getType());
+        assertEquals(ImportedItemAffixType.STRENGTH, form.getAffixes().get(1).getType());
+        assertEquals(ImportedItemAffixType.LIFE_ON_HIT, form.getAffixes().get(2).getType());
+        assertEquals(ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER, form.getAffixes().get(3).getType());
+
+        ImportedItemAffix weaponDamage = form.getAffixes().getFirst();
+        assertEquals("+314 obrażeń od broni", weaponDamage.getSourceText());
+        assertTrue(weaponDamage.getVisualSourceText().contains("+314 obrażeń od broni +270 siły"));
+        assertEquals(0, weaponDamage.getVisualDisplayOrder());
+        assertTrue(result.getFullItemRead().getLines().stream()
+                .filter(line -> line.getText().equals("+314 obrażeń od broni"))
+                .findFirst()
+                .orElseThrow()
+                .getSource()
+                .getSourceVariantId()
+                .equals("shield-affix-crop-gray-x4-sharpen"));
+    }
+
+    @Test
     void shouldImportHeirOfPerditionHelmetFromTwoRealImageFixturesWithSingleValueRanges() throws Exception {
         byte[] topImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-1.png"));
         byte[] bottomImageBytes = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-2.png"));

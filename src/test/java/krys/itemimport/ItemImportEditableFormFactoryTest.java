@@ -291,7 +291,30 @@ class ItemImportEditableFormFactoryTest {
         ImportedItemAffix weaponDamage = form.getAffixes().getFirst();
         assertEquals("+314 obrażeń od broni", weaponDamage.getSourceText());
         assertTrue(weaponDamage.getVisualSourceText().contains("uszkodzony wariant"));
+        assertTrue(weaponDamage.getVisualDisplayOrder() < weaponDamage.getDisplayOrder());
         assertTrue(weaponDamage.isGreaterAffix());
+    }
+
+    @Test
+    void shouldPropagateGreaterAffixMarkerFromVisualAnchorToSelectedCandidate() {
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Miecz",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "★ +314 obrażeń od broni uszkodzony wariant 999 888"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+314 obrażeń od broni")
+                ),
+                details("Generyczny Miecz", "")
+        )));
+
+        ImportedItemAffix weaponDamage = affix(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT);
+        assertEquals("+314 obrażeń od broni", weaponDamage.getSourceText());
+        assertTrue(weaponDamage.getVisualSourceText().contains("★ +314"));
+        assertTrue(weaponDamage.isGreaterAffix());
+        assertFalse(weaponDamage.isGreaterAffixConfirmationRequired());
     }
 
     @Test
@@ -437,6 +460,32 @@ class ItemImportEditableFormFactoryTest {
     }
 
     @Test
+    void shouldPrecheckProbableGreaterAffixesWhenTypedOrdinaryBlockHasGlobalMarker() {
+        FullItemReadLine marker = new FullItemReadLine(FullItemReadLineType.AFFIX, "★", typedSource("★", 0));
+        ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
+                "Generyczny Miecz",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(
+                        marker,
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+314 obrażeń od broni", typedSource("+314 obrażeń od broni", 1)),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+270 siły", typedSource("+270 siły", 2)),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+948 pkt. zdrowia przy trafieniu", typedSource("+948 pkt. zdrowia przy trafieniu", 3)),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Mnożnik x15% wszystkich obrażeń", typedSource("Mnożnik x15% wszystkich obrażeń", 4))
+                ),
+                details("Generyczny Miecz", "")
+        )));
+
+        assertEquals(4, form.getAffixes().size());
+        for (ImportedItemAffix affix : form.getAffixes()) {
+            assertTrue(affix.isGreaterAffix(), affix.getType().name());
+            assertTrue(affix.isGreaterAffixConfirmationRequired(), affix.getType().name());
+        }
+    }
+
+    @Test
     void shouldUseSelectedTemperingSourceLineAndRejectArtifactCandidate() {
         ItemImportEditableForm form = factory.create(parseResult(new FullItemRead(
                 "Generyczny Miecz",
@@ -480,6 +529,24 @@ class ItemImportEditableFormFactoryTest {
     private static ItemImportDetails details(String itemName, String effectText) {
         return new ItemImportDetails(itemName, "Hełm", "UNIQUE", true, EquipmentSlot.HELMET,
                 900L, null, null, null, null, null, 2004L, effectText, itemName.equals("Dziedzic Zatracenia"));
+    }
+
+    private static FullItemReadLineSource typedSource(String line, int lineOrder) {
+        return new FullItemReadLineSource(
+                0,
+                "typed-test",
+                lineOrder,
+                0,
+                line.length(),
+                line,
+                line,
+                "ORDINARY_AFFIX_REGION",
+                lineOrder,
+                lineOrder,
+                0,
+                line.length(),
+                line
+        );
     }
 
     private static ImportedItemAffix affix(ItemImportEditableForm form, ImportedItemAffixType type) {

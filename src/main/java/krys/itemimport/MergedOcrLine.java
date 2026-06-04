@@ -10,6 +10,7 @@ final class MergedOcrLine {
     private final String sourceCategory;
     private final String sourceRegion;
     private final String sourceRawLine;
+    private final int sourceIndex;
     private final String sourceVariant;
     private final int sourceLineOrder;
     private final int segmentStart;
@@ -24,6 +25,7 @@ final class MergedOcrLine {
                   String sourceCategory,
                   String sourceRegion,
                   String sourceRawLine,
+                  int sourceIndex,
                   String sourceVariant,
                   int sourceLineOrder,
                   int segmentStart,
@@ -37,6 +39,7 @@ final class MergedOcrLine {
         this.sourceCategory = sourceCategory == null ? "" : sourceCategory;
         this.sourceRegion = sourceRegion == null ? "" : sourceRegion;
         this.sourceRawLine = sourceRawLine == null ? "" : sourceRawLine;
+        this.sourceIndex = sourceIndex;
         this.sourceVariant = sourceVariant == null ? "" : sourceVariant;
         this.sourceLineOrder = sourceLineOrder;
         this.segmentStart = segmentStart;
@@ -65,6 +68,10 @@ final class MergedOcrLine {
 
     String getSourceRawLine() {
         return sourceRawLine;
+    }
+
+    int getSourceIndex() {
+        return sourceIndex;
     }
 
     String getSourceVariant() {
@@ -107,6 +114,7 @@ final class MergedOcrLine {
 
     String occurrenceKey() {
         return "variant=" + sourceVariant
+                + "|screen=" + sourceIndex
                 + "|line=" + sourceLineOrder
                 + "|segment=" + segmentStart + "-" + segmentEnd
                 + "|text=" + text

@@ -148,10 +148,14 @@ final class ItemImageImportTextParser {
     }
 
     static FullItemRead buildFullItemRead(List<String> lines) {
-        List<FullReadSourceLine> fullReadSourceLines = expandFullItemReadLines(lines).stream()
-                .map(line -> new FullReadSourceLine(line, null, "plain:" + collapse(line)))
-                .toList();
-        return buildFullItemReadFromSourceLines(lines, fullReadSourceLines);
+        List<String> safeLines = lines == null ? List.of() : lines;
+        List<FullReadSourceLine> fullReadSourceLines = new ArrayList<>();
+        for (String line : expandFullItemReadLines(safeLines)) {
+            int sourceLineOrder = sourceLineOrderForExpandedText(line, safeLines);
+            fullReadSourceLines.add(new FullReadSourceLine(line, null, "plain:" + collapse(line),
+                    plainLineSource(line, sourceLineOrder)));
+        }
+        return buildFullItemReadFromSourceLines(safeLines, fullReadSourceLines);
     }
 
     private static FullItemRead buildFullItemReadFromMergedLines(List<MergedOcrLine> lines) {
@@ -159,18 +163,22 @@ final class ItemImageImportTextParser {
         List<String> textLines = safeLines.stream()
                 .map(MergedOcrLine::getText)
                 .toList();
-        List<String> normalizedNonSocketLines = safeLines.stream()
+        List<MergedOcrLine> nonSocketLines = safeLines.stream()
                 .filter(line -> !line.isSocketGemRuneData())
+                .toList();
+        List<String> normalizedNonSocketLines = nonSocketLines.stream()
                 .map(MergedOcrLine::getText)
                 .reduce((left, right) -> left + System.lineSeparator() + right)
                 .map(ItemImageImportTextParser::normalizedLines)
                 .orElse(List.of());
         List<FullReadSourceLine> fullReadSourceLines = new ArrayList<>();
         for (String line : expandFullItemReadLines(normalizedNonSocketLines)) {
+            MergedOcrLine sourceLine = findSourceLineForExpandedText(line, nonSocketLines);
             fullReadSourceLines.add(new FullReadSourceLine(
                     line,
                     null,
-                    "typed:" + collapse(line)
+                    "typed:" + collapse(line),
+                    sourceLine == null ? FullItemReadLineSource.unknown(line) : FullItemReadLineSource.fromMergedLine(sourceLine)
             ));
         }
         for (int index = 0; index < safeLines.size(); index++) {
@@ -179,11 +187,78 @@ final class ItemImageImportTextParser {
                 fullReadSourceLines.add(new FullReadSourceLine(
                         line.getText(),
                         FullItemReadLineType.SOCKET,
-                        "typed-socket:" + index + ":" + line.occurrenceKey()
+                        "typed-socket:" + index + ":" + line.occurrenceKey(),
+                        FullItemReadLineSource.fromMergedLine(line)
                 ));
             }
         }
         return buildFullItemReadFromSourceLines(textLines, fullReadSourceLines);
+    }
+
+    private static MergedOcrLine findSourceLineForExpandedText(String expandedLine, List<MergedOcrLine> sourceLines) {
+        String normalizedExpanded = normalizeLineForPattern(expandedLine);
+        if (normalizedExpanded.isBlank()) {
+            return null;
+        }
+        MergedOcrLine best = null;
+        int bestLength = -1;
+        for (MergedOcrLine sourceLine : sourceLines == null ? List.<MergedOcrLine>of() : sourceLines) {
+            String normalizedSource = normalizeLineForPattern(sourceLine.getText());
+            if (normalizedSource.isBlank()) {
+                continue;
+            }
+            if (normalizedExpanded.equals(normalizedSource)
+                    || normalizedExpanded.contains(normalizedSource)
+                    || normalizedSource.contains(normalizedExpanded)) {
+                int length = normalizedSource.length();
+                if (best == null || length > bestLength) {
+                    best = sourceLine;
+                    bestLength = length;
+                }
+            }
+        }
+        return best;
+    }
+
+    private static int sourceLineOrderForExpandedText(String expandedLine, List<String> sourceLines) {
+        String normalizedExpanded = normalizeLineForPattern(expandedLine);
+        int bestIndex = -1;
+        int bestLength = -1;
+        List<String> safeSourceLines = sourceLines == null ? List.of() : sourceLines;
+        for (int index = 0; index < safeSourceLines.size(); index++) {
+            String normalizedSource = normalizeLineForPattern(safeSourceLines.get(index));
+            if (normalizedSource.isBlank()) {
+                continue;
+            }
+            if (normalizedExpanded.equals(normalizedSource)
+                    || normalizedExpanded.contains(normalizedSource)
+                    || normalizedSource.contains(normalizedExpanded)) {
+                int length = normalizedSource.length();
+                if (bestIndex < 0 || length > bestLength) {
+                    bestIndex = index;
+                    bestLength = length;
+                }
+            }
+        }
+        return bestIndex;
+    }
+
+    private static FullItemReadLineSource plainLineSource(String line, int sourceLineOrder) {
+        return new FullItemReadLineSource(
+                -1,
+                "plain",
+                sourceLineOrder,
+                0,
+                line == null ? 0 : line.length(),
+                line,
+                line,
+                "PLAIN_TEXT",
+                sourceLineOrder,
+                sourceLineOrder,
+                0,
+                line == null ? 0 : line.length(),
+                line
+        );
     }
 
     private static FullItemRead buildFullItemReadFromSourceLines(List<String> lines,
@@ -215,7 +290,7 @@ final class ItemImageImportTextParser {
             if (!readLineKeys.add(readLineKey)) {
                 continue;
             }
-            readLines.add(new FullItemReadLine(type, readLineText));
+            readLines.add(new FullItemReadLine(type, readLineText, source.source()));
             if (type == FullItemReadLineType.ITEM_NAME && itemName.isBlank()) {
                 itemName = readLineText;
             }
@@ -238,15 +313,20 @@ final class ItemImageImportTextParser {
         if (!details.getUniqueEffectText().isBlank()
                 && collapse(details.getUniqueEffectText()).contains("GDYMASZUMOCNIENIE")
                 && readLines.stream().map(FullItemReadLine::getText).noneMatch(text -> sameFortifyEffect(text, details.getUniqueEffectText()))) {
-            readLines.add(new FullItemReadLine(FullItemReadLineType.ASPECT, details.getUniqueEffectText()));
+            readLines.add(new FullItemReadLine(FullItemReadLineType.ASPECT, details.getUniqueEffectText(),
+                    FullItemReadLineSource.unknown(details.getUniqueEffectText())));
         }
         return new FullItemRead(itemName, itemTypeLine, rarity, itemPower, baseItemValue, readLines, details);
     }
 
-    private record FullReadSourceLine(String text, FullItemReadLineType forcedType, String occurrenceKey) {
+    private record FullReadSourceLine(String text,
+                                      FullItemReadLineType forcedType,
+                                      String occurrenceKey,
+                                      FullItemReadLineSource source) {
         private FullReadSourceLine {
             text = text == null ? "" : text;
             occurrenceKey = occurrenceKey == null ? "" : occurrenceKey;
+            source = source == null ? FullItemReadLineSource.unknown(text) : source;
         }
     }
 

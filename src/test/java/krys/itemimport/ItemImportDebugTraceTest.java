@@ -93,6 +93,8 @@ class ItemImportDebugTraceTest {
         assertTrue(logs.contains("OCR_RAW_VARIANTS"));
         assertTrue(logs.contains("SCREEN_MERGER_INPUT"));
         assertTrue(logs.contains("SCREEN_MERGER_OUTPUT"));
+        assertTrue(logs.contains("scope=single-typed-merge"));
+        assertFalse(logs.contains("single-no-merge"));
         assertTrue(logs.contains("ITEM_DETAILS"));
         assertTrue(logs.contains("AFFIX_CANDIDATE"));
         assertTrue(logs.contains("AFFIX_MERGE"));

@@ -68,21 +68,28 @@ public final class ItemImageImportService {
                     .map(ItemImageOcrTextVariant::getText)
                     .toList();
             logMergerInput("SCREEN_MERGER_INPUT", 0, variantTexts);
-            logMergerOutput("SCREEN_MERGER_OUTPUT", "screen=0 scope=single-no-merge", String.join(System.lineSeparator(), variantTexts));
-            if (ocrTexts.isEmpty()) {
-                try (ItemImportDebugTrace.Scope variantScope = ItemImportDebugTrace.withOcrVariant(0, 0, "EMPTY")) {
-                    return candidateMerger.merge(metadata, variants.size(), List.of(textParser.parse(metadata, "")));
-                }
+            ItemScreenshotMergedText mergedScreenText = textMerger.mergeTextVariantsTyped(ocrTexts);
+            logMergerOutput("SCREEN_MERGER_OUTPUT", "screen=0 scope=single-typed-merge", mergedScreenText.asPlainText());
+
+            ItemImageImportCandidateParseResult typedParse;
+            try (ItemImportDebugTrace.Scope variantScope = ItemImportDebugTrace.withOcrVariant(0, -1, "SINGLE_TYPED_MERGED")) {
+                typedParse = textParser.parse(metadata, mergedScreenText);
             }
 
             List<ItemImageImportCandidateParseResult> parsedVariants = new ArrayList<>();
-            for (int index = 0; index < ocrTexts.size(); index++) {
-                ItemImageOcrTextVariant ocrText = ocrTexts.get(index);
-                try (ItemImportDebugTrace.Scope variantScope = ItemImportDebugTrace.withOcrVariant(0, index, ocrText.getVariantId())) {
-                    parsedVariants.add(textParser.parse(metadata, ocrText.getText()));
+            if (ocrTexts.isEmpty()) {
+                try (ItemImportDebugTrace.Scope variantScope = ItemImportDebugTrace.withOcrVariant(0, 0, "EMPTY")) {
+                    parsedVariants.add(textParser.parse(metadata, ""));
+                }
+            } else {
+                for (int index = 0; index < ocrTexts.size(); index++) {
+                    ItemImageOcrTextVariant ocrText = ocrTexts.get(index);
+                    try (ItemImportDebugTrace.Scope variantScope = ItemImportDebugTrace.withOcrVariant(0, index, ocrText.getVariantId())) {
+                        parsedVariants.add(textParser.parse(metadata, ocrText.getText()));
+                    }
                 }
             }
-            return candidateMerger.merge(metadata, variants.size(), parsedVariants);
+            return candidateMerger.merge(metadata, variants.size(), parsedVariants, typedParse);
         }
     }
 

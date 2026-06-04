@@ -100,6 +100,61 @@ class ItemImageImportTextParserTest {
     }
 
     @Test
+    void shouldPreserveFullReadLineSourceMetadataFromMergedOcrSegments() {
+        String rawLine = "★ +314 obrażeń od broni +270 siły";
+        ItemScreenshotMergedText mergedText = new ItemScreenshotTextMerger().mergeTextVariantsTyped(List.of(
+                new ItemImageOcrTextVariant("wariant-testowy", rawLine)
+        ));
+
+        ItemImageImportCandidateParseResult result = parser.parse(metadata, mergedText);
+        FullItemReadLine weaponDamageLine = result.getFullItemRead().getLines().stream()
+                .filter(line -> line.getText().contains("obrażeń od broni"))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(0, weaponDamageLine.getSource().getSourceLineOrder());
+        assertTrue(weaponDamageLine.getSource().getSourceSegmentStart() >= 0);
+        assertEquals(rawLine, weaponDamageLine.getSource().getParentRawLine());
+        assertEquals("wariant-testowy", weaponDamageLine.getSource().getSourceVariantId());
+        assertEquals("ORDINARY_AFFIX_REGION", weaponDamageLine.getSource().getSourceRegion());
+    }
+
+    @Test
+    void shouldKeepSegmentVisualOrderForSeveralAffixesInOneRawLine() {
+        ItemScreenshotMergedText mergedText = new ItemScreenshotTextMerger().mergeTextVariantsTyped(List.of(
+                new ItemImageOcrTextVariant("joined",
+                        "+314 obrażeń od broni +270 siły +948 pkt. zdrowia przy trafieniu Mnożnik x15% wszystkich obrażeń")
+        ));
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parser.parse(metadata, mergedText));
+
+        assertEquals(4, form.getAffixes().size());
+        assertEquals(ImportedItemAffixType.WEAPON_DAMAGE_FLAT, form.getAffixes().get(0).getType());
+        assertEquals(ImportedItemAffixType.STRENGTH, form.getAffixes().get(1).getType());
+        assertEquals(ImportedItemAffixType.LIFE_ON_HIT, form.getAffixes().get(2).getType());
+        assertEquals(ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER, form.getAffixes().get(3).getType());
+        assertTrue(form.getAffixes().get(0).getVisualDisplayOrder() < form.getAffixes().get(1).getVisualDisplayOrder());
+        assertTrue(form.getAffixes().get(1).getVisualDisplayOrder() < form.getAffixes().get(2).getVisualDisplayOrder());
+        assertTrue(form.getAffixes().get(2).getVisualDisplayOrder() < form.getAffixes().get(3).getVisualDisplayOrder());
+    }
+
+    @Test
+    void shouldAssignGreaterAffixMarkersFromParentRawLineOffsetsAfterSplit() {
+        ItemScreenshotMergedText mergedText = new ItemScreenshotTextMerger().mergeTextVariantsTyped(List.of(
+                new ItemImageOcrTextVariant("joined", "★ +314 obrażeń od broni ★ +270 siły")
+        ));
+
+        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parser.parse(metadata, mergedText));
+
+        ImportedItemAffix weaponDamage = affix(form, ImportedItemAffixType.WEAPON_DAMAGE_FLAT);
+        ImportedItemAffix strength = affix(form, ImportedItemAffixType.STRENGTH);
+        assertTrue(weaponDamage.isGreaterAffix());
+        assertTrue(strength.isGreaterAffix());
+        assertFalse(weaponDamage.isGreaterAffixConfirmationRequired());
+        assertFalse(strength.isGreaterAffixConfirmationRequired());
+    }
+
+    @Test
     void shouldFuzzyMatchLuckyHitChanceForGenericMythicWithoutResourceAffix() {
         ItemImageImportCandidateParseResult result = parser.parse(metadata, """
                 Generyczny Helm Testowy
@@ -1419,7 +1474,8 @@ class ItemImageImportTextParserTest {
         assertTrue(html.contains("526 - 632"));
         assertTrue(html.contains("Szczęśliwy traf: zasób podstawowy"));
         assertTrue(html.contains("title=\"Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +X podstawowego zasobu\""));
-        assertTrue(html.contains("name=\"affixValue_3\" value=\"3\""));
+        assertTrue(html.contains("name=\"affixOriginalType_2\" value=\"LUCKY_HIT_PRIMARY_RESOURCE\""));
+        assertTrue(html.contains("name=\"affixValue_2\" value=\"3\""));
         assertFalse(html.contains("<span class=\"summary-value\">+3</span>"));
         assertFalse(html.contains("15% / +3"));
         assertTrue(html.contains("3 - 4"));
@@ -1427,7 +1483,7 @@ class ItemImageImportTextParserTest {
         assertTrue(html.contains("Treść efektu"));
         assertFalse(html.contains("Aspekt / efekt legendarny"));
         assertFalse(html.contains("Unikatowy efekt / aspekt"));
-        assertTrue(html.contains("<input type=\"number\" min=\"0\" step=\"0.01\" name=\"affixValue_3\" value=\"3\""));
+        assertTrue(html.contains("<input type=\"number\" min=\"0\" step=\"0.01\" name=\"affixValue_2\" value=\"3\""));
         assertTrue(html.contains("name=\"affixType_0\""));
         assertTrue(html.contains("name=\"affixType_1\""));
         assertTrue(html.contains("name=\"affixType_2\""));
@@ -1709,6 +1765,13 @@ class ItemImageImportTextParserTest {
                 .map(FullItemReadLine::getType)
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Brak linii w pełnym odczycie: " + lineText));
+    }
+
+    private static ImportedItemAffix affix(ItemImportEditableForm form, ImportedItemAffixType type) {
+        return form.getAffixes().stream()
+                .filter(affix -> affix.getType() == type)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Brak affixu: " + type));
     }
 
 }

@@ -64,11 +64,15 @@ public final class ItemScreenshotTextMerger {
                 keyOrder.add(candidate.key());
                 CanonicalLineCandidate existing = bestByKey.get(candidate.key());
                 if (existing == null || candidate.score() > existing.score()) {
+                    CanonicalLineCandidate selected = existing == null
+                            ? candidate
+                            : candidate.withVisualAnchorFrom(earlierVisualAnchor(existing, candidate));
                     if (existing != null) {
                         logMergeRejected(existing.text(), "replaced by higher score typed candidate", candidate);
                     }
-                    bestByKey.put(candidate.key(), candidate);
+                    bestByKey.put(candidate.key(), selected);
                 } else {
+                    bestByKey.put(candidate.key(), existing.withVisualAnchorFrom(earlierVisualAnchor(existing, candidate)));
                     logMergeRejected(candidate.text(), "lower typed text score", existing);
                 }
             }
@@ -130,11 +134,15 @@ public final class ItemScreenshotTextMerger {
                     keyOrder.add(candidate.key());
                     CanonicalLineCandidate existing = bestByKey.get(candidate.key());
                     if (existing == null || candidate.score() > existing.score()) {
+                        CanonicalLineCandidate selected = existing == null
+                                ? candidate
+                                : candidate.withVisualAnchorFrom(earlierVisualAnchor(existing, candidate));
                         if (existing != null) {
                             logMergeRejected(existing.text(), "replaced by higher score candidate", candidate);
                         }
-                        bestByKey.put(candidate.key(), candidate);
+                        bestByKey.put(candidate.key(), selected);
                     } else {
+                        bestByKey.put(candidate.key(), existing.withVisualAnchorFrom(earlierVisualAnchor(existing, candidate)));
                         logMergeRejected(candidate.text(), "lower text score", existing);
                     }
                 }
@@ -142,6 +150,72 @@ public final class ItemScreenshotTextMerger {
             }
         }
         return buildMergedText(keyOrder, bestByKey);
+    }
+
+    private static CanonicalLineCandidate earlierVisualAnchor(CanonicalLineCandidate left, CanonicalLineCandidate right) {
+        if (left == null) {
+            return right;
+        }
+        if (right == null) {
+            return left;
+        }
+        int leftOrder = visualOrder(left);
+        int rightOrder = visualOrder(right);
+        if (rightOrder < leftOrder) {
+            return right;
+        }
+        if (rightOrder == leftOrder && hasGreaterMarker(right) && !hasGreaterMarker(left)) {
+            return right;
+        }
+        return left;
+    }
+
+    private static int visualOrder(CanonicalLineCandidate candidate) {
+        int sourceLineOrder = candidate.sourceLineOrder() < 0 ? Integer.MAX_VALUE / 10_000 : candidate.sourceLineOrder();
+        int segmentStart = candidate.segmentStart() < 0 ? 0 : candidate.segmentStart();
+        int detachedSingleAffixCropPenalty = isDetachedSingleAffixCrop(candidate) ? 100_000_000 : 0;
+        return detachedSingleAffixCropPenalty + sourceLineOrder * 10_000 + Math.min(9_999, segmentStart);
+    }
+
+    private static boolean isDetachedSingleAffixCrop(CanonicalLineCandidate candidate) {
+        if (candidate.sourceIndex() <= 0 || "original".equals(candidate.sourceVariant())) {
+            return false;
+        }
+        if (!SourceRegion.ORDINARY_AFFIX_REGION.name().equals(candidate.sourceRegion())) {
+            return false;
+        }
+        return estimatedAffixAnchorCount(candidate.sourceRawLine()) <= 1;
+    }
+
+    private static int estimatedAffixAnchorCount(String rawLine) {
+        String normalized = comparisonKey(rawLine);
+        int anchors = 0;
+        Matcher plusMatcher = Pattern.compile("\\+\\s*[0-9]").matcher(normalized);
+        while (plusMatcher.find()) {
+            anchors++;
+        }
+        if (normalized.contains("mnoznik") && normalized.contains("obrazen")) {
+            anchors++;
+        }
+        if (normalized.contains("szczesliwy traf") && normalized.contains("podstawowego zasobu")) {
+            anchors++;
+        }
+        return anchors;
+    }
+
+    private static boolean hasGreaterMarker(CanonicalLineCandidate candidate) {
+        return containsGreaterMarker(candidate.text())
+                || containsGreaterMarker(candidate.sourceRawLine());
+    }
+
+    private static boolean containsGreaterMarker(String text) {
+        String safe = text == null ? "" : text;
+        for (int index = 0; index < safe.length(); index++) {
+            if ("*★⭐✦✧✱✳✴✵✶✷✸✹✺✻✼✽✾❋❂◆◇♦●•".indexOf(safe.charAt(index)) >= 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static ItemScreenshotMergedText buildMergedText(Set<String> keyOrder,
@@ -268,6 +342,7 @@ public final class ItemScreenshotTextMerger {
                 "przeistoczony",
                 "pancerza",
                 "obrazenodbroni",
+                "zdrowiaprzytrafieniu",
                 "zdrowiazazabicie",
                 "obrazenzuplywemczasu",
                 "szczesliwytraf",
@@ -340,6 +415,7 @@ public final class ItemScreenshotTextMerger {
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+obra(?:ż|z)e(?:ń|n)\\s+od\\s+broni(?:\\s*\\[[^\\]]+])?%?)");
         appendFirst(extracted, line, "(Mno(?:ż|z)nik\\s*[x×]?\\s*[0-9]+(?:[,.][0-9]+)?%\\s+wszystkich\\s+obra(?:ż|z)e(?:ń|n))");
         appendFirst(extracted, line, "(Mno(?:ż|z)nik\\s*[x×]?\\s*[0-9]+(?:[,.][0-9]+)?%\\s+obra(?:ż|z)e(?:ń|n)\\s*\\(\\s*Fizyczne\\s*\\))");
+        appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+(?:pkt\\.\\s+)?zdrowia\\s+przy\\s+trafieniu(?:\\s*\\[[^\\]]+])?%?)");
         appendFirst(extracted, line, "(\\+\\s*[0-9]+(?:\\s[0-9]{3})*(?:[,.][0-9]+)?\\s+zdrowia\\s+za\\s+zabicie(?:\\s*\\[[^\\]]+])?%?)");
         appendFirst(extracted, line, "(Mno(?:ż|z)nik\\s*[x×]?\\s*[0-9]+(?:[,.][0-9]+)?%\\s+obra(?:ż|z)e(?:ń|n)\\s+z\\s+up(?:ł|l)ywem\\s+czasu(?:\\s*\\[[^\\]]+])?%?)");
         extractAllStatsDisplayedValue(line)
@@ -1486,11 +1562,33 @@ public final class ItemScreenshotTextMerger {
                     sourceCategory,
                     sourceRegion,
                     sourceRawLine,
+                    sourceIndex,
                     sourceVariant,
                     sourceLineOrder,
                     segmentStart,
                     segmentEnd,
                     localAnchorType,
+                    matchedType,
+                    value,
+                    runtimeStatus
+            );
+        }
+
+        private CanonicalLineCandidate withVisualAnchorFrom(CanonicalLineCandidate anchor) {
+            CanonicalLineCandidate safeAnchor = anchor == null ? this : anchor;
+            return new CanonicalLineCandidate(
+                    key,
+                    text,
+                    score,
+                    sourceCategory,
+                    safeAnchor.sourceIndex(),
+                    safeAnchor.sourceRegion(),
+                    safeAnchor.sourceRawLine(),
+                    safeAnchor.sourceVariant(),
+                    safeAnchor.sourceLineOrder(),
+                    safeAnchor.segmentStart(),
+                    safeAnchor.segmentEnd(),
+                    safeAnchor.localAnchorType(),
                     matchedType,
                     value,
                     runtimeStatus

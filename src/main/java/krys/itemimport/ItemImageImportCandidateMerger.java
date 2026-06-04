@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -24,33 +25,47 @@ final class ItemImageImportCandidateMerger {
     ItemImageImportCandidateParseResult merge(ItemImageMetadata metadata,
                                               int analyzedVariantCount,
                                               List<ItemImageImportCandidateParseResult> parseResults) {
+        return merge(metadata, analyzedVariantCount, parseResults, null);
+    }
+
+    ItemImageImportCandidateParseResult merge(ItemImageMetadata metadata,
+                                              int analyzedVariantCount,
+                                              List<ItemImageImportCandidateParseResult> parseResults,
+                                              ItemImageImportCandidateParseResult authoritativeParseResult) {
+        List<ItemImageImportCandidateParseResult> safeParseResults = parseResults == null ? List.of() : parseResults;
+        List<ItemImageImportCandidateParseResult> fieldParseResults = new ArrayList<>(safeParseResults);
+        if (authoritativeParseResult != null) {
+            fieldParseResults.add(authoritativeParseResult);
+        }
         ItemImportFieldCandidate<EquipmentSlot> slotCandidate = mergeField(
-                parseResults.stream().map(ItemImageImportCandidateParseResult::getSlotCandidate).toList(),
+                fieldParseResults.stream().map(ItemImageImportCandidateParseResult::getSlotCandidate).toList(),
                 "Nie udało się rozpoznać slotu / typu itemu z OCR."
         );
-        FullItemRead fullItemRead = mergeFullItemRead(parseResults);
+        FullItemRead fullItemRead = authoritativeParseResult == null
+                ? mergeFullItemRead(safeParseResults)
+                : mergeAuthoritativeFullItemRead(authoritativeParseResult.getFullItemRead(), safeParseResults);
         ItemImportFieldCandidate<Long> weaponDamageCandidate = mergeField(
-                parseResults.stream().map(ItemImageImportCandidateParseResult::getWeaponDamageCandidate).toList(),
+                fieldParseResults.stream().map(ItemImageImportCandidateParseResult::getWeaponDamageCandidate).toList(),
                 "Nie udało się rozpoznać pola `WEAPON DAMAGE` z OCR."
         );
         ItemImportFieldCandidate<Double> strengthCandidate = mergeField(
-                parseResults.stream().map(ItemImageImportCandidateParseResult::getStrengthCandidate).toList(),
+                fieldParseResults.stream().map(ItemImageImportCandidateParseResult::getStrengthCandidate).toList(),
                 "Nie udało się rozpoznać pola `Strength` z OCR."
         );
         ItemImportFieldCandidate<Double> intelligenceCandidate = mergeField(
-                parseResults.stream().map(ItemImageImportCandidateParseResult::getIntelligenceCandidate).toList(),
+                fieldParseResults.stream().map(ItemImageImportCandidateParseResult::getIntelligenceCandidate).toList(),
                 "Nie udało się rozpoznać pola `Intelligence` z OCR."
         );
         ItemImportFieldCandidate<Double> thornsCandidate = mergeField(
-                parseResults.stream().map(ItemImageImportCandidateParseResult::getThornsCandidate).toList(),
+                fieldParseResults.stream().map(ItemImageImportCandidateParseResult::getThornsCandidate).toList(),
                 "Nie udało się rozpoznać pola `Thorns` z OCR."
         );
         ItemImportFieldCandidate<Double> blockChanceCandidate = mergeField(
-                parseResults.stream().map(ItemImageImportCandidateParseResult::getBlockChanceCandidate).toList(),
+                fieldParseResults.stream().map(ItemImageImportCandidateParseResult::getBlockChanceCandidate).toList(),
                 "Nie udało się rozpoznać pola `Block chance` z OCR."
         );
         ItemImportFieldCandidate<Double> retributionChanceCandidate = mergeField(
-                parseResults.stream().map(ItemImageImportCandidateParseResult::getRetributionChanceCandidate).toList(),
+                fieldParseResults.stream().map(ItemImageImportCandidateParseResult::getRetributionChanceCandidate).toList(),
                 "Nie udało się rozpoznać pola `Retribution chance` z OCR."
         );
 
@@ -67,6 +82,133 @@ final class ItemImageImportCandidateMerger {
                 buildImportNotice(analyzedVariantCount, slotCandidate, weaponDamageCandidate, strengthCandidate,
                         intelligenceCandidate, thornsCandidate, blockChanceCandidate, retributionChanceCandidate)
         );
+    }
+
+    private static FullItemRead mergeAuthoritativeFullItemRead(FullItemRead authoritativeRead,
+                                                               List<ItemImageImportCandidateParseResult> parseResults) {
+        FullItemRead safeAuthoritativeRead = authoritativeRead == null ? FullItemRead.empty() : authoritativeRead;
+        if (!safeAuthoritativeRead.hasAnyData()) {
+            return mergeFullItemRead(parseResults);
+        }
+        List<ItemImportDetails> sourceDetails = new ArrayList<>();
+        sourceDetails.add(safeAuthoritativeRead.getDetails());
+        List<FullItemRead> rawReads = new ArrayList<>();
+        Map<String, List<FullItemReadLine>> rawLinesByKey = new LinkedHashMap<>();
+        for (ItemImageImportCandidateParseResult parseResult : parseResults == null ? List.<ItemImageImportCandidateParseResult>of() : parseResults) {
+            FullItemRead read = parseResult.getFullItemRead();
+            if (read != null && read.hasAnyData()) {
+                rawReads.add(read);
+                sourceDetails.add(read.getDetails());
+                for (FullItemReadLine line : read.getLines()) {
+                    if (line.getText().isBlank()) {
+                        continue;
+                    }
+                    String key = fullReadLineDeduplicationKey(line);
+                    rawLinesByKey.computeIfAbsent(key, ignored -> new ArrayList<>()).add(line);
+                }
+            }
+        }
+
+        Map<String, FullItemReadLine> selectedLines = new LinkedHashMap<>();
+        for (FullItemReadLine authoritativeLine : safeAuthoritativeRead.getLines()) {
+            if (authoritativeLine.getText().isBlank()) {
+                continue;
+            }
+            String key = fullReadLineDeduplicationKey(authoritativeLine);
+            FullItemReadLine selected = authoritativeLine;
+            for (FullItemReadLine rawLine : rawLinesByKey.getOrDefault(key, List.of())) {
+                if (shouldReplaceMergedLine(key, selected, rawLine) || shouldPreferRawFullReadText(selected, rawLine)) {
+                    selected = mergeSelectedLineWithVisualAnchor(rawLine, authoritativeLine, selected, rawLine);
+                    logAffixMerge(key, authoritativeLine, rawLine, selected,
+                            "raw candidate supplies better value while typed line keeps visual authority");
+                } else {
+                    selected = mergeSelectedLineWithVisualAnchor(selected, authoritativeLine, selected, rawLine);
+                    logAffixMerge(key, selected, rawLine, selected,
+                            "typed candidate keeps selected value and visual authority");
+                }
+            }
+            selectedLines.put(key, selected);
+        }
+
+        Set<String> authoritativeKeys = selectedLines.keySet();
+        for (Map.Entry<String, List<FullItemReadLine>> entry : rawLinesByKey.entrySet()) {
+            if (authoritativeKeys.contains(entry.getKey())) {
+                continue;
+            }
+            selectedLines.put(entry.getKey(), mergeLineCandidates(entry.getKey(), entry.getValue()));
+        }
+
+        FullItemRead rebuiltRead = ItemImageImportTextParser.buildFullItemRead(
+                selectedLines.values().stream()
+                        .map(FullItemReadLine::getText)
+                        .toList()
+        );
+        ItemImportDetails details = mergeDetails(rebuiltRead.getDetails(), sourceDetails);
+        String itemName = chooseBetterItemName(
+                chooseBetterItemName(firstItemName(rawReads), safeAuthoritativeRead.getItemName()),
+                details.getItemName()
+        );
+        return new FullItemRead(
+                itemName,
+                firstNonBlank(safeAuthoritativeRead.getItemTypeLine(), rebuiltRead.getItemTypeLine(), details.getItemType()),
+                firstNonBlank(safeAuthoritativeRead.getRarity(), rebuiltRead.getRarity(), details.getItemRarity()),
+                safeAuthoritativeRead.getItemPower().isBlank() && details.getItemPower() != null
+                        ? "Moc przedmiotu: " + details.getItemPower()
+                        : safeAuthoritativeRead.getItemPower(),
+                firstNonBlank(safeAuthoritativeRead.getBaseItemValue(), rebuiltRead.getBaseItemValue()),
+                List.copyOf(selectedLines.values()),
+                details
+        );
+    }
+
+    private static boolean shouldPreferRawFullReadText(FullItemReadLine selected, FullItemReadLine candidate) {
+        if (selected == null || candidate == null || selected.getType() != FullItemReadLineType.ITEM_NAME
+                || candidate.getType() != FullItemReadLineType.ITEM_NAME) {
+            return false;
+        }
+        String selectedKey = normalizeForDeduplication(selected.getText()).replaceAll("[^A-Z0-9]", "");
+        String candidateKey = normalizeForDeduplication(candidate.getText()).replaceAll("[^A-Z0-9]", "");
+        if (!Objects.equals(selectedKey, candidateKey)) {
+            return false;
+        }
+        String candidateText = candidate.getText();
+        return !candidateText.isBlank() && candidateText.equals(candidateText.toUpperCase(Locale.ROOT));
+    }
+
+    private static FullItemReadLine mergeLineCandidates(String key, List<FullItemReadLine> candidates) {
+        FullItemReadLine selected = null;
+        for (FullItemReadLine candidate : candidates == null ? List.<FullItemReadLine>of() : candidates) {
+            if (candidate.getText().isBlank()) {
+                continue;
+            }
+            if (selected == null) {
+                selected = candidate;
+                continue;
+            }
+            if (shouldReplaceMergedLine(key, selected, candidate)) {
+                selected = mergeSelectedLineWithBestVisualAnchor(candidate, selected, candidate);
+            } else {
+                selected = mergeSelectedLineWithBestVisualAnchor(selected, selected, candidate);
+            }
+        }
+        return selected == null ? new FullItemReadLine(FullItemReadLineType.OTHER, "") : selected;
+    }
+
+    private static String firstItemName(List<FullItemRead> reads) {
+        String best = "";
+        for (FullItemRead read : reads == null ? List.<FullItemRead>of() : reads) {
+            best = chooseBetterItemName(best, read.getItemName());
+        }
+        return best;
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return "";
     }
 
     private static FullItemRead mergeFullItemRead(List<ItemImageImportCandidateParseResult> parseResults) {
@@ -109,10 +251,13 @@ final class ItemImageImportCandidateMerger {
                     logAffixMerge(key, null, line, line, "first candidate for dedup key");
                     mergedLines.put(key, line);
                 } else if (shouldReplaceMergedLine(key, existingLine, line)) {
-                    logAffixMerge(key, existingLine, line, line, mergeReplacementReason(key, existingLine, line));
-                    mergedLines.put(key, line);
+                    FullItemReadLine selected = mergeSelectedLineWithBestVisualAnchor(line, existingLine, line);
+                    logAffixMerge(key, existingLine, line, selected, mergeReplacementReason(key, existingLine, line));
+                    mergedLines.put(key, selected);
                 } else {
-                    logAffixMerge(key, existingLine, line, existingLine, mergeKeepReason(key, existingLine, line));
+                    FullItemReadLine selected = mergeSelectedLineWithBestVisualAnchor(existingLine, existingLine, line);
+                    logAffixMerge(key, existingLine, line, selected, mergeKeepReason(key, existingLine, line));
+                    mergedLines.put(key, selected);
                 }
             }
         }
@@ -131,6 +276,106 @@ final class ItemImageImportCandidateMerger {
                 List.copyOf(mergedLines.values()),
                 mergeDetails(mergedRead.getDetails(), sourceDetails)
         );
+    }
+
+    private static FullItemReadLine mergeSelectedLineWithBestVisualAnchor(FullItemReadLine selected,
+                                                                          FullItemReadLine left,
+                                                                          FullItemReadLine right) {
+        FullItemReadLine visualAnchor = betterVisualAnchorLine(left, right);
+        return mergeSelectedLineWithVisualAnchor(selected, visualAnchor, left, right);
+    }
+
+    private static FullItemReadLine mergeSelectedLineWithVisualAnchor(FullItemReadLine selected,
+                                                                      FullItemReadLine visualAnchor,
+                                                                      FullItemReadLine left,
+                                                                      FullItemReadLine right) {
+        FullItemReadLineSource source = selected.getSource().withVisualAnchorFrom(visualAnchor.getSource());
+        FullItemReadLine markerLine = localGreaterMarkerLine(left, right);
+        if (markerLine != null && !hasLocalGreaterMarker(selected) && !hasLocalGreaterMarker(visualAnchor)) {
+            source = source.withParentRawLine(markerLine.getSource().getParentRawLine());
+        }
+        return selected.withSource(source);
+    }
+
+    private static FullItemReadLine betterVisualAnchorLine(FullItemReadLine left, FullItemReadLine right) {
+        int leftOrder = visualOrder(left);
+        int rightOrder = visualOrder(right);
+        if (rightOrder < leftOrder) {
+            return right;
+        }
+        if (rightOrder == leftOrder && hasLocalGreaterMarker(right) && !hasLocalGreaterMarker(left)) {
+            return right;
+        }
+        return left;
+    }
+
+    private static int visualOrder(FullItemReadLine line) {
+        if (line == null) {
+            return Integer.MAX_VALUE;
+        }
+        return line.getSource().visualOrder(Integer.MAX_VALUE / 10_000, 0);
+    }
+
+    private static FullItemReadLine localGreaterMarkerLine(FullItemReadLine left, FullItemReadLine right) {
+        if (hasLocalGreaterMarker(left)) {
+            return left;
+        }
+        if (hasLocalGreaterMarker(right)) {
+            return right;
+        }
+        return null;
+    }
+
+    private static boolean hasLocalGreaterMarker(FullItemReadLine line) {
+        if (line == null) {
+            return false;
+        }
+        FullItemReadLineSource source = line.getSource();
+        return startsWithGreaterMarker(line.getText())
+                || hasGreaterMarkerNearSegment(source.getSourceRawLine(), source.getSourceSegmentStart())
+                || hasGreaterMarkerNearSegment(source.getParentRawLine(), source.getSourceSegmentStart())
+                || hasGreaterMarkerNearSegment(source.getVisualSourceText(), source.getVisualSegmentStart());
+    }
+
+    private static boolean startsWithGreaterMarker(String text) {
+        String trimmed = text == null ? "" : text.trim();
+        return !trimmed.isBlank() && isGreaterMarker(trimmed.charAt(0));
+    }
+
+    private static boolean hasGreaterMarkerNearSegment(String rawLine, int segmentStart) {
+        String safeRawLine = rawLine == null ? "" : rawLine;
+        if (safeRawLine.isBlank()) {
+            return false;
+        }
+        if (segmentStart <= 0) {
+            return startsWithGreaterMarker(safeRawLine);
+        }
+        int safeSegmentStart = Math.min(segmentStart, safeRawLine.length());
+        int markerIndex = -1;
+        for (int index = 0; index < safeSegmentStart; index++) {
+            if (isGreaterMarker(safeRawLine.charAt(index))) {
+                markerIndex = index;
+            }
+        }
+        if (markerIndex < 0) {
+            return false;
+        }
+        String between = safeRawLine.substring(markerIndex + 1, safeSegmentStart);
+        return between.replaceAll("\\s+", "").length() <= 6;
+    }
+
+    private static boolean containsGreaterMarker(String text) {
+        String safe = text == null ? "" : text;
+        for (int index = 0; index < safe.length(); index++) {
+            if (isGreaterMarker(safe.charAt(index))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isGreaterMarker(char marker) {
+        return "*★⭐✦✧✱✳✴✵✶✷✸✹✺✻✼✽✾❋❂◆◇♦●•".indexOf(marker) >= 0;
     }
 
     private static boolean shouldReplaceMergedLine(String key, FullItemReadLine existingLine, FullItemReadLine candidateLine) {
@@ -178,6 +423,8 @@ final class ItemImageImportCandidateMerger {
         }
         return "{type=" + line.getType()
                 + ", score=" + lineQualityScore(line)
+                + ", selectedOrder=" + line.getSource().selectedOrder(0, 0)
+                + ", visualOrder=" + line.getSource().visualOrder(0, 0)
                 + ", text=" + ItemImportDebugTrace.compactText(line.getText())
                 + ", tokens=" + ItemImportDebugTrace.numericTokens(line.getText())
                 + "}";

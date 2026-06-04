@@ -357,7 +357,12 @@ public final class ImportedItemAffixExtractor {
                 .filter(affix -> sameValue(affix.getValue(), expectedSourceValue))
                 .filter(affix -> affix.isGreaterAffix() == expectedGreaterAffix)
                 .max(Comparator.comparingInt(ImportedItemAffixExtractor::stableShieldAffixScore))
-                .ifPresent(result::add);
+                .ifPresent(affix -> result.add(affix.withVisualAnchor(
+                        affix.getVisualSourceText(),
+                        result.size(),
+                        affix.isGreaterAffix(),
+                        affix.isGreaterAffixConfirmationRequired()
+                )));
     }
 
     private static List<ImportedItemAffix> stableMoonFrenzyShieldAffixes(List<ImportedItemAffix> candidates) {
@@ -392,7 +397,7 @@ public final class ImportedItemAffixExtractor {
         String text = line.getText();
         List<AffixRegistry.AffixTextMatch> matches = affixRegistry.findMatches(text);
         if (matches.isEmpty()) {
-            return fallbackExtract(text, baseDisplayOrder, verathielContext, koscianychLusekShieldContext,
+            return fallbackExtract(line, baseDisplayOrder, verathielContext, koscianychLusekShieldContext,
                     koscianychLusekQuality25Context, moonFrenzyShieldContext, moonFrenzyQuality25Context,
                     mythicUniqueContext, importedMasterworking);
         }
@@ -408,7 +413,8 @@ public final class ImportedItemAffixExtractor {
                     : text.length();
             String segment = text.substring(Math.max(0, segmentStart), Math.max(segmentStart, segmentEnd)).trim();
             int matchStartInSegment = Math.max(0, match.start() - Math.max(0, segmentStart));
-            buildAffix(match.definition(), segment, text, match.start(), matchStartInSegment,
+            buildAffix(line, match.definition(), segment, text, match.start(), matchStartInSegment,
+                    segmentStart,
                     compactMatches.size(), countNumericTokens(text), baseDisplayOrder + affixes.size(), verathielContext,
                     koscianychLusekShieldContext, koscianychLusekQuality25Context,
                     moonFrenzyShieldContext, moonFrenzyQuality25Context, mythicUniqueContext,
@@ -441,7 +447,7 @@ public final class ImportedItemAffixExtractor {
         return result;
     }
 
-    private List<ImportedItemAffix> fallbackExtract(String text,
+    private List<ImportedItemAffix> fallbackExtract(FullItemReadLine line,
                                                     int displayOrder,
                                                     boolean verathielContext,
                                                     boolean koscianychLusekShieldContext,
@@ -450,6 +456,7 @@ public final class ImportedItemAffixExtractor {
                                                     boolean moonFrenzyQuality25Context,
                                                     boolean mythicUniqueContext,
                                                     ItemMasterworking importedMasterworking) {
+        String text = line.getText();
         Optional<ImportedItemAffixType> type = ImportedItemAffixType.detectFromLine(text);
         Optional<Double> value = firstNumber(text);
         if (type.isEmpty() || value.isEmpty()) {
@@ -469,7 +476,8 @@ public final class ImportedItemAffixExtractor {
         Optional<RollRange> parsedRange = parseRollRange(text, type.get());
         Double referenceValue = mythicReferenceValue(mythicUniqueContext, resolved.value(), parsedRange).orElse(null);
         Optional<RollRange> validatedRangeForGreaterAffix = validateParsedRollRange(resolved.value(), parsedRange);
-        boolean greaterAffix = isGreaterAffixLine(text)
+        boolean localGreaterMarker = hasLocalGreaterAffixMarker(line, 0);
+        boolean greaterAffix = localGreaterMarker
                 || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, type.get(), resolved.value())
                 || isMoonFrenzyGreaterAffix(moonFrenzyShieldContext, type.get(), resolved.value())
                 || resolved.greaterAffix()
@@ -481,30 +489,36 @@ public final class ImportedItemAffixExtractor {
         Optional<RollRange> rollRange = referenceValue == null
                 ? validatedRangeForGreaterAffix
                 : Optional.empty();
+        int selectedOrder = selectedSourceOrder(line, displayOrder, 0);
+        int visualOrder = visualSourceOrder(line, displayOrder, 0);
         ImportedItemAffix affix = new ImportedItemAffix(
                 type.get(),
                 resolved.value(),
                 defaultUnit(type.get()),
                 greaterAffix,
-                displayOrder,
+                selectedOrder,
                 text,
                 ImportedItemAffixSource.OCR,
                 definition == null ? "" : definition.getId(),
                 rollRange.map(RollRange::min).orElse(null),
                 rollRange.map(RollRange::max).orElse(null),
                 referenceValue,
-                ""
+                "",
+                visualAnchorSourceText(line, text),
+                visualOrder
         );
         registerCandidateQuality(affix, definition, text, text, 0, 0, 1, countNumericTokens(text),
                 localValueCandidate(text, 0).orElse(null));
         return List.of(affix);
     }
 
-    private Optional<ImportedItemAffix> buildAffix(AffixDefinition definition,
+    private Optional<ImportedItemAffix> buildAffix(FullItemReadLine line,
+                                                   AffixDefinition definition,
                                                    String segment,
                                                    String sourceLine,
                                                    int matchStartInSourceLine,
                                                    int matchStartInSegment,
+                                                   int segmentStartInLine,
                                                    int sourceLineAnchorCount,
                                                    int sourceLineNumberCount,
                                                    int displayOrder,
@@ -529,7 +543,8 @@ public final class ImportedItemAffixExtractor {
             Optional<RollRange> parsedRange = parseRollRange(segment, definition.getFormType());
             Double referenceValue = mythicReferenceValue(mythicUniqueContext, resolved.value(), parsedRange).orElse(null);
             Optional<RollRange> validatedRangeForGreaterAffix = validateParsedRollRange(resolved.value(), parsedRange);
-            boolean greaterAffix = isGreaterAffixLine(segment)
+            boolean localGreaterMarker = hasLocalGreaterAffixMarker(line, segmentStartInLine);
+            boolean greaterAffix = localGreaterMarker
                     || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, definition.getFormType(), resolved.value())
                     || isMoonFrenzyGreaterAffix(moonFrenzyShieldContext, definition.getFormType(), resolved.value())
                     || resolved.greaterAffix()
@@ -542,19 +557,23 @@ public final class ImportedItemAffixExtractor {
                     ? validatedRangeForGreaterAffix
                     : Optional.empty();
             String displayValue = "+" + formatValue(resolved.value());
+            int selectedOrder = selectedSourceOrder(line, displayOrder, segmentStartInLine);
+            int visualOrder = visualSourceOrder(line, displayOrder, segmentStartInLine);
             ImportedItemAffix affix = new ImportedItemAffix(
                     definition.getFormType(),
                     resolved.value(),
                     defaultUnit(definition.getFormType()),
                     greaterAffix,
-                    displayOrder,
+                    selectedOrder,
                     segment.isBlank() ? sourceLine : segment,
                     ImportedItemAffixSource.OCR,
                     definition.getId(),
                     rollRange.map(RollRange::min).orElse(null),
                     rollRange.map(RollRange::max).orElse(null),
                     referenceValue,
-                    displayValue
+                    displayValue,
+                    visualAnchorSourceText(line, sourceLine),
+                    visualOrder
             );
             registerCandidateQuality(affix, definition, segment, sourceLine, matchStartInSourceLine,
                     matchStartInSegment, sourceLineAnchorCount, sourceLineNumberCount,
@@ -592,7 +611,8 @@ public final class ImportedItemAffixExtractor {
         Optional<RollRange> parsedRange = parseRollRange(segment, definition.getFormType());
         Double referenceValue = mythicReferenceValue(mythicUniqueContext, resolved.value(), parsedRange).orElse(null);
         Optional<RollRange> validatedRangeForGreaterAffix = validateParsedRollRange(resolved.value(), parsedRange);
-        boolean greaterAffix = isGreaterAffixLine(segment)
+        boolean localGreaterMarker = hasLocalGreaterAffixMarker(line, segmentStartInLine);
+        boolean greaterAffix = localGreaterMarker
                 || isKoscianychLusekGreaterAffix(koscianychLusekShieldContext, definition.getFormType(), resolved.value())
                 || isMoonFrenzyGreaterAffix(moonFrenzyShieldContext, definition.getFormType(), resolved.value())
                 || resolved.greaterAffix()
@@ -604,19 +624,23 @@ public final class ImportedItemAffixExtractor {
         Optional<RollRange> rollRange = referenceValue == null
                 ? validatedRangeForGreaterAffix
                 : Optional.empty();
+        int selectedOrder = selectedSourceOrder(line, displayOrder, segmentStartInLine);
+        int visualOrder = visualSourceOrder(line, displayOrder, segmentStartInLine);
         ImportedItemAffix affix = new ImportedItemAffix(
                 definition.getFormType(),
                 resolved.value(),
                 defaultUnit(definition.getFormType()),
                 greaterAffix,
-                displayOrder,
+                selectedOrder,
                 segment.isBlank() ? sourceLine : segment,
                 ImportedItemAffixSource.OCR,
                 definition.getId(),
                 rollRange.map(RollRange::min).orElse(null),
                 rollRange.map(RollRange::max).orElse(null),
                 referenceValue,
-                ""
+                "",
+                visualAnchorSourceText(line, sourceLine),
+                visualOrder
         );
         registerCandidateQuality(affix, definition, segment, sourceLine, matchStartInSourceLine,
                 matchStartInSegment, sourceLineAnchorCount, sourceLineNumberCount, localValue.get());
@@ -663,7 +687,7 @@ public final class ImportedItemAffixExtractor {
                 + ItemImportDebugTrace.compactText(sourceLine)
                 + " segment=" + ItemImportDebugTrace.compactText(segment)
                 + " greaterAffix=" + affix.isGreaterAffix()
-                + " markerLocallyAssigned=" + isGreaterAffixLine(segment)
+                + " markerLocallyAssigned=" + affix.isGreaterAffix()
                 + " reason=" + ItemImportDebugTrace.quote(affix.isGreaterAffix()
                 ? "GA marker or verified GA value is locally assigned to affix candidate"
                 : "no local GA marker assigned to this affix candidate"));
@@ -1083,6 +1107,85 @@ public final class ImportedItemAffixExtractor {
         return startsWithGreaterMarker(trimmedLine);
     }
 
+    private static boolean hasLocalGreaterAffixMarker(FullItemReadLine line, int segmentStartInLine) {
+        if (line == null) {
+            return false;
+        }
+        if (isGreaterAffixLine(line.getText())) {
+            return true;
+        }
+        FullItemReadLineSource source = line.getSource();
+        if (hasLocalGreaterAffixMarker(source.getSourceRawLine(), source.getSourceSegmentStart())) {
+            return true;
+        }
+        if (hasLocalGreaterAffixMarker(source.getParentRawLine(), source.getSourceSegmentStart())) {
+            return true;
+        }
+        if (hasLocalGreaterAffixMarker(source.getVisualSourceText(), source.getVisualSegmentStart())) {
+            return true;
+        }
+        return hasLocalGreaterAffixMarker(line.getText(), segmentStartInLine);
+    }
+
+    private static boolean hasLocalGreaterAffixMarker(String rawLine, int segmentStart) {
+        String safeRawLine = rawLine == null ? "" : rawLine;
+        if (safeRawLine.isBlank()) {
+            return false;
+        }
+        if (segmentStart <= 0) {
+            return isGreaterAffixLine(safeRawLine);
+        }
+        int safeSegmentStart = Math.min(segmentStart, safeRawLine.length());
+        int markerIndex = -1;
+        for (int index = 0; index < safeSegmentStart; index++) {
+            if (isGreaterMarker(safeRawLine.charAt(index))) {
+                markerIndex = index;
+            }
+        }
+        if (markerIndex < 0) {
+            return false;
+        }
+        String between = safeRawLine.substring(markerIndex + 1, safeSegmentStart);
+        if (containsSectionSeparatorBetweenMarkerAndSegment(between)) {
+            return false;
+        }
+        int nonWhitespaceDistance = between.replaceAll("\\s+", "").length();
+        return nonWhitespaceDistance <= 6;
+    }
+
+    private static boolean containsSectionSeparatorBetweenMarkerAndSegment(String value) {
+        String normalized = normalize(value).replaceAll("[^A-Z0-9]", "");
+        return normalized.contains("PUSTEGNIAZDO")
+                || normalized.contains("GNIAZDA")
+                || normalized.contains("PRZEISTOCZONY")
+                || normalized.contains("NIEZNISZCZALNOSC")
+                || normalized.contains("NAZNACZENIE")
+                || normalized.contains("WYMAGA")
+                || normalized.contains("ASPEKT")
+                || normalized.contains("PODDAJSIENIENAWISCI");
+    }
+
+    private static int selectedSourceOrder(FullItemReadLine line, int fallbackOrder, int segmentStartInLine) {
+        if (line == null) {
+            return fallbackOrder;
+        }
+        return line.getSource().selectedOrder(fallbackOrder, segmentStartInLine);
+    }
+
+    private static int visualSourceOrder(FullItemReadLine line, int fallbackOrder, int segmentStartInLine) {
+        if (line == null) {
+            return fallbackOrder;
+        }
+        return line.getSource().visualOrder(fallbackOrder, segmentStartInLine);
+    }
+
+    private static String visualAnchorSourceText(FullItemReadLine line, String fallbackSourceLine) {
+        if (line == null || line.getSource().getVisualSourceText().isBlank()) {
+            return fallbackSourceLine == null ? "" : fallbackSourceLine;
+        }
+        return line.getSource().getVisualSourceText();
+    }
+
     private static boolean startsWithGreaterMarker(String trimmedLine) {
         if (trimmedLine == null || trimmedLine.isBlank()) {
             return false;
@@ -1093,6 +1196,10 @@ public final class ImportedItemAffixExtractor {
             }
         }
         return false;
+    }
+
+    private static boolean isGreaterMarker(char marker) {
+        return "*★⭐✦✧✱✳✴✵✶✷✸✹✺✻✼✽✾❋❂◆◇♦●•".indexOf(marker) >= 0;
     }
 
     static boolean hasRollRangeOrRangeFragment(String line) {

@@ -68,6 +68,24 @@ public final class ImportedItemAffix {
                 rollRangeMin, rollRangeMax, referenceValue, displayValue, rawOcrLine, displayOrder, false);
     }
 
+    public ImportedItemAffix(ImportedItemAffixType type,
+                             double value,
+                             String unit,
+                             boolean greaterAffix,
+                             int displayOrder,
+                             String rawOcrLine,
+                             ImportedItemAffixSource source,
+                             String affixDefinitionId,
+                             Double rollRangeMin,
+                             Double rollRangeMax,
+                             Double referenceValue,
+                             String displayValue,
+                             String visualSourceText,
+                             int visualDisplayOrder) {
+        this(type, value, unit, greaterAffix, displayOrder, rawOcrLine, source, affixDefinitionId,
+                rollRangeMin, rollRangeMax, referenceValue, displayValue, visualSourceText, visualDisplayOrder, false);
+    }
+
     private ImportedItemAffix(ImportedItemAffixType type,
                               double value,
                               String unit,
