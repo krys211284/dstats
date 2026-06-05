@@ -1984,7 +1984,12 @@ Kontrakt prezentacji dla smoke testu biblioteki itemów:
 - Każdy termin użyty w testach musi być spójny z terminologią README.
 - Pęknięcie golden values oznacza zmianę zachowania engine, a nie kosmetyczną różnicę.
 
-### 11.2. Obowiązkowe obszary pokrycia
+### 11.2. Testy warstwy OCR w imporcie itemów
+Realny OCR w imporcie itemów jest traktowany przede wszystkim jako diagnostyka wejścia obrazu, a nie główna deterministyczna regresja. `ItemImageImportRealOcrDiagnosticTest` jest częścią standardowego przebiegu testów: zwykłe `mvn test` oraz `mvn clean package` uruchamiają realny preprocessing i realny Windows OCR na wybranych fixture'ach obrazów, zapisują raw OCR variants, znormalizowane linie, `FullItemRead`, affixy oraz wynik merge do raportów w `target/`.
+
+Wynik tej diagnostyki służy do zebrania materiału błędów i debug evidence, z którego później buduje się stabilne testy mechanizmowe oparte o kontrolowane OCR text fixtures. Testy realnego OCR nie wymagają ręcznej flagi JVM i nie są pomijane w standardowym przebiegu. Deterministyczne warstwy po realnym OCR są testowane osobno i kolejno: preprocessing obrazu, text merge, block segmenter, text parser, candidate merger oraz service-level import. Dzięki temu zmienność środowiska OCR nie zastępuje testów logiki, ale pomaga wykryć, jaki raw text trzeba zabezpieczyć fixture'em tekstowym.
+
+### 11.3. Obowiązkowe obszary pokrycia
 Minimalny zakres testów obejmuje:
 - pipeline `Damage Engine`,
 - wzór main stat,
@@ -2158,7 +2163,7 @@ Minimalny zakres testów obejmuje:
 - bezpieczne kopiowanie pustego stanu snapshotu,
 - specjalną regułę zaokrąglenia prowadzącą do `raw crit hit = 52`.
 
-### 11.3. Aktualne zamrożone fixture i wartości
+### 11.4. Aktualne zamrożone fixture i wartości
 Wspólne dane referencyjne aktualnych golden values:
 - bohater: `Krys`
 - poziom: `13`
@@ -2221,5 +2226,7 @@ Dodatkowe aktualne referencje kontraktowe:
   - aktualizacji testów,
   - aktualizacji README.
 - Przed dostarczeniem paczki obowiązuje uruchomienie testów i potwierdzenie `100%` przejścia.
+- Lokalne katalogi techniczne `.m2/`, `target/` i `logs/` są ignorowane przez Git oraz wykluczone z ZIP-a projektu budowanego przez Maven.
+- Plik `.gitignore` pozostaje częścią rootu paczki ZIP, żeby odbiorca paczki zachował ten sam kontrakt ignorowania lokalnych artefaktów.
 - Jeżeli zmiana wpływa na liczby referencyjne, trzeba zaktualizować golden values i wszystkie miejsca diagnostyczne zależne od tych liczb.
 - README ma pozostać samowystarczalnym kontraktem projektu dla kolejnych implementacji od zera.

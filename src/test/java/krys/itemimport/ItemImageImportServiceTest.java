@@ -14,7 +14,6 @@ import krys.web.ItemImportPageModel;
 import krys.web.ItemImportPageRenderer;
 import krys.web.ItemLibraryPageModel;
 import krys.web.ItemLibraryPageRenderer;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
@@ -1868,7 +1867,6 @@ class ItemImageImportServiceTest {
 
     @Test
     void shouldRecognizeFoundationFieldsFromSingleItemScreenshot() throws Exception {
-        Assumptions.assumeTrue(System.getProperty("os.name").toLowerCase().contains("win"));
         byte[] imageBytes = buildSyntheticItemScreenshot();
 
         ItemImageImportCandidateParseResult result = new ItemImageImportService().analyze(

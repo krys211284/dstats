@@ -84,6 +84,11 @@
                                     <outputDirectory>/</outputDirectory>
                                     <useDefaultExcludes>true</useDefaultExcludes>
                                     <excludes>
+                                        <exclude>.m2</exclude>
+                                        <exclude>.m2/**</exclude>
+                                        <exclude>logs</exclude>
+                                        <exclude>logs/**</exclude>
+                                        <exclude>target</exclude>
                                         <exclude>target/**</exclude>
                                         <exclude>.git/**</exclude>
                                         <exclude>.idea/**</exclude>
@@ -91,6 +96,13 @@
                                     </excludes>
                                 </fileSet>
                             </fileSets>
+
+                            <files>
+                                <file>
+                                    <source>${project.basedir}/.gitignore</source>
+                                    <outputDirectory>/</outputDirectory>
+                                </file>
+                            </files>
                         </inlineDescriptor>
                     </inlineDescriptors>
                 </configuration>
