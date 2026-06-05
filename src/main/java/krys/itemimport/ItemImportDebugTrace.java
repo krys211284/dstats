@@ -238,6 +238,9 @@ public final class ItemImportDebugTrace {
                 + " selectedAspectId=" + quote(form.getSelectedAspectId())
                 + " ordinaryAffixes=" + form.getAffixes().size()
                 + " tempering=" + form.getTemperingAffixes().size()
+                + " headerGaCount=" + form.getGreaterAffixVerification().getHeaderGaCount()
+                + " assignedGaAffixCount=" + form.getGreaterAffixVerification().getAssignedGaAffixCount()
+                + " gaVerificationStatus=" + form.getGreaterAffixVerification().getStatus()
                 + " transfiguration=" + formatTransfiguration(form.getTransfiguration())
                 + " " + formatSocketing(form.getSocketing());
     }

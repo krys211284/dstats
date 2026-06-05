@@ -13,6 +13,7 @@ public final class ItemImageImportCandidateParseResult {
     private final ItemImportFieldCandidate<Double> thornsCandidate;
     private final ItemImportFieldCandidate<Double> blockChanceCandidate;
     private final ItemImportFieldCandidate<Double> retributionChanceCandidate;
+    private final GreaterAffixHeaderEvidence greaterAffixHeaderEvidence;
     private final String importNotice;
 
     public ItemImageImportCandidateParseResult(ItemImageMetadata imageMetadata,
@@ -25,6 +26,22 @@ public final class ItemImageImportCandidateParseResult {
                                                ItemImportFieldCandidate<Double> blockChanceCandidate,
                                                ItemImportFieldCandidate<Double> retributionChanceCandidate,
                                                String importNotice) {
+        this(imageMetadata, fullItemRead, slotCandidate, weaponDamageCandidate, strengthCandidate, intelligenceCandidate,
+                thornsCandidate, blockChanceCandidate, retributionChanceCandidate,
+                GreaterAffixHeaderEvidence.notDetected(), importNotice);
+    }
+
+    public ItemImageImportCandidateParseResult(ItemImageMetadata imageMetadata,
+                                               FullItemRead fullItemRead,
+                                               ItemImportFieldCandidate<EquipmentSlot> slotCandidate,
+                                               ItemImportFieldCandidate<Long> weaponDamageCandidate,
+                                               ItemImportFieldCandidate<Double> strengthCandidate,
+                                               ItemImportFieldCandidate<Double> intelligenceCandidate,
+                                               ItemImportFieldCandidate<Double> thornsCandidate,
+                                               ItemImportFieldCandidate<Double> blockChanceCandidate,
+                                               ItemImportFieldCandidate<Double> retributionChanceCandidate,
+                                               GreaterAffixHeaderEvidence greaterAffixHeaderEvidence,
+                                               String importNotice) {
         this.imageMetadata = imageMetadata;
         this.fullItemRead = fullItemRead == null ? FullItemRead.empty() : fullItemRead;
         this.slotCandidate = slotCandidate;
@@ -34,6 +51,9 @@ public final class ItemImageImportCandidateParseResult {
         this.thornsCandidate = thornsCandidate;
         this.blockChanceCandidate = blockChanceCandidate;
         this.retributionChanceCandidate = retributionChanceCandidate;
+        this.greaterAffixHeaderEvidence = greaterAffixHeaderEvidence == null
+                ? GreaterAffixHeaderEvidence.notDetected()
+                : greaterAffixHeaderEvidence;
         this.importNotice = importNotice;
     }
 
@@ -71,6 +91,10 @@ public final class ItemImageImportCandidateParseResult {
 
     public ItemImportFieldCandidate<Double> getRetributionChanceCandidate() {
         return retributionChanceCandidate;
+    }
+
+    public GreaterAffixHeaderEvidence getGreaterAffixHeaderEvidence() {
+        return greaterAffixHeaderEvidence;
     }
 
     public String getImportNotice() {

@@ -27,6 +27,8 @@ public final class ItemImportEditableForm {
     private final ItemMasterworking masterworking;
     private final ItemTransfiguration transfiguration;
     private final ItemSocketing socketing;
+    private final GreaterAffixHeaderEvidence greaterAffixHeaderEvidence;
+    private final GreaterAffixImportVerification greaterAffixVerification;
 
     public ItemImportEditableForm(String sourceImageName,
                                   String slot,
@@ -183,6 +185,32 @@ public final class ItemImportEditableForm {
                                   ItemMasterworking masterworking,
                                   ItemTransfiguration transfiguration,
                                   ItemSocketing socketing) {
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
+                fullItemRead, affixes, ocrSuggestedAspectId, ocrAspectConfidence, selectedAspectId, details,
+                temperingAffixes, masterworking, transfiguration, socketing,
+                GreaterAffixHeaderEvidence.notDetected(), GreaterAffixImportVerification.empty());
+    }
+
+    public ItemImportEditableForm(String sourceImageName,
+                                  String slot,
+                                  String weaponDamage,
+                                  String strength,
+                                  String intelligence,
+                                  String thorns,
+                                  String blockChance,
+                                  String retributionChance,
+                                  FullItemRead fullItemRead,
+                                  List<ImportedItemAffix> affixes,
+                                  String ocrSuggestedAspectId,
+                                  ItemImportFieldConfidence ocrAspectConfidence,
+                                  String selectedAspectId,
+                                  ItemImportDetails details,
+                                  List<ItemTemperingAffix> temperingAffixes,
+                                  ItemMasterworking masterworking,
+                                  ItemTransfiguration transfiguration,
+                                  ItemSocketing socketing,
+                                  GreaterAffixHeaderEvidence greaterAffixHeaderEvidence,
+                                  GreaterAffixImportVerification greaterAffixVerification) {
         this.sourceImageName = sourceImageName;
         this.slot = slot;
         this.weaponDamage = weaponDamage;
@@ -201,6 +229,12 @@ public final class ItemImportEditableForm {
         this.masterworking = masterworking == null ? ItemMasterworking.defaultState() : masterworking;
         this.transfiguration = transfiguration == null ? ItemTransfiguration.none() : transfiguration;
         this.socketing = socketing == null ? ItemSocketing.empty() : socketing;
+        this.greaterAffixHeaderEvidence = greaterAffixHeaderEvidence == null
+                ? GreaterAffixHeaderEvidence.notDetected()
+                : greaterAffixHeaderEvidence;
+        this.greaterAffixVerification = greaterAffixVerification == null
+                ? GreaterAffixImportVerification.empty()
+                : greaterAffixVerification;
     }
 
     public String getSourceImageName() {
@@ -273,6 +307,14 @@ public final class ItemImportEditableForm {
 
     public ItemSocketing getSocketing() {
         return socketing;
+    }
+
+    public GreaterAffixHeaderEvidence getGreaterAffixHeaderEvidence() {
+        return greaterAffixHeaderEvidence;
+    }
+
+    public GreaterAffixImportVerification getGreaterAffixVerification() {
+        return greaterAffixVerification;
     }
 
     public String getItemName() {

@@ -19,6 +19,7 @@ public final class ItemImageImportService {
     private final ItemImageImportTextParser textParser;
     private final ItemImageImportCandidateMerger candidateMerger;
     private final ItemScreenshotTextMerger textMerger;
+    private final GreaterAffixHeaderStarDetector headerStarDetector;
 
     public ItemImageImportService() {
         this(
@@ -26,7 +27,8 @@ public final class ItemImageImportService {
                 new WindowsItemOcrTextReader(),
                 new ItemImageImportTextParser(),
                 new ItemImageImportCandidateMerger(),
-                new ItemScreenshotTextMerger()
+                new ItemScreenshotTextMerger(),
+                new GreaterAffixHeaderStarDetector()
         );
     }
 
@@ -42,11 +44,21 @@ public final class ItemImageImportService {
                            ItemImageImportTextParser textParser,
                            ItemImageImportCandidateMerger candidateMerger,
                            ItemScreenshotTextMerger textMerger) {
+        this(ocrPreprocessor, ocrTextReader, textParser, candidateMerger, textMerger, new GreaterAffixHeaderStarDetector());
+    }
+
+    ItemImageImportService(ItemImageOcrPreprocessor ocrPreprocessor,
+                           ItemImageOcrTextReader ocrTextReader,
+                           ItemImageImportTextParser textParser,
+                           ItemImageImportCandidateMerger candidateMerger,
+                           ItemScreenshotTextMerger textMerger,
+                           GreaterAffixHeaderStarDetector headerStarDetector) {
         this.ocrPreprocessor = ocrPreprocessor;
         this.ocrTextReader = ocrTextReader;
         this.textParser = textParser;
         this.candidateMerger = candidateMerger;
         this.textMerger = textMerger;
+        this.headerStarDetector = headerStarDetector;
     }
 
     public ItemImageImportCandidateParseResult analyze(ItemImageImportRequest request) {
@@ -64,6 +76,7 @@ public final class ItemImageImportService {
             var variants = ocrPreprocessor.prepareVariants(image);
             var ocrTexts = ocrTextReader.readTextVariants(variants);
             logOcrRawVariants(0, ocrTexts);
+            GreaterAffixHeaderEvidence headerEvidence = headerStarDetector.detect(ocrTexts);
             List<String> variantTexts = ocrTexts.stream()
                     .map(ItemImageOcrTextVariant::getText)
                     .toList();
@@ -89,7 +102,7 @@ public final class ItemImageImportService {
                     }
                 }
             }
-            return candidateMerger.merge(metadata, variants.size(), parsedVariants, typedParse);
+            return candidateMerger.merge(metadata, variants.size(), parsedVariants, typedParse, headerEvidence);
         }
     }
 
@@ -106,6 +119,7 @@ public final class ItemImageImportService {
 
         try (ItemImportDebugTrace.Scope ignored = ItemImportDebugTrace.startImport()) {
             List<ItemScreenshotMergedText> ocrTexts = new ArrayList<>();
+            List<ItemImageOcrTextVariant> rawTextVariants = new ArrayList<>();
             List<BufferedImage> images = new ArrayList<>();
             int analyzedVariantCount = 0;
             int totalHeight = 0;
@@ -126,6 +140,7 @@ public final class ItemImageImportService {
                 var variants = ocrPreprocessor.prepareVariants(image);
                 analyzedVariantCount += variants.size();
                 var textVariants = ocrTextReader.readTextVariants(variants);
+                rawTextVariants.addAll(textVariants);
                 logOcrRawVariants(requestIndex, textVariants);
                 List<String> variantTexts = textVariants.stream()
                         .map(ItemImageOcrTextVariant::getText)
@@ -145,6 +160,7 @@ public final class ItemImageImportService {
                     totalHeight
             );
             ItemImportDebugTrace.bindMetadata(metadata);
+            GreaterAffixHeaderEvidence headerEvidence = headerStarDetector.detect(rawTextVariants);
             logMergerInput("SCREEN_MERGER_INPUT", -1, ocrTexts.stream()
                     .map(ItemScreenshotMergedText::asPlainText)
                     .toList());
@@ -164,6 +180,7 @@ public final class ItemImageImportService {
                     parsed.getThornsCandidate(),
                     parsed.getBlockChanceCandidate(),
                     parsed.getRetributionChanceCandidate(),
+                    headerEvidence,
                     "Import wieloscreenowy: " + requests.size() + " obrazy scalone jako jeden item. "
                             + "OCR analizował " + analyzedVariantCount + " wariantów obrazu."
             );

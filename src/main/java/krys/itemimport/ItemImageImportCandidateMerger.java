@@ -32,6 +32,14 @@ final class ItemImageImportCandidateMerger {
                                               int analyzedVariantCount,
                                               List<ItemImageImportCandidateParseResult> parseResults,
                                               ItemImageImportCandidateParseResult authoritativeParseResult) {
+        return merge(metadata, analyzedVariantCount, parseResults, authoritativeParseResult, null);
+    }
+
+    ItemImageImportCandidateParseResult merge(ItemImageMetadata metadata,
+                                              int analyzedVariantCount,
+                                              List<ItemImageImportCandidateParseResult> parseResults,
+                                              ItemImageImportCandidateParseResult authoritativeParseResult,
+                                              GreaterAffixHeaderEvidence greaterAffixHeaderEvidence) {
         List<ItemImageImportCandidateParseResult> safeParseResults = parseResults == null ? List.of() : parseResults;
         List<ItemImageImportCandidateParseResult> fieldParseResults = new ArrayList<>(safeParseResults);
         if (authoritativeParseResult != null) {
@@ -79,9 +87,49 @@ final class ItemImageImportCandidateMerger {
                 thornsCandidate,
                 blockChanceCandidate,
                 retributionChanceCandidate,
+                greaterAffixHeaderEvidence == null
+                        ? bestHeaderEvidence(fieldParseResults)
+                        : greaterAffixHeaderEvidence,
                 buildImportNotice(analyzedVariantCount, slotCandidate, weaponDamageCandidate, strengthCandidate,
                         intelligenceCandidate, thornsCandidate, blockChanceCandidate, retributionChanceCandidate)
         );
+    }
+
+    private static GreaterAffixHeaderEvidence bestHeaderEvidence(List<ItemImageImportCandidateParseResult> parseResults) {
+        GreaterAffixHeaderEvidence selected = GreaterAffixHeaderEvidence.notDetected();
+        for (ItemImageImportCandidateParseResult parseResult : parseResults == null ? List.<ItemImageImportCandidateParseResult>of() : parseResults) {
+            GreaterAffixHeaderEvidence candidate = parseResult.getGreaterAffixHeaderEvidence();
+            if (isBetterHeaderEvidence(candidate, selected)) {
+                selected = candidate;
+            }
+        }
+        return selected;
+    }
+
+    private static boolean isBetterHeaderEvidence(GreaterAffixHeaderEvidence candidate,
+                                                  GreaterAffixHeaderEvidence selected) {
+        if (candidate == null) {
+            return false;
+        }
+        if (selected == null) {
+            return true;
+        }
+        if (candidate.isReliable() != selected.isReliable()) {
+            return candidate.isReliable();
+        }
+        if (candidate.getDetectedCount() != selected.getDetectedCount()) {
+            return candidate.getDetectedCount() > selected.getDetectedCount();
+        }
+        return sourceScore(candidate.getSource()) > sourceScore(selected.getSource());
+    }
+
+    private static int sourceScore(GreaterAffixHeaderEvidenceSource source) {
+        return switch (source == null ? GreaterAffixHeaderEvidenceSource.NOT_DETECTED : source) {
+            case OCR_HEADER_MIXED -> 3;
+            case OCR_HEADER_LITERAL_STARS -> 2;
+            case OCR_HEADER_ZERO_LIKE_RUN_HEURISTIC -> 1;
+            case NOT_DETECTED -> 0;
+        };
     }
 
     private static FullItemRead mergeAuthoritativeFullItemRead(FullItemRead authoritativeRead,

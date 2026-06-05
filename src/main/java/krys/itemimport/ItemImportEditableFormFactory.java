@@ -63,7 +63,13 @@ public final class ItemImportEditableFormFactory {
                     draft.getTemperingAffixes(),
                     draft.getMasterworking(),
                     draft.getTransfiguration(),
-                    draft.getSocketing()
+                    draft.getSocketing(),
+                    parseResult.getGreaterAffixHeaderEvidence(),
+                    verifyGreaterAffixes(
+                            parseResult.getGreaterAffixHeaderEvidence(),
+                            draft.getAffixes(),
+                            draft.getTemperingAffixes()
+                    )
             );
             ItemImportDebugTrace.log("FINAL_IMPORT_FORM", () -> ItemImportDebugTrace.formatForm(form)
                     + " " + ItemImportDebugTrace.formatDetails(form.getDetails()));
@@ -114,11 +120,22 @@ public final class ItemImportEditableFormFactory {
                 temperingExtractor.extractTemperingAffixes(parseResult.getFullItemRead()),
                 ordinaryClassification.overflowTemperingAffixes()
         );
-        GreaterAffixMarkerSummary markerSummary = greaterAffixMarkerSummary(parseResult.getFullItemRead(), affixes, temperingAffixes);
+        GreaterAffixMarkerSummary markerSummary = greaterAffixMarkerSummary(
+                parseResult.getFullItemRead(),
+                affixes,
+                temperingAffixes,
+                parseResult.getGreaterAffixHeaderEvidence()
+        );
         affixes = applyGreaterAffixConfirmationState(affixes, markerSummary, parseResult.getFullItemRead());
+        GreaterAffixImportVerification greaterAffixVerification = verifyGreaterAffixes(
+                parseResult.getGreaterAffixHeaderEvidence(),
+                affixes,
+                temperingAffixes
+        );
         ItemMasterworking masterworking = detectMasterworking(parseResult.getFullItemRead(), affixes, temperingAffixes, markerSummary);
         ItemTransfiguration transfiguration = detectTransfiguration(parseResult.getFullItemRead());
         ItemSocketing socketing = detectSocketing(parseResult.getFullItemRead());
+        logGreaterAffixVerification(parseResult.getGreaterAffixHeaderEvidence(), greaterAffixVerification);
         return new ItemImportDraft(
                 parseResult,
                 aspectMatch.aspectId(),
@@ -584,8 +601,11 @@ public final class ItemImportEditableFormFactory {
 
     private static GreaterAffixMarkerSummary greaterAffixMarkerSummary(FullItemRead fullItemRead,
                                                                        List<ImportedItemAffix> affixes,
-                                                                       List<ItemTemperingAffix> temperingAffixes) {
-        int globalCount = countGlobalGreaterMarkers(fullItemRead);
+                                                                       List<ItemTemperingAffix> temperingAffixes,
+                                                                       GreaterAffixHeaderEvidence headerEvidence) {
+        int headerCount = headerEvidence == null || !headerEvidence.isReliable() ? 0 : headerEvidence.getDetectedCount();
+        int fullReadMarkerCount = countGlobalGreaterMarkers(fullItemRead);
+        int globalCount = Math.max(headerCount, fullReadMarkerCount);
         int localAssigned = (int) (affixes == null ? List.<ImportedItemAffix>of() : affixes).stream()
                 .filter(ImportedItemAffix::isGreaterAffix)
                 .count();
@@ -593,6 +613,68 @@ public final class ItemImportEditableFormFactory {
                 .filter(ItemTemperingAffix::isGreaterAffix)
                 .count();
         return new GreaterAffixMarkerSummary(globalCount > 0, globalCount, localAssigned, globalCount > localAssigned);
+    }
+
+    private static GreaterAffixImportVerification verifyGreaterAffixes(GreaterAffixHeaderEvidence headerEvidence,
+                                                                       List<ImportedItemAffix> affixes,
+                                                                       List<ItemTemperingAffix> temperingAffixes) {
+        GreaterAffixHeaderEvidence safeEvidence = headerEvidence == null
+                ? GreaterAffixHeaderEvidence.notDetected()
+                : headerEvidence;
+        int headerGaCount = safeEvidence.isReliable() ? safeEvidence.getDetectedCount() : 0;
+        int localGaAffixCount = (int) (affixes == null ? List.<ImportedItemAffix>of() : affixes).stream()
+                .filter(ImportedItemAffix::isGreaterAffix)
+                .count();
+        int temperingGaAffixCount = (int) (temperingAffixes == null ? List.<ItemTemperingAffix>of() : temperingAffixes).stream()
+                .filter(ItemTemperingAffix::isGreaterAffix)
+                .count();
+        int assignedGaAffixCount = localGaAffixCount + temperingGaAffixCount;
+        int ordinaryAffixCount = affixes == null ? 0 : affixes.size();
+        List<String> warnings = new ArrayList<>(safeEvidence.getWarnings());
+        GreaterAffixVerificationStatus status;
+        if (headerGaCount <= 0) {
+            status = GreaterAffixVerificationStatus.HEADER_COUNT_MISSING;
+            warnings.add("Nie wykryto wiarygodnej liczby gwiazdek Greater Affix w nagłówku.");
+        } else if (ordinaryAffixCount < headerGaCount) {
+            status = GreaterAffixVerificationStatus.NOT_ENOUGH_AFFIXES_FOR_HEADER_COUNT;
+            warnings.add("Nagłówek wskazuje " + headerGaCount + " GA, ale rozpoznano tylko "
+                    + ordinaryAffixCount + " ordinary affixów.");
+        } else if (assignedGaAffixCount == headerGaCount) {
+            status = GreaterAffixVerificationStatus.OK;
+        } else if (assignedGaAffixCount == 0) {
+            status = GreaterAffixVerificationStatus.REQUIRES_USER_CONFIRMATION;
+            warnings.add("Nagłówek wskazuje GA, ale importer nie przypisał ich jednoznacznie do affixów.");
+        } else {
+            status = GreaterAffixVerificationStatus.HEADER_COUNT_MISMATCH;
+            warnings.add("Nagłówek wskazuje " + headerGaCount + " GA, a finalnie przypisano "
+                    + assignedGaAffixCount + ".");
+        }
+        return new GreaterAffixImportVerification(
+                headerGaCount,
+                localGaAffixCount,
+                assignedGaAffixCount,
+                ordinaryAffixCount,
+                status,
+                warnings
+        );
+    }
+
+    private static void logGreaterAffixVerification(GreaterAffixHeaderEvidence evidence,
+                                                    GreaterAffixImportVerification verification) {
+        GreaterAffixHeaderEvidence safeEvidence = evidence == null ? GreaterAffixHeaderEvidence.notDetected() : evidence;
+        GreaterAffixImportVerification safeVerification = verification == null
+                ? GreaterAffixImportVerification.empty()
+                : verification;
+        ItemImportDebugTrace.log("GA_HEADER_VERIFICATION", () -> "headerGaCount=" + safeVerification.getHeaderGaCount()
+                + " localGaAffixCount=" + safeVerification.getLocalGaAffixCount()
+                + " assignedGaAffixCount=" + safeVerification.getAssignedGaAffixCount()
+                + " ordinaryAffixCount=" + safeVerification.getOrdinaryAffixCount()
+                + " status=" + safeVerification.getStatus()
+                + " source=" + safeEvidence.getSource()
+                + " reliable=" + safeEvidence.isReliable()
+                + " sourceVariantId=" + ItemImportDebugTrace.quote(safeEvidence.getSourceVariantId())
+                + " sourceText=" + ItemImportDebugTrace.compactText(safeEvidence.getSourceText())
+                + " warnings=" + ItemImportDebugTrace.quote(String.join(" | ", safeVerification.getWarnings())));
     }
 
     private static int countGlobalGreaterMarkers(FullItemRead fullItemRead) {
