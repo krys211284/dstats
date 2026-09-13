@@ -1030,11 +1030,11 @@ class ItemImageImportServiceTest {
                                 [1 884 - 2 512] pkt. obrażeń za trafienie
                                 1,10 ataku na sekundę
                                 25 (+25) jakości
+                                +314 obrażeń od broni
+                                +270 siły +948 pkt. zdrowia przy trafieniu Mnożnik x15% wszystkich obrażeń
                                 Przeistoczony
                                 Niezniszczalność
                                 +47,5% szansy na trafienie krytyczne
-                                +314 obrażeń od broni
-                                +270 siły +948 pkt. zdrowia przy trafieniu Mnożnik x15% wszystkich obrażeń
                                 +7,5% szansy na trafienie krytyczne
                                 14 obrażeń od broni + pkt. zdrowia przy trafieniu
                                 Mnożnik x32% obrażeń (Fizyczne)

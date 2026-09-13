@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.text.Normalizer;
 import java.time.LocalDateTime;
@@ -45,9 +46,8 @@ public final class ItemImportDebugTrace {
 
     private static final Logger LOGGER = Logger.getLogger(LOGGER_NAME);
     private static final DateTimeFormatter ID_TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
-    private static final DateTimeFormatter DEBUG_FILE_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss");
-    private static final String DEFAULT_DEBUG_FILE = "logs/item-import-debug-"
-            + DEBUG_FILE_TIMESTAMP.format(LocalDateTime.now()) + ".log";
+    private static final String DEFAULT_IMPORT_DEBUG_DIRECTORY = "logs/item-import";
+    private static final DateTimeFormatter FALLBACK_DEBUG_FILE_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss-SSS");
     private static final TemperingAffixRegistry TEMPERING_REGISTRY = ApplicationTemperingAffixRegistry.get();
     private static final MasterworkingResolvedItemValueResolver MASTERWORKING_RESOLVER = new MasterworkingResolvedItemValueResolver();
     private static final Pattern NUMERIC_TOKEN_PATTERN = Pattern.compile(
@@ -55,8 +55,9 @@ public final class ItemImportDebugTrace {
     );
     private static final Pattern LEADING_DISPLAY_VALUE_PATTERN = Pattern.compile("\\+\\s*([0-9]+(?:[,.][0-9]+)?)");
     private static final ThreadLocal<TraceContext> CURRENT = new ThreadLocal<>();
-    private static final Map<ItemImageMetadata, String> METADATA_TRACE_IDS =
+    private static final Map<ItemImageMetadata, TraceContext> METADATA_TRACE_CONTEXTS =
             Collections.synchronizedMap(new WeakHashMap<>());
+    private static ItemImportLogFileNameFactory logFileNameFactory = ItemImportLogFileNameFactory.system();
 
     static {
         LOGGER.setLevel(Level.INFO);
@@ -74,12 +75,17 @@ public final class ItemImportDebugTrace {
         if (!isEnabled()) {
             return Scope.noop();
         }
-        return push(new TraceContext(
+        ImportLogFileContext logFile = ImportLogFileContext.create(defaultImportDebugDirectory(), logFileNameFactory);
+        Scope scope = push(new TraceContext(
                 "ITEM-IMPORT-" + ID_TIMESTAMP.format(LocalDateTime.now()) + "-" + UUID.randomUUID(),
                 null,
                 null,
-                ""
+                "",
+                logFile
         ));
+        log("IMPORT_LOG_FILE_CREATED", () -> "path=" + quote(logFile.currentPath().toString())
+                + " temporary=true");
+        return scope;
     }
 
     public static Scope startOperation(String prefix) {
@@ -95,7 +101,8 @@ public final class ItemImportDebugTrace {
                 safePrefix + "-" + ID_TIMESTAMP.format(LocalDateTime.now()) + "-" + UUID.randomUUID(),
                 null,
                 null,
-                ""
+                "",
+                null
         ));
     }
 
@@ -106,9 +113,9 @@ public final class ItemImportDebugTrace {
         TraceContext current = CURRENT.get();
         if (current == null) {
             current = new TraceContext("ITEM-IMPORT-" + ID_TIMESTAMP.format(LocalDateTime.now()) + "-" + UUID.randomUUID(),
-                    null, null, "");
+                    null, null, "", null);
         }
-        return push(new TraceContext(current.id(), screenIndex, variantIndex, safe(variantId)));
+        return push(new TraceContext(current.id(), screenIndex, variantIndex, safe(variantId), current.logFile()));
     }
 
     public static void bindMetadata(ItemImageMetadata metadata) {
@@ -116,8 +123,9 @@ public final class ItemImportDebugTrace {
             return;
         }
         String id = currentId();
-        if (!id.isBlank()) {
-            METADATA_TRACE_IDS.put(metadata, id);
+        TraceContext current = CURRENT.get();
+        if (!id.isBlank() && current != null) {
+            METADATA_TRACE_CONTEXTS.put(metadata, current.withoutVariant());
         }
     }
 
@@ -129,16 +137,42 @@ public final class ItemImportDebugTrace {
         if (current != null && current.id() != null && !current.id().isBlank()) {
             return Scope.noop();
         }
-        String id = METADATA_TRACE_IDS.get(metadata);
-        if (id == null || id.isBlank()) {
+        TraceContext context = METADATA_TRACE_CONTEXTS.get(metadata);
+        if (context == null || context.id() == null || context.id().isBlank()) {
             return Scope.noop();
         }
-        return push(new TraceContext(id, null, null, ""));
+        return push(context.withoutVariant());
     }
 
     public static String currentId() {
         TraceContext current = CURRENT.get();
         return current == null ? "" : current.id();
+    }
+
+    public static void finalizeImportLog(String itemName) {
+        if (!isEnabled()) {
+            return;
+        }
+        TraceContext context = CURRENT.get();
+        if (context == null || context.logFile() == null) {
+            return;
+        }
+        ImportLogFileContext logFile = context.logFile();
+        if (logFile.finalized()) {
+            return;
+        }
+        String itemSlug = ItemImportLogFileNameFactory.sanitizeItemSlug(itemName);
+        log("IMPORT_LOG_ITEM_NAME_RESOLVED", () -> "itemName=" + quote(itemName)
+                + " itemSlug=" + quote(itemSlug));
+        logFile.finalizeForItem(itemName, itemSlug);
+        log("IMPORT_LOG_FILE_FINALIZED", () -> "path=" + quote(logFile.currentPath().toString())
+                + " itemName=" + quote(itemName)
+                + " itemSlug=" + quote(itemSlug)
+                + " temporary=false");
+    }
+
+    static String sanitizeImportLogItemSlug(String itemName) {
+        return ItemImportLogFileNameFactory.sanitizeItemSlug(itemName);
     }
 
     public static void log(String section, Supplier<String> messageSupplier) {
@@ -409,11 +443,18 @@ public final class ItemImportDebugTrace {
     }
 
     static String debugFilePathForCurrentRun() {
+        TraceContext current = CURRENT.get();
+        if (current != null && current.logFile() != null) {
+            return current.logFile().currentPath().toString();
+        }
         String explicit = System.getProperty(FILE_PROPERTY);
         if (explicit != null) {
             return explicit;
         }
-        return DEFAULT_DEBUG_FILE;
+        return Path.of(DEFAULT_IMPORT_DEBUG_DIRECTORY,
+                "item-import-" + FALLBACK_DEBUG_FILE_TIMESTAMP.format(LocalDateTime.now())
+                        + "-pending-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8) + ".log")
+                .toString();
     }
 
     private static Scope push(TraceContext next) {
@@ -597,7 +638,90 @@ public final class ItemImportDebugTrace {
         return value == null ? "" : value;
     }
 
-    private record TraceContext(String id, Integer screenIndex, Integer variantIndex, String variantId) {
+    private static Path defaultImportDebugDirectory() {
+        String explicit = System.getProperty(FILE_PROPERTY);
+        if (explicit == null || explicit.isBlank()) {
+            return Path.of(DEFAULT_IMPORT_DEBUG_DIRECTORY);
+        }
+        Path path = Path.of(explicit);
+        if (explicit.toLowerCase(Locale.ROOT).endsWith(".log")) {
+            Path parent = path.getParent();
+            return parent == null ? Path.of(".") : parent;
+        }
+        return path;
+    }
+
+    static void useLogFileNameFactoryForTest(ItemImportLogFileNameFactory factory) {
+        logFileNameFactory = factory == null ? ItemImportLogFileNameFactory.system() : factory;
+    }
+
+    private record TraceContext(String id,
+                                Integer screenIndex,
+                                Integer variantIndex,
+                                String variantId,
+                                ImportLogFileContext logFile) {
+        TraceContext withoutVariant() {
+            return new TraceContext(id, null, null, "", logFile);
+        }
+    }
+
+    private static final class ImportLogFileContext {
+        private final Path directory;
+        private final String timestamp;
+        private final String suffix;
+        private Path currentPath;
+        private boolean finalized;
+
+        private ImportLogFileContext(Path directory,
+                                     String timestamp,
+                                     String suffix,
+                                     Path currentPath) {
+            this.directory = directory;
+            this.timestamp = timestamp;
+            this.suffix = suffix;
+            this.currentPath = currentPath;
+        }
+
+        private static ImportLogFileContext create(Path directory,
+                                                   ItemImportLogFileNameFactory fileNameFactory) {
+            Path safeDirectory = directory == null ? Path.of(DEFAULT_IMPORT_DEBUG_DIRECTORY) : directory;
+            ItemImportLogFileNameFactory.PendingLogName pending = fileNameFactory.pending();
+            return new ImportLogFileContext(
+                    safeDirectory,
+                    pending.timestamp(),
+                    pending.suffix(),
+                    safeDirectory.resolve(pending.fileName())
+            );
+        }
+
+        private Path currentPath() {
+            return currentPath;
+        }
+
+        private boolean finalized() {
+            return finalized;
+        }
+
+        private void finalizeForItem(String itemName, String itemSlug) {
+            String finalName = logFileNameFactory.finalFileName(timestamp, itemName, suffix);
+            Path finalPath = directory.resolve(finalName);
+            try {
+                Files.createDirectories(directory);
+                if (!currentPath.equals(finalPath) && Files.exists(currentPath)) {
+                    Files.move(currentPath, finalPath, StandardCopyOption.REPLACE_EXISTING);
+                }
+                currentPath = finalPath;
+                finalized = true;
+            } catch (IOException exception) {
+                finalized = true;
+                LOGGER.log(Level.FINE, "Nie udało się sfinalizować nazwy pliku trace importu itemu.", exception);
+                String line = "[ITEM_IMPORT_DEBUG][id=NO-CORRELATION-ID] LOG_FILE_RENAME_FAILED path="
+                        + quote(currentPath.toString())
+                        + " itemSlug=" + quote(itemSlug)
+                        + " reason=" + quote(exception.getMessage());
+                appendToDebugFile(line);
+            }
+        }
     }
 
     public static final class Scope implements AutoCloseable {

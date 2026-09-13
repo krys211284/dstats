@@ -14,6 +14,7 @@ public final class ItemImageImportCandidateParseResult {
     private final ItemImportFieldCandidate<Double> blockChanceCandidate;
     private final ItemImportFieldCandidate<Double> retributionChanceCandidate;
     private final GreaterAffixHeaderEvidence greaterAffixHeaderEvidence;
+    private final java.util.List<OrdinaryAffixSequenceCandidate> ordinarySequenceCandidates;
     private final String importNotice;
 
     public ItemImageImportCandidateParseResult(ItemImageMetadata imageMetadata,
@@ -28,7 +29,7 @@ public final class ItemImageImportCandidateParseResult {
                                                String importNotice) {
         this(imageMetadata, fullItemRead, slotCandidate, weaponDamageCandidate, strengthCandidate, intelligenceCandidate,
                 thornsCandidate, blockChanceCandidate, retributionChanceCandidate,
-                GreaterAffixHeaderEvidence.notDetected(), importNotice);
+                GreaterAffixHeaderEvidence.notDetected(), java.util.List.of(), importNotice);
     }
 
     public ItemImageImportCandidateParseResult(ItemImageMetadata imageMetadata,
@@ -42,6 +43,23 @@ public final class ItemImageImportCandidateParseResult {
                                                ItemImportFieldCandidate<Double> retributionChanceCandidate,
                                                GreaterAffixHeaderEvidence greaterAffixHeaderEvidence,
                                                String importNotice) {
+        this(imageMetadata, fullItemRead, slotCandidate, weaponDamageCandidate, strengthCandidate, intelligenceCandidate,
+                thornsCandidate, blockChanceCandidate, retributionChanceCandidate, greaterAffixHeaderEvidence,
+                java.util.List.of(), importNotice);
+    }
+
+    public ItemImageImportCandidateParseResult(ItemImageMetadata imageMetadata,
+                                               FullItemRead fullItemRead,
+                                               ItemImportFieldCandidate<EquipmentSlot> slotCandidate,
+                                               ItemImportFieldCandidate<Long> weaponDamageCandidate,
+                                               ItemImportFieldCandidate<Double> strengthCandidate,
+                                               ItemImportFieldCandidate<Double> intelligenceCandidate,
+                                               ItemImportFieldCandidate<Double> thornsCandidate,
+                                               ItemImportFieldCandidate<Double> blockChanceCandidate,
+                                               ItemImportFieldCandidate<Double> retributionChanceCandidate,
+                                               GreaterAffixHeaderEvidence greaterAffixHeaderEvidence,
+                                               java.util.List<OrdinaryAffixSequenceCandidate> ordinarySequenceCandidates,
+                                               String importNotice) {
         this.imageMetadata = imageMetadata;
         this.fullItemRead = fullItemRead == null ? FullItemRead.empty() : fullItemRead;
         this.slotCandidate = slotCandidate;
@@ -54,6 +72,9 @@ public final class ItemImageImportCandidateParseResult {
         this.greaterAffixHeaderEvidence = greaterAffixHeaderEvidence == null
                 ? GreaterAffixHeaderEvidence.notDetected()
                 : greaterAffixHeaderEvidence;
+        this.ordinarySequenceCandidates = ordinarySequenceCandidates == null
+                ? java.util.List.of()
+                : java.util.List.copyOf(ordinarySequenceCandidates);
         this.importNotice = importNotice;
     }
 
@@ -95,6 +116,10 @@ public final class ItemImageImportCandidateParseResult {
 
     public GreaterAffixHeaderEvidence getGreaterAffixHeaderEvidence() {
         return greaterAffixHeaderEvidence;
+    }
+
+    java.util.List<OrdinaryAffixSequenceCandidate> getOrdinarySequenceCandidates() {
+        return ordinarySequenceCandidates;
     }
 
     public String getImportNotice() {

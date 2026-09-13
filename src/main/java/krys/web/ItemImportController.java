@@ -21,6 +21,9 @@ import krys.itemimport.ItemImportFieldConfidence;
 import krys.itemimport.ItemImportFormMapper;
 import krys.itemimport.ValidatedImportedItem;
 import krys.itemimport.ValidatedImportedItemToItemMapper;
+import krys.itemimport.image.AssembledItemImage;
+import krys.itemimport.image.AssembledItemImageDebugWriter;
+import krys.itemimport.image.ItemImageAssembler;
 import krys.itemknowledge.ItemKnowledgeService;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
@@ -31,15 +34,17 @@ import krys.socketing.ItemSocketing;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 /** Kontroler SSR dla pierwszego foundation importu pojedynczego itemu ze screena. */
 public final class ItemImportController implements HttpHandler {
     private static final String HTML_CONTENT_TYPE = "text/html; charset=UTF-8";
 
-    private final ItemImageImportService imageImportService;
+    private final ImageImportAnalyzer imageImportAnalyzer;
     private final ItemImportPageRenderer renderer;
     private final ItemImportEditableFormFactory editableFormFactory;
     private final ItemImportFormMapper formMapper;
@@ -49,6 +54,8 @@ public final class ItemImportController implements HttpHandler {
     private final ItemLibraryService itemLibraryService;
     private final ItemKnowledgeService itemKnowledgeService;
     private final HeroService heroService;
+    private final ItemImageAssembler itemImageAssembler;
+    private final AssembledItemImageDebugWriter assembledImageDebugWriter;
 
     public ItemImportController(ItemImageImportService imageImportService,
                                 ItemImportPageRenderer renderer,
@@ -62,8 +69,18 @@ public final class ItemImportController implements HttpHandler {
                                 ItemLibraryService itemLibraryService,
                                 ItemKnowledgeService itemKnowledgeService,
                                 HeroService heroService) {
+        this(imageImportService, renderer, itemLibraryService, itemKnowledgeService, heroService, null, null);
+    }
+
+    public ItemImportController(ItemImageImportService imageImportService,
+                                ItemImportPageRenderer renderer,
+                                ItemLibraryService itemLibraryService,
+                                ItemKnowledgeService itemKnowledgeService,
+                                HeroService heroService,
+                                ItemImageAssembler itemImageAssembler,
+                                AssembledItemImageDebugWriter assembledImageDebugWriter) {
         this(
-                imageImportService,
+                requireImageImportService(imageImportService)::analyze,
                 renderer,
                 new ItemImportEditableFormFactory(),
                 new ItemImportFormMapper(),
@@ -72,11 +89,13 @@ public final class ItemImportController implements HttpHandler {
                 new FullItemReadAffixUpdater(),
                 itemLibraryService,
                 itemKnowledgeService,
-                heroService
+                heroService,
+                itemImageAssembler,
+                assembledImageDebugWriter
         );
     }
 
-    ItemImportController(ItemImageImportService imageImportService,
+    ItemImportController(ImageImportAnalyzer imageImportAnalyzer,
                          ItemImportPageRenderer renderer,
                          ItemImportEditableFormFactory editableFormFactory,
                          ItemImportFormMapper formMapper,
@@ -85,8 +104,10 @@ public final class ItemImportController implements HttpHandler {
                          FullItemReadAffixUpdater fullItemReadAffixUpdater,
                          ItemLibraryService itemLibraryService,
                          ItemKnowledgeService itemKnowledgeService,
-                         HeroService heroService) {
-        this.imageImportService = imageImportService;
+                         HeroService heroService,
+                         ItemImageAssembler itemImageAssembler,
+                         AssembledItemImageDebugWriter assembledImageDebugWriter) {
+        this.imageImportAnalyzer = Objects.requireNonNull(imageImportAnalyzer, "imageImportAnalyzer");
         this.renderer = renderer;
         this.editableFormFactory = editableFormFactory;
         this.formMapper = formMapper;
@@ -96,6 +117,8 @@ public final class ItemImportController implements HttpHandler {
         this.itemLibraryService = itemLibraryService;
         this.itemKnowledgeService = itemKnowledgeService;
         this.heroService = heroService;
+        this.itemImageAssembler = itemImageAssembler;
+        this.assembledImageDebugWriter = assembledImageDebugWriter;
     }
 
     @Override
@@ -140,29 +163,46 @@ public final class ItemImportController implements HttpHandler {
     }
 
     private ItemImportPageModel handleImageUpload(HttpExchange exchange) throws IOException {
+        ItemImportPageModel.OpenCvImagePreview openCvImagePreview = null;
+        String openCvPreviewError = "";
         try {
             HeroProfile activeHero = heroService.requireActiveHero();
             MultipartFormSupport.MultipartFormData multipartFormData = MultipartFormSupport.parse(exchange);
             List<MultipartFormSupport.MultipartFilePart> fileParts = multipartFormData.requireFiles("itemImage");
-            ItemImageImportCandidateParseResult parseResult = imageImportService.analyze(fileParts.stream()
+            List<ItemImageImportRequest> importRequests = fileParts.stream()
                     .map(filePart -> new ItemImageImportRequest(
                             filePart.getOriginalFilename(),
                             filePart.getContentType(),
                             filePart.getContent()
                     ))
-                    .toList());
+                    .toList();
+            OpenCvPreviewResult previewResult = buildOpenCvPreview(importRequests);
+            openCvImagePreview = previewResult.preview();
+            openCvPreviewError = previewResult.error();
+
+            ItemImageImportCandidateParseResult parseResult = imageImportAnalyzer.analyze(importRequests);
             return new ItemImportPageModel(
                     editableFormFactory.create(parseResult),
                     parseResult,
                     List.of(),
                     null,
+                    openCvImagePreview,
+                    openCvPreviewError,
                     activeHero,
                     buildHelpText(),
                     activeHero.getCurrentBuildQuery()
             );
         } catch (IllegalArgumentException exception) {
             HeroProfile activeHero = heroService.getActiveHero().orElse(null);
-            return buildErrorPageModel(null, null, List.of(exception.getMessage()), activeHero == null ? "" : activeHero.getCurrentBuildQuery(), activeHero);
+            return buildErrorPageModel(
+                    null,
+                    null,
+                    List.of(exception.getMessage()),
+                    activeHero == null ? "" : activeHero.getCurrentBuildQuery(),
+                    activeHero,
+                    openCvImagePreview,
+                    openCvPreviewError
+            );
         }
     }
 
@@ -529,7 +569,27 @@ public final class ItemImportController implements HttpHandler {
                                                     List<String> errors,
                                                     String currentBuildQuery,
                                                     HeroProfile activeHero) {
-        return new ItemImportPageModel(form, parseResult, errors, null, activeHero, buildHelpText(), currentBuildQuery);
+        return buildErrorPageModel(form, parseResult, errors, currentBuildQuery, activeHero, null, "");
+    }
+
+    private ItemImportPageModel buildErrorPageModel(ItemImportEditableForm form,
+                                                    ItemImageImportCandidateParseResult parseResult,
+                                                    List<String> errors,
+                                                    String currentBuildQuery,
+                                                    HeroProfile activeHero,
+                                                    ItemImportPageModel.OpenCvImagePreview openCvImagePreview,
+                                                    String openCvPreviewError) {
+        return new ItemImportPageModel(
+                form,
+                parseResult,
+                errors,
+                null,
+                openCvImagePreview,
+                openCvPreviewError,
+                activeHero,
+                buildHelpText(),
+                currentBuildQuery
+        );
     }
 
     private static String buildHelpText() {
@@ -541,6 +601,74 @@ public final class ItemImportController implements HttpHandler {
         exchange.getResponseHeaders().set("Content-Type", HTML_CONTENT_TYPE);
         exchange.sendResponseHeaders(200, responseBytes.length);
         exchange.getResponseBody().write(responseBytes);
+    }
+
+    private OpenCvPreviewResult buildOpenCvPreview(List<ItemImageImportRequest> importRequests) {
+        if (itemImageAssembler == null) {
+            return new OpenCvPreviewResult(null, "");
+        }
+        try {
+            AssembledItemImage assembledImage = itemImageAssembler.assemble(importRequests);
+            String debugWarning = writeOpenCvDebugArtifact(assembledImage);
+            String mimeType = "image/" + assembledImage.getFormat().toLowerCase(Locale.ROOT);
+            String dataUri = "data:" + mimeType + ";base64,"
+                    + Base64.getEncoder().encodeToString(assembledImage.getImageBytes());
+            List<ItemImportPageModel.OpenCvStitchDiagnosticView> stitchDiagnostics = assembledImage.getStitchDiagnostics().stream()
+                    .map(diagnostic -> new ItemImportPageModel.OpenCvStitchDiagnosticView(
+                            diagnostic.getFirstSourceIndex(),
+                            diagnostic.getSecondSourceIndex(),
+                            diagnostic.getOffsetX(),
+                            diagnostic.getOffsetY(),
+                            diagnostic.getOverlapHeight(),
+                            diagnostic.getSeamY(),
+                            String.format(Locale.US, "%.3f", diagnostic.getConfidence()),
+                            diagnostic.getStatus()
+                    ))
+                    .toList();
+            return new OpenCvPreviewResult(
+                    new ItemImportPageModel.OpenCvImagePreview(
+                            dataUri,
+                            assembledImage.getSourceImageCount(),
+                            assembledImage.getWidth(),
+                            assembledImage.getHeight(),
+                            assembledImage.getFormat(),
+                            assembledImage.getCompositionPolicy(),
+                            assembledImage.getAssemblyStatus(),
+                            stitchDiagnostics,
+                            debugWarning
+                    ),
+                    ""
+            );
+        } catch (RuntimeException exception) {
+            return new OpenCvPreviewResult(null, "Błąd podglądu OpenCV: " + safeMessage(exception));
+        }
+    }
+
+    private String writeOpenCvDebugArtifact(AssembledItemImage assembledImage) {
+        if (assembledImageDebugWriter == null) {
+            return "";
+        }
+        assembledImageDebugWriter.tryWriteDefault(assembledImage);
+        return "";
+    }
+
+    private static String safeMessage(RuntimeException exception) {
+        String message = exception.getMessage();
+        return message == null || message.isBlank()
+                ? exception.getClass().getSimpleName()
+                : message;
+    }
+
+    private static ItemImageImportService requireImageImportService(ItemImageImportService imageImportService) {
+        return Objects.requireNonNull(imageImportService, "imageImportService");
+    }
+
+    @FunctionalInterface
+    interface ImageImportAnalyzer {
+        ItemImageImportCandidateParseResult analyze(List<ItemImageImportRequest> requests);
+    }
+
+    private record OpenCvPreviewResult(ItemImportPageModel.OpenCvImagePreview preview, String error) {
     }
 
     private record AffixParseResult(List<ImportedItemAffix> affixes, List<String> errors) {

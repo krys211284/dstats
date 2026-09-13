@@ -90,9 +90,44 @@ final class ItemImageImportCandidateMerger {
                 greaterAffixHeaderEvidence == null
                         ? bestHeaderEvidence(fieldParseResults)
                         : greaterAffixHeaderEvidence,
+                ordinarySequenceCandidates(safeParseResults, authoritativeParseResult),
                 buildImportNotice(analyzedVariantCount, slotCandidate, weaponDamageCandidate, strengthCandidate,
                         intelligenceCandidate, thornsCandidate, blockChanceCandidate, retributionChanceCandidate)
         );
+    }
+
+    private static List<OrdinaryAffixSequenceCandidate> ordinarySequenceCandidates(
+            List<ItemImageImportCandidateParseResult> parseResults,
+            ItemImageImportCandidateParseResult authoritativeParseResult) {
+        List<OrdinaryAffixSequenceCandidate> candidates = new ArrayList<>();
+        int index = 0;
+        if (authoritativeParseResult != null && authoritativeParseResult.getFullItemRead().hasAnyData()) {
+            candidates.add(new OrdinaryAffixSequenceCandidate(
+                    "typed-merged",
+                    "TYPED_MERGED",
+                    authoritativeParseResult.getFullItemRead(),
+                    false
+            ));
+        }
+        for (ItemImageImportCandidateParseResult parseResult : parseResults == null ? List.<ItemImageImportCandidateParseResult>of() : parseResults) {
+            FullItemRead read = parseResult.getFullItemRead();
+            if (read == null || !read.hasAnyData()) {
+                continue;
+            }
+            String sourceVariant = read.getLines().stream()
+                    .map(line -> line.getSource().getSourceVariantId())
+                    .filter(value -> value != null && !value.isBlank())
+                    .findFirst()
+                    .orElse("OCR_VARIANT_" + index);
+            candidates.add(new OrdinaryAffixSequenceCandidate(
+                    "ocr-variant-" + index,
+                    sourceVariant,
+                    read,
+                    false
+            ));
+            index++;
+        }
+        return List.copyOf(candidates);
     }
 
     private static GreaterAffixHeaderEvidence bestHeaderEvidence(List<ItemImageImportCandidateParseResult> parseResults) {

@@ -247,6 +247,7 @@ class ItemImportEditableFormFactoryTest {
                         new FullItemReadLine(FullItemReadLineType.AFFIX, "★ +270 siły"),
                         new FullItemReadLine(FullItemReadLineType.AFFIX, "★ +948 pkt. zdrowia przy trafieniu"),
                         new FullItemReadLine(FullItemReadLineType.AFFIX, "Mnożnik x15% wszystkich obrażeń"),
+                        new FullItemReadLine(FullItemReadLineType.OTHER, "Niezniszczalność"),
                         new FullItemReadLine(FullItemReadLineType.AFFIX, "+7,5% szansy na trafienie krytyczne")
                 ),
                 details("Generyczny Miecz", "")
@@ -263,6 +264,62 @@ class ItemImportEditableFormFactoryTest {
         assertEquals(1, form.getTemperingAffixes().size());
         assertEquals("offense_critical_strike_chance", form.getTemperingAffixes().getFirst().getDefinitionId());
         assertEquals(7.5d, form.getTemperingAffixes().getFirst().getValue(), 0.0001d);
+    }
+
+    @Test
+    void shouldUseCoherentOrdinarySequenceInsteadOfContaminatedGlobalMerge() {
+        FullItemRead contaminatedGlobalRead = new FullItemRead(
+                "Odłamek Verathiela",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT,
+                                "Mnożnik x32% obrażeń (Fizyczne) [1 884-2 512] pkt. obrażeń za trafienie"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+314 obrażeń od broni"),
+                        new FullItemReadLine(FullItemReadLineType.OTHER, "Niezniszczalność"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+7,5% szansy na trafienie krytyczne")
+                ),
+                details("Odłamek Verathiela", "")
+        );
+        FullItemRead coherentSequence = new FullItemRead(
+                "Odłamek Verathiela",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "2 417 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT, "2 417 pkt. obrażeń na sek."),
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT, "[1 884-2 512] pkt. obrażeń za trafienie"),
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT, "1,10 ataku na sekundę"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+314 obrażeń od broni"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+270 siły"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+948 pkt. zdrowia przy trafieniu"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Mnożnik x15% wszystkich obrażeń"),
+                        new FullItemReadLine(FullItemReadLineType.OTHER, "Niezniszczalność"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+7,5% szansy na trafienie krytyczne")
+                ),
+                details("Odłamek Verathiela", "")
+        );
+
+        ItemImportEditableForm form = factory.create(parseResult(
+                contaminatedGlobalRead,
+                List.of(new OrdinaryAffixSequenceCandidate("ocr-coherent", "weapon-stats-crop", coherentSequence, false))
+        ));
+
+        assertEquals(List.of(
+                ImportedItemAffixType.WEAPON_DAMAGE_FLAT,
+                ImportedItemAffixType.STRENGTH,
+                ImportedItemAffixType.LIFE_ON_HIT,
+                ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER
+        ), form.getAffixes().stream().map(ImportedItemAffix::getType).toList());
+        assertEquals(314.0d, form.getAffixes().get(0).getValue(), 0.0001d);
+        assertEquals(270.0d, form.getAffixes().get(1).getValue(), 0.0001d);
+        assertEquals(948.0d, form.getAffixes().get(2).getValue(), 0.0001d);
+        assertEquals(15.0d, form.getAffixes().get(3).getValue(), 0.0001d);
+        assertEquals(1, form.getTemperingAffixes().size());
+        assertEquals("offense_critical_strike_chance", form.getTemperingAffixes().getFirst().getDefinitionId());
     }
 
     @Test
@@ -512,6 +569,11 @@ class ItemImportEditableFormFactoryTest {
     }
 
     private static ItemImageImportCandidateParseResult parseResult(FullItemRead fullItemRead) {
+        return parseResult(fullItemRead, List.of());
+    }
+
+    private static ItemImageImportCandidateParseResult parseResult(FullItemRead fullItemRead,
+                                                                   List<OrdinaryAffixSequenceCandidate> sequenceCandidates) {
         return new ItemImageImportCandidateParseResult(
                 new ItemImageMetadata("test.png", "image/png", "png", 1, 1),
                 fullItemRead,
@@ -522,6 +584,8 @@ class ItemImportEditableFormFactoryTest {
                 ItemImportFieldCandidate.unknown(""),
                 ItemImportFieldCandidate.unknown(""),
                 ItemImportFieldCandidate.unknown(""),
+                GreaterAffixHeaderEvidence.notDetected(),
+                sequenceCandidates,
                 ""
         );
     }

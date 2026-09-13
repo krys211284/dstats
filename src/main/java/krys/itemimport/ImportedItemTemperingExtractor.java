@@ -104,6 +104,10 @@ public final class ImportedItemTemperingExtractor {
         boolean displayedPerfectedValue = isDisplayedPerfectedMaxAnimus(line);
         double storedValue = displayedPerfectedValue ? resolvedDefinition.greaterAffixValue() : value.get();
         if (!displayedPerfectedValue && isRejectedTemperingValue(line, storedValue, resolvedDefinition)) {
+            Optional<ItemTemperingAffix> repeatedSegment = parseRepeatedCatalogSegment(line, itemPower, resolvedDefinition);
+            if (repeatedSegment.isPresent()) {
+                return repeatedSegment;
+            }
             ItemImportDebugTrace.log("TEMPERING_CANDIDATE", () -> "decision=rejected"
                     + " definitionId=" + ItemImportDebugTrace.quote(resolvedDefinition.getId())
                     + " selectedCandidate=false"
@@ -129,6 +133,45 @@ public final class ImportedItemTemperingExtractor {
                 + " sourceLine=" + ItemImportDebugTrace.compactText(line)
                 + " displayText=" + ItemImportDebugTrace.compactText(affix.getDisplayText()));
         return Optional.of(affix);
+    }
+
+    private Optional<ItemTemperingAffix> parseRepeatedCatalogSegment(String line,
+                                                                     Long itemPower,
+                                                                     TemperingAffixDefinition definition) {
+        String displayNameRegex = Pattern.quote(definition.getDisplayName()).replace(" ", "\\E\\s+\\Q");
+        Pattern pattern = Pattern.compile(
+                "([\\Q" + GREATER_MARKERS + "\\E]?\\s*\\+\\s*[0-9]+(?:[,.][0-9]+)?\\s*%?\\s+"
+                        + displayNameRegex
+                        + ")",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+        );
+        Matcher matcher = pattern.matcher(line == null ? "" : line);
+        while (matcher.find()) {
+            String segment = matcher.group(1).trim();
+            Optional<Double> segmentValue = parseLeadingValue(segment);
+            if (segmentValue.isEmpty() || isRejectedTemperingValue(segment, segmentValue.get(), definition)) {
+                continue;
+            }
+            boolean greaterAffix = isGreaterAffix(segment, itemPower, segmentValue.get(), definition);
+            ItemTemperingAffix affix = new ItemTemperingAffix(
+                    definition.getId(),
+                    definition.getCategory(),
+                    segmentValue.get(),
+                    formatDisplayText(segmentValue.get(), definition),
+                    stripLeadingGreaterMarker(segment),
+                    TemperingRuntimeStatus.DATA_ONLY,
+                    greaterAffix
+            );
+            ItemImportDebugTrace.log("TEMPERING_CANDIDATE", () -> "decision=selected"
+                    + " definitionId=" + ItemImportDebugTrace.quote(definition.getId())
+                    + " selectedCandidate=true"
+                    + " value=" + segmentValue.get()
+                    + " sourceLine=" + ItemImportDebugTrace.compactText(segment)
+                    + " displayText=" + ItemImportDebugTrace.compactText(affix.getDisplayText())
+                    + " reason=" + ItemImportDebugTrace.quote("selected valid repeated tempering segment after rejected leading OCR artifact"));
+            return Optional.of(affix);
+        }
+        return Optional.empty();
     }
 
     private static boolean isRejectedTemperingValue(String line,

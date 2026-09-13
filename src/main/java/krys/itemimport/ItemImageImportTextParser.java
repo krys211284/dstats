@@ -441,7 +441,6 @@ final class ItemImageImportTextParser {
                 "TRWALOSC",
                 "OZNACZ",
                 "UPUSC",
-                "WYPOSAZ",
                 "POROWNAJ"
         ));
     }

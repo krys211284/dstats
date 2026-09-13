@@ -49,6 +49,7 @@ public final class ItemImportPageRenderer {
                 .replace("{{FORM_ERRORS}}", renderErrors(model.getValidationErrors()))
                 .replace("{{HELP_TEXT}}", escapeHtml(model.getHelpText()))
                 .replace("{{UPLOAD_ACTION}}", escapeHtml(buildUploadAction(model.getCurrentBuildQuery())))
+                .replace("{{OPENCV_PREVIEW_SECTION}}", renderOpenCvPreviewSection(model))
                 .replace("{{PARSE_SECTION}}", renderParseSection(model))
                 .replace("{{CONFIRM_SECTION}}", renderConfirmSection(model))
                 .replace("{{TEMPERING_SCRIPT}}", TemperingSectionRenderer.renderScript()
@@ -74,6 +75,106 @@ public final class ItemImportPageRenderer {
         html.append("""
                     </ul>
                 </section>
+                """);
+        return html.toString();
+    }
+
+    private static String renderOpenCvPreviewSection(ItemImportPageModel model) {
+        if (!model.hasOpenCvImagePreview() && !model.hasOpenCvPreviewError()) {
+            return "";
+        }
+        if (model.hasOpenCvPreviewError() && !model.hasOpenCvImagePreview()) {
+            return """
+                    <section class="panel panel-error opencv-preview-panel" data-opencv-preview-section>
+                        <h2>Błąd podglądu OpenCV</h2>
+                        <p class="helper">%s</p>
+                        <p class="helper">To jest błąd podglądu nowego pipeline'u obrazu. Istniejący import/OCR jest obsługiwany osobno.</p>
+                    </section>
+                    """.formatted(escapeHtml(model.getOpenCvPreviewError()));
+        }
+
+        ItemImportPageModel.OpenCvImagePreview preview = model.getOpenCvImagePreview();
+        StringBuilder html = new StringBuilder("""
+                <section class="panel opencv-preview-panel" data-opencv-preview-section>
+                    <h2>Podgląd obrazu przygotowanego przez OpenCV</h2>
+                    <p class="helper">Podgląd nowego pipeline'u obrazu. OCR nadal korzysta z dotychczasowego mechanizmu.</p>
+                    <div class="opencv-preview-layout">
+                        <div class="opencv-preview-frame">
+                            <img src="%s" alt="Złożony obraz itemu przygotowany przez OpenCV" data-opencv-assembled-preview>
+                        </div>
+                        <div class="summary-grid opencv-preview-metadata">
+                """.formatted(escapeHtml(preview.getDataUri())));
+        html.append(renderSummaryCard("Liczba obrazów źródłowych", Integer.toString(preview.getSourceImageCount())))
+                .append(renderSummaryCard("Szerokość finalnego obrazu", Integer.toString(preview.getWidth())))
+                .append(renderSummaryCard("Wysokość finalnego obrazu", Integer.toString(preview.getHeight())))
+                .append(renderSummaryCard("Format", preview.getFormat()))
+                .append(renderSummaryCard("Status składania", preview.getAssemblyStatus()))
+                .append(renderSummaryCard("compositionPolicy", preview.getCompositionPolicy()))
+                .append("""
+                        </div>
+                    </div>
+                """);
+        html.append(renderOpenCvStitchDiagnostics(preview));
+        if (model.hasOpenCvPreviewError()) {
+            html.append("<p class=\"helper opencv-preview-warning\">")
+                    .append(escapeHtml(model.getOpenCvPreviewError()))
+                    .append("</p>");
+        }
+        if (preview.hasDebugWarning()) {
+            html.append("<p class=\"helper opencv-preview-warning\">")
+                    .append(escapeHtml(preview.getDebugWarning()))
+                    .append("</p>");
+        }
+        html.append("</section>");
+        return html.toString();
+    }
+
+    private static String renderOpenCvStitchDiagnostics(ItemImportPageModel.OpenCvImagePreview preview) {
+        if (!preview.hasStitchDiagnostics()) {
+            return "";
+        }
+        StringBuilder html = new StringBuilder("""
+                    <section class="subpanel opencv-stitch-diagnostics" data-opencv-stitch-diagnostics>
+                        <h3>Diagnostyka stitching</h3>
+                        <div class="table-scroll">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Para</th>
+                                        <th>Status</th>
+                                        <th>offset X</th>
+                                        <th>offset Y</th>
+                                        <th>Overlap</th>
+                                        <th>Seam</th>
+                                        <th>Confidence</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                """);
+        for (ItemImportPageModel.OpenCvStitchDiagnosticView diagnostic : preview.getStitchDiagnostics()) {
+            html.append("<tr><td>")
+                    .append(diagnostic.getFirstSourceIndex())
+                    .append(" -> ")
+                    .append(diagnostic.getSecondSourceIndex())
+                    .append("</td><td>")
+                    .append(escapeHtml(diagnostic.getStatus()))
+                    .append("</td><td>")
+                    .append(diagnostic.getOffsetX())
+                    .append("</td><td>")
+                    .append(diagnostic.getOffsetY())
+                    .append("</td><td>")
+                    .append(diagnostic.getOverlapHeight())
+                    .append("</td><td>")
+                    .append(diagnostic.getSeamY())
+                    .append("</td><td>")
+                    .append(escapeHtml(diagnostic.getConfidence()))
+                    .append("</td></tr>");
+        }
+        html.append("""
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
                 """);
         return html.toString();
     }

@@ -9,8 +9,13 @@ import org.junit.jupiter.api.Test;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
+import java.util.UUID;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -41,6 +46,7 @@ class ItemImportDebugTraceTest {
         System.clearProperty(ItemImportDebugTrace.JVM_PROPERTY);
         System.clearProperty(ItemImportDebugTrace.CONFIG_PROPERTY);
         System.clearProperty(ItemImportDebugTrace.FILE_PROPERTY);
+        ItemImportDebugTrace.useLogFileNameFactoryForTest(null);
     }
 
     @Test
@@ -57,13 +63,13 @@ class ItemImportDebugTraceTest {
     }
 
     @Test
-    void domyslnyPlikDebugImportuMaTimestampBezpiecznyDlaWindows() {
+    void domyslnyPlikDebugImportuMaTimestampBezpiecznyDlaWindowsINazwePending() {
         System.setProperty(ItemImportDebugTrace.JVM_PROPERTY, "true");
         System.clearProperty(ItemImportDebugTrace.FILE_PROPERTY);
 
         String path = ItemImportDebugTrace.debugFilePathForCurrentRun();
 
-        assertTrue(Pattern.compile("logs[/\\\\]item-import-debug-\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2}\\.log")
+        assertTrue(Pattern.compile("logs[/\\\\]item-import[/\\\\]item-import-\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{3}-pending-[a-f0-9]{8}\\.log")
                 .matcher(path)
                 .matches(), path);
     }
@@ -75,6 +81,36 @@ class ItemImportDebugTraceTest {
         System.setProperty(ItemImportDebugTrace.FILE_PROPERTY, customPath);
 
         assertEquals(customPath, ItemImportDebugTrace.debugFilePathForCurrentRun());
+    }
+
+    @Test
+    void importTworzyPendingLogIFinalizujeNazwePoRozpoznaniuItemu() throws Exception {
+        Path directory = Files.createTempDirectory("item-import-debug-log");
+        System.setProperty(ItemImportDebugTrace.JVM_PROPERTY, "true");
+        System.setProperty(ItemImportDebugTrace.FILE_PROPERTY, directory.toString());
+        ItemImportDebugTrace.useLogFileNameFactoryForTest(new ItemImportLogFileNameFactory(
+                Clock.fixed(Instant.parse("2026-06-12T07:29:23.378Z"), ZoneId.of("Europe/Warsaw")),
+                () -> UUID.fromString("ea980a72-0000-0000-0000-000000000000")
+        ));
+
+        Path pendingPath;
+        Path finalPath;
+        try (ItemImportDebugTrace.Scope ignored = ItemImportDebugTrace.startImport()) {
+            pendingPath = Path.of(ItemImportDebugTrace.debugFilePathForCurrentRun());
+            ItemImportDebugTrace.log("IMPORT_REQUEST", () -> "files=1 mode=SINGLE");
+            ItemImportDebugTrace.finalizeImportLog("Odłamek Verathiela");
+            finalPath = Path.of(ItemImportDebugTrace.debugFilePathForCurrentRun());
+        }
+
+        assertTrue(pendingPath.getFileName().toString().contains("-pending-ea980a72.log"));
+        assertTrue(finalPath.getFileName().toString().equals("item-import-2026-06-12-09-29-23-378-odlamek-verathiela-ea980a72.log"));
+        assertFalse(Files.exists(pendingPath));
+        assertTrue(Files.exists(finalPath));
+        String contents = Files.readString(finalPath);
+        assertTrue(contents.contains("IMPORT_LOG_FILE_CREATED"), contents);
+        assertTrue(contents.contains("IMPORT_REQUEST"), contents);
+        assertTrue(contents.contains("IMPORT_LOG_ITEM_NAME_RESOLVED itemName=\"Odłamek Verathiela\" itemSlug=\"odlamek-verathiela\""), contents);
+        assertTrue(contents.contains("IMPORT_LOG_FILE_FINALIZED"), contents);
     }
 
     @Test
@@ -317,10 +353,10 @@ class ItemImportDebugTraceTest {
                             new FullItemReadLine(FullItemReadLineType.AFFIX, "+270 siły"),
                             new FullItemReadLine(FullItemReadLineType.AFFIX, "+948 pkt. zdrowia przy trafieniu"),
                             new FullItemReadLine(FullItemReadLineType.AFFIX, "Mnożnik x15% wszystkich obrażeń"),
-                            new FullItemReadLine(FullItemReadLineType.AFFIX, "+47,5% szansy na trafienie krytyczne"),
-                            new FullItemReadLine(FullItemReadLineType.AFFIX, "+7,5% szansy na trafienie krytyczne"),
                             new FullItemReadLine(FullItemReadLineType.AFFIX, "Przeistoczony"),
                             new FullItemReadLine(FullItemReadLineType.OTHER, "Niezniszczalność"),
+                            new FullItemReadLine(FullItemReadLineType.AFFIX, "+47,5% szansy na trafienie krytyczne"),
+                            new FullItemReadLine(FullItemReadLineType.AFFIX, "+7,5% szansy na trafienie krytyczne"),
                             new FullItemReadLine(FullItemReadLineType.AFFIX,
                                     "zwiększone 0 170 przez efekt unikatowy MNOZNIK X32% OBRAZEN (FIZYCZNE)")
                     )

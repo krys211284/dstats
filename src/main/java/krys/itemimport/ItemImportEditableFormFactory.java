@@ -29,6 +29,7 @@ public final class ItemImportEditableFormFactory {
 
     private final ImportedItemAffixExtractor affixExtractor = new ImportedItemAffixExtractor();
     private final ImportedItemTemperingExtractor temperingExtractor = new ImportedItemTemperingExtractor();
+    private final OrdinaryAffixSectionDetector ordinarySectionDetector = new OrdinaryAffixSectionDetector();
     private final AspectRegistry aspectRegistry;
 
     public ItemImportEditableFormFactory() {
@@ -94,6 +95,7 @@ public final class ItemImportEditableFormFactory {
                 ItemImportDebugTrace.log("FINAL_IMPORT_FORM", () -> "socketIndex=" + finalIndex
                         + " " + ItemImportDebugTrace.formatSocket(socket));
             }
+            ItemImportDebugTrace.finalizeImportLog(form.getDetails().getItemName());
             return form;
         }
     }
@@ -110,11 +112,7 @@ public final class ItemImportEditableFormFactory {
                 .isEmpty()) {
             aspectMatch = new AspectRegistry.AspectMatch("", ItemImportFieldConfidence.UNKNOWN);
         }
-        List<ImportedItemAffix> extractedAffixes = affixExtractor.extractEditableAffixes(parseResult.getFullItemRead());
-        OrdinaryClassification ordinaryClassification = classifyOrdinaryAndOverflow(
-                extractedAffixes,
-                parseResult.getFullItemRead()
-        );
+        OrdinaryClassification ordinaryClassification = classifyOrdinaryAndOverflow(parseResult);
         List<ImportedItemAffix> affixes = ordinaryClassification.ordinaryAffixes();
         List<ItemTemperingAffix> temperingAffixes = mergeTempering(
                 temperingExtractor.extractTemperingAffixes(parseResult.getFullItemRead()),
@@ -134,7 +132,7 @@ public final class ItemImportEditableFormFactory {
         );
         ItemMasterworking masterworking = detectMasterworking(parseResult.getFullItemRead(), affixes, temperingAffixes, markerSummary);
         ItemTransfiguration transfiguration = detectTransfiguration(parseResult.getFullItemRead());
-        ItemSocketing socketing = detectSocketing(parseResult.getFullItemRead());
+        ItemSocketing socketing = detectSocketing(parseResult.getFullItemRead(), ordinaryClassification.section());
         logGreaterAffixVerification(parseResult.getGreaterAffixHeaderEvidence(), greaterAffixVerification);
         return new ItemImportDraft(
                 parseResult,
@@ -148,16 +146,24 @@ public final class ItemImportEditableFormFactory {
         );
     }
 
-    private OrdinaryClassification classifyOrdinaryAndOverflow(List<ImportedItemAffix> extractedAffixes,
-                                                               FullItemRead fullItemRead) {
+    private OrdinaryClassification classifyOrdinaryAndOverflow(ItemImageImportCandidateParseResult parseResult) {
+        FullItemRead fullItemRead = parseResult.getFullItemRead();
         List<ImportedItemAffix> ordinary = new ArrayList<>();
         List<ItemTemperingAffix> overflowTempering = new ArrayList<>();
         Long itemPower = fullItemRead == null ? null : fullItemRead.getDetails().getItemPower();
-        List<ImportedItemAffix> affixesByVisualOrder = (extractedAffixes == null ? List.<ImportedItemAffix>of() : extractedAffixes)
+        OrdinaryAffixSectionDetector.OrdinaryAffixSection section = ordinarySectionDetector.detect(
+                fullItemRead,
+                parseResult.getOrdinarySequenceCandidates()
+        );
+        FullItemRead ordinarySequenceRead = section.sequenceRead().hasAnyData() ? section.sequenceRead() : fullItemRead;
+        List<ImportedItemAffix> sectionAffixes = affixExtractor.extractEditableAffixes(
+                ordinarySectionRead(ordinarySequenceRead, section)
+        );
+        List<ImportedItemAffix> affixesByVisualOrder = sectionAffixes
                 .stream()
                 .sorted(java.util.Comparator
-                        .comparingInt((ImportedItemAffix affix) -> visualSourceLineSortIndex(fullItemRead, affix))
-                        .thenComparingInt(ImportedItemAffix::getVisualDisplayOrder)
+                        .comparingInt(ImportedItemAffix::getVisualDisplayOrder)
+                        .thenComparingInt((ImportedItemAffix affix) -> visualSourceLineSortIndex(ordinarySequenceRead, affix))
                         .thenComparingInt(ImportedItemAffix::getDisplayOrder)
                         .thenComparing(ImportedItemAffix::getAffixDefinitionId)
                         .thenComparingDouble(ImportedItemAffix::getValue))
@@ -165,11 +171,9 @@ public final class ItemImportEditableFormFactory {
         long nonTemperingCandidateCount = affixesByVisualOrder.stream()
                 .filter(affix -> temperingExtractor.parseCatalogTemperingLine(affix.getSourceText(), itemPower).isEmpty())
                 .count();
-        boolean deferredCatalogTempering = false;
         for (ImportedItemAffix affix : affixesByVisualOrder) {
             Optional<ItemTemperingAffix> catalogTempering = temperingExtractor.parseCatalogTemperingLine(affix.getSourceText(), itemPower);
             if (catalogTempering.isPresent() && nonTemperingCandidateCount >= ORDINARY_AFFIX_LIMIT) {
-                deferredCatalogTempering = true;
                 ItemImportDebugTrace.log("LINE_CLASSIFICATION", () -> "decision=temperingCandidateDeferred"
                         + " selectedVisualOrder=" + affix.getDisplayOrder()
                         + " sourceLine=" + ItemImportDebugTrace.compactText(affix.getSourceText())
@@ -179,6 +183,11 @@ public final class ItemImportEditableFormFactory {
             }
             if (ordinary.size() < ORDINARY_AFFIX_LIMIT) {
                 ordinary.add(affix);
+                int ordinaryOrder = ordinary.size();
+                ItemImportDebugTrace.log("ORDINARY_AFFIX_SECTION_CANDIDATE", () -> "order=" + ordinaryOrder
+                        + " type=" + affix.getType()
+                        + " text=" + ItemImportDebugTrace.compactText(affix.getSourceText())
+                        + " selected=true");
                 ItemImportDebugTrace.log("LINE_CLASSIFICATION", () -> "decision=ordinary"
                         + " ordinaryIndex=" + (ordinary.size() - 1)
                         + " selectedVisualOrder=" + affix.getDisplayOrder()
@@ -188,6 +197,10 @@ public final class ItemImportEditableFormFactory {
                         + " reason=" + ItemImportDebugTrace.quote("within ordinary affix cap by visual anchor order"));
                 continue;
             }
+            ItemImportDebugTrace.log("ORDINARY_AFFIX_SECTION_CANDIDATE", () -> "type=" + affix.getType()
+                    + " text=" + ItemImportDebugTrace.compactText(affix.getSourceText())
+                    + " selected=false"
+                    + " reason=" + ItemImportDebugTrace.quote("ordinary section contains more than max affixes"));
             if (catalogTempering.isPresent()) {
                 ItemTemperingAffix selected = catalogTempering.get();
                 overflowTempering.add(selected);
@@ -203,28 +216,158 @@ public final class ItemImportEditableFormFactory {
                     + " sourceLine=" + ItemImportDebugTrace.compactText(affix.getSourceText())
                     + " reason=" + ItemImportDebugTrace.quote("ordinary affix cap reached and no non-ordinary catalog matched"));
         }
-        if (deferredCatalogTempering) {
-            overflowTempering.addAll(detectTemperingAfterOrdinarySet(fullItemRead, ordinary, overflowTempering, itemPower));
+        overflowTempering.addAll(detectTemperingAfterOrdinaryBoundary(
+                ordinarySequenceRead,
+                ordinary,
+                overflowTempering,
+                itemPower,
+                section
+        ));
+        if (ordinarySequenceRead != fullItemRead) {
+            overflowTempering.addAll(detectTemperingAfterOrdinaryMarkerInFullRead(
+                    fullItemRead,
+                    overflowTempering,
+                    itemPower,
+                    section.endMarker()
+            ));
         }
-        List<ImportedItemAffix> ordinaryByVisualOrder = sortOrdinaryByVisualSourceOrder(fullItemRead, ordinary);
+        List<ImportedItemAffix> ordinaryByVisualOrder = enrichMetadataFromSameAffixValue(
+                sortOrdinaryByVisualSourceOrder(ordinarySequenceRead, ordinary),
+                fullItemRead
+        );
         ItemImportDebugTrace.log("FINAL_IMPORT_FORM", () -> "ordinaryAffixes=" + ordinary.size()
                 + " ordinaryAffixCap=" + ORDINARY_AFFIX_LIMIT
                 + " visualOrderBeforeRender=" + ordinary.stream()
                 .map(affix -> affix.getType().name() + "@" + affix.getVisualDisplayOrder() + ":" + affix.getDisplayOrder())
                 .toList()
                 + " finalOrdinaryVisualOrder=" + ordinaryByVisualOrder.stream()
-                .map(affix -> affix.getType().name() + "@" + visualSourceLineSortIndex(fullItemRead, affix) + ":" + affix.getDisplayOrder())
+                .map(affix -> affix.getType().name() + "@" + visualSourceLineSortIndex(ordinarySequenceRead, affix) + ":" + affix.getDisplayOrder())
                 .toList()
                 + " overflowTempering=" + overflowTempering.size());
-        return new OrdinaryClassification(List.copyOf(ordinaryByVisualOrder), List.copyOf(overflowTempering));
+        return new OrdinaryClassification(List.copyOf(ordinaryByVisualOrder), List.copyOf(overflowTempering), section);
+    }
+
+    private List<ImportedItemAffix> enrichMetadataFromSameAffixValue(List<ImportedItemAffix> ordinary,
+                                                                     FullItemRead fullItemRead) {
+        if (ordinary == null || ordinary.isEmpty() || fullItemRead == null) {
+            return ordinary == null ? List.of() : ordinary;
+        }
+        List<ImportedItemAffix> allCandidates = affixExtractor.extractEditableAffixes(fullItemRead);
+        List<ImportedItemAffix> result = new ArrayList<>();
+        for (ImportedItemAffix selected : ordinary) {
+            ImportedItemAffix enrichment = allCandidates.stream()
+                    .filter(candidate -> candidate.getType() == selected.getType())
+                    .filter(candidate -> sameValue(candidate.getValue(), selected.getValue()))
+                    .filter(candidate -> hasUsefulMetadata(selected, candidate))
+                    .sorted(java.util.Comparator
+                            .comparingInt((ImportedItemAffix candidate) -> metadataEnrichmentScore(selected, candidate))
+                            .reversed())
+                    .findFirst()
+                    .orElse(null);
+            result.add(enrichment == null ? selected : copyWithMetadata(selected, enrichment));
+        }
+        return List.copyOf(result);
+    }
+
+    private static boolean hasUsefulMetadata(ImportedItemAffix selected, ImportedItemAffix candidate) {
+        return selected != null && candidate != null
+                && selected.getType() == candidate.getType()
+                && sameValue(selected.getValue(), candidate.getValue())
+                && ((!selected.isGreaterAffix() && candidate.isGreaterAffix())
+                || (selected.getReferenceValue() == null && candidate.getReferenceValue() != null)
+                || (selected.getRollRangeMin() == null && selected.getRollRangeMax() == null
+                && candidate.getRollRangeMin() != null && candidate.getRollRangeMax() != null));
+    }
+
+    private static int metadataEnrichmentScore(ImportedItemAffix selected, ImportedItemAffix candidate) {
+        int score = 0;
+        if (!selected.isGreaterAffix() && candidate.isGreaterAffix()) {
+            score += 1000;
+        }
+        if (selected.getReferenceValue() == null && candidate.getReferenceValue() != null) {
+            score += 700;
+        }
+        if (selected.getRollRangeMin() == null && selected.getRollRangeMax() == null
+                && candidate.getRollRangeMin() != null && candidate.getRollRangeMax() != null) {
+            score += 500;
+        }
+        return score;
+    }
+
+    private static ImportedItemAffix copyWithMetadata(ImportedItemAffix selected, ImportedItemAffix enrichment) {
+        Double rollRangeMin = selected.getRollRangeMin() == null && selected.getRollRangeMax() == null
+                ? enrichment.getRollRangeMin()
+                : selected.getRollRangeMin();
+        Double rollRangeMax = selected.getRollRangeMin() == null && selected.getRollRangeMax() == null
+                ? enrichment.getRollRangeMax()
+                : selected.getRollRangeMax();
+        Double referenceValue = selected.getReferenceValue() == null
+                ? enrichment.getReferenceValue()
+                : selected.getReferenceValue();
+        return new ImportedItemAffix(
+                selected.getType(),
+                selected.getValue(),
+                selected.getUnit(),
+                selected.isGreaterAffix() || enrichment.isGreaterAffix(),
+                selected.getDisplayOrder(),
+                selected.getSourceText(),
+                selected.getSource(),
+                selected.getAffixDefinitionId(),
+                rollRangeMin,
+                rollRangeMax,
+                referenceValue,
+                selected.getDisplayValue(),
+                selected.getVisualSourceText(),
+                selected.getVisualDisplayOrder()
+        );
+    }
+
+    private static FullItemRead ordinarySectionRead(FullItemRead fullItemRead,
+                                                    OrdinaryAffixSectionDetector.OrdinaryAffixSection section) {
+        if (fullItemRead == null || section == null) {
+            return FullItemRead.empty();
+        }
+        List<FullItemReadLine> lines = new ArrayList<>();
+        List<FullItemReadLine> sourceLines = fullItemRead.getLines();
+        for (int index = 0; index < sourceLines.size(); index++) {
+            FullItemReadLine line = sourceLines.get(index);
+            if (section.containsLineIndex(index)
+                    && OrdinaryAffixSectionDetector.isCandidateLine(line)
+                    && shouldTreatAsOrdinarySectionAffix(line, section)) {
+                lines.add(new FullItemReadLine(FullItemReadLineType.AFFIX, line.getText(), line.getSource()));
+            } else {
+                lines.add(new FullItemReadLine(FullItemReadLineType.OTHER, line.getText(), line.getSource()));
+            }
+        }
+        return new FullItemRead(
+                fullItemRead.getItemName(),
+                fullItemRead.getItemTypeLine(),
+                fullItemRead.getRarity(),
+                fullItemRead.getItemPower(),
+                fullItemRead.getBaseItemValue(),
+                lines,
+                fullItemRead.getDetails()
+        );
+    }
+
+    private static boolean shouldTreatAsOrdinarySectionAffix(FullItemReadLine line,
+                                                             OrdinaryAffixSectionDetector.OrdinaryAffixSection section) {
+        if (line.getType() == FullItemReadLineType.AFFIX) {
+            return true;
+        }
+        if (line.getType() != FullItemReadLineType.SOCKET) {
+            return false;
+        }
+        return section.hasBaseWeaponAnchor()
+                || "ORDINARY_AFFIX_REGION".equals(line.getSource().getSourceRegion());
     }
 
     private static List<ImportedItemAffix> sortOrdinaryByVisualSourceOrder(FullItemRead fullItemRead,
                                                                            List<ImportedItemAffix> ordinary) {
         return (ordinary == null ? List.<ImportedItemAffix>of() : ordinary).stream()
                 .sorted(java.util.Comparator
-                        .comparingInt((ImportedItemAffix affix) -> visualSourceLineSortIndex(fullItemRead, affix))
-                        .thenComparingInt(ImportedItemAffix::getVisualDisplayOrder)
+                        .comparingInt(ImportedItemAffix::getVisualDisplayOrder)
+                        .thenComparingInt((ImportedItemAffix affix) -> visualSourceLineSortIndex(fullItemRead, affix))
                         .thenComparingInt(ImportedItemAffix::getDisplayOrder)
                         .thenComparing(ImportedItemAffix::getAffixDefinitionId)
                         .thenComparingDouble(ImportedItemAffix::getValue))
@@ -242,19 +385,20 @@ public final class ItemImportEditableFormFactory {
         return Integer.MAX_VALUE;
     }
 
-    private List<ItemTemperingAffix> detectTemperingAfterOrdinarySet(FullItemRead fullItemRead,
-                                                                     List<ImportedItemAffix> ordinary,
-                                                                     List<ItemTemperingAffix> alreadyDetected,
-                                                                     Long itemPower) {
-        if (fullItemRead == null || ordinary == null || ordinary.isEmpty()) {
+    private List<ItemTemperingAffix> detectTemperingAfterOrdinaryBoundary(FullItemRead fullItemRead,
+                                                                         List<ImportedItemAffix> ordinary,
+                                                                         List<ItemTemperingAffix> alreadyDetected,
+                                                                         Long itemPower,
+                                                                         OrdinaryAffixSectionDetector.OrdinaryAffixSection section) {
+        if (fullItemRead == null) {
             return List.of();
         }
-        int lastOrdinaryLineIndex = lastOrdinarySourceLineIndex(fullItemRead, ordinary);
-        if (lastOrdinaryLineIndex < 0) {
+        int startIndex = firstLineIndexAfterOrdinaryBoundary(fullItemRead, ordinary, section);
+        if (startIndex < 0) {
             return List.of();
         }
         List<ItemTemperingAffix> detected = new ArrayList<>();
-        for (int index = lastOrdinaryLineIndex + 1; index < fullItemRead.getLines().size(); index++) {
+        for (int index = startIndex; index < fullItemRead.getLines().size(); index++) {
             FullItemReadLine line = fullItemRead.getLines().get(index);
             Optional<ItemTemperingAffix> tempering = temperingExtractor.parseCatalogTemperingLine(line.getText(), itemPower);
             if (tempering.isEmpty() || containsTemperingDefinition(alreadyDetected, tempering.get().getDefinitionId())
@@ -268,9 +412,53 @@ public final class ItemImportEditableFormFactory {
                     + " selectedVisualOrder=" + visualOrder
                     + " sourceLine=" + ItemImportDebugTrace.compactText(line.getText())
                     + " matchedDefinitionId=" + ItemImportDebugTrace.quote(selected.getDefinitionId())
-                    + " reason=" + ItemImportDebugTrace.quote("classified as tempering after ordinary cap by visual order and tempering catalog match"));
+                    + " reason=" + ItemImportDebugTrace.quote("classified as tempering after ordinary section boundary and tempering catalog match"));
         }
         return List.copyOf(detected);
+    }
+
+    private List<ItemTemperingAffix> detectTemperingAfterOrdinaryMarkerInFullRead(FullItemRead fullItemRead,
+                                                                                 List<ItemTemperingAffix> alreadyDetected,
+                                                                                 Long itemPower,
+                                                                                 String markerText) {
+        if (fullItemRead == null || markerText == null || markerText.isBlank()) {
+            return List.of();
+        }
+        int markerIndex = sourceLineIndex(fullItemRead, markerText);
+        if (markerIndex < 0) {
+            return List.of();
+        }
+        List<ItemTemperingAffix> detected = new ArrayList<>();
+        for (int index = markerIndex + 1; index < fullItemRead.getLines().size(); index++) {
+            FullItemReadLine line = fullItemRead.getLines().get(index);
+            Optional<ItemTemperingAffix> tempering = temperingExtractor.parseCatalogTemperingLine(line.getText(), itemPower);
+            if (tempering.isEmpty() || containsTemperingDefinition(alreadyDetected, tempering.get().getDefinitionId())
+                    || containsTemperingDefinition(detected, tempering.get().getDefinitionId())) {
+                continue;
+            }
+            ItemTemperingAffix selected = tempering.get();
+            detected.add(selected);
+            int visualOrder = index;
+            ItemImportDebugTrace.log("LINE_CLASSIFICATION", () -> "decision=tempering"
+                    + " selectedVisualOrder=" + visualOrder
+                    + " sourceLine=" + ItemImportDebugTrace.compactText(line.getText())
+                    + " matchedDefinitionId=" + ItemImportDebugTrace.quote(selected.getDefinitionId())
+                    + " reason=" + ItemImportDebugTrace.quote("classified as tempering after ordinary marker in global full read"));
+        }
+        return List.copyOf(detected);
+    }
+
+    private static int firstLineIndexAfterOrdinaryBoundary(FullItemRead fullItemRead,
+                                                           List<ImportedItemAffix> ordinary,
+                                                           OrdinaryAffixSectionDetector.OrdinaryAffixSection section) {
+        if (section != null && section.endIndex() < fullItemRead.getLines().size()) {
+            return section.endIndex() + 1;
+        }
+        if (ordinary == null || ordinary.isEmpty()) {
+            return -1;
+        }
+        int lastOrdinaryLineIndex = lastOrdinarySourceLineIndex(fullItemRead, ordinary);
+        return lastOrdinaryLineIndex < 0 ? -1 : lastOrdinaryLineIndex + 1;
     }
 
     private static int lastOrdinarySourceLineIndex(FullItemRead fullItemRead, List<ImportedItemAffix> ordinary) {
@@ -385,14 +573,29 @@ public final class ItemImportEditableFormFactory {
         return matcher.find() ? Optional.of(matcher.group(1)) : Optional.empty();
     }
 
-    private static ItemSocketing detectSocketing(FullItemRead fullItemRead) {
+    private static ItemSocketing detectSocketing(FullItemRead fullItemRead,
+                                                 OrdinaryAffixSectionDetector.OrdinaryAffixSection ordinarySection) {
         if (fullItemRead == null || !fullItemRead.hasAnyData()) {
             return ItemSocketing.empty();
         }
         List<SocketGemRuneStat> detectedStats = new ArrayList<>();
         boolean indestructibleTransfiguration = hasIndestructibleLine(fullItemRead);
-        for (FullItemReadLine line : fullItemRead.getLines()) {
+        for (int lineIndex = 0; lineIndex < fullItemRead.getLines().size(); lineIndex++) {
+            FullItemReadLine line = fullItemRead.getLines().get(lineIndex);
             String text = line.getText();
+            if (ordinarySection != null
+                    && ordinarySection.sequenceRead() == fullItemRead
+                    && ordinarySection.containsLineIndex(lineIndex)
+                    && OrdinaryAffixSectionDetector.isCandidateLine(line)
+                    && shouldTreatAsOrdinarySectionAffix(line, ordinarySection)) {
+                if (line.getType() == FullItemReadLineType.SOCKET) {
+                    ItemImportDebugTrace.log("ORDINARY_AFFIX_SECTION_SOCKET_OVERRIDE", () -> "text="
+                            + ItemImportDebugTrace.compactText(text)
+                            + " selected=AFFIX rejected=SOCKET"
+                            + " reason=" + ItemImportDebugTrace.quote("line belongs to ordinary section"));
+                }
+                continue;
+            }
             boolean typedSocketStat = line.getType() == FullItemReadLineType.SOCKET
                     && isDetectedSocketStatLine(text);
             boolean physicalSocketFallback = line.getType() != FullItemReadLineType.SOCKET
@@ -1104,7 +1307,8 @@ public final class ItemImportEditableFormFactory {
     }
 
     private record OrdinaryClassification(List<ImportedItemAffix> ordinaryAffixes,
-                                          List<ItemTemperingAffix> overflowTemperingAffixes) {
+                                          List<ItemTemperingAffix> overflowTemperingAffixes,
+                                          OrdinaryAffixSectionDetector.OrdinaryAffixSection section) {
     }
 
     private record GreaterAffixMarkerSummary(boolean globalDetected,
@@ -1117,6 +1321,10 @@ public final class ItemImportEditableFormFactory {
         return fullItemRead.getLines().stream()
                 .map(FullItemReadLine::getText)
                 .anyMatch(line -> normalize(line).contains(normalizedNeedle));
+    }
+
+    private static boolean sameValue(double left, double right) {
+        return Math.abs(left - right) < 0.0000001d;
     }
 
     private static String normalize(String value) {

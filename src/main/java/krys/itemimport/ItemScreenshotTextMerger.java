@@ -507,7 +507,6 @@ public final class ItemScreenshotTextMerger {
                 || key.contains("trwalosc")
                 || key.contains("oznacz")
                 || key.contains("upusc")
-                || key.contains("wyposaz")
                 || key.contains("porownaj");
     }
 

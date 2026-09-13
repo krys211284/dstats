@@ -472,16 +472,20 @@ Kontrakt domenowy importu itemu:
 - `ImportedItemAffix` reprezentuje pojedynczy edytowalny affix itemu jako strukturę: typ z katalogu, nazwa / etykieta, wartość, jednostka, `greaterAffix`, kolejność prezentacji wybranego kandydata, surowa linia OCR, źródło `OCR`, `MANUAL` albo `CORRECTED`, a także osobną kotwicę wizualną `visualSourceText` / `visualDisplayOrder` oraz stan `greaterAffixConfirmationRequired`,
 - deduplikacja kilku kandydatów tego samego affixu wybiera semantycznie najlepszy kandydat wartości/tekstu, np. wariant z pewnym zakresem rolla zamiast wcześniejszego szumu OCR, ale nie może przy tym zgubić najlepszej wiarygodnej kotwicy pozycyjnej dla tej samej semantycznej linii; finalny affix może więc mieć `selectedValueSource` z czystszego kandydata oraz `visualAnchorSource` z wcześniejszego, lokalnego i zgodnego semantycznie kandydata,
 - kotwica wizualna może pochodzić z kandydata tekstowo gorszego tylko wtedy, gdy dotyczy tego samego affixu, tej samej wartości / semantycznej linii, tej samej sekcji i nie pochodzi z obcej kotwicy ani cudzej liczby; noisy candidate nie może zmieniać wartości finalnego affixu, ale może ustawić `visualDisplayOrder` i przenieść lokalny marker GA,
-- ordinary visual order nie może być liczony z kolejności `LinkedHashMap`, z kolejności `mergedLines.values()` ani z prostego licznika iteracji po `fullItemRead.getLines()`; podstawą jest indeks linii źródłowej w finalnym `FullItemRead`, a jeżeli jedna typowana albo surowa linia zawiera kilka affixów, sortowanie w tym bloku idzie po `visualDisplayOrder` / `segmentStart`,
-- formularz importu i edycji renderuje ordinary affixy w wizualnej kolejności z tooltipa: najpierw po linii wskazanej przez `visualSourceText` w `FullItemRead`, potem po `visualDisplayOrder`, a następnie po `displayOrder` wybranego kandydata. Renderer nie może przestawiać listy alfabetycznie, po enumie, score, map insertion order, nazwie ani po typie affixu,
+- ordinary visual order nie może być liczony z kolejności `LinkedHashMap`, z kolejności `mergedLines.values()` ani z prostego licznika iteracji po globalnym `fullItemRead.getLines()`; podstawą jest wybrana spójna sekwencja tooltipa i jej kolejność wizualna (`visualDisplayOrder` / `segmentStart`), z indeksem linii wyłącznie jako tie-breakerem diagnostycznym,
+- formularz importu i edycji renderuje ordinary affixy w wizualnej kolejności z tooltipa po zamknięciu sekcji `ORDINARY_AFFIXES`. Renderer nie może przestawiać listy alfabetycznie, po enumie, score, map insertion order, nazwie ani po typie affixu,
 - `value` / `displayedValue` affixu importowanego z tooltipa jest wartością widoczną na itemie i pozostaje wartością runtime; `referenceValue` / `baseValue` jest metadanym informacyjnym pochodzącym z wiarygodnego OCR bracketu albo z jednoznacznego reverse-resolve Doskonalenia,
 - jeżeli OCR dostarcza wiarygodny bracket/reference, ma on pierwszeństwo przed reverse-resolve; jeżeli bracket jest uszkodzony albo nieobecny, reverse-resolve może uzupełnić `referenceValue` tylko dla obsługiwanego typu i jednoznacznego wyniku, a w przeciwnym razie `referenceValue` pozostaje puste,
 - wartości i `referenceValue` affixów rang umiejętności muszą pochodzić z OCR albo jednoznacznego reverse-resolve; importer nie może tworzyć rang z katalogu, nie może naprawiać uszkodzonego single-value bracketu do konkretnej liczby bez podstawy i nie może zmieniać widocznej wartości,
 - `ImportedItemAffixType` jest katalogiem znanych typów affixów używanym wspólnie przez UI ręcznej walidacji i projekcję do runtime,
-- ordinary / zwykłe staty podstawowe itemu mają twardy limit 4 pozycji. Piąta stat-like linia nie może trafić do `ImportedItemAffix` tylko dlatego, że pasuje do `AffixRegistry`; po osiągnięciu limitu importer musi użyć regionu i katalogów domenowych (`ApplicationTemperingAffixRegistry`, `TransfigurationAffixCatalog`, socket/gem/rune, dataOnly/ignored) i zalogować decyzję klasyfikacji,
-- cap ordinary affixów jest liczony po finalnym sortowaniu według wizualnej kolejności po deduplikacji. Wariant OCR odrzucony na rzecz lepszego kandydata wartości nie może wypychać prawidłowego affixu spośród pierwszych czterech pozycji, ale może pozostać kotwicą wizualną, jeżeli jest lokalny, semantycznie zgodny i ma wiarygodną pozycję w tooltipie,
-- kandydat pasujący do katalogu hartowania nie może rezerwować miejsca w ordinary capie, jeżeli cztery ordinary sloty można wypełnić kandydatami bez lepszej klasyfikacji domenowej; w takiej sytuacji importer odracza go i szuka właściwej linii hartowania po wizualnym końcu ordinary setu,
-- jeżeli po czterech ordinary affixach kolejna stat-like linia pasuje do katalogu hartowania, trafia do sekcji `Hartowanie` jako `DATA_ONLY`, nie jest duplikowana w ordinary i nie zwiększa liczby ordinary ponad 4. Przykładem mechanizmu jest `+...% szansy na trafienie krytyczne`: przed limitem może być kandydatem zwykłego affixu zgodnie z regionem, ale po limicie i przy dopasowaniu katalogu hartowania jest klasyfikowana jako hartowanie,
+- `ORDINARY_AFFIXES` jest sekcją tooltipa, a nie regułą "pierwsze 4 stat-like linie". Import wybiera najwyżej punktowaną spójną sekwencję ordinary z wariantów OCR, lokalnych segmentów i typed merge; globalny merge jest tylko fallbackiem i przegrywa, jeżeli miesza dół tooltipa, socket/gem effect albo lore z bazowymi statystykami. Sekwencja zyskuje punkty za base item stats przed ordinary, kandydatów ordinary w kolejności, marker końca i brak bottom-effect przed ordinary, a traci za zanieczyszczony anchor,
+- sekcja zaczyna się po ostatniej bazowej statystyce itemu z pierwszego bloku bazowego. Dla broni są to `obrażeń na sek.`, `obrażeń za trafienie`, `ataku na sekundę` / odpowiedniki EN; armor, tarcza i pozostałe sloty są traktowane jako przypadki base item stats bez zakładania, że każdy typ ma identyczny zestaw anchorów. Późniejsze duplikaty bazowych statystyk z cropów OCR nie przesuwają początku sekcji,
+- sekcja kończy się przed pierwszym twardym markerem następnej sekcji, obecnie co najmniej przed `Niezniszczalność`, socket/gem/rune albo lore/vendor/requirement. Marker unique/aspect effect jest markerem końca dla spójnej sekwencji, ale w multi-scroll nie może uciąć ordinary przedwcześnie, jeżeli za nim występują dalsze kandydaty ordinary z przewiniętego fragmentu i sekcja nie osiągnęła jeszcze limitu 4,
+- ordinary / zwykłe affixy itemu mają twardy limit maksymalny 4 pozycji. Limit 4 nie jest wymogiem uzupełnienia: jeżeli marker następnej sekcji wystąpi po 1, 2 albo 3 affixach, formularz ma pokazać odpowiednio 1, 2 albo 3 ordinary affixy i nie dobierać kandydatów z dalszych sekcji,
+- po zamknięciu `ORDINARY_AFFIXES` późniejsze affix-like linie nie mogą zastępować wcześniejszych ordinary affixów ani dobijać listy do czterech pozycji, nawet jeśli mają wyższy score OCR. Mogą zostać sklasyfikowane przez własne katalogi domenowe, np. jako hartowanie `DATA_ONLY`, przeistoczenie albo socket/gem/rune, ale nie jako ordinary,
+- słaby kandydat socket/gem/rune nie może wyprzeć linii, która leży wewnątrz zakotwiczonej sekcji ordinary broni i pasuje do zwykłego affixu. W takim konflikcie membership w `ORDINARY_AFFIXES` + dopasowanie affix-like wygrywa nad klasyfikacją socket; czysty socket/gem/rune poza ordinary section pozostaje w modelu `ItemSocketing`,
+- `NA WYPOSAŻENIU` / `NA WYPOSAZENIU` / `EQUIPPED` jest statusem UI i nie jest lore/vendor/requirement, markerem końca ordinary section ani powodem zatrucia całej raw OCR line regionem socket/gem/rune,
+- ten etap rozwiązuje wyłącznie granice i wybór ordinary affixów. Nie implementuje pełnego modelu hartowania, unique effect, socket/gem/rune effect ani automatycznego przypisania `greaterAffix=true`,
 - hartowanie przechowuje finalne `sourceLine` / display source z wybranego kandydata, a nie z pierwszej linii pasującej po nazwie definicji; gdy artefakt OCR `+47,5%...` zostaje odrzucony, a finalnym kandydatem jest `+7,5%...`, debug i UI muszą wskazywać źródło `+7,5%...`,
 - `greaterAffix` jest trwałym polem boolean modelu affixu, niezależnym od surowej linii OCR i od prezentacyjnej gwiazdki w UI,
 - OCR oznacza `greaterAffix=true`, gdy rozpoznany edytowalny affix zaczyna się od markera `*`, `★`, `⭐`, `✦`, `•` albo pokrewnego stabilnego glifu początku linii; jeżeli ten sam affix występuje w kilku wariantach OCR, deduplikacja zachowuje wariant z gwiazdką,
@@ -1562,32 +1566,42 @@ Aktualny podstawowy smoke test manual simulation pozostaje oparty o GUI oraz ró
   - `+50% BLOCK_CHANCE`
   - `+50% RETRIBUTION_CHANCE`
 
-Uruchomienie w Windows PowerShell:
+Budowanie i uruchomienie gotowej aplikacji w Windows PowerShell:
 
 ```powershell
 chcp 65001
-& 'C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.3\plugins\maven\lib\maven3\bin\mvn.cmd' '-Dmaven.repo.local=.m2' test
-& 'C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.3\plugins\maven\lib\maven3\bin\mvn.cmd' '-Dmaven.repo.local=.m2' compile
-java '-Dfile.encoding=UTF-8' -cp target/classes krys.web.CurrentBuildWebServer --port 8080
+& 'C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.3\plugins\maven\lib\maven3\bin\mvn.cmd' '-Dmaven.repo.local=.m2' package
+java "-Dfile.encoding=UTF-8" "-Ddstats.itemImport.debug=true" -jar target/app/dstats.jar --port 8080
 ```
 
 Bez `--host` i `--address` serwer binduje się domyślnie do `127.0.0.1`, czyli pozostaje lokalny dla komputera uruchamiającego aplikację. Równoważny lokalny tryb:
 
 ```powershell
-java "-Dfile.encoding=UTF-8" -cp target/classes krys.web.CurrentBuildWebServer --port 8080
+java "-Dfile.encoding=UTF-8" "-Ddstats.itemImport.debug=true" -jar target/app/dstats.jar --host 127.0.0.1 --port 8080
 ```
 
 Tryb LAN wymaga jawnego hosta:
 
 ```powershell
-java "-Dfile.encoding=UTF-8" -cp target/classes krys.web.CurrentBuildWebServer --host 0.0.0.0 --port 8080
+java "-Dfile.encoding=UTF-8" "-Ddstats.itemImport.debug=true" -jar target/app/dstats.jar --host 0.0.0.0 --port 8080
 ```
 
 `--address` jest aliasem `--host`:
 
 ```powershell
-java "-Dfile.encoding=UTF-8" -cp target/classes krys.web.CurrentBuildWebServer --address 0.0.0.0 --port 8080
+java "-Dfile.encoding=UTF-8" "-Ddstats.itemImport.debug=true" -jar target/app/dstats.jar --address 0.0.0.0 --port 8080
 ```
+
+`mvn package` buduje aplikację jako thin executable JAR:
+
+```text
+target/app/dstats.jar
+target/app/lib/*.jar
+```
+
+`dstats.jar` ma manifest z `Main-Class: krys.web.CurrentBuildWebServer` oraz `Class-Path: lib/...`, więc użytkownik nie konstruuje ręcznie `-cp` i nie kopiuje ręcznie zależności ani bibliotek natywnych JavaCPP/OpenCV.
+
+Developerskie uruchomienie klas z IDE albo z `target/classes` jest dopuszczalne tylko wtedy, gdy środowisko dostarcza pełny runtime classpath Mavena. Samo `-cp target/classes` nie jest kontraktem uruchamiania gotowej aplikacji, bo nie zawiera zależności runtime, w tym JavaCPP/OpenCV.
 
 Adres IP komputera w sieci lokalnej można sprawdzić przez:
 
@@ -1803,6 +1817,24 @@ Smoke test GUI importu itemu:
 http://127.0.0.1:8080/importuj-item-ze-screena
 ```
 
+Równoległa warstwa obrazu dla przyszłego pipeline'u OCR:
+- obecny Windows OCR pozostaje legacy runtime importu itemów i nie został przepięty na nową ścieżkę,
+- nowy pipeline OpenCV jest budowany obok starego pipeline'u w pakietach `krys.itemimport.image` oraz `krys.itemimport.image.opencv`,
+- Etap 1 jest zamknięty kontraktowo jako ścieżka `1..N screenshotów jednego itemu -> OpenCV -> overlap-aware stitching -> jeden finalny AssembledItemImage`,
+- Etap 1 obejmuje wyłącznie deterministyczne przygotowanie `List<ItemImageImportRequest>` do neutralnego `AssembledItemImage`; dla wielu screenów finalny wynik musi być spójnym obrazem tego samego przewijanego tooltipa, złożonym przez overlap-aware stitching,
+- Etap 1.1 pokazuje wynik `OpenCvItemImageAssembler` diagnostycznie w istniejącym ekranie `/importuj-item-ze-screena`, w sekcji `Podgląd obrazu przygotowanego przez OpenCV`,
+- preview OpenCV powstaje równolegle z tych samych oryginalnych uploadów co legacy import, ale `AssembledItemImage` nie jest jeszcze wejściem do `ItemImageImportService`, `WindowsItemOcrTextReader` ani `ItemImageOcrPreprocessor`,
+- UI renderuje finalny PNG bezpośrednio z `AssembledItemImage` jako data URI/base64 i pokazuje metadane `sourceImageCount`, `width`, `height`, `format`, `assemblyStatus`, `compositionPolicy` oraz diagnostykę stitching dla par źródeł: status, `offsetX`, `offsetY`, wysokość overlapu, `seamY` i confidence,
+- `OpenCvItemImageAssembler` dekoduje obrazy przez OpenCV / Bytedeco, a typy `org.bytedeco.opencv.*` pozostają wyłącznie detalem implementacyjnym pakietu `image.opencv`,
+- pojedynczy obraz jest passthrough: bez skalowania, bez cropowania i bez preprocessingu,
+- wiele obrazów jest składanych w kolejności uploadu przez wykrycie panelu/contentu, registration, overlap, walidację confidence, wybór seam wewnątrz overlapu i usunięcie duplikatu; algorytm nie używa OCR, twardych koordynatów, nazwy itemu, rozdzielczości ani tekstu,
+- pionowa kompozycja wejść istnieje wyłącznie jako artefakt diagnostyczny `target/item-import-debug/raw-composition.png` i nie jest traktowana jako finalny sukces, gdy overlap nie zostanie wiarygodnie znaleziony,
+- przy braku wiarygodnego overlapu multi-image zwraca kontrolowany błąd `STITCH_NOT_CONFIDENT`; preview OpenCV pokazuje błąd, a legacy OCR nadal działa na oryginalnych uploadach,
+- artefakty diagnostyczne OpenCV są zapisywane do `target/item-import-debug/`: finalny obraz `stitched-item.png`, raw kompozycja `raw-composition.png`, kadry paneli `source-01-panel.png`, `source-02-panel.png` itd. oraz obrazy overlapu typu `overlap-01-02.png`; zapis jest wyłącznie diagnostyczny, best effort, a pipeline nie czyta tych plików z powrotem,
+- awaria utworzenia katalogu debug albo zapisu PNG nie może przerwać poprawnego stitchingu, zmienić statusu `STITCHED` w failure ani wyjść do użytkownika jako błąd preview; jest logowana jako `OPENCV_DEBUG_ARTIFACT_WARNING`,
+- błąd preview OpenCV jest komunikowany osobno od błędu importu/OCR; legacy Windows OCR nadal wykonuje swój dotychczasowy przepływ na oryginalnych obrazach wejściowych,
+- Etap 1 nie dodaje Tesseracta, `OcrEngine`, ROI OCR, preprocessingu OCR, zmian parsera itemów ani zmian runtime DPS; Etap 2 ma otrzymać już spójny `AssembledItemImage`, a nie listę pionowo doklejonych screenów.
+
 Kontrakt prezentacji dla smoke testu importu itemu:
 - GUI importu jest po polsku i jasno komunikuje, że to import wspomagany pojedynczego itemu, a nie pełny automatyczny import całej postaci,
 - GUI importu pokazuje globalną nawigację SSR wspólną z ekranem głównym i pozostałymi głównymi modułami,
@@ -1811,6 +1843,8 @@ Kontrakt prezentacji dla smoke testu importu itemu:
 - GUI waliduje technicznie, czy upload jest prawidłowym obrazem,
 - GUI przed pierwszym uploadem pokazuje sensowny empty state sekcji `Wstępnie rozpoznane pola`,
 - GUI wykonuje preprocessing i realny OCR kilku wariantów pojedynczego screena, a następnie pokazuje metadane obrazu oraz produktowy odczyt itemu bez domyślnej tabeli technicznych kandydatów OCR,
+- po uploadzie GUI pokazuje diagnostyczny `Podgląd obrazu przygotowanego przez OpenCV`; jest to weryfikacja nowej warstwy obrazu przed Etapem 2, a nie gotowy nowy OCR,
+- właściwy OCR w imporcie itemu pozostaje legacy Windows OCR i dostaje oryginalne obrazy uploadu, nie obraz złożony przez OpenCV,
 - GUI nie pokazuje sekcji `Pełny odczyt widocznego itemu` ani technicznego `Pełnego zapisu itemu` w normalnym flow importu; raw OCR, pełne linie odczytu i typed merge diagnostics pozostają w modelu i logach debug, nie w ekranie użytkownika,
 - brak sekcji `Pełny odczyt widocznego itemu` nie zmienia pól edycyjnych typu itemu: dla broni pola `DPS broni`, min/max/średnia obrażeń za trafienie i `Ataki na sekundę` są edytowane wyłącznie w fieldsecie `Dane broni`, a dla tarczy `Pancerz` i uporządkowane linie bazowe pozostają w fieldsecie `Dane tarczy`,
 - GUI pokazuje ręczny formularz zatwierdzenia z edytowalną listą affixów opartą o `ApplicationAffixRegistry`: użytkownik może zmienić typ i wartość affixu, oznaczyć `Greater Affix`, usunąć wiersz z tabeli albo dodać brakujący affix z katalogu przez akcję `Dodaj affix` bez przeładowania strony; tabela affixów nie pokazuje kolumny OCR/source, chociaż źródło może pozostać w modelu, ukrytych polach albo debug danych; layout tabeli używa przewijanego wrappera i osobnej siatki `item-affix-add-grid`, aby długie selecty, checkbox i przyciski nie nachodziły na siebie,
@@ -1884,11 +1918,13 @@ Kontrakt prezentacji dla smoke testu importu itemu:
 Kontrakt diagnostyczny importu itemów:
 - import itemów ma kontrolowany tryb technicznych debug logów, wyłączony domyślnie,
 - tryb można włączyć parametrem JVM `-Ddstats.itemImport.debug=true`; równoważnie obsługiwany jest klucz konfiguracyjny `dstats.item-import.debug=true`,
-- logger diagnostyczny używa kategorii `krys.itemimport.debug` i prefixu `[ITEM_IMPORT_DEBUG]`; jeżeli nie zmieniono ścieżki parametrem `-Ddstats.itemImport.debug.file=...`, te same wpisy są dopisywane do timestampowanego pliku `logs/item-import-debug-yyyy-MM-dd-HH-mm-ss.log`, np. `logs/item-import-debug-2026-06-02-12-45-30.log`; timestamp jest bezpieczny dla Windows,
-- jawnie podany parametr `-Ddstats.itemImport.debug.file=...` jest respektowany dokładnie, bez dopisywania timestampu i bez wymuszania katalogu `logs/`,
-- katalog `logs/` jest lokalnym katalogiem diagnostycznym ignorowanym przez Git; plików takich jak `logs/item-import-debug-2026-06-02-12-45-30.log` ani jawnie wskazanych lokalnych logów diagnostycznych nie należy commitować,
+- logger diagnostyczny używa kategorii `krys.itemimport.debug` i prefixu `[ITEM_IMPORT_DEBUG]`; każdy import itemu tworzy osobny plik w `logs/item-import/` o nazwie `item-import-yyyy-MM-dd-HH-mm-ss-SSS-<item-slug>-<id>.log`, np. `logs/item-import/item-import-2026-06-12-09-29-23-378-odlamek-verathiela-ea980a72.log`,
+- na początku importu plik powstaje jako `item-import-yyyy-MM-dd-HH-mm-ss-SSS-pending-<id>.log`; po rozpoznaniu nazwy itemu importer finalizuje nazwę przez rename do sluga itemu i dopisuje `IMPORT_LOG_ITEM_NAME_RESOLVED` oraz `IMPORT_LOG_FILE_FINALIZED`. Jeżeli nazwa itemu jest pusta, slug to `unknown-item`; jeżeli rename się nie uda, log zostaje w pliku pending i musi zawierać `LOG_FILE_RENAME_FAILED`,
+- slug itemu w nazwie logu jest lowercase, usuwa polskie znaki diakrytyczne, zamienia separatory na `-`, usuwa znaki niedozwolone w Windows (`< > : " / \ | ? *`), kompresuje wielokrotne `-`, przycina do 80 znaków i dla pustego wyniku używa `unknown-item`,
+- parametr `-Ddstats.itemImport.debug.file=...` dla importu wskazuje katalog docelowy logów, a jeżeli podano ścieżkę zakończoną `.log`, używany jest jej katalog nadrzędny; operacje diagnostyczne poza importem mogą nadal pisać do jawnie podanego pliku,
+- katalog `logs/` jest lokalnym katalogiem diagnostycznym ignorowanym przez Git; plików `logs/item-import/item-import-*.log` ani jawnie wskazanych lokalnych logów diagnostycznych nie należy commitować,
 - każdy import obrazu dostaje correlation id w formacie `ITEM-IMPORT-...`, które jest propagowane przez OCR, parser, candidate merger i finalny formularz zbudowany z tego samego `ItemImageImportCandidateParseResult`; runtime resolver może użyć osobnego id `ITEM-RUNTIME-...`, ale loguje item id, nazwę i slot, żeby dało się powiązać dane,
-- logi techniczne obejmują sekcje `IMPORT_REQUEST`, `FILE`, `OCR_RAW_VARIANTS`, `HEADER_GA_STAR_CANDIDATE`, `HEADER_GA_STAR_REJECTED`, `HEADER_GA_STAR_SELECTED`, `OCR_NORMALIZED_LINES`, `OCR_SEGMENTER_INPUT`, `OCR_SEGMENTER_MATCH`, `OCR_SEGMENTER_OUTPUT`, `SCREEN_MERGER_INPUT`, `SCREEN_MERGER_OUTPUT`, `MERGE_DECISION`, `MERGE_REJECTED`, `MERGE_NUMERIC_TOKENS`, `ITEM_DETAILS`, `WEAPON_DAMAGE_RANGE_MERGE`, `AFFIX_CANDIDATE`, `AFFIX_REJECTED`, `AFFIX_MERGE`, `SOCKET_GEM_RUNE_CANDIDATE`, `SOCKET_REGION_LINE`, `TRANSFIGURATION_CANDIDATE`, `ASPECT_MATCH`, `GA_HEADER_VERIFICATION`, `FINAL_IMPORT_FORM`, `FORM_SUBMIT_MAPPING`, `ITEM_LIBRARY_SAVE_READ` i `RUNTIME_CONTRIBUTION`,
+- logi techniczne obejmują sekcje `IMPORT_LOG_FILE_CREATED`, `IMPORT_LOG_ITEM_NAME_RESOLVED`, `IMPORT_LOG_FILE_FINALIZED`, `IMPORT_REQUEST`, `FILE`, `OCR_RAW_VARIANTS`, `HEADER_GA_STAR_CANDIDATE`, `HEADER_GA_STAR_REJECTED`, `HEADER_GA_STAR_SELECTED`, `OCR_NORMALIZED_LINES`, `OCR_SEGMENTER_INPUT`, `OCR_SEGMENTER_MATCH`, `OCR_SEGMENTER_OUTPUT`, `SCREEN_MERGER_INPUT`, `SCREEN_MERGER_OUTPUT`, `MERGE_DECISION`, `MERGE_REJECTED`, `MERGE_NUMERIC_TOKENS`, `ITEM_DETAILS`, `WEAPON_DAMAGE_RANGE_MERGE`, `AFFIX_CANDIDATE`, `AFFIX_REJECTED`, `AFFIX_MERGE`, `ORDINARY_SEQUENCE_CANDIDATE`, `ORDINARY_SEQUENCE_REJECTED`, `ORDINARY_SEQUENCE_SELECTED`, `ORDINARY_AFFIX_SECTION_START`, `ORDINARY_AFFIX_SECTION_CANDIDATE`, `ORDINARY_AFFIX_SECTION_END`, `ORDINARY_AFFIX_SECTION_REJECTED`, `ORDINARY_AFFIX_SECTION_SOCKET_OVERRIDE`, `SOCKET_GEM_RUNE_CANDIDATE`, `SOCKET_REGION_LINE`, `TRANSFIGURATION_CANDIDATE`, `ASPECT_MATCH`, `GA_HEADER_VERIFICATION`, `OPENCV_DEBUG_ARTIFACT_WARNING`, `FINAL_IMPORT_FORM`, `FORM_SUBMIT_MAPPING`, `ITEM_LIBRARY_SAVE_READ` i `RUNTIME_CONTRIBUTION`,
 - dla importu pojedynczego screena `SCREEN_MERGER_OUTPUT` musi zawierać `scope=single-typed-merge`; pojawienie się starego `single-no-merge` oznacza regresję kontraktu, bo finalny `FullItemRead` nie może pomijać typowanego merge wariantów OCR,
 - `IMPORT_REQUEST` zapisuje liczbę screenów, tryb `SINGLE` / `MULTI`, nazwy plików bez pełnych lokalnych ścieżek, content type, rozmiary obrazów, timestamp i informację, że debug jest aktywny,
 - sekcje OCR i mergera zachowują widoczność linii zawierających cyfry, procenty, plusy, nawiasy kwadratowe i bracketopodobne tokeny; jeżeli linia z tokenem liczbowym/bracketowym zostaje odrzucona przez aktualne reguły, log musi pokazać źródło, wybraną linię i powód decyzji, ale samo logowanie nie naprawia ani nie zmienia tej decyzji,
@@ -1897,6 +1933,8 @@ Kontrakt diagnostyczny importu itemów:
 - `ITEM_DETAILS` dla broni loguje surowe tokeny zakresu obrażeń, znormalizowany min/max, sparsowane `weaponDamageMin` / `weaponDamageMax`, źródło średniej obrażeń oraz linię źródłową wykrytej jakości Doskonalenia, jeżeli debug jest aktywny,
 - `WEAPON_DAMAGE_RANGE_MERGE` zapisuje kandydatów zakresu broni po wariantach OCR, `damageRangeScore`, `expectedDps`, wynik spójności DPS/APS, powód niższego score albo odrzucenia oraz finalnie wybrany zakres; log musi pokazać, dlaczego `884-2512` przegrywa ze spójnym `1884-2512`, jeżeli oba kandydaty są dostępne,
 - `AFFIX_CANDIDATE`, `AFFIX_REJECTED`, `AFFIX_MERGE`, `AFFIX_VISUAL_ANCHOR` i `AFFIX_VISUAL_ORDER` zapisują typ affixu, wartość, `referenceValue`, `rollRangeMin`, `rollRangeMax`, `greaterAffix`, source line, klucz deduplikacji, punktację albo powód wyboru, jeżeli dana warstwa je posiada; gdy lepszy kandydat wartości zastępuje wcześniejszy wpis, log pokazuje `selectedValueSource`, `visualAnchorSource`, `rejectedVisualOrder`, `selectedVisualOrder`, `visualSourceOrder` i powód propagacji markera GA, a finalny `AFFIX_VISUAL_ORDER` pokazuje kolejność po deduplikacji używaną przez limit ordinary affixów; dla mnożników logują też oczekiwany i wykryty kształt wartości, a kandydat `ALL_DAMAGE_MULTIPLIER` bez lokalnego markera mnożnikowego jest odrzucany z powodem `missing multiplier marker` / `incompatible value shape`; dla `CORE_SKILL_RANKS` log odrzuca lore/footer/opis z powodem braku jawnej lokalnej kotwicy ranków albo niedodatniej wartości,
+- `ORDINARY_SEQUENCE_CANDIDATE`, `ORDINARY_SEQUENCE_REJECTED` i `ORDINARY_SEQUENCE_SELECTED` zapisują `sequenceId`, `sourceVariant`, score, anchor, marker końca i powód wyboru albo odrzucenia; zanieczyszczony globalny merge, w którym socket/gem effect skleja się z base item stat, musi przegrać ze spójną sekwencją wariantu OCR,
+- `ORDINARY_AFFIX_SECTION_START`, `ORDINARY_AFFIX_SECTION_CANDIDATE`, `ORDINARY_AFFIX_SECTION_END`, `ORDINARY_AFFIX_SECTION_REJECTED` i `ORDINARY_AFFIX_SECTION_SOCKET_OVERRIDE` zapisują anchor startu sekcji, wybraną sekwencję, marker i powód końca, liczbę wybranych affixów względem maksimum 4, typ/tekst wybranych kandydatów, affix-like linie odrzucone po markerze oraz konflikty, w których linia z ordinary section wygrała nad słabą klasyfikacją socket/gem/rune,
 - `MERGE_SEGMENT_DECISION` zapisuje dla zaakceptowanych segmentów mergera `parentLineRegion`, `segmentStart`, `segmentEnd`, `firstAspectEffectStart`, `firstSocketGemRuneStart`, `firstLoreVendorRequirementStart`, `effectiveSegmentRegion`, `localAnchorType` i decyzję `acceptedAsOrdinary` / `acceptedAsTransfiguration` / `acceptedAsTempering` / `acceptedAsAspect` / `acceptedAsSocket` / `acceptedAsSocketGemRuneData`,
 - `MERGE_TYPED_LINE`, `MERGE_TYPED_OUTPUT`, `SOCKET_STAT_PRESERVED_ACROSS_MERGE`, `SOCKET_STAT_DEDUP_KEY` i `SOCKET_STAT_OCCURRENCE` pokazują, że metadata `socket-stat:*` przetrwała per-screen merge, multi-final merge i nie została przetworzona ponownie jako `affix:*`; klucz occurrence musi zawierać offsety segmentu albo równoważny stabilny identyfikator wystąpienia,
 - `SOCKET_GEM_RUNE_CANDIDATE` / `SOCKET_REGION_LINE` zapisują linie regionu gniazd/gemów/run z powodem wskazującym region socket / gem / rune, flagą `ignoredForOrdinaryAffixes=true`, `parentLineRegion`, `segmentStart`, `segmentEnd`, `firstAspectEffectStart`, `firstSocketGemRuneStart`, `firstLoreVendorRequirementStart`, `effectiveSegmentRegion`, `localAnchorType`, `decision=ignoredAsSocketGemRune`, `derivedFromSplit=true` dla segmentów wyciętych przez merger oraz `matchedAffixType`, jeśli ta sama linia technicznie pasuje do `AffixRegistry`; dla fizycznego mnożnika socket/gem/rune log musi wskazywać lokalne wiązanie wartości z `Mnożnik x...%`, żeby było jasne, że liczby unique effect / roll range zostały zignorowane,

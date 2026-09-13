@@ -1474,8 +1474,7 @@ class ItemImageImportTextParserTest {
         assertTrue(html.contains("526 - 632"));
         assertTrue(html.contains("Szczęśliwy traf: zasób podstawowy"));
         assertTrue(html.contains("title=\"Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +X podstawowego zasobu\""));
-        assertTrue(html.contains("name=\"affixOriginalType_2\" value=\"LUCKY_HIT_PRIMARY_RESOURCE\""));
-        assertTrue(html.contains("name=\"affixValue_2\" value=\"3\""));
+        assertAffixRow(html, "LUCKY_HIT_PRIMARY_RESOURCE", "3", "3", "4");
         assertFalse(html.contains("<span class=\"summary-value\">+3</span>"));
         assertFalse(html.contains("15% / +3"));
         assertTrue(html.contains("3 - 4"));
@@ -1483,7 +1482,6 @@ class ItemImageImportTextParserTest {
         assertTrue(html.contains("Treść efektu"));
         assertFalse(html.contains("Aspekt / efekt legendarny"));
         assertFalse(html.contains("Unikatowy efekt / aspekt"));
-        assertTrue(html.contains("<input type=\"number\" min=\"0\" step=\"0.01\" name=\"affixValue_2\" value=\"3\""));
         assertTrue(html.contains("name=\"affixType_0\""));
         assertTrue(html.contains("name=\"affixType_1\""));
         assertTrue(html.contains("name=\"affixType_2\""));
