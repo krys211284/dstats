@@ -162,7 +162,7 @@ class ItemImportWebServerTest {
         ));
 
         assertEquals(200, response.statusCode());
-        String previewSection = sectionByH2(response.body(), "Podgląd obrazu przygotowanego przez OpenCV");
+        String previewSection = response.body();
         assertEquals(1, countOccurrences(previewSection, "data-opencv-assembled-preview"));
         assertTrue(previewSection.contains("Liczba obrazów źródłowych"));
         assertTrue(previewSection.contains("<div class=\"summary-value\">2"));
@@ -232,6 +232,44 @@ class ItemImportWebServerTest {
         BufferedImage preview = decodeOpenCvPreview(response.body());
         assertTrue(preview.getWidth() > 0);
         assertTrue(preview.getHeight() > 0);
+        String previewSection = response.body();
+        assertTrue(previewSection.contains("Detekcja separatorów poziomych"));
+        assertTrue(previewSection.contains("Wykryte linie poziome"));
+        assertTrue(previewSection.contains("<div class=\"summary-value\">2"));
+        assertTrue(previewSection.contains("Powstałe części"));
+        assertTrue(previewSection.contains("<div class=\"summary-value\">3"));
+        assertTrue(previewSection.contains("data-opencv-divider-overlay"));
+        assertTrue(previewSection.contains("data-opencv-divider-count=\"2\""));
+        assertTrue(previewSection.contains("data-opencv-part-count=\"3\""));
+        assertEquals(2, countOccurrences(previewSection, "data-opencv-divider-row"));
+        assertEquals(2, countOccurrences(previewSection, "data-opencv-divider-y"));
+        assertEquals(2, countOccurrences(previewSection, "data-opencv-divider-strength"));
+        assertEquals(3, countOccurrences(previewSection, "data-opencv-part-name=\"PART_"));
+        assertTrue(previewSection.contains("data-opencv-part-name=\"PART_1\""));
+        assertTrue(previewSection.contains("data-opencv-part-name=\"PART_2\""));
+        assertTrue(previewSection.contains("data-opencv-part-name=\"PART_3\""));
+    }
+
+    @Test
+    void shouldRenderHorizontalDividerDiagnosticsForRealMultiImageHelmetFixture() throws Exception {
+        createHero("Importer", "13");
+        byte[] first = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-1.png"));
+        byte[] second = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-2.png"));
+
+        HttpResponse<String> response = sendMultipartImagePost("/importuj-item-ze-screena", List.of(
+                new MultipartUpload("dziedzic-zatracenia-helm-1.png", "image/png", first),
+                new MultipartUpload("dziedzic-zatracenia-helm-2.png", "image/png", second)
+        ));
+
+        assertEquals(200, response.statusCode());
+        String previewSection = response.body();
+        assertTrue(previewSection.contains("STITCHED"));
+        assertTrue(previewSection.contains("Diagnostyka stitching"));
+        assertTrue(previewSection.contains("Detekcja separatorów poziomych"));
+        assertTrue(previewSection.contains("data-opencv-divider-count=\"2\""));
+        assertTrue(previewSection.contains("data-opencv-part-count=\"3\""));
+        assertEquals(2, countOccurrences(previewSection, "data-opencv-divider-row"));
+        assertEquals(3, countOccurrences(previewSection, "data-opencv-part-name=\"PART_"));
     }
 
     @Test
@@ -301,6 +339,71 @@ class ItemImportWebServerTest {
 
             assertEquals(200, response.statusCode());
             assertTrue(response.body().contains("TEST_PREVIEW_POLICY"));
+            List<ItemImageImportRequest> requests = capturedRequests.get();
+            assertEquals(2, requests.size());
+            assertEquals("oryginal-a.png", requests.get(0).getOriginalFilename());
+            assertEquals("oryginal-b.png", requests.get(1).getOriginalFilename());
+            assertArrayEquals(firstImage, requests.get(0).getImageBytes());
+            assertArrayEquals(secondImage, requests.get(1).getImageBytes());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void shouldKeepAssembledPreviewAndLegacyOriginalRequestsWhenDividerDetectionFails() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("item-import-divider-controller");
+        HeroService heroService = new HeroService(new FileHeroProfileRepository(tempDirectory));
+        heroService.createHero("Importer", HeroClass.PALADIN, 13);
+        ItemLibraryService itemLibraryService = new ItemLibraryService(new FileItemLibraryRepository(tempDirectory));
+        AtomicReference<List<ItemImageImportRequest>> capturedRequests = new AtomicReference<>();
+        byte[] firstImage = png(5, 3, Color.RED);
+        byte[] secondImage = png(7, 4, Color.BLUE);
+        byte[] fakePreviewImage = png(2, 2, Color.GREEN);
+
+        ItemImportController controller = new ItemImportController(
+                requests -> {
+                    capturedRequests.set(List.copyOf(requests));
+                    return parseResultForOriginalRequests(requests);
+                },
+                new ItemImportPageRenderer(),
+                new ItemImportEditableFormFactory(),
+                new ItemImportFormMapper(),
+                new ValidatedImportedItemToItemMapper(),
+                new ImportedItemCurrentBuildContributionMapper(),
+                new FullItemReadAffixUpdater(),
+                itemLibraryService,
+                null,
+                heroService,
+                requests -> new AssembledItemImage(
+                        fakePreviewImage,
+                        "PNG",
+                        2,
+                        2,
+                        requests.size(),
+                        "TEST_PREVIEW_POLICY"
+                ),
+                new AssembledItemImageDebugWriter(),
+                image -> {
+                    throw new IllegalStateException("awaria separatorow");
+                }
+        );
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/importuj-item-ze-screena", controller);
+        server.start();
+        try {
+            String localBaseUrl = "http://127.0.0.1:" + server.getAddress().getPort();
+
+            HttpResponse<String> response = sendMultipartImagePost(localBaseUrl, "/importuj-item-ze-screena", List.of(
+                    new MultipartUpload("oryginal-a.png", "image/png", firstImage),
+                    new MultipartUpload("oryginal-b.png", "image/png", secondImage)
+            ));
+
+            assertEquals(200, response.statusCode());
+            assertTrue(response.body().contains("TEST_PREVIEW_POLICY"));
+            assertTrue(response.body().contains("data-opencv-assembled-preview"));
+            assertTrue(response.body().contains("Błąd detekcji separatorów"));
+            assertTrue(response.body().contains("awaria separatorow"));
             List<ItemImageImportRequest> requests = capturedRequests.get();
             assertEquals(2, requests.size());
             assertEquals("oryginal-a.png", requests.get(0).getOriginalFilename());

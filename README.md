@@ -1835,6 +1835,22 @@ Równoległa warstwa obrazu dla przyszłego pipeline'u OCR:
 - błąd preview OpenCV jest komunikowany osobno od błędu importu/OCR; legacy Windows OCR nadal wykonuje swój dotychczasowy przepływ na oryginalnych obrazach wejściowych,
 - Etap 1 nie dodaje Tesseracta, `OcrEngine`, ROI OCR, preprocessingu OCR, zmian parsera itemów ani zmian runtime DPS; Etap 2 ma otrzymać już spójny `AssembledItemImage`, a nie listę pionowo doklejonych screenów.
 
+Etap 2A pipeline'u obrazu OpenCV:
+- Etap 2A jest wyłącznie strukturalnym podziałem finalnego obrazu: `AssembledItemImage -> HorizontalDividerDetector -> dividers[] -> parts[]`,
+- wejściem detektora jest tylko `AssembledItemImage`; detektor nie przyjmuje `List<ItemImageImportRequest>`, nie czyta source screenshotów, `raw-composition.png`, debug PNG ani artefaktów z `target/item-import-debug`, nie używa OCR i nie korzysta z tekstu itemu,
+- publiczny kontrakt neutralny znajduje się w `krys.itemimport.image`: `HorizontalDividerDetector`, `HorizontalDividerDetectionResult`, `HorizontalDivider` i `ItemImagePart`; implementacja OpenCV znajduje się w `krys.itemimport.image.opencv.OpenCvHorizontalDividerDetector`, a typy `Mat` nie wychodzą poza pakiet `.opencv`,
+- `HorizontalDivider` opisuje pozycję `y`, pasmo `bandStartY..bandEndY` i deterministyczną siłę `strength` w zakresie `0..1`,
+- `ItemImagePart` opisuje `PART_N`, zakres `startYInclusive..endYExclusive`, pełną szerokość finalnego obrazu, dodatnie wymiary, format i bajty PNG części,
+- liczba separatorów nie jest ograniczona do dwóch: kontrakt jest generyczny `N dividers -> N+1 parts`, a testy obejmują także trzy realne/strukturalne separatory i cztery części,
+- podział jest bezstratny w osi Y: granice części wynikają ze środka wykrytych separatorów, części nie mają luk ani nakładających się wierszy, suma wysokości części jest równa wysokości `AssembledItemImage`, a pasma separatorów nie są usuwane z obrazu,
+- dla pojedynczego obrazu Etap 1 nadal robi passthrough bez skalowania i cropowania; Etap 2A może wyznaczyć wewnętrzne ROI tylko do analizy separatorów, ale części zawsze powstają z pełnego finalnego obrazu i zachowują pełną szerokość,
+- detekcja jest obrazowa: dekoduje finalny PNG przez OpenCV, wyznacza wewnętrzne bounds contentu, analizuje luminancję, pionowy kontrast, ciągłość poziomych odcinków i projekcję wierszy, grupuje sąsiednie krawędzie jednego separatora oraz odrzuca ramki tooltipa, pionowe ramki, krótkie fragmenty tekstowe, tło/marginesy i artefakty seam,
+- prawdziwy wewnętrzny separator blisko dolnej części tooltipa, np. linia oddzielająca główną treść itemu od bloku `Wartość sprzedaży / Trwałość`, pozostaje structural dividerem; odrzucanie dołu dotyczy ramek, krótkich detali i przypadkowych linii, a nie długich wewnętrznych separatorów,
+- wynik detekcji zawiera uporządkowane separatory, uporządkowane części oraz overlay finalnego obrazu z zaznaczonymi separatorami; overlay jest diagnostyczny i nie staje się wejściem żadnego kolejnego kroku,
+- UI `/importuj-item-ze-screena` po poprawnym assembled preview pokazuje diagnostykę Etapu 2A: `Wykryte linie poziome`, `Powstałe części`, wiersze `Separator N` z `y` i `strength`, overlay oraz preview `PART_N` ze stabilnymi hookami `data-opencv-divider-*` i `data-opencv-part-*`,
+- awaria detekcji separatorów jest izolowana od Etapu 1: assembled preview i diagnostyka stitching pozostają widoczne, ekran pokazuje osobny komunikat `Błąd detekcji separatorów`, a legacy analyzer/OCR nadal dostaje oryginalne uploady,
+- Etap 2A nie klasyfikuje sekcji semantycznie, nie implementuje ROI OCR, grayscale/threshold pod OCR, Tesseracta, `OcrEngine`, `ItemImageSectionExtractor`, zmian `ItemImageImportTextParser`, `WindowsItemOcrTextReader`, `DamageEngine`, biblioteki itemów ani logiki affixów.
+
 Kontrakt prezentacji dla smoke testu importu itemu:
 - GUI importu jest po polsku i jasno komunikuje, że to import wspomagany pojedynczego itemu, a nie pełny automatyczny import całej postaci,
 - GUI importu pokazuje globalną nawigację SSR wspólną z ekranem głównym i pozostałymi głównymi modułami,
@@ -1844,6 +1860,7 @@ Kontrakt prezentacji dla smoke testu importu itemu:
 - GUI przed pierwszym uploadem pokazuje sensowny empty state sekcji `Wstępnie rozpoznane pola`,
 - GUI wykonuje preprocessing i realny OCR kilku wariantów pojedynczego screena, a następnie pokazuje metadane obrazu oraz produktowy odczyt itemu bez domyślnej tabeli technicznych kandydatów OCR,
 - po uploadzie GUI pokazuje diagnostyczny `Podgląd obrazu przygotowanego przez OpenCV`; jest to weryfikacja nowej warstwy obrazu przed Etapem 2, a nie gotowy nowy OCR,
+- po udanym preview OpenCV GUI pokazuje również diagnostykę Etapu 2A z liczbą separatorów poziomych, liczbą powstałych części, overlayem i preview `PART_N`; ta sekcja nadal nie jest OCR i nie zasila legacy importu,
 - właściwy OCR w imporcie itemu pozostaje legacy Windows OCR i dostaje oryginalne obrazy uploadu, nie obraz złożony przez OpenCV,
 - GUI nie pokazuje sekcji `Pełny odczyt widocznego itemu` ani technicznego `Pełnego zapisu itemu` w normalnym flow importu; raw OCR, pełne linie odczytu i typed merge diagnostics pozostają w modelu i logach debug, nie w ekranie użytkownika,
 - brak sekcji `Pełny odczyt widocznego itemu` nie zmienia pól edycyjnych typu itemu: dla broni pola `DPS broni`, min/max/średnia obrażeń za trafienie i `Ataki na sekundę` są edytowane wyłącznie w fieldsecie `Dane broni`, a dla tarczy `Pancerz` i uporządkowane linie bazowe pozostają w fieldsecie `Dane tarczy`,

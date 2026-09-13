@@ -115,6 +115,7 @@ public final class ItemImportPageRenderer {
                     </div>
                 """);
         html.append(renderOpenCvStitchDiagnostics(preview));
+        html.append(renderOpenCvHorizontalDividerDetection(preview));
         if (model.hasOpenCvPreviewError()) {
             html.append("<p class=\"helper opencv-preview-warning\">")
                     .append(escapeHtml(model.getOpenCvPreviewError()))
@@ -126,6 +127,119 @@ public final class ItemImportPageRenderer {
                     .append("</p>");
         }
         html.append("</section>");
+        return html.toString();
+    }
+
+    private static String renderOpenCvHorizontalDividerDetection(ItemImportPageModel.OpenCvImagePreview preview) {
+        StringBuilder html = new StringBuilder();
+        if (preview.hasHorizontalDividerDetectionError()) {
+            html.append("""
+                    <section class="subpanel opencv-divider-error" data-opencv-divider-error>
+                        <h3>Błąd detekcji separatorów</h3>
+                        <p class="helper">%s</p>
+                    </section>
+                    """.formatted(escapeHtml(preview.getHorizontalDividerDetectionError())));
+        }
+        if (!preview.hasHorizontalDividerDetection()) {
+            return html.toString();
+        }
+
+        ItemImportPageModel.HorizontalDividerDetectionView detection = preview.getHorizontalDividerDetection();
+        html.append("""
+                    <section class="subpanel opencv-divider-diagnostics" data-opencv-divider-diagnostics>
+                        <h3>Detekcja separatorów poziomych</h3>
+                        <div class="summary-grid">
+                """);
+        html.append(renderSummaryCard("Wykryte linie poziome", Integer.toString(detection.getDividerCount())))
+                .append(renderSummaryCard("Powstałe części", Integer.toString(detection.getPartCount())))
+                .append("""
+                        </div>
+                        <div class="opencv-divider-layout">
+                            <div class="opencv-preview-frame opencv-divider-overlay-frame">
+                                <img src="%s" alt="Złożony obraz itemu z oznaczonymi separatorami" data-opencv-divider-overlay data-opencv-divider-count="%d" data-opencv-part-count="%d">
+                            </div>
+                """.formatted(
+                        escapeHtml(detection.getOverlayDataUri()),
+                        detection.getDividerCount(),
+                        detection.getPartCount()
+                ));
+        html.append(renderOpenCvDividerTable(detection));
+        html.append("""
+                        </div>
+                """);
+        html.append(renderOpenCvPartPreviews(detection));
+        html.append("""
+                    </section>
+                """);
+        return html.toString();
+    }
+
+    private static String renderOpenCvDividerTable(ItemImportPageModel.HorizontalDividerDetectionView detection) {
+        if (detection.getDividers().isEmpty()) {
+            return "<p class=\"helper\" data-opencv-divider-empty>Brak strukturalnych separatorów poziomych.</p>";
+        }
+        StringBuilder html = new StringBuilder("""
+                            <div class="table-scroll opencv-divider-table">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Separator</th>
+                                            <th>Y</th>
+                                            <th>Pasmo</th>
+                                            <th>Strength</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                """);
+        for (ItemImportPageModel.HorizontalDividerView divider : detection.getDividers()) {
+            html.append("<tr data-opencv-divider-row>")
+                    .append("<td>Separator ")
+                    .append(divider.getIndex())
+                    .append("</td><td data-opencv-divider-y>")
+                    .append(divider.getY())
+                    .append("</td><td>")
+                    .append(divider.getBandStartY())
+                    .append("..")
+                    .append(divider.getBandEndY())
+                    .append("</td><td data-opencv-divider-strength>")
+                    .append(escapeHtml(divider.getStrength()))
+                    .append("</td></tr>");
+        }
+        html.append("""
+                                    </tbody>
+                                </table>
+                            </div>
+                """);
+        return html.toString();
+    }
+
+    private static String renderOpenCvPartPreviews(ItemImportPageModel.HorizontalDividerDetectionView detection) {
+        StringBuilder html = new StringBuilder("""
+                        <div class="opencv-part-grid" data-opencv-part-previews>
+                """);
+        for (ItemImportPageModel.ItemImagePartView part : detection.getParts()) {
+            html.append("""
+                            <article class="opencv-part-card" data-opencv-part-preview data-opencv-part-name="%s">
+                                <h4>%s</h4>
+                                <p class="helper">%d..%d, %d x %d</p>
+                                <div class="opencv-part-frame">
+                                    <img src="%s" alt="%s">
+                                </div>
+                            </article>
+                    """.formatted(
+                    escapeHtml(part.getName()),
+                    escapeHtml(part.getName()),
+                    part.getStartYInclusive(),
+                    part.getEndYExclusive(),
+                    part.getWidth(),
+                    part.getHeight(),
+                    escapeHtml(part.getDataUri()),
+                    escapeHtml(part.getName())
+            ));
+        }
+        html.append("""
+                        </div>
+                """);
         return html.toString();
     }
 

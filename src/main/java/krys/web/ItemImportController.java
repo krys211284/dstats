@@ -23,7 +23,11 @@ import krys.itemimport.ValidatedImportedItem;
 import krys.itemimport.ValidatedImportedItemToItemMapper;
 import krys.itemimport.image.AssembledItemImage;
 import krys.itemimport.image.AssembledItemImageDebugWriter;
+import krys.itemimport.image.HorizontalDivider;
+import krys.itemimport.image.HorizontalDividerDetectionResult;
+import krys.itemimport.image.HorizontalDividerDetector;
 import krys.itemimport.image.ItemImageAssembler;
+import krys.itemimport.image.ItemImagePart;
 import krys.itemknowledge.ItemKnowledgeService;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
@@ -56,6 +60,7 @@ public final class ItemImportController implements HttpHandler {
     private final HeroService heroService;
     private final ItemImageAssembler itemImageAssembler;
     private final AssembledItemImageDebugWriter assembledImageDebugWriter;
+    private final HorizontalDividerDetector horizontalDividerDetector;
 
     public ItemImportController(ItemImageImportService imageImportService,
                                 ItemImportPageRenderer renderer,
@@ -80,6 +85,26 @@ public final class ItemImportController implements HttpHandler {
                                 ItemImageAssembler itemImageAssembler,
                                 AssembledItemImageDebugWriter assembledImageDebugWriter) {
         this(
+                imageImportService,
+                renderer,
+                itemLibraryService,
+                itemKnowledgeService,
+                heroService,
+                itemImageAssembler,
+                assembledImageDebugWriter,
+                null
+        );
+    }
+
+    public ItemImportController(ItemImageImportService imageImportService,
+                                ItemImportPageRenderer renderer,
+                                ItemLibraryService itemLibraryService,
+                                ItemKnowledgeService itemKnowledgeService,
+                                HeroService heroService,
+                                ItemImageAssembler itemImageAssembler,
+                                AssembledItemImageDebugWriter assembledImageDebugWriter,
+                                HorizontalDividerDetector horizontalDividerDetector) {
+        this(
                 requireImageImportService(imageImportService)::analyze,
                 renderer,
                 new ItemImportEditableFormFactory(),
@@ -91,7 +116,8 @@ public final class ItemImportController implements HttpHandler {
                 itemKnowledgeService,
                 heroService,
                 itemImageAssembler,
-                assembledImageDebugWriter
+                assembledImageDebugWriter,
+                horizontalDividerDetector
         );
     }
 
@@ -107,6 +133,36 @@ public final class ItemImportController implements HttpHandler {
                          HeroService heroService,
                          ItemImageAssembler itemImageAssembler,
                          AssembledItemImageDebugWriter assembledImageDebugWriter) {
+        this(
+                imageImportAnalyzer,
+                renderer,
+                editableFormFactory,
+                formMapper,
+                itemMapper,
+                contributionMapper,
+                fullItemReadAffixUpdater,
+                itemLibraryService,
+                itemKnowledgeService,
+                heroService,
+                itemImageAssembler,
+                assembledImageDebugWriter,
+                null
+        );
+    }
+
+    ItemImportController(ImageImportAnalyzer imageImportAnalyzer,
+                         ItemImportPageRenderer renderer,
+                         ItemImportEditableFormFactory editableFormFactory,
+                         ItemImportFormMapper formMapper,
+                         ValidatedImportedItemToItemMapper itemMapper,
+                         ImportedItemCurrentBuildContributionMapper contributionMapper,
+                         FullItemReadAffixUpdater fullItemReadAffixUpdater,
+                         ItemLibraryService itemLibraryService,
+                         ItemKnowledgeService itemKnowledgeService,
+                         HeroService heroService,
+                         ItemImageAssembler itemImageAssembler,
+                         AssembledItemImageDebugWriter assembledImageDebugWriter,
+                         HorizontalDividerDetector horizontalDividerDetector) {
         this.imageImportAnalyzer = Objects.requireNonNull(imageImportAnalyzer, "imageImportAnalyzer");
         this.renderer = renderer;
         this.editableFormFactory = editableFormFactory;
@@ -119,6 +175,7 @@ public final class ItemImportController implements HttpHandler {
         this.heroService = heroService;
         this.itemImageAssembler = itemImageAssembler;
         this.assembledImageDebugWriter = assembledImageDebugWriter;
+        this.horizontalDividerDetector = horizontalDividerDetector;
     }
 
     @Override
@@ -625,6 +682,7 @@ public final class ItemImportController implements HttpHandler {
                             diagnostic.getStatus()
                     ))
                     .toList();
+            HorizontalDividerPreviewResult horizontalDividerPreviewResult = buildHorizontalDividerPreview(assembledImage);
             return new OpenCvPreviewResult(
                     new ItemImportPageModel.OpenCvImagePreview(
                             dataUri,
@@ -635,12 +693,64 @@ public final class ItemImportController implements HttpHandler {
                             assembledImage.getCompositionPolicy(),
                             assembledImage.getAssemblyStatus(),
                             stitchDiagnostics,
+                            horizontalDividerPreviewResult.preview(),
+                            horizontalDividerPreviewResult.error(),
                             debugWarning
                     ),
                     ""
             );
         } catch (RuntimeException exception) {
             return new OpenCvPreviewResult(null, "Błąd podglądu OpenCV: " + safeMessage(exception));
+        }
+    }
+
+    private HorizontalDividerPreviewResult buildHorizontalDividerPreview(AssembledItemImage assembledImage) {
+        if (horizontalDividerDetector == null) {
+            return new HorizontalDividerPreviewResult(null, "");
+        }
+        try {
+            HorizontalDividerDetectionResult result = horizontalDividerDetector.detect(assembledImage);
+            String overlayMimeType = "image/" + result.getOverlayFormat().toLowerCase(Locale.ROOT);
+            String overlayDataUri = "data:" + overlayMimeType + ";base64,"
+                    + Base64.getEncoder().encodeToString(result.getOverlayImageBytes());
+            List<ItemImportPageModel.HorizontalDividerView> dividers = new java.util.ArrayList<>();
+            int dividerIndex = 1;
+            for (HorizontalDivider divider : result.getDividers()) {
+                dividers.add(new ItemImportPageModel.HorizontalDividerView(
+                        dividerIndex++,
+                        divider.getY(),
+                        divider.getBandStartY(),
+                        divider.getBandEndY(),
+                        String.format(Locale.US, "%.3f", divider.getStrength())
+                ));
+            }
+            List<ItemImportPageModel.ItemImagePartView> parts = new java.util.ArrayList<>();
+            for (ItemImagePart part : result.getParts()) {
+                String partMimeType = "image/" + part.getFormat().toLowerCase(Locale.ROOT);
+                String partDataUri = "data:" + partMimeType + ";base64,"
+                        + Base64.getEncoder().encodeToString(part.getImageBytes());
+                parts.add(new ItemImportPageModel.ItemImagePartView(
+                        part.getIndex(),
+                        part.getName(),
+                        part.getStartYInclusive(),
+                        part.getEndYExclusive(),
+                        part.getWidth(),
+                        part.getHeight(),
+                        partDataUri
+                ));
+            }
+            return new HorizontalDividerPreviewResult(
+                    new ItemImportPageModel.HorizontalDividerDetectionView(
+                            result.getDividers().size(),
+                            result.getParts().size(),
+                            overlayDataUri,
+                            dividers,
+                            parts
+                    ),
+                    ""
+            );
+        } catch (RuntimeException exception) {
+            return new HorizontalDividerPreviewResult(null, "Błąd detekcji separatorów: " + safeMessage(exception));
         }
     }
 
@@ -669,6 +779,10 @@ public final class ItemImportController implements HttpHandler {
     }
 
     private record OpenCvPreviewResult(ItemImportPageModel.OpenCvImagePreview preview, String error) {
+    }
+
+    private record HorizontalDividerPreviewResult(ItemImportPageModel.HorizontalDividerDetectionView preview,
+                                                  String error) {
     }
 
     private record AffixParseResult(List<ImportedItemAffix> affixes, List<String> errors) {

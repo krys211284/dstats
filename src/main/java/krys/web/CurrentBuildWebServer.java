@@ -10,6 +10,7 @@ import krys.itemlibrary.ItemLibraryDataDirectoryResolver;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemimport.ItemImageImportService;
 import krys.itemimport.image.AssembledItemImageDebugWriter;
+import krys.itemimport.image.opencv.OpenCvHorizontalDividerDetector;
 import krys.itemimport.image.opencv.OpenCvItemImageAssembler;
 import krys.itemknowledge.FileItemKnowledgeRepository;
 import krys.itemknowledge.ItemKnowledgeService;
@@ -98,7 +99,8 @@ public final class CurrentBuildWebServer implements AutoCloseable {
                 itemKnowledgeService,
                 heroService,
                 new OpenCvItemImageAssembler(),
-                new AssembledItemImageDebugWriter()
+                new AssembledItemImageDebugWriter(),
+                new OpenCvHorizontalDividerDetector()
         );
         ItemKnowledgeController itemKnowledgeController = new ItemKnowledgeController(
                 itemKnowledgeService,
