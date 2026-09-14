@@ -9,9 +9,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Buduje bezpieczną prezentację pomocniczego odczytu OCR efektu aspektu. */
+/** Buduje bezpieczną prezentację pomocniczego odczytu efektu aspektu. */
 final class ItemAspectEffectPresentation {
-    static final String INCOMPLETE_EFFECT_MESSAGE = "Odczyt efektu OCR niepełny / wymaga ręcznej weryfikacji.";
+    static final String INCOMPLETE_EFFECT_MESSAGE = "Odczyt efektu niepełny / wymaga ręcznej weryfikacji.";
 
     private ItemAspectEffectPresentation() {
     }
@@ -52,12 +52,12 @@ final class ItemAspectEffectPresentation {
         if (!safeHeads.isEmpty()) {
             String tail = tails.isEmpty() ? "" : tails.getFirst();
             for (String head : safeHeads) {
-                addUnique(result, "Odczyt OCR efektu: " + (tail.isBlank() ? head : head + " " + tail));
+                addUnique(result, "Odczyt efektu: " + (tail.isBlank() ? head : head + " " + tail));
             }
             return result;
         }
         for (String effect : otherEffects) {
-            addUnique(result, "Odczyt OCR efektu: " + effect);
+            addUnique(result, "Odczyt efektu: " + effect);
         }
         if (result.isEmpty() && (!tails.isEmpty() || skippedBrokenEffect)) {
             result.add(INCOMPLETE_EFFECT_MESSAGE);

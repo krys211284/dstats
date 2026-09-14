@@ -15,7 +15,7 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Wyciąga edytowalne affixy z pełnego odczytu OCR itemu przez katalog affixów. */
+/** Wyciąga edytowalne affixy z pełnego zapisu itemu przez katalog affixów. */
 public final class ImportedItemAffixExtractor {
     private static final Pattern NUMBER_PATTERN = Pattern.compile("([0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?)");
     private static final Pattern SIGNED_NUMBER_PATTERN = Pattern.compile("\\+\\s*([0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?)|\\b([0-9]+(?:\\s+[0-9]{3})*(?:[,.][0-9]+)?)\\s*%");
@@ -48,12 +48,12 @@ public final class ImportedItemAffixExtractor {
         boolean koscianychLusekShieldContext = isKoscianychLusekShieldContext(fullItemRead);
         boolean moonFrenzyShieldContext = isMoonFrenzyShieldContext(fullItemRead);
         boolean koscianychLusekQuality25Context = koscianychLusekShieldContext
-                && ItemImageImportTextParser.containsQuality25(
+                && containsQuality25(
                 fullItemRead.getLines().stream().map(FullItemReadLine::getText).toList());
         boolean moonFrenzyQuality25Context = moonFrenzyShieldContext
-                && ItemImageImportTextParser.containsQuality25(
+                && containsQuality25(
                 fullItemRead.getLines().stream().map(FullItemReadLine::getText).toList());
-        boolean quality25Context = ItemImageImportTextParser.containsQuality25(
+        boolean quality25Context = containsQuality25(
                 fullItemRead.getLines().stream().map(FullItemReadLine::getText).toList());
         ItemMasterworking importedMasterworking = quality25Context
                 ? new ItemMasterworking(25, 25)
@@ -61,12 +61,10 @@ public final class ImportedItemAffixExtractor {
         Map<String, ImportedItemAffix> affixes = new LinkedHashMap<>();
         int displayOrder = 0;
         for (FullItemReadLine line : fullItemRead.getLines()) {
-            logSocketGemRuneRegionLine(line);
             if (!isEditableAffixLine(line)) {
                 continue;
             }
             if (isObviousNonOrdinaryAffixLeak(line)) {
-                logIgnoredNonOrdinaryAffixLeak(line);
                 continue;
             }
             for (ImportedItemAffix affix : extractAffixesFromLine(line, displayOrder, verathielContext,
@@ -75,32 +73,15 @@ public final class ImportedItemAffixExtractor {
                     importedMasterworking)) {
                 String key = editableAffixDeduplicationKey(affix);
                 int score = affixQualityScore(affix);
-                int candidateIndex = displayOrder;
-                ItemImportDebugTrace.log("AFFIX_CANDIDATE", () -> "index=" + candidateIndex
-                        + " score=" + score
-                        + " dedupKey=" + ItemImportDebugTrace.quote(key)
-                        + " sourceCategory=ordinary "
-                        + ItemImportDebugTrace.formatAffix(affix));
                 ImportedItemAffix existing = affixes.get(key);
                 if (existing == null || affixQualityScore(affix) > affixQualityScore(existing)) {
                     ImportedItemAffix selectedAffix = existing == null
                             ? affix
                             : mergeSelectedWithVisualAnchor(affix, existing);
-                    if (existing != null) {
-                        ImportedItemAffix rejected = existing;
-                        ItemImportDebugTrace.log("AFFIX_REJECTED", () -> "reason="
-                                + ItemImportDebugTrace.quote(replacementReason(affix, rejected))
-                                + " replacedBy=" + ItemImportDebugTrace.formatAffix(affix)
-                                + " rejected=" + ItemImportDebugTrace.formatAffix(rejected));
-                    }
                     affixes.put(key, selectedAffix);
                 } else {
                     ImportedItemAffix selected = mergeSelectedWithVisualAnchor(existing, affix);
                     affixes.put(key, selected);
-                    ItemImportDebugTrace.log("AFFIX_REJECTED", () -> "reason="
-                            + ItemImportDebugTrace.quote("lower quality OCR candidate for same dedup key")
-                            + " replacedBy=" + ItemImportDebugTrace.formatAffix(selected)
-                            + " rejected=" + ItemImportDebugTrace.formatAffix(affix));
                 }
                 displayOrder++;
             }
@@ -126,23 +107,10 @@ public final class ImportedItemAffixExtractor {
                 ImportedItemAffix selectedAffix = existing == null
                         ? affix
                         : mergeSelectedWithVisualAnchor(affix, existing);
-                if (existing != null) {
-                    ImportedItemAffix rejected = existing;
-                    ItemImportDebugTrace.log("AFFIX_REJECTED", () -> "reason="
-                            + ItemImportDebugTrace.quote(replacementReason(affix, rejected))
-                            + " rejectedVisualOrder=" + rejected.getDisplayOrder()
-                            + " selectedVisualOrder=" + affix.getDisplayOrder()
-                            + " replacedBy=" + ItemImportDebugTrace.formatAffix(affix)
-                            + " rejected=" + ItemImportDebugTrace.formatAffix(rejected));
-                }
                 preferred.put(affix.getAffixDefinitionId(), selectedAffix);
             } else {
                 ImportedItemAffix selected = mergeSelectedWithVisualAnchor(existing, affix);
                 preferred.put(affix.getAffixDefinitionId(), selected);
-                ItemImportDebugTrace.log("AFFIX_REJECTED", () -> "reason="
-                        + ItemImportDebugTrace.quote("lower quality candidate for same affix definition")
-                        + " replacedBy=" + ItemImportDebugTrace.formatAffix(selected)
-                        + " rejected=" + ItemImportDebugTrace.formatAffix(affix));
             }
         }
         return new ArrayList<>(preferred.values());
@@ -159,19 +127,8 @@ public final class ImportedItemAffixExtractor {
     }
 
     private static void logPostDedupVisualOrder(List<ImportedItemAffix> affixes) {
-        if (!ItemImportDebugTrace.isEnabled()) {
+        if (affixes == null) {
             return;
-        }
-        for (int index = 0; index < affixes.size(); index++) {
-            ImportedItemAffix affix = affixes.get(index);
-            int finalIndex = index;
-            ItemImportDebugTrace.log("AFFIX_VISUAL_ORDER", () -> "postDedupIndex=" + finalIndex
-                    + " selectedVisualOrder=" + affix.getDisplayOrder()
-                    + " visualSourceOrder=" + affix.getVisualDisplayOrder()
-                    + " type=" + affix.getType()
-                    + " value=" + String.format(Locale.US, "%.4f", affix.getValue())
-                    + " selectedValueSource=" + ItemImportDebugTrace.compactText(affix.getSourceText())
-                    + " visualAnchorSource=" + ItemImportDebugTrace.compactText(affix.getVisualSourceText()));
         }
     }
 
@@ -201,16 +158,6 @@ public final class ImportedItemAffixExtractor {
         if (selectedQuality != null) {
             candidateQualities.put(merged, selectedQuality);
         }
-        ItemImportDebugTrace.log("AFFIX_VISUAL_ANCHOR", () -> "type=" + selected.getType()
-                + " value=" + String.format(Locale.US, "%.4f", selected.getValue())
-                + " selectedValueSource=" + ItemImportDebugTrace.compactText(selected.getSourceText())
-                + " visualAnchorSource=" + ItemImportDebugTrace.compactText(visualAnchor.getVisualSourceText())
-                + " selectedVisualOrder=" + selected.getDisplayOrder()
-                + " visualSourceOrder=" + visualAnchor.getVisualDisplayOrder()
-                + " propagatedGreaterAffix=" + propagatedGreaterAffix
-                + " reason=" + ItemImportDebugTrace.quote(propagatedGreaterAffix && !selected.isGreaterAffix()
-                ? "GA marker propagated from visual anchor candidate"
-                : "visual anchor kept separately from selected value candidate"));
         return merged;
     }
 
@@ -238,38 +185,7 @@ public final class ImportedItemAffixExtractor {
                 && !rejectedQuality.cleanLocalSegment()) {
             return "better local numeric-anchor binding";
         }
-        return "replaced by higher quality OCR candidate";
-    }
-
-    private void logSocketGemRuneRegionLine(FullItemReadLine line) {
-        if (line == null || line.getType() != FullItemReadLineType.SOCKET) {
-            return;
-        }
-        List<AffixRegistry.AffixTextMatch> matches = affixRegistry.findMatches(line.getText());
-        if (matches.isEmpty()) {
-            ItemImportDebugTrace.log("SOCKET_REGION_LINE", () -> "regionCategory=SOCKET_GEM_RUNE_REGION"
-                    + " sourceLine=" + ItemImportDebugTrace.compactText(line.getText())
-                    + " ignoredForOrdinaryAffixes=true"
-                    + " reason=" + ItemImportDebugTrace.quote("line belongs to socket/gem/rune region"));
-            return;
-        }
-        List<AffixRegistry.AffixTextMatch> compactMatches = removeContainedMatches(matches);
-        String matchedAffixType = compactMatches.stream()
-                .map(match -> match.definition().getFormType().name())
-                .distinct()
-                .reduce((left, right) -> left + "," + right)
-                .orElse("");
-        String matchedDefinitionIds = compactMatches.stream()
-                .map(match -> match.definition().getId())
-                .distinct()
-                .reduce((left, right) -> left + "," + right)
-                .orElse("");
-        ItemImportDebugTrace.log("SOCKET_GEM_RUNE_CANDIDATE", () -> "regionCategory=SOCKET_GEM_RUNE_REGION"
-                + " sourceLine=" + ItemImportDebugTrace.compactText(line.getText())
-                + " matchedAffixType=" + matchedAffixType
-                + " matchedDefinitionIds=" + ItemImportDebugTrace.quote(matchedDefinitionIds)
-                + " ignoredForOrdinaryAffixes=true"
-                + " reason=" + ItemImportDebugTrace.quote("line belongs to socket/gem/rune region"));
+        return "replaced by higher quality text candidate";
     }
 
     static boolean isEditableAffixLine(FullItemReadLine line) {
@@ -327,15 +243,6 @@ public final class ImportedItemAffixExtractor {
             }
         }
         return false;
-    }
-
-    private static void logIgnoredNonOrdinaryAffixLeak(FullItemReadLine line) {
-        ImportedItemAffixType.detectFromLine(line.getText()).ifPresent(type ->
-                ItemImportDebugTrace.log("SOCKET_GEM_RUNE_CANDIDATE", () -> "regionCategory=NON_ORDINARY_LEAK_GUARD"
-                        + " sourceLine=" + ItemImportDebugTrace.compactText(line.getText())
-                        + " matchedAffixType=" + type.name()
-                        + " ignoredForOrdinaryAffixes=true"
-                        + " reason=" + ItemImportDebugTrace.quote("line contains footer/effect markers and is not ordinary affix region")));
     }
 
     private static List<ImportedItemAffix> stableKoscianychLusekShieldAffixes(List<ImportedItemAffix> candidates) {
@@ -583,13 +490,6 @@ public final class ImportedItemAffixExtractor {
 
         if (definition.getFormType() == ImportedItemAffixType.ALL_DAMAGE_MULTIPLIER
                 && !hasLocalMultiplierValueShape(segment)) {
-            ItemImportDebugTrace.log("AFFIX_REJECTED", () -> "reason="
-                    + ItemImportDebugTrace.quote("incompatible value shape: missing multiplier marker")
-                    + " definitionId=" + ItemImportDebugTrace.quote(definition.getId())
-                    + " expectedValueShape=" + ItemImportDebugTrace.quote("MULTIPLIER_PERCENT")
-                    + " detectedValueShape=" + ItemImportDebugTrace.quote(detectedValueShape(segment))
-                    + " segment=" + ItemImportDebugTrace.compactText(segment)
-                    + " sourceLine=" + ItemImportDebugTrace.compactText(sourceLine));
             return Optional.empty();
         }
 
@@ -683,29 +583,6 @@ public final class ImportedItemAffixExtractor {
                 matchStartInSourceLine
         );
         candidateQualities.put(affix, quality);
-        ItemImportDebugTrace.log("GA_MARKER_DETECTION", () -> "sourceLine="
-                + ItemImportDebugTrace.compactText(sourceLine)
-                + " segment=" + ItemImportDebugTrace.compactText(segment)
-                + " greaterAffix=" + affix.isGreaterAffix()
-                + " markerLocallyAssigned=" + affix.isGreaterAffix()
-                + " reason=" + ItemImportDebugTrace.quote(affix.isGreaterAffix()
-                ? "GA marker or verified GA value is locally assigned to affix candidate"
-                : "no local GA marker assigned to this affix candidate"));
-        ItemImportDebugTrace.log("AFFIX_CANDIDATE", () -> "definitionId=" + ItemImportDebugTrace.quote(definition.getId())
-                + " segmentStart=" + segmentStartInSource
-                + " segmentEnd=" + (segmentStartInSource + segment.length())
-                + " matchStart=" + matchStartInSourceLine
-                + " localValue=" + (localValue == null ? "" : localValue.value())
-                + " valueStart=" + valueStartInSource
-                + " valueRelativeToAnchor=" + ItemImportDebugTrace.quote(localValue == null ? "none" : localValue.relativeToAnchor())
-                + " segmentAnchors=1"
-                + " sourceLineAnchors=" + sourceLineAnchorCount
-                + " segmentNumbers=" + segmentNumberCount
-                + " sourceLineNumbers=" + sourceLineNumberCount
-                + " localBindingScore=" + localBindingScore
-                + " expectedValueShape=" + ItemImportDebugTrace.quote(expectedValueShape(affix.getType()))
-                + " detectedValueShape=" + ItemImportDebugTrace.quote(detectedValueShape(segment))
-                + " candidateQualityScore=" + affixQualityScore(affix));
     }
 
     private static String expectedValueShape(ImportedItemAffixType type) {
@@ -758,10 +635,9 @@ public final class ImportedItemAffixExtractor {
     }
 
     private static void logRejectedRankAffix(String sourceLine, String reason) {
-        ItemImportDebugTrace.log("AFFIX_REJECTED", () -> "reason=" + ItemImportDebugTrace.quote(reason)
-                + " expectedValueShape=" + ItemImportDebugTrace.quote("POSITIVE_SIGNED_RANK")
-                + " detectedValueShape=" + ItemImportDebugTrace.quote(detectedValueShape(sourceLine))
-                + " sourceLine=" + ItemImportDebugTrace.compactText(sourceLine));
+        if (sourceLine == null || reason == null) {
+            return;
+        }
     }
 
     private static Optional<LocalValueCandidate> localValueCandidate(String segment, int matchStartInSegment) {
@@ -967,11 +843,6 @@ public final class ImportedItemAffixExtractor {
                                                                   ItemMasterworking importedMasterworking) {
         Optional<ImportedItemDisplayedValueReverseResolver.ReverseResolvedReferenceValue> resolved =
                 REVERSE_RESOLVER.resolveReferenceValue(type, displayedValue, greaterAffix, importedMasterworking);
-        resolved.ifPresent(value -> ItemImportDebugTrace.log("AFFIX_CANDIDATE", () -> "reverseResolvedReferenceValue="
-                + value.referenceValue()
-                + " type=" + type
-                + " displayedValue=" + displayedValue
-                + " reason=" + ItemImportDebugTrace.quote(value.reason())));
         return resolved.map(ImportedItemDisplayedValueReverseResolver.ReverseResolvedReferenceValue::referenceValue);
     }
 
@@ -1100,6 +971,17 @@ public final class ImportedItemAffixExtractor {
 
     private static boolean hasDecimalRollRange(String text) {
         return Pattern.compile("\\[\\s*[0-9]+[,.][0-9]+\\s*[-–—−]\\s*[0-9]+[,.][0-9]+").matcher(text == null ? "" : text).find();
+    }
+
+    private static boolean containsQuality25(List<String> lines) {
+        if (lines == null || lines.isEmpty()) {
+            return false;
+        }
+        return lines.stream()
+                .map(ImportedItemAffixExtractor::normalize)
+                .anyMatch(line -> line.contains("25/25")
+                        || line.contains("25 Z 25")
+                        || line.contains("JAKOSC DOSKONALENIA: 25"));
     }
 
     private static boolean isGreaterAffixLine(String line) {

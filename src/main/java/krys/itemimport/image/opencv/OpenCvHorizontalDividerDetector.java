@@ -216,7 +216,10 @@ public final class OpenCvHorizontalDividerDetector implements HorizontalDividerD
         double sideSupport = Math.min(leftSupport, rightSupport) / Math.max(1.0d, width * 0.14d);
         boolean spansBothSides = leftSupport >= width * 0.08d && rightSupport >= width * 0.08d;
         boolean spansLongLine = longestRun >= width * 0.42d && coverage >= 0.15d;
-        boolean reachesOuterSides = farLeftRun >= width * 0.07d && farRightRun >= width * 0.07d;
+        boolean reachesLeftOuterSide = farLeftRun >= width * 0.07d;
+        boolean reachesRightOuterSide = farRightRun >= width * 0.07d;
+        boolean reachesOuterSides = reachesLeftOuterSide && reachesRightOuterSide;
+        boolean reachesAnyOuterSide = reachesLeftOuterSide || reachesRightOuterSide;
         boolean continuousRawLine = rawLongestRun >= width * 0.24d && rawCoverage >= 0.14d;
         boolean supportedAcrossSides = reachesOuterSides && rawLongestRun >= width * 0.12d && rawCoverage >= 0.16d;
         if ((!continuousRawLine && !supportedAcrossSides) || (!spansBothSides && !spansLongLine)) {
@@ -227,7 +230,11 @@ public final class OpenCvHorizontalDividerDetector implements HorizontalDividerD
         double edgeScore = clamp((averageEdge - 4.0d) / 18.0d);
         double coverageScore = clamp((coverage - 0.11d) / 0.26d);
         double runScore = clamp(lineRunSupport);
-        double sideScore = clamp(sideSupport);
+        double symmetricSideScore = clamp(sideSupport);
+        double oneSidedLongLineScore = spansLongLine && reachesAnyOuterSide
+                ? clamp(longestRun / Math.max(1.0d, width * 0.42d)) * 0.75d
+                : 0.0d;
+        double sideScore = Math.max(symmetricSideScore, oneSidedLongLineScore);
         double strength = clamp(edgeScore * 0.30d + coverageScore * 0.23d + runScore * 0.31d + sideScore * 0.16d);
         return new RowScore(strength, coverage, Math.max(longestRun, leftRun + rightRun));
     }

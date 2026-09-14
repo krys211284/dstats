@@ -2,7 +2,7 @@ package krys.itemimport;
 
 import java.util.List;
 
-/** Znany affix używany przez OCR, ręczną korektę i przyszłe budowanie idealnych itemów. */
+/** Znany affix używany przez ręczną korektę, zapisane dane i przyszłe budowanie idealnych itemów. */
 public final class AffixDefinition {
     private final String id;
     private final ImportedItemAffixType formType;
@@ -64,7 +64,7 @@ public final class AffixDefinition {
             throw new IllegalArgumentException("Nazwa affixu jest wymagana.");
         }
         if (ocrAliases == null || ocrAliases.isEmpty()) {
-            throw new IllegalArgumentException("Affix musi mieć co najmniej jeden alias OCR.");
+            throw new IllegalArgumentException("Affix musi mieć co najmniej jeden alias tekstowy.");
         }
         this.id = id;
         this.formType = formType;

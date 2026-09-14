@@ -6,7 +6,7 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Normalizuje opisowy aspekt umocnienia z realnych, uszkodzonych wariantów OCR. */
+/** Normalizuje opisowy aspekt umocnienia z zachowanych, uszkodzonych wariantów tekstu. */
 final class FortifyLegendaryEffectNormalizer {
     private FortifyLegendaryEffectNormalizer() {
     }

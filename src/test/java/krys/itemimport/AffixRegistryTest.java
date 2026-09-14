@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Testy katalogu affixów używanego przez import OCR itemów. */
+/** Testy katalogu affixów używanego przez zapisane dane itemów. */
 class AffixRegistryTest {
     @Test
     void shouldContainFourVerathielAffixesWithOcrAliases() {

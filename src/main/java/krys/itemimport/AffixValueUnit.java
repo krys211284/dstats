@@ -1,6 +1,6 @@
 package krys.itemimport;
 
-/** Jednostka wartości affixu używana w katalogu OCR i ręcznej korekcie. */
+/** Jednostka wartości affixu używana w katalogu i ręcznej korekcie. */
 public enum AffixValueUnit {
     FLAT("flat"),
     PERCENT("percent"),

@@ -3,14 +3,8 @@ package krys.web;
 import krys.hero.HeroClassStatBaseline;
 import krys.hero.HeroClassStatBaselines;
 import krys.itemimport.CurrentBuildImportableStats;
-import krys.itemimport.ImportedItemAffix;
-import krys.itemimport.ItemImportDebugTrace;
 import krys.itemlibrary.CurrentHeroActiveItemStats;
 import krys.itemlibrary.EffectiveCurrentBuildResolution;
-import krys.itemlibrary.HeroSlotItemAssignment;
-import krys.tempering.ItemTemperingAffix;
-import krys.socketing.ItemSocket;
-import krys.socketing.SocketContentType;
 
 import java.util.Optional;
 
@@ -19,34 +13,31 @@ final class CurrentBuildRuntimeInputResolver {
     CurrentBuildImportableStats resolve(HeroProfile activeHero,
                                         CurrentBuildFormData formData,
                                         EffectiveCurrentBuildResolution libraryResolution) {
-        try (ItemImportDebugTrace.Scope ignored = ItemImportDebugTrace.startOperation("ITEM-RUNTIME")) {
-            if (activeHero == null || libraryResolution == null || libraryResolution.getEffectiveStats() == null) {
-                return null;
-            }
-
-            CurrentHeroActiveItemStats activeItemStats = libraryResolution.getActiveHeroItemStats();
-            Optional<HeroClassStatBaseline> baseline = HeroClassStatBaselines.find(activeHero.getHeroClass(), parseLevel(formData));
-
-            long weaponDamage = resolveWeaponDamage(activeItemStats, libraryResolution.getActiveItemsContribution());
-            double strength = baseline.map(HeroClassStatBaseline::getStrength).orElse(0) + libraryResolution.getActiveItemsContribution().getStrength();
-            double intelligence = baseline.map(HeroClassStatBaseline::getIntelligence).orElse(0) + libraryResolution.getActiveItemsContribution().getIntelligence();
-            double thorns = baseline.map(HeroClassStatBaseline::getThorns).orElse(0) + libraryResolution.getActiveItemsContribution().getThorns();
-            double blockChance = libraryResolution.getActiveItemsContribution().getBlockChance();
-            double retributionChance = libraryResolution.getActiveItemsContribution().getRetributionChance();
-            double criticalChancePercent = baseline.map(base -> base.getCriticalChancePercent().doubleValue()).orElse(0.0d)
-                    + libraryResolution.getActiveItemsContribution().getCriticalChancePercent();
-
-            logRuntimeContribution(libraryResolution, criticalChancePercent);
-            return new CurrentBuildImportableStats(
-                    weaponDamage,
-                    strength,
-                    intelligence,
-                    thorns,
-                    blockChance,
-                    retributionChance,
-                    criticalChancePercent
-            );
+        if (activeHero == null || libraryResolution == null || libraryResolution.getEffectiveStats() == null) {
+            return null;
         }
+
+        CurrentHeroActiveItemStats activeItemStats = libraryResolution.getActiveHeroItemStats();
+        Optional<HeroClassStatBaseline> baseline = HeroClassStatBaselines.find(activeHero.getHeroClass(), parseLevel(formData));
+
+        long weaponDamage = resolveWeaponDamage(activeItemStats, libraryResolution.getActiveItemsContribution());
+        double strength = baseline.map(HeroClassStatBaseline::getStrength).orElse(0) + libraryResolution.getActiveItemsContribution().getStrength();
+        double intelligence = baseline.map(HeroClassStatBaseline::getIntelligence).orElse(0) + libraryResolution.getActiveItemsContribution().getIntelligence();
+        double thorns = baseline.map(HeroClassStatBaseline::getThorns).orElse(0) + libraryResolution.getActiveItemsContribution().getThorns();
+        double blockChance = libraryResolution.getActiveItemsContribution().getBlockChance();
+        double retributionChance = libraryResolution.getActiveItemsContribution().getRetributionChance();
+        double criticalChancePercent = baseline.map(base -> base.getCriticalChancePercent().doubleValue()).orElse(0.0d)
+                + libraryResolution.getActiveItemsContribution().getCriticalChancePercent();
+
+        return new CurrentBuildImportableStats(
+                weaponDamage,
+                strength,
+                intelligence,
+                thorns,
+                blockChance,
+                retributionChance,
+                criticalChancePercent
+        );
     }
 
     CurrentBuildFormData applyRuntimeResourceBonuses(CurrentBuildFormData formData,
@@ -101,54 +92,4 @@ final class CurrentBuildRuntimeInputResolver {
         return Double.toString(value);
     }
 
-    private static void logRuntimeContribution(EffectiveCurrentBuildResolution libraryResolution,
-                                               double criticalChancePercent) {
-        if (!ItemImportDebugTrace.isEnabled()) {
-            return;
-        }
-        for (HeroSlotItemAssignment assignment : libraryResolution.getActiveItems()) {
-            ItemImportDebugTrace.log("RUNTIME_CONTRIBUTION", () -> "activeItem slot=" + assignment.getHeroSlot()
-                    + " " + ItemImportDebugTrace.formatSavedItem(assignment.getItem()));
-            for (ImportedItemAffix affix : assignment.getItem().getAffixes()) {
-                double resolvedValue = ItemImportDebugTrace.resolveRuntimeAffixValue(
-                        affix,
-                        assignment.getItem().getMasterworking(),
-                        assignment.getItem().getDetails().isMythicUnique()
-                );
-                ItemImportDebugTrace.log("RUNTIME_CONTRIBUTION", () -> "RUNTIME_AFFIX "
-                        + ItemImportDebugTrace.formatRuntimeAssignment(
-                        assignment,
-                        affix,
-                        assignment.getItem().getMasterworking(),
-                        resolvedValue
-                ));
-            }
-            for (ItemTemperingAffix affix : assignment.getItem().getTemperingAffixes()) {
-                double resolvedValue = ItemImportDebugTrace.resolveRuntimeTemperingValue(
-                        affix,
-                        assignment.getItem().getMasterworking()
-                );
-                ItemImportDebugTrace.log("RUNTIME_CONTRIBUTION", () -> "RUNTIME_TEMPERING "
-                        + ItemImportDebugTrace.formatRuntimeTemperingAssignment(
-                        assignment,
-                        affix,
-                        assignment.getItem().getMasterworking(),
-                        resolvedValue
-                ));
-            }
-            for (ItemSocket socket : assignment.getItem().getSocketing().getSockets()) {
-                if (socket.getContentType() == SocketContentType.DETECTED_STAT) {
-                    ItemImportDebugTrace.log("RUNTIME_CONTRIBUTION", () -> "RUNTIME_SOCKET_GEM_RUNE "
-                            + "slot=" + assignment.getHeroSlot()
-                            + " itemId=" + assignment.getItem().getItemId()
-                            + " item=" + ItemImportDebugTrace.quote(assignment.getItem().getDisplayName())
-                            + " socketIndex=" + socket.getIndex()
-                            + " " + ItemImportDebugTrace.formatSocketGemRuneStat(socket.getDetectedStat()));
-                }
-            }
-        }
-        ItemImportDebugTrace.log("RUNTIME_CONTRIBUTION", () -> "RUNTIME_SUM criticalChanceFromItemsPercent="
-                + libraryResolution.getActiveItemsContribution().getCriticalChancePercent()
-                + " criticalChancePercent=" + criticalChancePercent);
-    }
 }

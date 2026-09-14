@@ -2,12 +2,17 @@ package krys.web;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
+import krys.item.EquipmentSlot;
 import krys.item.HeroEquipmentSlot;
+import krys.itemknowledge.ItemKnowledgeService;
 import krys.itemlibrary.ItemLibraryFilter;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.SavedImportedItem;
+import krys.itemimport.FullItemRead;
+import krys.itemimport.FullItemReadFormCodec;
 import krys.itemimport.ItemImportEditableForm;
+import krys.itemimport.ItemImportDetails;
 import krys.itemimport.ItemImportFormMapper;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixSource;
@@ -32,21 +37,25 @@ public final class ItemLibraryController implements HttpHandler {
     private final ItemLibraryPageRenderer renderer;
     private final ItemImportFormMapper itemImportFormMapper;
     private final HeroService heroService;
+    private final ItemKnowledgeService itemKnowledgeService;
 
     public ItemLibraryController(ItemLibraryService itemLibraryService,
                                  ItemLibraryPageRenderer renderer,
-                                 HeroService heroService) {
-        this(itemLibraryService, renderer, new ItemImportFormMapper(), heroService);
+                                 HeroService heroService,
+                                 ItemKnowledgeService itemKnowledgeService) {
+        this(itemLibraryService, renderer, new ItemImportFormMapper(), heroService, itemKnowledgeService);
     }
 
     ItemLibraryController(ItemLibraryService itemLibraryService,
                           ItemLibraryPageRenderer renderer,
                           ItemImportFormMapper itemImportFormMapper,
-                          HeroService heroService) {
+                          HeroService heroService,
+                          ItemKnowledgeService itemKnowledgeService) {
         this.itemLibraryService = itemLibraryService;
         this.renderer = renderer;
         this.itemImportFormMapper = itemImportFormMapper;
         this.heroService = heroService;
+        this.itemKnowledgeService = itemKnowledgeService;
     }
 
     @Override
@@ -89,6 +98,8 @@ public final class ItemLibraryController implements HttpHandler {
     }
 
     private ItemLibraryPageModel handleSaveImportedItem(Map<String, String> fields, String currentBuildQuery) {
+        FullItemRead decodedFullItemRead = FullItemReadFormCodec.decode(fields.getOrDefault("fullItemRead", ""));
+        AffixParseResult affixParseResult = parseSubmittedAffixes(fields);
         TemperingFormSupport.ParseResult temperingParseResult = TemperingFormSupport.parse(fields);
         ItemImportEditableForm form = new ItemImportEditableForm(
                 fields.getOrDefault("sourceImageName", ""),
@@ -99,25 +110,25 @@ public final class ItemLibraryController implements HttpHandler {
                 fields.getOrDefault("thorns", ""),
                 fields.getOrDefault("blockChance", ""),
                 fields.getOrDefault("retributionChance", ""),
-                krys.itemimport.FullItemRead.empty(),
-                legacyAffixes(fields),
-                "",
-                krys.itemimport.ItemImportFieldConfidence.UNKNOWN,
-                "",
-                krys.itemimport.ItemImportDetails.empty(),
+                decodedFullItemRead,
+                affixParseResult.affixes(),
+                fields.getOrDefault("selectedAspectId", ""),
+                parseItemDetails(fields),
                 temperingParseResult.affixes(),
                 parseMasterworking(fields),
                 TransfigurationFormSupport.parse(fields),
                 SocketingFormSupport.parse(fields)
         );
         ItemImportFormMapper.MappingResult mappingResult = itemImportFormMapper.map(form);
-        List<String> errors = new ArrayList<>(temperingParseResult.errors());
+        List<String> errors = new ArrayList<>(affixParseResult.errors());
+        errors.addAll(temperingParseResult.errors());
         errors.addAll(mappingResult.getErrors());
         if (!errors.isEmpty() || mappingResult.getItem() == null) {
             return buildPageModel(errors, List.of(), currentBuildQuery, null);
         }
 
-        SavedImportedItem savedItem = itemLibraryService.saveImportedItem(mappingResult.getItem());
+        SavedImportedItem savedItem = itemLibraryService.saveImportedItem(mappingResult.getItem(), decodedFullItemRead);
+        itemKnowledgeService.learnFromConfirmedItem(mappingResult.getItem(), decodedFullItemRead);
         return buildPageModel(
                 List.of(),
                 List.of("Zapisano item w bibliotece: " + savedItem.getDisplayName() + "."),
@@ -251,17 +262,100 @@ public final class ItemLibraryController implements HttpHandler {
         }
     }
 
-    private static List<ImportedItemAffix> legacyAffixes(Map<String, String> fields) {
+    private static ItemImportDetails parseItemDetails(Map<String, String> fields) {
+        EquipmentSlot equipmentSlot = parseEquipmentSlot(fields.getOrDefault("slot", ""));
+        return new ItemImportDetails(
+                fields.getOrDefault("itemName", ""),
+                fields.getOrDefault("itemType", ""),
+                fields.getOrDefault("itemRarity", ""),
+                "true".equals(fields.get("isAncient")),
+                equipmentSlot,
+                parseLongOrNull(fields.get("itemPower")),
+                parseLongOrNull(fields.get("weaponDps")),
+                parseLongOrNull(fields.get("weaponDamageMin")),
+                parseLongOrNull(fields.get("weaponDamageMax")),
+                parseLongOrNull(fields.get("averageWeaponDamage")),
+                parseDoubleOrNull(fields.get("attacksPerSecond")),
+                parseLongOrNull(fields.get("itemArmor")),
+                fields.getOrDefault("uniqueEffectText", ""),
+                "true".equals(fields.get("isMythicUnique"))
+        );
+    }
+
+    private static AffixParseResult parseSubmittedAffixes(Map<String, String> fields) {
+        int affixCount = parseAffixCount(fields.get("affixCount"));
+        if (affixCount == 0) {
+            return new AffixParseResult(scalarStatAffixes(fields), List.of());
+        }
+        List<ImportedItemAffix> affixes = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+        for (int index = 0; index < affixCount; index++) {
+            parseAffixRow(fields, index, errors).ifPresent(affixes::add);
+        }
+        return new AffixParseResult(affixes, errors);
+    }
+
+    private static java.util.Optional<ImportedItemAffix> parseAffixRow(Map<String, String> fields, int index, List<String> errors) {
+        String rawType = fields.getOrDefault("affixType_" + index, "");
+        String rawValue = fields.getOrDefault("affixValue_" + index, "");
+        boolean missingType = rawType.isBlank();
+        boolean missingValue = rawValue.isBlank();
+        if (missingType && missingValue) {
+            return java.util.Optional.empty();
+        }
+        if (missingType) {
+            errors.add("Affix #" + (index + 1) + ": typ affixu jest wymagany, jeśli podano wartość.");
+            return java.util.Optional.empty();
+        }
+        if (missingValue) {
+            errors.add("Affix #" + (index + 1) + ": wartość affixu jest wymagana, jeśli podano typ.");
+            return java.util.Optional.empty();
+        }
+        try {
+            ImportedItemAffixType type = ImportedItemAffixType.valueOf(rawType);
+            double value = Double.parseDouble(rawValue.replace(',', '.'));
+            if (value < 0.0d) {
+                errors.add("Affix #" + (index + 1) + ": wartość affixu nie może być ujemna.");
+                return java.util.Optional.empty();
+            }
+            ImportedItemAffixSource source = parseAffixSource(fields.get("affixSource_" + index), ImportedItemAffixSource.CORRECTED);
+            String originalType = fields.getOrDefault("affixOriginalType_" + index, rawType);
+            String originalValue = fields.getOrDefault("affixOriginalValue_" + index, rawValue);
+            String sourceText = fields.getOrDefault("affixSourceText_" + index, "");
+            String definitionId = fields.getOrDefault("affixDefinitionId_" + index, "");
+            Double rollRangeMin = parseDoubleOrNull(fields.get("affixRangeMin_" + index));
+            Double rollRangeMax = parseDoubleOrNull(fields.get("affixRangeMax_" + index));
+            Double referenceValue = parseDoubleOrNull(fields.get("affixReferenceValue_" + index));
+            String displayValue = fields.getOrDefault("affixDisplayValue_" + index, "");
+            if (!rawType.equals(originalType) || !normalizeNumber(rawValue).equals(normalizeNumber(originalValue))) {
+                sourceText = "";
+                definitionId = "";
+                rollRangeMin = null;
+                rollRangeMax = null;
+                referenceValue = null;
+                displayValue = "";
+                source = ImportedItemAffixSource.CORRECTED;
+            }
+            return java.util.Optional.of(new ImportedItemAffix(type, value, defaultUnit(type),
+                    "true".equals(fields.get("affixGreater_" + index)), index, sourceText, source,
+                    definitionId, rollRangeMin, rollRangeMax, referenceValue, displayValue));
+        } catch (IllegalArgumentException exception) {
+            errors.add("Affix #" + (index + 1) + ": affix ma niepoprawny typ albo wartość.");
+            return java.util.Optional.empty();
+        }
+    }
+
+    private static List<ImportedItemAffix> scalarStatAffixes(Map<String, String> fields) {
         java.util.ArrayList<ImportedItemAffix> affixes = new java.util.ArrayList<>();
-        addLegacyAffix(affixes, ImportedItemAffixType.STRENGTH, fields.get("strength"));
-        addLegacyAffix(affixes, ImportedItemAffixType.INTELLIGENCE, fields.get("intelligence"));
-        addLegacyAffix(affixes, ImportedItemAffixType.THORNS, fields.get("thorns"));
-        addLegacyAffix(affixes, ImportedItemAffixType.BLOCK_CHANCE, fields.get("blockChance"));
-        addLegacyAffix(affixes, ImportedItemAffixType.RETRIBUTION_CHANCE, fields.get("retributionChance"));
+        addScalarStatAffix(affixes, ImportedItemAffixType.STRENGTH, fields.get("strength"));
+        addScalarStatAffix(affixes, ImportedItemAffixType.INTELLIGENCE, fields.get("intelligence"));
+        addScalarStatAffix(affixes, ImportedItemAffixType.THORNS, fields.get("thorns"));
+        addScalarStatAffix(affixes, ImportedItemAffixType.BLOCK_CHANCE, fields.get("blockChance"));
+        addScalarStatAffix(affixes, ImportedItemAffixType.RETRIBUTION_CHANCE, fields.get("retributionChance"));
         return affixes;
     }
 
-    private static void addLegacyAffix(List<ImportedItemAffix> affixes, ImportedItemAffixType type, String rawValue) {
+    private static void addScalarStatAffix(List<ImportedItemAffix> affixes, ImportedItemAffixType type, String rawValue) {
         if (rawValue == null || rawValue.isBlank()) {
             return;
         }
@@ -278,10 +372,81 @@ public final class ItemLibraryController implements HttpHandler {
         affixes.add(new ImportedItemAffix(type, value, unit, false, affixes.size(), "", ImportedItemAffixSource.MANUAL));
     }
 
+    private static int parseAffixCount(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return 0;
+        }
+        try {
+            return Math.max(0, Integer.parseInt(rawValue));
+        } catch (NumberFormatException exception) {
+            return 0;
+        }
+    }
+
+    private static EquipmentSlot parseEquipmentSlot(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return null;
+        }
+        try {
+            return EquipmentSlot.valueOf(rawValue);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
+    }
+
+    private static Long parseLongOrNull(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(rawValue.replace(" ", ""));
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    private static Double parseDoubleOrNull(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return null;
+        }
+        try {
+            return Double.parseDouble(rawValue.replace(',', '.'));
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    private static ImportedItemAffixSource parseAffixSource(String rawValue, ImportedItemAffixSource fallback) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return fallback;
+        }
+        try {
+            return ImportedItemAffixSource.valueOf(rawValue);
+        } catch (IllegalArgumentException exception) {
+            return fallback;
+        }
+    }
+
+    private static String defaultUnit(ImportedItemAffixType type) {
+        return switch (type) {
+            case BLOCK_CHANCE, RETRIBUTION_CHANCE, CRITICAL_STRIKE_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
+                 MOVEMENT_SPEED, DODGE_CHANCE, DAMAGE_REDUCTION, ALL_DAMAGE_MULTIPLIER, DAMAGE_OVER_TIME_MULTIPLIER -> "%";
+            case STRENGTH, INTELLIGENCE, THORNS, WEAPON_DAMAGE_FLAT, MAXIMUM_LIFE, LIFE_ON_HIT, LIFE_ON_KILL,
+                 LUCKY_HIT_PRIMARY_RESOURCE, ALL_RESISTANCE, FIRE_RESISTANCE, CORE_SKILL_RANKS -> "";
+        };
+    }
+
+    private static String normalizeNumber(String value) {
+        return value == null ? "" : value.replace(" ", "").replace(',', '.').trim();
+    }
+
     private void renderPage(HttpExchange exchange, ItemLibraryPageModel pageModel) throws IOException {
         byte[] responseBytes = renderer.render(pageModel).getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", HTML_CONTENT_TYPE);
         exchange.sendResponseHeaders(200, responseBytes.length);
         exchange.getResponseBody().write(responseBytes);
+    }
+
+    private record AffixParseResult(List<ImportedItemAffix> affixes, List<String> errors) {
     }
 }

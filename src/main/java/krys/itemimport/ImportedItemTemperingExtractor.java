@@ -16,7 +16,7 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Wyciąga potwierdzone hartowania z OCR bez mieszania ich ze zwykłymi affixami. */
+/** Wyciąga potwierdzone hartowania z pełnego zapisu itemu bez mieszania ich ze zwykłymi affixami. */
 public final class ImportedItemTemperingExtractor {
     private static final String MAX_ANIMUS_DEFINITION_ID = "defense_max_animus";
     private static final String GREATER_MARKERS = "*★⭐✦✧✱✳✴✵✶✷✸✹✺✻✼✽✾❋❂◆◇♦●•";
@@ -108,12 +108,6 @@ public final class ImportedItemTemperingExtractor {
             if (repeatedSegment.isPresent()) {
                 return repeatedSegment;
             }
-            ItemImportDebugTrace.log("TEMPERING_CANDIDATE", () -> "decision=rejected"
-                    + " definitionId=" + ItemImportDebugTrace.quote(resolvedDefinition.getId())
-                    + " selectedCandidate=false"
-                    + " value=" + storedValue
-                    + " sourceLine=" + ItemImportDebugTrace.compactText(line)
-                    + " reason=" + ItemImportDebugTrace.quote("value outside tempering catalog range"));
             return Optional.empty();
         }
         boolean greaterAffix = displayedPerfectedValue || isGreaterAffix(line, itemPower, storedValue, resolvedDefinition);
@@ -126,12 +120,6 @@ public final class ImportedItemTemperingExtractor {
                 TemperingRuntimeStatus.DATA_ONLY,
                 greaterAffix
         );
-        ItemImportDebugTrace.log("TEMPERING_CANDIDATE", () -> "decision=selected"
-                + " definitionId=" + ItemImportDebugTrace.quote(resolvedDefinition.getId())
-                + " selectedCandidate=true"
-                + " value=" + storedValue
-                + " sourceLine=" + ItemImportDebugTrace.compactText(line)
-                + " displayText=" + ItemImportDebugTrace.compactText(affix.getDisplayText()));
         return Optional.of(affix);
     }
 
@@ -162,13 +150,6 @@ public final class ImportedItemTemperingExtractor {
                     TemperingRuntimeStatus.DATA_ONLY,
                     greaterAffix
             );
-            ItemImportDebugTrace.log("TEMPERING_CANDIDATE", () -> "decision=selected"
-                    + " definitionId=" + ItemImportDebugTrace.quote(definition.getId())
-                    + " selectedCandidate=true"
-                    + " value=" + segmentValue.get()
-                    + " sourceLine=" + ItemImportDebugTrace.compactText(segment)
-                    + " displayText=" + ItemImportDebugTrace.compactText(affix.getDisplayText())
-                    + " reason=" + ItemImportDebugTrace.quote("selected valid repeated tempering segment after rejected leading OCR artifact"));
             return Optional.of(affix);
         }
         return Optional.empty();

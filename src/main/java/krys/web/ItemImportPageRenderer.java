@@ -1,62 +1,133 @@
 package krys.web;
 
-import krys.item.EquipmentSlot;
-import krys.item.HeroEquipmentSlot;
-import krys.item.ItemStat;
-import krys.itemimport.AffixDefinition;
-import krys.itemimport.AffixRegistry;
-import krys.itemimport.ApplicationAffixRegistry;
-import krys.itemimport.ApplicationAspectRegistry;
-import krys.itemimport.AspectDefinition;
-import krys.itemimport.AspectRegistry;
-import krys.itemimport.FullItemRead;
-import krys.itemimport.FullItemReadFormCodec;
-import krys.itemimport.FullItemReadLine;
-import krys.itemimport.FullItemReadLineType;
-import krys.itemimport.ImportedItemCurrentBuildContribution;
-import krys.itemimport.ImportedItemAffix;
-import krys.itemimport.ImportedItemAffixType;
-import krys.itemimport.ItemImageImportCandidateParseResult;
-import krys.itemimport.ItemImportEditableForm;
-import krys.itemimport.ItemImportDetails;
-import krys.itemimport.ItemImportFieldCandidate;
-import krys.itemimport.ValidatedImportedItem;
-import krys.itemlibrary.ItemLibraryPresentationSupport;
-import krys.itemlibrary.SavedImportedItem;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
-/** Renderuje prosty SSR dla flow importu pojedynczego itemu ze screena z ręcznym zatwierdzeniem. */
+/** Renderuje SSR diagnostycznego pipeline'u obrazu itemu do Etapu 3A. */
 public final class ItemImportPageRenderer {
-    private final String template;
-    private static final AspectRegistry ASPECT_REGISTRY = ApplicationAspectRegistry.get();
-    private static final AffixRegistry AFFIX_REGISTRY = ApplicationAffixRegistry.get();
-
-    public ItemImportPageRenderer() {
-        this.template = loadTemplate();
+    public String render(ItemImportPageModel model) {
+        return """
+                <!DOCTYPE html>
+                <html lang="pl">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Build WebApp - Importuj item ze screena</title>
+                    <style>
+                        %s
+                        .layout { max-width: 1500px; margin: 0 auto; padding: 28px 16px 48px; }
+                        .hero { margin-bottom: 18px; }
+                        .eyebrow { display: inline-block; margin-bottom: 10px; padding: 6px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 0.85rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+                        .panel { margin-bottom: 18px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255, 250, 242, 0.96); box-shadow: 0 12px 24px rgba(36, 33, 29, 0.05); }
+                        .panel-error { border-color: rgba(141, 27, 27, 0.28); background: var(--error-bg); }
+                        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; align-items: end; }
+                        label { display: grid; gap: 8px; font-weight: 600; }
+                        input[type="file"] { width: 100%%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--text); font: inherit; }
+                        button { display: inline-block; border: none; border-radius: 999px; padding: 12px 18px; background: linear-gradient(135deg, #1a4b5a 0%%, #2d7288 100%%); color: #f5fbfd; font: inherit; font-weight: 700; cursor: pointer; }
+                        .helper { margin-top: 10px; color: var(--muted); font-size: 0.95rem; line-height: 1.55; }
+                        .submit-row { margin-top: 16px; }
+                        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+                        .summary-card { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+                        .summary-label { color: var(--muted); font-size: 0.88rem; margin-bottom: 6px; }
+                        .summary-value { font-size: 1.05rem; font-weight: 700; overflow-wrap: anywhere; }
+                        .subpanel { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+                        .opencv-preview-layout, .opencv-divider-layout { display: grid; grid-template-columns: minmax(280px, 0.95fr) minmax(260px, 1.05fr); gap: 16px; align-items: start; }
+                        .opencv-preview-frame { max-height: 760px; overflow: auto; padding: 12px; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 12px; background: #1d1c1a; }
+                        .opencv-divider-overlay-frame { max-height: 520px; }
+                        .opencv-preview-frame img, .opencv-part-frame img { display: block; max-width: 100%%; height: auto; margin: 0 auto; }
+                        .opencv-preview-warning { color: var(--error); }
+                        .opencv-part-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 14px; }
+                        .opencv-part-card { padding: 12px; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 10px; background: #fff; }
+                        .opencv-part-card h4 { margin: 0 0 6px; }
+                        .opencv-part-frame { max-height: 360px; overflow: auto; padding: 10px; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 10px; background: #1d1c1a; }
+                        .table-scroll { overflow-x: auto; }
+                        table { width: 100%%; border-collapse: collapse; font-size: 0.94rem; }
+                        th, td { padding: 10px 8px; border-bottom: 1px solid rgba(109, 102, 92, 0.18); text-align: left; vertical-align: top; }
+                        thead th { color: var(--muted); font-weight: 700; }
+                        .error-list { margin: 0; padding-left: 20px; color: var(--error); }
+                        @media (max-width: 900px) {
+                            .opencv-preview-layout, .opencv-divider-layout { grid-template-columns: 1fr; }
+                        }
+                    </style>
+                </head>
+                <body>
+                <main class="layout">
+                    %s
+                    <header class="hero">
+                        <div class="eyebrow">Import itemu / obraz</div>
+                        <h1>Importuj pojedynczy item ze screena</h1>
+                        <p class="helper">Aktualny pipeline diagnostyczny składa screenshoty, wykrywa separatory i normalizuje surowe części do stabilnych slotów strukturalnych. Pipeline kończy się na StructuredItemParts; aktywny OCR nie jest obecnie częścią importu obrazu.</p>
+                    </header>
+                    %s
+                    %s
+                    %s
+                    %s
+                </main>
+                <script>
+                (() => {
+                    const screenshotInput = document.querySelector('[data-item-screenshot-input]');
+                    const multiScreenshotInfo = document.querySelector('[data-multi-screenshot-info]');
+                    const multiScreenshotCount = document.querySelector('[data-multi-screenshot-count]');
+                    if (!screenshotInput || !multiScreenshotInfo || !multiScreenshotCount) return;
+                    const refreshMultiScreenshotInfo = () => {
+                        const count = screenshotInput.files ? screenshotInput.files.length : 0;
+                        multiScreenshotCount.textContent = String(count);
+                        multiScreenshotInfo.hidden = count <= 1;
+                    };
+                    screenshotInput.addEventListener('change', refreshMultiScreenshotInfo);
+                    refreshMultiScreenshotInfo();
+                })();
+                </script>
+                </body>
+                </html>
+                """.formatted(
+                AppShellRendererSupport.renderSharedStyles(),
+                AppShellRendererSupport.renderGlobalNavigation("/importuj-item-ze-screena"),
+                renderHeroContext(model),
+                renderUploadPanel(model),
+                renderErrors(model.getValidationErrors()),
+                renderOpenCvPreviewSection(model)
+        );
     }
 
-    public String render(ItemImportPageModel model) {
-        return template
-                .replace("{{APP_SHELL_STYLES}}", AppShellRendererSupport.renderSharedStyles())
-                .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/importuj-item-ze-screena"))
-                .replace("{{HERO_CONTEXT}}", renderHeroContext(model))
-                .replace("{{FORM_ERRORS}}", renderErrors(model.getValidationErrors()))
-                .replace("{{HELP_TEXT}}", escapeHtml(model.getHelpText()))
-                .replace("{{UPLOAD_ACTION}}", escapeHtml(buildUploadAction(model.getCurrentBuildQuery())))
-                .replace("{{OPENCV_PREVIEW_SECTION}}", renderOpenCvPreviewSection(model))
-                .replace("{{PARSE_SECTION}}", renderParseSection(model))
-                .replace("{{CONFIRM_SECTION}}", renderConfirmSection(model))
-                .replace("{{TEMPERING_SCRIPT}}", TemperingSectionRenderer.renderScript()
-                        + "\n"
-                        + TransfigurationSectionRenderer.renderScript()
-                        + "\n"
-                        + SocketingSectionRenderer.renderScript());
+    private static String renderHeroContext(ItemImportPageModel model) {
+        if (!model.hasActiveHero()) {
+            return """
+                    <section class="panel panel-error">
+                        <h2>Brak aktywnego bohatera</h2>
+                        <p class="helper">Ten moduł importu pracuje w kontekście aktywnego bohatera. Utwórz pierwszego bohatera albo ustaw istniejącego przed wgraniem screena itemu.</p>
+                    </section>
+                    """;
+        }
+        return """
+                <section class="panel">
+                    <h2>Aktywny bohater importu</h2>
+                    <p class="helper">Importujesz teraz diagnostykę obrazu dla bohatera %s.</p>
+                </section>
+                """.formatted(escapeHtml(model.getActiveHero().getName()));
+    }
+
+    private static String renderUploadPanel(ItemImportPageModel model) {
+        return """
+                <section class="panel">
+                    <h2>Wgraj screenshot itemu</h2>
+                    <form method="post" action="%s" enctype="multipart/form-data">
+                        <div class="form-grid">
+                            <label>
+                                Obraz pojedynczego itemu
+                                <input type="file" name="itemImage" accept="image/png,image/jpeg,image/webp" multiple data-item-screenshot-input>
+                            </label>
+                        </div>
+                        <p class="helper">%s</p>
+                        <p class="helper" data-multi-screenshot-info hidden>Import wieloscreenowy: <span data-multi-screenshot-count>0</span> obrazów zostanie scalonych jako jeden item.</p>
+                        <div class="submit-row">
+                            <button type="submit">Wczytaj diagnostykę obrazu</button>
+                        </div>
+                    </form>
+                </section>
+                """.formatted(
+                escapeHtml(buildUploadAction(model.getCurrentBuildQuery())),
+                escapeHtml(model.getHelpText())
+        );
     }
 
     private static String renderErrors(List<String> errors) {
@@ -88,7 +159,6 @@ public final class ItemImportPageRenderer {
                     <section class="panel panel-error opencv-preview-panel" data-opencv-preview-section>
                         <h2>Błąd podglądu OpenCV</h2>
                         <p class="helper">%s</p>
-                        <p class="helper">To jest błąd podglądu nowego pipeline'u obrazu. Istniejący import/OCR jest obsługiwany osobno.</p>
                     </section>
                     """.formatted(escapeHtml(model.getOpenCvPreviewError()));
         }
@@ -97,7 +167,6 @@ public final class ItemImportPageRenderer {
         StringBuilder html = new StringBuilder("""
                 <section class="panel opencv-preview-panel" data-opencv-preview-section>
                     <h2>Podgląd obrazu przygotowanego przez OpenCV</h2>
-                    <p class="helper">Podgląd nowego pipeline'u obrazu. OCR nadal korzysta z dotychczasowego mechanizmu.</p>
                     <div class="opencv-preview-layout">
                         <div class="opencv-preview-frame">
                             <img src="%s" alt="Złożony obraz itemu przygotowany przez OpenCV" data-opencv-assembled-preview>
@@ -127,119 +196,6 @@ public final class ItemImportPageRenderer {
                     .append("</p>");
         }
         html.append("</section>");
-        return html.toString();
-    }
-
-    private static String renderOpenCvHorizontalDividerDetection(ItemImportPageModel.OpenCvImagePreview preview) {
-        StringBuilder html = new StringBuilder();
-        if (preview.hasHorizontalDividerDetectionError()) {
-            html.append("""
-                    <section class="subpanel opencv-divider-error" data-opencv-divider-error>
-                        <h3>Błąd detekcji separatorów</h3>
-                        <p class="helper">%s</p>
-                    </section>
-                    """.formatted(escapeHtml(preview.getHorizontalDividerDetectionError())));
-        }
-        if (!preview.hasHorizontalDividerDetection()) {
-            return html.toString();
-        }
-
-        ItemImportPageModel.HorizontalDividerDetectionView detection = preview.getHorizontalDividerDetection();
-        html.append("""
-                    <section class="subpanel opencv-divider-diagnostics" data-opencv-divider-diagnostics>
-                        <h3>Detekcja separatorów poziomych</h3>
-                        <div class="summary-grid">
-                """);
-        html.append(renderSummaryCard("Wykryte linie poziome", Integer.toString(detection.getDividerCount())))
-                .append(renderSummaryCard("Powstałe części", Integer.toString(detection.getPartCount())))
-                .append("""
-                        </div>
-                        <div class="opencv-divider-layout">
-                            <div class="opencv-preview-frame opencv-divider-overlay-frame">
-                                <img src="%s" alt="Złożony obraz itemu z oznaczonymi separatorami" data-opencv-divider-overlay data-opencv-divider-count="%d" data-opencv-part-count="%d">
-                            </div>
-                """.formatted(
-                        escapeHtml(detection.getOverlayDataUri()),
-                        detection.getDividerCount(),
-                        detection.getPartCount()
-                ));
-        html.append(renderOpenCvDividerTable(detection));
-        html.append("""
-                        </div>
-                """);
-        html.append(renderOpenCvPartPreviews(detection));
-        html.append("""
-                    </section>
-                """);
-        return html.toString();
-    }
-
-    private static String renderOpenCvDividerTable(ItemImportPageModel.HorizontalDividerDetectionView detection) {
-        if (detection.getDividers().isEmpty()) {
-            return "<p class=\"helper\" data-opencv-divider-empty>Brak strukturalnych separatorów poziomych.</p>";
-        }
-        StringBuilder html = new StringBuilder("""
-                            <div class="table-scroll opencv-divider-table">
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>Separator</th>
-                                            <th>Y</th>
-                                            <th>Pasmo</th>
-                                            <th>Strength</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                """);
-        for (ItemImportPageModel.HorizontalDividerView divider : detection.getDividers()) {
-            html.append("<tr data-opencv-divider-row>")
-                    .append("<td>Separator ")
-                    .append(divider.getIndex())
-                    .append("</td><td data-opencv-divider-y>")
-                    .append(divider.getY())
-                    .append("</td><td>")
-                    .append(divider.getBandStartY())
-                    .append("..")
-                    .append(divider.getBandEndY())
-                    .append("</td><td data-opencv-divider-strength>")
-                    .append(escapeHtml(divider.getStrength()))
-                    .append("</td></tr>");
-        }
-        html.append("""
-                                    </tbody>
-                                </table>
-                            </div>
-                """);
-        return html.toString();
-    }
-
-    private static String renderOpenCvPartPreviews(ItemImportPageModel.HorizontalDividerDetectionView detection) {
-        StringBuilder html = new StringBuilder("""
-                        <div class="opencv-part-grid" data-opencv-part-previews>
-                """);
-        for (ItemImportPageModel.ItemImagePartView part : detection.getParts()) {
-            html.append("""
-                            <article class="opencv-part-card" data-opencv-part-preview data-opencv-part-name="%s">
-                                <h4>%s</h4>
-                                <p class="helper">%d..%d, %d x %d</p>
-                                <div class="opencv-part-frame">
-                                    <img src="%s" alt="%s">
-                                </div>
-                            </article>
-                    """.formatted(
-                    escapeHtml(part.getName()),
-                    escapeHtml(part.getName()),
-                    part.getStartYInclusive(),
-                    part.getEndYExclusive(),
-                    part.getWidth(),
-                    part.getHeight(),
-                    escapeHtml(part.getDataUri()),
-                    escapeHtml(part.getName())
-            ));
-        }
-        html.append("""
-                        </div>
-                """);
         return html.toString();
     }
 
@@ -293,819 +249,195 @@ public final class ItemImportPageRenderer {
         return html.toString();
     }
 
-    private static String renderParseSection(ItemImportPageModel model) {
-        if (!model.hasActiveHero()) {
-            return """
-                    <section class="panel result-panel">
-                        <h2>Brak aktywnego bohatera</h2>
-                        <div class="empty-state">
-                            <h3>Najpierw wybierz bohatera</h3>
-                            <p>Import pojedynczego itemu działa w kontekście aktywnego bohatera. Utwórz pierwszego bohatera albo ustaw istniejącego, aby po imporcie wiedzieć, dla kogo zapisujesz item i czy chcesz przypisać go do jego ekwipunku.</p>
-                            <a class="link-button" href="/bohaterowie">Przejdź do modułu Bohaterowie</a>
-                        </div>
-                    </section>
-                    """;
-        }
-        if (model.hasConfirmedImport()) {
-            return "";
-        }
-        if (!model.hasEditableForm()) {
-            return """
-                    <section class="panel result-panel">
-                        <h2>Wstępnie rozpoznane pola</h2>
-                        <div class="empty-state">
-                            <h3>Tu pojawią się rozpoznane pola itemu</h3>
-                            <p>Po wgraniu screena aplikacja pokaże w tym miejscu wstępny odczyt slotu i statów wraz z poziomem niepewności. Następnie ręcznie potwierdzisz lub poprawisz wartości przed zapisaniem itemu.</p>
-                        </div>
-                    </section>
-                    """;
-        }
-
-        ItemImageImportCandidateParseResult parseResult = model.getParseResult();
-        ItemImportEditableForm form = model.getEditableForm();
-        StringBuilder html = new StringBuilder("""
-                <section class="panel result-panel">
-                    <h2>Wstępnie rozpoznane pola</h2>
-                """);
-
-        if (model.hasParseResult()) {
-            html.append("<div class=\"summary-grid\">")
-                    .append(renderSummaryCard("Plik źródłowy", parseResult.getImageMetadata().getOriginalFilename()))
-                    .append(renderSummaryCard("Format", parseResult.getImageMetadata().getFormat()))
-                    .append(renderSummaryCard("Content-Type", parseResult.getImageMetadata().getContentType()))
-                    .append(renderSummaryCard("Rozmiar obrazu", parseResult.getImageMetadata().getWidth() + " x " + parseResult.getImageMetadata().getHeight()))
-                    .append("</div>")
-                    .append("<p class=\"helper\">")
-                    .append(escapeHtml(parseResult.getImportNotice()))
-                    .append("</p>");
-        }
-
-        html.append("""
-                    <section class="subpanel">
-                        <h3>Ręczne potwierdzenie itemu</h3>
-                        <form method="post" action="/importuj-item-ze-screena">
-                """)
-                .append(renderHiddenField("sourceImageName", form.getSourceImageName()))
-                .append(renderHiddenField("currentBuildQuery", model.getCurrentBuildQuery()))
-                .append(renderHiddenField("fullItemRead", FullItemReadFormCodec.encode(form.getFullItemRead())))
-                .append(renderHiddenField("weaponDamage", emptyNumberLabel(form.getWeaponDamage())))
-                .append(renderHiddenField("ocrSuggestedAspectId", form.getOcrSuggestedAspectId()))
-                .append(renderHiddenField("ocrAspectConfidence", form.getOcrAspectConfidence().name()))
-                .append("""
-                            <div class="manual-confirm-grid">
-                """)
-                .append(renderItemIdentityFields(form))
-                .append(renderSlotSelect(form.getSlot(), isShield(form.getDetails())))
-                .append(renderRaritySelect(form.getItemRarity()))
-                .append(renderAncientCheckbox(form.isAncient()))
-                .append(renderMythicUniqueCheckbox(form.isMythicUnique()))
-                .append(renderNumberField("itemPower", "Moc przedmiotu", form.getItemPower(), "1"))
-                .append(renderItemTypeFieldSet(form))
-                .append(renderAspectSelect(form))
-                .append("""
-                            </div>
-                """)
-                .append(renderAffixEditor(form))
-                .append(TemperingSectionRenderer.renderEditor(form))
-                .append(MasterworkingSectionRenderer.renderEditor(form))
-                .append(TransfigurationSectionRenderer.renderEditor(form))
-                .append(SocketingSectionRenderer.renderEditor(form))
-                .append("""
-                            <div class="submit-row">
-                                <button type="submit" name="formAction" value="confirmItem">Zatwierdź item</button>
-                            </div>
-                        </form>
-                    </section>
-                </section>
-                """);
-        return html.toString();
-    }
-
-    private static String renderConfirmSection(ItemImportPageModel model) {
-        if (!model.hasActiveHero()) {
-            return "";
-        }
-        if (!model.hasConfirmedImport()) {
-            return "";
-        }
-
-        ItemImportPageModel.ConfirmedImportView confirmed = model.getConfirmedImportView();
-        ValidatedImportedItem importedItem = confirmed.getImportedItem();
-        SavedImportedItem savedItem = confirmed.getSavedItem();
-        StringBuilder html = new StringBuilder("""
-                <section class="panel result-panel">
-                    <h2>Zatwierdzony item zapisany do biblioteki</h2>
-                    <div class="summary-grid">
-                """);
-        html.append(renderSummaryCard("Plik źródłowy", importedItem.getSourceImageName()))
-                .append(renderSummaryCard("Aktywny bohater", model.getActiveHero().getName()))
-                .append(renderSummaryCard("Slot / typ itemu", ItemLibraryPresentationSupport.slotDisplayName(importedItem.getSlot())))
-                .append(renderSummaryCard("Identyfikator biblioteki", ItemLibraryPresentationSupport.userItemIdentifier(savedItem)))
-                .append(renderSummaryCard("Wybrany aspekt", selectedAspectLabel(importedItem.getSelectedAspectId())))
-                .append("</div>")
-                .append("""
-                    <section class="subpanel">
-                        <h3>Dalsze akcje</h3>
-                        <p class="helper">Import pozostaje wspomagany: zatwierdzony item został zapisany do biblioteki przez jawnie widoczny formularz korekty, a nie przez ukryty automat OCR.</p>
-                        <div class="action-links">
-                    """)
-                .append(renderAssignSavedItemForms(model, savedItem))
-                .append("<a class=\"link-button secondary-button\" href=\"/biblioteka-itemow\">Przejdź do biblioteki</a>")
-                .append("<a class=\"link-button secondary-button\" href=\"")
-                .append(escapeHtml(buildCurrentBuildUrl(model.getCurrentBuildQuery())))
-                .append("\">Wróć do aktualnego buildu</a>")
-                .append("""
-                        </div>
-                    """)
-                .append(renderSavedTemperingSummary(savedItem))
-                .append(MasterworkingSectionRenderer.renderReadonlySummary(
-                        savedItem.getMasterworking(),
-                        savedItem.getAffixes(),
-                        savedItem.getTemperingAffixes()))
-                .append(TransfigurationSectionRenderer.renderReadonlySummary(
-                        savedItem.getTransfiguration(),
-                        savedItem.getAffixes()))
-                .append(SocketingSectionRenderer.renderReadonlySummary(savedItem))
-                .append("""
-                    </section>
-                </section>
-                """);
-        return html.toString();
-    }
-
-    private static ItemReadLineGroup classifyPresentationLine(FullItemReadLine line) {
-        String normalized = normalizeForDisplayRules(line.getText());
-        if (line.getType() == FullItemReadLineType.ITEM_NAME
-                || line.getType() == FullItemReadLineType.TYPE_OR_SLOT
-                || line.getType() == FullItemReadLineType.RARITY
-                || line.getType() == FullItemReadLineType.ITEM_POWER
-                || line.getType() == FullItemReadLineType.BASE_STAT) {
-            return ItemReadLineGroup.HEADER;
-        }
-        if (line.getType() == FullItemReadLineType.IMPLICIT
-                || normalized.contains("REDUKCJI BLOKOWANYCH OBRAZEN")
-                || normalized.contains("SZANSY NA BLOK")
-                || normalized.contains("SZANSA NA BLOK")
-                || normalized.contains("OBRAZEN OD BRONI W GLOWNEJ RECE")) {
-            return ItemReadLineGroup.IMPLICIT;
-        }
-        if (line.getType() == FullItemReadLineType.ASPECT
-                || normalized.contains("ZADAJESZ OBRAZENIA ZWIEKSZONE")
-                || normalized.contains("TA PREMIA JEST")) {
-            return ItemReadLineGroup.SPECIAL;
-        }
-        if (line.getType() == FullItemReadLineType.SOCKET) {
-            return ItemReadLineGroup.SOCKET;
-        }
-        if (line.getType() == FullItemReadLineType.TEMPERING) {
-            return ItemReadLineGroup.AFFIX;
-        }
-        if (line.getType() == FullItemReadLineType.AFFIX && !normalized.contains("ROZJUSZENIE")) {
-            return ItemReadLineGroup.AFFIX;
-        }
-        return ItemReadLineGroup.OTHER;
-    }
-
-    private static String simplifyItemType(String itemTypeLine) {
-        String normalized = normalizeForDisplayRules(itemTypeLine);
-        if (normalized.contains("MIECZ") || normalized.contains("SWORD")) {
-            return "Miecz";
-        }
-        if (normalized.contains("TARCZA") || normalized.contains("SHIELD")) {
-            return "Tarcza";
-        }
-        if (normalized.contains("BUTY") || normalized.contains("BOOTS")) {
-            return "Buty";
-        }
-        if (normalized.contains("BRON GLOWNA") || normalized.contains("MAIN HAND")) {
-            return "Broń główna";
-        }
-        if (normalized.contains("REKA DODATKOWA") || normalized.contains("OFF HAND")) {
-            return "Ręka dodatkowa";
-        }
-        return emptyLabel(itemTypeLine);
-    }
-
-    private static String simplifyRarity(String rarity) {
-        String normalized = normalizeForDisplayRules(rarity);
-        List<String> parts = new ArrayList<>();
-        if (normalized.contains("STAROZYTNA") || normalized.contains("STAROZYTNY") || normalized.contains("ANCESTRAL")) {
-            parts.add("Starożytna");
-        }
-        if (normalized.equals("LEGENDARY") || normalized.contains("LEGENDARNA") || normalized.contains("LEGENDARNY") || normalized.contains("LEGENDARY")) {
-            parts.add("legendarna");
-        } else if (normalized.equals("UNIQUE") || normalized.contains("UNIKATOWA") || normalized.contains("UNIKATOWY") || normalized.contains("UNIQUE")) {
-            parts.add("unikatowa");
-        } else if (normalized.equals("RARE") || normalized.contains("RZADKA") || normalized.contains("RZADKI") || normalized.contains("RARE")) {
-            parts.add("rzadka");
-        }
-        if (!parts.isEmpty()) {
-            return String.join(" ", parts);
-        }
-        return emptyLabel(rarity);
-    }
-
-    private static String simplifyItemPower(String itemPower) {
-        String value = firstNumber(itemPower);
-        if ("1".equals(value)) {
-            return "Brak pewnego odczytu";
-        }
-        return value.isBlank() ? emptyLabel(itemPower) : value;
-    }
-
-    private static String firstNumber(String value) {
-        if (value == null || value.isBlank()) {
-            return "";
-        }
-        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\d+(?:\\s\\d{3})*(?:[,.]\\d+)?").matcher(value);
-        return matcher.find() ? matcher.group() : "";
-    }
-
-    private static String firstNonBlank(String preferred, String fallback) {
-        return preferred == null || preferred.isBlank() ? fallback : preferred;
-    }
-
-    private static String renderAffixDisplayValue(ImportedItemAffix affix) {
-        if (affix == null) {
-            return "";
-        }
-        String displayValue = affix.getDisplayValue().isBlank()
-                ? affix.getType().formatLine(affix.getValue())
-                : affix.getDisplayValue();
-        return "<div class=\"helper\">Wartość z tooltipa: " + escapeHtml(displayValue) + "</div>";
-    }
-
-    private static String renderAffixValueControl(int index, ImportedItemAffix affix) {
-        return "<input type=\"number\" min=\"0\" step=\"0.01\" name=\"affixValue_"
-                + index
-                + "\" value=\""
-                + escapeHtml(formatDecimal(affix == null ? 0.0d : affix.getValue()))
-                + "\">";
-    }
-
-    private static String rollRangeLabel(ImportedItemAffix affix) {
-        if (affix != null && affix.isGreaterAffix()
-                && affix.getRollRangeMin() == null
-                && affix.getRollRangeMax() == null) {
-            return "Bez zakresu (Greater Affix)";
-        }
-        String value = affix == null ? "" : affix.getRollRangeLabel();
-        return value == null || value.isBlank() ? "Brak zakresu" : value;
-    }
-
-    private static String referenceValueLabel(ImportedItemAffix affix) {
-        if (affix == null || affix.getReferenceValue() == null) {
-            return "";
-        }
-        return "<div class=\"helper\">Wartość bazowa: " + escapeHtml(affix.getReferenceValueLabel()) + "</div>";
-    }
-
-    private static String normalizeForDisplayRules(String value) {
-        if (value == null) {
-            return "";
-        }
-        return java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
-                .replace('Ł', 'L')
-                .replace('ł', 'l')
-                .replaceAll("\\p{M}", "")
-                .toUpperCase(Locale.ROOT);
-    }
-
-    private static String renderAssignSavedItemForms(ItemImportPageModel model, SavedImportedItem savedItem) {
+    private static String renderOpenCvHorizontalDividerDetection(ItemImportPageModel.OpenCvImagePreview preview) {
         StringBuilder html = new StringBuilder();
-        for (HeroEquipmentSlot heroSlot : HeroEquipmentSlot.compatibleWith(savedItem.getSlot())) {
-            boolean slotEmpty = model.getActiveHero().getItemSelection().getSelectedItemId(heroSlot) == null;
-            String actionLabel = slotEmpty ? "Załóż bohaterowi" : "Zmień w slocie";
+        if (preview.hasHorizontalDividerDetectionError()) {
             html.append("""
-                    <form method="post" action="/biblioteka-itemow" class="inline-form">
-                        <input type="hidden" name="action" value="activateItem">
-                        <input type="hidden" name="itemId" value="%s">
-                        <input type="hidden" name="heroSlot" value="%s">
-                        <input type="hidden" name="currentBuildQuery" value="%s">
-                        <button type="submit">%s: %s</button>
-                    </form>
-                    """.formatted(
-                    savedItem.getItemId(),
-                    heroSlot.name(),
-                    escapeHtml(model.getCurrentBuildQuery()),
-                    escapeHtml(actionLabel),
-                    escapeHtml(ItemLibraryPresentationSupport.heroSlotDisplayName(heroSlot))
-            ));
+                    <section class="subpanel opencv-divider-error" data-opencv-divider-error>
+                        <h3>Błąd detekcji separatorów</h3>
+                        <p class="helper">%s</p>
+                    </section>
+                    """.formatted(escapeHtml(preview.getHorizontalDividerDetectionError())));
         }
+        if (!preview.hasHorizontalDividerDetection()) {
+            return html.toString();
+        }
+
+        ItemImportPageModel.HorizontalDividerDetectionView detection = preview.getHorizontalDividerDetection();
+        html.append("""
+                    <section class="subpanel opencv-divider-diagnostics" data-opencv-divider-diagnostics>
+                        <h3>Detekcja separatorów poziomych</h3>
+                        <div class="summary-grid">
+                """);
+        html.append(renderSummaryCard("Wykryte linie poziome", Integer.toString(detection.getDividerCount())))
+                .append(renderSummaryCard("Powstałe części", Integer.toString(detection.getPartCount())))
+                .append("""
+                        </div>
+                        <div class="opencv-divider-layout">
+                            <div class="opencv-preview-frame opencv-divider-overlay-frame">
+                                <img src="%s" alt="Złożony obraz itemu z oznaczonymi separatorami" data-opencv-divider-overlay data-opencv-divider-count="%d" data-opencv-part-count="%d">
+                            </div>
+                """.formatted(
+                        escapeHtml(detection.getOverlayDataUri()),
+                        detection.getDividerCount(),
+                        detection.getPartCount()
+                ));
+        html.append(renderOpenCvDividerTable(detection));
+        html.append("""
+                        </div>
+                """);
+        html.append(renderOpenCvPartPreviews(detection));
+        html.append(renderItemPartStructureNormalization(detection));
+        html.append("""
+                    </section>
+                """);
         return html.toString();
     }
 
-    private static String renderAffixEditor(ItemImportEditableForm form) {
+    private static String renderOpenCvDividerTable(ItemImportPageModel.HorizontalDividerDetectionView detection) {
+        if (detection.getDividers().isEmpty()) {
+            return "<p class=\"helper\" data-opencv-divider-empty>Brak strukturalnych separatorów poziomych.</p>";
+        }
         StringBuilder html = new StringBuilder("""
-                <section class="subpanel">
-                    <h3>Ręczna weryfikacja affixów</h3>
-                    %s
-                    <input type="hidden" id="affixCount" name="affixCount" value="%s">
-                    <div class="affix-table-wrap">
-                    <table class="data-table affix-table" id="affixTable">
-                        <colgroup>
-                            <col class="affix-type-col">
-                            <col class="affix-value-col">
-                            <col class="affix-range-col">
-                            <col class="affix-greater-col">
-                            <col class="affix-action-col">
-                        </colgroup>
-                        <thead>
-                            <tr>
-                                <th>Typ affixu</th>
-                                <th>Wartość</th>
-                                <th>Zakres rolla</th>
-                                <th>Greater Affix</th>
-                                <th>Akcja</th>
-                            </tr>
-                        </thead>
-                        <tbody id="affixRows">
-                """.formatted(renderAmbiguousGaNotice(form), form.getAffixes().size()));
-        for (int index = 0; index < form.getAffixes().size(); index++) {
-            ImportedItemAffix affix = form.getAffixes().get(index);
+                            <div class="table-scroll opencv-divider-table">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Separator</th>
+                                            <th>Y</th>
+                                            <th>Pasmo</th>
+                                            <th>Strength</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                """);
+        for (ItemImportPageModel.HorizontalDividerView divider : detection.getDividers()) {
+            html.append("<tr data-opencv-divider-row>")
+                    .append("<td>Separator ")
+                    .append(divider.getIndex())
+                    .append("</td><td data-opencv-divider-y>")
+                    .append(divider.getY())
+                    .append("</td><td>")
+                    .append(divider.getBandStartY())
+                    .append("..")
+                    .append(divider.getBandEndY())
+                    .append("</td><td data-opencv-divider-strength>")
+                    .append(escapeHtml(divider.getStrength()))
+                    .append("</td></tr>");
+        }
+        html.append("""
+                                    </tbody>
+                                </table>
+                            </div>
+                """);
+        return html.toString();
+    }
+
+    private static String renderOpenCvPartPreviews(ItemImportPageModel.HorizontalDividerDetectionView detection) {
+        StringBuilder html = new StringBuilder("""
+                        <div class="opencv-part-grid" data-opencv-part-previews>
+                """);
+        for (ItemImportPageModel.ItemImagePartView part : detection.getParts()) {
             html.append("""
-                    <tr>
-                        <td class="affix-type-cell">
-                            <select name="affixType_%s">%s</select>
-                            <input type="hidden" name="affixSourceText_%s" value="%s">
-                            <input type="hidden" name="affixOriginalType_%s" value="%s">
-                            <input type="hidden" name="affixOriginalValue_%s" value="%s">
-                            <input type="hidden" name="affixDefinitionId_%s" value="%s">
-                            <input type="hidden" name="affixRangeMin_%s" value="%s">
-                            <input type="hidden" name="affixRangeMax_%s" value="%s">
-                            <input type="hidden" name="affixReferenceValue_%s" value="%s">
-                            <input type="hidden" name="affixDisplayValue_%s" value="%s">
-                        </td>
-                        <td class="affix-value-cell">
-                            %s
-                            %s
-                            <label class="masterworking-source-value-field">Wartość edytowalna %s</label>
-                        </td>
-                        <td class="affix-range-cell">
-                            %s
-                            %s
-                        </td>
-                        <td class="affix-greater-cell">
-                            <label class="checkbox-label"><input type="checkbox" name="affixGreater_%s" value="true"%s> Gwiazdka</label>
-                            %s
-                        </td>
-                        <td class="affix-action-cell"><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
-                    </tr>
+                            <article class="opencv-part-card" data-opencv-part-preview data-opencv-part-name="%s">
+                                <h4>%s</h4>
+                                <p class="helper">raw part #%d, %d..%d, %d x %d</p>
+                                <div class="opencv-part-frame">
+                                    <img src="%s" alt="%s">
+                                </div>
+                            </article>
                     """.formatted(
-                    index,
-                    renderAffixTypeOptions(affix.getType()),
-                    index,
-                    escapeHtml(affix.getSourceText()),
-                    index,
-                    escapeHtml(affix.getType().name()),
-                    index,
-                    formatDecimal(affix.getValue()),
-                    index,
-                    escapeHtml(affix.getAffixDefinitionId()),
-                    index,
-                    affix.getRollRangeMin() == null ? "" : formatDecimal(affix.getRollRangeMin()),
-                    index,
-                    affix.getRollRangeMax() == null ? "" : formatDecimal(affix.getRollRangeMax()),
-                    index,
-                    affix.getReferenceValue() == null ? "" : formatDecimal(affix.getReferenceValue()),
-                    index,
-                    escapeHtml(affix.getDisplayValue()),
-                    renderAffixDisplayValue(affix),
-                    MasterworkingSectionRenderer.renderAffixEditorHint(form.getMasterworking(), affix, form.isMythicUnique()),
-                    renderAffixValueControl(index, affix),
-                    escapeHtml(rollRangeLabel(affix)),
-                    referenceValueLabel(affix),
-                    index,
-                    affix.isGreaterAffix() ? " checked" : "",
-                    renderAffixGaConfirmationState(affix)
+                    escapeHtml(part.getName()),
+                    escapeHtml(part.getName()),
+                    part.getIndex(),
+                    part.getStartYInclusive(),
+                    part.getEndYExclusive(),
+                    part.getWidth(),
+                    part.getHeight(),
+                    escapeHtml(part.getDataUri()),
+                    escapeHtml(part.getName())
             ));
         }
         html.append("""
-                        </tbody>
-                    </table>
-                    </div>
-                    """);
-        if (form.getAffixes().size() >= 4) {
+                        </div>
+                """);
+        return html.toString();
+    }
+
+    private static String renderItemPartStructureNormalization(ItemImportPageModel.HorizontalDividerDetectionView detection) {
+        StringBuilder html = new StringBuilder();
+        if (detection.hasStructureNormalizationError()) {
             html.append("""
-                    <div class="add-affix-row">
-                        <p class="helper">Limit affixów dla tego przedmiotu został wykorzystany.</p>
-                    </div>
+                    <section class="subpanel item-structure-error" data-item-structure-error>
+                        <h3>Błąd normalizacji struktury</h3>
+                        <p class="helper">%s</p>
+                    </section>
+                    """.formatted(escapeHtml(detection.getStructureNormalizationError())));
+        }
+        if (!detection.hasStructureNormalization()) {
+            return html.toString();
+        }
+
+        ItemImportPageModel.ItemPartStructureNormalizationView normalization = detection.getStructureNormalization();
+        html.append("""
+                    <section class="subpanel item-structure-normalization" data-item-structure-normalization data-item-structure-status="%s" data-item-structure-raw-part-count="%d">
+                        <h3>Normalizacja struktury</h3>
+                        <div class="summary-grid">
+                """.formatted(
+                escapeHtml(normalization.getStatus()),
+                normalization.getRawPartCount()
+        ));
+        html.append(renderSummaryCard("Status", normalization.getStatus()))
+                .append(renderSummaryCard("Raw parts", Integer.toString(normalization.getRawPartCount())))
+                .append("""
+                        </div>
+                """);
+        if (normalization.getMappings().isEmpty()) {
+            html.append("""
+                        <p class="helper" data-item-structure-no-mapping>Brak normalizacji strukturalnej. Nie zgadujemy brakujących slotów.</p>
                     """);
         } else {
             html.append("""
-                    <div class="add-affix-row">
-                        <h4>Dodaj affix</h4>
-                        <div class="item-affix-add-grid">
-                            <label>
-                                Typ affixu
-                                <select name="newAffixType">
-                                    <option value="">Nie dodawaj</option>
-                                    %s
-                                </select>
-                            </label>
-                            <label>
-                                Wartość
-                                <input type="number" min="0" step="0.01" name="newAffixValue" value="">
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="newAffixGreater" value="true"> Greater Affix
-                            </label>
-                            <div class="item-affix-add-actions">
-                                <button type="button" id="addAffixButton">Dodaj affix</button>
-                                <noscript>
-                                    <button type="submit" name="formAction" value="addAffix">Dodaj affix</button>
-                                </noscript>
-                            </div>
+                        <div class="table-scroll item-structure-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Structural slot</th>
+                                        <th>Raw part</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    """);
+            for (ItemImportPageModel.StructuralItemPartMappingView mapping : normalization.getMappings()) {
+                html.append("<tr data-item-structure-row data-item-structure-slot=\"")
+                        .append(escapeHtml(mapping.getStructuralSlot()))
+                        .append("\" data-item-structure-present=\"")
+                        .append(mapping.isPresent())
+                        .append("\" data-item-structure-raw-part-index=\"")
+                        .append(mapping.getRawPartIndex())
+                        .append("\"><td>")
+                        .append(escapeHtml(mapping.getStructuralSlot()))
+                        .append("</td><td>")
+                        .append(mapping.isPresent()
+                                ? "raw part #" + mapping.getRawPartIndex()
+                                : "absent")
+                        .append("</td></tr>");
+            }
+            html.append("""
+                                </tbody>
+                            </table>
                         </div>
-                    </div>
-                    <template id="affixRowTemplate">
-                        <tr>
-                            <td class="affix-type-cell"><select name="affixType___INDEX__">%s</select><input type="hidden" name="affixSourceText___INDEX__" value=""><input type="hidden" name="affixDefinitionId___INDEX__" value=""><input type="hidden" name="affixRangeMin___INDEX__" value=""><input type="hidden" name="affixRangeMax___INDEX__" value=""><input type="hidden" name="affixReferenceValue___INDEX__" value=""><input type="hidden" name="affixDisplayValue___INDEX__" value=""></td>
-                            <td class="affix-value-cell"><input type="number" min="0" step="0.01" name="affixValue___INDEX__" value="__VALUE__"></td>
-                            <td class="affix-range-cell"><span class="helper">Brak zakresu</span></td>
-                            <td class="affix-greater-cell"><label class="checkbox-label"><input type="checkbox" name="affixGreater___INDEX__" value="true"> Gwiazdka</label></td>
-                            <td class="affix-action-cell"><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
-                        </tr>
-                    </template>
-                    """.formatted(
-                    renderAffixTypeOptions(null),
-                    renderAffixTypeOptions(null)
-            ));
+                    """);
+        }
+        if (normalization.hasDiagnosticReason()) {
+            html.append("<p class=\"helper\" data-item-structure-diagnostic-reason>")
+                    .append(escapeHtml(normalization.getDiagnosticReason()))
+                    .append("</p>");
         }
         html.append("""
-                </section>
-                """);
-        return html.toString();
-    }
-
-    private static String renderAmbiguousGaNotice(ItemImportEditableForm form) {
-        if (!requiresGaConfirmation(form)) {
-            return "";
-        }
-        return "<p class=\"helper status-warning\">Wykryto markery GA / gwiazdek - wymagają potwierdzenia przy affixach.</p>";
-    }
-
-    private static String renderAffixGaConfirmationState(ImportedItemAffix affix) {
-        if (affix == null || !affix.isGreaterAffixConfirmationRequired()) {
-            return "";
-        }
-        return "<div class=\"helper status-warning\">GA do potwierdzenia</div>";
-    }
-
-    private static boolean requiresGaConfirmation(ItemImportEditableForm form) {
-        return form != null
-                && form.getMasterworking() != null
-                && form.getMasterworking().getPerfectedAffix() != null
-                && !form.getMasterworking().getPerfectedAffix().hasRecognizedSource()
-                && "REQUIRES_CONFIRMATION".equals(form.getMasterworking().getPerfectedAffix().getRawSource());
-    }
-
-    private static String renderSavedTemperingSummary(SavedImportedItem item) {
-        if (item.getTemperingAffixes().isEmpty()) {
-            return "";
-        }
-        StringBuilder html = new StringBuilder("<section class=\"subpanel\"><h3>Hartowanie</h3><ul class=\"item-line-list\">");
-        for (krys.tempering.ItemTemperingAffix affix : item.getTemperingAffixes()) {
-            html.append("<li>")
-                    .append(escapeHtml(krys.tempering.TemperingPresentationSupport.formatAffix(affix, krys.tempering.ApplicationTemperingAffixRegistry.get())))
-                    .append(affix.isGreaterAffix() ? " — Greater Affix / Gwiazdka" : "")
-                    .append(" — Status: ")
-                    .append(escapeHtml(affix.getRuntimeStatus().getDisplayName()))
-                    .append("</li>");
-        }
-        html.append("</ul></section>");
-        return html.toString();
-    }
-
-    private static String renderAspectSelect(ItemImportEditableForm form) {
-        EquipmentSlot selectedSlot = parseSlot(form.getSlot());
-        String selectedAspectId = form.getSelectedAspectId();
-        AspectDefinition selectedAspect = selectedAspectId == null || selectedAspectId.isBlank()
-                ? null
-                : ASPECT_REGISTRY.findById(selectedAspectId).orElse(null);
-        boolean selectedAspectKnown = selectedAspectId != null
-                && !selectedAspectId.isBlank()
-                && selectedAspect != null;
-        boolean selectedAspectAllowed = selectedAspectKnown
-                && selectedAspect.allowsSlot(selectedSlot);
-        StringBuilder html = new StringBuilder("""
-                <label>
-                    Aspekt
-                    <select name="selectedAspectId" id="aspectSelect">
-                        <option value="%s"%s>Brak wybranego aspektu</option>
-                """.formatted("", selectedAspectId == null || selectedAspectId.isBlank() ? " selected" : ""));
-        for (AspectDefinition aspect : ASPECT_REGISTRY.all()) {
-            boolean allowed = selectedSlot != null && aspect.allowsSlot(selectedSlot);
-            boolean selected = aspect.getId().equals(selectedAspectId);
-            html.append("<option value=\"")
-                    .append(escapeHtml(aspect.getId()))
-                    .append("\"")
-                    .append(" data-allowed-slots=\"")
-                    .append(escapeHtml(allowedSlotNames(aspect)))
-                    .append("\"")
-                    .append(selected ? " selected" : "")
-                    .append(!allowed && !selected ? " disabled hidden" : "")
-                    .append(">")
-                    .append(escapeHtml(aspect.getDisplayName()))
-                    .append(selected && !allowed ? " (niezgodny ze slotem)" : "")
-                    .append("</option>");
-        }
-        html.append("""
-                    </select>
-                """);
-        if (selectedAspect == null) {
-            html.append("<span class=\"helper\">Brak wybranego aspektu.</span>");
-        }
-        if (selectedAspect == null && hasAspectText(form.getFullItemRead())) {
-            html.append("<span class=\"helper\">OCR wykrył tekst aspektu, ale nie znaleziono dopasowania w katalogu aspektów. Wybierz ręcznie albo zostaw brak.</span>");
-        }
-        if (selectedAspectKnown && !selectedAspectAllowed) {
-            html.append("<span class=\"helper\">Wybrany aspekt nie pasuje do obecnego slotu itemu i wymaga zmiany przed zapisem.</span>");
-        }
-        html.append("""
-                </label>
-                <label class="aspect-effect-text">
-                    Treść efektu
-                    <textarea name="uniqueEffectText" rows="4">%s</textarea>
-                </label>
-                """.formatted(escapeHtml(aspectEffectText(form, selectedAspect))));
-        return "<fieldset class=\"inline-fieldset aspect-effect-fieldset\"><legend>Aspekt / efekt</legend>"
-                + html
-                + "</fieldset>";
-    }
-
-    private static String aspectEffectText(ItemImportEditableForm form, AspectDefinition selectedAspect) {
-        String effectText = firstNonBlank(form.getUniqueEffectText(), form.getFullItemRead().getDetails().getUniqueEffectText());
-        if (effectText.isBlank() && selectedAspect != null) {
-            return selectedAspect.getEffectDescription();
-        }
-        return effectText;
-    }
-
-    private static String selectedAspectLabel(String selectedAspectId) {
-        if (selectedAspectId == null || selectedAspectId.isBlank()) {
-            return "Brak";
-        }
-        return ASPECT_REGISTRY.findById(selectedAspectId)
-                .map(AspectDefinition::getDisplayName)
-                .orElse(selectedAspectId);
-    }
-
-    private static EquipmentSlot parseSlot(String rawSlot) {
-        if (rawSlot == null || rawSlot.isBlank()) {
-            return null;
-        }
-        try {
-            return EquipmentSlot.valueOf(rawSlot);
-        } catch (IllegalArgumentException exception) {
-            return null;
-        }
-    }
-    private static String allowedSlotNames(AspectDefinition aspect) {
-        return aspect.getAllowedItemSlots().stream()
-                .map(EquipmentSlot::name)
-                .sorted()
-                .reduce("", (left, right) -> left.isBlank() ? right : left + "," + right);
-    }
-
-    private static boolean hasAspectText(FullItemRead fullItemRead) {
-        if (fullItemRead == null || !fullItemRead.hasAnyData()) {
-            return false;
-        }
-        for (FullItemReadLine line : fullItemRead.getLines()) {
-            String normalized = normalizeForDisplayRules(line.getText());
-            if (line.getType() == FullItemReadLineType.ASPECT
-                    || normalized.contains("ZADAJESZ OBRAZENIA ZWIEKSZONE")
-                    || normalized.contains("TA PREMIA JEST")) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static String renderItemIdentityFields(ItemImportEditableForm form) {
-        return """
-                <label>
-                    Nazwa
-                    <input type="text" name="itemName" value="%s">
-                </label>
-                <label>
-                    Typ itemu
-                    <input type="text" name="itemType" value="%s">
-                </label>
-                """.formatted(
-                escapeHtml(firstNonBlank(form.getItemName(), form.getFullItemRead().getItemName())),
-                escapeHtml(firstNonBlank(form.getItemType(), simplifyItemType(form.getFullItemRead().getItemTypeLine())))
-        );
-    }
-
-    private static String renderRaritySelect(String selectedRarity) {
-        String selected = selectedRarity == null ? "" : selectedRarity;
-        return """
-                <label>
-                    Rzadkość
-                    <select name="itemRarity">
-                        %s
-                    </select>
-                </label>
-                """.formatted(
-                renderRarityOption("", "UNKNOWN / do potwierdzenia", selected.isBlank())
-                        + renderRarityOption("UNIQUE", "UNIQUE / Unikatowy", "UNIQUE".equalsIgnoreCase(selected))
-                        + renderRarityOption("LEGENDARY", "LEGENDARY / Legendarny", "LEGENDARY".equalsIgnoreCase(selected))
-                        + renderRarityOption("RARE", "RARE / Rzadki", "RARE".equalsIgnoreCase(selected))
-        );
-    }
-
-    private static String renderRarityOption(String value, String label, boolean selected) {
-        return "<option value=\"" + escapeHtml(value) + "\"" + (selected ? " selected" : "") + ">"
-                + escapeHtml(label) + "</option>";
-    }
-
-    private static String renderAncientCheckbox(boolean ancient) {
-        return """
-                <label class="checkbox-label">
-                    <input type="checkbox" name="isAncient" value="true"%s> Ancient / starożytny
-                </label>
-                """.formatted(ancient ? " checked" : "");
-    }
-
-    private static String renderMythicUniqueCheckbox(boolean mythicUnique) {
-        return """
-                <label class="checkbox-label">
-                    <input type="checkbox" name="isMythicUnique" value="true"%s> Mityczny unikat
-                </label>
-                """.formatted(mythicUnique ? " checked" : "");
-    }
-
-    private static String renderItemTypeFieldSet(ItemImportEditableForm form) {
-        if (isShield(form.getDetails())) {
-            return renderShieldFieldSet(form);
-        }
-        if (!isWeapon(form.getDetails())) {
-            return renderHiddenField("itemArmor", form.getItemArmor());
-        }
-        return renderWeaponFieldSet(form);
-    }
-
-    private static String renderShieldFieldSet(ItemImportEditableForm form) {
-        StringBuilder implicitLines = new StringBuilder();
-        for (FullItemReadLine line : form.getFullItemRead().getLines()) {
-            if (classifyPresentationLine(line) == ItemReadLineGroup.IMPLICIT) {
-                implicitLines.append("<li>").append(escapeHtml(line.getText())).append("</li>");
-            }
-        }
-        return """
-                <fieldset class="inline-fieldset">
-                    <legend>Dane tarczy</legend>
-                    %s
-                    %s
-                    <section class="item-line-group">
-                        <h5>Linie bazowe</h5>
-                        <ul class="item-line-list">%s</ul>
                     </section>
-                </fieldset>
-                """.formatted(
-                renderNumberField("itemArmor", "Pancerz", form.getItemArmor(), "1"),
-                MasterworkingSectionRenderer.renderArmorEditorHint(form.getMasterworking(), form.getItemArmor()),
-                implicitLines
-        );
-    }
-
-    private static String renderWeaponFieldSet(ItemImportEditableForm form) {
-        String averageValue = form.getAverageWeaponDamage();
-        if ((averageValue == null || averageValue.isBlank())
-                && !form.getWeaponDamageMin().isBlank()
-                && !form.getWeaponDamageMax().isBlank()) {
-            try {
-                long min = Long.parseLong(form.getWeaponDamageMin());
-                long max = Long.parseLong(form.getWeaponDamageMax());
-                averageValue = Long.toString(Math.round((min + max) / 2.0d));
-            } catch (NumberFormatException exception) {
-                averageValue = form.getAverageWeaponDamage();
-            }
-        }
-        return """
-                <fieldset class="inline-fieldset">
-                    <legend>Dane broni</legend>
-                    %s
-                    %s
-                    %s
-                    %s
-                    %s
-                </fieldset>
-                """.formatted(
-                renderNumberField("weaponDps", "DPS broni", form.getWeaponDps(), "1"),
-                renderNumberField("weaponDamageMin", "Obrażenia za trafienie min", form.getWeaponDamageMin(), "1"),
-                renderNumberField("weaponDamageMax", "Obrażenia za trafienie max", form.getWeaponDamageMax(), "1"),
-                renderNumberField("averageWeaponDamage", "Średnie obrażenia trafienia", averageValue, "1"),
-                renderNumberField("attacksPerSecond", "Ataki na sekundę", form.getAttacksPerSecond(), "0.01")
-        );
-    }
-
-    private static boolean isShield(ItemImportDetails details) {
-        if (details == null) {
-            return false;
-        }
-        String normalizedType = normalizeForDisplayRules(details.getItemType());
-        return details.getEquipmentSlot() == EquipmentSlot.OFF_HAND
-                && (normalizedType.contains("TARCZA") || details.getItemArmor() != null);
-    }
-
-    private static boolean isWeapon(ItemImportDetails details) {
-        if (details == null) {
-            return false;
-        }
-        String normalizedType = normalizeForDisplayRules(details.getItemType());
-        return details.getEquipmentSlot() == EquipmentSlot.MAIN_HAND
-                || normalizedType.contains("MIECZ")
-                || normalizedType.contains("SWORD")
-                || details.getWeaponDps() != null
-                || details.getWeaponDamageMin() != null
-                || details.getWeaponDamageMax() != null
-                || details.getAverageWeaponDamage() != null
-                || details.getAttacksPerSecond() != null;
-    }
-
-    private static String slotDisplayName(ItemImportDetails details) {
-        if (details == null || details.getEquipmentSlot() == null) {
-            return "Brak pewnego odczytu";
-        }
-        if (isShield(details)) {
-            return "Tarcza";
-        }
-        return ItemLibraryPresentationSupport.slotDisplayName(details.getEquipmentSlot());
-    }
-
-    private static String renderAffixTypeOptions(ImportedItemAffixType selectedType) {
-        StringBuilder html = new StringBuilder();
-        for (AffixDefinition definition : AFFIX_REGISTRY.all()) {
-            ImportedItemAffixType type = definition.getFormType();
-            html.append("<option value=\"")
-                    .append(type.name())
-                    .append("\"")
-                    .append(" data-affix-definition-id=\"")
-                    .append(escapeHtml(definition.getId()))
-                    .append("\"")
-                    .append(" title=\"")
-                    .append(escapeHtml(definition.getDescription()))
-                    .append("\"")
-                    .append(" aria-label=\"")
-                    .append(escapeHtml(definition.getDescription()))
-                    .append("\"")
-                    .append(type == selectedType ? " selected" : "")
-                    .append(">")
-                    .append(escapeHtml(definition.getDisplayName()))
-                    .append("</option>");
-        }
-        return html.toString();
-    }
-
-    private static String renderCandidateRow(String label, ItemImportFieldCandidate<?> candidate) {
-        String suggestedValue = renderCandidateValue(candidate.getSuggestedValue());
-        String note = candidate.getNote() == null || candidate.getNote().isBlank() ? "-" : candidate.getNote();
-        return "<tr><td>" + escapeHtml(label) + "</td><td>" + escapeHtml(suggestedValue) + "</td><td>"
-                + escapeHtml(candidate.getConfidence().getDisplayName()) + "</td><td>" + escapeHtml(note) + "</td></tr>";
-    }
-
-    private static String renderSlotSelect(String selectedSlot, boolean shieldContext) {
-        StringBuilder html = new StringBuilder("""
-                <label>
-                    Slot ekwipunku
-                    <select name="slot" id="itemSlotSelect">
-                """);
-        html.append(renderSlotOption("", "Wybierz slot", selectedSlot == null || selectedSlot.isBlank()));
-        for (EquipmentSlot slot : EquipmentSlot.values()) {
-            String label = shieldContext && slot == EquipmentSlot.OFF_HAND
-                    ? "Tarcza"
-                    : ItemLibraryPresentationSupport.slotDisplayName(slot);
-            html.append(renderSlotOption(slot.name(), label, slot.name().equals(selectedSlot)));
-        }
-        html.append("""
-                    </select>
-                </label>
                 """);
         return html.toString();
-    }
-
-    private static String renderSlotOption(String value, String label, boolean selected) {
-        return "<option value=\"" + escapeHtml(value) + "\"" + (selected ? " selected" : "") + ">"
-                + escapeHtml(label) + "</option>";
-    }
-
-    private static String renderNumberField(String name, String label, String value, String step) {
-        return "<label>"
-                + escapeHtml(label)
-                + "<input type=\"number\" min=\"0\" step=\""
-                + escapeHtml(step)
-                + "\" name=\""
-                + escapeHtml(name)
-                + "\" value=\""
-                + escapeHtml(value)
-                + "\"></label>";
-    }
-
-    private static String renderHiddenField(String name, String value) {
-        return "<input type=\"hidden\" name=\"" + escapeHtml(name) + "\" value=\"" + escapeHtml(value) + "\">";
     }
 
     private static String buildUploadAction(String currentBuildQuery) {
@@ -1115,105 +447,11 @@ public final class ItemImportPageRenderer {
         return "/importuj-item-ze-screena?" + currentBuildQuery;
     }
 
-    private static String buildCurrentBuildUrl(String currentBuildQuery) {
-        if (currentBuildQuery == null || currentBuildQuery.isBlank()) {
-            return "/policz-aktualny-build";
-        }
-        return "/policz-aktualny-build?" + currentBuildQuery;
-    }
-
     private static String renderSummaryCard(String label, String value) {
         return CurrentBuildCalculationSectionsRenderer.renderSummaryCard(label, value);
     }
 
-    private static String renderHeroContext(ItemImportPageModel model) {
-        if (!model.hasActiveHero()) {
-            return """
-                    <section class="panel panel-error">
-                        <h2>Brak aktywnego bohatera</h2>
-                        <p>Ten moduł importu jest przygotowany pod pracę w kontekście bohatera i jego buildu. Bez aktywnego bohatera nie pokażemy dalszych akcji przypisania itemu.</p>
-                    </section>
-                    """;
-        }
-        return """
-                <section class="panel">
-                    <h2>Aktywny bohater importu</h2>
-                    <p class="helper">Importujesz teraz item dla bohatera %s. Po zapisaniu do biblioteki możesz od razu przypisać go do zgodnego slotu jego ekwipunku.</p>
-                </section>
-                """.formatted(escapeHtml(model.getActiveHero().getName()));
-    }
-
-    private static String renderRuntimeStatsLabel(List<ItemStat> stats) {
-        if (stats.isEmpty()) {
-            return "Brak statów modelu itemu";
-        }
-        List<String> labels = new ArrayList<>();
-        for (ItemStat stat : stats) {
-            labels.add(ItemLibraryPresentationSupport.itemStatDisplayName(stat.getType()) + "=" + formatWhole(stat.getValue()));
-        }
-        return String.join(", ", labels);
-    }
-
-    private static String renderCandidateValue(Object value) {
-        if (value == null) {
-            return "Brak";
-        }
-        if (value instanceof EquipmentSlot slot) {
-            return ItemLibraryPresentationSupport.slotDisplayName(slot);
-        }
-        return value.toString();
-    }
-
-    private static String formatWhole(double value) {
-        return String.format(Locale.US, "%.0f", value);
-    }
-
-    private static String formatDecimal(double value) {
-        if (Math.rint(value) == value) {
-            return String.format(Locale.US, "%.0f", value);
-        }
-        return String.format(Locale.US, "%.2f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
-    }
-
-    private static String projectedAffixValue(ItemImportEditableForm form, ImportedItemAffixType type, String fallbackValue) {
-        double total = 0.0d;
-        for (ImportedItemAffix affix : form.getAffixes()) {
-            if (affix.getType() == type) {
-                total += affix.getValue();
-            }
-        }
-        return total > 0.0d ? formatDecimal(total) : fallbackValue;
-    }
-
-    private static String emptyNumberLabel(String value) {
-        return value == null || value.isBlank() ? "0" : value;
-    }
-
-    private static String emptyLabel(String value) {
-        return value == null || value.isBlank() ? "Brak pewnego odczytu" : value;
-    }
-
     private static String escapeHtml(String value) {
         return CurrentBuildCalculationSectionsRenderer.escapeHtml(value);
-    }
-
-    private static String loadTemplate() {
-        try (InputStream inputStream = ItemImportPageRenderer.class.getResourceAsStream("/templates/item-import.html")) {
-            if (inputStream == null) {
-                throw new IllegalStateException("Brak szablonu /templates/item-import.html");
-            }
-            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException exception) {
-            throw new IllegalStateException("Nie udało się wczytać szablonu strony importu itemu", exception);
-        }
-    }
-
-    private enum ItemReadLineGroup {
-        HEADER,
-        IMPLICIT,
-        AFFIX,
-        SPECIAL,
-        SOCKET,
-        OTHER
     }
 }

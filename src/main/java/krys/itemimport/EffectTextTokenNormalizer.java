@@ -3,7 +3,7 @@ package krys.itemimport;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Normalizuje semantycznie istotne tokeny liczbowe w opisach efektow OCR. */
+/** Normalizuje semantycznie istotne tokeny liczbowe w opisach efektow itemu. */
 final class EffectTextTokenNormalizer {
     private static final Pattern BROKEN_MULTIPLIER_TOKEN = Pattern.compile(
             "(?<![0-9])([0-9]{1,3}?)(?:\\s*%|\\s*9[oóOÓ]?|\\s*[oóOÓ])\\s*\\[\\s*([xX×])\\s*]"

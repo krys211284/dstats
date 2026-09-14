@@ -1,6 +1,6 @@
 package krys.itemimport;
 
-/** Jedna bezpiecznie zachowana linia pełnego odczytu OCR itemu. */
+/** Jedna bezpiecznie zachowana linia pełnego zapisu itemu. */
 public final class FullItemReadLine {
     private final FullItemReadLineType type;
     private final String text;

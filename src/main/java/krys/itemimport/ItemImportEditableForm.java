@@ -7,7 +7,7 @@ import krys.transfiguration.ItemTransfiguration;
 
 import java.util.List;
 
-/** Edytowalny formularz itemu wypełniany przez użytkownika po wstępnym odczycie obrazu. */
+/** Edytowalny formularz itemu budowany z danych zapisanych albo wpisanych ręcznie. */
 public final class ItemImportEditableForm {
     private final String sourceImageName;
     private final String slot;
@@ -19,16 +19,12 @@ public final class ItemImportEditableForm {
     private final String retributionChance;
     private final FullItemRead fullItemRead;
     private final List<ImportedItemAffix> affixes;
-    private final String ocrSuggestedAspectId;
-    private final ItemImportFieldConfidence ocrAspectConfidence;
     private final String selectedAspectId;
     private final ItemImportDetails details;
     private final List<ItemTemperingAffix> temperingAffixes;
     private final ItemMasterworking masterworking;
     private final ItemTransfiguration transfiguration;
     private final ItemSocketing socketing;
-    private final GreaterAffixHeaderEvidence greaterAffixHeaderEvidence;
-    private final GreaterAffixImportVerification greaterAffixVerification;
 
     public ItemImportEditableForm(String sourceImageName,
                                   String slot,
@@ -38,7 +34,8 @@ public final class ItemImportEditableForm {
                                   String thorns,
                                   String blockChance,
                                   String retributionChance) {
-        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance, FullItemRead.empty());
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance,
+                retributionChance, FullItemRead.empty());
     }
 
     public ItemImportEditableForm(String sourceImageName,
@@ -50,7 +47,8 @@ public final class ItemImportEditableForm {
                                   String blockChance,
                                   String retributionChance,
                                   FullItemRead fullItemRead) {
-        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance, fullItemRead, List.of());
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance,
+                retributionChance, fullItemRead, List.of());
     }
 
     public ItemImportEditableForm(String sourceImageName,
@@ -63,9 +61,9 @@ public final class ItemImportEditableForm {
                                   String retributionChance,
                                   FullItemRead fullItemRead,
                                   List<ImportedItemAffix> affixes) {
-        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
-                fullItemRead, affixes, "", ItemImportFieldConfidence.UNKNOWN, "",
-                fullItemRead == null ? ItemImportDetails.empty() : fullItemRead.getDetails(), List.of());
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance,
+                retributionChance, fullItemRead, affixes, "",
+                fullItemRead == null ? ItemImportDetails.empty() : fullItemRead.getDetails());
     }
 
     public ItemImportEditableForm(String sourceImageName,
@@ -78,12 +76,10 @@ public final class ItemImportEditableForm {
                                   String retributionChance,
                                   FullItemRead fullItemRead,
                                   List<ImportedItemAffix> affixes,
-                                  String ocrSuggestedAspectId,
-                                  ItemImportFieldConfidence ocrAspectConfidence,
                                   String selectedAspectId) {
-        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
-                fullItemRead, affixes, ocrSuggestedAspectId, ocrAspectConfidence, selectedAspectId,
-                fullItemRead == null ? ItemImportDetails.empty() : fullItemRead.getDetails(), List.of());
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance,
+                retributionChance, fullItemRead, affixes, selectedAspectId,
+                fullItemRead == null ? ItemImportDetails.empty() : fullItemRead.getDetails());
     }
 
     public ItemImportEditableForm(String sourceImageName,
@@ -96,12 +92,10 @@ public final class ItemImportEditableForm {
                                   String retributionChance,
                                   FullItemRead fullItemRead,
                                   List<ImportedItemAffix> affixes,
-                                  String ocrSuggestedAspectId,
-                                  ItemImportFieldConfidence ocrAspectConfidence,
                                   String selectedAspectId,
                                   ItemImportDetails details) {
-        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
-                fullItemRead, affixes, ocrSuggestedAspectId, ocrAspectConfidence, selectedAspectId, details, List.of());
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance,
+                retributionChance, fullItemRead, affixes, selectedAspectId, details, List.of());
     }
 
     public ItemImportEditableForm(String sourceImageName,
@@ -114,14 +108,12 @@ public final class ItemImportEditableForm {
                                   String retributionChance,
                                   FullItemRead fullItemRead,
                                   List<ImportedItemAffix> affixes,
-                                  String ocrSuggestedAspectId,
-                                  ItemImportFieldConfidence ocrAspectConfidence,
                                   String selectedAspectId,
                                   ItemImportDetails details,
                                   List<ItemTemperingAffix> temperingAffixes) {
-        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
-                fullItemRead, affixes, ocrSuggestedAspectId, ocrAspectConfidence, selectedAspectId, details,
-                temperingAffixes, ItemMasterworking.defaultState());
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance,
+                retributionChance, fullItemRead, affixes, selectedAspectId, details, temperingAffixes,
+                ItemMasterworking.defaultState());
     }
 
     public ItemImportEditableForm(String sourceImageName,
@@ -134,15 +126,13 @@ public final class ItemImportEditableForm {
                                   String retributionChance,
                                   FullItemRead fullItemRead,
                                   List<ImportedItemAffix> affixes,
-                                  String ocrSuggestedAspectId,
-                                  ItemImportFieldConfidence ocrAspectConfidence,
                                   String selectedAspectId,
                                   ItemImportDetails details,
                                   List<ItemTemperingAffix> temperingAffixes,
                                   ItemMasterworking masterworking) {
-        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
-                fullItemRead, affixes, ocrSuggestedAspectId, ocrAspectConfidence, selectedAspectId, details,
-                temperingAffixes, masterworking, ItemTransfiguration.none());
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance,
+                retributionChance, fullItemRead, affixes, selectedAspectId, details, temperingAffixes,
+                masterworking, ItemTransfiguration.none());
     }
 
     public ItemImportEditableForm(String sourceImageName,
@@ -155,16 +145,14 @@ public final class ItemImportEditableForm {
                                   String retributionChance,
                                   FullItemRead fullItemRead,
                                   List<ImportedItemAffix> affixes,
-                                  String ocrSuggestedAspectId,
-                                  ItemImportFieldConfidence ocrAspectConfidence,
                                   String selectedAspectId,
                                   ItemImportDetails details,
                                   List<ItemTemperingAffix> temperingAffixes,
                                   ItemMasterworking masterworking,
                                   ItemTransfiguration transfiguration) {
-        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
-                fullItemRead, affixes, ocrSuggestedAspectId, ocrAspectConfidence, selectedAspectId, details,
-                temperingAffixes, masterworking, transfiguration, ItemSocketing.empty());
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance,
+                retributionChance, fullItemRead, affixes, selectedAspectId, details, temperingAffixes,
+                masterworking, transfiguration, ItemSocketing.empty());
     }
 
     public ItemImportEditableForm(String sourceImageName,
@@ -177,40 +165,12 @@ public final class ItemImportEditableForm {
                                   String retributionChance,
                                   FullItemRead fullItemRead,
                                   List<ImportedItemAffix> affixes,
-                                  String ocrSuggestedAspectId,
-                                  ItemImportFieldConfidence ocrAspectConfidence,
                                   String selectedAspectId,
                                   ItemImportDetails details,
                                   List<ItemTemperingAffix> temperingAffixes,
                                   ItemMasterworking masterworking,
                                   ItemTransfiguration transfiguration,
                                   ItemSocketing socketing) {
-        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance, retributionChance,
-                fullItemRead, affixes, ocrSuggestedAspectId, ocrAspectConfidence, selectedAspectId, details,
-                temperingAffixes, masterworking, transfiguration, socketing,
-                GreaterAffixHeaderEvidence.notDetected(), GreaterAffixImportVerification.empty());
-    }
-
-    public ItemImportEditableForm(String sourceImageName,
-                                  String slot,
-                                  String weaponDamage,
-                                  String strength,
-                                  String intelligence,
-                                  String thorns,
-                                  String blockChance,
-                                  String retributionChance,
-                                  FullItemRead fullItemRead,
-                                  List<ImportedItemAffix> affixes,
-                                  String ocrSuggestedAspectId,
-                                  ItemImportFieldConfidence ocrAspectConfidence,
-                                  String selectedAspectId,
-                                  ItemImportDetails details,
-                                  List<ItemTemperingAffix> temperingAffixes,
-                                  ItemMasterworking masterworking,
-                                  ItemTransfiguration transfiguration,
-                                  ItemSocketing socketing,
-                                  GreaterAffixHeaderEvidence greaterAffixHeaderEvidence,
-                                  GreaterAffixImportVerification greaterAffixVerification) {
         this.sourceImageName = sourceImageName;
         this.slot = slot;
         this.weaponDamage = weaponDamage;
@@ -221,20 +181,12 @@ public final class ItemImportEditableForm {
         this.retributionChance = retributionChance;
         this.fullItemRead = fullItemRead == null ? FullItemRead.empty() : fullItemRead;
         this.affixes = affixes == null ? List.of() : List.copyOf(affixes);
-        this.ocrSuggestedAspectId = ocrSuggestedAspectId == null ? "" : ocrSuggestedAspectId;
-        this.ocrAspectConfidence = ocrAspectConfidence == null ? ItemImportFieldConfidence.UNKNOWN : ocrAspectConfidence;
         this.selectedAspectId = selectedAspectId == null ? "" : selectedAspectId;
         this.details = details == null ? ItemImportDetails.empty() : details;
         this.temperingAffixes = temperingAffixes == null ? List.of() : List.copyOf(temperingAffixes);
         this.masterworking = masterworking == null ? ItemMasterworking.defaultState() : masterworking;
         this.transfiguration = transfiguration == null ? ItemTransfiguration.none() : transfiguration;
         this.socketing = socketing == null ? ItemSocketing.empty() : socketing;
-        this.greaterAffixHeaderEvidence = greaterAffixHeaderEvidence == null
-                ? GreaterAffixHeaderEvidence.notDetected()
-                : greaterAffixHeaderEvidence;
-        this.greaterAffixVerification = greaterAffixVerification == null
-                ? GreaterAffixImportVerification.empty()
-                : greaterAffixVerification;
     }
 
     public String getSourceImageName() {
@@ -277,14 +229,6 @@ public final class ItemImportEditableForm {
         return affixes;
     }
 
-    public String getOcrSuggestedAspectId() {
-        return ocrSuggestedAspectId;
-    }
-
-    public ItemImportFieldConfidence getOcrAspectConfidence() {
-        return ocrAspectConfidence;
-    }
-
     public String getSelectedAspectId() {
         return selectedAspectId;
     }
@@ -307,14 +251,6 @@ public final class ItemImportEditableForm {
 
     public ItemSocketing getSocketing() {
         return socketing;
-    }
-
-    public GreaterAffixHeaderEvidence getGreaterAffixHeaderEvidence() {
-        return greaterAffixHeaderEvidence;
-    }
-
-    public GreaterAffixImportVerification getGreaterAffixVerification() {
-        return greaterAffixVerification;
     }
 
     public String getItemName() {

@@ -8,7 +8,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-/** Katalog znanych affixów używany przez OCR i ręczną walidację itemu. */
+/** Katalog znanych affixów używany przez ręczną walidację itemu i zapisane dane. */
 public final class AffixRegistry {
     private final List<AffixDefinition> definitions;
 
@@ -238,7 +238,7 @@ public final class AffixRegistry {
                 .trim();
     }
 
-    /** Dopasowanie definicji affixu do fragmentu OCR. */
+    /** Dopasowanie definicji affixu do fragmentu tekstu itemu. */
     public record AffixTextMatch(AffixDefinition definition, int start, int end) {
     }
 }

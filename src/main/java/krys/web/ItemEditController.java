@@ -11,7 +11,6 @@ import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ItemImportEditableForm;
 import krys.itemimport.ItemImportDetails;
-import krys.itemimport.ItemImportFieldConfidence;
 import krys.itemimport.ItemImportFormMapper;
 import krys.itemimport.ValidatedImportedItem;
 import krys.itemlibrary.ItemLibraryFilter;
@@ -123,8 +122,6 @@ final class ItemEditController implements HttpHandler {
                 formatNumber(item.getRetributionChance()),
                 item.getFullItemRead(),
                 item.getAffixes(),
-                "",
-                ItemImportFieldConfidence.UNKNOWN,
                 item.getSelectedAspectId(),
                 item.getDetails(),
                 item.getTemperingAffixes(),
@@ -189,8 +186,6 @@ final class ItemEditController implements HttpHandler {
                 fields.getOrDefault("retributionChance", ""),
                 decodedFullItemRead,
                 affixes,
-                "",
-                ItemImportFieldConfidence.UNKNOWN,
                 fields.getOrDefault("selectedAspectId", ""),
                 parseItemDetails(fields, existingItem),
                 temperingAffixes,

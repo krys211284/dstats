@@ -8,7 +8,6 @@ import krys.combat.DamageEngine;
 import krys.itemlibrary.FileItemLibraryRepository;
 import krys.itemlibrary.ItemLibraryDataDirectoryResolver;
 import krys.itemlibrary.ItemLibraryService;
-import krys.itemimport.ItemImageImportService;
 import krys.itemimport.image.AssembledItemImageDebugWriter;
 import krys.itemimport.image.opencv.OpenCvHorizontalDividerDetector;
 import krys.itemimport.image.opencv.OpenCvItemImageAssembler;
@@ -93,10 +92,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
                 skillTreeRegistryProvider
         );
         ItemImportController itemImportController = new ItemImportController(
-                new ItemImageImportService(),
                 new ItemImportPageRenderer(),
-                itemLibraryService,
-                itemKnowledgeService,
                 heroService,
                 new OpenCvItemImageAssembler(),
                 new AssembledItemImageDebugWriter(),
@@ -109,7 +105,8 @@ public final class CurrentBuildWebServer implements AutoCloseable {
         ItemLibraryController itemLibraryController = new ItemLibraryController(
                 itemLibraryService,
                 new ItemLibraryPageRenderer(),
-                heroService
+                heroService,
+                itemKnowledgeService
         );
         ItemEditController itemEditController = new ItemEditController(itemLibraryService);
         PlaceholderPageRenderer placeholderPageRenderer = new PlaceholderPageRenderer();

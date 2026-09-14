@@ -57,10 +57,10 @@ class ItemKnowledgeWebServerTest {
         assertTrue(emptyKnowledge.body().contains("Brak obserwacji w aktywnej epoce"));
 
         createHero("Importer", "13");
-        HttpResponse<String> importResponse = sendUrlEncodedPost("/importuj-item-ze-screena", confirmedShieldFields());
+        HttpResponse<String> importResponse = sendUrlEncodedPost("/biblioteka-itemow", confirmedShieldFields());
 
         assertEquals(200, importResponse.statusCode());
-        assertTrue(importResponse.body().contains("Zatwierdzony item zapisany do biblioteki"));
+        assertTrue(importResponse.body().contains("Zapisano item w bibliotece"));
 
         HttpResponse<String> learnedKnowledge = sendGet("/baza-wiedzy-itemow");
 
@@ -99,6 +99,7 @@ class ItemKnowledgeWebServerTest {
                 )
         ));
         Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("action", "saveImportedItem");
         fields.put("sourceImageName", "tarcza.png");
         fields.put("slot", "OFF_HAND");
         fields.put("weaponDamage", "0");
@@ -110,8 +111,6 @@ class ItemKnowledgeWebServerTest {
         fields.put("fullItemRead", fullShieldRead);
         fields.put("currentBuildQuery", "");
         fields.put("selectedAspectId", "inner-calm");
-        fields.put("ocrSuggestedAspectId", "inner-calm");
-        fields.put("ocrAspectConfidence", "HIGH");
         fields.put("affixCount", "3");
         fields.put("affixType_0", "STRENGTH");
         fields.put("affixValue_0", "114");

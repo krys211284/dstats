@@ -294,7 +294,7 @@ class CurrentBuildWebServerTest {
     @Test
     void shouldProjectActiveVerathielIntoCurrentHeroStatsWithoutRuntimeDpsUnlock() throws Exception {
         createHero("Paladyn z Verathielem", "70");
-        HttpResponse<String> saveResponse = sendPost("/importuj-item-ze-screena", verathielImportFields());
+        HttpResponse<String> saveResponse = sendPost("/biblioteka-itemow", verathielImportFields());
         assertEquals(200, saveResponse.statusCode());
         assertTrue(saveResponse.body().contains("Odłamek Verathiela"));
 
@@ -875,7 +875,7 @@ class CurrentBuildWebServerTest {
         fields.put("socketCount", "1");
         fields.put("socketContent_0", "GEM");
         fields.put("socketGemId_0", "diamond_grand");
-        HttpResponse<String> saveResponse = sendPost("/importuj-item-ze-screena", fields);
+        HttpResponse<String> saveResponse = sendPost("/biblioteka-itemow", fields);
         assertEquals(200, saveResponse.statusCode());
         HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
                 "action", "activateItem",
@@ -905,7 +905,7 @@ class CurrentBuildWebServerTest {
         Map<String, String> fields = koscianychLusekShieldImportFields();
         fields.put("selectedAspectId", "sanctified_punishment_aspect");
         fields.put("uniqueEffectText", "Obrażenia Świętości i Ognia są zwiększone o 60,0%[x] [40,0 - 60,0]%.");
-        HttpResponse<String> saveResponse = sendPost("/importuj-item-ze-screena", fields);
+        HttpResponse<String> saveResponse = sendPost("/biblioteka-itemow", fields);
         assertEquals(200, saveResponse.statusCode());
         HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
                 "action", "activateItem",
@@ -2146,6 +2146,7 @@ class CurrentBuildWebServerTest {
 
     private static Map<String, String> verathielImportFields() {
         Map<String, String> fields = new HashMap<>();
+        fields.put("action", "saveImportedItem");
         fields.put("formAction", "confirmItem");
         fields.put("sourceImageName", "miecz.png");
         fields.put("slot", "MAIN_HAND");
@@ -2418,7 +2419,7 @@ class CurrentBuildWebServerTest {
     }
 
     private void saveAndActivateVerathiel() throws Exception {
-        HttpResponse<String> saveResponse = sendPost("/importuj-item-ze-screena", verathielImportFields());
+        HttpResponse<String> saveResponse = sendPost("/biblioteka-itemow", verathielImportFields());
         assertEquals(200, saveResponse.statusCode());
 
         HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
@@ -2481,7 +2482,7 @@ class CurrentBuildWebServerTest {
     }
 
     private void saveAndActivateKoscianychLusekShield(String shieldItemId) throws Exception {
-        HttpResponse<String> saveResponse = sendPost("/importuj-item-ze-screena", koscianychLusekShieldImportFields());
+        HttpResponse<String> saveResponse = sendPost("/biblioteka-itemow", koscianychLusekShieldImportFields());
         assertEquals(200, saveResponse.statusCode());
 
         HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
@@ -2500,7 +2501,7 @@ class CurrentBuildWebServerTest {
         fields.put("temperingDefinitionId_0", "defense_max_animus");
         fields.put("temperingValue_0", "5");
         fields.put("temperingGreaterAffix_0", "true");
-        HttpResponse<String> saveResponse = sendPost("/importuj-item-ze-screena", fields);
+        HttpResponse<String> saveResponse = sendPost("/biblioteka-itemow", fields);
         assertEquals(200, saveResponse.statusCode());
 
         HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
@@ -2526,7 +2527,7 @@ class CurrentBuildWebServerTest {
         fields.put("masterworkingQualityCurrent", "25");
         fields.put("masterworkingQualityMax", "25");
         fields.put("masterworkingPerfectedAffix", perfectedAffix);
-        HttpResponse<String> saveResponse = sendPost("/importuj-item-ze-screena", fields);
+        HttpResponse<String> saveResponse = sendPost("/biblioteka-itemow", fields);
         assertEquals(200, saveResponse.statusCode());
 
         HttpResponse<String> activateResponse = sendPost("/biblioteka-itemow", Map.of(
@@ -2540,6 +2541,7 @@ class CurrentBuildWebServerTest {
 
     private static Map<String, String> koscianychLusekShieldImportFields() {
         Map<String, String> fields = new HashMap<>();
+        fields.put("action", "saveImportedItem");
         fields.put("formAction", "confirmItem");
         fields.put("sourceImageName", "tarcza-koscianych-lusek.png");
         fields.put("slot", "OFF_HAND");

@@ -2,180 +2,61 @@ package krys.web;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import krys.item.Item;
-import krys.itemimport.FullItemRead;
-import krys.itemimport.FullItemReadAffixUpdater;
-import krys.itemimport.FullItemReadFormCodec;
-import krys.itemimport.ImportedItemCurrentBuildContribution;
-import krys.itemimport.ImportedItemAffix;
-import krys.itemimport.ImportedItemAffixSource;
-import krys.itemimport.ImportedItemAffixType;
-import krys.itemimport.ImportedItemCurrentBuildContributionMapper;
-import krys.itemimport.ItemImageImportCandidateParseResult;
 import krys.itemimport.ItemImageImportRequest;
-import krys.itemimport.ItemImageImportService;
-import krys.itemimport.ItemImportEditableForm;
-import krys.itemimport.ItemImportDetails;
-import krys.itemimport.ItemImportEditableFormFactory;
-import krys.itemimport.ItemImportFieldConfidence;
-import krys.itemimport.ItemImportFormMapper;
-import krys.itemimport.ValidatedImportedItem;
-import krys.itemimport.ValidatedImportedItemToItemMapper;
 import krys.itemimport.image.AssembledItemImage;
 import krys.itemimport.image.AssembledItemImageDebugWriter;
+import krys.itemimport.image.DeterministicItemPartStructureNormalizer;
 import krys.itemimport.image.HorizontalDivider;
 import krys.itemimport.image.HorizontalDividerDetectionResult;
 import krys.itemimport.image.HorizontalDividerDetector;
 import krys.itemimport.image.ItemImageAssembler;
 import krys.itemimport.image.ItemImagePart;
-import krys.itemknowledge.ItemKnowledgeService;
-import krys.itemlibrary.ItemLibraryService;
-import krys.itemlibrary.SavedImportedItem;
-import krys.masterworking.ItemMasterworking;
-import krys.masterworking.MasterworkedAffixSelection;
-import krys.masterworking.MasterworkedAffixSource;
-import krys.socketing.ItemSocketing;
+import krys.itemimport.image.ItemPartStructureNormalizer;
+import krys.itemimport.image.ItemStructureStatus;
+import krys.itemimport.image.StructuralItemPart;
+import krys.itemimport.image.StructuralItemPartSlot;
+import krys.itemimport.image.StructuredItemParts;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
-/** Kontroler SSR dla pierwszego foundation importu pojedynczego itemu ze screena. */
+/** Kontroler diagnostycznego importu obrazu itemu: pipeline konczy sie na Etapie 3A. */
 public final class ItemImportController implements HttpHandler {
     private static final String HTML_CONTENT_TYPE = "text/html; charset=UTF-8";
 
-    private final ImageImportAnalyzer imageImportAnalyzer;
     private final ItemImportPageRenderer renderer;
-    private final ItemImportEditableFormFactory editableFormFactory;
-    private final ItemImportFormMapper formMapper;
-    private final ValidatedImportedItemToItemMapper itemMapper;
-    private final ImportedItemCurrentBuildContributionMapper contributionMapper;
-    private final FullItemReadAffixUpdater fullItemReadAffixUpdater;
-    private final ItemLibraryService itemLibraryService;
-    private final ItemKnowledgeService itemKnowledgeService;
     private final HeroService heroService;
     private final ItemImageAssembler itemImageAssembler;
     private final AssembledItemImageDebugWriter assembledImageDebugWriter;
     private final HorizontalDividerDetector horizontalDividerDetector;
+    private final ItemPartStructureNormalizer itemPartStructureNormalizer;
 
-    public ItemImportController(ItemImageImportService imageImportService,
-                                ItemImportPageRenderer renderer,
-                                ItemLibraryService itemLibraryService,
-                                HeroService heroService) {
-        this(imageImportService, renderer, itemLibraryService, null, heroService);
-    }
-
-    public ItemImportController(ItemImageImportService imageImportService,
-                                ItemImportPageRenderer renderer,
-                                ItemLibraryService itemLibraryService,
-                                ItemKnowledgeService itemKnowledgeService,
-                                HeroService heroService) {
-        this(imageImportService, renderer, itemLibraryService, itemKnowledgeService, heroService, null, null);
-    }
-
-    public ItemImportController(ItemImageImportService imageImportService,
-                                ItemImportPageRenderer renderer,
-                                ItemLibraryService itemLibraryService,
-                                ItemKnowledgeService itemKnowledgeService,
-                                HeroService heroService,
-                                ItemImageAssembler itemImageAssembler,
-                                AssembledItemImageDebugWriter assembledImageDebugWriter) {
-        this(
-                imageImportService,
-                renderer,
-                itemLibraryService,
-                itemKnowledgeService,
-                heroService,
-                itemImageAssembler,
-                assembledImageDebugWriter,
-                null
-        );
-    }
-
-    public ItemImportController(ItemImageImportService imageImportService,
-                                ItemImportPageRenderer renderer,
-                                ItemLibraryService itemLibraryService,
-                                ItemKnowledgeService itemKnowledgeService,
+    public ItemImportController(ItemImportPageRenderer renderer,
                                 HeroService heroService,
                                 ItemImageAssembler itemImageAssembler,
                                 AssembledItemImageDebugWriter assembledImageDebugWriter,
                                 HorizontalDividerDetector horizontalDividerDetector) {
-        this(
-                requireImageImportService(imageImportService)::analyze,
-                renderer,
-                new ItemImportEditableFormFactory(),
-                new ItemImportFormMapper(),
-                new ValidatedImportedItemToItemMapper(),
-                new ImportedItemCurrentBuildContributionMapper(),
-                new FullItemReadAffixUpdater(),
-                itemLibraryService,
-                itemKnowledgeService,
-                heroService,
-                itemImageAssembler,
-                assembledImageDebugWriter,
-                horizontalDividerDetector
-        );
+        this(renderer, heroService, itemImageAssembler, assembledImageDebugWriter, horizontalDividerDetector,
+                new DeterministicItemPartStructureNormalizer());
     }
 
-    ItemImportController(ImageImportAnalyzer imageImportAnalyzer,
-                         ItemImportPageRenderer renderer,
-                         ItemImportEditableFormFactory editableFormFactory,
-                         ItemImportFormMapper formMapper,
-                         ValidatedImportedItemToItemMapper itemMapper,
-                         ImportedItemCurrentBuildContributionMapper contributionMapper,
-                         FullItemReadAffixUpdater fullItemReadAffixUpdater,
-                         ItemLibraryService itemLibraryService,
-                         ItemKnowledgeService itemKnowledgeService,
-                         HeroService heroService,
-                         ItemImageAssembler itemImageAssembler,
-                         AssembledItemImageDebugWriter assembledImageDebugWriter) {
-        this(
-                imageImportAnalyzer,
-                renderer,
-                editableFormFactory,
-                formMapper,
-                itemMapper,
-                contributionMapper,
-                fullItemReadAffixUpdater,
-                itemLibraryService,
-                itemKnowledgeService,
-                heroService,
-                itemImageAssembler,
-                assembledImageDebugWriter,
-                null
-        );
-    }
-
-    ItemImportController(ImageImportAnalyzer imageImportAnalyzer,
-                         ItemImportPageRenderer renderer,
-                         ItemImportEditableFormFactory editableFormFactory,
-                         ItemImportFormMapper formMapper,
-                         ValidatedImportedItemToItemMapper itemMapper,
-                         ImportedItemCurrentBuildContributionMapper contributionMapper,
-                         FullItemReadAffixUpdater fullItemReadAffixUpdater,
-                         ItemLibraryService itemLibraryService,
-                         ItemKnowledgeService itemKnowledgeService,
+    ItemImportController(ItemImportPageRenderer renderer,
                          HeroService heroService,
                          ItemImageAssembler itemImageAssembler,
                          AssembledItemImageDebugWriter assembledImageDebugWriter,
-                         HorizontalDividerDetector horizontalDividerDetector) {
-        this.imageImportAnalyzer = Objects.requireNonNull(imageImportAnalyzer, "imageImportAnalyzer");
-        this.renderer = renderer;
-        this.editableFormFactory = editableFormFactory;
-        this.formMapper = formMapper;
-        this.itemMapper = itemMapper;
-        this.contributionMapper = contributionMapper;
-        this.fullItemReadAffixUpdater = fullItemReadAffixUpdater;
-        this.itemLibraryService = itemLibraryService;
-        this.itemKnowledgeService = itemKnowledgeService;
-        this.heroService = heroService;
-        this.itemImageAssembler = itemImageAssembler;
+                         HorizontalDividerDetector horizontalDividerDetector,
+                         ItemPartStructureNormalizer itemPartStructureNormalizer) {
+        this.renderer = Objects.requireNonNull(renderer, "renderer");
+        this.heroService = Objects.requireNonNull(heroService, "heroService");
+        this.itemImageAssembler = Objects.requireNonNull(itemImageAssembler, "itemImageAssembler");
         this.assembledImageDebugWriter = assembledImageDebugWriter;
-        this.horizontalDividerDetector = horizontalDividerDetector;
+        this.horizontalDividerDetector = Objects.requireNonNull(horizontalDividerDetector, "horizontalDividerDetector");
+        this.itemPartStructureNormalizer = Objects.requireNonNull(itemPartStructureNormalizer, "itemPartStructureNormalizer");
     }
 
     @Override
@@ -189,7 +70,7 @@ public final class ItemImportController implements HttpHandler {
                 return;
             }
             if ("POST".equals(method)) {
-                renderPage(exchange, handlePost(exchange));
+                renderPage(exchange, handleImageUpload(exchange));
                 return;
             }
             exchange.getResponseHeaders().set("Allow", "GET, POST");
@@ -199,31 +80,19 @@ public final class ItemImportController implements HttpHandler {
         }
     }
 
-    private ItemImportPageModel handlePost(HttpExchange exchange) throws IOException {
+    private ItemImportPageModel handleImageUpload(HttpExchange exchange) throws IOException {
         HeroProfile activeHero = heroService.getActiveHero().orElse(null);
         if (activeHero == null) {
-            return buildErrorPageModel(null, null, List.of("Brak aktywnego bohatera. Utwórz albo wybierz bohatera przed importem itemu."), "", null);
+            return buildPageModel(List.of("Brak aktywnego bohatera. Utwórz albo wybierz bohatera przed importem itemu."),
+                    null, "", "", null);
         }
         String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
-        String currentBuildQuery = activeHero.getCurrentBuildQuery();
-        if (contentType == null) {
-            return buildErrorPageModel(null, null, List.of("Brak nagłówka `Content-Type`."), currentBuildQuery, activeHero);
+        if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("multipart/form-data")) {
+            return buildPageModel(List.of("Nieobsługiwany typ danych formularza dla importu itemu."),
+                    null, "", activeHero.getCurrentBuildQuery(), activeHero);
         }
-        String normalizedContentType = contentType.toLowerCase(Locale.ROOT);
-        if (normalizedContentType.startsWith("multipart/form-data")) {
-            return handleImageUpload(exchange);
-        }
-        if (normalizedContentType.startsWith("application/x-www-form-urlencoded")) {
-            return handleConfirmation(exchange);
-        }
-        return buildErrorPageModel(null, null, List.of("Nieobsługiwany typ danych formularza dla importu itemu."), currentBuildQuery, activeHero);
-    }
 
-    private ItemImportPageModel handleImageUpload(HttpExchange exchange) throws IOException {
-        ItemImportPageModel.OpenCvImagePreview openCvImagePreview = null;
-        String openCvPreviewError = "";
         try {
-            HeroProfile activeHero = heroService.requireActiveHero();
             MultipartFormSupport.MultipartFormData multipartFormData = MultipartFormSupport.parse(exchange);
             List<MultipartFormSupport.MultipartFilePart> fileParts = multipartFormData.requireFiles("itemImage");
             List<ItemImageImportRequest> importRequests = fileParts.stream()
@@ -234,413 +103,35 @@ public final class ItemImportController implements HttpHandler {
                     ))
                     .toList();
             OpenCvPreviewResult previewResult = buildOpenCvPreview(importRequests);
-            openCvImagePreview = previewResult.preview();
-            openCvPreviewError = previewResult.error();
-
-            ItemImageImportCandidateParseResult parseResult = imageImportAnalyzer.analyze(importRequests);
-            return new ItemImportPageModel(
-                    editableFormFactory.create(parseResult),
-                    parseResult,
+            return buildPageModel(
                     List.of(),
-                    null,
-                    openCvImagePreview,
-                    openCvPreviewError,
-                    activeHero,
-                    buildHelpText(),
-                    activeHero.getCurrentBuildQuery()
+                    previewResult.preview(),
+                    previewResult.error(),
+                    activeHero.getCurrentBuildQuery(),
+                    activeHero
             );
         } catch (IllegalArgumentException exception) {
-            HeroProfile activeHero = heroService.getActiveHero().orElse(null);
-            return buildErrorPageModel(
-                    null,
-                    null,
+            return buildPageModel(
                     List.of(exception.getMessage()),
-                    activeHero == null ? "" : activeHero.getCurrentBuildQuery(),
-                    activeHero,
-                    openCvImagePreview,
-                    openCvPreviewError
-            );
-        }
-    }
-
-    private ItemImportPageModel handleConfirmation(HttpExchange exchange) throws IOException {
-        Map<String, String> fields = UrlEncodedFormSupport.parseBody(exchange);
-        String currentBuildQuery = fields.getOrDefault("currentBuildQuery", "");
-        FullItemRead decodedFullItemRead = FullItemReadFormCodec.decode(fields.getOrDefault("fullItemRead", ""));
-        String formAction = fields.getOrDefault("formAction", "confirmItem");
-        AffixParseResult affixParseResult = parseExistingAffixes(fields);
-        TemperingFormSupport.ParseResult temperingParseResult = TemperingFormSupport.parse(fields);
-        ItemMasterworking masterworking = parseMasterworking(fields);
-        krys.transfiguration.ItemTransfiguration transfiguration = TransfigurationFormSupport.parse(fields);
-        ItemSocketing socketing = SocketingFormSupport.parse(fields);
-        List<ImportedItemAffix> affixes = affixParseResult.affixes();
-        if ("addAffix".equals(formAction)) {
-            java.util.ArrayList<ImportedItemAffix> updatedAffixes = new java.util.ArrayList<>(affixes);
-            parseNewAffix(fields, affixParseResult.errors()).ifPresent(updatedAffixes::add);
-            ItemImportEditableForm form = buildEditableForm(fields, decodedFullItemRead, updatedAffixes, temperingParseResult.affixes(), masterworking, transfiguration, socketing);
-            return new ItemImportPageModel(
-                    form,
                     null,
-                    List.of(),
-                    null,
-                    heroService.requireActiveHero(),
-                    buildHelpText(),
-                    currentBuildQuery
+                    "",
+                    activeHero.getCurrentBuildQuery(),
+                    activeHero
             );
-        }
-
-        ItemImportEditableForm form = buildEditableForm(fields, decodedFullItemRead, affixes, temperingParseResult.affixes(), masterworking, transfiguration, socketing);
-
-        ItemImportFormMapper.MappingResult mappingResult = formMapper.map(form);
-        java.util.ArrayList<String> allErrors = new java.util.ArrayList<>(affixParseResult.errors());
-        allErrors.addAll(temperingParseResult.errors());
-        allErrors.addAll(mappingResult.getErrors());
-        if (!allErrors.isEmpty() || mappingResult.getItem() == null) {
-            return buildErrorPageModel(
-                    form,
-                    null,
-                    allErrors,
-                    currentBuildQuery,
-                    heroService.requireActiveHero()
-            );
-        }
-
-        HeroProfile activeHero = heroService.requireActiveHero();
-        ValidatedImportedItem importedItem = mappingResult.getItem();
-        FullItemRead editedFullItemRead = fullItemReadAffixUpdater.withEditedAffixes(form.getFullItemRead(), form.getAffixes());
-        FullItemRead fullItemRead = new FullItemRead(
-                editedFullItemRead.getItemName(),
-                editedFullItemRead.getItemTypeLine(),
-                editedFullItemRead.getRarity(),
-                editedFullItemRead.getItemPower(),
-                editedFullItemRead.getBaseItemValue(),
-                editedFullItemRead.getLines(),
-                importedItem.getDetails()
-        );
-        SavedImportedItem savedItem = itemLibraryService.saveImportedItem(importedItem, fullItemRead);
-        if (itemKnowledgeService != null) {
-            itemKnowledgeService.learnFromConfirmedItem(importedItem, fullItemRead);
-        }
-        Item mappedItem = itemMapper.map(importedItem);
-        ImportedItemCurrentBuildContribution contribution = contributionMapper.map(importedItem);
-        return new ItemImportPageModel(
-                form,
-                null,
-                List.of(),
-                new ItemImportPageModel.ConfirmedImportView(
-                        importedItem,
-                        savedItem,
-                        mappedItem,
-                        contribution
-                ),
-                activeHero,
-                buildHelpText(),
-                currentBuildQuery
-        );
-    }
-
-    private static ItemImportEditableForm buildEditableForm(Map<String, String> fields,
-                                                            FullItemRead decodedFullItemRead,
-                                                            List<ImportedItemAffix> affixes) {
-        return buildEditableForm(fields, decodedFullItemRead, affixes, List.of());
-    }
-
-    private static ItemImportEditableForm buildEditableForm(Map<String, String> fields,
-                                                            FullItemRead decodedFullItemRead,
-                                                            List<ImportedItemAffix> affixes,
-                                                            List<krys.tempering.ItemTemperingAffix> temperingAffixes) {
-        return buildEditableForm(fields, decodedFullItemRead, affixes, temperingAffixes, parseMasterworking(fields));
-    }
-
-    private static ItemImportEditableForm buildEditableForm(Map<String, String> fields,
-                                                            FullItemRead decodedFullItemRead,
-                                                            List<ImportedItemAffix> affixes,
-                                                            List<krys.tempering.ItemTemperingAffix> temperingAffixes,
-                                                            ItemMasterworking masterworking) {
-        return buildEditableForm(fields, decodedFullItemRead, affixes, temperingAffixes, masterworking,
-                TransfigurationFormSupport.parse(fields), SocketingFormSupport.parse(fields));
-    }
-
-    private static ItemImportEditableForm buildEditableForm(Map<String, String> fields,
-                                                            FullItemRead decodedFullItemRead,
-                                                            List<ImportedItemAffix> affixes,
-                                                            List<krys.tempering.ItemTemperingAffix> temperingAffixes,
-                                                            ItemMasterworking masterworking,
-                                                            krys.transfiguration.ItemTransfiguration transfiguration) {
-        return buildEditableForm(fields, decodedFullItemRead, affixes, temperingAffixes, masterworking,
-                transfiguration, SocketingFormSupport.parse(fields));
-    }
-
-    private static ItemImportEditableForm buildEditableForm(Map<String, String> fields,
-                                                            FullItemRead decodedFullItemRead,
-                                                            List<ImportedItemAffix> affixes,
-                                                            List<krys.tempering.ItemTemperingAffix> temperingAffixes,
-                                                            ItemMasterworking masterworking,
-                                                            krys.transfiguration.ItemTransfiguration transfiguration,
-                                                            ItemSocketing socketing) {
-        return new ItemImportEditableForm(
-                fields.getOrDefault("sourceImageName", "nieznany-item"),
-                fields.getOrDefault("slot", ""),
-                fields.getOrDefault("weaponDamage", ""),
-                fields.getOrDefault("strength", ""),
-                fields.getOrDefault("intelligence", ""),
-                fields.getOrDefault("thorns", ""),
-                fields.getOrDefault("blockChance", ""),
-                fields.getOrDefault("retributionChance", ""),
-                decodedFullItemRead,
-                affixes,
-                fields.getOrDefault("ocrSuggestedAspectId", ""),
-                parseConfidence(fields.getOrDefault("ocrAspectConfidence", "")),
-                fields.getOrDefault("selectedAspectId", ""),
-                parseItemDetails(fields),
-                temperingAffixes,
-                masterworking,
-                transfiguration,
-                socketing
-        );
-    }
-
-    private static ItemMasterworking parseMasterworking(Map<String, String> fields) {
-        return new ItemMasterworking(
-                parseIntOrDefault(fields.get("masterworkingQualityCurrent"), ItemMasterworking.DEFAULT_QUALITY_CURRENT),
-                parseIntOrDefault(fields.get("masterworkingQualityMax"), ItemMasterworking.DEFAULT_QUALITY_MAX),
-                parsePerfectedAffix(fields.getOrDefault("masterworkingPerfectedAffix", ""))
-        );
-    }
-
-    private static MasterworkedAffixSelection parsePerfectedAffix(String rawValue) {
-        if (rawValue == null || rawValue.isBlank()) {
-            return null;
-        }
-        String[] tokens = rawValue.split(":", 2);
-        if (tokens.length != 2 || tokens[0].isBlank() || tokens[1].isBlank()) {
-            return MasterworkedAffixSelection.unknown(tokens.length == 0 ? "" : tokens[0], tokens.length < 2 ? "" : tokens[1]);
-        }
-        try {
-            return new MasterworkedAffixSelection(MasterworkedAffixSource.valueOf(tokens[0]), tokens[1]);
-        } catch (IllegalArgumentException exception) {
-            return MasterworkedAffixSelection.unknown(tokens[0], tokens[1]);
-        }
-    }
-
-    private static int parseIntOrDefault(String rawValue, int fallback) {
-        if (rawValue == null || rawValue.isBlank()) {
-            return fallback;
-        }
-        try {
-            return Integer.parseInt(rawValue.replace(" ", ""));
-        } catch (NumberFormatException exception) {
-            return -1;
-        }
-    }
-
-    private static ItemImportDetails parseItemDetails(Map<String, String> fields) {
-        krys.item.EquipmentSlot equipmentSlot = parseEquipmentSlot(fields.getOrDefault("slot", ""));
-        return new ItemImportDetails(
-                fields.getOrDefault("itemName", ""),
-                fields.getOrDefault("itemType", ""),
-                fields.getOrDefault("itemRarity", ""),
-                "true".equals(fields.get("isAncient")),
-                equipmentSlot,
-                parseNullableLong(fields.get("itemPower")),
-                parseNullableLong(fields.get("weaponDps")),
-                parseNullableLong(fields.get("weaponDamageMin")),
-                parseNullableLong(fields.get("weaponDamageMax")),
-                parseNullableLong(fields.get("averageWeaponDamage")),
-                parseNullableDouble(fields.get("attacksPerSecond")),
-                parseNullableLong(fields.get("itemArmor")),
-                fields.getOrDefault("uniqueEffectText", ""),
-                "true".equals(fields.get("isMythicUnique"))
-        );
-    }
-
-    private static AffixParseResult parseExistingAffixes(Map<String, String> fields) {
-        List<ImportedItemAffix> affixes = new java.util.ArrayList<>();
-        List<String> errors = new java.util.ArrayList<>();
-        int affixCount = parseAffixCount(fields.get("affixCount"));
-        for (int index = 0; index < affixCount; index++) {
-            if ("true".equals(fields.get("affixRemoved_" + index))) {
-                continue;
-            }
-            parseAffixRow(fields, index, errors).ifPresent(affixes::add);
-        }
-        return new AffixParseResult(affixes, errors);
-    }
-
-    private static java.util.Optional<ImportedItemAffix> parseAffixRow(Map<String, String> fields, int index, List<String> errors) {
-        String typeValue = fields.getOrDefault("affixType_" + index, "");
-        String value = fields.getOrDefault("affixValue_" + index, "");
-        boolean greaterAffix = "true".equals(fields.get("affixGreater_" + index));
-        String sourceText = fields.getOrDefault("affixSourceText_" + index, "");
-        String originalType = fields.getOrDefault("affixOriginalType_" + index, typeValue);
-        String originalValue = fields.getOrDefault("affixOriginalValue_" + index, value);
-        String affixDefinitionId = fields.getOrDefault("affixDefinitionId_" + index, "");
-        Double rollRangeMin = parseNullableDouble(fields.get("affixRangeMin_" + index));
-        Double rollRangeMax = parseNullableDouble(fields.get("affixRangeMax_" + index));
-        Double referenceValue = parseNullableDouble(fields.get("affixReferenceValue_" + index));
-        String displayValue = fields.getOrDefault("affixDisplayValue_" + index, "");
-        if (!typeValue.equals(originalType) || !normalizeNumber(value).equals(normalizeNumber(originalValue))) {
-            sourceText = "";
-            affixDefinitionId = "";
-            rollRangeMin = null;
-            rollRangeMax = null;
-            referenceValue = null;
-            displayValue = "";
-        }
-        return parseAffix(typeValue, value, greaterAffix, sourceText, index, ImportedItemAffixSource.CORRECTED,
-                affixDefinitionId, rollRangeMin, rollRangeMax, referenceValue, displayValue, errors);
-    }
-
-    private static java.util.Optional<ImportedItemAffix> parseNewAffix(Map<String, String> fields, List<String> errors) {
-        return parseAffix(
-                fields.getOrDefault("newAffixType", ""),
-                fields.getOrDefault("newAffixValue", ""),
-                "true".equals(fields.get("newAffixGreater")),
-                "",
-                parseAffixCount(fields.get("affixCount")),
-                ImportedItemAffixSource.MANUAL,
-                "",
-                null,
-                null,
-                null,
-                "",
-                errors
-        );
-    }
-
-    private static java.util.Optional<ImportedItemAffix> parseAffix(String rawType,
-                                                                    String rawValue,
-                                                                    boolean greaterAffix,
-                                                                     String sourceText,
-                                                                     int displayOrder,
-                                                                     ImportedItemAffixSource source,
-                                                                     String affixDefinitionId,
-                                                                     Double rollRangeMin,
-                                                                     Double rollRangeMax,
-                                                                     Double referenceValue,
-                                                                     String displayValue,
-                                                                     List<String> errors) {
-        boolean missingType = rawType == null || rawType.isBlank();
-        boolean missingValue = rawValue == null || rawValue.isBlank();
-        if (missingType && missingValue) {
-            return java.util.Optional.empty();
-        }
-        if (missingType) {
-            errors.add("Affix #" + (displayOrder + 1) + ": typ affixu jest wymagany, jeśli podano wartość.");
-            return java.util.Optional.empty();
-        }
-        if (missingValue) {
-            errors.add("Affix #" + (displayOrder + 1) + ": wartość affixu jest wymagana, jeśli podano typ.");
-            return java.util.Optional.empty();
-        }
-        try {
-            ImportedItemAffixType type = ImportedItemAffixType.valueOf(rawType);
-            double value = Double.parseDouble(rawValue.replace(',', '.'));
-            if (value < 0.0d) {
-                errors.add("Affix #" + (displayOrder + 1) + ": wartość affixu nie może być ujemna.");
-                return java.util.Optional.empty();
-            }
-            return java.util.Optional.of(new ImportedItemAffix(type, value, defaultUnit(type), greaterAffix,
-                    displayOrder, sourceText, source, affixDefinitionId, rollRangeMin, rollRangeMax,
-                    referenceValue, displayValue));
-        } catch (IllegalArgumentException exception) {
-            errors.add("Affix #" + (displayOrder + 1) + ": affix ma niepoprawny typ albo wartość.");
-            return java.util.Optional.empty();
-        }
-    }
-
-    private static ItemImportFieldConfidence parseConfidence(String rawValue) {
-        if (rawValue == null || rawValue.isBlank()) {
-            return ItemImportFieldConfidence.UNKNOWN;
-        }
-        try {
-            return ItemImportFieldConfidence.valueOf(rawValue);
-        } catch (IllegalArgumentException exception) {
-            return ItemImportFieldConfidence.UNKNOWN;
-        }
-    }
-
-    private static String defaultUnit(ImportedItemAffixType type) {
-        return switch (type) {
-            case BLOCK_CHANCE, RETRIBUTION_CHANCE, CRITICAL_STRIKE_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
-                 MOVEMENT_SPEED, DODGE_CHANCE, DAMAGE_REDUCTION, ALL_DAMAGE_MULTIPLIER, DAMAGE_OVER_TIME_MULTIPLIER -> "%";
-            case STRENGTH, INTELLIGENCE, THORNS, WEAPON_DAMAGE_FLAT, MAXIMUM_LIFE, LIFE_ON_HIT, LIFE_ON_KILL,
-                 LUCKY_HIT_PRIMARY_RESOURCE, ALL_RESISTANCE, FIRE_RESISTANCE, CORE_SKILL_RANKS -> "";
-        };
-    }
-
-    private static Long parseNullableLong(String rawValue) {
-        if (rawValue == null || rawValue.isBlank()) {
-            return null;
-        }
-        try {
-            return Long.parseLong(rawValue.replace(" ", ""));
-        } catch (NumberFormatException exception) {
-            return null;
-        }
-    }
-
-    private static Double parseNullableDouble(String rawValue) {
-        if (rawValue == null || rawValue.isBlank()) {
-            return null;
-        }
-        try {
-            return Double.parseDouble(rawValue.replace(',', '.'));
-        } catch (NumberFormatException exception) {
-            return null;
-        }
-    }
-
-    private static krys.item.EquipmentSlot parseEquipmentSlot(String rawValue) {
-        if (rawValue == null || rawValue.isBlank()) {
-            return null;
-        }
-        try {
-            return krys.item.EquipmentSlot.valueOf(rawValue);
-        } catch (IllegalArgumentException exception) {
-            return null;
-        }
-    }
-
-    private static String normalizeNumber(String value) {
-        return value == null ? "" : value.replace(" ", "").replace(',', '.').trim();
-    }
-
-    private static int parseAffixCount(String rawValue) {
-        if (rawValue == null || rawValue.isBlank()) {
-            return 0;
-        }
-        try {
-            return Math.max(0, Integer.parseInt(rawValue));
-        } catch (NumberFormatException exception) {
-            return 0;
         }
     }
 
     private ItemImportPageModel emptyPageModel(String currentBuildQuery, HeroProfile activeHero) {
-        return new ItemImportPageModel(null, null, List.of(), null, activeHero, buildHelpText(), currentBuildQuery);
+        return buildPageModel(List.of(), null, "", currentBuildQuery, activeHero);
     }
 
-    private ItemImportPageModel buildErrorPageModel(ItemImportEditableForm form,
-                                                    ItemImageImportCandidateParseResult parseResult,
-                                                    List<String> errors,
-                                                    String currentBuildQuery,
-                                                    HeroProfile activeHero) {
-        return buildErrorPageModel(form, parseResult, errors, currentBuildQuery, activeHero, null, "");
-    }
-
-    private ItemImportPageModel buildErrorPageModel(ItemImportEditableForm form,
-                                                    ItemImageImportCandidateParseResult parseResult,
-                                                    List<String> errors,
-                                                    String currentBuildQuery,
-                                                    HeroProfile activeHero,
-                                                    ItemImportPageModel.OpenCvImagePreview openCvImagePreview,
-                                                    String openCvPreviewError) {
+    private ItemImportPageModel buildPageModel(List<String> errors,
+                                               ItemImportPageModel.OpenCvImagePreview openCvImagePreview,
+                                               String openCvPreviewError,
+                                               String currentBuildQuery,
+                                               HeroProfile activeHero) {
         return new ItemImportPageModel(
-                form,
-                parseResult,
                 errors,
-                null,
                 openCvImagePreview,
                 openCvPreviewError,
                 activeHero,
@@ -650,7 +141,7 @@ public final class ItemImportController implements HttpHandler {
     }
 
     private static String buildHelpText() {
-        return "Możesz dodać jeden lub kilka screenów tego samego itemu. Jeśli tooltip jest przewijany, dodaj screeny w kolejności od góry do dołu. Limit: 1..5 screenów jednego itemu. Foundation sprawdza obraz, pokazuje niepewność pól i wymaga ręcznego zatwierdzenia użytkownika.";
+        return "Możesz dodać jeden lub kilka screenów tego samego itemu. Jeśli tooltip jest przewijany, dodaj screeny w kolejności od góry do dołu. Limit: 1..5 screenów jednego itemu. Aktualny pipeline obrazu kończy się na normalizacji struktury, bez OCR.";
     }
 
     private void renderPage(HttpExchange exchange, ItemImportPageModel pageModel) throws IOException {
@@ -661,9 +152,6 @@ public final class ItemImportController implements HttpHandler {
     }
 
     private OpenCvPreviewResult buildOpenCvPreview(List<ItemImageImportRequest> importRequests) {
-        if (itemImageAssembler == null) {
-            return new OpenCvPreviewResult(null, "");
-        }
         try {
             AssembledItemImage assembledImage = itemImageAssembler.assemble(importRequests);
             String debugWarning = writeOpenCvDebugArtifact(assembledImage);
@@ -705,9 +193,6 @@ public final class ItemImportController implements HttpHandler {
     }
 
     private HorizontalDividerPreviewResult buildHorizontalDividerPreview(AssembledItemImage assembledImage) {
-        if (horizontalDividerDetector == null) {
-            return new HorizontalDividerPreviewResult(null, "");
-        }
         try {
             HorizontalDividerDetectionResult result = horizontalDividerDetector.detect(assembledImage);
             String overlayMimeType = "image/" + result.getOverlayFormat().toLowerCase(Locale.ROOT);
@@ -739,19 +224,64 @@ public final class ItemImportController implements HttpHandler {
                         partDataUri
                 ));
             }
+            StructureNormalizationPreviewResult structureNormalizationPreviewResult =
+                    buildStructureNormalizationPreview(result.getParts());
             return new HorizontalDividerPreviewResult(
                     new ItemImportPageModel.HorizontalDividerDetectionView(
                             result.getDividers().size(),
                             result.getParts().size(),
                             overlayDataUri,
                             dividers,
-                            parts
+                            parts,
+                            structureNormalizationPreviewResult.preview(),
+                            structureNormalizationPreviewResult.error()
                     ),
                     ""
             );
         } catch (RuntimeException exception) {
             return new HorizontalDividerPreviewResult(null, "Błąd detekcji separatorów: " + safeMessage(exception));
         }
+    }
+
+    private StructureNormalizationPreviewResult buildStructureNormalizationPreview(List<ItemImagePart> rawParts) {
+        try {
+            StructuredItemParts structuredItemParts = itemPartStructureNormalizer.normalize(rawParts);
+            List<ItemImportPageModel.StructuralItemPartMappingView> mappings = new java.util.ArrayList<>();
+            for (StructuralItemPartSlot slot : StructuralItemPartSlot.values()) {
+                Optional<StructuralItemPart> structuralPart = structuredItemParts.find(slot);
+                structuralPart.ifPresent(part -> mappings.add(
+                        new ItemImportPageModel.StructuralItemPartMappingView(
+                                slot.name(),
+                                true,
+                                rawPartOrderIndex(structuredItemParts.getRawParts(), part.getSourcePart())
+                        )
+                ));
+                if (structuralPart.isEmpty()
+                        && structuredItemParts.getStatus() == ItemStructureStatus.STRUCTURALLY_NORMALIZED) {
+                    mappings.add(new ItemImportPageModel.StructuralItemPartMappingView(slot.name(), false, 0));
+                }
+            }
+            return new StructureNormalizationPreviewResult(
+                    new ItemImportPageModel.ItemPartStructureNormalizationView(
+                            structuredItemParts.getStatus().name(),
+                            structuredItemParts.getRawParts().size(),
+                            mappings,
+                            structuredItemParts.getDiagnosticReason()
+                    ),
+                    ""
+            );
+        } catch (RuntimeException exception) {
+            return new StructureNormalizationPreviewResult(null, "Błąd normalizacji struktury: " + safeMessage(exception));
+        }
+    }
+
+    private static int rawPartOrderIndex(List<ItemImagePart> rawParts, ItemImagePart sourcePart) {
+        for (int index = 0; index < rawParts.size(); index++) {
+            if (rawParts.get(index) == sourcePart) {
+                return index + 1;
+            }
+        }
+        return 0;
     }
 
     private String writeOpenCvDebugArtifact(AssembledItemImage assembledImage) {
@@ -769,15 +299,6 @@ public final class ItemImportController implements HttpHandler {
                 : message;
     }
 
-    private static ItemImageImportService requireImageImportService(ItemImageImportService imageImportService) {
-        return Objects.requireNonNull(imageImportService, "imageImportService");
-    }
-
-    @FunctionalInterface
-    interface ImageImportAnalyzer {
-        ItemImageImportCandidateParseResult analyze(List<ItemImageImportRequest> requests);
-    }
-
     private record OpenCvPreviewResult(ItemImportPageModel.OpenCvImagePreview preview, String error) {
     }
 
@@ -785,6 +306,7 @@ public final class ItemImportController implements HttpHandler {
                                                   String error) {
     }
 
-    private record AffixParseResult(List<ImportedItemAffix> affixes, List<String> errors) {
+    private record StructureNormalizationPreviewResult(ItemImportPageModel.ItemPartStructureNormalizationView preview,
+                                                       String error) {
     }
 }

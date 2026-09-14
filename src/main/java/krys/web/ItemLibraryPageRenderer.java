@@ -317,7 +317,7 @@ public final class ItemLibraryPageRenderer {
     private static String renderFullItemPreview(SavedImportedItem item) {
         FullItemRead fullItemRead = item.getFullItemRead();
         if (fullItemRead == null || !fullItemRead.hasAnyData()) {
-            return "<div class=\"status-note\">Brak zapisanego pełnego odczytu OCR dla tego itemu.</div>"
+            return "<div class=\"status-note\">Brak zapisanego pełnego odczytu itemu.</div>"
                     + renderTemperingDetails(item)
                     + MasterworkingSectionRenderer.renderReadonlySummary(
                     item.getMasterworking(),

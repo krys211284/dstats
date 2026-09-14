@@ -77,6 +77,30 @@ class OpenCvHorizontalDividerDetectorTest {
     }
 
     @Test
+    void shouldDetectOneSidedLongStructuralDividerWithoutPromotingShortFragments() throws Exception {
+        BufferedImage image = panel(360, 320);
+        Graphics2D graphics = image.createGraphics();
+        graphics.setColor(new Color(37, 34, 29));
+        graphics.drawLine(28, 154, 165, 154);
+        graphics.drawLine(163, 154, 175, 148);
+        graphics.drawLine(163, 154, 175, 160);
+        graphics.setColor(new Color(82, 72, 48));
+        graphics.drawLine(76, 96, 128, 96);
+        graphics.drawLine(225, 224, 276, 224);
+        for (int y = 188; y < 216; y += 10) {
+            for (int x = 72; x < 252; x += 34) {
+                graphics.fillRect(x, y, 18, 3);
+            }
+        }
+        graphics.dispose();
+
+        HorizontalDividerDetectionResult result = detector.detect(assembled(image));
+
+        assertDividerContract(result, 1, 2, 360, 320);
+        assertDividerAround(result, 0, 154, 4);
+    }
+
+    @Test
     void shouldRejectTopBottomFramesAndVerticalFrames() throws Exception {
         BufferedImage image = panel(300, 260);
         Graphics2D graphics = image.createGraphics();

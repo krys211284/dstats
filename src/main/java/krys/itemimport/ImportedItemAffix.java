@@ -1,6 +1,6 @@
 package krys.itemimport;
 
-/** Pojedynczy affix itemu po OCR albo ręcznej korekcie użytkownika. */
+/** Pojedynczy affix itemu z zapisanych danych albo ręcznej korekty użytkownika. */
 public final class ImportedItemAffix {
     private final ImportedItemAffixType type;
     private final double value;

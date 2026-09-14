@@ -7,7 +7,6 @@ import krys.itemimport.FullItemReadLineType;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
-import krys.itemimport.ItemImportDebugTrace;
 import krys.itemimport.ItemImportDetails;
 import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkedAffixSelection;
@@ -87,20 +86,12 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
         items.add(finalPersistedItem);
         items.sort(Comparator.comparingLong(SavedImportedItem::getItemId));
         writeItems(items);
-        logSavedItem("ITEM_LIBRARY_SAVE_READ", "SAVE", finalPersistedItem);
         return finalPersistedItem;
     }
 
     @Override
     public synchronized List<SavedImportedItem> findAll() {
-        List<SavedImportedItem> items = List.copyOf(loadItems());
-        if (ItemImportDebugTrace.isEnabled()) {
-            ItemImportDebugTrace.log("ITEM_LIBRARY_SAVE_READ", () -> "operation=READ_ALL count=" + items.size());
-            for (SavedImportedItem item : items) {
-                logSavedItem("ITEM_LIBRARY_SAVE_READ", "READ_ALL_ITEM", item);
-            }
-        }
-        return items;
+        return List.copyOf(loadItems());
     }
 
     @Override
@@ -108,9 +99,6 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
         Optional<SavedImportedItem> result = loadItems().stream()
                 .filter(item -> item.getItemId() == itemId)
                 .findFirst();
-        ItemImportDebugTrace.log("ITEM_LIBRARY_SAVE_READ", () -> "operation=READ_BY_ID itemId=" + itemId
-                + " found=" + result.isPresent());
-        result.ifPresent(item -> logSavedItem("ITEM_LIBRARY_SAVE_READ", "READ_BY_ID_ITEM", item));
         return result;
     }
 
@@ -256,34 +244,6 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
         return Base64.getUrlEncoder()
                 .withoutPadding()
                 .encodeToString(value.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private static void logSavedItem(String section, String operation, SavedImportedItem item) {
-        if (!ItemImportDebugTrace.isEnabled()) {
-            return;
-        }
-        ItemImportDebugTrace.log(section, () -> "operation=" + operation + " " + ItemImportDebugTrace.formatSavedItem(item));
-        for (int index = 0; index < item.getAffixes().size(); index++) {
-            int finalIndex = index;
-            ImportedItemAffix affix = item.getAffixes().get(index);
-            ItemImportDebugTrace.log(section, () -> "operation=" + operation
-                    + " affixIndex=" + finalIndex
-                    + " " + ItemImportDebugTrace.formatAffix(affix));
-        }
-        for (int index = 0; index < item.getTemperingAffixes().size(); index++) {
-            int finalIndex = index;
-            ItemTemperingAffix affix = item.getTemperingAffixes().get(index);
-            ItemImportDebugTrace.log(section, () -> "operation=" + operation
-                    + " temperingIndex=" + finalIndex
-                    + " " + ItemImportDebugTrace.formatTempering(affix));
-        }
-        for (int index = 0; index < item.getSocketing().getSockets().size(); index++) {
-            int finalIndex = index;
-            ItemSocket socket = item.getSocketing().getSockets().get(index);
-            ItemImportDebugTrace.log(section, () -> "operation=" + operation
-                    + " socketIndex=" + finalIndex
-                    + " " + ItemImportDebugTrace.formatSocket(socket));
-        }
     }
 
     private static String decode(String value) {

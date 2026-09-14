@@ -1,7 +1,5 @@
 package krys.itemimport.image;
 
-import krys.itemimport.ItemImportDebugTrace;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,7 +13,7 @@ public final class AssembledItemImageDebugWriter {
     public static final Path STITCHED_ITEM_IMAGE_PATH = DEBUG_DIRECTORY.resolve("stitched-item.png");
     public static final Path LEGACY_ASSEMBLED_ITEM_IMAGE_PATH = DEBUG_DIRECTORY.resolve("assembled-item.png");
     public static final Path DEFAULT_DEBUG_IMAGE_PATH = STITCHED_ITEM_IMAGE_PATH;
-    private static final Logger LOGGER = Logger.getLogger(ItemImportDebugTrace.LOGGER_NAME);
+    private static final Logger LOGGER = Logger.getLogger(AssembledItemImageDebugWriter.class.getName());
 
     public Path writeDefault(AssembledItemImage image) {
         return write(image, stitchedItemImagePath());
@@ -79,9 +77,5 @@ public final class AssembledItemImageDebugWriter {
         if (exception != null) {
             LOGGER.log(Level.FINE, "Szczegoly bledu zapisu artefaktu diagnostycznego OpenCV.", exception);
         }
-        ItemImportDebugTrace.log("OPENCV_DEBUG_ARTIFACT_WARNING", () -> "path="
-                + ItemImportDebugTrace.quote(path)
-                + " reason="
-                + ItemImportDebugTrace.quote(reason));
     }
 }

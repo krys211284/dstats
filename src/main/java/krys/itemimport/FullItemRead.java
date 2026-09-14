@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Pełniejszy odczyt widocznego itemu z OCR, oddzielony od mappingu foundation runtime. */
+/** Pełniejszy zapis widocznych linii itemu, oddzielony od mappingu foundation runtime. */
 public final class FullItemRead {
     private final String itemName;
     private final String itemTypeLine;

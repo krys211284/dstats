@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Testuje rozpoznawanie strukturalnych affixów z pełnego odczytu OCR itemu. */
+/** Testuje rozpoznawanie strukturalnych affixów z pełnego zapisu itemu. */
 class ImportedItemAffixExtractorTest {
     private final ImportedItemAffixExtractor extractor = new ImportedItemAffixExtractor();
 

@@ -7,7 +7,6 @@ import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ItemImportDetails;
 import krys.itemimport.ItemImportEditableForm;
-import krys.itemimport.ItemImportFieldConfidence;
 import krys.itemlibrary.ItemLibraryFilter;
 import krys.itemlibrary.SavedImportedItem;
 import krys.masterworking.ItemMasterworking;
@@ -48,8 +47,6 @@ class ItemEditPageRendererTest {
                 "0",
                 FullItemRead.empty(),
                 List.of(),
-                "",
-                ItemImportFieldConfidence.UNKNOWN,
                 "sanctified_punishment_aspect"
         );
 
@@ -91,8 +88,6 @@ class ItemEditPageRendererTest {
                 "0",
                 FullItemRead.empty(),
                 List.of(),
-                "",
-                ItemImportFieldConfidence.UNKNOWN,
                 "",
                 new ItemImportDetails("Tarcza", "Tarcza", "LEGENDARY", true, EquipmentSlot.OFF_HAND,
                         900L, null, null, null, null, null, 1202L, ""),
@@ -139,8 +134,6 @@ class ItemEditPageRendererTest {
                 "0",
                 FullItemRead.empty(),
                 List.of(),
-                "",
-                ItemImportFieldConfidence.UNKNOWN,
                 "verathiel_shard",
                 new ItemImportDetails("Odłamek Verathiela", "Miecz", "UNIQUE", true, EquipmentSlot.MAIN_HAND,
                         900L, 1874L, 1390L, 2018L, 1704L, 1.10d,
@@ -200,8 +193,6 @@ class ItemEditPageRendererTest {
                 "0",
                 FullItemRead.empty(),
                 List.of(),
-                "",
-                ItemImportFieldConfidence.UNKNOWN,
                 "",
                 item.getDetails(),
                 List.of(),
@@ -348,8 +339,6 @@ class ItemEditPageRendererTest {
                 FullItemRead.empty(),
                 affixes,
                 "heir_of_perdition",
-                ItemImportFieldConfidence.UNKNOWN,
-                "heir_of_perdition",
                 new ItemImportDetails("Generyczny Hełm Mityczny", "Hełm", "UNIQUE", true, EquipmentSlot.HELMET,
                         900L, null, null, null, null, null, 2004L, "Opisowy efekt 80%[x].", true),
                 List.of(),
@@ -403,8 +392,6 @@ class ItemEditPageRendererTest {
                 "0",
                 FullItemRead.empty(),
                 List.of(),
-                "",
-                ItemImportFieldConfidence.UNKNOWN,
                 "",
                 item.getDetails(),
                 List.of(),

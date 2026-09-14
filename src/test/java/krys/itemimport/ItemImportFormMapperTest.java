@@ -156,8 +156,6 @@ class ItemImportFormMapperTest {
                 FullItemRead.empty(),
                 List.of(),
                 "",
-                ItemImportFieldConfidence.UNKNOWN,
-                "",
                 ItemImportDetails.empty(),
                 List.of(),
                 ItemMasterworking.defaultState(),
@@ -236,8 +234,6 @@ class ItemImportFormMapperTest {
                 "0",
                 FullItemRead.empty(),
                 List.of(new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 225.0d)),
-                "inner-calm",
-                ItemImportFieldConfidence.HIGH,
                 "inner-calm"
         );
 
@@ -260,8 +256,6 @@ class ItemImportFormMapperTest {
                 "0",
                 FullItemRead.empty(),
                 List.of(new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 225.0d)),
-                "inner-calm",
-                ItemImportFieldConfidence.HIGH,
                 "inner-calm"
         );
 
@@ -284,8 +278,6 @@ class ItemImportFormMapperTest {
                 "0",
                 FullItemRead.empty(),
                 List.of(),
-                "inner-calm",
-                ItemImportFieldConfidence.HIGH,
                 "inner-calm"
         );
 
@@ -565,8 +557,6 @@ class ItemImportFormMapperTest {
                 FullItemRead.empty(),
                 List.of(new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 225.0d)),
                 "",
-                ItemImportFieldConfidence.UNKNOWN,
-                "",
                 new ItemImportDetails("Tarcza", "Tarcza", "LEGENDARY", true, EquipmentSlot.OFF_HAND,
                         900L, null, null, null, null, null, 1202L, ""),
                 List.of(new ItemTemperingAffix(
@@ -626,8 +616,6 @@ class ItemImportFormMapperTest {
                         new ImportedItemAffix(ImportedItemAffixType.DAMAGE_REDUCTION, 11.4d, "%", false, 1, "11,4% redukcji obrażeń", ImportedItemAffixSource.MANUAL)
                 ),
                 "",
-                ItemImportFieldConfidence.UNKNOWN,
-                "",
                 new ItemImportDetails("Tarcza", "Tarcza", "LEGENDARY", true, EquipmentSlot.OFF_HAND,
                         900L, null, null, null, null, null, 1202L, ""),
                 List.of(new ItemTemperingAffix(
@@ -649,11 +637,62 @@ class ItemImportFormMapperTest {
 
     @Test
     void shouldKeepVerathielWeaponDetailsOutOfLegacyWeaponDamageInFullFlow() throws Exception {
-        ItemImageImportCandidateParseResult parseResult = new ItemImageImportTextParser().parse(
-                new ItemImageMetadata("miecz.png", "image/png", "PNG", 479, 768),
-                ItemImageImportTextParserTest.verathielRawText()
+        ItemImportDetails details = new ItemImportDetails(
+                "Odłamek Verathiela",
+                "Miecz",
+                "UNIQUE",
+                true,
+                EquipmentSlot.MAIN_HAND,
+                900L,
+                1830L,
+                1350L,
+                1978L,
+                1664L,
+                1.10d,
+                "Umiejętności Podstawowe zadają obrażenia zwiększone o 100%[x] [70 - 100]%, ale dodatkowo zużywają 25 pkt. podstawowego zasobu."
         );
-        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
+        FullItemRead fullItemRead = new FullItemRead(
+                "Odłamek Verathiela",
+                "Starożytny unikatowy miecz",
+                "UNIQUE",
+                "Moc przedmiotu: 900",
+                "1 830 pkt. obrażeń na sek.",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+94 obrażeń od broni [94 - 157]"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+2 141 maksymalnego zdrowia [1 831 - 2 200]"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+545 pkt. zdrowia przy trafieniu [526 - 632]"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]"),
+                        new FullItemReadLine(FullItemReadLineType.ASPECT, details.getUniqueEffectText())
+                ),
+                details
+        );
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "miecz.png",
+                "MAIN_HAND",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                fullItemRead,
+                List.of(
+                        new ImportedItemAffix(ImportedItemAffixType.WEAPON_DAMAGE_FLAT, 94.0d, "", false, 0,
+                                "+94 obrażeń od broni [94 - 157]", ImportedItemAffixSource.MANUAL, "",
+                                94.0d, 157.0d, ""),
+                        new ImportedItemAffix(ImportedItemAffixType.MAXIMUM_LIFE, 2141.0d, "", false, 1,
+                                "+2 141 maksymalnego zdrowia [1 831 - 2 200]", ImportedItemAffixSource.MANUAL, "",
+                                1831.0d, 2200.0d, ""),
+                        new ImportedItemAffix(ImportedItemAffixType.LIFE_ON_HIT, 545.0d, "", false, 2,
+                                "+545 pkt. zdrowia przy trafieniu [526 - 632]", ImportedItemAffixSource.MANUAL, "",
+                                526.0d, 632.0d, ""),
+                        new ImportedItemAffix(ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE, 3.0d, "", false, 3,
+                                "Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]",
+                                ImportedItemAffixSource.MANUAL, "", 3.0d, 4.0d, "+3")
+                ),
+                "verathiel_shard",
+                details
+        );
 
         ItemImportFormMapper.MappingResult mappingResult = new ItemImportFormMapper().map(form);
         assertTrue(mappingResult.getErrors().isEmpty(), () -> String.join(", ", mappingResult.getErrors()));

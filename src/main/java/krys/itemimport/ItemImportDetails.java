@@ -5,7 +5,7 @@ import krys.item.EquipmentSlot;
 import java.util.Locale;
 import java.util.Optional;
 
-/** Strukturalne dane itemu odczytane z OCR albo poprawione ręcznie przed zapisem. */
+/** Strukturalne dane itemu zapisane albo poprawione ręcznie przed zapisem. */
 public final class ItemImportDetails {
     private final String itemName;
     private final String itemType;

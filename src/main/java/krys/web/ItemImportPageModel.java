@@ -1,81 +1,34 @@
 package krys.web;
 
-import krys.itemimport.ImportedItemCurrentBuildContribution;
-import krys.itemimport.ItemImageImportCandidateParseResult;
-import krys.itemimport.ItemImportEditableForm;
-import krys.itemimport.ValidatedImportedItem;
-import krys.itemlibrary.SavedImportedItem;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Model widoku SSR dla foundation importu pojedynczego itemu ze screena. */
+/** Model widoku SSR dla diagnostycznego importu obrazu itemu po Etapie 3A. */
 public final class ItemImportPageModel {
-    private final ItemImportEditableForm editableForm;
-    private final ItemImageImportCandidateParseResult parseResult;
     private final List<String> validationErrors;
-    private final ConfirmedImportView confirmedImportView;
     private final OpenCvImagePreview openCvImagePreview;
     private final String openCvPreviewError;
     private final HeroProfile activeHero;
     private final String helpText;
     private final String currentBuildQuery;
 
-    public ItemImportPageModel(ItemImportEditableForm editableForm,
-                               ItemImageImportCandidateParseResult parseResult,
-                               List<String> validationErrors,
-                               ConfirmedImportView confirmedImportView,
-                               HeroProfile activeHero,
-                               String helpText,
-                               String currentBuildQuery) {
-        this(
-                editableForm,
-                parseResult,
-                validationErrors,
-                confirmedImportView,
-                null,
-                "",
-                activeHero,
-                helpText,
-                currentBuildQuery
-        );
-    }
-
-    public ItemImportPageModel(ItemImportEditableForm editableForm,
-                               ItemImageImportCandidateParseResult parseResult,
-                               List<String> validationErrors,
-                               ConfirmedImportView confirmedImportView,
+    public ItemImportPageModel(List<String> validationErrors,
                                OpenCvImagePreview openCvImagePreview,
                                String openCvPreviewError,
                                HeroProfile activeHero,
                                String helpText,
                                String currentBuildQuery) {
-        this.editableForm = editableForm;
-        this.parseResult = parseResult;
-        this.validationErrors = Collections.unmodifiableList(new ArrayList<>(validationErrors));
-        this.confirmedImportView = confirmedImportView;
+        this.validationErrors = Collections.unmodifiableList(new ArrayList<>(validationErrors == null ? List.of() : validationErrors));
         this.openCvImagePreview = openCvImagePreview;
         this.openCvPreviewError = openCvPreviewError == null ? "" : openCvPreviewError;
         this.activeHero = activeHero;
-        this.helpText = helpText;
-        this.currentBuildQuery = currentBuildQuery;
-    }
-
-    public ItemImportEditableForm getEditableForm() {
-        return editableForm;
-    }
-
-    public ItemImageImportCandidateParseResult getParseResult() {
-        return parseResult;
+        this.helpText = helpText == null ? "" : helpText;
+        this.currentBuildQuery = currentBuildQuery == null ? "" : currentBuildQuery;
     }
 
     public List<String> getValidationErrors() {
         return validationErrors;
-    }
-
-    public ConfirmedImportView getConfirmedImportView() {
-        return confirmedImportView;
     }
 
     public OpenCvImagePreview getOpenCvImagePreview() {
@@ -98,18 +51,6 @@ public final class ItemImportPageModel {
         return currentBuildQuery;
     }
 
-    public boolean hasParseResult() {
-        return parseResult != null && editableForm != null;
-    }
-
-    public boolean hasEditableForm() {
-        return editableForm != null;
-    }
-
-    public boolean hasConfirmedImport() {
-        return confirmedImportView != null;
-    }
-
     public boolean hasOpenCvImagePreview() {
         return openCvImagePreview != null;
     }
@@ -122,7 +63,7 @@ public final class ItemImportPageModel {
         return activeHero != null;
     }
 
-    /** Diagnostyczny podgląd złożonego obrazu OpenCV, bez podpinania go pod OCR. */
+    /** Diagnostyczny podglad zlozonego obrazu OpenCV, bez podpinania go pod OCR. */
     public static final class OpenCvImagePreview {
         private final String dataUri;
         private final int sourceImageCount;
@@ -135,52 +76,6 @@ public final class ItemImportPageModel {
         private final HorizontalDividerDetectionView horizontalDividerDetection;
         private final String horizontalDividerDetectionError;
         private final String debugWarning;
-
-        public OpenCvImagePreview(String dataUri,
-                                  int sourceImageCount,
-                                  int width,
-                                  int height,
-                                  String format,
-                                  String compositionPolicy,
-                                  String debugWarning) {
-            this(
-                    dataUri,
-                    sourceImageCount,
-                    width,
-                    height,
-                    format,
-                    compositionPolicy,
-                    "",
-                    List.of(),
-                    null,
-                    "",
-                    debugWarning
-            );
-        }
-
-        public OpenCvImagePreview(String dataUri,
-                                  int sourceImageCount,
-                                  int width,
-                                  int height,
-                                  String format,
-                                  String compositionPolicy,
-                                  String assemblyStatus,
-                                  List<OpenCvStitchDiagnosticView> stitchDiagnostics,
-                                  String debugWarning) {
-            this(
-                    dataUri,
-                    sourceImageCount,
-                    width,
-                    height,
-                    format,
-                    compositionPolicy,
-                    assemblyStatus,
-                    stitchDiagnostics,
-                    null,
-                    "",
-                    debugWarning
-            );
-        }
 
         public OpenCvImagePreview(String dataUri,
                                   int sourceImageCount,
@@ -274,17 +169,23 @@ public final class ItemImportPageModel {
         private final String overlayDataUri;
         private final List<HorizontalDividerView> dividers;
         private final List<ItemImagePartView> parts;
+        private final ItemPartStructureNormalizationView structureNormalization;
+        private final String structureNormalizationError;
 
         public HorizontalDividerDetectionView(int dividerCount,
                                               int partCount,
                                               String overlayDataUri,
                                               List<HorizontalDividerView> dividers,
-                                              List<ItemImagePartView> parts) {
+                                              List<ItemImagePartView> parts,
+                                              ItemPartStructureNormalizationView structureNormalization,
+                                              String structureNormalizationError) {
             this.dividerCount = dividerCount;
             this.partCount = partCount;
             this.overlayDataUri = overlayDataUri == null ? "" : overlayDataUri;
             this.dividers = List.copyOf(dividers == null ? List.of() : dividers);
             this.parts = List.copyOf(parts == null ? List.of() : parts);
+            this.structureNormalization = structureNormalization;
+            this.structureNormalizationError = structureNormalizationError == null ? "" : structureNormalizationError;
         }
 
         public int getDividerCount() {
@@ -305,6 +206,22 @@ public final class ItemImportPageModel {
 
         public List<ItemImagePartView> getParts() {
             return parts;
+        }
+
+        public ItemPartStructureNormalizationView getStructureNormalization() {
+            return structureNormalization;
+        }
+
+        public boolean hasStructureNormalization() {
+            return structureNormalization != null;
+        }
+
+        public String getStructureNormalizationError() {
+            return structureNormalizationError;
+        }
+
+        public boolean hasStructureNormalizationError() {
+            return !structureNormalizationError.isBlank();
         }
     }
 
@@ -345,7 +262,7 @@ public final class ItemImportPageModel {
         }
     }
 
-    /** Pojedyncza czesc finalnego obrazu po podziale przez separatory. */
+    /** Pojedyncza surowa czesc finalnego obrazu po podziale przez separatory. */
     public static final class ItemImagePartView {
         private final int index;
         private final String name;
@@ -397,6 +314,69 @@ public final class ItemImportPageModel {
 
         public String getDataUri() {
             return dataUri;
+        }
+    }
+
+    /** Diagnostyka Etapu 3A bez ingerencji w obrazy i raw parts z Etapu 2A. */
+    public static final class ItemPartStructureNormalizationView {
+        private final String status;
+        private final int rawPartCount;
+        private final List<StructuralItemPartMappingView> mappings;
+        private final String diagnosticReason;
+
+        public ItemPartStructureNormalizationView(String status,
+                                                  int rawPartCount,
+                                                  List<StructuralItemPartMappingView> mappings,
+                                                  String diagnosticReason) {
+            this.status = status == null ? "" : status;
+            this.rawPartCount = rawPartCount;
+            this.mappings = List.copyOf(mappings == null ? List.of() : mappings);
+            this.diagnosticReason = diagnosticReason == null ? "" : diagnosticReason;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public int getRawPartCount() {
+            return rawPartCount;
+        }
+
+        public List<StructuralItemPartMappingView> getMappings() {
+            return mappings;
+        }
+
+        public String getDiagnosticReason() {
+            return diagnosticReason;
+        }
+
+        public boolean hasDiagnosticReason() {
+            return !diagnosticReason.isBlank();
+        }
+    }
+
+    /** Jeden wiersz mapowania structural PART_N -> raw part #N albo absent. */
+    public static final class StructuralItemPartMappingView {
+        private final String structuralSlot;
+        private final boolean present;
+        private final int rawPartIndex;
+
+        public StructuralItemPartMappingView(String structuralSlot, boolean present, int rawPartIndex) {
+            this.structuralSlot = structuralSlot == null ? "" : structuralSlot;
+            this.present = present;
+            this.rawPartIndex = rawPartIndex;
+        }
+
+        public String getStructuralSlot() {
+            return structuralSlot;
+        }
+
+        public boolean isPresent() {
+            return present;
+        }
+
+        public int getRawPartIndex() {
+            return rawPartIndex;
         }
     }
 
@@ -459,40 +439,6 @@ public final class ItemImportPageModel {
 
         public String getStatus() {
             return status;
-        }
-    }
-
-    /** Widok zatwierdzonego itemu i jego mapowania do aktualnego modelu buildu. */
-    public static final class ConfirmedImportView {
-        private final ValidatedImportedItem importedItem;
-        private final SavedImportedItem savedItem;
-        private final krys.item.Item mappedItem;
-        private final ImportedItemCurrentBuildContribution contribution;
-
-        public ConfirmedImportView(ValidatedImportedItem importedItem,
-                                   SavedImportedItem savedItem,
-                                   krys.item.Item mappedItem,
-                                   ImportedItemCurrentBuildContribution contribution) {
-            this.importedItem = importedItem;
-            this.savedItem = savedItem;
-            this.mappedItem = mappedItem;
-            this.contribution = contribution;
-        }
-
-        public ValidatedImportedItem getImportedItem() {
-            return importedItem;
-        }
-
-        public SavedImportedItem getSavedItem() {
-            return savedItem;
-        }
-
-        public krys.item.Item getMappedItem() {
-            return mappedItem;
-        }
-
-        public ImportedItemCurrentBuildContribution getContribution() {
-            return contribution;
         }
     }
 }

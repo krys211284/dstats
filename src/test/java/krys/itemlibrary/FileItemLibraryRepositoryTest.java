@@ -5,13 +5,8 @@ import krys.itemimport.FullItemRead;
 import krys.itemimport.FullItemReadAffixUpdater;
 import krys.itemimport.FullItemReadLine;
 import krys.itemimport.FullItemReadLineType;
-import krys.itemimport.ItemImageImportCandidateParseResult;
-import krys.itemimport.ItemImageMetadata;
 import krys.itemimport.ItemImportEditableForm;
-import krys.itemimport.ItemImportEditableFormFactory;
 import krys.itemimport.ItemImportDetails;
-import krys.itemimport.ItemImportFieldCandidate;
-import krys.itemimport.ItemImportFieldConfidence;
 import krys.itemimport.ItemImportFormMapper;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixSource;
@@ -568,20 +563,23 @@ class FileItemLibraryRepositoryTest {
                         new FullItemReadLine(FullItemReadLineType.SOCKET, "2 gniazda")
                 )
         );
-        ItemImageImportCandidateParseResult parseResult = new ItemImageImportCandidateParseResult(
-                new ItemImageMetadata("buty.png", "image/png", "PNG", 1200, 800),
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "buty.png",
+                "BOOTS",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
                 fullItemRead,
-                new ItemImportFieldCandidate<>("Buty", EquipmentSlot.BOOTS, ItemImportFieldConfidence.HIGH, "slot"),
-                ItemImportFieldCandidate.unknown("weapon"),
-                ItemImportFieldCandidate.unknown("str"),
-                ItemImportFieldCandidate.unknown("int"),
-                ItemImportFieldCandidate.unknown("thorns"),
-                ItemImportFieldCandidate.unknown("block"),
-                ItemImportFieldCandidate.unknown("retribution"),
-                "Import wspomagany"
+                List.of(
+                        new ImportedItemAffix(ImportedItemAffixType.MOVEMENT_SPEED, 12.5d, "%", false, 0,
+                                "+12,5% szybkości ruchu", ImportedItemAffixSource.MANUAL),
+                        new ImportedItemAffix(ImportedItemAffixType.DODGE_CHANCE, 7.0d, "%", false, 1,
+                                "+7,0% uniku", ImportedItemAffixSource.MANUAL)
+                )
         );
-
-        ItemImportEditableForm form = new ItemImportEditableFormFactory().create(parseResult);
         ItemImportFormMapper.MappingResult mappingResult = new ItemImportFormMapper().map(form);
         assertTrue(mappingResult.getErrors().isEmpty(), () -> String.join(", ", mappingResult.getErrors()));
         service.saveImportedItem(
@@ -648,8 +646,6 @@ class FileItemLibraryRepositoryTest {
                         new ImportedItemAffix(ImportedItemAffixType.LIFE_ON_HIT, 545.0d, "", false, 2, "+545 pkt. zdrowia przy trafieniu [526 - 632]", ImportedItemAffixSource.OCR),
                         new ImportedItemAffix(ImportedItemAffixType.LUCKY_HIT_PRIMARY_RESOURCE, 15.0d, "%", false, 3, "Szczęśliwy traf: maksymalnie 15% szans na odzyskanie +3 podstawowego zasobu [3 - 4]", ImportedItemAffixSource.OCR)
                 ),
-                "",
-                ItemImportFieldConfidence.UNKNOWN,
                 "",
                 details
         );

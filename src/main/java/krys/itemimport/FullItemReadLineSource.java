@@ -1,6 +1,6 @@
 package krys.itemimport;
 
-/** Metadane źródła linii OCR zachowane niezależnie od tekstu wybranego po deduplikacji. */
+/** Metadane źródła linii itemu zachowane niezależnie od tekstu wybranego po deduplikacji. */
 public final class FullItemReadLineSource {
     private static final int ORDER_BUCKET = 10_000;
 
@@ -52,27 +52,6 @@ public final class FullItemReadLineSource {
         String safeRawLine = rawLine == null ? "" : rawLine;
         return new FullItemReadLineSource(-1, "", -1, -1, -1, safeRawLine, safeRawLine,
                 "UNKNOWN", -1, -1, -1, -1, safeRawLine);
-    }
-
-    static FullItemReadLineSource fromMergedLine(MergedOcrLine line) {
-        if (line == null) {
-            return unknown("");
-        }
-        return new FullItemReadLineSource(
-                line.getSourceIndex(),
-                line.getSourceVariant(),
-                line.getSourceLineOrder(),
-                line.getSegmentStart(),
-                line.getSegmentEnd(),
-                line.getSourceRawLine(),
-                line.getSourceRawLine(),
-                line.getSourceRegion(),
-                line.getSourceLineOrder(),
-                line.getSourceLineOrder(),
-                line.getSegmentStart(),
-                line.getSegmentEnd(),
-                line.getSourceRawLine()
-        );
     }
 
     public FullItemReadLineSource withVisualAnchorFrom(FullItemReadLineSource anchor) {

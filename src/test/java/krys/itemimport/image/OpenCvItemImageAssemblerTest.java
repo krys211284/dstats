@@ -1,6 +1,5 @@
 package krys.itemimport.image;
 
-import krys.itemimport.ItemImportDebugTrace;
 import krys.itemimport.ItemImageImportRequest;
 import krys.itemimport.image.opencv.OpenCvItemImageAssembler;
 import org.junit.jupiter.api.Test;
@@ -211,7 +210,7 @@ class OpenCvItemImageAssemblerTest {
         Path debugDirectoryAsFile = tempDirectory.resolve("debug-output-is-file");
         Files.writeString(debugDirectoryAsFile, "blokada katalogu debug");
         String previousDebugDirectory = System.getProperty(AssembledItemImageDebugWriter.DEBUG_DIRECTORY_PROPERTY);
-        Logger logger = Logger.getLogger(ItemImportDebugTrace.LOGGER_NAME);
+        Logger logger = Logger.getLogger(AssembledItemImageDebugWriter.class.getName());
         CapturingLogHandler handler = new CapturingLogHandler();
         logger.addHandler(handler);
         System.setProperty(AssembledItemImageDebugWriter.DEBUG_DIRECTORY_PROPERTY, debugDirectoryAsFile.toString());

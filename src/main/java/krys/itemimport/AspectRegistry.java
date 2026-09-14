@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
-/** Katalog znanych aspektów używany przez import OCR i walidację formularza. */
+/** Katalog znanych aspektów używany przez walidację formularza i zapisane dane itemów. */
 public final class AspectRegistry {
     private final List<AspectDefinition> definitions;
 
@@ -118,7 +118,7 @@ public final class AspectRegistry {
                 .trim();
     }
 
-    /** Sugestia aspektu pochodząca z OCR. */
+    /** Sugestia aspektu pochodząca z zachowanego tekstu itemu. */
     public record AspectMatch(String aspectId, ItemImportFieldConfidence confidence) {
     }
 }

@@ -16,7 +16,7 @@ import krys.itemlibrary.ItemLibraryPresentationSupport;
 
 import java.util.Locale;
 
-/** Renderuje SSR edycji zapisanego itemu bez ponownego OCR. */
+/** Renderuje SSR edycji zapisanego itemu. */
 final class ItemEditPageRenderer {
     private static final AspectRegistry ASPECT_REGISTRY = ApplicationAspectRegistry.get();
     private static final AffixRegistry AFFIX_REGISTRY = ApplicationAffixRegistry.get();
@@ -120,7 +120,7 @@ final class ItemEditPageRenderer {
                     <section class="panel">
                         <span class="section-kicker">Biblioteka itemów</span>
                         <h1>Edytuj zapisany item</h1>
-                        <p class="helper">Edycja pracuje na danych zapisanych w bibliotece. OCR nie jest uruchamiany ponownie.</p>
+                        <p class="helper">Edycja pracuje na danych zapisanych w bibliotece.</p>
                         <a class="nav-link secondary-link" href="%s">Wróć do biblioteki</a>
                     </section>
                     %s

@@ -1,6 +1,6 @@
 package krys.itemimport;
 
-/** Typ linii pełnego odczytu OCR, niezależny od tego, czy runtime umie ją liczyć. */
+/** Typ linii pełnego zapisu itemu, niezależny od tego, czy runtime umie ją liczyć. */
 public enum FullItemReadLineType {
     ITEM_NAME("Nazwa"),
     TYPE_OR_SLOT("Typ / slot"),
