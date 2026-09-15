@@ -1663,14 +1663,14 @@ http://127.0.0.1:8080/importuj-item-ze-screena
 ```
 
 Warstwa obrazu importu itemu:
-- legacy Windows OCR został usunięty z aktywnego runtime importu obrazu; pipeline nie uruchamia `Windows.Media.Ocr`, nie ma OCR text readera, preprocessingu OCR, parsera tekstu ani wyników OCR,
+- legacy Windows OCR został usunięty z aktywnego runtime importu obrazu; pipeline nie uruchamia `Windows.Media.Ocr`, nie ma parsera tekstu starego OCR ani wyników starego OCR,
 - aktualny pipeline obrazu jest jedyną aktywną ścieżką uploadu w `/importuj-item-ze-screena` i znajduje się w pakietach `krys.itemimport.image` oraz `krys.itemimport.image.opencv`,
 - Etap 1 jest CLOSED i jest zamknięty kontraktowo jako ścieżka `1..N screenshotów jednego itemu -> OpenCvItemImageAssembler -> jeden finalny AssembledItemImage`,
-- Etap 1 obejmuje wyłącznie deterministyczne przygotowanie `List<ItemImageImportRequest>` do neutralnego `AssembledItemImage`; dla wielu screenów finalny wynik musi być spójnym obrazem tego samego przewijanego tooltipa, złożonym przez overlap-aware stitching,
+- Etap 1 obejmuje wyłącznie deterministyczne przygotowanie `List<ItemImageImportRequest>` do neutralnego `AssembledItemImage`; dla pojedynczego screena finalny wynik jest lokalizowany do właściwego panelu itemu, a dla wielu screenów finalny wynik musi być spójnym obrazem tego samego przewijanego tooltipa, złożonym przez overlap-aware stitching,
 - Etap 1.1 pokazuje wynik `OpenCvItemImageAssembler` diagnostycznie w istniejącym ekranie `/importuj-item-ze-screena`, w sekcji `Podgląd obrazu przygotowanego przez OpenCV`,
 - UI renderuje finalny PNG bezpośrednio z `AssembledItemImage` jako data URI/base64 i pokazuje metadane `sourceImageCount`, `width`, `height`, `format`, `assemblyStatus`, `compositionPolicy` oraz diagnostykę stitching dla par źródeł: status, `offsetX`, `offsetY`, wysokość overlapu, `seamY` i confidence,
 - `OpenCvItemImageAssembler` dekoduje obrazy przez OpenCV / Bytedeco, a typy `org.bytedeco.opencv.*` pozostają wyłącznie detalem implementacyjnym pakietu `image.opencv`,
-- pojedynczy obraz jest passthrough: bez skalowania, bez cropowania i bez preprocessingu,
+- pojedynczy obraz nie jest skalowany ani preprocessowany, ale jest zawężany do właściwego panelu itemu przez tę samą obrazową lokalizację panelu, której używa stitching; górna krawędź panelu jest odcinana bez marginesu nad tooltipem, po obrazowym przejściu z zewnętrznego chrome o niskim centralnym tle tooltipa do stabilnego ciemnego body itemu, a bezpieczny margines boczny/dolny służy zachowaniu ramki itemu; zewnętrzny UI chrome nad tooltipem nie powinien trafiać do `AssembledItemImage`,
 - wiele obrazów jest składanych w kolejności uploadu przez wykrycie panelu/contentu, registration, overlap, walidację confidence, wybór seam wewnątrz overlapu i usunięcie duplikatu; algorytm nie używa OCR, twardych koordynatów, nazwy itemu, rozdzielczości ani tekstu,
 - pionowa kompozycja wejść istnieje wyłącznie jako artefakt diagnostyczny `target/item-import-debug/raw-composition.png` i nie jest traktowana jako finalny sukces, gdy overlap nie zostanie wiarygodnie znaleziony,
 - przy braku wiarygodnego overlapu multi-image zwraca kontrolowany błąd `STITCH_NOT_CONFIDENT`; preview OpenCV pokazuje błąd i pipeline kończy się bez dalszego etapu,
@@ -1687,7 +1687,7 @@ Etap 2A pipeline'u obrazu OpenCV:
 - `ItemImagePart` opisuje `PART_N`, zakres `startYInclusive..endYExclusive`, pełną szerokość finalnego obrazu, dodatnie wymiary, format i bajty PNG części,
 - liczba separatorów nie jest ograniczona do dwóch: kontrakt jest generyczny `N dividers -> N+1 parts`, a testy obejmują także trzy realne/strukturalne separatory i cztery części,
 - podział jest bezstratny w osi Y: granice części wynikają ze środka wykrytych separatorów, części nie mają luk ani nakładających się wierszy, suma wysokości części jest równa wysokości `AssembledItemImage`, a pasma separatorów nie są usuwane z obrazu,
-- dla pojedynczego obrazu Etap 1 nadal robi passthrough bez skalowania i cropowania; Etap 2A może wyznaczyć wewnętrzne ROI tylko do analizy separatorów, ale części zawsze powstają z pełnego finalnego obrazu i zachowują pełną szerokość,
+- dla pojedynczego obrazu Etap 1 przekazuje do Etapu 2A już zlokalizowany panel itemu bez zewnętrznego chrome; Etap 2A może wyznaczyć wewnętrzne ROI tylko do analizy separatorów, ale części zawsze powstają z pełnego finalnego `AssembledItemImage` i zachowują pełną szerokość,
 - detekcja jest obrazowa: dekoduje finalny PNG przez OpenCV, wyznacza wewnętrzne bounds contentu, analizuje luminancję, pionowy kontrast, ciągłość poziomych odcinków i projekcję wierszy, grupuje sąsiednie krawędzie jednego separatora oraz odrzuca ramki tooltipa, pionowe ramki, krótkie fragmenty tekstowe, tło/marginesy i artefakty seam,
 - długi jednostronny separator, który spełnia warunek ciągłej linii i dochodzi do jednej z zewnętrznych stron ROI, nie jest dyskwalifikowany wyłącznie za brak symetrycznego wsparcia po drugiej stronie; krótkie fragmenty i lokalne krawędzie nadal muszą odpaść na bramkach długości/pokrycia,
 - prawdziwy wewnętrzny separator blisko dolnej części tooltipa, np. linia oddzielająca główną treść itemu od bloku `Wartość sprzedaży / Trwałość`, pozostaje structural dividerem; odrzucanie dołu dotyczy ramek, krótkich detali i przypadkowych linii, a nie długich wewnętrznych separatorów,
@@ -1710,13 +1710,25 @@ Etap 3A pipeline'u obrazu OpenCV:
 - UI `/importuj-item-ze-screena` pokazuje osobną diagnostykę `Normalizacja struktury` ze statusem, liczbą raw parts i mapowaniem `structural PART_N -> raw part #N` albo `absent`, z hookami `data-item-structure-*`,
 - awaria Etapu 3A jest izolowana od Etapu 1 i 2A: assembled preview, stitching diagnostics, divider diagnostics oraz raw part previews pozostają widoczne, ekran pokazuje osobny komunikat `Błąd normalizacji struktury`.
 
+PART_1 po Etapie 3A:
+- po poprawnym mapowaniu `StructuredItemParts.PART_1` aplikacja wykonuje obrazową segmentację bezpośrednio w structural `PART_1` na tymczasowe ROI oraz mały POC surowego OCR Tesseract na każdym ROI; segmentacja nie interpretuje tekstu, nie czyta filename i nie tworzy nowych `ItemImagePart`,
+- `DeterministicPart1RoiSegmenter` zachowuje oryginalny `StructuralItemPart` oraz jego `sourcePart`, a wynik zawiera diagnostyczne ROI: `NAME_AND_STARS`, `CLASSIFICATION`, `ITEM_POWER` oraz opcjonalne `OPTIONAL_INFO`,
+- nie ma osobnego modelu, ROI ani karty UI `PART_1_CONTENT`; usunięcie zewnętrznego UI chrome nad tooltipem należy do Etapu 1, a `PART_1` pozostaje źródłem współrzędnych dla ROI,
+- granice ROI wynikają z wykrytych pasm tekstowych w lewym obszarze structural `PART_1`, odstępów między liniami i cech wizualnych linii; nie są dopasowane do stałych współrzędnych konkretnego fixture'a,
+- `TesseractPart1RoiOcrReader` używa Tess4J `5.20.0`, zasobu `src/main/resources/tessdata/pol.traineddata` i języka `pol`; nie wymaga ręcznie zainstalowanego `tesseract.exe` w `PATH`,
+- OCR PART_1 ma profile zależne od ROI: `NAME_AND_STARS` jest wewnętrznie rozbijany tylko na potrzeby diagnostyki na pomocnicze `NAME_TEXT` i opcjonalne `STARS_REGION`, nazwa jest czytana z tymczasowej kopii `NAME_TEXT` po obrazowym ograniczeniu dekoracyjnego marginesu/frame, gwiazdki nie są czytane OCR-em, `greaterAffixCount` jest liczony obrazowo z jasnych/różowo-białych kompaktowych komponentów gwiazdek w `NAME_AND_STARS`, a `CLASSIFICATION`, `ITEM_POWER` i `OPTIONAL_INFO` mają osobne generyczne profile preprocessingu/PSM,
+- OCR jest uruchamiany osobno dla każdego istniejącego ROI; brak `OPTIONAL_INFO` oznacza brak czwartego wywołania i nie jest błędem,
+- wynik OCR jest wyłącznie surową diagnostyką (`raw OCR text` + czas odczytu); kod nie mapuje jeszcze nazwy, klasyfikacji, item power ani optional info do modelu domenowego, nie tworzy `Part1ReadResult`, nie liczy greater affixów i nie poprawia błędów OCR heurystykami parsera,
+- UI importu pokazuje cały obraz PART_1 oraz każdy wykryty ROI z typem, bounds `x/y/width/height`, obrazem ROI, użytym profilem preprocessingu, surowym tekstem OCR oraz ewentualnymi wewnętrznymi sub-ROI przez hooki `data-part1-*`; dla nazwy są to `NAME_TEXT` jako źródło, `NAME_TEXT_CLEANED` po usunięciu wykrytych komponentów dekoracyjnych, `NAME_TEXT_FINAL` jako finalny obraz przekazany do Tess4J oraz `GREATER_AFFIX_STAR_N` jako obrazowe kandydaty gwiazdek z confidence,
+- ten etap nie implementuje PART_2/PART_3/PART_4, nie odczytuje affixów, nie dodaje `Windows.Media.Ocr` ani systemowego Windows OCR; PART_1 pozostaje otwartym POC wejść pod przyszły właściwy odczyt.
+
 Aktywny pipeline importu obrazu kończy się obecnie dokładnie tutaj:
 
 ```text
-1..N screenshots -> OpenCvItemImageAssembler -> AssembledItemImage -> HorizontalDividerDetector -> raw ItemImagePart[] -> ItemPartStructureNormalizer -> StructuredItemParts
+1..N screenshots -> OpenCvItemImageAssembler -> AssembledItemImage -> HorizontalDividerDetector -> raw ItemImagePart[] -> ItemPartStructureNormalizer -> StructuredItemParts -> PART_1 ROI segmentation -> raw Tesseract OCR per ROI
 ```
 
-Po `StructuredItemParts` nie ma aktywnego OCR, parsowania tekstu, formularza potwierdzenia importu ani automatycznego zapisu itemu. Przyszły OCR musi zostać zaprojektowany jako osobny etap po tym kontrakcie i nie może reaktywować usuniętego legacy Windows OCR.
+Po `StructuredItemParts` istnieje tylko surowy POC OCR dla ROI PART_1. Nie ma parsowania tekstu, formularza potwierdzenia importu ani automatycznego zapisu itemu. Przyszły właściwy OCR/parser musi zostać zaprojektowany jako osobny etap po tym kontrakcie i nie może reaktywować usuniętego legacy Windows OCR.
 
 Kontrakt prezentacji dla smoke testu importu itemu:
 - GUI importu jest po polsku i jasno komunikuje, że obecnie jest diagnostyką obrazu pojedynczego itemu, a nie automatycznym importem itemu do biblioteki,
@@ -1730,7 +1742,7 @@ Kontrakt prezentacji dla smoke testu importu itemu:
 - awaria Etapu 1 kończy pipeline i pokazuje błąd preview OpenCV,
 - awaria Etapu 2A zostawia widoczny wynik Etapu 1 i pokazuje błąd detekcji separatorów,
 - awaria Etapu 3A zostawia widoczny wynik Etapu 1/2A i pokazuje błąd normalizacji struktury,
-- GUI importu nie renderuje tekstu OCR, raw OCR, kandydatów OCR, parse result, formularza potwierdzenia importu, sekcji projekcji do runtime ani statusów starego Windows OCR,
+- GUI importu renderuje wyłącznie surowy OCR per ROI PART_1; nie renderuje kandydatów OCR, parse result, formularza potwierdzenia importu, sekcji projekcji do runtime ani statusów starego Windows OCR,
 - upload obrazu nie zapisuje itemu do biblioteki i nie aktualizuje bazy wiedzy itemów,
 - legacy Windows OCR i jego debug trace zostały usunięte z aktywnego runtime; przyszły OCR jest osobnym przyszłym etapem po `StructuredItemParts`.
 
@@ -1809,13 +1821,16 @@ Kontrakt prezentacji dla smoke testu biblioteki itemów:
 - Pęknięcie golden values oznacza zmianę zachowania engine, a nie kosmetyczną różnicę.
 
 ### 11.2. Testy warstwy obrazu w imporcie itemów
-Aktywny import obrazu nie ma już testów realnego Windows OCR, preprocessingu OCR, mergera OCR ani parsera tekstu. Standardowy przebieg testów nie uruchamia `Windows.Media.Ocr` i nie wymaga środowiskowego OCR.
+Aktywny import obrazu nie ma już testów realnego Windows OCR, mergera OCR ani parsera tekstu. Standardowy przebieg testów nie uruchamia `Windows.Media.Ocr`, a POC PART_1 OCR używa Tess4J i bundlowanego `pol.traineddata` zamiast środowiskowego Windows OCR.
 
 Deterministyczny kontrakt obrazu jest testowany etapami:
-- `OpenCvItemImageAssemblerTest` pokrywa Etap 1, w tym realne fixture'y obrazów, passthrough pojedynczego obrazu, overlap-aware stitching, błędy confidence i best-effort debug artifact writing,
+- `OpenCvItemImageAssemblerTest` pokrywa Etap 1, w tym realne fixture'y obrazów, panel-localized crop pojedynczego obrazu bez skalowania i bez OCR, realny `dziedzic-zatracenia-helm-full.png` z zewnętrznym chrome nad tooltipem, overlap-aware stitching, błędy confidence i best-effort debug artifact writing,
 - `OpenCvHorizontalDividerDetectorTest` pokrywa Etap 2A: separatory, overlay i bezstratny podział na raw `ItemImagePart[]`,
 - `DeterministicItemPartStructureNormalizerTest` i `ItemPartStructureNormalizerPipelineTest` pokrywają Etap 3A oraz pełną sekwencję obrazu do `StructuredItemParts`,
-- `ItemImportPageRendererTest` i `ItemImportWebServerTest` pilnują, że UI/HTTP pokazuje diagnostykę Etapów 1/2A/3A i nie renderuje legacy sekcji OCR.
+- `Part1RoiSegmenterPipelineTest` pokrywa segmentację PART_1 na zaakceptowane ROI dla realnych fixture'ów po Etapie 1, brak osobnego `PART_1_CONTENT` oraz semantyczne bounds dla problematycznych nazw/klasyfikacji/mocy,
+- `TesseractPart1RoiOcrReaderTest` pokrywa techniczny smoke OCR pojedynczego ROI przez Tess4J i bundlowany polski model, wewnętrzny odczyt nazwy z `NAME_TEXT` bez traktowania gwiazdek jako tekstu, regresję, że cleanup dekoracji nie usuwa pierwszego `T` w realnym `tarcza1.png`, oraz obrazowe zliczanie `greaterAffixCount` dla realnych fixture'ów PART_1,
+- `Part1OcrWindowsExclusionTest` pilnuje, że produkcyjny kod/pom nie wraca do Windows OCR,
+- `ItemImportPageRendererTest` i `ItemImportWebServerTest` pilnują, że UI/HTTP pokazuje diagnostykę Etapów 1/2A/3A oraz raw OCR PART_1 per ROI bez legacy sekcji OCR.
 
 ### 11.3. Obowiązkowe obszary pokrycia
 Minimalny zakres testów obejmuje:

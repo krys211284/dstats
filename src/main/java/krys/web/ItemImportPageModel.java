@@ -323,15 +323,28 @@ public final class ItemImportPageModel {
         private final int rawPartCount;
         private final List<StructuralItemPartMappingView> mappings;
         private final String diagnosticReason;
+        private final Part1SegmentationView part1Segmentation;
+        private final String part1SegmentationError;
 
         public ItemPartStructureNormalizationView(String status,
                                                   int rawPartCount,
                                                   List<StructuralItemPartMappingView> mappings,
                                                   String diagnosticReason) {
+            this(status, rawPartCount, mappings, diagnosticReason, null, "");
+        }
+
+        public ItemPartStructureNormalizationView(String status,
+                                                  int rawPartCount,
+                                                  List<StructuralItemPartMappingView> mappings,
+                                                  String diagnosticReason,
+                                                  Part1SegmentationView part1Segmentation,
+                                                  String part1SegmentationError) {
             this.status = status == null ? "" : status;
             this.rawPartCount = rawPartCount;
             this.mappings = List.copyOf(mappings == null ? List.of() : mappings);
             this.diagnosticReason = diagnosticReason == null ? "" : diagnosticReason;
+            this.part1Segmentation = part1Segmentation;
+            this.part1SegmentationError = part1SegmentationError == null ? "" : part1SegmentationError;
         }
 
         public String getStatus() {
@@ -352,6 +365,259 @@ public final class ItemImportPageModel {
 
         public boolean hasDiagnosticReason() {
             return !diagnosticReason.isBlank();
+        }
+
+        public Part1SegmentationView getPart1Segmentation() {
+            return part1Segmentation;
+        }
+
+        public boolean hasPart1Segmentation() {
+            return part1Segmentation != null;
+        }
+
+        public String getPart1SegmentationError() {
+            return part1SegmentationError;
+        }
+
+        public boolean hasPart1SegmentationError() {
+            return !part1SegmentationError.isBlank();
+        }
+    }
+
+    /** Diagnostyka tymczasowej segmentacji PART_1 na ROI przed OCR. */
+    public static final class Part1SegmentationView {
+        private final String sourcePartDataUri;
+        private final int sourcePartIndex;
+        private final String sourcePartName;
+        private final int sourcePartWidth;
+        private final int sourcePartHeight;
+        private final List<Part1RoiView> rois;
+
+        public Part1SegmentationView(String sourcePartDataUri,
+                                     int sourcePartIndex,
+                                     String sourcePartName,
+                                     int sourcePartWidth,
+                                     int sourcePartHeight,
+                                     List<Part1RoiView> rois) {
+            this.sourcePartDataUri = sourcePartDataUri == null ? "" : sourcePartDataUri;
+            this.sourcePartIndex = sourcePartIndex;
+            this.sourcePartName = sourcePartName == null ? "" : sourcePartName;
+            this.sourcePartWidth = sourcePartWidth;
+            this.sourcePartHeight = sourcePartHeight;
+            this.rois = List.copyOf(rois == null ? List.of() : rois);
+        }
+
+        public String getSourcePartDataUri() {
+            return sourcePartDataUri;
+        }
+
+        public int getSourcePartIndex() {
+            return sourcePartIndex;
+        }
+
+        public String getSourcePartName() {
+            return sourcePartName;
+        }
+
+        public int getSourcePartWidth() {
+            return sourcePartWidth;
+        }
+
+        public int getSourcePartHeight() {
+            return sourcePartHeight;
+        }
+
+        public List<Part1RoiView> getRois() {
+            return rois;
+        }
+    }
+
+    /** Pojedynczy tymczasowy ROI PART_1 pokazywany w diagnostyce UI. */
+    public static final class Part1RoiView {
+        private final String type;
+        private final int x;
+        private final int y;
+        private final int width;
+        private final int height;
+        private final String dataUri;
+        private final String rawOcrText;
+        private final long ocrDurationMillis;
+        private final String ocrPreprocessing;
+        private final String ocrError;
+        private final List<Part1RoiSubRegionView> subRegions;
+        private final int greaterAffixCount;
+
+        public Part1RoiView(String type, int x, int y, int width, int height, String dataUri) {
+            this(type, x, y, width, height, dataUri, "", 0L, "", "");
+        }
+
+        public Part1RoiView(String type,
+                            int x,
+                            int y,
+                            int width,
+                            int height,
+                            String dataUri,
+                            String rawOcrText,
+                            long ocrDurationMillis,
+                            String ocrPreprocessing,
+                            String ocrError) {
+            this(type, x, y, width, height, dataUri, rawOcrText, ocrDurationMillis, ocrPreprocessing, ocrError, List.of());
+        }
+
+        public Part1RoiView(String type,
+                            int x,
+                            int y,
+                            int width,
+                            int height,
+                            String dataUri,
+                            String rawOcrText,
+                            long ocrDurationMillis,
+                            String ocrPreprocessing,
+                            String ocrError,
+                            List<Part1RoiSubRegionView> subRegions) {
+            this(type, x, y, width, height, dataUri, rawOcrText, ocrDurationMillis,
+                    ocrPreprocessing, ocrError, subRegions, 0);
+        }
+
+        public Part1RoiView(String type,
+                            int x,
+                            int y,
+                            int width,
+                            int height,
+                            String dataUri,
+                            String rawOcrText,
+                            long ocrDurationMillis,
+                            String ocrPreprocessing,
+                            String ocrError,
+                            List<Part1RoiSubRegionView> subRegions,
+                            int greaterAffixCount) {
+            this.type = type == null ? "" : type;
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+            this.dataUri = dataUri == null ? "" : dataUri;
+            this.rawOcrText = rawOcrText == null ? "" : rawOcrText;
+            this.ocrDurationMillis = Math.max(0L, ocrDurationMillis);
+            this.ocrPreprocessing = ocrPreprocessing == null ? "" : ocrPreprocessing;
+            this.ocrError = ocrError == null ? "" : ocrError;
+            this.subRegions = List.copyOf(subRegions == null ? List.of() : subRegions);
+            this.greaterAffixCount = Math.max(0, greaterAffixCount);
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public int getX() {
+            return x;
+        }
+
+        public int getY() {
+            return y;
+        }
+
+        public int getWidth() {
+            return width;
+        }
+
+        public int getHeight() {
+            return height;
+        }
+
+        public String getDataUri() {
+            return dataUri;
+        }
+
+        public String getRawOcrText() {
+            return rawOcrText;
+        }
+
+        public long getOcrDurationMillis() {
+            return ocrDurationMillis;
+        }
+
+        public String getOcrPreprocessing() {
+            return ocrPreprocessing;
+        }
+
+        public String getOcrError() {
+            return ocrError;
+        }
+
+        public boolean hasOcrError() {
+            return !ocrError.isBlank();
+        }
+
+        public List<Part1RoiSubRegionView> getSubRegions() {
+            return subRegions;
+        }
+
+        public boolean hasSubRegions() {
+            return !subRegions.isEmpty();
+        }
+
+        public int getGreaterAffixCount() {
+            return greaterAffixCount;
+        }
+
+        public boolean hasGreaterAffixDiagnostics() {
+            return "NAME_AND_STARS".equals(type);
+        }
+    }
+
+    /** Wewnętrzny sub-ROI użyty wyłącznie do diagnostyki OCR w ramach publicznego ROI PART_1. */
+    public static final class Part1RoiSubRegionView {
+        private final String type;
+        private final int x;
+        private final int y;
+        private final int width;
+        private final int height;
+        private final String dataUri;
+        private final String preprocessing;
+
+        public Part1RoiSubRegionView(String type,
+                                     int x,
+                                     int y,
+                                     int width,
+                                     int height,
+                                     String dataUri,
+                                     String preprocessing) {
+            this.type = type == null ? "" : type;
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+            this.dataUri = dataUri == null ? "" : dataUri;
+            this.preprocessing = preprocessing == null ? "" : preprocessing;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public int getX() {
+            return x;
+        }
+
+        public int getY() {
+            return y;
+        }
+
+        public int getWidth() {
+            return width;
+        }
+
+        public int getHeight() {
+            return height;
+        }
+
+        public String getDataUri() {
+            return dataUri;
+        }
+
+        public String getPreprocessing() {
+            return preprocessing;
         }
     }
 

@@ -25,7 +25,7 @@ class ItemImportPageRendererTest {
 
         assertTrue(html.contains("Wgraj screenshot itemu"));
         assertTrue(html.contains("name=\"itemImage\""));
-        assertTrue(html.contains("Pipeline kończy się na StructuredItemParts"));
+        assertTrue(html.contains("surowy POC OCR per ROI"));
         assertFalse(html.contains("Wstępnie rozpoznane pola"));
         assertFalse(html.contains("Surowy tekst OCR"));
         assertFalse(html.contains("Zatwierdź import itemu"));
@@ -68,6 +68,29 @@ class ItemImportPageRendererTest {
         assertTrue(html.contains("data-item-structure-slot=\"PART_4\""));
         assertTrue(html.contains("data-item-structure-present=\"false\""));
         assertTrue(html.contains(">absent<"));
+        assertTrue(html.contains("data-part1-segmentation"));
+        assertTrue(html.contains("data-part1-source"));
+        assertFalse(html.contains("data-part1-content"));
+        assertFalse(html.contains("PART_1_CONTENT"));
+        assertTrue(html.contains("data-part1-roi-type=\"NAME_AND_STARS\""));
+        assertTrue(html.contains("data-part1-roi-x=\"4\""));
+        assertTrue(html.contains("data-part1-roi-y=\"8\""));
+        assertTrue(html.contains("data-part1-roi-width=\"220\""));
+        assertTrue(html.contains("data-part1-roi-height=\"64\""));
+        assertTrue(html.contains("data-part1-roi-ocr"));
+        assertTrue(html.contains("data-part1-roi-subregion-type=\"NAME_TEXT\""));
+        assertTrue(html.contains("NAME_TEXT: x=6, y=10, width=160, height=50"));
+        assertTrue(html.contains("data-part1-roi-subregion-type=\"NAME_TEXT_CLEANED\""));
+        assertTrue(html.contains("NAME_TEXT_CLEANED: x=6, y=10, width=160, height=50"));
+        assertTrue(html.contains("data-part1-roi-subregion-type=\"NAME_TEXT_FINAL\""));
+        assertTrue(html.contains("data-part1-greater-affix-count=\"2\""));
+        assertTrue(html.contains("Greater Affix stars: 2"));
+        assertTrue(html.contains("data-part1-roi-subregion-type=\"GREATER_AFFIX_STAR_1\""));
+        assertTrue(html.contains("confidence=0.910"));
+        assertTrue(html.contains("profile-name"));
+        assertTrue(html.contains("frame/ornament cleanup"));
+        assertTrue(html.contains("final-profile"));
+        assertTrue(html.contains("BURZOWY KROK"));
         assertFalse(html.contains("Odczyt OCR"));
         assertFalse(html.contains("parsed result"));
     }
@@ -159,9 +182,37 @@ class ItemImportPageRendererTest {
                                 new ItemImportPageModel.StructuralItemPartMappingView("PART_3", true, 2),
                                 new ItemImportPageModel.StructuralItemPartMappingView("PART_4", true, 3)
                         ),
+                        "",
+                        part1Segmentation(),
                         ""
                 ),
                 ""
+        );
+    }
+
+    private static ItemImportPageModel.Part1SegmentationView part1Segmentation() {
+        return new ItemImportPageModel.Part1SegmentationView(
+                "data:image/png;base64,PPP=",
+                1,
+                "PART_1_RAW",
+                320,
+                160,
+                List.of(
+                        new ItemImportPageModel.Part1RoiView("NAME_AND_STARS", 4, 8, 220, 64, "data:image/png;base64,NAM=",
+                                "BURZOWY KROK", 11L, "stub-preprocess", "", List.of(
+                                new ItemImportPageModel.Part1RoiSubRegionView("NAME_TEXT", 6, 10, 160, 50,
+                                        "data:image/png;base64,SUB=", "profile-name"),
+                                new ItemImportPageModel.Part1RoiSubRegionView("NAME_TEXT_CLEANED", 6, 10, 160, 50,
+                                        "data:image/png;base64,CLN=", "frame/ornament cleanup"),
+                                new ItemImportPageModel.Part1RoiSubRegionView("NAME_TEXT_FINAL", 0, 0, 676, 236,
+                                        "data:image/png;base64,FIN=", "final-profile"),
+                                new ItemImportPageModel.Part1RoiSubRegionView("GREATER_AFFIX_STAR_1", 170, 42, 22, 22,
+                                        "data:image/png;base64,STA=", "visual star candidate confidence=0.910")
+                        ), 2),
+                        new ItemImportPageModel.Part1RoiView("CLASSIFICATION", 8, 78, 210, 42, "data:image/png;base64,CLS="),
+                        new ItemImportPageModel.Part1RoiView("ITEM_POWER", 8, 124, 190, 26, "data:image/png;base64,POW="),
+                        new ItemImportPageModel.Part1RoiView("OPTIONAL_INFO", 8, 150, 150, 20, "data:image/png;base64,OPT=")
+                )
         );
     }
 

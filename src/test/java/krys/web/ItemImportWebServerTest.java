@@ -10,6 +10,13 @@ import krys.itemimport.image.HorizontalDivider;
 import krys.itemimport.image.HorizontalDividerDetectionResult;
 import krys.itemimport.image.ItemImagePart;
 import krys.itemimport.image.ItemPartStructureNormalizer;
+import krys.itemimport.image.Part1Roi;
+import krys.itemimport.image.Part1RoiOcrReader;
+import krys.itemimport.image.Part1RoiOcrResult;
+import krys.itemimport.image.Part1RoiOcrSubRegion;
+import krys.itemimport.image.Part1RoiSegmenter;
+import krys.itemimport.image.Part1RoiType;
+import krys.itemimport.image.Part1SegmentationResult;
 import krys.itemimport.image.StructuredItemParts;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Testy HTTP aktualnego importu obrazu: Etap 1/2/3A bez aktywnego OCR. */
+/** Testy HTTP aktualnego importu obrazu: Etap 1/2/3A oraz surowy POC OCR PART_1. */
 class ItemImportWebServerTest {
     private HttpServer server;
     private HttpClient httpClient;
@@ -42,6 +49,8 @@ class ItemImportWebServerTest {
     private CapturingAssembler assembler;
     private StubDividerDetector dividerDetector;
     private ConfigurableStructureNormalizer structureNormalizer;
+    private StubPart1RoiSegmenter part1RoiSegmenter;
+    private StubPart1RoiOcrReader part1RoiOcrReader;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -50,6 +59,8 @@ class ItemImportWebServerTest {
         assembler = new CapturingAssembler();
         dividerDetector = new StubDividerDetector();
         structureNormalizer = new ConfigurableStructureNormalizer();
+        part1RoiSegmenter = new StubPart1RoiSegmenter();
+        part1RoiOcrReader = new StubPart1RoiOcrReader();
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/importuj-item-ze-screena", new ItemImportController(
                 new ItemImportPageRenderer(),
@@ -57,7 +68,9 @@ class ItemImportWebServerTest {
                 assembler,
                 new AssembledItemImageDebugWriter(),
                 dividerDetector,
-                structureNormalizer
+                structureNormalizer,
+                part1RoiSegmenter,
+                part1RoiOcrReader
         ));
         server.start();
         httpClient = HttpClient.newHttpClient();
@@ -101,9 +114,56 @@ class ItemImportWebServerTest {
         assertStructureMapping(response.body(), "PART_2", false, 0);
         assertStructureMapping(response.body(), "PART_3", true, 2);
         assertStructureMapping(response.body(), "PART_4", true, 3);
+        assertTrue(response.body().contains("data-part1-segmentation"));
+        assertTrue(response.body().contains("data-part1-source"));
+        assertTrue(response.body().contains("data-part1-roi-type=\"NAME_AND_STARS\""));
+        assertTrue(response.body().contains("data-part1-roi-type=\"CLASSIFICATION\""));
+        assertTrue(response.body().contains("data-part1-roi-type=\"ITEM_POWER\""));
+        assertTrue(response.body().contains("data-part1-roi-type=\"OPTIONAL_INFO\""));
+        assertTrue(response.body().contains("data-part1-roi-ocr"));
+        assertTrue(response.body().contains("data-part1-roi-subregion-type=\"NAME_TEXT\""));
+        assertTrue(response.body().contains("data-part1-roi-subregion-type=\"NAME_TEXT_CLEANED\""));
+        assertTrue(response.body().contains("data-part1-roi-subregion-type=\"NAME_TEXT_FINAL\""));
+        assertTrue(response.body().contains("data-part1-greater-affix-count=\"2\""));
+        assertTrue(response.body().contains("Greater Affix stars: 2"));
+        assertTrue(response.body().contains("data-part1-roi-subregion-type=\"GREATER_AFFIX_STAR_1\""));
+        assertTrue(response.body().contains("stub-name-profile"));
+        assertTrue(response.body().contains("stub-name-cleanup"));
+        assertTrue(response.body().contains("stub-name-final"));
+        assertTrue(response.body().contains("stub-star-confidence"));
+        assertTrue(response.body().contains("raw-NAME_AND_STARS"));
+        assertTrue(response.body().contains("raw-CLASSIFICATION"));
+        assertTrue(response.body().contains("raw-ITEM_POWER"));
+        assertTrue(response.body().contains("raw-OPTIONAL_INFO"));
+        assertEquals(List.of(
+                Part1RoiType.NAME_AND_STARS,
+                Part1RoiType.CLASSIFICATION,
+                Part1RoiType.ITEM_POWER,
+                Part1RoiType.OPTIONAL_INFO
+        ), part1RoiOcrReader.readTypes);
         assertFalse(response.body().contains("Surowy tekst OCR"));
         assertFalse(response.body().contains("Odczyt OCR"));
         assertFalse(response.body().contains("Zatwierdź import itemu"));
+    }
+
+    @Test
+    void shouldReadEachAvailablePart1RoiSeparatelyWhenOptionalInfoIsMissing() throws Exception {
+        createActiveHero();
+        dividerDetector.rawPartCount = 3;
+        part1RoiSegmenter.includeOptionalInfo = false;
+
+        HttpResponse<String> response = sendMultipartUpload(pngBytes(Color.ORANGE));
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("data-part1-roi-type=\"NAME_AND_STARS\""));
+        assertTrue(response.body().contains("data-part1-roi-type=\"CLASSIFICATION\""));
+        assertTrue(response.body().contains("data-part1-roi-type=\"ITEM_POWER\""));
+        assertFalse(response.body().contains("data-part1-roi-type=\"OPTIONAL_INFO\""));
+        assertEquals(List.of(
+                Part1RoiType.NAME_AND_STARS,
+                Part1RoiType.CLASSIFICATION,
+                Part1RoiType.ITEM_POWER
+        ), part1RoiOcrReader.readTypes);
     }
 
     @Test
@@ -136,6 +196,7 @@ class ItemImportWebServerTest {
         assertFalse(response.body().contains("data-item-structure-row"));
         assertFalse(response.body().contains("data-item-structure-slot=\"PART_1\""));
         assertFalse(response.body().contains("data-item-structure-slot=\"PART_2\""));
+        assertFalse(response.body().contains("data-part1-segmentation"));
     }
 
     @Test
@@ -306,6 +367,56 @@ class ItemImportWebServerTest {
                 throw failure;
             }
             return delegate.normalize(rawParts);
+        }
+    }
+
+    private static final class StubPart1RoiSegmenter implements Part1RoiSegmenter {
+        private boolean includeOptionalInfo = true;
+
+        @Override
+        public Part1SegmentationResult segment(krys.itemimport.image.StructuralItemPart part1) {
+            try {
+                List<Part1Roi> rois = new ArrayList<>();
+                rois.add(new Part1Roi(Part1RoiType.NAME_AND_STARS, 0, 0, 4, 2, "PNG", pngBytes(Color.YELLOW)));
+                rois.add(new Part1Roi(Part1RoiType.CLASSIFICATION, 0, 2, 4, 2, "PNG", pngBytes(Color.ORANGE)));
+                rois.add(new Part1Roi(Part1RoiType.ITEM_POWER, 0, 4, 4, 2, "PNG", pngBytes(Color.WHITE)));
+                if (includeOptionalInfo) {
+                    rois.add(new Part1Roi(Part1RoiType.OPTIONAL_INFO, 0, 6, 4, 2, "PNG", pngBytes(Color.GRAY)));
+                }
+                return new Part1SegmentationResult(
+                        part1,
+                        rois,
+                        ""
+                );
+            } catch (Exception exception) {
+                throw new IllegalStateException(exception);
+            }
+        }
+    }
+
+    private static final class StubPart1RoiOcrReader implements Part1RoiOcrReader {
+        private final List<Part1RoiType> readTypes = new ArrayList<>();
+
+        @Override
+        public Part1RoiOcrResult read(Part1Roi roi) {
+            readTypes.add(roi.getType());
+            if (roi.getType() == Part1RoiType.NAME_AND_STARS) {
+                try {
+                    return new Part1RoiOcrResult(roi.getType(), "raw-" + roi.getType(), 7L, "stub-preprocess", List.of(
+                            new Part1RoiOcrSubRegion("NAME_TEXT", 0, 0, 3, 2, "PNG",
+                                    pngBytes(Color.YELLOW), "stub-name-profile"),
+                            new Part1RoiOcrSubRegion("NAME_TEXT_CLEANED", 0, 0, 3, 2, "PNG",
+                                    pngBytes(Color.ORANGE), "stub-name-cleanup"),
+                            new Part1RoiOcrSubRegion("NAME_TEXT_FINAL", 0, 0, 12, 8, "PNG",
+                                    pngBytes(Color.WHITE), "stub-name-final"),
+                            new Part1RoiOcrSubRegion("GREATER_AFFIX_STAR_1", 2, 0, 2, 2, "PNG",
+                                    pngBytes(Color.PINK), "stub-star-confidence")
+                    ), 2);
+                } catch (Exception exception) {
+                    throw new IllegalStateException(exception);
+                }
+            }
+            return new Part1RoiOcrResult(roi.getType(), "raw-" + roi.getType(), 7L, "stub-preprocess");
         }
     }
 

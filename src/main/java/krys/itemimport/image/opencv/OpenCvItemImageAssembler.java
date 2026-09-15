@@ -26,7 +26,7 @@ import static org.bytedeco.opencv.global.opencv_imgproc.line;
 
 /** Implementacja skladania obrazow itemu oparta o OpenCV; typy Mat nie wychodza poza te klase. */
 public final class OpenCvItemImageAssembler implements ItemImageAssembler {
-    public static final String SINGLE_IMAGE_POLICY = "SINGLE_IMAGE_NO_SCALE_NO_CROP";
+    public static final String SINGLE_IMAGE_POLICY = "SINGLE_IMAGE_PANEL_CROP_NO_SCALE";
     public static final String STITCHED_COMPOSITION_POLICY = "OVERLAP_AWARE_PANEL_STITCH_NO_SCALE";
     public static final String RAW_COMPOSITION_POLICY = "DIAGNOSTIC_VERTICAL_UPLOAD_ORDER_NO_SCALE_MAX_WIDTH_LEFT_ALIGN_BLACK_PADDING";
     public static final String COMPOSITION_POLICY = STITCHED_COMPOSITION_POLICY;
@@ -58,11 +58,13 @@ public final class OpenCvItemImageAssembler implements ItemImageAssembler {
 
             if (decodedImages.size() == 1) {
                 Mat image = decodedImages.getFirst();
+                PanelImage panel = localizePanel(image, PANEL_MARGIN_PIXELS, 0, PANEL_MARGIN_PIXELS, PANEL_MARGIN_PIXELS, true);
+                panels.add(panel);
                 return new AssembledItemImage(
-                        encodePng(image),
+                        encodePng(panel.image()),
                         "PNG",
-                        image.cols(),
-                        image.rows(),
+                        panel.image().cols(),
+                        panel.image().rows(),
                         1,
                         SINGLE_IMAGE_POLICY,
                         AssembledItemImage.STATUS_SINGLE_IMAGE,
@@ -142,6 +144,15 @@ public final class OpenCvItemImageAssembler implements ItemImageAssembler {
     }
 
     private static PanelImage localizePanel(Mat source) {
+        return localizePanel(source, PANEL_MARGIN_PIXELS, PANEL_MARGIN_PIXELS, PANEL_MARGIN_PIXELS, PANEL_MARGIN_PIXELS, false);
+    }
+
+    private static PanelImage localizePanel(Mat source,
+                                            int marginLeft,
+                                            int marginTop,
+                                            int marginRight,
+                                            int marginBottom,
+                                            boolean rejectExternalChrome) {
         int rows = source.rows();
         int cols = source.cols();
         int[] rowActivity = new int[rows];
@@ -165,11 +176,12 @@ public final class OpenCvItemImageAssembler implements ItemImageAssembler {
         if (xRange.isEmpty() || yRange.isEmpty()) {
             return new PanelImage(source.clone(), 0, 0);
         }
+        yRange = new Range(refinePanelTop(source, xRange, yRange, rejectExternalChrome), yRange.endExclusive());
 
-        int x = Math.max(0, xRange.start() - PANEL_MARGIN_PIXELS);
-        int y = Math.max(0, yRange.start() - PANEL_MARGIN_PIXELS);
-        int right = Math.min(cols, xRange.endExclusive() + PANEL_MARGIN_PIXELS);
-        int bottom = Math.min(rows, yRange.endExclusive() + PANEL_MARGIN_PIXELS);
+        int x = Math.max(0, xRange.start() - marginLeft);
+        int y = Math.max(0, yRange.start() - marginTop);
+        int right = Math.min(cols, xRange.endExclusive() + marginRight);
+        int bottom = Math.min(rows, yRange.endExclusive() + marginBottom);
         if (right - x < Math.min(16, cols) || bottom - y < Math.min(16, rows)) {
             return new PanelImage(source.clone(), 0, 0);
         }
@@ -178,6 +190,161 @@ public final class OpenCvItemImageAssembler implements ItemImageAssembler {
              Mat panel = new Mat(source, region)) {
             return new PanelImage(panel.clone(), x, y);
         }
+    }
+
+    private static int refinePanelTop(Mat source, Range xRange, Range yRange, boolean rejectExternalChrome) {
+        int width = Math.max(1, xRange.endExclusive() - xRange.start());
+        int requiredCoverage = Math.max(8, width * 55 / 100);
+        int requiredEdge = Math.max(8, width / 7);
+        BytePointer data = source.data();
+        long step = source.step();
+        int channels = source.channels();
+        int[] coverageByRow = new int[source.rows()];
+        int[] edgeByRow = new int[source.rows()];
+        int[] tooltipBodyByRow = new int[source.rows()];
+        int[] neutralChromeByRow = new int[source.rows()];
+        int centerStart = xRange.start() + width / 5;
+        int centerEnd = xRange.endExclusive() - width / 5;
+        for (int y = yRange.start(); y < yRange.endExclusive(); y++) {
+            int coverage = 0;
+            int edge = 0;
+            int tooltipBody = 0;
+            int neutralChrome = 0;
+            for (int x = xRange.start(); x < xRange.endExclusive(); x++) {
+                Pixel pixel = pixelAt(data, step, channels, x, y);
+                if (isPanelSignal(pixel)) {
+                    coverage++;
+                }
+                if (x >= centerStart && x < centerEnd && isTooltipBodyPixel(pixel)) {
+                    tooltipBody++;
+                }
+                if (x >= centerStart && x < centerEnd && isNeutralChromePixel(pixel)) {
+                    neutralChrome++;
+                }
+                if (y + 1 < source.rows()) {
+                    Pixel below = pixelAt(data, step, channels, x, y + 1);
+                    if (Math.abs(luma(pixel) - luma(below)) >= 18) {
+                        edge++;
+                    }
+                }
+            }
+            coverageByRow[y] = coverage;
+            edgeByRow[y] = edge;
+            tooltipBodyByRow[y] = tooltipBody;
+            neutralChromeByRow[y] = neutralChrome;
+        }
+        int firstPanelSignal = -1;
+        int firstTooltipBody = -1;
+        if (rejectExternalChrome) {
+            firstTooltipBody = findPanelStartAfterExternalChrome(
+                    coverageByRow,
+                    edgeByRow,
+                    tooltipBodyByRow,
+                    neutralChromeByRow,
+                    xRange,
+                    yRange,
+                    requiredCoverage,
+                    requiredEdge
+            );
+        }
+        for (int y = yRange.start(); y < yRange.endExclusive(); y++) {
+            if (hasSustainedCoverage(coverageByRow, y, yRange.endExclusive(), requiredCoverage, 3)
+                    || (coverageByRow[y] >= width * 35 / 100
+                    && edgeByRow[y] >= requiredEdge
+                    && hasSustainedCoverage(coverageByRow, y + 1, yRange.endExclusive(), requiredCoverage, 2))) {
+                if (firstPanelSignal < 0) {
+                    firstPanelSignal = y;
+                }
+                if (!rejectExternalChrome) {
+                    break;
+                }
+            }
+        }
+        if (rejectExternalChrome && firstTooltipBody >= 0) {
+            return firstTooltipBody;
+        }
+        return firstPanelSignal >= 0 ? firstPanelSignal : yRange.start();
+    }
+
+    private static int findPanelStartAfterExternalChrome(int[] coverageByRow,
+                                                         int[] edgeByRow,
+                                                         int[] tooltipBodyByRow,
+                                                         int[] neutralChromeByRow,
+                                                         Range xRange,
+                                                         Range yRange,
+                                                         int requiredCoverage,
+                                                         int requiredEdge) {
+        int width = Math.max(1, xRange.endExclusive() - xRange.start());
+        int centerWidth = Math.max(1, width * 3 / 5);
+        int lowBodyThreshold = Math.max(2, centerWidth * 18 / 100);
+        int highBodyThreshold = Math.max(4, centerWidth * 55 / 100);
+        int neutralChromeThreshold = Math.max(4, centerWidth * 24 / 100);
+        int lowRun = 0;
+        int neutralChromeRun = 0;
+        boolean seenNeutralChrome = false;
+        boolean seenExternalGap = false;
+        for (int y = yRange.start(); y < yRange.endExclusive(); y++) {
+            if (neutralChromeByRow[y] >= neutralChromeThreshold) {
+                neutralChromeRun++;
+            } else {
+                neutralChromeRun = 0;
+            }
+            if (neutralChromeRun >= 3) {
+                seenNeutralChrome = true;
+            }
+            if (tooltipBodyByRow[y] <= lowBodyThreshold) {
+                lowRun++;
+            } else {
+                lowRun = 0;
+            }
+            if (seenNeutralChrome && lowRun >= 5) {
+                seenExternalGap = true;
+            }
+            if (!seenExternalGap) {
+                continue;
+            }
+            boolean panelSignal = hasSustainedCoverage(coverageByRow, y, yRange.endExclusive(), requiredCoverage, 3)
+                    || (coverageByRow[y] >= width * 35 / 100
+                    && edgeByRow[y] >= requiredEdge
+                    && hasSustainedCoverage(coverageByRow, y + 1, yRange.endExclusive(), requiredCoverage, 2));
+            if (panelSignal && hasSustainedCoverage(tooltipBodyByRow, y, yRange.endExclusive(), highBodyThreshold, 3)) {
+                return y;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean hasSustainedCoverage(int[] coverageByRow,
+                                                int startY,
+                                                int endY,
+                                                int requiredCoverage,
+                                                int requiredRows) {
+        if (startY < 0 || startY + requiredRows > endY) {
+            return false;
+        }
+        for (int y = startY; y < startY + requiredRows; y++) {
+            if (coverageByRow[y] < requiredCoverage) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static int luma(Pixel pixel) {
+        return (pixel.red() * 299 + pixel.green() * 587 + pixel.blue() * 114) / 1000;
+    }
+
+    private static boolean isTooltipBodyPixel(Pixel pixel) {
+        int luma = luma(pixel);
+        int max = Math.max(pixel.red(), Math.max(pixel.green(), pixel.blue()));
+        return luma >= 18 && luma <= 115 && max > 24;
+    }
+
+    private static boolean isNeutralChromePixel(Pixel pixel) {
+        int luma = luma(pixel);
+        int max = Math.max(pixel.red(), Math.max(pixel.green(), pixel.blue()));
+        int min = Math.min(pixel.red(), Math.min(pixel.green(), pixel.blue()));
+        return luma >= 120 && max - min <= 55;
     }
 
     private static boolean isPanelSignal(Pixel pixel) {

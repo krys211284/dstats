@@ -39,6 +39,11 @@ public final class ItemImportPageRenderer {
                         .opencv-part-card { padding: 12px; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 10px; background: #fff; }
                         .opencv-part-card h4 { margin: 0 0 6px; }
                         .opencv-part-frame { max-height: 360px; overflow: auto; padding: 10px; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 10px; background: #1d1c1a; }
+                        .part1-raw-ocr { margin: 10px 0 0; padding: 10px; min-height: 44px; max-height: 180px; overflow: auto; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 8px; background: #f7f2ea; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; font-size: 0.9rem; }
+                        .part1-subroi-list { display: grid; gap: 10px; margin-top: 10px; }
+                        .part1-subroi { padding-top: 10px; border-top: 1px solid rgba(109, 102, 92, 0.18); }
+                        .part1-subroi img { display: block; max-width: 100%%; height: auto; margin-top: 6px; border: 1px solid rgba(109, 102, 92, 0.18); background: #1d1c1a; }
+                        .part1-ocr-error { color: var(--error); }
                         .table-scroll { overflow-x: auto; }
                         table { width: 100%%; border-collapse: collapse; font-size: 0.94rem; }
                         th, td { padding: 10px 8px; border-bottom: 1px solid rgba(109, 102, 92, 0.18); text-align: left; vertical-align: top; }
@@ -55,7 +60,7 @@ public final class ItemImportPageRenderer {
                     <header class="hero">
                         <div class="eyebrow">Import itemu / obraz</div>
                         <h1>Importuj pojedynczy item ze screena</h1>
-                        <p class="helper">Aktualny pipeline diagnostyczny składa screenshoty, wykrywa separatory i normalizuje surowe części do stabilnych slotów strukturalnych. Pipeline kończy się na StructuredItemParts; aktywny OCR nie jest obecnie częścią importu obrazu.</p>
+                        <p class="helper">Aktualny pipeline diagnostyczny składa screenshoty, wykrywa separatory i normalizuje surowe części do stabilnych slotów strukturalnych. PART_1 ma dodatkowy surowy POC OCR per ROI; wynik nie jest jeszcze mapowany do domeny itemu.</p>
                     </header>
                     %s
                     %s
@@ -434,10 +439,138 @@ public final class ItemImportPageRenderer {
                     .append(escapeHtml(normalization.getDiagnosticReason()))
                     .append("</p>");
         }
+        html.append(renderPart1Segmentation(normalization));
         html.append("""
                     </section>
                 """);
         return html.toString();
+    }
+
+    private static String renderPart1Segmentation(ItemImportPageModel.ItemPartStructureNormalizationView normalization) {
+        StringBuilder html = new StringBuilder();
+        if (normalization.hasPart1SegmentationError()) {
+            html.append("""
+                        <section class="subpanel part1-segmentation-error" data-part1-segmentation-error>
+                            <h4>PART_1 — błąd segmentacji ROI</h4>
+                            <p class="helper">%s</p>
+                        </section>
+                    """.formatted(escapeHtml(normalization.getPart1SegmentationError())));
+        }
+        if (!normalization.hasPart1Segmentation()) {
+            return html.toString();
+        }
+
+        ItemImportPageModel.Part1SegmentationView segmentation = normalization.getPart1Segmentation();
+        html.append("""
+                    <section class="subpanel part1-segmentation" data-part1-segmentation data-part1-source-index="%d" data-part1-source-name="%s">
+                        <h4>PART_1 — Segmentacja ROI</h4>
+                        <div class="opencv-part-grid">
+                            <article class="opencv-part-card" data-part1-source>
+                                <h4>Cały PART_1</h4>
+                                <p class="helper">raw part #%d, %d x %d</p>
+                                <div class="opencv-part-frame">
+                                    <img src="%s" alt="Cały PART_1">
+                                </div>
+                            </article>
+                    """.formatted(
+                segmentation.getSourcePartIndex(),
+                escapeHtml(segmentation.getSourcePartName()),
+                segmentation.getSourcePartIndex(),
+                segmentation.getSourcePartWidth(),
+                segmentation.getSourcePartHeight(),
+                escapeHtml(segmentation.getSourcePartDataUri())
+        ));
+        for (ItemImportPageModel.Part1RoiView roi : segmentation.getRois()) {
+            html.append("""
+                            <article class="opencv-part-card" data-part1-roi data-part1-roi-type="%s" data-part1-roi-x="%d" data-part1-roi-y="%d" data-part1-roi-width="%d" data-part1-roi-height="%d">
+                                <h4>%s</h4>
+                                <p class="helper">x=%d, y=%d, width=%d, height=%d</p>
+                                <div class="opencv-part-frame">
+                                    <img src="%s" alt="PART_1 ROI %s">
+                                </div>
+                                <p class="helper">OCR raw, %d ms%s</p>
+                                <pre class="part1-raw-ocr" data-part1-roi-ocr>%s</pre>
+                                %s
+                                %s
+                                %s
+                            </article>
+                    """.formatted(
+                    escapeHtml(roi.getType()),
+                    roi.getX(),
+                    roi.getY(),
+                    roi.getWidth(),
+                    roi.getHeight(),
+                    escapeHtml(roi.getType()),
+                    roi.getX(),
+                    roi.getY(),
+                    roi.getWidth(),
+                    roi.getHeight(),
+                    escapeHtml(roi.getDataUri()),
+                    escapeHtml(roi.getType()),
+                    roi.getOcrDurationMillis(),
+                    roi.getOcrPreprocessing().isBlank() ? "" : ", " + escapeHtml(roi.getOcrPreprocessing()),
+                    escapeHtml(roi.getRawOcrText()),
+                    renderGreaterAffixCount(roi),
+                    renderPart1RoiSubRegions(roi),
+                    renderPart1RoiOcrError(roi)
+            ));
+        }
+        html.append("""
+                        </div>
+                    </section>
+                """);
+        return html.toString();
+    }
+
+    private static String renderPart1RoiSubRegions(ItemImportPageModel.Part1RoiView roi) {
+        if (!roi.hasSubRegions()) {
+            return "";
+        }
+        StringBuilder html = new StringBuilder("<div class=\"part1-subroi-list\" data-part1-roi-subregions>");
+        for (ItemImportPageModel.Part1RoiSubRegionView subRegion : roi.getSubRegions()) {
+            html.append("""
+                    <div class="part1-subroi" data-part1-roi-subregion data-part1-roi-subregion-type="%s" data-part1-roi-subregion-x="%d" data-part1-roi-subregion-y="%d" data-part1-roi-subregion-width="%d" data-part1-roi-subregion-height="%d">
+                        <p class="helper">%s: x=%d, y=%d, width=%d, height=%d%s</p>
+                        <img src="%s" alt="PART_1 sub-ROI %s">
+                    </div>
+                    """.formatted(
+                    escapeHtml(subRegion.getType()),
+                    subRegion.getX(),
+                    subRegion.getY(),
+                    subRegion.getWidth(),
+                    subRegion.getHeight(),
+                    escapeHtml(subRegion.getType()),
+                    subRegion.getX(),
+                    subRegion.getY(),
+                    subRegion.getWidth(),
+                    subRegion.getHeight(),
+                    subRegion.getPreprocessing().isBlank() ? "" : ", " + escapeHtml(subRegion.getPreprocessing()),
+                    escapeHtml(subRegion.getDataUri()),
+                    escapeHtml(subRegion.getType())
+            ));
+        }
+        html.append("</div>");
+        return html.toString();
+    }
+
+    private static String renderGreaterAffixCount(ItemImportPageModel.Part1RoiView roi) {
+        if (!roi.hasGreaterAffixDiagnostics()) {
+            return "";
+        }
+        return "<p class=\"helper\" data-part1-greater-affix-count=\""
+                + roi.getGreaterAffixCount()
+                + "\">Greater Affix stars: "
+                + roi.getGreaterAffixCount()
+                + "</p>";
+    }
+
+    private static String renderPart1RoiOcrError(ItemImportPageModel.Part1RoiView roi) {
+        if (!roi.hasOcrError()) {
+            return "";
+        }
+        return "<p class=\"helper part1-ocr-error\" data-part1-roi-ocr-error>"
+                + escapeHtml(roi.getOcrError())
+                + "</p>";
     }
 
     private static String buildUploadAction(String currentBuildQuery) {

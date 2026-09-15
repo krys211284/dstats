@@ -207,6 +207,15 @@ class OpenCvHorizontalDividerDetectorTest {
     }
 
     @Test
+    void shouldDetectDividersAfterSingleImagePanelLocalization() throws Exception {
+        assertLocalizedSingleFixtureDividers("buty.png", 2, 3);
+        assertLocalizedSingleFixtureDividers("dziedzic-zatracenia-helm-full.png", 2, 3);
+        assertLocalizedSingleFixtureDividers("tarcza.png", 2, 3);
+        assertLocalizedSingleFixtureDividers("tarcza1.png", 3, 4);
+        assertLocalizedSingleFixtureDividers("verathiel-miecz-v2.png", 2, 3);
+    }
+
+    @Test
     void shouldDetectHelmetDividersAfterAcceptedMultiImageStitching() throws Exception {
         byte[] first = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-1.png"));
         byte[] second = Files.readAllBytes(Path.of("src/test/resources/items/dziedzic-zatracenia-helm-2.png"));
@@ -362,6 +371,16 @@ class OpenCvHorizontalDividerDetectorTest {
     private static AssembledItemImage fixture(String filename) throws Exception {
         BufferedImage image = ImageIO.read(Path.of("src/test/resources/items", filename).toFile());
         return assembled(image);
+    }
+
+    private void assertLocalizedSingleFixtureDividers(String filename, int expectedDividers, int expectedParts) throws Exception {
+        AssembledItemImage image = assembler.assemble(List.of(request(filename,
+                Files.readAllBytes(Path.of("src/test/resources/items", filename)))));
+
+        HorizontalDividerDetectionResult result = detector.detect(image);
+
+        assertEquals(AssembledItemImage.STATUS_SINGLE_IMAGE, image.getAssemblyStatus(), filename);
+        assertDividerContract(result, expectedDividers, expectedParts, image.getWidth(), image.getHeight());
     }
 
     private static AssembledItemImage assembled(BufferedImage image) throws Exception {

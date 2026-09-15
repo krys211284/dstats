@@ -29,7 +29,7 @@ class OpenCvItemImageAssemblerTest {
     private final OpenCvItemImageAssembler assembler = new OpenCvItemImageAssembler();
 
     @Test
-    void shouldKeepSingleImageDimensionsWithoutScalingOrCropping() throws Exception {
+    void shouldKeepSingleImagePanelDimensionsWithoutScalingWhenNoOuterChromeExists() throws Exception {
         BufferedImage source = patternedPanel(17, 9, 11);
 
         AssembledItemImage image = assembler.assemble(List.of(request("single.png", png(source))));
@@ -41,6 +41,43 @@ class OpenCvItemImageAssemblerTest {
         assertEquals(AssembledItemImage.STATUS_SINGLE_IMAGE, image.getAssemblyStatus());
         assertTrue(image.getStitchDiagnostics().isEmpty());
         assertImagesEqual(source, decode(image));
+    }
+
+    @Test
+    void shouldCropOuterChromeAboveSingleImagePanelWithoutUsingTextContent() throws Exception {
+        BufferedImage panel = patternedPanel(82, 96, 13);
+        BufferedImage source = screenshotWithChromeAbovePanel(panel, 34, 12);
+
+        AssembledItemImage image = assembler.assemble(List.of(request("single-with-chrome.png", png(source))));
+
+        BufferedImage decoded = decode(image);
+        assertEquals(1, image.getSourceImageCount());
+        assertEquals(OpenCvItemImageAssembler.SINGLE_IMAGE_POLICY, image.getCompositionPolicy());
+        assertEquals(AssembledItemImage.STATUS_SINGLE_IMAGE, image.getAssemblyStatus());
+        assertTrue(image.getHeight() < source.getHeight(), "single-image powinien odciac zewnetrzny chrome nad panelem.");
+        assertTrue(source.getHeight() - image.getHeight() >= 20, "odciecie powinno usunac tekstowy pasek nad panelem.");
+        assertTrue(image.getWidth() <= source.getWidth());
+        assertContentPixelsEqual(panel, decoded, findPanelLeftOffset(decoded, panel));
+    }
+
+    @Test
+    void shouldCropOuterChromeFromRealFullHelmetSingleScreenshot() throws Exception {
+        byte[] fixture = Files.readAllBytes(itemPath("dziedzic-zatracenia-helm-full.png"));
+        BufferedImage source = ImageIO.read(new ByteArrayInputStream(fixture));
+
+        AssembledItemImage image = assembler.assemble(List.of(request("dziedzic-zatracenia-helm-full.png", fixture)));
+
+        BufferedImage decoded = decode(image);
+        PointOffset offset = findImageOffset(source, decoded);
+        assertEquals(1, image.getSourceImageCount());
+        assertEquals(OpenCvItemImageAssembler.SINGLE_IMAGE_POLICY, image.getCompositionPolicy());
+        assertEquals(AssembledItemImage.STATUS_SINGLE_IMAGE, image.getAssemblyStatus());
+        assertTrue(image.getHeight() < source.getHeight(), "realny single screenshot powinien zostac uciety od gory.");
+        assertTrue(offset.y() > 0, "crop powinien zaczynac sie ponizej zewnetrznego chrome UI.");
+        assertEquals(source.getHeight(), offset.y() + image.getHeight(),
+                "assembler powinien zachowac dol itemu po odcieciu gornego chrome.");
+        assertTrue(image.getWidth() <= source.getWidth());
+        assertTooltipTopLooksLikeItemPanel(decoded);
     }
 
     @Test
@@ -267,6 +304,7 @@ class OpenCvItemImageAssemblerTest {
     @Test
     void shouldAssembleRealItemScreenshotFixture() throws Exception {
         byte[] fixture = Files.readAllBytes(Path.of("src/test/resources/items/verathiel-miecz-v2.png"));
+        BufferedImage source = ImageIO.read(new ByteArrayInputStream(fixture));
 
         AssembledItemImage image = assembler.assemble(List.of(request("verathiel-miecz-v2.png", fixture)));
 
@@ -275,7 +313,17 @@ class OpenCvItemImageAssemblerTest {
         assertEquals(decoded.getHeight(), image.getHeight());
         assertTrue(image.getWidth() > 0);
         assertTrue(image.getHeight() > 0);
+        assertTrue(image.getWidth() < source.getWidth(), "single-image fixture powinien zostac zawężony do panelu itemu.");
+        assertEquals(source.getHeight(), image.getHeight(), "fixture nie ma chrome nad panelem, wiec gora nie powinna zostac ucieta.");
         assertEquals(AssembledItemImage.STATUS_SINGLE_IMAGE, image.getAssemblyStatus());
+    }
+
+    @Test
+    void shouldAssembleRealSingleImageFixturesAfterPanelLocalization() throws Exception {
+        assertRealSingleFixtureAssembles("buty.png");
+        assertRealSingleFixtureAssembles("tarcza.png");
+        assertRealSingleFixtureAssembles("tarcza1.png");
+        assertRealSingleFixtureAssembles("verathiel-miecz-v2.png");
     }
 
     @Test
@@ -360,6 +408,19 @@ class OpenCvItemImageAssemblerTest {
         return image;
     }
 
+    private static BufferedImage screenshotWithChromeAbovePanel(BufferedImage panel, int chromeHeight, int panelX) {
+        BufferedImage image = new BufferedImage(panel.getWidth() + panelX * 2, panel.getHeight() + chromeHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = image.createGraphics();
+        graphics.setColor(Color.BLACK);
+        graphics.fillRect(0, 0, image.getWidth(), image.getHeight());
+        graphics.setColor(new Color(230, 230, 230));
+        graphics.fillRect(24, 9, 34, 9);
+        graphics.drawLine(64, 13, 110, 13);
+        graphics.drawImage(panel, panelX, chromeHeight, null);
+        graphics.dispose();
+        return image;
+    }
+
     private static BufferedImage crop(BufferedImage source, int x, int y, int width, int height) {
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Graphics2D graphics = image.createGraphics();
@@ -378,6 +439,22 @@ class OpenCvItemImageAssemblerTest {
         return ImageIO.read(new ByteArrayInputStream(image.getImageBytes()));
     }
 
+    private void assertRealSingleFixtureAssembles(String filename) throws Exception {
+        byte[] fixture = Files.readAllBytes(itemPath(filename));
+
+        AssembledItemImage image = assembler.assemble(List.of(request(filename, fixture)));
+
+        assertEquals(1, image.getSourceImageCount(), filename);
+        assertEquals(AssembledItemImage.STATUS_SINGLE_IMAGE, image.getAssemblyStatus(), filename);
+        assertTrue(image.getWidth() > 0, filename);
+        assertTrue(image.getHeight() > 0, filename);
+        assertTrue(decode(image).getWidth() == image.getWidth(), filename);
+    }
+
+    private static Path itemPath(String filename) {
+        return Path.of("src/test/resources/items", filename);
+    }
+
     private static void assertContentPixelsEqual(BufferedImage expectedPanel, BufferedImage actual, int leftMargin) {
         assertEquals(expectedPanel.getHeight(), actual.getHeight());
         for (int y = 0; y < expectedPanel.getHeight(); y++) {
@@ -388,16 +465,72 @@ class OpenCvItemImageAssemblerTest {
     }
 
     private static int findPanelLeftOffset(BufferedImage stitched, BufferedImage panel) {
-        Color firstPanelPixel = new Color(panel.getRGB(0, 0));
         for (int x = 0; x <= stitched.getWidth() - panel.getWidth(); x++) {
-            Color actual = new Color(stitched.getRGB(x, 0));
-            if (actual.getRed() == firstPanelPixel.getRed()
-                    && actual.getGreen() == firstPanelPixel.getGreen()
-                    && actual.getBlue() == firstPanelPixel.getBlue()) {
+            if (matchesPanelSamples(stitched, panel, x)) {
                 return x;
             }
         }
         throw new AssertionError("Nie znaleziono poczatku panelu w stitched image.");
+    }
+
+    private static boolean matchesPanelSamples(BufferedImage stitched, BufferedImage panel, int leftMargin) {
+        int stepX = Math.max(1, panel.getWidth() / 16);
+        int stepY = Math.max(1, panel.getHeight() / 24);
+        for (int y = 0; y < panel.getHeight(); y += stepY) {
+            for (int x = 0; x < panel.getWidth(); x += stepX) {
+                if (stitched.getRGB(leftMargin + x, y) != panel.getRGB(x, y)) {
+                    return false;
+                }
+            }
+        }
+        return stitched.getRGB(leftMargin + panel.getWidth() - 1, panel.getHeight() - 1)
+                == panel.getRGB(panel.getWidth() - 1, panel.getHeight() - 1);
+    }
+
+    private static PointOffset findImageOffset(BufferedImage source, BufferedImage assembled) {
+        for (int y = 0; y <= source.getHeight() - assembled.getHeight(); y++) {
+            for (int x = 0; x <= source.getWidth() - assembled.getWidth(); x++) {
+                if (matchesImageSamples(source, assembled, x, y)) {
+                    return new PointOffset(x, y);
+                }
+            }
+        }
+        throw new AssertionError("Nie znaleziono zlozonego obrazu wewnatrz zrodlowego screenshotu.");
+    }
+
+    private static boolean matchesImageSamples(BufferedImage source, BufferedImage assembled, int offsetX, int offsetY) {
+        int stepX = Math.max(1, assembled.getWidth() / 16);
+        int stepY = Math.max(1, assembled.getHeight() / 24);
+        for (int y = 0; y < assembled.getHeight(); y += stepY) {
+            for (int x = 0; x < assembled.getWidth(); x += stepX) {
+                if (source.getRGB(offsetX + x, offsetY + y) != assembled.getRGB(x, y)) {
+                    return false;
+                }
+            }
+        }
+        return source.getRGB(offsetX + assembled.getWidth() - 1, offsetY + assembled.getHeight() - 1)
+                == assembled.getRGB(assembled.getWidth() - 1, assembled.getHeight() - 1);
+    }
+
+    private static void assertTooltipTopLooksLikeItemPanel(BufferedImage image) {
+        int inspectedHeight = Math.min(10, image.getHeight());
+        int brightPixels = 0;
+        int signalPixels = 0;
+        for (int y = 0; y < inspectedHeight; y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                Color color = new Color(image.getRGB(x, y));
+                int luma = (color.getRed() * 299 + color.getGreen() * 587 + color.getBlue() * 114) / 1000;
+                if (luma >= 145) {
+                    brightPixels++;
+                }
+                if (luma >= 18) {
+                    signalPixels++;
+                }
+            }
+        }
+        int inspectedPixels = inspectedHeight * image.getWidth();
+        assertTrue(signalPixels >= inspectedPixels / 4, "gora wyniku powinna zawierac ramke/tlo tooltipa itemu.");
+        assertTrue(brightPixels < inspectedPixels / 3, "gora wyniku nie powinna byc jasnym paskiem zewnetrznego UI.");
     }
 
     private static void assertImagesEqual(BufferedImage expected, BufferedImage actual) {
@@ -415,6 +548,9 @@ class OpenCvItemImageAssemblerTest {
         assertEquals(expected.getRed(), actual.getRed(), "red at " + x + "," + y);
         assertEquals(expected.getGreen(), actual.getGreen(), "green at " + x + "," + y);
         assertEquals(expected.getBlue(), actual.getBlue(), "blue at " + x + "," + y);
+    }
+
+    private record PointOffset(int x, int y) {
     }
 
     private static final class CapturingLogHandler extends Handler {
