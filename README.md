@@ -63,12 +63,12 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - wspólny renderer app shell oraz wspólny zestaw tokenów wizualnych dla głównych ekranów SSR, z czytelnym wyróżnianiem aktywnego modułu, akcji i statusów,
 - centralny rejestr modułów aplikacji z opisem, grupą, statusem i URL,
 - placeholder pages dla przyszłych sekcji dodatku i sezonu bez implementacji ich mechaniki,
-- SSR flow `Importuj item ze screena` dla diagnostycznego importu obrazu kończącego się na `StructuredItemParts`,
+- SSR flow `Importuj item ze screena` dla diagnostycznego importu obrazu kończącego się diagnostyką `StructuredItemParts` oraz POC odczytu PART_1,
 - Etap 1 importu obrazu: `1..N` screenshotów jednego itemu składane przez `OpenCvItemImageAssembler` do `AssembledItemImage`,
 - Etap 2A importu obrazu: strukturalna detekcja separatorów przez `HorizontalDividerDetector` i podział na surowe `ItemImagePart[]`,
 - Etap 3A importu obrazu: deterministyczna normalizacja surowych części do `StructuredItemParts` przez `ItemPartStructureNormalizer`,
-- diagnostyczne UI dla Etapów 1/2A/3A bez aktywnego OCR, bez parsera tekstu, bez OCR results i bez automatycznego zapisu itemu z obrazu,
-- usunięty legacy Windows OCR z runtime importu obrazu; przyszły OCR ma być osobnym nowym etapem po `StructuredItemParts`,
+- diagnostyczne UI dla Etapów 1/2A/3A oraz PART_1 z raw OCR per ROI, obrazowym liczeniem gwiazdek i neutralnym `Part1ReadResult`, bez automatycznego zapisu itemu z obrazu,
+- usunięty legacy Windows OCR z runtime importu obrazu; aktywny POC PART_1 używa Tess4J i nie mapuje wyniku do domeny itemu,
 - walidowany formularz zapisanych/ręcznie edytowanych itemów z edytowalną listą affixów oraz osobnym mapowaniem do aktualnego modelu buildu,
 - minimalną trwałą bibliotekę zapisanych itemów z wieloma itemami tego samego slotu, zapisywaną lokalnie w stabilnym katalogu użytkownika,
 - osobną bazę wiedzy itemów uczącą się wyłącznie z ręcznie zatwierdzonych itemów, z aktywną epoką wiedzy, obserwowanymi typami affixów, obserwowanymi aspektami i resetem sezonowym,
@@ -139,8 +139,8 @@ Kontrakt aktualnej warstwy aplikacyjnej:
 - `OpenCvItemImageAssembler` składa jeden lub wiele screenshotów jednego tooltipa do `AssembledItemImage`,
 - `HorizontalDividerDetector` analizuje finalny obraz i zwraca strukturalne separatory oraz surowe `ItemImagePart[]`,
 - `ItemPartStructureNormalizer` normalizuje uporządkowane raw parts do `StructuredItemParts`,
-- aktywny pipeline importu obrazu kończy się na `StructuredItemParts`; nie uruchamia OCR, parsera tekstu, ręcznego formularza potwierdzenia ani zapisu do biblioteki,
-- legacy Windows OCR, preprocessing OCR, merger OCR, parser OCR i debug trace starego importu obrazu zostały usunięte; przyszły OCR musi być osobnym etapem po obecnym kontrakcie obrazu,
+- aktywny pipeline importu obrazu po `StructuredItemParts` uruchamia tylko diagnostyczny POC PART_1: ROI, raw Tess4J OCR per ROI, obrazowy detektor gwiazdek i neutralny `Part1ReadResult`; nie uruchamia domenowego parsera itemu, ręcznego formularza potwierdzenia ani zapisu do biblioteki,
+- legacy Windows OCR, preprocessing OCR, merger OCR, parser OCR i debug trace starego importu obrazu zostały usunięte; obecny OCR PART_1 jest nowym etapem diagnostycznym opartym o Tess4J,
 - `AspectRegistry` jest katalogiem znanych aspektów dostępnych w imporcie i waliduje zgodność wybranego aspektu ze slotem itemu,
 - `AffixRegistry` / `ApplicationAffixRegistry` jest osobnym katalogiem affixów, analogicznym koncepcyjnie do katalogu aspektów, ale niezależnym od niego; służy do ręcznej korekty, pracy na zapisanych odczytach itemów i przyszłego tworzenia idealnych itemów na bazie katalogu,
 - `ImportedItemDisplayedValueReverseResolver` jest ogólnym etapem importu dla wartości widocznych po Doskonaleniu; może uzupełnić `referenceValue` tylko wtedy, gdy model Doskonalenia daje jednoznaczny wynik dla widocznej wartości, typu affixu i jakości itemu,
@@ -446,15 +446,15 @@ Kontrakt aktywnego pipeline'u obrazu:
 - Etap 1 składa screenshoty przez `OpenCvItemImageAssembler` do `AssembledItemImage`, zachowując diagnostykę panelu, contentu, overlapu, confidence i ewentualnego obrazu debug,
 - Etap 2A dzieli złożony obraz przez `HorizontalDividerDetector` na surowe `ItemImagePart[]`, zachowując diagnostykę dividerów, overlayu oraz wycinków części,
 - Etap 3A normalizuje wyłącznie kolejność i liczbę surowych części przez `ItemPartStructureNormalizer` do `StructuredItemParts`,
-- bieżący pipeline kończy się dokładnie na `StructuredItemParts`; po tym punkcie nie ma aktywnego odczytu tekstu, parsera tekstowego, formularza potwierdzenia itemu, projekcji runtime ani automatycznego zapisu do biblioteki,
-- GUI importu pokazuje diagnostykę Etapów 1/2A/3A, błędy walidacji uploadu i błędy etapów obrazu, ale nie pokazuje wyników odczytu tekstu ani pól starego importu,
+- bieżący pipeline po `StructuredItemParts` ma wyłącznie diagnostyczny odczyt PART_1: raw Tess4J OCR per ROI, obrazowy detektor gwiazdek i neutralny `Part1ReadResult`; po tym punkcie nie ma domenowego parsera itemu, formularza potwierdzenia itemu, projekcji runtime ani automatycznego zapisu do biblioteki,
+- GUI importu pokazuje diagnostykę Etapów 1/2A/3A, błędy walidacji uploadu, błędy etapów obrazu, raw OCR PART_1 oraz neutralny wynik odczytu PART_1, ale nie pokazuje pól starego importu ani formularza zatwierdzenia,
 - failure isolation pozostaje jawne: błąd Etapu 2A albo 3A nie usuwa diagnostyki wcześniejszego Etapu 1, a błąd Etapu 3A nie usuwa diagnostyki Etapu 2A.
 
 Usunięty kontrakt legacy:
 - stary runtime Windows OCR nie jest częścią aktywnego importu obrazu,
-- repo nie ma aktywnego `Windows.Media.Ocr`, OCR readera, preprocessingu pod OCR, mergera wariantów OCR, parsera tekstu obrazu, kandydatów OCR ani debug trace starego importu,
-- `ItemImportPageModel` nie przechowuje martwych pól starego OCR, surowego tekstu, parsed result, statusów OCR ani formularza potwierdzenia importu,
-- przyszły OCR może powstać tylko jako nowy, osobny etap po `StructuredItemParts`; nie może reaktywować usuniętej ścieżki Windows OCR.
+- repo nie ma aktywnego `Windows.Media.Ocr`, mergera wariantów OCR, parsera tekstu starego importu, kandydatów OCR ani debug trace starego importu,
+- `ItemImportPageModel` nie przechowuje martwych pól starego OCR, statusów OCR ani formularza potwierdzenia importu; przechowuje tylko aktualną diagnostykę PART_1,
+- dalszy OCR może rozwijać tylko nową ścieżkę po `StructuredItemParts`; nie może reaktywować usuniętej ścieżki Windows OCR.
 
 Modele zapisanych itemów pozostają osobnym, ręcznym i kompatybilnym obszarem aplikacji:
 - `FullItemRead` jest utrwalanym opisem linii itemu używanym przez bibliotekę, edycję i starsze zapisane dane; aktywny upload obrazu nie tworzy dziś nowego `FullItemRead`,
@@ -1209,8 +1209,8 @@ Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny bu
 - główną ścieżkę użytkownika opartą o `CurrentBuildRequest`, a nie o testowy snapshot,
 - wspólną usługę aplikacyjną `CurrentBuildCalculationService` dla GUI i CLI,
 - wspólną fabrykę runtime `CurrentBuildSnapshotFactory` budującą `HeroBuildSnapshot`,
-- osobny diagnostyczny input flow obrazu `ItemImageImportRequest -> OpenCvItemImageAssembler -> AssembledItemImage -> HorizontalDividerDetector -> ItemImagePart[] -> ItemPartStructureNormalizer -> StructuredItemParts`,
-- brak aktywnego OCR, parsera tekstu, ręcznego potwierdzenia itemu i automatycznego zapisu po uploadzie obrazu,
+- osobny diagnostyczny input flow obrazu `ItemImageImportRequest -> OpenCvItemImageAssembler -> AssembledItemImage -> HorizontalDividerDetector -> ItemImagePart[] -> ItemPartStructureNormalizer -> StructuredItemParts -> PART_1 ROI -> Part1ReadResult`,
+- brak domenowego parsera itemu, ręcznego potwierdzenia itemu i automatycznego zapisu po uploadzie obrazu,
 - trwałą bibliotekę itemów opartą o prosty lokalny zapis plikowy bez bazy danych,
 - osobną bazę wiedzy itemów opartą o prosty lokalny zapis plikowy, z aktywną epoką i resetem obserwacji,
 - osobną usługę `BuildSearchCalculationService` dla backendowego searcha,
@@ -1718,17 +1718,19 @@ PART_1 po Etapie 3A:
 - `TesseractPart1RoiOcrReader` używa Tess4J `5.20.0`, zasobu `src/main/resources/tessdata/pol.traineddata` i języka `pol`; nie wymaga ręcznie zainstalowanego `tesseract.exe` w `PATH`,
 - OCR PART_1 ma profile zależne od ROI: `NAME_AND_STARS` jest wewnętrznie rozbijany tylko na potrzeby diagnostyki na pomocnicze `NAME_TEXT` i opcjonalne `STARS_REGION`, nazwa jest czytana z tymczasowej kopii `NAME_TEXT` po obrazowym ograniczeniu dekoracyjnego marginesu/frame, gwiazdki nie są czytane OCR-em, `greaterAffixCount` jest liczony obrazowo z jasnych/różowo-białych kompaktowych komponentów gwiazdek w `NAME_AND_STARS`, a `CLASSIFICATION`, `ITEM_POWER` i `OPTIONAL_INFO` mają osobne generyczne profile preprocessingu/PSM,
 - OCR jest uruchamiany osobno dla każdego istniejącego ROI; brak `OPTIONAL_INFO` oznacza brak czwartego wywołania i nie jest błędem,
-- wynik OCR jest wyłącznie surową diagnostyką (`raw OCR text` + czas odczytu); kod nie mapuje jeszcze nazwy, klasyfikacji, item power ani optional info do modelu domenowego, nie tworzy `Part1ReadResult`, nie liczy greater affixów i nie poprawia błędów OCR heurystykami parsera,
+- po surowym OCR i obrazowym detektorze gwiazdek `Part1ReadParser` buduje neutralny `Part1ReadResult`: scala linie nazwy bez słownikowych poprawek, przenosi `greaterAffixCount`, scala `classificationRaw`, parsuje typ itemu, rarity, `ancient`, `mythicUnique`, `equipmentSlot`, liczbową moc przedmiotu oraz opcjonalną linię jakości; wynik zachowuje raw OCR per ROI do porównania z parsowaniem,
+- `Part1ReadResult` nie jest modelem domenowym itemu: nie tworzy `ItemImportDetails`, nie mapuje masterworkingu ani affixów, nie zapisuje itemu do biblioteki i nie poprawia błędów OCR nazw słownikiem; pola klasyfikacji pozostają neutralną diagnostyką PART_1,
 - UI importu pokazuje cały obraz PART_1 oraz każdy wykryty ROI z typem, bounds `x/y/width/height`, obrazem ROI, użytym profilem preprocessingu, surowym tekstem OCR oraz ewentualnymi wewnętrznymi sub-ROI przez hooki `data-part1-*`; dla nazwy są to `NAME_TEXT` jako źródło, `NAME_TEXT_CLEANED` po usunięciu wykrytych komponentów dekoracyjnych, `NAME_TEXT_FINAL` jako finalny obraz przekazany do Tess4J oraz `GREATER_AFFIX_STAR_N` jako obrazowe kandydaty gwiazdek z confidence,
+- pod diagnostyką ROI UI pokazuje sekcję `PART_1 — Wynik odczytu` z nazwą, liczbą gwiazdek, surową klasyfikacją, typem, rarity, `ancient`, `mythicUnique`, slotem, mocą itemu oraz opcjonalną jakością wyświetlaną/masterworking quality; jest to nadal diagnostyka, nie formularz zatwierdzenia importu,
 - ten etap nie implementuje PART_2/PART_3/PART_4, nie odczytuje affixów, nie dodaje `Windows.Media.Ocr` ani systemowego Windows OCR; PART_1 pozostaje otwartym POC wejść pod przyszły właściwy odczyt.
 
 Aktywny pipeline importu obrazu kończy się obecnie dokładnie tutaj:
 
 ```text
-1..N screenshots -> OpenCvItemImageAssembler -> AssembledItemImage -> HorizontalDividerDetector -> raw ItemImagePart[] -> ItemPartStructureNormalizer -> StructuredItemParts -> PART_1 ROI segmentation -> raw Tesseract OCR per ROI
+1..N screenshots -> OpenCvItemImageAssembler -> AssembledItemImage -> HorizontalDividerDetector -> raw ItemImagePart[] -> ItemPartStructureNormalizer -> StructuredItemParts -> PART_1 ROI segmentation -> raw Tesseract OCR per ROI + star detector -> Part1ReadParser -> Part1ReadResult diagnostics
 ```
 
-Po `StructuredItemParts` istnieje tylko surowy POC OCR dla ROI PART_1. Nie ma parsowania tekstu, formularza potwierdzenia importu ani automatycznego zapisu itemu. Przyszły właściwy OCR/parser musi zostać zaprojektowany jako osobny etap po tym kontrakcie i nie może reaktywować usuniętego legacy Windows OCR.
+Po `StructuredItemParts` istnieje surowy POC OCR dla ROI PART_1 oraz neutralny parser `Part1ReadResult`. Nie ma mapowania do domeny itemu, formularza potwierdzenia importu ani automatycznego zapisu itemu. Przyszły właściwy importer domenowy musi zostać zaprojektowany jako osobny etap po tym kontrakcie i nie może reaktywować usuniętego legacy Windows OCR.
 
 Kontrakt prezentacji dla smoke testu importu itemu:
 - GUI importu jest po polsku i jasno komunikuje, że obecnie jest diagnostyką obrazu pojedynczego itemu, a nie automatycznym importem itemu do biblioteki,
@@ -1821,7 +1823,7 @@ Kontrakt prezentacji dla smoke testu biblioteki itemów:
 - Pęknięcie golden values oznacza zmianę zachowania engine, a nie kosmetyczną różnicę.
 
 ### 11.2. Testy warstwy obrazu w imporcie itemów
-Aktywny import obrazu nie ma już testów realnego Windows OCR, mergera OCR ani parsera tekstu. Standardowy przebieg testów nie uruchamia `Windows.Media.Ocr`, a POC PART_1 OCR używa Tess4J i bundlowanego `pol.traineddata` zamiast środowiskowego Windows OCR.
+Aktywny import obrazu nie ma już testów realnego Windows OCR, mergera OCR ani starego domenowego parsera tekstu. Standardowy przebieg testów nie uruchamia `Windows.Media.Ocr`, a POC PART_1 OCR używa Tess4J, bundlowanego `pol.traineddata` i neutralnego `Part1ReadParser` zamiast środowiskowego Windows OCR.
 
 Deterministyczny kontrakt obrazu jest testowany etapami:
 - `OpenCvItemImageAssemblerTest` pokrywa Etap 1, w tym realne fixture'y obrazów, panel-localized crop pojedynczego obrazu bez skalowania i bez OCR, realny `dziedzic-zatracenia-helm-full.png` z zewnętrznym chrome nad tooltipem, overlap-aware stitching, błędy confidence i best-effort debug artifact writing,
@@ -1829,6 +1831,7 @@ Deterministyczny kontrakt obrazu jest testowany etapami:
 - `DeterministicItemPartStructureNormalizerTest` i `ItemPartStructureNormalizerPipelineTest` pokrywają Etap 3A oraz pełną sekwencję obrazu do `StructuredItemParts`,
 - `Part1RoiSegmenterPipelineTest` pokrywa segmentację PART_1 na zaakceptowane ROI dla realnych fixture'ów po Etapie 1, brak osobnego `PART_1_CONTENT` oraz semantyczne bounds dla problematycznych nazw/klasyfikacji/mocy,
 - `TesseractPart1RoiOcrReaderTest` pokrywa techniczny smoke OCR pojedynczego ROI przez Tess4J i bundlowany polski model, wewnętrzny odczyt nazwy z `NAME_TEXT` bez traktowania gwiazdek jako tekstu, regresję, że cleanup dekoracji nie usuwa pierwszego `T` w realnym `tarcza1.png`, oraz obrazowe zliczanie `greaterAffixCount` dla realnych fixture'ów PART_1,
+- `Part1ReadParserTest` i `Part1ReadParserPipelineTest` pokrywają neutralne parsowanie `Part1ReadResult`, składanie wieloliniowej nazwy/klasyfikacji, typ itemu, rarity, `ancient`, `mythicUnique`, slot, moc itemu, opcjonalną jakość, brak zgadywania przy nieparsowalnych wymaganych polach oraz realne fixture'y PART_1,
 - `Part1OcrWindowsExclusionTest` pilnuje, że produkcyjny kod/pom nie wraca do Windows OCR,
 - `ItemImportPageRendererTest` i `ItemImportWebServerTest` pilnują, że UI/HTTP pokazuje diagnostykę Etapów 1/2A/3A oraz raw OCR PART_1 per ROI bez legacy sekcji OCR.
 
@@ -1957,7 +1960,7 @@ Minimalny zakres testów obejmuje:
 - GET diagnostycznego formularza GUI importu obrazu itemu,
 - empty state importu obrazu bez aktywnego bohatera,
 - upload obrazu itemu i render diagnostyki Etapów 1/2A/3A,
-- brak aktywnego OCR, parsera tekstu, formularza potwierdzenia i zapisu itemu po uploadzie obrazu,
+- diagnostyczny odczyt PART_1 bez domenowego parsera itemu, formularza potwierdzenia i zapisu itemu po uploadzie obrazu,
 - zapis strukturalnego formularza itemu przez bibliotekę z akcją `saveImportedItem`,
 - walidację, edycję, dodanie, usunięcie oraz zmianę typu i wartości affixu w flow zapisanych itemów,
 - render pełnego zapisu itemu w rozwijanych szczegółach GUI biblioteki,

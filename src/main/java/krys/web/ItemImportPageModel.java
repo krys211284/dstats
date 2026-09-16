@@ -392,6 +392,7 @@ public final class ItemImportPageModel {
         private final int sourcePartWidth;
         private final int sourcePartHeight;
         private final List<Part1RoiView> rois;
+        private final Part1ReadResultView readResult;
 
         public Part1SegmentationView(String sourcePartDataUri,
                                      int sourcePartIndex,
@@ -399,12 +400,23 @@ public final class ItemImportPageModel {
                                      int sourcePartWidth,
                                      int sourcePartHeight,
                                      List<Part1RoiView> rois) {
+            this(sourcePartDataUri, sourcePartIndex, sourcePartName, sourcePartWidth, sourcePartHeight, rois, null);
+        }
+
+        public Part1SegmentationView(String sourcePartDataUri,
+                                     int sourcePartIndex,
+                                     String sourcePartName,
+                                     int sourcePartWidth,
+                                     int sourcePartHeight,
+                                     List<Part1RoiView> rois,
+                                     Part1ReadResultView readResult) {
             this.sourcePartDataUri = sourcePartDataUri == null ? "" : sourcePartDataUri;
             this.sourcePartIndex = sourcePartIndex;
             this.sourcePartName = sourcePartName == null ? "" : sourcePartName;
             this.sourcePartWidth = sourcePartWidth;
             this.sourcePartHeight = sourcePartHeight;
             this.rois = List.copyOf(rois == null ? List.of() : rois);
+            this.readResult = readResult;
         }
 
         public String getSourcePartDataUri() {
@@ -429,6 +441,108 @@ public final class ItemImportPageModel {
 
         public List<Part1RoiView> getRois() {
             return rois;
+        }
+
+        public Part1ReadResultView getReadResult() {
+            return readResult;
+        }
+
+        public boolean hasReadResult() {
+            return readResult != null;
+        }
+    }
+
+    /** Neutralny wynik odczytu PART_1 pokazywany wyłącznie diagnostycznie. */
+    public static final class Part1ReadResultView {
+        private final String itemName;
+        private final int greaterAffixCount;
+        private final String classificationRaw;
+        private final String itemType;
+        private final String itemRarity;
+        private final String ancient;
+        private final String mythicUnique;
+        private final String equipmentSlot;
+        private final String itemPower;
+        private final String displayedQuality;
+        private final String masterworkingQuality;
+        private final List<String> parseFailures;
+
+        public Part1ReadResultView(String itemName,
+                                   int greaterAffixCount,
+                                   String classificationRaw,
+                                   String itemType,
+                                   String itemRarity,
+                                   String ancient,
+                                   String mythicUnique,
+                                   String equipmentSlot,
+                                   String itemPower,
+                                   String displayedQuality,
+                                   String masterworkingQuality,
+                                   List<String> parseFailures) {
+            this.itemName = itemName == null ? "" : itemName;
+            this.greaterAffixCount = Math.max(0, greaterAffixCount);
+            this.classificationRaw = classificationRaw == null ? "" : classificationRaw;
+            this.itemType = itemType == null || itemType.isBlank() ? "brak" : itemType;
+            this.itemRarity = itemRarity == null || itemRarity.isBlank() ? "brak" : itemRarity;
+            this.ancient = ancient == null || ancient.isBlank() ? "brak" : ancient;
+            this.mythicUnique = mythicUnique == null || mythicUnique.isBlank() ? "brak" : mythicUnique;
+            this.equipmentSlot = equipmentSlot == null || equipmentSlot.isBlank() ? "brak" : equipmentSlot;
+            this.itemPower = itemPower == null || itemPower.isBlank() ? "brak" : itemPower;
+            this.displayedQuality = displayedQuality == null || displayedQuality.isBlank() ? "brak" : displayedQuality;
+            this.masterworkingQuality = masterworkingQuality == null || masterworkingQuality.isBlank() ? "brak" : masterworkingQuality;
+            this.parseFailures = List.copyOf(parseFailures == null ? List.of() : parseFailures);
+        }
+
+        public String getItemName() {
+            return itemName;
+        }
+
+        public int getGreaterAffixCount() {
+            return greaterAffixCount;
+        }
+
+        public String getClassificationRaw() {
+            return classificationRaw;
+        }
+
+        public String getItemType() {
+            return itemType;
+        }
+
+        public String getItemRarity() {
+            return itemRarity;
+        }
+
+        public String getAncient() {
+            return ancient;
+        }
+
+        public String getMythicUnique() {
+            return mythicUnique;
+        }
+
+        public String getEquipmentSlot() {
+            return equipmentSlot;
+        }
+
+        public String getItemPower() {
+            return itemPower;
+        }
+
+        public String getDisplayedQuality() {
+            return displayedQuality;
+        }
+
+        public String getMasterworkingQuality() {
+            return masterworkingQuality;
+        }
+
+        public List<String> getParseFailures() {
+            return parseFailures;
+        }
+
+        public boolean hasParseFailures() {
+            return !parseFailures.isEmpty();
         }
     }
 

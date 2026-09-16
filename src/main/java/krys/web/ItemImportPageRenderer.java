@@ -517,6 +517,50 @@ public final class ItemImportPageRenderer {
         }
         html.append("""
                         </div>
+                """);
+        html.append(renderPart1ReadResult(segmentation));
+        html.append("""
+                    </section>
+                """);
+        return html.toString();
+    }
+
+    private static String renderPart1ReadResult(ItemImportPageModel.Part1SegmentationView segmentation) {
+        if (!segmentation.hasReadResult()) {
+            return "";
+        }
+        ItemImportPageModel.Part1ReadResultView result = segmentation.getReadResult();
+        StringBuilder html = new StringBuilder("""
+                    <section class="subpanel part1-read-result" data-part1-read-result>
+                        <h4>PART_1 — Wynik odczytu</h4>
+                        <div class="summary-grid">
+                """);
+          html.append(renderSummaryCard("Nazwa", result.getItemName().isBlank() ? "brak" : result.getItemName()))
+                  .append(renderSummaryCard("Greater Affix stars", Integer.toString(result.getGreaterAffixCount())))
+                  .append(renderSummaryCard("Klasyfikacja raw", result.getClassificationRaw().isBlank() ? "brak" : result.getClassificationRaw()))
+                  .append(renderSummaryCard("Typ", result.getItemType()))
+                  .append(renderSummaryCard("Rzadkość", result.getItemRarity()))
+                  .append(renderSummaryCard("Ancient", result.getAncient()))
+                  .append(renderSummaryCard("Mythic Unique", result.getMythicUnique()))
+                  .append(renderSummaryCard("Slot", result.getEquipmentSlot()))
+                  .append(renderSummaryCard("Moc przedmiotu", result.getItemPower()))
+                  .append(renderSummaryCard("Jakość wyświetlana", result.getDisplayedQuality()))
+                .append(renderSummaryCard("Masterworking quality", result.getMasterworkingQuality()))
+                .append("""
+                        </div>
+                """);
+        if (result.hasParseFailures()) {
+            html.append("""
+                        <ul class="error-list" data-part1-read-failures>
+                    """);
+            for (String failure : result.getParseFailures()) {
+                html.append("<li>").append(escapeHtml(failure)).append("</li>");
+            }
+            html.append("""
+                        </ul>
+                    """);
+        }
+        html.append("""
                     </section>
                 """);
         return html.toString();

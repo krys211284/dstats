@@ -91,8 +91,31 @@ class ItemImportPageRendererTest {
         assertTrue(html.contains("frame/ornament cleanup"));
         assertTrue(html.contains("final-profile"));
         assertTrue(html.contains("BURZOWY KROK"));
+        assertTrue(html.contains("data-part1-read-result"));
+        assertTrue(html.contains("PART_1 — Wynik odczytu"));
+        assertTrue(html.contains("Nazwa"));
+        assertTrue(html.contains("BURZOWY KROK KSIĘŻYCOWEGO SZAŁU"));
+        assertTrue(html.contains("Greater Affix stars"));
+        assertTrue(html.contains("Klasyfikacja raw"));
+        assertTrue(html.contains("Starożytna legendarna tarcza"));
+        assertTrue(html.contains("Typ"));
+        assertTrue(html.contains("Tarcza"));
+        assertTrue(html.contains("Rzadkość"));
+        assertTrue(html.contains("LEGENDARY"));
+        assertTrue(html.contains("Ancient"));
+        assertTrue(html.contains("true"));
+        assertTrue(html.contains("Mythic Unique"));
+        assertTrue(html.contains("false"));
+        assertTrue(html.contains("Slot"));
+        assertTrue(html.contains("OFF_HAND"));
+        assertTrue(html.contains("Moc przedmiotu"));
+        assertTrue(html.contains("900"));
+        assertTrue(html.contains("Jakość wyświetlana"));
+        assertTrue(html.contains("29"));
+        assertTrue(html.contains("Masterworking quality"));
+        assertTrue(html.contains("25"));
         assertFalse(html.contains("Odczyt OCR"));
-        assertFalse(html.contains("parsed result"));
+        assertFalse(html.contains("Zatwierdź import itemu"));
     }
 
     @Test
@@ -212,6 +235,20 @@ class ItemImportPageRendererTest {
                         new ItemImportPageModel.Part1RoiView("CLASSIFICATION", 8, 78, 210, 42, "data:image/png;base64,CLS="),
                         new ItemImportPageModel.Part1RoiView("ITEM_POWER", 8, 124, 190, 26, "data:image/png;base64,POW="),
                         new ItemImportPageModel.Part1RoiView("OPTIONAL_INFO", 8, 150, 150, 20, "data:image/png;base64,OPT=")
+                ),
+                new ItemImportPageModel.Part1ReadResultView(
+                        "BURZOWY KROK KSIĘŻYCOWEGO SZAŁU",
+                        2,
+                        "Starożytna legendarna tarcza",
+                        "Tarcza",
+                        "LEGENDARY",
+                        "true",
+                        "false",
+                        "OFF_HAND",
+                        "900",
+                        "29",
+                        "25",
+                        List.of()
                 )
         );
     }

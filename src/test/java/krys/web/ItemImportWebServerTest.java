@@ -135,6 +135,23 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("raw-CLASSIFICATION"));
         assertTrue(response.body().contains("raw-ITEM_POWER"));
         assertTrue(response.body().contains("raw-OPTIONAL_INFO"));
+        assertTrue(response.body().contains("data-part1-read-result"));
+        assertTrue(response.body().contains("PART_1 — Wynik odczytu"));
+        assertTrue(response.body().contains("raw-NAME_AND_STARS"));
+        assertTrue(response.body().contains("raw-CLASSIFICATION"));
+        assertTrue(response.body().contains("777"));
+        assertTrue(response.body().contains("Typ"));
+        assertTrue(response.body().contains("Tarcza"));
+        assertTrue(response.body().contains("Rzadkość"));
+        assertTrue(response.body().contains("LEGENDARY"));
+        assertTrue(response.body().contains("Ancient"));
+        assertTrue(response.body().contains("true"));
+        assertTrue(response.body().contains("Mythic Unique"));
+        assertTrue(response.body().contains("false"));
+        assertTrue(response.body().contains("Slot"));
+        assertTrue(response.body().contains("OFF_HAND"));
+        assertTrue(response.body().contains("Jakość wyświetlana"));
+        assertTrue(response.body().contains("Masterworking quality"));
         assertEquals(List.of(
                 Part1RoiType.NAME_AND_STARS,
                 Part1RoiType.CLASSIFICATION,
@@ -159,6 +176,9 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("data-part1-roi-type=\"CLASSIFICATION\""));
         assertTrue(response.body().contains("data-part1-roi-type=\"ITEM_POWER\""));
         assertFalse(response.body().contains("data-part1-roi-type=\"OPTIONAL_INFO\""));
+        assertTrue(response.body().contains("data-part1-read-result"));
+        assertTrue(response.body().contains("Masterworking quality"));
+        assertTrue(response.body().contains("brak"));
         assertEquals(List.of(
                 Part1RoiType.NAME_AND_STARS,
                 Part1RoiType.CLASSIFICATION,
@@ -415,6 +435,15 @@ class ItemImportWebServerTest {
                 } catch (Exception exception) {
                     throw new IllegalStateException(exception);
                 }
+            }
+            if (roi.getType() == Part1RoiType.ITEM_POWER) {
+                return new Part1RoiOcrResult(roi.getType(), "raw-ITEM_POWER Moc przedmiotu: 777", 7L, "stub-preprocess");
+            }
+            if (roi.getType() == Part1RoiType.OPTIONAL_INFO) {
+                return new Part1RoiOcrResult(roi.getType(), "25 (% +25) jakości\nraw-OPTIONAL_INFO", 7L, "stub-preprocess");
+            }
+            if (roi.getType() == Part1RoiType.CLASSIFICATION) {
+                return new Part1RoiOcrResult(roi.getType(), "raw-CLASSIFICATION Starożytna legendarna tarcza", 7L, "stub-preprocess");
             }
             return new Part1RoiOcrResult(roi.getType(), "raw-" + roi.getType(), 7L, "stub-preprocess");
         }

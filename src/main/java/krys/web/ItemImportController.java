@@ -18,6 +18,8 @@ import krys.itemimport.image.Part1Roi;
 import krys.itemimport.image.Part1RoiOcrReader;
 import krys.itemimport.image.Part1RoiOcrResult;
 import krys.itemimport.image.Part1RoiOcrSubRegion;
+import krys.itemimport.image.Part1ReadParser;
+import krys.itemimport.image.Part1ReadResult;
 import krys.itemimport.image.Part1RoiSegmenter;
 import krys.itemimport.image.Part1SegmentationResult;
 import krys.itemimport.image.StructuralItemPart;
@@ -33,7 +35,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Kontroler diagnostycznego importu obrazu itemu: pipeline konczy sie na Etapie 3A. */
+/** Kontroler diagnostycznego importu obrazu itemu bez zapisu wyniku do domeny itemu. */
 public final class ItemImportController implements HttpHandler {
     private static final String HTML_CONTENT_TYPE = "text/html; charset=UTF-8";
 
@@ -45,6 +47,7 @@ public final class ItemImportController implements HttpHandler {
     private final ItemPartStructureNormalizer itemPartStructureNormalizer;
     private final Part1RoiSegmenter part1RoiSegmenter;
     private final Part1RoiOcrReader part1RoiOcrReader;
+    private final Part1ReadParser part1ReadParser = new Part1ReadParser();
 
     public ItemImportController(ItemImportPageRenderer renderer,
                                 HeroService heroService,
@@ -326,9 +329,17 @@ public final class ItemImportController implements HttpHandler {
             String sourceMimeType = "image/" + sourcePart.getFormat().toLowerCase(Locale.ROOT);
             String sourceDataUri = "data:" + sourceMimeType + ";base64,"
                     + Base64.getEncoder().encodeToString(sourcePart.getImageBytes());
-            List<ItemImportPageModel.Part1RoiView> roiViews = result.getRois().stream()
-                    .map(this::toPart1RoiView)
+            List<Part1RoiPreviewResult> roiPreviewResults = result.getRois().stream()
+                    .map(this::toPart1RoiPreviewResult)
                     .toList();
+            List<ItemImportPageModel.Part1RoiView> roiViews = roiPreviewResults.stream()
+                    .map(Part1RoiPreviewResult::view)
+                    .toList();
+            ItemImportPageModel.Part1ReadResultView readResultView = toPart1ReadResultView(part1ReadParser.parse(
+                    roiPreviewResults.stream()
+                            .flatMap(preview -> preview.ocrResult().stream())
+                            .toList()
+            ));
             return new Part1SegmentationPreviewResult(
                     new ItemImportPageModel.Part1SegmentationView(
                             sourceDataUri,
@@ -336,7 +347,8 @@ public final class ItemImportController implements HttpHandler {
                             sourcePart.getName(),
                             sourcePart.getWidth(),
                             sourcePart.getHeight(),
-                            roiViews
+                            roiViews,
+                            readResultView
                     ),
                     ""
             );
@@ -345,13 +357,13 @@ public final class ItemImportController implements HttpHandler {
         }
     }
 
-    private ItemImportPageModel.Part1RoiView toPart1RoiView(Part1Roi roi) {
+    private Part1RoiPreviewResult toPart1RoiPreviewResult(Part1Roi roi) {
         try {
             Part1RoiOcrResult ocrResult = part1RoiOcrReader.read(roi);
             List<ItemImportPageModel.Part1RoiSubRegionView> subRegionViews = ocrResult.getSubRegions().stream()
                     .map(ItemImportController::toPart1RoiSubRegionView)
                     .toList();
-            return new ItemImportPageModel.Part1RoiView(
+            ItemImportPageModel.Part1RoiView view = new ItemImportPageModel.Part1RoiView(
                     roi.getType().name(),
                     roi.getX(),
                     roi.getY(),
@@ -365,8 +377,9 @@ public final class ItemImportController implements HttpHandler {
                     subRegionViews,
                     ocrResult.getGreaterAffixCount()
             );
+            return new Part1RoiPreviewResult(view, Optional.of(ocrResult));
         } catch (RuntimeException exception) {
-            return new ItemImportPageModel.Part1RoiView(
+            return new Part1RoiPreviewResult(new ItemImportPageModel.Part1RoiView(
                     roi.getType().name(),
                     roi.getX(),
                     roi.getY(),
@@ -377,8 +390,29 @@ public final class ItemImportController implements HttpHandler {
                     0L,
                     "",
                     "Błąd OCR PART_1 ROI: " + safeMessage(exception)
-            );
+            ), Optional.empty());
         }
+    }
+
+    private static ItemImportPageModel.Part1ReadResultView toPart1ReadResultView(Part1ReadResult result) {
+        return new ItemImportPageModel.Part1ReadResultView(
+                  result.getItemName(),
+                  result.getGreaterAffixCount(),
+                  result.getClassificationRaw(),
+                  result.getItemType(),
+                  result.getItemRarity(),
+                  result.getAncient().map(ItemImportController::formatBoolean).orElse(""),
+                  result.getMythicUnique().map(ItemImportController::formatBoolean).orElse(""),
+                  result.getEquipmentSlot().map(Enum::name).orElse(""),
+                  result.getItemPower().isPresent() ? Integer.toString(result.getItemPower().getAsInt()) : "",
+                  result.getDisplayedQuality().isPresent() ? Integer.toString(result.getDisplayedQuality().getAsInt()) : "",
+                  result.getMasterworkingQuality().isPresent() ? Integer.toString(result.getMasterworkingQuality().getAsInt()) : "",
+                  result.getParseFailures()
+          );
+      }
+
+    private static String formatBoolean(boolean value) {
+        return value ? "true" : "false";
     }
 
     private static String toDataUri(Part1Roi roi) {
@@ -437,5 +471,9 @@ public final class ItemImportController implements HttpHandler {
     }
 
     private record Part1SegmentationPreviewResult(ItemImportPageModel.Part1SegmentationView preview, String error) {
+    }
+
+    private record Part1RoiPreviewResult(ItemImportPageModel.Part1RoiView view,
+                                         Optional<Part1RoiOcrResult> ocrResult) {
     }
 }
