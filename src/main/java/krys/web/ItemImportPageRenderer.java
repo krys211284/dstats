@@ -409,6 +409,7 @@ public final class ItemImportPageRenderer {
                                     <tr>
                                         <th>Structural slot</th>
                                         <th>Raw part</th>
+                                        <th>Status semantyczny</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -420,12 +421,16 @@ public final class ItemImportPageRenderer {
                         .append(mapping.isPresent())
                         .append("\" data-item-structure-raw-part-index=\"")
                         .append(mapping.getRawPartIndex())
+                        .append("\" data-item-structure-semantic-status=\"")
+                        .append(escapeHtml(mapping.getSemanticStatus()))
                         .append("\"><td>")
                         .append(escapeHtml(mapping.getStructuralSlot()))
                         .append("</td><td>")
                         .append(mapping.isPresent()
                                 ? "raw part #" + mapping.getRawPartIndex()
                                 : "absent")
+                        .append("</td><td>")
+                        .append(escapeHtml(semanticStatusLabel(mapping)))
                         .append("</td></tr>");
             }
             html.append("""
@@ -440,6 +445,89 @@ public final class ItemImportPageRenderer {
                     .append("</p>");
         }
         html.append(renderPart1Segmentation(normalization));
+        html.append(renderPropertyBlockSegmentations(normalization));
+        html.append("""
+                    </section>
+                """);
+        return html.toString();
+    }
+
+    private static String renderPropertyBlockSegmentations(ItemImportPageModel.ItemPartStructureNormalizationView normalization) {
+        StringBuilder html = new StringBuilder();
+        if (normalization.hasPropertyBlockSegmentationError()) {
+            html.append("""
+                        <section class="subpanel property-block-segmentation-error" data-property-block-segmentation-error>
+                            <h4>PART_2/PART_3 — błąd segmentacji bloków</h4>
+                            <p class="helper">%s</p>
+                        </section>
+                    """.formatted(escapeHtml(normalization.getPropertyBlockSegmentationError())));
+        }
+        if (!normalization.hasPropertyBlockSegmentations()) {
+            return html.toString();
+        }
+        html.append("""
+                    <section class="subpanel property-block-segmentation" data-property-block-segmentation>
+                        <h4>PART_2/PART_3 — Bloki właściwości</h4>
+                """);
+        for (ItemImportPageModel.PropertyBlockSegmentationView segmentation : normalization.getPropertyBlockSegmentations()) {
+            html.append("""
+                        <section class="subpanel property-block-part" data-property-block-part data-property-block-source="%s" data-property-block-count="%d">
+                            <h4>%s</h4>
+                            <div class="summary-grid">
+                    """.formatted(
+                    escapeHtml(segmentation.getSourcePartSlot()),
+                    segmentation.getBlockCount(),
+                    escapeHtml(segmentation.getSourcePartSlot())
+            ));
+            html.append(renderSummaryCard("Logical blocks", Integer.toString(segmentation.getBlockCount())))
+                    .append(renderSummaryCard("Source raw part", "#" + segmentation.getSourcePartIndex()))
+                    .append(renderSummaryCard("Wymiary", segmentation.getSourcePartWidth() + " x " + segmentation.getSourcePartHeight()))
+                    .append(renderSummaryCard("Diagnostyka", segmentation.getDiagnostics()))
+                    .append("""
+                            </div>
+                            <div class="opencv-part-grid">
+                    """);
+            for (ItemImportPageModel.PropertyBlockView block : segmentation.getBlocks()) {
+                html.append("""
+                                <article class="opencv-part-card" data-property-block data-property-block-source="%s" data-property-block-order="%d" data-property-block-anchor-type="%s" data-property-block-x="%d" data-property-block-y="%d" data-property-block-width="%d" data-property-block-height="%d">
+                                    <h4>%s blok #%d</h4>
+                                    <p class="helper">anchorType=%s, x=%d, y=%d, width=%d, height=%d%s</p>
+                                    <div class="opencv-part-frame">
+                                        <img src="%s" alt="%s blok #%d">
+                                    </div>
+                                    %s
+                                </article>
+                        """.formatted(
+                        escapeHtml(segmentation.getSourcePartSlot()),
+                        block.getOrder(),
+                        escapeHtml(block.getAnchorType()),
+                        block.getX(),
+                        block.getY(),
+                        block.getWidth(),
+                        block.getHeight(),
+                        escapeHtml(segmentation.getSourcePartSlot()),
+                        block.getOrder(),
+                        escapeHtml(block.getAnchorType()),
+                        block.getX(),
+                        block.getY(),
+                        block.getWidth(),
+                        block.getHeight(),
+                        block.hasAnchorBounds() ? ", anchor " + escapeHtml(block.getAnchorBounds()) : "",
+                        escapeHtml(block.getDataUri()),
+                        escapeHtml(segmentation.getSourcePartSlot()),
+                        block.getOrder(),
+                        block.getDiagnostics().isBlank()
+                                ? ""
+                                : "<p class=\"helper\" data-property-block-diagnostics>"
+                                + escapeHtml(block.getDiagnostics())
+                                + "</p>"
+                ));
+            }
+            html.append("""
+                            </div>
+                        </section>
+                    """);
+        }
         html.append("""
                     </section>
                 """);
@@ -523,6 +611,17 @@ public final class ItemImportPageRenderer {
                     </section>
                 """);
         return html.toString();
+    }
+
+    private static String semanticStatusLabel(ItemImportPageModel.StructuralItemPartMappingView mapping) {
+        if (!mapping.hasSemanticStatus()) {
+            return "—";
+        }
+        if ("PART_4".equals(mapping.getStructuralSlot())
+                && "SKIPPED_NOT_REQUIRED".equals(mapping.getSemanticStatus())) {
+            return "SKIPPED_NOT_REQUIRED — pominięty zgodnie z projektem";
+        }
+        return mapping.getSemanticStatus();
     }
 
     private static String renderPart1ReadResult(ItemImportPageModel.Part1SegmentationView segmentation) {

@@ -22,10 +22,14 @@ import krys.itemimport.image.Part1ReadParser;
 import krys.itemimport.image.Part1ReadResult;
 import krys.itemimport.image.Part1RoiSegmenter;
 import krys.itemimport.image.Part1SegmentationResult;
+import krys.itemimport.image.PropertyBlock;
+import krys.itemimport.image.PropertyBlockSegmentationResult;
+import krys.itemimport.image.PropertyBlockSegmenter;
 import krys.itemimport.image.StructuralItemPart;
 import krys.itemimport.image.StructuralItemPartSlot;
 import krys.itemimport.image.StructuredItemParts;
 import krys.itemimport.image.TesseractPart1RoiOcrReader;
+import krys.itemimport.image.VisualPropertyBlockSegmenter;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -47,6 +51,7 @@ public final class ItemImportController implements HttpHandler {
     private final ItemPartStructureNormalizer itemPartStructureNormalizer;
     private final Part1RoiSegmenter part1RoiSegmenter;
     private final Part1RoiOcrReader part1RoiOcrReader;
+    private final PropertyBlockSegmenter propertyBlockSegmenter;
     private final Part1ReadParser part1ReadParser = new Part1ReadParser();
 
     public ItemImportController(ItemImportPageRenderer renderer,
@@ -56,7 +61,7 @@ public final class ItemImportController implements HttpHandler {
                                 HorizontalDividerDetector horizontalDividerDetector) {
         this(renderer, heroService, itemImageAssembler, assembledImageDebugWriter, horizontalDividerDetector,
                 new DeterministicItemPartStructureNormalizer(), new DeterministicPart1RoiSegmenter(),
-                new TesseractPart1RoiOcrReader());
+                new TesseractPart1RoiOcrReader(), new VisualPropertyBlockSegmenter());
     }
 
     ItemImportController(ItemImportPageRenderer renderer,
@@ -66,7 +71,8 @@ public final class ItemImportController implements HttpHandler {
                          HorizontalDividerDetector horizontalDividerDetector,
                          ItemPartStructureNormalizer itemPartStructureNormalizer) {
         this(renderer, heroService, itemImageAssembler, assembledImageDebugWriter, horizontalDividerDetector,
-                itemPartStructureNormalizer, new DeterministicPart1RoiSegmenter(), new TesseractPart1RoiOcrReader());
+                itemPartStructureNormalizer, new DeterministicPart1RoiSegmenter(), new TesseractPart1RoiOcrReader(),
+                new VisualPropertyBlockSegmenter());
     }
 
     ItemImportController(ItemImportPageRenderer renderer,
@@ -77,7 +83,8 @@ public final class ItemImportController implements HttpHandler {
                          ItemPartStructureNormalizer itemPartStructureNormalizer,
                          Part1RoiSegmenter part1RoiSegmenter) {
         this(renderer, heroService, itemImageAssembler, assembledImageDebugWriter, horizontalDividerDetector,
-                itemPartStructureNormalizer, part1RoiSegmenter, new TesseractPart1RoiOcrReader());
+                itemPartStructureNormalizer, part1RoiSegmenter, new TesseractPart1RoiOcrReader(),
+                new VisualPropertyBlockSegmenter());
     }
 
     ItemImportController(ItemImportPageRenderer renderer,
@@ -88,6 +95,19 @@ public final class ItemImportController implements HttpHandler {
                          ItemPartStructureNormalizer itemPartStructureNormalizer,
                          Part1RoiSegmenter part1RoiSegmenter,
                          Part1RoiOcrReader part1RoiOcrReader) {
+        this(renderer, heroService, itemImageAssembler, assembledImageDebugWriter, horizontalDividerDetector,
+                itemPartStructureNormalizer, part1RoiSegmenter, part1RoiOcrReader, new VisualPropertyBlockSegmenter());
+    }
+
+    ItemImportController(ItemImportPageRenderer renderer,
+                         HeroService heroService,
+                         ItemImageAssembler itemImageAssembler,
+                         AssembledItemImageDebugWriter assembledImageDebugWriter,
+                         HorizontalDividerDetector horizontalDividerDetector,
+                         ItemPartStructureNormalizer itemPartStructureNormalizer,
+                         Part1RoiSegmenter part1RoiSegmenter,
+                         Part1RoiOcrReader part1RoiOcrReader,
+                         PropertyBlockSegmenter propertyBlockSegmenter) {
         this.renderer = Objects.requireNonNull(renderer, "renderer");
         this.heroService = Objects.requireNonNull(heroService, "heroService");
         this.itemImageAssembler = Objects.requireNonNull(itemImageAssembler, "itemImageAssembler");
@@ -96,6 +116,7 @@ public final class ItemImportController implements HttpHandler {
         this.itemPartStructureNormalizer = Objects.requireNonNull(itemPartStructureNormalizer, "itemPartStructureNormalizer");
         this.part1RoiSegmenter = Objects.requireNonNull(part1RoiSegmenter, "part1RoiSegmenter");
         this.part1RoiOcrReader = Objects.requireNonNull(part1RoiOcrReader, "part1RoiOcrReader");
+        this.propertyBlockSegmenter = Objects.requireNonNull(propertyBlockSegmenter, "propertyBlockSegmenter");
     }
 
     @Override
@@ -292,16 +313,24 @@ public final class ItemImportController implements HttpHandler {
                         new ItemImportPageModel.StructuralItemPartMappingView(
                                 slot.name(),
                                 true,
-                                rawPartOrderIndex(structuredItemParts.getRawParts(), part.getSourcePart())
+                                rawPartOrderIndex(structuredItemParts.getRawParts(), part.getSourcePart()),
+                                semanticStatusFor(slot, true)
                         )
                 ));
                 if (structuralPart.isEmpty()
                         && structuredItemParts.getStatus() == ItemStructureStatus.STRUCTURALLY_NORMALIZED) {
-                    mappings.add(new ItemImportPageModel.StructuralItemPartMappingView(slot.name(), false, 0));
+                    mappings.add(new ItemImportPageModel.StructuralItemPartMappingView(
+                            slot.name(),
+                            false,
+                            0,
+                            semanticStatusFor(slot, false)
+                    ));
                 }
             }
             Part1SegmentationPreviewResult part1SegmentationPreviewResult =
                     buildPart1SegmentationPreview(structuredItemParts);
+            PropertyBlockSegmentationPreviewResult propertyBlockSegmentationPreviewResult =
+                    buildPropertyBlockSegmentationPreview(structuredItemParts);
             return new StructureNormalizationPreviewResult(
                     new ItemImportPageModel.ItemPartStructureNormalizationView(
                             structuredItemParts.getStatus().name(),
@@ -309,13 +338,68 @@ public final class ItemImportController implements HttpHandler {
                             mappings,
                             structuredItemParts.getDiagnosticReason(),
                             part1SegmentationPreviewResult.preview(),
-                            part1SegmentationPreviewResult.error()
+                            part1SegmentationPreviewResult.error(),
+                            propertyBlockSegmentationPreviewResult.previews(),
+                            propertyBlockSegmentationPreviewResult.error()
                     ),
                     ""
             );
         } catch (RuntimeException exception) {
             return new StructureNormalizationPreviewResult(null, "Błąd normalizacji struktury: " + safeMessage(exception));
         }
+    }
+
+    private PropertyBlockSegmentationPreviewResult buildPropertyBlockSegmentationPreview(StructuredItemParts structuredItemParts) {
+        List<ItemImportPageModel.PropertyBlockSegmentationView> previews = new java.util.ArrayList<>();
+        try {
+            for (StructuralItemPartSlot slot : List.of(StructuralItemPartSlot.PART_2, StructuralItemPartSlot.PART_3)) {
+                Optional<StructuralItemPart> part = structuredItemParts.find(slot);
+                if (part.isPresent()) {
+                    previews.add(toPropertyBlockSegmentationView(propertyBlockSegmenter.segment(part.get())));
+                }
+            }
+            return new PropertyBlockSegmentationPreviewResult(previews, "");
+        } catch (RuntimeException exception) {
+            return new PropertyBlockSegmentationPreviewResult(previews,
+                    "Błąd segmentacji bloków właściwości PART_2/PART_3: " + safeMessage(exception));
+        }
+    }
+
+    private static ItemImportPageModel.PropertyBlockSegmentationView toPropertyBlockSegmentationView(
+            PropertyBlockSegmentationResult result) {
+        ItemImagePart sourcePart = result.getSourcePart().getSourcePart();
+        List<ItemImportPageModel.PropertyBlockView> blockViews = result.getBlocks().stream()
+                .map(ItemImportController::toPropertyBlockView)
+                .toList();
+        return new ItemImportPageModel.PropertyBlockSegmentationView(
+                result.getSourcePart().getSlot().name(),
+                sourcePart.getIndex(),
+                sourcePart.getName(),
+                sourcePart.getWidth(),
+                sourcePart.getHeight(),
+                result.getDiagnostics(),
+                blockViews
+        );
+    }
+
+    private static ItemImportPageModel.PropertyBlockView toPropertyBlockView(PropertyBlock block) {
+        return new ItemImportPageModel.PropertyBlockView(
+                block.getOrder(),
+                block.getAnchorType().name(),
+                block.getX(),
+                block.getY(),
+                block.getWidth(),
+                block.getHeight(),
+                toDataUri(block),
+                block.getDiagnostics(),
+                block.getAnchor()
+                        .map(anchor -> "x=" + anchor.getX()
+                                + ", y=" + anchor.getY()
+                                + ", width=" + anchor.getWidth()
+                                + ", height=" + anchor.getHeight()
+                                + ", confidence=" + String.format(Locale.US, "%.3f", anchor.getConfidence()))
+                        .orElse("")
+        );
     }
 
     private Part1SegmentationPreviewResult buildPart1SegmentationPreview(StructuredItemParts structuredItemParts) {
@@ -415,9 +499,21 @@ public final class ItemImportController implements HttpHandler {
         return value ? "true" : "false";
     }
 
+    private static String semanticStatusFor(StructuralItemPartSlot slot, boolean present) {
+        if (slot == StructuralItemPartSlot.PART_4 && present) {
+            return "SKIPPED_NOT_REQUIRED";
+        }
+        return "";
+    }
+
     private static String toDataUri(Part1Roi roi) {
         String mimeType = "image/" + roi.getFormat().toLowerCase(Locale.ROOT);
         return "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(roi.getImageBytes());
+    }
+
+    private static String toDataUri(PropertyBlock block) {
+        String mimeType = "image/" + block.getFormat().toLowerCase(Locale.ROOT);
+        return "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(block.getImageBytes());
     }
 
     private static ItemImportPageModel.Part1RoiSubRegionView toPart1RoiSubRegionView(Part1RoiOcrSubRegion subRegion) {
@@ -471,6 +567,11 @@ public final class ItemImportController implements HttpHandler {
     }
 
     private record Part1SegmentationPreviewResult(ItemImportPageModel.Part1SegmentationView preview, String error) {
+    }
+
+    private record PropertyBlockSegmentationPreviewResult(
+            List<ItemImportPageModel.PropertyBlockSegmentationView> previews,
+            String error) {
     }
 
     private record Part1RoiPreviewResult(ItemImportPageModel.Part1RoiView view,

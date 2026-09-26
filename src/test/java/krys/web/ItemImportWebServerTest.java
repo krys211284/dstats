@@ -17,6 +17,12 @@ import krys.itemimport.image.Part1RoiOcrSubRegion;
 import krys.itemimport.image.Part1RoiSegmenter;
 import krys.itemimport.image.Part1RoiType;
 import krys.itemimport.image.Part1SegmentationResult;
+import krys.itemimport.image.PropertyBlock;
+import krys.itemimport.image.PropertyBlockAnchorType;
+import krys.itemimport.image.PropertyBlockSegmentationResult;
+import krys.itemimport.image.PropertyBlockSegmenter;
+import krys.itemimport.image.StructuralItemPart;
+import krys.itemimport.image.StructuralItemPartSlot;
 import krys.itemimport.image.StructuredItemParts;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +57,7 @@ class ItemImportWebServerTest {
     private ConfigurableStructureNormalizer structureNormalizer;
     private StubPart1RoiSegmenter part1RoiSegmenter;
     private StubPart1RoiOcrReader part1RoiOcrReader;
+    private StubPropertyBlockSegmenter propertyBlockSegmenter;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -61,6 +68,7 @@ class ItemImportWebServerTest {
         structureNormalizer = new ConfigurableStructureNormalizer();
         part1RoiSegmenter = new StubPart1RoiSegmenter();
         part1RoiOcrReader = new StubPart1RoiOcrReader();
+        propertyBlockSegmenter = new StubPropertyBlockSegmenter();
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/importuj-item-ze-screena", new ItemImportController(
                 new ItemImportPageRenderer(),
@@ -70,7 +78,8 @@ class ItemImportWebServerTest {
                 dividerDetector,
                 structureNormalizer,
                 part1RoiSegmenter,
-                part1RoiOcrReader
+                part1RoiOcrReader,
+                propertyBlockSegmenter
         ));
         server.start();
         httpClient = HttpClient.newHttpClient();
@@ -114,6 +123,12 @@ class ItemImportWebServerTest {
         assertStructureMapping(response.body(), "PART_2", false, 0);
         assertStructureMapping(response.body(), "PART_3", true, 2);
         assertStructureMapping(response.body(), "PART_4", true, 3);
+        assertPart4Skipped(response.body());
+        assertTrue(response.body().contains("data-property-block-segmentation"));
+        assertTrue(response.body().contains("data-property-block-source=\"PART_3\" data-property-block-count=\"2\""));
+        assertTrue(response.body().contains("data-property-block-anchor-type=\"NONE\""));
+        assertTrue(response.body().contains("data-property-block-anchor-type=\"DIAMOND\""));
+        assertEquals(List.of(StructuralItemPartSlot.PART_3), propertyBlockSegmenter.segmentedSlots);
         assertTrue(response.body().contains("data-part1-segmentation"));
         assertTrue(response.body().contains("data-part1-source"));
         assertTrue(response.body().contains("data-part1-roi-type=\"NAME_AND_STARS\""));
@@ -199,6 +214,16 @@ class ItemImportWebServerTest {
         assertStructureMapping(response.body(), "PART_2", true, 2);
         assertStructureMapping(response.body(), "PART_3", true, 3);
         assertStructureMapping(response.body(), "PART_4", true, 4);
+        assertPart4Skipped(response.body());
+        assertEquals(List.of(StructuralItemPartSlot.PART_1), part1RoiSegmenter.segmentedSlots);
+        assertEquals(List.of(StructuralItemPartSlot.PART_2, StructuralItemPartSlot.PART_3),
+                propertyBlockSegmenter.segmentedSlots);
+        assertEquals(List.of(
+                Part1RoiType.NAME_AND_STARS,
+                Part1RoiType.CLASSIFICATION,
+                Part1RoiType.ITEM_POWER,
+                Part1RoiType.OPTIONAL_INFO
+        ), part1RoiOcrReader.readTypes);
         assertFalse(response.body().contains("data-item-structure-present=\"false\""));
     }
 
@@ -313,6 +338,12 @@ class ItemImportWebServerTest {
                 + "\" data-item-structure-raw-part-index=\"" + rawPartIndex + "\""));
     }
 
+    private static void assertPart4Skipped(String html) {
+        assertTrue(html.contains("data-item-structure-slot=\"PART_4\""));
+        assertTrue(html.contains("data-item-structure-semantic-status=\"SKIPPED_NOT_REQUIRED\""));
+        assertTrue(html.contains("SKIPPED_NOT_REQUIRED — pominięty zgodnie z projektem"));
+    }
+
     private static final class CapturingAssembler implements krys.itemimport.image.ItemImageAssembler {
         private int lastRequestCount;
         private RuntimeException failure;
@@ -392,9 +423,11 @@ class ItemImportWebServerTest {
 
     private static final class StubPart1RoiSegmenter implements Part1RoiSegmenter {
         private boolean includeOptionalInfo = true;
+        private final List<StructuralItemPartSlot> segmentedSlots = new ArrayList<>();
 
         @Override
-        public Part1SegmentationResult segment(krys.itemimport.image.StructuralItemPart part1) {
+        public Part1SegmentationResult segment(StructuralItemPart part1) {
+            segmentedSlots.add(part1.getSlot());
             try {
                 List<Part1Roi> rois = new ArrayList<>();
                 rois.add(new Part1Roi(Part1RoiType.NAME_AND_STARS, 0, 0, 4, 2, "PNG", pngBytes(Color.YELLOW)));
@@ -407,6 +440,51 @@ class ItemImportWebServerTest {
                         part1,
                         rois,
                         ""
+                );
+            } catch (Exception exception) {
+                throw new IllegalStateException(exception);
+            }
+        }
+    }
+
+    private static final class StubPropertyBlockSegmenter implements PropertyBlockSegmenter {
+        private final List<StructuralItemPartSlot> segmentedSlots = new ArrayList<>();
+
+        @Override
+        public PropertyBlockSegmentationResult segment(StructuralItemPart part) {
+            segmentedSlots.add(part.getSlot());
+            try {
+                return new PropertyBlockSegmentationResult(
+                        part,
+                        List.of(
+                                new PropertyBlock(
+                                        part.getSlot(),
+                                        1,
+                                        0,
+                                        0,
+                                        4,
+                                        2,
+                                        PropertyBlockAnchorType.NONE,
+                                        null,
+                                        "PNG",
+                                        pngBytes(Color.BLUE),
+                                        "lineCount=1"
+                                ),
+                                new PropertyBlock(
+                                        part.getSlot(),
+                                        2,
+                                        0,
+                                        2,
+                                        4,
+                                        2,
+                                        PropertyBlockAnchorType.DIAMOND,
+                                        null,
+                                        "PNG",
+                                        pngBytes(Color.PINK),
+                                        "lineCount=1"
+                                )
+                        ),
+                        "stub-property-blocks"
                 );
             } catch (Exception exception) {
                 throw new IllegalStateException(exception);

@@ -67,7 +67,17 @@ class ItemImportPageRendererTest {
         assertTrue(html.contains("data-item-structure-slot=\"PART_3\""));
         assertTrue(html.contains("data-item-structure-slot=\"PART_4\""));
         assertTrue(html.contains("data-item-structure-present=\"false\""));
+        assertTrue(html.contains("Status semantyczny"));
+        assertTrue(html.contains("data-item-structure-semantic-status=\"SKIPPED_NOT_REQUIRED\""));
+        assertTrue(html.contains("SKIPPED_NOT_REQUIRED — pominięty zgodnie z projektem"));
         assertTrue(html.contains(">absent<"));
+        assertTrue(html.contains("data-property-block-segmentation"));
+        assertTrue(html.contains("PART_2/PART_3 — Bloki właściwości"));
+        assertTrue(html.contains("data-property-block-source=\"PART_3\" data-property-block-count=\"2\""));
+        assertTrue(html.contains("data-property-block-anchor-type=\"NONE\""));
+        assertTrue(html.contains("data-property-block-anchor-type=\"DIAMOND\""));
+        assertTrue(html.contains("anchorType=NONE, x=10, y=12, width=140, height=30"));
+        assertTrue(html.contains("anchor x=6, y=48, width=12, height=12, confidence=0.810"));
         assertTrue(html.contains("data-part1-segmentation"));
         assertTrue(html.contains("data-part1-source"));
         assertFalse(html.contains("data-part1-content"));
@@ -203,13 +213,51 @@ class ItemImportPageRendererTest {
                                 new ItemImportPageModel.StructuralItemPartMappingView("PART_1", true, 1),
                                 new ItemImportPageModel.StructuralItemPartMappingView("PART_2", false, 0),
                                 new ItemImportPageModel.StructuralItemPartMappingView("PART_3", true, 2),
-                                new ItemImportPageModel.StructuralItemPartMappingView("PART_4", true, 3)
+                                new ItemImportPageModel.StructuralItemPartMappingView(
+                                        "PART_4", true, 3, "SKIPPED_NOT_REQUIRED")
                         ),
                         "",
                         part1Segmentation(),
+                        "",
+                        List.of(propertyBlockSegmentation()),
                         ""
                 ),
                 ""
+        );
+    }
+
+    private static ItemImportPageModel.PropertyBlockSegmentationView propertyBlockSegmentation() {
+        return new ItemImportPageModel.PropertyBlockSegmentationView(
+                "PART_3",
+                2,
+                "PART_3_RAW",
+                320,
+                220,
+                "lines=3, anchors=1, blocks=2",
+                List.of(
+                        new ItemImportPageModel.PropertyBlockView(
+                                1,
+                                "NONE",
+                                10,
+                                12,
+                                140,
+                                30,
+                                "data:image/png;base64,BLK1=",
+                                "lineCount=1",
+                                ""
+                        ),
+                        new ItemImportPageModel.PropertyBlockView(
+                                2,
+                                "DIAMOND",
+                                4,
+                                44,
+                                190,
+                                42,
+                                "data:image/png;base64,BLK2=",
+                                "lineCount=2",
+                                "x=6, y=48, width=12, height=12, confidence=0.810"
+                        )
+                )
         );
     }
 

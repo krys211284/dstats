@@ -325,12 +325,14 @@ public final class ItemImportPageModel {
         private final String diagnosticReason;
         private final Part1SegmentationView part1Segmentation;
         private final String part1SegmentationError;
+        private final List<PropertyBlockSegmentationView> propertyBlockSegmentations;
+        private final String propertyBlockSegmentationError;
 
         public ItemPartStructureNormalizationView(String status,
                                                   int rawPartCount,
                                                   List<StructuralItemPartMappingView> mappings,
                                                   String diagnosticReason) {
-            this(status, rawPartCount, mappings, diagnosticReason, null, "");
+            this(status, rawPartCount, mappings, diagnosticReason, null, "", List.of(), "");
         }
 
         public ItemPartStructureNormalizationView(String status,
@@ -339,12 +341,26 @@ public final class ItemImportPageModel {
                                                   String diagnosticReason,
                                                   Part1SegmentationView part1Segmentation,
                                                   String part1SegmentationError) {
+            this(status, rawPartCount, mappings, diagnosticReason, part1Segmentation, part1SegmentationError,
+                    List.of(), "");
+        }
+
+        public ItemPartStructureNormalizationView(String status,
+                                                  int rawPartCount,
+                                                  List<StructuralItemPartMappingView> mappings,
+                                                  String diagnosticReason,
+                                                  Part1SegmentationView part1Segmentation,
+                                                  String part1SegmentationError,
+                                                  List<PropertyBlockSegmentationView> propertyBlockSegmentations,
+                                                  String propertyBlockSegmentationError) {
             this.status = status == null ? "" : status;
             this.rawPartCount = rawPartCount;
             this.mappings = List.copyOf(mappings == null ? List.of() : mappings);
             this.diagnosticReason = diagnosticReason == null ? "" : diagnosticReason;
             this.part1Segmentation = part1Segmentation;
             this.part1SegmentationError = part1SegmentationError == null ? "" : part1SegmentationError;
+            this.propertyBlockSegmentations = List.copyOf(propertyBlockSegmentations == null ? List.of() : propertyBlockSegmentations);
+            this.propertyBlockSegmentationError = propertyBlockSegmentationError == null ? "" : propertyBlockSegmentationError;
         }
 
         public String getStatus() {
@@ -381,6 +397,154 @@ public final class ItemImportPageModel {
 
         public boolean hasPart1SegmentationError() {
             return !part1SegmentationError.isBlank();
+        }
+
+        public List<PropertyBlockSegmentationView> getPropertyBlockSegmentations() {
+            return propertyBlockSegmentations;
+        }
+
+        public boolean hasPropertyBlockSegmentations() {
+            return !propertyBlockSegmentations.isEmpty();
+        }
+
+        public String getPropertyBlockSegmentationError() {
+            return propertyBlockSegmentationError;
+        }
+
+        public boolean hasPropertyBlockSegmentationError() {
+            return !propertyBlockSegmentationError.isBlank();
+        }
+    }
+
+    /** Diagnostyka neutralnej segmentacji PART_2/PART_3 na bloki właściwości. */
+    public static final class PropertyBlockSegmentationView {
+        private final String sourcePartSlot;
+        private final int sourcePartIndex;
+        private final String sourcePartName;
+        private final int sourcePartWidth;
+        private final int sourcePartHeight;
+        private final String diagnostics;
+        private final List<PropertyBlockView> blocks;
+
+        public PropertyBlockSegmentationView(String sourcePartSlot,
+                                             int sourcePartIndex,
+                                             String sourcePartName,
+                                             int sourcePartWidth,
+                                             int sourcePartHeight,
+                                             String diagnostics,
+                                             List<PropertyBlockView> blocks) {
+            this.sourcePartSlot = sourcePartSlot == null ? "" : sourcePartSlot;
+            this.sourcePartIndex = sourcePartIndex;
+            this.sourcePartName = sourcePartName == null ? "" : sourcePartName;
+            this.sourcePartWidth = sourcePartWidth;
+            this.sourcePartHeight = sourcePartHeight;
+            this.diagnostics = diagnostics == null ? "" : diagnostics;
+            this.blocks = List.copyOf(blocks == null ? List.of() : blocks);
+        }
+
+        public String getSourcePartSlot() {
+            return sourcePartSlot;
+        }
+
+        public int getSourcePartIndex() {
+            return sourcePartIndex;
+        }
+
+        public String getSourcePartName() {
+            return sourcePartName;
+        }
+
+        public int getSourcePartWidth() {
+            return sourcePartWidth;
+        }
+
+        public int getSourcePartHeight() {
+            return sourcePartHeight;
+        }
+
+        public String getDiagnostics() {
+            return diagnostics;
+        }
+
+        public List<PropertyBlockView> getBlocks() {
+            return blocks;
+        }
+
+        public int getBlockCount() {
+            return blocks.size();
+        }
+    }
+
+    /** Jeden neutralny blok właściwości PART_2/PART_3 w diagnostyce UI. */
+    public static final class PropertyBlockView {
+        private final int order;
+        private final String anchorType;
+        private final int x;
+        private final int y;
+        private final int width;
+        private final int height;
+        private final String dataUri;
+        private final String diagnostics;
+        private final String anchorBounds;
+
+        public PropertyBlockView(int order,
+                                 String anchorType,
+                                 int x,
+                                 int y,
+                                 int width,
+                                 int height,
+                                 String dataUri,
+                                 String diagnostics,
+                                 String anchorBounds) {
+            this.order = Math.max(1, order);
+            this.anchorType = anchorType == null || anchorType.isBlank() ? "NONE" : anchorType;
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+            this.dataUri = dataUri == null ? "" : dataUri;
+            this.diagnostics = diagnostics == null ? "" : diagnostics;
+            this.anchorBounds = anchorBounds == null ? "" : anchorBounds;
+        }
+
+        public int getOrder() {
+            return order;
+        }
+
+        public String getAnchorType() {
+            return anchorType;
+        }
+
+        public int getX() {
+            return x;
+        }
+
+        public int getY() {
+            return y;
+        }
+
+        public int getWidth() {
+            return width;
+        }
+
+        public int getHeight() {
+            return height;
+        }
+
+        public String getDataUri() {
+            return dataUri;
+        }
+
+        public String getDiagnostics() {
+            return diagnostics;
+        }
+
+        public String getAnchorBounds() {
+            return anchorBounds;
+        }
+
+        public boolean hasAnchorBounds() {
+            return !anchorBounds.isBlank();
         }
     }
 
@@ -740,11 +904,20 @@ public final class ItemImportPageModel {
         private final String structuralSlot;
         private final boolean present;
         private final int rawPartIndex;
+        private final String semanticStatus;
 
         public StructuralItemPartMappingView(String structuralSlot, boolean present, int rawPartIndex) {
+            this(structuralSlot, present, rawPartIndex, "");
+        }
+
+        public StructuralItemPartMappingView(String structuralSlot,
+                                             boolean present,
+                                             int rawPartIndex,
+                                             String semanticStatus) {
             this.structuralSlot = structuralSlot == null ? "" : structuralSlot;
             this.present = present;
             this.rawPartIndex = rawPartIndex;
+            this.semanticStatus = semanticStatus == null ? "" : semanticStatus;
         }
 
         public String getStructuralSlot() {
@@ -757,6 +930,14 @@ public final class ItemImportPageModel {
 
         public int getRawPartIndex() {
             return rawPartIndex;
+        }
+
+        public String getSemanticStatus() {
+            return semanticStatus;
+        }
+
+        public boolean hasSemanticStatus() {
+            return !semanticStatus.isBlank();
         }
     }
 

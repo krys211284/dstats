@@ -1707,7 +1707,7 @@ Etap 3A pipeline'u obrazu OpenCV:
 - `STRUCTURALLY_NORMALIZED` oznacza tylko, że liczba raw parts daje jednoznaczne mapowanie 3/4 zgodne z kontraktem; nie jest dowodem, że screenshot zawiera cały tooltip,
 - nazwa `ItemImagePart.getName()` z Etapu 2A pozostaje nazwą raw części i nie jest structural slotem; przy 3 raw parts obiekt raw #2 może nadal mieć `getName() == "PART_2"`, ale structural slotem jest `PART_3`,
 - normalizacja nie cropuje, nie dekoduje PNG, nie koduje ponownie PNG, nie tworzy placeholderów i nie modyfikuje `ItemImagePart`; `StructuralItemPart.sourcePart` wskazuje dokładnie oryginalny obiekt raw part,
-- UI `/importuj-item-ze-screena` pokazuje osobną diagnostykę `Normalizacja struktury` ze statusem, liczbą raw parts i mapowaniem `structural PART_N -> raw part #N` albo `absent`, z hookami `data-item-structure-*`,
+- UI `/importuj-item-ze-screena` pokazuje osobną diagnostykę `Normalizacja struktury` ze statusem, liczbą raw parts i mapowaniem `structural PART_N -> raw part #N` albo `absent`, z hookami `data-item-structure-*`; obecny `PART_4` ma jawny status semantyczny `SKIPPED_NOT_REQUIRED`,
 - awaria Etapu 3A jest izolowana od Etapu 1 i 2A: assembled preview, stitching diagnostics, divider diagnostics oraz raw part previews pozostają widoczne, ekran pokazuje osobny komunikat `Błąd normalizacji struktury`.
 
 PART_1 po Etapie 3A:
@@ -1722,29 +1722,46 @@ PART_1 po Etapie 3A:
 - `Part1ReadResult` nie jest modelem domenowym itemu: nie tworzy `ItemImportDetails`, nie mapuje masterworkingu ani affixów, nie zapisuje itemu do biblioteki i nie poprawia błędów OCR nazw słownikiem; pola klasyfikacji pozostają neutralną diagnostyką PART_1,
 - UI importu pokazuje cały obraz PART_1 oraz każdy wykryty ROI z typem, bounds `x/y/width/height`, obrazem ROI, użytym profilem preprocessingu, surowym tekstem OCR oraz ewentualnymi wewnętrznymi sub-ROI przez hooki `data-part1-*`; dla nazwy są to `NAME_TEXT` jako źródło, `NAME_TEXT_CLEANED` po usunięciu wykrytych komponentów dekoracyjnych, `NAME_TEXT_FINAL` jako finalny obraz przekazany do Tess4J oraz `GREATER_AFFIX_STAR_N` jako obrazowe kandydaty gwiazdek z confidence,
 - pod diagnostyką ROI UI pokazuje sekcję `PART_1 — Wynik odczytu` z nazwą, liczbą gwiazdek, surową klasyfikacją, typem, rarity, `ancient`, `mythicUnique`, slotem, mocą itemu oraz opcjonalną jakością wyświetlaną/masterworking quality; jest to nadal diagnostyka, nie formularz zatwierdzenia importu,
-- ten etap nie implementuje PART_2/PART_3/PART_4, nie odczytuje affixów, nie dodaje `Windows.Media.Ocr` ani systemowego Windows OCR; PART_1 pozostaje otwartym POC wejść pod przyszły właściwy odczyt.
+- ten etap nie odczytuje affixów, nie dodaje `Windows.Media.Ocr` ani systemowego Windows OCR; PART_1 pozostaje zamkniętym neutralnym odczytem nagłówka, bez zapisu do domeny itemu.
+
+PART_2/PART_3 po Etapie 3A:
+- `PART_2` i `PART_3` są segmentowane wspólnym neutralnym mechanizmem obrazowym na logiczne bloki właściwości, bez OCR treści i bez mapowania do `ImportedItemAffix`, `AffixDefinition`, aspektów, temperingu albo socket bonusów,
+- `VisualPropertyBlockAnchorDetector` wykrywa wizualne anchory w lewym obszarze części, a `VisualPropertyBlockSegmenter` wykrywa pasma tekstowe, wiąże anchor z linią startową i grupuje kolejne linie w neutralny `PropertyBlock`,
+- neutralny `PropertyBlock` przechowuje `sourcePart` (`PART_2` albo `PART_3`), kolejność, bounds, `anchorType`, opcjonalne bounds anchora, obraz ROI bloku oraz diagnostykę; nie przechowuje OCR text ani danych domenowych,
+- obecne typy anchorów diagnostycznych to `NONE`, `DIAMOND`, `GREATER_STAR`, `TRANSFIGURATION_MARK`, `LEGENDARY_POWER_STAR`, `UNIQUE_POWER_STAR`, `EMPTY_SOCKET`, `FILLED_SOCKET`, `UNKNOWN_ICON`,
+- wpis bez anchora jest poprawnym blokiem z `anchorType=NONE`; brak opcjonalnego `PART_2` nie blokuje segmentacji `PART_3`,
+- geometrycznie poprawny kandydat na anchor nie jest odrzucany tylko dlatego, że klasyfikacja obrazu zwróciła `UNKNOWN_ICON`; taki anchor może normalnie rozpocząć `PropertyBlock`,
+- segmentacja kończy ostatni blok na podstawie geometrii linii, odstępów i wcięć, a nie reguły `ostatni anchor -> koniec PART_3`; nie waliduje treści stopki tekstowo,
+- UI pokazuje dla `PART_2` i `PART_3` liczbę bloków, kolejność, `anchorType`, bounds oraz obraz ROI każdego bloku przez hooki `data-property-block-*`,
+- `PART_2/PART_3` nie są jeszcze CLOSED; to neutralny etap przygotowujący wejście pod późniejszy OCR/parsing właściwości.
+
+PART_4 po Etapie 3A:
+- `PART_4` jest obowiązkowym slotem strukturalnym, ale jego zawartość nie jest potrzebna modelowi itemu, konfiguracji buildu ani DPS,
+- aplikacja nie uruchamia OCR, ROI ani parsera tekstu dla `PART_4`; nie rozpoznaje w nim napisów, liczb, trwałości, wartości sprzedaży ani innych danych,
+- po poprawnej normalizacji struktury obecny `PART_4` jest oznaczany wyłącznie statusem diagnostycznym `SKIPPED_NOT_REQUIRED — pominięty zgodnie z projektem`,
+- ten status ufa Etapom 1/2A/3A i nie waliduje treści `PART_4` na podstawie fixture'a ani konkretnego tekstu.
 
 Aktywny pipeline importu obrazu kończy się obecnie dokładnie tutaj:
 
 ```text
-1..N screenshots -> OpenCvItemImageAssembler -> AssembledItemImage -> HorizontalDividerDetector -> raw ItemImagePart[] -> ItemPartStructureNormalizer -> StructuredItemParts -> PART_1 ROI segmentation -> raw Tesseract OCR per ROI + star detector -> Part1ReadParser -> Part1ReadResult diagnostics
+1..N screenshots -> OpenCvItemImageAssembler -> AssembledItemImage -> HorizontalDividerDetector -> raw ItemImagePart[] -> ItemPartStructureNormalizer -> StructuredItemParts -> PART_1 ROI segmentation -> raw Tesseract OCR per ROI + star detector -> Part1ReadParser -> Part1ReadResult diagnostics; PART_2/PART_3 -> VisualPropertyBlockSegmenter -> PropertyBlock diagnostics; PART_4 -> SKIPPED_NOT_REQUIRED diagnostics
 ```
 
-Po `StructuredItemParts` istnieje surowy POC OCR dla ROI PART_1 oraz neutralny parser `Part1ReadResult`. Nie ma mapowania do domeny itemu, formularza potwierdzenia importu ani automatycznego zapisu itemu. Przyszły właściwy importer domenowy musi zostać zaprojektowany jako osobny etap po tym kontrakcie i nie może reaktywować usuniętego legacy Windows OCR.
+Po `StructuredItemParts` istnieje surowy OCR dla ROI PART_1, neutralny parser `Part1ReadResult` oraz neutralna obrazowa segmentacja `PART_2/PART_3` na `PropertyBlock`. Nie ma mapowania do domeny itemu, formularza potwierdzenia importu ani automatycznego zapisu itemu. Przyszły właściwy importer domenowy musi zostać zaprojektowany jako osobny etap po tym kontrakcie i nie może reaktywować usuniętego legacy Windows OCR.
 
 Kontrakt prezentacji dla smoke testu importu itemu:
 - GUI importu jest po polsku i jasno komunikuje, że obecnie jest diagnostyką obrazu pojedynczego itemu, a nie automatycznym importem itemu do biblioteki,
 - GUI importu pokazuje globalną nawigację SSR wspólną z ekranem głównym i pozostałymi głównymi modułami,
 - GUI importu wymaga aktywnego bohatera i w empty state kieruje użytkownika do modułu `Bohaterowie`,
 - GUI przyjmuje przez `multipart/form-data` od 1 do 5 screenshotów tego samego przewijanego tooltipa w polu `itemImage`,
-- controller buduje `List<ItemImageImportRequest>` w kolejności uploadu i uruchamia wyłącznie Etap 1, Etap 2A oraz Etap 3A,
+- controller buduje `List<ItemImageImportRequest>` w kolejności uploadu i uruchamia Etap 1, Etap 2A, Etap 3A oraz neutralną diagnostykę PART_1/PART_2/PART_3/PART_4,
 - po uploadzie GUI pokazuje diagnostyczny `Podgląd obrazu przygotowanego przez OpenCV` z metadanymi `sourceImageCount`, `width`, `height`, `format`, `assemblyStatus`, `compositionPolicy` oraz diagnostyką stitching,
 - po udanym Etapie 1 GUI pokazuje diagnostykę Etapu 2A: liczbę separatorów poziomych, liczbę powstałych części, overlay i preview raw `PART_N`,
 - po udanym Etapie 2A GUI pokazuje diagnostykę Etapu 3A: status `StructuredItemParts`, liczbę raw parts oraz mapowanie `structural PART_N -> raw part #N` albo `absent`,
 - awaria Etapu 1 kończy pipeline i pokazuje błąd preview OpenCV,
 - awaria Etapu 2A zostawia widoczny wynik Etapu 1 i pokazuje błąd detekcji separatorów,
 - awaria Etapu 3A zostawia widoczny wynik Etapu 1/2A i pokazuje błąd normalizacji struktury,
-- GUI importu renderuje wyłącznie surowy OCR per ROI PART_1; nie renderuje kandydatów OCR, parse result, formularza potwierdzenia importu, sekcji projekcji do runtime ani statusów starego Windows OCR,
+- GUI importu renderuje surowy OCR per ROI PART_1, neutralny `Part1ReadResult`, neutralne bloki `PropertyBlock` dla PART_2/PART_3 oraz status pominięcia PART_4; nie renderuje domenowego formularza potwierdzenia importu, sekcji projekcji do runtime ani statusów starego Windows OCR,
 - upload obrazu nie zapisuje itemu do biblioteki i nie aktualizuje bazy wiedzy itemów,
 - legacy Windows OCR i jego debug trace zostały usunięte z aktywnego runtime; przyszły OCR jest osobnym przyszłym etapem po `StructuredItemParts`.
 
@@ -1832,8 +1849,9 @@ Deterministyczny kontrakt obrazu jest testowany etapami:
 - `Part1RoiSegmenterPipelineTest` pokrywa segmentację PART_1 na zaakceptowane ROI dla realnych fixture'ów po Etapie 1, brak osobnego `PART_1_CONTENT` oraz semantyczne bounds dla problematycznych nazw/klasyfikacji/mocy,
 - `TesseractPart1RoiOcrReaderTest` pokrywa techniczny smoke OCR pojedynczego ROI przez Tess4J i bundlowany polski model, wewnętrzny odczyt nazwy z `NAME_TEXT` bez traktowania gwiazdek jako tekstu, regresję, że cleanup dekoracji nie usuwa pierwszego `T` w realnym `tarcza1.png`, oraz obrazowe zliczanie `greaterAffixCount` dla realnych fixture'ów PART_1,
 - `Part1ReadParserTest` i `Part1ReadParserPipelineTest` pokrywają neutralne parsowanie `Part1ReadResult`, składanie wieloliniowej nazwy/klasyfikacji, typ itemu, rarity, `ancient`, `mythicUnique`, slot, moc itemu, opcjonalną jakość, brak zgadywania przy nieparsowalnych wymaganych polach oraz realne fixture'y PART_1,
+- `PropertyBlockSegmenterPipelineTest` pokrywa neutralną segmentację `PART_2/PART_3` na `PropertyBlock`, wspólny mechanizm dla obu części, opcjonalny brak `PART_2`, leading block bez anchora, wieloliniowy blok, końcowy anchored block bez połykania stopki oraz brak zależności od filename,
 - `Part1OcrWindowsExclusionTest` pilnuje, że produkcyjny kod/pom nie wraca do Windows OCR,
-- `ItemImportPageRendererTest` i `ItemImportWebServerTest` pilnują, że UI/HTTP pokazuje diagnostykę Etapów 1/2A/3A oraz raw OCR PART_1 per ROI bez legacy sekcji OCR.
+- `ItemImportPageRendererTest` i `ItemImportWebServerTest` pilnują, że UI/HTTP pokazuje diagnostykę Etapów 1/2A/3A, raw OCR PART_1 per ROI oraz status `PART_4` jako `SKIPPED_NOT_REQUIRED`, bez legacy sekcji OCR i bez próby OCR dla `PART_4`.
 
 ### 11.3. Obowiązkowe obszary pokrycia
 Minimalny zakres testów obejmuje:
