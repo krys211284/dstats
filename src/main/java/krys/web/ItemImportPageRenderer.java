@@ -40,6 +40,7 @@ public final class ItemImportPageRenderer {
                         .opencv-part-card h4 { margin: 0 0 6px; }
                         .opencv-part-frame { max-height: 360px; overflow: auto; padding: 10px; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 10px; background: #1d1c1a; }
                         .part1-raw-ocr { margin: 10px 0 0; padding: 10px; min-height: 44px; max-height: 180px; overflow: auto; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 8px; background: #f7f2ea; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; font-size: 0.9rem; }
+                        .property-block-raw-ocr { margin: 10px 0 0; padding: 10px; min-height: 44px; max-height: 220px; overflow: auto; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 8px; background: #f7f2ea; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; font-size: 0.9rem; }
                         .part1-subroi-list { display: grid; gap: 10px; margin-top: 10px; }
                         .part1-subroi { padding-top: 10px; border-top: 1px solid rgba(109, 102, 92, 0.18); }
                         .part1-subroi img { display: block; max-width: 100%%; height: auto; margin-top: 6px; border: 1px solid rgba(109, 102, 92, 0.18); background: #1d1c1a; }
@@ -496,6 +497,7 @@ public final class ItemImportPageRenderer {
                                         <img src="%s" alt="%s blok #%d">
                                     </div>
                                     %s
+                                    %s
                                 </article>
                         """.formatted(
                         escapeHtml(segmentation.getSourcePartSlot()),
@@ -520,7 +522,8 @@ public final class ItemImportPageRenderer {
                                 ? ""
                                 : "<p class=\"helper\" data-property-block-diagnostics>"
                                 + escapeHtml(block.getDiagnostics())
-                                + "</p>"
+                                + "</p>",
+                        renderPropertyBlockReadResult(block)
                 ));
             }
             html.append("""
@@ -530,6 +533,85 @@ public final class ItemImportPageRenderer {
         }
         html.append("""
                     </section>
+                """);
+        return html.toString();
+    }
+
+    private static String renderPropertyBlockReadResult(ItemImportPageModel.PropertyBlockView block) {
+        if (!block.hasReadResult()) {
+            return "";
+        }
+        ItemImportPageModel.PropertyBlockReadResultView result = block.getReadResult();
+        StringBuilder html = new StringBuilder("""
+                <section class="subpanel property-block-read-result" data-property-block-read-result data-property-block-read-source="%s" data-property-block-read-order="%d" data-property-block-read-anchor-type="%s">
+                    <h4>OCR bloku #%d</h4>
+                    <p class="helper">sourcePart=%s, blockOrder=%d, anchorType=%s, %d ms%s</p>
+                    <pre class="property-block-raw-ocr" data-property-block-ocr>%s</pre>
+                """.formatted(
+                escapeHtml(result.getSourcePart()),
+                result.getBlockOrder(),
+                escapeHtml(result.getAnchorType()),
+                result.getBlockOrder(),
+                escapeHtml(result.getSourcePart()),
+                result.getBlockOrder(),
+                escapeHtml(result.getAnchorType()),
+                result.getOcrDurationMillis(),
+                result.getOcrPreprocessing().isBlank() ? "" : ", " + escapeHtml(result.getOcrPreprocessing()),
+                escapeHtml(result.getRawOcrText())
+        ));
+        if (block.hasSemanticResult()) {
+            ItemImportPageModel.PropertyBlockSemanticResultView semantic = block.getSemanticResult();
+            html.append("""
+                    <div class="property-block-semantic-result" data-property-block-semantic-result>
+                        <p class="helper">semanticKind=<span data-semantic-kind>%s</span>, definitionId=<span data-definition-id>%s</span></p>
+                        <p class="helper">candidateDefinitionIds=<span data-candidate-definition-ids>%s</span></p>
+                        <p class="helper">greaterAffix=<span data-greater-affix>%s</span>, numericValueCertain=<span data-numeric-value-certain>%s</span></p>
+                    </div>
+                    """.formatted(
+                    escapeHtml(semantic.getSemanticKind()),
+                    escapeHtml(semantic.getDefinitionId()),
+                    escapeHtml(semantic.getCandidateDefinitionIds().toString()),
+                    semantic.isGreaterAffix(),
+                    semantic.isNumericValueCertain()
+            ));
+        }
+        if (result.hasNumericEvidence()) {
+            html.append("<div class=\"property-block-numeric-evidence\" data-property-block-numeric-evidence-list>");
+            for (ItemImportPageModel.PropertyBlockNumericEvidenceView evidence : result.getNumericEvidence()) {
+                html.append("""
+                        <div class="property-block-numeric-evidence-item" data-property-block-numeric-evidence data-token-order="%d" data-ambiguous="%s">
+                            <p class="helper">selectedValue=<span data-selected-value>%s</span>, supportCount=<span data-support-count>%d</span>, ambiguous=<span data-ambiguous-value>%s</span></p>
+                            <p class="helper">supportingProfiles=<span data-supporting-profiles>%s</span></p>
+                            <p class="helper">alternativeValues=<span data-alternative-values>%s</span></p>
+                        """.formatted(
+                        evidence.getTokenOrder(),
+                        evidence.isAmbiguous(),
+                        escapeHtml(evidence.getSelectedValue()),
+                        evidence.getSupportCount(),
+                        evidence.isAmbiguous(),
+                        escapeHtml(evidence.getSupportingProfiles().toString()),
+                        escapeHtml(evidence.getAlternativeValues().toString())
+                ));
+                if (evidence.isAmbiguous()) {
+                    html.append("<p class=\"error\" data-numeric-ocr-ambiguous>NUMERIC_OCR_AMBIGUOUS</p>");
+                }
+                html.append("</div>");
+            }
+            html.append("</div>");
+        }
+        if (result.hasFailureDiagnostics()) {
+            html.append("""
+                    <ul class="error-list" data-property-block-read-failures>
+                    """);
+            for (String failure : result.getFailureDiagnostics()) {
+                html.append("<li>").append(escapeHtml(failure)).append("</li>");
+            }
+            html.append("""
+                    </ul>
+                    """);
+        }
+        html.append("""
+                </section>
                 """);
         return html.toString();
     }

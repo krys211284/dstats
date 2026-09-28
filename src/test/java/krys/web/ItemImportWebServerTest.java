@@ -18,7 +18,10 @@ import krys.itemimport.image.Part1RoiSegmenter;
 import krys.itemimport.image.Part1RoiType;
 import krys.itemimport.image.Part1SegmentationResult;
 import krys.itemimport.image.PropertyBlock;
+import krys.itemimport.image.PropertyBlockNumericEvidence;
 import krys.itemimport.image.PropertyBlockAnchorType;
+import krys.itemimport.image.PropertyBlockOcrReader;
+import krys.itemimport.image.PropertyBlockReadResult;
 import krys.itemimport.image.PropertyBlockSegmentationResult;
 import krys.itemimport.image.PropertyBlockSegmenter;
 import krys.itemimport.image.StructuralItemPart;
@@ -58,6 +61,7 @@ class ItemImportWebServerTest {
     private StubPart1RoiSegmenter part1RoiSegmenter;
     private StubPart1RoiOcrReader part1RoiOcrReader;
     private StubPropertyBlockSegmenter propertyBlockSegmenter;
+    private StubPropertyBlockOcrReader propertyBlockOcrReader;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -69,6 +73,7 @@ class ItemImportWebServerTest {
         part1RoiSegmenter = new StubPart1RoiSegmenter();
         part1RoiOcrReader = new StubPart1RoiOcrReader();
         propertyBlockSegmenter = new StubPropertyBlockSegmenter();
+        propertyBlockOcrReader = new StubPropertyBlockOcrReader();
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/importuj-item-ze-screena", new ItemImportController(
                 new ItemImportPageRenderer(),
@@ -79,7 +84,8 @@ class ItemImportWebServerTest {
                 structureNormalizer,
                 part1RoiSegmenter,
                 part1RoiOcrReader,
-                propertyBlockSegmenter
+                propertyBlockSegmenter,
+                propertyBlockOcrReader
         ));
         server.start();
         httpClient = HttpClient.newHttpClient();
@@ -128,7 +134,27 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("data-property-block-source=\"PART_3\" data-property-block-count=\"2\""));
         assertTrue(response.body().contains("data-property-block-anchor-type=\"NONE\""));
         assertTrue(response.body().contains("data-property-block-anchor-type=\"DIAMOND\""));
+        assertTrue(response.body().contains("data-property-block-read-result"));
+        assertTrue(response.body().contains("data-property-block-ocr"));
+        assertTrue(response.body().contains("raw-property-PART_3-1"));
+        assertTrue(response.body().contains("raw-property-PART_3-2"));
+        assertTrue(response.body().contains("property-block-profile-2"));
+        assertTrue(response.body().contains("stub property OCR warning"));
+        assertTrue(response.body().contains("data-property-block-numeric-evidence"));
+        assertTrue(response.body().contains("selectedValue=<span data-selected-value>75-100</span>"));
+        assertTrue(response.body().contains("supportCount=<span data-support-count>5</span>"));
+        assertTrue(response.body().contains("supportingProfiles=<span data-supporting-profiles>[stub-1, stub-2, stub-3, stub-4, stub-5]</span>"));
+        assertTrue(response.body().contains("alternativeValues=<span data-alternative-values>[75-106]</span>"));
+        assertTrue(response.body().contains("ambiguous=<span data-ambiguous-value>true</span>"));
+        assertTrue(response.body().contains("data-numeric-ocr-ambiguous>NUMERIC_OCR_AMBIGUOUS"));
+        assertTrue(response.body().contains("data-property-block-semantic-result"));
+        assertTrue(response.body().contains("semanticKind=<span data-semantic-kind>BASE_STAT</span>"));
+        assertTrue(response.body().contains("definitionId=<span data-definition-id>cooldown_reduction</span>"));
+        assertTrue(response.body().contains("candidateDefinitionIds=<span data-candidate-definition-ids>[cooldown_reduction]</span>"));
+        assertTrue(response.body().contains("greaterAffix=<span data-greater-affix>false</span>"));
+        assertTrue(response.body().contains("numericValueCertain=<span data-numeric-value-certain>false</span>"));
         assertEquals(List.of(StructuralItemPartSlot.PART_3), propertyBlockSegmenter.segmentedSlots);
+        assertEquals(List.of("PART_3#1", "PART_3#2"), propertyBlockOcrReader.readBlocks);
         assertTrue(response.body().contains("data-part1-segmentation"));
         assertTrue(response.body().contains("data-part1-source"));
         assertTrue(response.body().contains("data-part1-roi-type=\"NAME_AND_STARS\""));
@@ -218,6 +244,8 @@ class ItemImportWebServerTest {
         assertEquals(List.of(StructuralItemPartSlot.PART_1), part1RoiSegmenter.segmentedSlots);
         assertEquals(List.of(StructuralItemPartSlot.PART_2, StructuralItemPartSlot.PART_3),
                 propertyBlockSegmenter.segmentedSlots);
+        assertEquals(List.of("PART_2#1", "PART_2#2", "PART_3#1", "PART_3#2"),
+                propertyBlockOcrReader.readBlocks);
         assertEquals(List.of(
                 Part1RoiType.NAME_AND_STARS,
                 Part1RoiType.CLASSIFICATION,
@@ -489,6 +517,38 @@ class ItemImportWebServerTest {
             } catch (Exception exception) {
                 throw new IllegalStateException(exception);
             }
+        }
+    }
+
+    private static final class StubPropertyBlockOcrReader implements PropertyBlockOcrReader {
+        private final List<String> readBlocks = new ArrayList<>();
+
+        @Override
+        public PropertyBlockReadResult read(PropertyBlock block) {
+            readBlocks.add(block.getSourcePart().name() + "#" + block.getOrder());
+            return new PropertyBlockReadResult(
+                    block.getSourcePart(),
+                    block.getOrder(),
+                    block.getAnchorType(),
+                    "raw-property-" + block.getSourcePart().name() + "-" + block.getOrder()
+                            + (block.getOrder() == 1
+                            ? " 2 004 pkt. pancerza"
+                            : " 12,3% redukcji czasu odnowienia [10 - 12]%"),
+                    9L,
+                    "property-block-profile-" + block.getOrder(),
+                    block.getOrder() == 2
+                            ? List.of("stub property OCR warning", "NUMERIC_OCR_AMBIGUOUS tokenOrder=1")
+                            : List.of(),
+                    List.of(new PropertyBlockNumericEvidence(
+                            1,
+                            block.getOrder() == 2 ? "" : "75-100",
+                            List.of("stub-1", "stub-2", "stub-3", "stub-4", "stub-5"),
+                            List.of("75-106"),
+                            5,
+                            block.getOrder() == 2
+                    )),
+                    List.of()
+            );
         }
     }
 

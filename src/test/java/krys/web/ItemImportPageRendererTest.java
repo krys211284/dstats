@@ -78,6 +78,25 @@ class ItemImportPageRendererTest {
         assertTrue(html.contains("data-property-block-anchor-type=\"DIAMOND\""));
         assertTrue(html.contains("anchorType=NONE, x=10, y=12, width=140, height=30"));
         assertTrue(html.contains("anchor x=6, y=48, width=12, height=12, confidence=0.810"));
+        assertTrue(html.contains("data-property-block-read-result"));
+        assertTrue(html.contains("data-property-block-ocr"));
+        assertTrue(html.contains("sourcePart=PART_3, blockOrder=1, anchorType=NONE"));
+        assertTrue(html.contains("RAW BLOCK ONE"));
+        assertTrue(html.contains("property-block-profile-2"));
+        assertTrue(html.contains("diagnostyka OCR bloku"));
+        assertTrue(html.contains("data-property-block-numeric-evidence"));
+        assertTrue(html.contains("selectedValue=<span data-selected-value>2004</span>"));
+        assertTrue(html.contains("supportCount=<span data-support-count>5</span>"));
+        assertTrue(html.contains("supportingProfiles=<span data-supporting-profiles>[profile-1, profile-2, profile-3, profile-4, profile-5]</span>"));
+        assertTrue(html.contains("alternativeValues=<span data-alternative-values>[20604]</span>"));
+        assertTrue(html.contains("ambiguous=<span data-ambiguous-value>false</span>"));
+        assertTrue(html.contains("data-numeric-ocr-ambiguous>NUMERIC_OCR_AMBIGUOUS"));
+        assertTrue(html.contains("data-property-block-semantic-result"));
+        assertTrue(html.contains("semanticKind=<span data-semantic-kind>BASE_STAT</span>"));
+        assertTrue(html.contains("definitionId=<span data-definition-id>cooldown_reduction</span>"));
+        assertTrue(html.contains("candidateDefinitionIds=<span data-candidate-definition-ids>[cooldown_reduction]</span>"));
+        assertTrue(html.contains("greaterAffix=<span data-greater-affix>true</span>"));
+        assertTrue(html.contains("numericValueCertain=<span data-numeric-value-certain>false</span>"));
         assertTrue(html.contains("data-part1-segmentation"));
         assertTrue(html.contains("data-part1-source"));
         assertFalse(html.contains("data-part1-content"));
@@ -244,7 +263,26 @@ class ItemImportPageRendererTest {
                                 30,
                                 "data:image/png;base64,BLK1=",
                                 "lineCount=1",
-                                ""
+                                "",
+                                new ItemImportPageModel.PropertyBlockReadResultView(
+                                        "PART_3",
+                                        1,
+                                        "NONE",
+                                        "RAW BLOCK ONE",
+                                        12L,
+                                        "property-block-profile-1",
+                                        List.of(),
+                                        List.of(new ItemImportPageModel.PropertyBlockNumericEvidenceView(
+                                                1,
+                                                "2004",
+                                                List.of("profile-1", "profile-2", "profile-3", "profile-4", "profile-5"),
+                                                List.of("20604"),
+                                                5,
+                                                false
+                                        ))
+                                ),
+                                new ItemImportPageModel.PropertyBlockSemanticResultView(
+                                        "BASE_STAT", "", List.of(), false, true)
                         ),
                         new ItemImportPageModel.PropertyBlockView(
                                 2,
@@ -255,7 +293,30 @@ class ItemImportPageRendererTest {
                                 42,
                                 "data:image/png;base64,BLK2=",
                                 "lineCount=2",
-                                "x=6, y=48, width=12, height=12, confidence=0.810"
+                                "x=6, y=48, width=12, height=12, confidence=0.810",
+                                new ItemImportPageModel.PropertyBlockReadResultView(
+                                        "PART_3",
+                                        2,
+                                        "DIAMOND",
+                                        "RAW BLOCK TWO",
+                                        13L,
+                                        "property-block-profile-2",
+                                        List.of("diagnostyka OCR bloku", "NUMERIC_OCR_AMBIGUOUS tokenOrder=1"),
+                                        List.of(new ItemImportPageModel.PropertyBlockNumericEvidenceView(
+                                                1,
+                                                "",
+                                                List.of("profile-1", "profile-2"),
+                                                List.of("12,3%", "12,5%"),
+                                                2,
+                                                true
+                                        ))
+                                ),
+                                new ItemImportPageModel.PropertyBlockSemanticResultView(
+                                        "AFFIX",
+                                        "cooldown_reduction",
+                                        List.of("cooldown_reduction"),
+                                        true,
+                                        false)
                         )
                 )
         );

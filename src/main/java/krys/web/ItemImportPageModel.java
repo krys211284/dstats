@@ -486,6 +486,8 @@ public final class ItemImportPageModel {
         private final String dataUri;
         private final String diagnostics;
         private final String anchorBounds;
+        private final PropertyBlockReadResultView readResult;
+        private final PropertyBlockSemanticResultView semanticResult;
 
         public PropertyBlockView(int order,
                                  String anchorType,
@@ -496,6 +498,33 @@ public final class ItemImportPageModel {
                                  String dataUri,
                                  String diagnostics,
                                  String anchorBounds) {
+            this(order, anchorType, x, y, width, height, dataUri, diagnostics, anchorBounds, null, null);
+        }
+
+        public PropertyBlockView(int order,
+                                 String anchorType,
+                                 int x,
+                                 int y,
+                                 int width,
+                                 int height,
+                                 String dataUri,
+                                 String diagnostics,
+                                 String anchorBounds,
+                                 PropertyBlockReadResultView readResult) {
+            this(order, anchorType, x, y, width, height, dataUri, diagnostics, anchorBounds, readResult, null);
+        }
+
+        public PropertyBlockView(int order,
+                                 String anchorType,
+                                 int x,
+                                 int y,
+                                 int width,
+                                 int height,
+                                 String dataUri,
+                                 String diagnostics,
+                                 String anchorBounds,
+                                 PropertyBlockReadResultView readResult,
+                                 PropertyBlockSemanticResultView semanticResult) {
             this.order = Math.max(1, order);
             this.anchorType = anchorType == null || anchorType.isBlank() ? "NONE" : anchorType;
             this.x = x;
@@ -505,6 +534,8 @@ public final class ItemImportPageModel {
             this.dataUri = dataUri == null ? "" : dataUri;
             this.diagnostics = diagnostics == null ? "" : diagnostics;
             this.anchorBounds = anchorBounds == null ? "" : anchorBounds;
+            this.readResult = readResult;
+            this.semanticResult = semanticResult;
         }
 
         public int getOrder() {
@@ -545,6 +576,193 @@ public final class ItemImportPageModel {
 
         public boolean hasAnchorBounds() {
             return !anchorBounds.isBlank();
+        }
+
+        public PropertyBlockReadResultView getReadResult() {
+            return readResult;
+        }
+
+        public boolean hasReadResult() {
+            return readResult != null;
+        }
+
+        public PropertyBlockSemanticResultView getSemanticResult() {
+            return semanticResult;
+        }
+
+        public boolean hasSemanticResult() {
+            return semanticResult != null;
+        }
+    }
+
+    /** Neutralny wynik semantyczny PropertyBlock pokazywany wyłącznie diagnostycznie. */
+    public static final class PropertyBlockSemanticResultView {
+        private final String semanticKind;
+        private final String definitionId;
+        private final List<String> candidateDefinitionIds;
+        private final boolean greaterAffix;
+        private final boolean numericValueCertain;
+
+        public PropertyBlockSemanticResultView(String semanticKind,
+                                               String definitionId,
+                                               List<String> candidateDefinitionIds,
+                                               boolean greaterAffix,
+                                               boolean numericValueCertain) {
+            this.semanticKind = semanticKind == null || semanticKind.isBlank() ? "UNKNOWN" : semanticKind;
+            this.definitionId = definitionId == null ? "" : definitionId;
+            this.candidateDefinitionIds = List.copyOf(
+                    candidateDefinitionIds == null ? List.of() : candidateDefinitionIds);
+            this.greaterAffix = greaterAffix;
+            this.numericValueCertain = numericValueCertain;
+        }
+
+        public String getSemanticKind() {
+            return semanticKind;
+        }
+
+        public String getDefinitionId() {
+            return definitionId;
+        }
+
+        public List<String> getCandidateDefinitionIds() {
+            return candidateDefinitionIds;
+        }
+
+        public boolean isGreaterAffix() {
+            return greaterAffix;
+        }
+
+        public boolean isNumericValueCertain() {
+            return numericValueCertain;
+        }
+    }
+
+    /** Neutralny wynik OCR pojedynczego PropertyBlock pokazywany tylko diagnostycznie. */
+    public static final class PropertyBlockReadResultView {
+        private final String sourcePart;
+        private final int blockOrder;
+        private final String anchorType;
+        private final String rawOcrText;
+        private final long ocrDurationMillis;
+        private final String ocrPreprocessing;
+        private final List<String> failureDiagnostics;
+        private final List<PropertyBlockNumericEvidenceView> numericEvidence;
+
+        public PropertyBlockReadResultView(String sourcePart,
+                                           int blockOrder,
+                                           String anchorType,
+                                           String rawOcrText,
+                                           long ocrDurationMillis,
+                                           String ocrPreprocessing,
+                                           List<String> failureDiagnostics) {
+            this(sourcePart, blockOrder, anchorType, rawOcrText, ocrDurationMillis,
+                    ocrPreprocessing, failureDiagnostics, List.of());
+        }
+
+        public PropertyBlockReadResultView(String sourcePart,
+                                           int blockOrder,
+                                           String anchorType,
+                                           String rawOcrText,
+                                           long ocrDurationMillis,
+                                           String ocrPreprocessing,
+                                           List<String> failureDiagnostics,
+                                           List<PropertyBlockNumericEvidenceView> numericEvidence) {
+            this.sourcePart = sourcePart == null ? "" : sourcePart;
+            this.blockOrder = Math.max(1, blockOrder);
+            this.anchorType = anchorType == null || anchorType.isBlank() ? "NONE" : anchorType;
+            this.rawOcrText = rawOcrText == null ? "" : rawOcrText;
+            this.ocrDurationMillis = Math.max(0L, ocrDurationMillis);
+            this.ocrPreprocessing = ocrPreprocessing == null ? "" : ocrPreprocessing;
+            this.failureDiagnostics = List.copyOf(failureDiagnostics == null ? List.of() : failureDiagnostics);
+            this.numericEvidence = List.copyOf(numericEvidence == null ? List.of() : numericEvidence);
+        }
+
+        public String getSourcePart() {
+            return sourcePart;
+        }
+
+        public int getBlockOrder() {
+            return blockOrder;
+        }
+
+        public String getAnchorType() {
+            return anchorType;
+        }
+
+        public String getRawOcrText() {
+            return rawOcrText;
+        }
+
+        public long getOcrDurationMillis() {
+            return ocrDurationMillis;
+        }
+
+        public String getOcrPreprocessing() {
+            return ocrPreprocessing;
+        }
+
+        public List<String> getFailureDiagnostics() {
+            return failureDiagnostics;
+        }
+
+        public boolean hasFailureDiagnostics() {
+            return !failureDiagnostics.isEmpty();
+        }
+
+        public List<PropertyBlockNumericEvidenceView> getNumericEvidence() {
+            return numericEvidence;
+        }
+
+        public boolean hasNumericEvidence() {
+            return !numericEvidence.isEmpty();
+        }
+    }
+
+    /** Neutralna diagnostyka głosów profili OCR dla pojedynczego tokenu liczbowego. */
+    public static final class PropertyBlockNumericEvidenceView {
+        private final int tokenOrder;
+        private final String selectedValue;
+        private final List<String> supportingProfiles;
+        private final List<String> alternativeValues;
+        private final int supportCount;
+        private final boolean ambiguous;
+
+        public PropertyBlockNumericEvidenceView(int tokenOrder,
+                                                String selectedValue,
+                                                List<String> supportingProfiles,
+                                                List<String> alternativeValues,
+                                                int supportCount,
+                                                boolean ambiguous) {
+            this.tokenOrder = Math.max(1, tokenOrder);
+            this.selectedValue = selectedValue == null ? "" : selectedValue;
+            this.supportingProfiles = List.copyOf(supportingProfiles == null ? List.of() : supportingProfiles);
+            this.alternativeValues = List.copyOf(alternativeValues == null ? List.of() : alternativeValues);
+            this.supportCount = Math.max(0, supportCount);
+            this.ambiguous = ambiguous;
+        }
+
+        public int getTokenOrder() {
+            return tokenOrder;
+        }
+
+        public String getSelectedValue() {
+            return selectedValue;
+        }
+
+        public List<String> getSupportingProfiles() {
+            return supportingProfiles;
+        }
+
+        public List<String> getAlternativeValues() {
+            return alternativeValues;
+        }
+
+        public int getSupportCount() {
+            return supportCount;
+        }
+
+        public boolean isAmbiguous() {
+            return ambiguous;
         }
     }
 
