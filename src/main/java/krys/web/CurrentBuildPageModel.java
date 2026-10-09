@@ -6,6 +6,7 @@ import krys.itemlibrary.CurrentHeroActiveItemStats;
 import krys.itemlibrary.EffectiveCurrentBuildResolution;
 import krys.itemlibrary.HeroSlotItemAssignment;
 import krys.itemlibrary.SavedImportedItem;
+import krys.necromancer.app.NecromancerCurrentBuildCalculation;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,6 +31,10 @@ public final class CurrentBuildPageModel {
     private final String heroesUrl;
     private final String choiceHelpText;
     private final HeroSkillLoadout renderedSkillLoadout;
+    private final boolean currentBuildRuntimeSupported;
+    private final CurrentBuildRuntimeMode runtimeMode;
+    private final NecromancerCurrentBuildFormData necromancerFormData;
+    private final NecromancerCurrentBuildCalculation necromancerCalculation;
 
     public CurrentBuildPageModel(CurrentBuildFormData formData,
                                  List<SelectOption> skillOptions,
@@ -46,7 +51,26 @@ public final class CurrentBuildPageModel {
                                  String itemImportUrl,
                                  String heroesUrl,
                                  String choiceHelpText) {
+        this(formData, skillOptions, rankOptions, choiceOptions, messages, validationErrors, calculation,
+                effectiveCurrentBuildResolution, activeHero, heroes, savedLibraryItems, itemLibraryUrl, itemImportUrl,
+                heroesUrl, choiceHelpText, null, null);
+    }
+
+    private CurrentBuildPageModel(CurrentBuildFormData formData, List<SelectOption> skillOptions,
+                                  List<SelectOption> rankOptions, List<SelectOption> choiceOptions,
+                                  List<String> messages, List<String> validationErrors, CurrentBuildCalculation calculation,
+                                  EffectiveCurrentBuildResolution effectiveCurrentBuildResolution,
+                                  HeroProfile activeHero, List<HeroProfile> heroes, List<SavedImportedItem> savedLibraryItems,
+                                  String itemLibraryUrl, String itemImportUrl, String heroesUrl, String choiceHelpText,
+                                  NecromancerCurrentBuildFormData necromancerFormData,
+                                  NecromancerCurrentBuildCalculation necromancerCalculation) {
         this.formData = formData;
+        this.runtimeMode = CurrentBuildRuntimeMode.forHero(activeHero);
+        this.necromancerFormData = necromancerFormData == null && runtimeMode == CurrentBuildRuntimeMode.NECROMANCER_DIRECT_HIT
+                ? NecromancerCurrentBuildFormQuerySupport.fromSerializedQuery(activeHero.getCurrentBuildQuery(), activeHero.getRuntimeSkillLoadout())
+                : necromancerFormData;
+        this.necromancerCalculation = necromancerCalculation;
+        this.currentBuildRuntimeSupported = activeHero != null && CurrentBuildRuntimeSupport.isSupported(activeHero.getHeroClass());
         this.skillOptions = Collections.unmodifiableList(new ArrayList<>(skillOptions));
         this.rankOptions = Collections.unmodifiableList(new ArrayList<>(rankOptions));
         this.choiceOptions = Collections.unmodifiableList(new ArrayList<>(choiceOptions));
@@ -61,9 +85,34 @@ public final class CurrentBuildPageModel {
         this.itemImportUrl = itemImportUrl;
         this.heroesUrl = heroesUrl;
         this.choiceHelpText = choiceHelpText;
-        this.renderedSkillLoadout = activeHero == null
+        this.renderedSkillLoadout = !currentBuildRuntimeSupported
                 ? null
                 : activeHero.getSkillLoadout().withAppliedFormData(formData);
+    }
+
+    public static CurrentBuildPageModel forNecromancer(NecromancerCurrentBuildFormData form, List<String> messages,
+                                                       List<String> errors, NecromancerCurrentBuildCalculation calculation,
+                                                       EffectiveCurrentBuildResolution resolution, HeroProfile hero,
+                                                       List<HeroProfile> heroes, List<SavedImportedItem> items) {
+        return new CurrentBuildPageModel(null, List.of(), List.of(), List.of(), messages, errors, null,
+                resolution, hero, heroes, items, "/biblioteka-itemow", "/importuj-item-ze-screena", "/bohaterowie", "",
+                form, calculation);
+    }
+
+    public CurrentBuildRuntimeMode getRuntimeMode() { return runtimeMode; }
+    public NecromancerCurrentBuildFormData getNecromancerFormData() { return necromancerFormData; }
+    public NecromancerCurrentBuildCalculation getNecromancerCalculation() { return necromancerCalculation; }
+
+    public String getHeroLevel() {
+        return runtimeMode == CurrentBuildRuntimeMode.NECROMANCER_DIRECT_HIT
+                ? UrlEncodedFormSupport.parseQuery(activeHero.getCurrentBuildQuery()).getOrDefault("level", "70")
+                : formData.getLevel();
+    }
+
+    public String getItemImportQuery() {
+        return runtimeMode == CurrentBuildRuntimeMode.NECROMANCER_DIRECT_HIT
+                ? NecromancerCurrentBuildFormQuerySupport.withFormData(activeHero.getCurrentBuildQuery(), necromancerFormData)
+                : CurrentBuildFormQuerySupport.toQuery(formData);
     }
 
     public CurrentBuildFormData getFormData() {
@@ -130,22 +179,27 @@ public final class CurrentBuildPageModel {
         return activeHero != null;
     }
 
+    public boolean isCurrentBuildRuntimeSupported() {
+        // Compatibility guard legacy formularza Paladyna; Necro korzysta z jawnego runtimeMode.
+        return currentBuildRuntimeSupported;
+    }
+
     public List<SkillId> getAssignedSkillIds() {
-        if (activeHero == null) {
+        if (renderedSkillLoadout == null) {
             return List.of();
         }
         return renderedSkillLoadout.getAssignedSkillIds();
     }
 
     public List<SkillId> getActionBarEligibleSkillIds() {
-        if (activeHero == null) {
+        if (renderedSkillLoadout == null) {
             return List.of();
         }
         return renderedSkillLoadout.getActionBarEligibleSkills();
     }
 
     public boolean hasResult() {
-        return calculation != null;
+        return calculation != null || necromancerCalculation != null;
     }
 
     public boolean hasActiveLibraryItems() {
@@ -185,7 +239,7 @@ public final class CurrentBuildPageModel {
     }
 
     public HeroSkillPointBudget getSkillPointBudget() {
-        if (activeHero == null) {
+        if (renderedSkillLoadout == null) {
             return null;
         }
         return HeroSkillPointBudget.from(formData, renderedSkillLoadout);

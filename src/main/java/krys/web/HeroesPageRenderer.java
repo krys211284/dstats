@@ -1,6 +1,6 @@
 package krys.web;
 
-import krys.hero.HeroClassDefs;
+import krys.hero.HeroClass;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,7 +21,17 @@ public final class HeroesPageRenderer {
                 .replace("{{MESSAGES}}", renderMessages(model.getMessages()))
                 .replace("{{ERRORS}}", renderErrors(model.getErrors()))
                 .replace("{{ACTIVE_HERO_SECTION}}", renderActiveHeroSection(model))
-                .replace("{{HERO_LIST}}", renderHeroList(model));
+                .replace("{{HERO_LIST}}", renderHeroList(model))
+                .replace("{{HERO_CLASS_OPTIONS}}", renderClassOptions());
+    }
+
+    private static String renderClassOptions() {
+        StringBuilder html = new StringBuilder();
+        for (HeroClass heroClass : HeroClass.values()) {
+            html.append("<option value=\"").append(heroClass.name()).append("\">")
+                    .append(CurrentBuildCalculationSectionsRenderer.escapeHtml(heroClass.getDisplayName())).append("</option>");
+        }
+        return html.toString();
     }
 
     private static String renderMessages(java.util.List<String> messages) {
@@ -69,7 +79,7 @@ public final class HeroesPageRenderer {
                 </section>
                 """.formatted(
                 CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Nazwa bohatera", hero.getName()),
-                CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Klasa postaci", HeroClassDefs.get(hero.getHeroClass()).getDisplayName()),
+                CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Klasa postaci", hero.getHeroClass().getDisplayName()),
                 CurrentBuildCalculationSectionsRenderer.renderSummaryCard("Poziom bohatera", hero.getCurrentBuildFormData().getLevel())
         );
     }
@@ -91,7 +101,7 @@ public final class HeroesPageRenderer {
                     .append("</div><h3>")
                     .append(CurrentBuildCalculationSectionsRenderer.escapeHtml(hero.getName()))
                     .append("</h3><p class=\"helper\">")
-                    .append(CurrentBuildCalculationSectionsRenderer.escapeHtml(HeroClassDefs.get(hero.getHeroClass()).getDisplayName()))
+                    .append(CurrentBuildCalculationSectionsRenderer.escapeHtml(hero.getHeroClass().getDisplayName()))
                     .append(" | poziom ")
                     .append(CurrentBuildCalculationSectionsRenderer.escapeHtml(hero.getCurrentBuildFormData().getLevel()))
                     .append("</p><div class=\"hero-actions\">");
@@ -105,10 +115,27 @@ public final class HeroesPageRenderer {
                     .append("<input type=\"hidden\" name=\"action\" value=\"deleteHero\">")
                     .append("<input type=\"hidden\" name=\"heroId\" value=\"").append(hero.getHeroId()).append("\">")
                     .append("<button type=\"submit\" class=\"secondary-button\">Usuń</button></form>")
-                    .append("</div></article>");
+                    .append("</div>")
+                    .append(renderEditForm(hero))
+                    .append("</article>");
         }
         html.append("</div>");
         return html.toString();
+    }
+
+    private static String renderEditForm(HeroProfile hero) {
+        return """
+                <form method="post" action="/bohaterowie">
+                    <input type="hidden" name="action" value="updateHeroDetails">
+                    <input type="hidden" name="heroId" value="%d">
+                    <div class="form-grid">
+                        <label>Nazwa bohatera<input type="text" name="heroName" value="%s" required></label>
+                        <label>Poziom bohatera<input type="number" min="1" max="70" step="1" name="heroLevel" value="%s" required></label>
+                    </div>
+                    <button type="submit">Zapisz nazwę i poziom</button>
+                </form>
+                """.formatted(hero.getHeroId(), CurrentBuildCalculationSectionsRenderer.escapeHtml(hero.getName()),
+                CurrentBuildCalculationSectionsRenderer.escapeHtml(hero.getCurrentBuildFormData().getLevel()));
     }
 
     private static String loadTemplate() {

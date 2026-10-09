@@ -1,18 +1,22 @@
 package krys.paladin;
 
+import krys.ranking.CharacterSkillTreeRegistry;
+import krys.ranking.PlayableClass;
+import krys.skilltree.DamagePercentComponent;
+import krys.skilltree.DamagePercentComponentRankTable;
+import krys.skilltree.DamagePercentRankTable;
+import krys.skilltree.UpgradeDamageModifier;
+import krys.skilltree.UpgradeDamageModifierType;
+import krys.skilltree.UpgradeDamageSafety;
+import krys.skilltree.UpgradeDamageValueKind;
+
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
-import static krys.paladin.DamagePercentComponent.ACTIVE_DAMAGE;
-import static krys.paladin.DamagePercentComponent.ADDITIONAL_STRIKE_DAMAGE;
-import static krys.paladin.DamagePercentComponent.BURST_DAMAGE;
-import static krys.paladin.DamagePercentComponent.FIRST_STRIKE_DAMAGE;
-import static krys.paladin.DamagePercentComponent.LANDING_DAMAGE;
-import static krys.paladin.DamagePercentComponent.PASSIVE_DAMAGE;
-import static krys.paladin.DamagePercentComponent.PRIMARY_DAMAGE;
-import static krys.paladin.DamagePercentComponent.SECOND_STRIKE_DAMAGE;
 import static krys.paladin.PaladinSkillTreeStatus.NEEDS_VERIFICATION;
 import static krys.paladin.PaladinSkillTreeStatus.NON_DAMAGE;
 import static krys.paladin.PaladinSkillTreeStatus.UNSUPPORTED;
@@ -21,6 +25,14 @@ import static krys.paladin.PaladinSkillTreeType.DEFENSIVE;
 import static krys.paladin.PaladinSkillTreeType.MOBILITY;
 import static krys.paladin.PaladinSkillTreeType.SPECIAL;
 import static krys.paladin.PaladinSkillTreeType.SUPPORT;
+import static krys.skilltree.DamagePercentComponent.ACTIVE_DAMAGE;
+import static krys.skilltree.DamagePercentComponent.ADDITIONAL_STRIKE_DAMAGE;
+import static krys.skilltree.DamagePercentComponent.BURST_DAMAGE;
+import static krys.skilltree.DamagePercentComponent.FIRST_STRIKE_DAMAGE;
+import static krys.skilltree.DamagePercentComponent.LANDING_DAMAGE;
+import static krys.skilltree.DamagePercentComponent.PASSIVE_DAMAGE;
+import static krys.skilltree.DamagePercentComponent.PRIMARY_DAMAGE;
+import static krys.skilltree.DamagePercentComponent.SECOND_STRIKE_DAMAGE;
 
 /** Pelny opisowy rejestr drzewa Paladyna oparty o lokalne materialy zrodlowe. */
 public final class PaladinSkillTreeRegistry {
@@ -43,6 +55,15 @@ public final class PaladinSkillTreeRegistry {
 
     public static List<PaladinTreeSkill> allSkills() {
         return List.copyOf(SKILLS_BY_ID.values());
+    }
+
+    public static CharacterSkillTreeRegistry asCharacterRegistry() {
+        return new CharacterSkillTreeRegistry(PlayableClass.PALADIN, "PaladinSkillTreeRegistry",
+                allSkills().stream().map(PaladinSkillTreeAdapter::toCharacterSkill).toList(),
+                PaladinSkillTreeAdapter.FAITH, PaladinSkillTreeAdapter.TREE_GROUP_NAMES,
+                Arrays.stream(SkillCategory.values()).map(Enum::name).collect(Collectors.toSet()),
+                Arrays.stream(SkillTag.values()).map(Enum::name).collect(Collectors.toSet()),
+                "Starcie, Adept, Odsłonięcie");
     }
 
     public static Optional<PaladinTreeSkill> findSkill(String skillId) {

@@ -126,8 +126,15 @@ final class MasterworkingSectionRenderer {
     }
 
     static String formatArmorReadonlyValue(ItemMasterworking masterworking, Long itemArmor) {
+        return formatArmorReadonlyValue(masterworking, itemArmor, false);
+    }
+
+    static String formatArmorReadonlyValue(ItemMasterworking masterworking, Long itemArmor, boolean displayedValueAlreadyCurrent) {
         if (itemArmor == null || itemArmor <= 0L) {
             return "Brak pewnego odczytu";
+        }
+        if (displayedValueAlreadyCurrent) {
+            return escapeHtml(Long.toString(itemArmor));
         }
         MasterworkingPresentationValue value = VALUE_RESOLVER.resolveArmor(itemArmor, masterworking);
         return formatReadonlyValue(value, false);

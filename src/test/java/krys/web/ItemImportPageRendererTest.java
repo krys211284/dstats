@@ -1,6 +1,23 @@
 package krys.web;
 
 import krys.hero.HeroClass;
+import krys.item.EquipmentSlot;
+import krys.itemimport.FullItemRead;
+import krys.itemimport.ImportedItemAffix;
+import krys.itemimport.ImportedItemAffixSource;
+import krys.itemimport.ImportedItemAffixType;
+import krys.itemimport.ItemImportDetails;
+import krys.itemimport.ItemImportEditableForm;
+import krys.itemimport.ItemImportValueMode;
+import krys.masterworking.ItemMasterworking;
+import krys.masterworking.MasterworkedAffixSelection;
+import krys.socketing.ItemSocketing;
+import krys.tempering.ItemTemperingAffix;
+import krys.tempering.TemperingCategory;
+import krys.tempering.TemperingRuntimeStatus;
+import krys.transfiguration.HoradricTransfigurationOutcome;
+import krys.transfiguration.HoradricTuningPrism;
+import krys.transfiguration.ItemTransfiguration;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -19,13 +36,17 @@ class ItemImportPageRendererTest {
                 null,
                 "",
                 activeHero(),
-                "Pomoc importu.",
+                "Dodaj od 1 do 5 screenshotów tego samego itemu. Jeśli tooltip jest przewijany, dodaj screeny w kolejności od góry do dołu.",
                 ""
         ));
 
-        assertTrue(html.contains("Wgraj screenshot itemu"));
+        assertTrue(html.contains("Importuj item ze screena"));
         assertTrue(html.contains("name=\"itemImage\""));
-        assertTrue(html.contains("surowy POC OCR per ROI"));
+        assertTrue(html.contains("Odczytaj item"));
+        assertTrue(html.contains("Jeśli tooltip jest przewijany"));
+        assertFalse(html.contains("surowy POC OCR per ROI"));
+        assertFalse(html.contains("pipeline diagnostyczny"));
+        assertFalse(html.contains("Wczytaj diagnostykę obrazu"));
         assertFalse(html.contains("Wstępnie rozpoznane pola"));
         assertFalse(html.contains("Surowy tekst OCR"));
         assertFalse(html.contains("Zatwierdź import itemu"));
@@ -53,7 +74,10 @@ class ItemImportPageRendererTest {
                 "",
                 activeHero(),
                 "Pomoc importu.",
-                ""
+                "",
+                null,
+                List.of(),
+                true
         ));
 
         assertTrue(html.contains("data-opencv-assembled-preview"));
@@ -97,6 +121,10 @@ class ItemImportPageRendererTest {
         assertTrue(html.contains("candidateDefinitionIds=<span data-candidate-definition-ids>[cooldown_reduction]</span>"));
         assertTrue(html.contains("greaterAffix=<span data-greater-affix>true</span>"));
         assertTrue(html.contains("numericValueCertain=<span data-numeric-value-certain>false</span>"));
+        assertTrue(html.contains("data-property-block-value-read-result"));
+        assertTrue(html.contains("data-value-role=\"itemArmor\""));
+        assertTrue(html.contains("itemArmor=<span data-value-item-armor>2004</span>"));
+        assertTrue(html.contains("data-value-parameter-role=\"itemArmor\""));
         assertTrue(html.contains("data-part1-segmentation"));
         assertTrue(html.contains("data-part1-source"));
         assertFalse(html.contains("data-part1-content"));
@@ -169,7 +197,10 @@ class ItemImportPageRendererTest {
                 "",
                 activeHero(),
                 "Pomoc importu.",
-                ""
+                "",
+                null,
+                List.of(),
+                true
         ));
 
         assertTrue(html.contains("data-item-structure-status=\"INCOMPLETE\""));
@@ -202,13 +233,298 @@ class ItemImportPageRendererTest {
                 "",
                 activeHero(),
                 "Pomoc importu.",
-                ""
+                "",
+                null,
+                List.of(),
+                true
         ));
 
         assertTrue(html.contains("data-opencv-assembled-preview"));
         assertTrue(html.contains("Błąd detekcji separatorów: test"));
         assertFalse(html.contains("data-item-structure-normalization"));
         assertFalse(html.contains("Surowy tekst OCR"));
+    }
+
+    @Test
+    void shouldRenderEditableVerificationFormOnlyWhenDraftIsAvailable() {
+        ItemImportDetails details = new ItemImportDetails(
+                "TARCZA BURZY KSIĘŻYCOWEGO SZAŁU",
+                "Tarcza",
+                "LEGENDARY",
+                true,
+                EquipmentSlot.OFF_HAND,
+                900L,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1502L,
+                ""
+        );
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "",
+                "",
+                "",
+                "",
+                "",
+                new FullItemRead("TARCZA BURZY KSIĘŻYCOWEGO SZAŁU", "Tarcza", "LEGENDARY", "900", "1502 pancerza", List.of(), details),
+                List.of(),
+                "",
+                details
+        );
+
+        String html = renderer.render(new ItemImportPageModel(
+                List.of(),
+                null,
+                "",
+                activeHero(),
+                "Pomoc importu.",
+                "heroId=1",
+                form,
+                List.of("NUMERIC_OCR_AMBIGUOUS: test")
+        ));
+
+        assertTrue(html.contains("data-image-import-verification"));
+        assertTrue(html.contains("Weryfikacja itemu przed zapisem"));
+        assertTrue(html.contains("action=\"/biblioteka-itemow\""));
+        assertTrue(html.contains("name=\"action\" value=\"saveImportedItem\""));
+        assertTrue(html.contains("name=\"currentBuildQuery\" value=\"heroId=1\""));
+        assertTrue(html.contains("name=\"itemArmor\" value=\"1502\""));
+        assertTrue(html.contains("Niektóre wartości mogły zostać odczytane niedokładnie."));
+        assertFalse(html.contains("Wymaga sprawdzenia: NUMERIC_OCR_AMBIGUOUS: test"));
+        assertFalse(html.contains("NUMERIC_OCR_AMBIGUOUS"));
+        assertTrue(html.contains("Zapisz item"));
+    }
+
+    @Test
+    void shouldRenderTechnicalReviewNotesInDiagnosticsMode() {
+        ItemImportDetails details = new ItemImportDetails(
+                "TARCZA BURZY KSIĘŻYCOWEGO SZAŁU",
+                "Tarcza",
+                "LEGENDARY",
+                true,
+                EquipmentSlot.OFF_HAND,
+                900L,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1502L,
+                ""
+        );
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "",
+                "",
+                "",
+                "",
+                "",
+                new FullItemRead("TARCZA BURZY KSIĘŻYCOWEGO SZAŁU", "Tarcza", "LEGENDARY", "900", "1502 pancerza", List.of(), details),
+                List.of(),
+                "",
+                details
+        );
+
+        String html = renderer.render(new ItemImportPageModel(
+                List.of(),
+                null,
+                "",
+                activeHero(),
+                "Pomoc importu.",
+                "heroId=1",
+                form,
+                List.of("NUMERIC_OCR_AMBIGUOUS: test"),
+                true
+        ));
+
+        assertTrue(html.contains("data-image-import-verification"));
+        assertTrue(html.contains("Wymaga sprawdzenia: NUMERIC_OCR_AMBIGUOUS: test"));
+        assertTrue(html.contains("Zapisz item"));
+    }
+
+    @Test
+    void shouldRenderShieldVerificationWithResolvedMasterworkingValuesWithoutDoubleApplyingQuality() {
+        ItemImportDetails details = new ItemImportDetails(
+                "TARCZA BURZY KSIĘŻYCOWEGO SZAŁU",
+                "Tarcza",
+                "LEGENDARY",
+                true,
+                EquipmentSlot.OFF_HAND,
+                900L,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1202L,
+                ""
+        );
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "",
+                "",
+                "",
+                "",
+                "",
+                new FullItemRead("TARCZA BURZY KSIĘŻYCOWEGO SZAŁU", "Tarcza", "LEGENDARY", "900",
+                        "1502 pancerza", List.of(), details),
+                List.of(
+                        affix(ImportedItemAffixType.STRENGTH, 173.6d, "", false,
+                                "+217 siły [150 - 180]", "strength", 150.0d, 180.0d, "217"),
+                        affix(ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 8.8d, "%", false,
+                                "+11,0% szansy na trafienie krytyczne", "critical_strike_chance", null, null, "11,0%"),
+                        affix(ImportedItemAffixType.DAMAGE_REDUCTION, 14.08d, "%", false,
+                                "17,6% redukcji obrażeń", "damage_reduction", null, null, "17,6%"),
+                        affix(ImportedItemAffixType.COOLDOWN_REDUCTION, 10.25d, "%", true,
+                                "12,3% redukcji czasu odnowienia [10 - 12]%", "cooldown_reduction", 10.0d, 12.0d, "12,3%")
+                ),
+                "",
+                details,
+                List.of(new ItemTemperingAffix(
+                        "defense_max_animus",
+                        TemperingCategory.DEFENSE,
+                        5.0d,
+                        "+12 do maksymalnej liczby kumulacji Animuszu",
+                        "+12 do maksymalnej liczby kumulacji Animuszu",
+                        TemperingRuntimeStatus.DATA_ONLY,
+                        true
+                )),
+                new ItemMasterworking(25, 25, MasterworkedAffixSelection.temperingAffix("defense_max_animus")),
+                krys.transfiguration.ItemTransfiguration.none(),
+                ItemSocketing.empty(),
+                ItemImportValueMode.GAME_DISPLAYED_VALUE
+        );
+
+        String html = renderer.render(new ItemImportPageModel(
+                List.of(),
+                null,
+                "",
+                activeHero(),
+                "Pomoc importu.",
+                "",
+                form,
+                List.of()
+        ));
+
+        assertTrue(html.contains("data-image-import-verification"));
+        assertTrue(html.contains("name=\"itemImportValueMode\" value=\"GAME_DISPLAYED_VALUE\""));
+        assertTrue(html.contains("name=\"itemArmor\" value=\"1502\""));
+        assertTrue(html.contains("name=\"affixValue_0\" value=\"217\""));
+        assertTrue(html.contains("name=\"affixValue_1\" value=\"11.0\""));
+        assertTrue(html.contains("name=\"affixValue_2\" value=\"17.6\""));
+        assertTrue(html.contains("name=\"affixValue_3\" value=\"12.3\""));
+        assertTrue(html.contains("name=\"temperingValue_0\" value=\"12\""));
+        assertTrue(html.contains("Wartość z gry"));
+        assertFalse(html.contains("Wartość edytowalna"));
+        assertTrue(html.contains("id=\"affixLimitMessage\""));
+        assertTrue(html.contains("id=\"affixAddControls\" hidden"));
+        assertTrue(html.contains("id=\"addAffixButton\""));
+        assertTrue(html.contains("name=\"newAffixType\""));
+        assertTrue(html.contains("name=\"newAffixValue\""));
+        assertTrue(html.contains("id=\"newAffixGreater\""));
+        assertTrue(html.contains("id=\"affixRowTemplate\""));
+        assertTrue(html.contains("id=\"temperingLimitMessage\""));
+        assertTrue(html.contains("id=\"temperingAddControls\" hidden"));
+        assertTrue(html.contains("id=\"addTemperingButton\" disabled"));
+        assertTrue(html.contains("name=\"newTemperingCategory\""));
+        assertTrue(html.contains("name=\"newTemperingDefinitionId\""));
+        assertTrue(html.contains("name=\"newTemperingValue\""));
+        assertTrue(html.contains("id=\"temperingRowTemplate\""));
+        assertTrue(html.contains("data-value-mode=\"GAME_DISPLAYED_VALUE\""));
+        assertTrue(html.contains("+12"));
+        assertTrue(html.contains("Animuszu"));
+        assertFalse(html.contains(">1877<"));
+        assertFalse(html.contains(">271<"));
+        assertFalse(html.contains("13,8%"));
+        assertFalse(html.contains("22,0%"));
+        assertFalse(html.contains("14,8%"));
+    }
+
+    @Test
+    void shouldRenderTransfigurationAffixRefsAsDisplayedValuesInImageVerificationMode() {
+        ItemImportDetails details = new ItemImportDetails(
+                "TARCZA BURZY KSIĘŻYCOWEGO SZAŁU",
+                "Tarcza",
+                "LEGENDARY",
+                true,
+                EquipmentSlot.OFF_HAND,
+                900L,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1202L,
+                ""
+        );
+        ItemImportEditableForm form = new ItemImportEditableForm(
+                "tarcza.png",
+                "OFF_HAND",
+                "0",
+                "",
+                "",
+                "",
+                "",
+                "",
+                new FullItemRead("TARCZA BURZY KSIĘŻYCOWEGO SZAŁU", "Tarcza", "LEGENDARY", "900",
+                        "1502 pancerza", List.of(), details),
+                List.of(
+                        affix(ImportedItemAffixType.STRENGTH, 173.6d, "", false,
+                                "+217 siły [150 - 180]", "strength", 150.0d, 180.0d, "217"),
+                        affix(ImportedItemAffixType.CRITICAL_STRIKE_CHANCE, 8.8d, "%", false,
+                                "+11,0% szansy na trafienie krytyczne", "critical_strike_chance", null, null, "11,0%"),
+                        affix(ImportedItemAffixType.DAMAGE_REDUCTION, 14.08d, "%", false,
+                                "17,6% redukcji obrażeń", "damage_reduction", null, null, "17,6%")
+                ),
+                "",
+                details,
+                List.of(),
+                new ItemMasterworking(25, 25),
+                new ItemTransfiguration(
+                        true,
+                        true,
+                        HoradricTuningPrism.NONE,
+                        HoradricTransfigurationOutcome.UPGRADE_TO_GREATER_AFFIX,
+                        "STRENGTH",
+                        null,
+                        "",
+                        null,
+                        null,
+                        false,
+                        ""
+                ),
+                ItemSocketing.empty(),
+                ItemImportValueMode.GAME_DISPLAYED_VALUE
+        );
+
+        String html = renderer.render(new ItemImportPageModel(
+                List.of(),
+                null,
+                "",
+                activeHero(),
+                "Pomoc importu.",
+                "",
+                form,
+                List.of()
+        ));
+
+        assertTrue(html.contains("<option value=\"STRENGTH\" selected>Siła 217</option>"));
+        assertTrue(html.contains("<option value=\"STRENGTH\">Siła 217</option>"));
+        assertTrue(html.contains("<option value=\"CRITICAL_STRIKE_CHANCE\">Szansa na trafienie krytyczne 11</option>"));
+        assertTrue(html.contains("<option value=\"DAMAGE_REDUCTION\">Redukcja obrażeń 17.6</option>"));
+        assertFalse(html.contains("<option value=\"STRENGTH\" selected>Siła 173.6</option>"));
+        assertFalse(html.contains("<option value=\"STRENGTH\">Siła 173.6</option>"));
+        assertFalse(html.contains("<option value=\"CRITICAL_STRIKE_CHANCE\">Szansa na trafienie krytyczne 8.8</option>"));
+        assertFalse(html.contains("<option value=\"DAMAGE_REDUCTION\">Redukcja obrażeń 14.08</option>"));
     }
 
     private static ItemImportPageModel.HorizontalDividerDetectionView dividerDetection() {
@@ -282,7 +598,30 @@ class ItemImportPageRendererTest {
                                         ))
                                 ),
                                 new ItemImportPageModel.PropertyBlockSemanticResultView(
-                                        "BASE_STAT", "", List.of(), false, true)
+                                        "BASE_STAT", "", List.of(), false, true),
+                                new ItemImportPageModel.PropertyBlockValueReadResultView(
+                                        "itemArmor",
+                                        "2004",
+                                        "",
+                                        "",
+                                        "",
+                                        "2004",
+                                        "",
+                                        "",
+                                        "",
+                                        true,
+                                        false,
+                                        List.of(new ItemImportPageModel.PropertyBlockValueParameterView(
+                                                1,
+                                                "itemArmor",
+                                                "2004",
+                                                "2004",
+                                                "",
+                                                "",
+                                                false,
+                                                List.of("20604")
+                                        )),
+                                        List.of())
                         ),
                         new ItemImportPageModel.PropertyBlockView(
                                 2,
@@ -379,6 +718,31 @@ class ItemImportPageRendererTest {
                         "2 raw parts nie wystarczają do jednoznacznej normalizacji struktury."
                 ),
                 ""
+        );
+    }
+
+    private static ImportedItemAffix affix(ImportedItemAffixType type,
+                                           double sourceValue,
+                                           String unit,
+                                           boolean greaterAffix,
+                                           String rawLine,
+                                           String definitionId,
+                                           Double rollRangeMin,
+                                           Double rollRangeMax,
+                                           String displayValue) {
+        return new ImportedItemAffix(
+                type,
+                sourceValue,
+                unit,
+                greaterAffix,
+                0,
+                rawLine,
+                ImportedItemAffixSource.OCR,
+                definitionId,
+                rollRangeMin,
+                rollRangeMax,
+                null,
+                displayValue
         );
     }
 

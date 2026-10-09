@@ -1,12 +1,12 @@
 package krys.web;
 
-import krys.paladin.PaladinSkillTreeType;
-import krys.paladin.SkillCategory;
-import krys.paladin.SkillTag;
-import krys.ranking.PaladinDamageRankingMetric;
-import krys.ranking.PaladinSkillDamageVerificationStatus;
+import krys.ranking.CharacterSkillTreeRegistry;
+import krys.ranking.DamageRankingMetric;
 import krys.ranking.PlayableClass;
+import krys.ranking.SkillDamageVerificationStatus;
+import krys.skilltree.SkillTreeType;
 
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -14,16 +14,16 @@ import java.util.Map;
 public final class DamageRankingFilter {
     private final PlayableClass character;
     private final String skillGroup;
-    private final PaladinSkillDamageVerificationStatus verificationStatus;
-    private final PaladinSkillTreeType type;
-    private final PaladinDamageRankingMetric metric;
+    private final SkillDamageVerificationStatus verificationStatus;
+    private final SkillTreeType type;
+    private final DamageRankingMetric metric;
     private final String q;
-    private final SkillCategory sourceCategory;
-    private final SkillTag tag;
+    private final String sourceCategory;
+    private final String tag;
     private final FacetFilter hasDirectUpgradeDamage;
     private final FacetFilter hasNewDamageComponent;
     private final FacetFilter hasStatusDamageEnabler;
-    private final FacetFilter hasFaithCost;
+    private final FacetFilter hasResourceCost;
     private final FacetFilter hasResourceGeneration;
     private final FacetFilter hasCooldownOrCastSpeed;
     private final FacetFilter hasDefenseOrUtility;
@@ -33,9 +33,9 @@ public final class DamageRankingFilter {
 
     public DamageRankingFilter(PlayableClass character,
                                String skillGroup,
-                               PaladinSkillDamageVerificationStatus verificationStatus,
-                               PaladinSkillTreeType type,
-                               PaladinDamageRankingMetric metric) {
+                               SkillDamageVerificationStatus verificationStatus,
+                               SkillTreeType type,
+                               DamageRankingMetric metric) {
         this(character, skillGroup, verificationStatus, type, metric, null, null,
                 null,
                 FacetFilter.ALL, FacetFilter.ALL, FacetFilter.ALL, FacetFilter.ALL,
@@ -45,16 +45,16 @@ public final class DamageRankingFilter {
 
     public DamageRankingFilter(PlayableClass character,
                                String skillGroup,
-                               PaladinSkillDamageVerificationStatus verificationStatus,
-                               PaladinSkillTreeType type,
-                               PaladinDamageRankingMetric metric,
-                               SkillCategory sourceCategory,
-                               SkillTag tag,
+                               SkillDamageVerificationStatus verificationStatus,
+                               SkillTreeType type,
+                               DamageRankingMetric metric,
+                               String sourceCategory,
+                               String tag,
                                String q,
                                FacetFilter hasDirectUpgradeDamage,
                                FacetFilter hasNewDamageComponent,
                                FacetFilter hasStatusDamageEnabler,
-                               FacetFilter hasFaithCost,
+                               FacetFilter hasResourceCost,
                                FacetFilter hasResourceGeneration,
                                FacetFilter hasCooldownOrCastSpeed,
                                FacetFilter hasDefenseOrUtility,
@@ -67,14 +67,14 @@ public final class DamageRankingFilter {
         this.type = type;
         this.metric = isVisibleRankingMetric(metric)
                 ? metric
-                : PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX;
+                : DamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX;
         this.q = normalizeOptionalValue(q);
         this.sourceCategory = sourceCategory;
         this.tag = tag;
         this.hasDirectUpgradeDamage = hasDirectUpgradeDamage == null ? FacetFilter.ALL : hasDirectUpgradeDamage;
         this.hasNewDamageComponent = hasNewDamageComponent == null ? FacetFilter.ALL : hasNewDamageComponent;
         this.hasStatusDamageEnabler = hasStatusDamageEnabler == null ? FacetFilter.ALL : hasStatusDamageEnabler;
-        this.hasFaithCost = hasFaithCost == null ? FacetFilter.ALL : hasFaithCost;
+        this.hasResourceCost = hasResourceCost == null ? FacetFilter.ALL : hasResourceCost;
         this.hasResourceGeneration = hasResourceGeneration == null ? FacetFilter.ALL : hasResourceGeneration;
         this.hasCooldownOrCastSpeed = hasCooldownOrCastSpeed == null ? FacetFilter.ALL : hasCooldownOrCastSpeed;
         this.hasDefenseOrUtility = hasDefenseOrUtility == null ? FacetFilter.ALL : hasDefenseOrUtility;
@@ -86,20 +86,20 @@ public final class DamageRankingFilter {
     public static DamageRankingFilter fromQuery(Map<String, String> queryFields) {
         PlayableClass character = PlayableClass.fromQueryValueOrDefault(queryFields.get("character"));
         String group = queryFields.get("skillGroup");
-        PaladinSkillDamageVerificationStatus status = parseEnum(
-                PaladinSkillDamageVerificationStatus.class,
+        SkillDamageVerificationStatus status = parseEnum(
+                SkillDamageVerificationStatus.class,
                 queryFields.get("verificationStatus")
         );
-        PaladinSkillTreeType type = parseEnum(
-                PaladinSkillTreeType.class,
+        SkillTreeType type = parseEnum(
+                SkillTreeType.class,
                 queryFields.get("type")
         );
-        PaladinDamageRankingMetric metric = parseEnum(
-                PaladinDamageRankingMetric.class,
+        DamageRankingMetric metric = parseEnum(
+                DamageRankingMetric.class,
                 queryFields.get("metric")
         );
-        SkillTag tag = parseEnum(SkillTag.class, queryFields.get("tag"));
-        SkillCategory sourceCategory = parseEnum(SkillCategory.class, queryFields.get("sourceCategory"));
+        String tag = normalizeFacetId(queryFields.get("tag"));
+        String sourceCategory = normalizeFacetId(queryFields.get("sourceCategory"));
         String sort = normalizeOptionalValue(queryFields.get("sort"));
         SortDirection direction = parseEnum(SortDirection.class, queryFields.get("direction"));
         String q = normalizeOptionalValue(queryFields.get("q"));
@@ -115,7 +115,7 @@ public final class DamageRankingFilter {
                 parseFacet(queryFields.get("hasDirectUpgradeDamage")),
                 parseFacet(queryFields.get("hasNewDamageComponent")),
                 parseFacet(queryFields.get("hasStatusDamageEnabler")),
-                parseFacet(queryFields.get("hasFaithCost")),
+                parseFacet(queryFields.getOrDefault("hasResourceCost", queryFields.get("hasFaithCost"))),
                 parseFacet(queryFields.get("hasResourceGeneration")),
                 parseFacet(queryFields.get("hasCooldownOrCastSpeed")),
                 parseFacet(queryFields.get("hasDefenseOrUtility")),
@@ -123,6 +123,17 @@ public final class DamageRankingFilter {
                 sort,
                 direction
         );
+    }
+
+    public static DamageRankingFilter fromQuery(Map<String, String> queryFields, CharacterSkillTreeRegistry registry) {
+        Map<String, String> fields = new HashMap<>(queryFields);
+        if (!registry.supportsSourceCategory(fields.get("sourceCategory"))) {
+            fields.remove("sourceCategory");
+        }
+        if (!registry.supportsMechanicTag(fields.get("tag"))) {
+            fields.remove("tag");
+        }
+        return fromQuery(fields);
     }
 
     public PlayableClass getCharacter() {
@@ -133,15 +144,15 @@ public final class DamageRankingFilter {
         return skillGroup;
     }
 
-    public PaladinSkillDamageVerificationStatus getVerificationStatus() {
+    public SkillDamageVerificationStatus getVerificationStatus() {
         return verificationStatus;
     }
 
-    public PaladinSkillTreeType getType() {
+    public SkillTreeType getType() {
         return type;
     }
 
-    public PaladinDamageRankingMetric getMetric() {
+    public DamageRankingMetric getMetric() {
         return metric;
     }
 
@@ -149,11 +160,11 @@ public final class DamageRankingFilter {
         return q;
     }
 
-    public SkillTag getTag() {
+    public String getTag() {
         return tag;
     }
 
-    public SkillCategory getSourceCategory() {
+    public String getSourceCategory() {
         return sourceCategory;
     }
 
@@ -173,8 +184,8 @@ public final class DamageRankingFilter {
         return hasResourceGeneration;
     }
 
-    public FacetFilter getHasFaithCost() {
-        return hasFaithCost;
+    public FacetFilter getHasResourceCost() {
+        return hasResourceCost;
     }
 
     public FacetFilter getHasCooldownOrCastSpeed() {
@@ -195,6 +206,19 @@ public final class DamageRankingFilter {
 
     public SortDirection getDirection() {
         return direction;
+    }
+
+    public boolean matchesSort(String key) {
+        return neutralSortKey(sort).equals(neutralSortKey(key));
+    }
+
+    private static String neutralSortKey(String key) {
+        return switch (key) {
+            case "faithCost" -> "resourceCost";
+            case "faithGeneratedBase" -> "resourceGeneratedBase";
+            case "faithGeneratedMaxKnown" -> "resourceGeneratedMaxKnown";
+            default -> key;
+        };
     }
 
     public boolean hasSkillGroup() {
@@ -225,7 +249,7 @@ public final class DamageRankingFilter {
         return hasDirectUpgradeDamage != FacetFilter.ALL
                 || hasNewDamageComponent != FacetFilter.ALL
                 || hasStatusDamageEnabler != FacetFilter.ALL
-                || hasFaithCost != FacetFilter.ALL
+                || hasResourceCost != FacetFilter.ALL
                 || hasResourceGeneration != FacetFilter.ALL
                 || hasCooldownOrCastSpeed != FacetFilter.ALL
                 || hasDefenseOrUtility != FacetFilter.ALL
@@ -251,6 +275,10 @@ public final class DamageRankingFilter {
         }
     }
 
+    private static String normalizeFacetId(String value) {
+        String normalized = normalizeOptionalValue(value);
+        return normalized == null ? null : normalized.trim();
+    }
     private static FacetFilter parseFacet(String value) {
         FacetFilter parsed = parseEnum(FacetFilter.class, value);
         return parsed == null ? FacetFilter.ALL : parsed;
@@ -269,8 +297,11 @@ public final class DamageRankingFilter {
                     "baseDamageRank1",
                     "baseDamageTreeMax",
                     "faithCost",
+                    "resourceCost",
                     "faithGeneratedBase",
+                    "resourceGeneratedBase",
                     "faithGeneratedMaxKnown",
+                    "resourceGeneratedMaxKnown",
                     "maxDamageMultiplierPercent",
                     "maxDamageBonusPercent",
                     "maxExtraHitOrComponentPercent",
@@ -288,9 +319,9 @@ public final class DamageRankingFilter {
         };
     }
 
-    private static boolean isVisibleRankingMetric(PaladinDamageRankingMetric metric) {
-        return metric == PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1
-                || metric == PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX;
+    private static boolean isVisibleRankingMetric(DamageRankingMetric metric) {
+        return metric == DamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1
+                || metric == DamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX;
     }
 
     public enum FacetFilter {

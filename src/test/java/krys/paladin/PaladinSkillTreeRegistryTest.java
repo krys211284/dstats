@@ -1,5 +1,10 @@
 package krys.paladin;
 
+import krys.skilltree.DamagePercentComponent;
+import krys.skilltree.DamagePercentComponentRankTable;
+import krys.skilltree.UpgradeDamageImpact;
+import krys.skilltree.UpgradeDamageImpactType;
+
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -9,21 +14,21 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import static krys.paladin.DamagePercentComponent.ACTIVE_DAMAGE;
-import static krys.paladin.DamagePercentComponent.ADDITIONAL_STRIKE_DAMAGE;
-import static krys.paladin.DamagePercentComponent.BURST_DAMAGE;
-import static krys.paladin.DamagePercentComponent.FIRST_STRIKE_DAMAGE;
-import static krys.paladin.DamagePercentComponent.JUMP_DAMAGE;
-import static krys.paladin.DamagePercentComponent.LANDING_DAMAGE;
-import static krys.paladin.DamagePercentComponent.PASSIVE_DAMAGE;
-import static krys.paladin.DamagePercentComponent.PRIMARY_DAMAGE;
-import static krys.paladin.DamagePercentComponent.SECOND_STRIKE_DAMAGE;
+import static krys.skilltree.DamagePercentComponent.ACTIVE_DAMAGE;
+import static krys.skilltree.DamagePercentComponent.ADDITIONAL_STRIKE_DAMAGE;
+import static krys.skilltree.DamagePercentComponent.BURST_DAMAGE;
+import static krys.skilltree.DamagePercentComponent.FIRST_STRIKE_DAMAGE;
+import static krys.skilltree.DamagePercentComponent.JUMP_DAMAGE;
+import static krys.skilltree.DamagePercentComponent.LANDING_DAMAGE;
+import static krys.skilltree.DamagePercentComponent.PASSIVE_DAMAGE;
+import static krys.skilltree.DamagePercentComponent.PRIMARY_DAMAGE;
+import static krys.skilltree.DamagePercentComponent.SECOND_STRIKE_DAMAGE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;

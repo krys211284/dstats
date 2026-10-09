@@ -1,5 +1,10 @@
 package krys.paladin;
 
+import krys.skilltree.UpgradeDamageModifier;
+import krys.skilltree.UpgradeDamageModifierType;
+import krys.skilltree.UpgradeDamageSafety;
+import krys.skilltree.UpgradeDamageValueKind;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;
@@ -139,7 +144,7 @@ class UpgradeDamageModifierTest {
     }
 
     private static UpgradeDamageModifier modifier(String upgradeId, String upgradeName) {
-        return UpgradeDamageModifier.fromUpgrade("wymach", "grupa_1",
+        return PaladinUpgradeDamageModifiers.fromUpgrade("wymach", "grupa_1",
                 new PaladinSkillUpgrade(upgradeId, upgradeName, PaladinSkillTreeStatus.NEEDS_VERIFICATION, "test"));
     }
 }

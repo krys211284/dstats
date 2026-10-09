@@ -106,12 +106,12 @@
                 <label>
                     Klasa postaci
                     <select name="heroClass">
-                        <option value="PALADIN">Paladyn</option>
+                        {{HERO_CLASS_OPTIONS}}
                     </select>
                 </label>
                 <label>
                     Poziom bohatera
-                    <input type="number" min="1" step="1" name="heroLevel" value="13">
+                    <input type="number" min="1" max="70" step="1" name="heroLevel" value="13">
                 </label>
             </div>
             <div style="margin-top: 14px;">

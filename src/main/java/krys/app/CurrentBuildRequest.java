@@ -2,6 +2,8 @@ package krys.app;
 
 import krys.hero.HeroClass;
 import krys.hero.HeroClassStatBaselines;
+import krys.runtime.RuntimeSkillLoadout;
+import krys.runtime.legacy.LegacyPaladinRuntimeSkillLoadoutAdapter;
 import krys.skill.SkillId;
 import krys.skill.SkillState;
 
@@ -33,8 +35,7 @@ public final class CurrentBuildRequest {
     private final double retributionChance;
     private final boolean hasActiveWeapon;
     private final boolean hasActiveShield;
-    private final Map<SkillId, SkillState> learnedSkills;
-    private final List<SkillId> actionBar;
+    private final RuntimeSkillLoadout runtimeSkillLoadout;
     private final int horizonSeconds;
     private final double initialPrimaryResource;
     private final double maxPrimaryResource;
@@ -222,8 +223,7 @@ public final class CurrentBuildRequest {
         this.retributionChance = retributionChance;
         this.hasActiveWeapon = hasActiveWeapon;
         this.hasActiveShield = hasActiveShield;
-        this.learnedSkills = Collections.unmodifiableMap(learnedSkillsCopy);
-        this.actionBar = Collections.unmodifiableList(new ArrayList<>(new LinkedHashSet<>(actionBar == null ? List.of() : actionBar)));
+        this.runtimeSkillLoadout = LegacyPaladinRuntimeSkillLoadoutAdapter.toRuntimeLoadout(learnedSkillsCopy, actionBar);
         this.horizonSeconds = horizonSeconds;
         this.initialPrimaryResource = initialPrimaryResource;
         this.maxPrimaryResource = maxPrimaryResource;
@@ -305,11 +305,19 @@ public final class CurrentBuildRequest {
     }
 
     public Map<SkillId, SkillState> getLearnedSkills() {
-        return learnedSkills;
+        return legacySkillView().learnedSkills();
     }
 
     public List<SkillId> getActionBar() {
-        return actionBar;
+        return legacySkillView().actionBar();
+    }
+
+    public RuntimeSkillLoadout getRuntimeSkillLoadout() {
+        return runtimeSkillLoadout;
+    }
+
+    private LegacyPaladinRuntimeSkillLoadoutAdapter.LegacyView legacySkillView() {
+        return LegacyPaladinRuntimeSkillLoadoutAdapter.toLegacyView(runtimeSkillLoadout).orElseThrow();
     }
 
     public int getHorizonSeconds() {
@@ -357,54 +365,35 @@ public final class CurrentBuildRequest {
     }
 
     public CurrentBuildRequest withActiveAspectIds(List<String> activeAspectIds) {
-        return new CurrentBuildRequest(
-                level,
-                weaponDamage,
-                strength,
-                intelligence,
-                thorns,
-                blockChance,
-                retributionChance,
-                hasActiveWeapon,
-                hasActiveShield,
-                learnedSkills,
-                actionBar,
-                horizonSeconds,
-                initialPrimaryResource,
-                maxPrimaryResource,
-                primaryResourceRegenPerSecond,
-                selectedPaladinOathId,
-                initialAnimus,
-                maxAnimus,
-                activeAspectIds,
-                criticalChancePercent,
-                simulationSeed
-        );
+        return new CurrentBuildRequest(this, activeAspectIds, criticalChancePercent);
     }
 
     public CurrentBuildRequest withCriticalChancePercent(double criticalChancePercent) {
-        return new CurrentBuildRequest(
-                level,
-                weaponDamage,
-                strength,
-                intelligence,
-                thorns,
-                blockChance,
-                retributionChance,
-                hasActiveWeapon,
-                hasActiveShield,
-                learnedSkills,
-                actionBar,
-                horizonSeconds,
-                initialPrimaryResource,
-                maxPrimaryResource,
-                primaryResourceRegenPerSecond,
-                selectedPaladinOathId,
-                initialAnimus,
-                maxAnimus,
-                activeAspectIds,
-                criticalChancePercent,
-                simulationSeed
-        );
+        return new CurrentBuildRequest(this, activeAspectIds, criticalChancePercent);
+    }
+
+    /** Kopiuje pozostałe pola bez cofania kanonicznego loadoutu do mapy i paska legacy. */
+    private CurrentBuildRequest(CurrentBuildRequest source, List<String> activeAspectIds, double criticalChancePercent) {
+        validateCriticalChance(criticalChancePercent);
+        this.level = source.level;
+        this.weaponDamage = source.weaponDamage;
+        this.strength = source.strength;
+        this.intelligence = source.intelligence;
+        this.thorns = source.thorns;
+        this.blockChance = source.blockChance;
+        this.retributionChance = source.retributionChance;
+        this.hasActiveWeapon = source.hasActiveWeapon;
+        this.hasActiveShield = source.hasActiveShield;
+        this.runtimeSkillLoadout = source.runtimeSkillLoadout;
+        this.horizonSeconds = source.horizonSeconds;
+        this.initialPrimaryResource = source.initialPrimaryResource;
+        this.maxPrimaryResource = source.maxPrimaryResource;
+        this.primaryResourceRegenPerSecond = source.primaryResourceRegenPerSecond;
+        this.selectedPaladinOathId = source.selectedPaladinOathId;
+        this.initialAnimus = source.initialAnimus;
+        this.maxAnimus = source.maxAnimus;
+        this.activeAspectIds = Collections.unmodifiableList(new ArrayList<>(new LinkedHashSet<>(activeAspectIds == null ? List.of() : activeAspectIds)));
+        this.criticalChancePercent = criticalChancePercent;
+        this.simulationSeed = source.simulationSeed;
     }
 }

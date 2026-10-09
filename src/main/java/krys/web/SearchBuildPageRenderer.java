@@ -29,6 +29,10 @@ public final class SearchBuildPageRenderer {
     }
 
     public String render(SearchBuildPageModel model) {
+        if (model.hasActiveHero() && !CurrentBuildRuntimeSupport.isSupported(model.getActiveHero().getHeroClass())) {
+            return UnsupportedHeroRuntimePageRenderer.render(model.getActiveHero(), "Znajdź najlepszy build",
+                    "/znajdz-najlepszy-build", CurrentBuildRuntimeSupport.NECROMANCER_SEARCH_MESSAGE);
+        }
         return template
                 .replace("{{APP_SHELL_STYLES}}", AppShellRendererSupport.renderSharedStyles())
                 .replace("{{GLOBAL_NAV}}", AppShellRendererSupport.renderGlobalNavigation("/znajdz-najlepszy-build"))

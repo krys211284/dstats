@@ -50,6 +50,7 @@ public final class HeroesController implements HttpHandler {
         try {
             switch (action) {
                 case "createHero" -> handleCreateHero(fields, messages);
+                case "updateHeroDetails" -> handleUpdateHeroDetails(fields, messages);
                 case "setActive" -> handleSetActive(fields, messages);
                 case "deleteHero" -> handleDelete(fields, messages);
                 default -> errors.add("Nieobsługiwana akcja modułu bohaterów.");
@@ -62,7 +63,12 @@ public final class HeroesController implements HttpHandler {
 
     private void handleCreateHero(Map<String, String> fields, List<String> messages) {
         String heroName = fields.getOrDefault("heroName", "");
-        HeroClass heroClass = HeroClass.valueOf(fields.getOrDefault("heroClass", ""));
+        HeroClass heroClass;
+        try {
+            heroClass = HeroClass.valueOf(fields.getOrDefault("heroClass", ""));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Wybierz poprawną klasę bohatera.");
+        }
         int level = Integer.parseInt(fields.getOrDefault("heroLevel", "0"));
         HeroProfile createdHero = heroService.createHero(heroName, heroClass, level);
         messages.add("Utworzono bohatera " + createdHero.getName() + ".");
@@ -75,6 +81,13 @@ public final class HeroesController implements HttpHandler {
         long heroId = Long.parseLong(fields.getOrDefault("heroId", "0"));
         heroService.setActiveHero(heroId);
         messages.add("Zmieniono aktywnego bohatera.");
+    }
+
+    private void handleUpdateHeroDetails(Map<String, String> fields, List<String> messages) {
+        long heroId = Long.parseLong(fields.getOrDefault("heroId", "0"));
+        int level = Integer.parseInt(fields.getOrDefault("heroLevel", "0"));
+        HeroProfile hero = heroService.updateHeroDetails(heroId, fields.getOrDefault("heroName", ""), level);
+        messages.add("Zapisano nazwę i poziom bohatera " + hero.getName() + ".");
     }
 
     private void handleDelete(Map<String, String> fields, List<String> messages) {

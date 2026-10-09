@@ -5,13 +5,14 @@ import krys.combat.DamageBreakdown;
 import krys.combat.DamageComponentBreakdown;
 import krys.combat.DamageEngine;
 import krys.paladin.PaladinSkillTreeRegistry;
-import krys.paladin.PaladinSkillTreeStatus;
-import krys.paladin.PaladinSkillTreeType;
-import krys.paladin.PaladinTreeSkill;
 import krys.simulation.HeroBuildSnapshot;
 import krys.skill.SkillId;
 import krys.skill.SkillState;
 import krys.skill.SkillUpgradeChoice;
+import krys.skilltree.CharacterTreeSkill;
+import krys.skilltree.SkillTreeStatus;
+import krys.skilltree.SkillTreeType;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.EnumSet;
@@ -61,9 +62,9 @@ class DamageRankingServiceTest {
 
     @Test
     void ranking_domyslny_powinien_korzystac_z_nowego_rejestru_pdf_zamiast_starego_foundation() {
-        List<PaladinSkillDamageRankingEntry> ranking = service.rankDamageSkills(PaladinDamageRankingMetric.DAMAGE_PER_USE);
+        List<SkillDamageRankingEntry> ranking = service.rankDamageSkills(DamageRankingMetric.DAMAGE_PER_USE);
         Set<String> skillIds = ranking.stream()
-                .map(PaladinSkillDamageRankingEntry::getSkillId)
+                .map(SkillDamageRankingEntry::getSkillId)
                 .collect(Collectors.toSet());
 
         assertTrue(skillIds.contains("wlocznia_niebios"));
@@ -94,10 +95,10 @@ class DamageRankingServiceTest {
 
     @Test
     void ranking_powinien_pokazywac_niepoliczalne_umiejetnosci_bez_wynikow_dps() {
-        List<PaladinSkillDamageRankingEntry> ranking = service.rankDamageSkills(PaladinDamageRankingMetric.SINGLE_TARGET_DPS);
+        List<SkillDamageRankingEntry> ranking = service.rankDamageSkills(DamageRankingMetric.SINGLE_TARGET_DPS);
 
         assertFalse(ranking.isEmpty());
-        assertTrue(ranking.stream().anyMatch(entry -> entry.getVerificationStatus() == PaladinSkillDamageVerificationStatus.NEEDS_VERIFICATION));
+        assertTrue(ranking.stream().anyMatch(entry -> entry.getVerificationStatus() == SkillDamageVerificationStatus.NEEDS_VERIFICATION));
         assertTrue(ranking.stream().allMatch(entry -> entry.getDamagePerUse() == null));
         assertTrue(ranking.stream().allMatch(entry -> entry.getEffectiveCycleSeconds() == null));
         assertTrue(ranking.stream().allMatch(entry -> entry.getTheoreticalDps() == null));
@@ -105,14 +106,14 @@ class DamageRankingServiceTest {
 
     @Test
     void ranking_paladyna_powinien_pokazywac_zaimportowane_bazowe_procenty_simple_single_component() {
-        List<PaladinSkillDamageRankingEntry> entries = service.describeTreeSkills(PlayableClass.PALADIN);
+        List<SkillDamageRankingEntry> entries = service.describeTreeSkills(PlayableClass.PALADIN);
 
         assertEquals(24, entries.size());
-        Map<String, PaladinSkillDamageRankingEntry> entriesBySkillId = entries.stream()
-                .collect(Collectors.toMap(PaladinSkillDamageRankingEntry::getSkillId, entry -> entry));
+        Map<String, SkillDamageRankingEntry> entriesBySkillId = entries.stream()
+                .collect(Collectors.toMap(SkillDamageRankingEntry::getSkillId, entry -> entry));
 
         for (Map.Entry<String, List<Integer>> expectation : SIMPLE_SINGLE_COMPONENT_R1_TREE_MAX.entrySet()) {
-            PaladinSkillDamageRankingEntry entry = entriesBySkillId.get(expectation.getKey());
+            SkillDamageRankingEntry entry = entriesBySkillId.get(expectation.getKey());
 
             assertEquals(expectation.getValue().get(0), entry.getBaseDamagePercentAtRank1(), expectation.getKey());
             assertEquals(expectation.getValue().get(1), entry.getBaseDamagePercentAtTreeMaxRank(), expectation.getKey());
@@ -121,14 +122,14 @@ class DamageRankingServiceTest {
         }
         assertEquals(SIMPLE_SINGLE_COMPONENT_SKILLS, entries.stream()
                 .filter(entry -> entry.getBaseDamagePercentAtRank1() != null)
-                .map(PaladinSkillDamageRankingEntry::getSkillId)
+                .map(SkillDamageRankingEntry::getSkillId)
                 .collect(Collectors.toSet()));
         assertEquals(SIMPLE_SINGLE_COMPONENT_SKILLS, entries.stream()
                 .filter(entry -> entry.getBaseDamagePercentAtTreeMaxRank() != null)
-                .map(PaladinSkillDamageRankingEntry::getSkillId)
+                .map(SkillDamageRankingEntry::getSkillId)
                 .collect(Collectors.toSet()));
         for (String skillId : SKILLS_WITHOUT_SIMPLE_DAMAGE_TABLE) {
-            PaladinSkillDamageRankingEntry entry = entriesBySkillId.get(skillId);
+            SkillDamageRankingEntry entry = entriesBySkillId.get(skillId);
 
             assertEquals(null, entry.getBaseDamagePercentAtRank1(), skillId);
             assertEquals(null, entry.getBaseDamagePercentAtTreeMaxRank(), skillId);
@@ -147,13 +148,13 @@ class DamageRankingServiceTest {
                 ))
         )));
 
-        List<String> rankOneOrder = fixtureService.rankDamageSkills(PlayableClass.PALADIN, PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1)
+        List<String> rankOneOrder = fixtureService.rankDamageSkills(PlayableClass.PALADIN, DamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1)
                 .stream()
-                .map(PaladinSkillDamageRankingEntry::getSkillId)
+                .map(SkillDamageRankingEntry::getSkillId)
                 .toList();
-        List<String> treeMaxOrder = fixtureService.rankDamageSkills(PlayableClass.PALADIN, PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX)
+        List<String> treeMaxOrder = fixtureService.rankDamageSkills(PlayableClass.PALADIN, DamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX)
                 .stream()
-                .map(PaladinSkillDamageRankingEntry::getSkillId)
+                .map(SkillDamageRankingEntry::getSkillId)
                 .toList();
 
         assertEquals(List.of("skill_b", "skill_a", "skill_c"), rankOneOrder);
@@ -162,13 +163,13 @@ class DamageRankingServiceTest {
 
     @Test
     void sortowanie_po_bazowych_procentach_dla_rejestru_paladyna_powinno_wynosic_najwyzszy_importowany_skill_nad_brak_danych() {
-        List<String> rankOneOrder = service.rankDamageSkills(PlayableClass.PALADIN, PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1)
+        List<String> rankOneOrder = service.rankDamageSkills(PlayableClass.PALADIN, DamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1)
                 .stream()
-                .map(PaladinSkillDamageRankingEntry::getSkillId)
+                .map(SkillDamageRankingEntry::getSkillId)
                 .toList();
-        List<String> treeMaxOrder = service.rankDamageSkills(PlayableClass.PALADIN, PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX)
+        List<String> treeMaxOrder = service.rankDamageSkills(PlayableClass.PALADIN, DamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX)
                 .stream()
-                .map(PaladinSkillDamageRankingEntry::getSkillId)
+                .map(SkillDamageRankingEntry::getSkillId)
                 .toList();
 
         assertEquals("skazanie", rankOneOrder.get(0));
@@ -179,24 +180,24 @@ class DamageRankingServiceTest {
 
     @Test
     void mechaniki_wymagajace_weryfikacji_nie_sa_oznaczane_jako_supported() {
-        PaladinSkillDamageRankingEntry gatedEntry = service.rankDamageSkills(PaladinDamageRankingMetric.DAMAGE_PER_USE).stream()
+        SkillDamageRankingEntry gatedEntry = service.rankDamageSkills(DamageRankingMetric.DAMAGE_PER_USE).stream()
                 .filter(entry -> entry.getSkillId().equals("wlocznia_niebios"))
                 .findFirst()
                 .orElseThrow();
 
-        assertEquals(PaladinSkillDamageVerificationStatus.NEEDS_VERIFICATION, gatedEntry.getVerificationStatus());
-        assertNotEquals(PaladinSkillDamageVerificationStatus.SUPPORTED, gatedEntry.getVerificationStatus());
+        assertEquals(SkillDamageVerificationStatus.NEEDS_VERIFICATION, gatedEntry.getVerificationStatus());
+        assertNotEquals(SkillDamageVerificationStatus.SUPPORTED, gatedEntry.getVerificationStatus());
     }
 
     @Test
     void wynik_rankingu_zachowuje_source_pdf_i_skill_group_z_nowego_rejestru() {
-        PaladinSkillDamageRankingEntry entry = service.rankDamageSkills(PaladinDamageRankingMetric.SINGLE_TARGET_DPS)
+        SkillDamageRankingEntry entry = service.rankDamageSkills(DamageRankingMetric.SINGLE_TARGET_DPS)
                 .stream()
                 .filter(rankingEntry -> rankingEntry.getSkillId().equals("furia_niebios"))
                 .findFirst()
                 .orElseThrow();
 
-        assertEquals("docs/paladin/source-pdfs/moce_specjalne_diablo4.pdf", entry.getSourcePdf());
+        assertEquals("docs/paladin/source-pdfs/moce_specjalne_diablo4.pdf", entry.getSourceReference());
         assertEquals("moce_specjalne", entry.getSkillGroup());
     }
 
@@ -208,7 +209,7 @@ class DamageRankingServiceTest {
                 new SkillState(SkillId.ADVANCE, 5, true, SkillUpgradeChoice.RIGHT)
         ), List.of(SkillId.BRANDISH, SkillId.HOLY_BOLT, SkillId.ADVANCE));
 
-        List<PaladinSkillDamageRankingEntry> ranking = service.rankLegacyFoundationDamageSkills(snapshot, PaladinDamageRankingMetric.DAMAGE_PER_USE);
+        List<SkillDamageRankingEntry> ranking = service.rankLegacyFoundationDamageSkills(snapshot, DamageRankingMetric.DAMAGE_PER_USE);
 
         assertFalse(ranking.isEmpty());
         for (int i = 1; i < ranking.size(); i++) {
@@ -224,17 +225,17 @@ class DamageRankingServiceTest {
                 new SkillState(SkillId.BRANDISH, 5, false, SkillUpgradeChoice.NONE)
         ), List.of(SkillId.CLASH, SkillId.BRANDISH));
 
-        List<PaladinSkillDamageRankingEntry> ranking = service.rankLegacyFoundationDamageSkills(snapshot, PaladinDamageRankingMetric.DAMAGE_PER_USE);
+        List<SkillDamageRankingEntry> ranking = service.rankLegacyFoundationDamageSkills(snapshot, DamageRankingMetric.DAMAGE_PER_USE);
         Set<String> rankedSkillIds = ranking.stream()
-                .map(PaladinSkillDamageRankingEntry::getSkillId)
+                .map(SkillDamageRankingEntry::getSkillId)
                 .collect(Collectors.toSet());
 
         assertTrue(rankedSkillIds.contains(SkillId.CLASH.name()));
-        PaladinSkillDamageRankingEntry clashDescription = service.describeLegacyConfiguredFoundationSkills(snapshot).stream()
+        SkillDamageRankingEntry clashDescription = service.describeLegacyConfiguredFoundationSkills(snapshot).stream()
                 .filter(entry -> entry.getSkillId().equals(SkillId.CLASH.name()))
                 .findFirst()
                 .orElseThrow();
-        assertEquals(PaladinSkillDamageVerificationStatus.SUPPORTED, clashDescription.getVerificationStatus());
+        assertEquals(SkillDamageVerificationStatus.SUPPORTED, clashDescription.getVerificationStatus());
     }
 
     @Test
@@ -242,7 +243,7 @@ class DamageRankingServiceTest {
         SkillState brandishState = new SkillState(SkillId.BRANDISH, 5, true, SkillUpgradeChoice.RIGHT);
         HeroBuildSnapshot snapshot = SampleBuildFactory.createReferenceCurrentBuild(brandishState);
 
-        PaladinSkillDamageRankingEntry entry = service.rankLegacyFoundationDamageSkills(snapshot, PaladinDamageRankingMetric.DAMAGE_PER_USE)
+        SkillDamageRankingEntry entry = service.rankLegacyFoundationDamageSkills(snapshot, DamageRankingMetric.DAMAGE_PER_USE)
                 .stream()
                 .filter(rankingEntry -> rankingEntry.getSkillId().equals(SkillId.BRANDISH.name()))
                 .findFirst()
@@ -257,22 +258,22 @@ class DamageRankingServiceTest {
         assertEquals(breakdown.getFinalDamage(), entry.getDamagePerUse());
         assertEquals(sumIncludedActiveComponents, entry.getDamagePerUse());
         assertTrue(breakdown.getComponents().stream().anyMatch(component -> !component.isIncludedInSingleTarget()));
-        assertEquals(PaladinDamageTargetMode.SINGLE_TARGET, entry.getTargetMode());
+        assertEquals(DamageTargetMode.SINGLE_TARGET, entry.getTargetMode());
     }
 
-    private static PaladinTreeSkill fixtureSkill(String skillId,
+    private static CharacterTreeSkill fixtureSkill(String skillId,
                                                  String skillName,
                                                  Integer baseDamagePercentAtRank1,
                                                  Integer baseDamagePercentAtTreeMaxRank) {
-        return new PaladinTreeSkill(
+        return new CharacterTreeSkill(
                 skillId,
                 skillName,
                 "test.pdf",
                 "test",
                 baseDamagePercentAtRank1,
                 baseDamagePercentAtTreeMaxRank,
-                PaladinSkillTreeType.DAMAGE,
-                PaladinSkillTreeStatus.NEEDS_VERIFICATION,
+                SkillTreeType.DAMAGE,
+                SkillTreeStatus.NEEDS_VERIFICATION,
                 List.of(),
                 "Fixture sortowania bazowych procentów obrażeń."
         );

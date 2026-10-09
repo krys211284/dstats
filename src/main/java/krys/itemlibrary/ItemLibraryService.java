@@ -276,7 +276,9 @@ public final class ItemLibraryService {
             retributionChance += contribution.getRetributionChance();
             criticalChancePercent += contribution.getCriticalChancePercent();
             if (item.getItemArmor() != null && item.getItemArmor() > 0L) {
-                itemArmor += masterworkingValueResolver.resolveArmor(item.getItemArmor(), item.getMasterworking());
+                itemArmor += item.getDetails().isMythicUnique()
+                        ? item.getItemArmor()
+                        : masterworkingValueResolver.resolveArmor(item.getItemArmor(), item.getMasterworking());
             }
 
             ItemImportDetails details = item.getDetails();

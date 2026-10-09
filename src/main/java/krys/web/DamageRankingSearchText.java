@@ -1,9 +1,8 @@
 package krys.web;
 
-import krys.paladin.DamagePercentComponent;
-import krys.paladin.SkillCategory;
-import krys.paladin.SkillTag;
-import krys.paladin.UpgradeDamageModifier;
+import krys.skilltree.DamagePercentComponent;
+import krys.skilltree.SourceSkillCategory;
+import krys.skilltree.UpgradeDamageModifier;
 
 import java.text.Normalizer;
 import java.util.Locale;
@@ -39,25 +38,34 @@ public final class DamageRankingSearchText {
         append(text, row.getType().name());
         append(text, row.getDamageProfile());
         append(text, row.getDamageComponentsDescription());
+        append(text, row.getEntry().getNotes());
         append(text, row.getSourceCategoriesDisplay());
-        for (SkillCategory category : row.getSkillCategories()) {
-            append(text, category.name());
+        for (SourceSkillCategory category : row.getSkillCategories()) {
+            append(text, category.getId());
             append(text, category.getDisplayName());
         }
-        for (SkillTag tag : row.getTags()) {
-            append(text, tag.name());
+        for (String tag : row.getTags()) {
+            append(text, tag);
         }
-        append(text, row.getFaithCostSummary());
-        append(text, row.getFaithGenerationSummary());
+        append(text, row.getResourceCostSummary());
+        append(text, row.getResourceGenerationSummary());
         append(text, row.getLuckyHitSummary());
+        if (row.getEntry().getCooldownSeconds() != null || row.getChargeData() != null) {
+            append(text, "Odnowienie " + row.getCooldownSummary());
+        }
+        append(text, row.getActivationRequirementsSummary());
+        for (var requirement : row.getActivationRequirements()) {
+            append(text, requirement.id());
+            append(text, requirement.consumptionMode().name());
+        }
         if (row.getLuckyHitPercent() != null) {
             append(text, "Lucky Hit");
         }
-        if (row.hasFaithCost()) {
-            append(text, "Koszt Wiary");
+        if (row.hasResourceCost()) {
+            append(text, row.getResourceType().costLabel());
         }
         if (row.hasResourceGeneration()) {
-            append(text, "Generowanie Wiary");
+            append(text, row.getResourceType().generationLabel());
         }
         appendPercent(text, row.getBaseDamagePercentAtRank1());
         appendPercent(text, row.getBaseDamagePercentAtTreeMaxRank());
@@ -68,6 +76,11 @@ public final class DamageRankingSearchText {
                 append(text, component.name());
                 appendPercent(text, rankOne);
                 appendPercent(text, treeMax);
+                Integer durationSeconds = row.getComponentDamagePercentRanks().durationSecondsFor(component);
+                if (durationSeconds != null) {
+                    append(text, "w ciągu " + durationSeconds + " s");
+                }
+                appendComponentTiming(text, row.getComponentDamagePercentRanks(), component);
             }
         }
         appendModifiers(text, row.damageMultiplierModifiers());
@@ -76,6 +89,7 @@ public final class DamageRankingSearchText {
         appendModifiers(text, row.damageOverTimeModifiers());
         appendModifiers(text, row.statusDamageModifiers());
         appendModifiers(text, row.resourceModifiers());
+        appendModifiers(text, row.cooldownOrCastSpeedModifiers());
         appendModifiers(text, row.defenseOrUtilityModifiers());
         appendModifiers(text, row.manualReviewModifiers());
         return text.toString();
@@ -91,7 +105,22 @@ public final class DamageRankingSearchText {
             append(text, modifier.getAffectedComponent());
             append(text, modifier.getSafeForRankingDisplay().name());
             append(text, modifier.getNotes());
+            var tables = modifier.getComponentDamagePercentRanks();
+            for (var component : DamagePercentComponent.values()) {
+                if (!tables.hasComponent(component)) continue;
+                append(text, component.name());
+                appendPercent(text, tables.damagePercentAt(component, 1));
+                appendPercent(text, tables.damagePercentAt(component, 15));
+                appendComponentTiming(text, tables, component);
+            }
         }
+    }
+
+    private static void appendComponentTiming(StringBuilder text, krys.skilltree.DamagePercentComponentRankTable tables,
+                                              DamagePercentComponent component) {
+        Integer interval = tables.intervalSecondsFor(component);
+        if (interval != null) append(text, "co " + interval + " s");
+        if (component == DamagePercentComponent.EVENT_TRIGGERED_DAMAGE) append(text, "na zdarzenie");
     }
 
     private static void appendPercent(StringBuilder text, Integer value) {

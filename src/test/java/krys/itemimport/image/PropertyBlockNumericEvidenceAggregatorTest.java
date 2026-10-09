@@ -98,6 +98,51 @@ class PropertyBlockNumericEvidenceAggregatorTest {
         assertEquals(2, aggregation.diagnostics().size());
     }
 
+    @Test
+    void shouldAlignDziedzicFullSecondValueAcrossInsertedNoise() {
+        PropertyBlockNumericEvidenceAggregator.Aggregation aggregation = aggregate(List.of(
+                profile("B3", "+15,07% [12,01]%"),
+                profile("BP", "+15,07% [12,01]%"),
+                profile("B4", "+15,0% [12,01]%"),
+                profile("N3", "+15,0% [12,01]%"),
+                profile("N4", "+15,0% 6 [12,0]%"),
+                profileTokens("N5", "+15", "75", "12.0", "7"),
+                profile("A", "+15,0% [12,0]%")
+        ));
+
+        PropertyBlockNumericEvidence second = aggregation.evidence().get(1);
+
+        assertTrue(second.isAmbiguous());
+        assertEquals("", second.getSelectedValue());
+        assertEquals(4, second.getSupportCount());
+        assertTrue(second.getAlternativeValues().contains("12,01%"), second.getAlternativeValues().toString());
+        assertTrue(second.getAlternativeValues().contains("12,0%"), second.getAlternativeValues().toString());
+        assertTrue(second.getAlternativeValues().contains("12.0"), describe(aggregation.evidence()));
+        assertTrue(aggregation.diagnostics().stream()
+                .anyMatch(diagnostic -> diagnostic.startsWith("NUMERIC_OCR_AMBIGUOUS tokenOrder=2")));
+    }
+
+    @Test
+    void shouldKeepMixedRangeAndSingleTokenColumnAmbiguous() {
+        PropertyBlockNumericEvidenceAggregator.Aggregation aggregation = aggregate(List.of(
+                profile("p1", "6,5-8,5%"),
+                profile("p2", "6,5-8,5%"),
+                profile("p3", "6,5-8,5%"),
+                profile("p4", "6,5-8,5%"),
+                profile("p5", "6,5-8,5%"),
+                profile("single", "7%"),
+                profile("range-outlier", "5,5-5,5%")
+        ));
+
+        PropertyBlockNumericEvidence evidence = aggregation.evidence().getFirst();
+
+        assertTrue(evidence.isAmbiguous());
+        assertEquals("", evidence.getSelectedValue());
+        assertEquals(5, evidence.getSupportCount());
+        assertTrue(evidence.getAlternativeValues().contains("6,5-8,5%"));
+        assertTrue(evidence.getAlternativeValues().contains("7%"));
+    }
+
     private static PropertyBlockNumericEvidenceAggregator.Aggregation aggregate(
             List<PropertyBlockOcrProfileResult> profiles) {
         return PropertyBlockNumericEvidenceAggregator.aggregate(profiles);
@@ -111,5 +156,26 @@ class PropertyBlockNumericEvidenceAggregatorTest {
                 0.0d,
                 ""
         );
+    }
+
+    private static PropertyBlockOcrProfileResult profileTokens(String name, String... tokens) {
+        return new PropertyBlockOcrProfileResult(
+                name,
+                String.join(" ", tokens),
+                List.of(tokens),
+                0.0d,
+                ""
+        );
+    }
+
+    private static String describe(List<PropertyBlockNumericEvidence> evidence) {
+        return evidence.stream()
+                .map(value -> value.getTokenOrder() + "=" + value.getSelectedValue()
+                        + " support=" + value.getSupportCount()
+                        + " alternatives=" + value.getAlternativeValues()
+                        + " profiles=" + value.getSupportingProfiles()
+                        + " ambiguous=" + value.isAmbiguous())
+                .toList()
+                .toString();
     }
 }

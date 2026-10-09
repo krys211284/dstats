@@ -1,5 +1,7 @@
 package krys.combat;
 
+import krys.runtime.legacy.LegacyPaladinRuntimeSkillKeyAdapter;
+
 import krys.skill.CriticalRoundingPolicy;
 import krys.hero.Hero;
 import krys.hero.HeroClassDef;
@@ -17,15 +19,18 @@ import krys.skill.SkillRuntimeEffect;
 import krys.skill.SkillState;
 import krys.skill.StatusId;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 
 /**
- * Minimalny wspólny silnik obrażeń.
- * Już na tym etapie jest data-driven: skill dostarcza bazowy procent i listę efektów runtime.
+ * Adapter legacy Paladyna: rozwiązuje statystyki, itemy, efekty i politykę zaokrągleń.
+ * Czystą matematykę direct hit deleguje do neutralnego DirectDamageCalculator.
  */
 public final class DamageEngine {
+    private static final DirectDamageCalculator DIRECT_DAMAGE_CALCULATOR = new DirectDamageCalculator();
+    // Reguły statystyk i efektów legacy pozostają w adapterze, poza neutralnym kernelem.
     private static final double BASE_CRIT_DAMAGE_BONUS = 0.50d;
     private static final double CRIT_DAMAGE_FROM_INTELLIGENCE_FACTOR = 0.0004d;
     private static final double VULNERABLE_MULTIPLIER = 1.20d;
@@ -121,54 +126,16 @@ public final class DamageEngine {
         double itemMultiplicativeMultiplier = verathielBasicSkillMultiplier * normalizedMolochOathMultiplier;
 
         long baseSkillDamagePercent = resolveBaseSkillDamagePercent(skillDef, state, targetStatuses);
-        long baseDamage = Math.round(snapshot.getAverageWeaponDamage() * (baseSkillDamagePercent / 100.0d));
-
-        List<DamageComponentBreakdown> components = new ArrayList<>();
-        double totalRawNormal = 0.0d;
-        double totalRawCrit = 0.0d;
-
-        DamageComponentBreakdown baseComponent = createComponent(
-                "Główny hit",
-                "bazowy",
-                baseSkillDamagePercent,
-                1,
-                null,
-                true,
-                true,
-                null,
-                snapshot.getAverageWeaponDamage(),
-                weaponMultiplier,
-                mainStatMultiplier,
-                additiveMultiplier,
-                vulnerableMultiplier,
-                itemMultiplicativeMultiplier,
-                critMultiplier,
-                levelDamageReduction
-        );
-        components.add(baseComponent);
-        totalRawNormal += exactRawDamage(
-                snapshot.getAverageWeaponDamage(),
-                baseSkillDamagePercent,
-                1,
-                weaponMultiplier,
-                mainStatMultiplier,
-                additiveMultiplier,
-                vulnerableMultiplier,
-                itemMultiplicativeMultiplier,
-                1.0d
-        );
-        totalRawCrit += exactRawDamage(
-                snapshot.getAverageWeaponDamage(),
-                baseSkillDamagePercent,
-                1,
-                weaponMultiplier,
-                mainStatMultiplier,
-                additiveMultiplier,
-                vulnerableMultiplier,
-                itemMultiplicativeMultiplier,
-                critMultiplier
-        );
-
+        DirectDamageContext.CriticalTotalRoundingPolicy roundingPolicy =
+                skillDef.getCriticalRoundingPolicy(state.getChoiceUpgrade()) == CriticalRoundingPolicy.ROUNDED_RAW_HIT
+                        ? DirectDamageContext.CriticalTotalRoundingPolicy.ROUNDED_RAW_TOTAL
+                        : DirectDamageContext.CriticalTotalRoundingPolicy.EXACT_COMPONENT_SUM;
+        DirectDamageContext context = new DirectDamageContext(snapshot.getAverageWeaponDamage(),
+                weaponMultiplier, mainStatMultiplier, additiveMultiplier, vulnerableMultiplier,
+                itemMultiplicativeMultiplier, critMultiplier, 1.0d - levelDamageReduction, roundingPolicy);
+        List<DirectDamageComponentSpec> specs = new ArrayList<>();
+        specs.add(new DirectDamageComponentSpec("Główny hit", "bazowy", BigDecimal.valueOf(baseSkillDamagePercent),
+                1, null, true, true, null));
         for (SkillRuntimeEffect effect : skillDef.getChoiceEffects(state.getChoiceUpgrade())) {
             if (effect.getEffectType() != EffectType.DAMAGE) {
                 continue;
@@ -177,61 +144,20 @@ public final class DamageEngine {
             String conditionLabel = effect.getConditionStatus() == StatusId.NONE ? null : effect.getConditionStatus().name();
             boolean includedInSingleTarget = effect.isIncludedInSingleTarget();
             String exclusionReason = includedInSingleTarget ? null : "Komponent nie trafia głównego celu w modelu single target";
-            DamageComponentBreakdown component = createComponent(
-                    effect.getComponentName(),
-                    "modyfikator",
-                    effect.getSkillDamagePercent(),
-                    effect.getHitCount(),
-                    conditionLabel,
-                    active,
-                    includedInSingleTarget,
-                    exclusionReason,
-                    snapshot.getAverageWeaponDamage(),
-                    weaponMultiplier,
-                    mainStatMultiplier,
-                    additiveMultiplier,
-                    vulnerableMultiplier,
-                    itemMultiplicativeMultiplier,
-                    critMultiplier,
-                    levelDamageReduction
-            );
-            components.add(component);
-            if (active && includedInSingleTarget) {
-                totalRawNormal += exactRawDamage(
-                        snapshot.getAverageWeaponDamage(),
-                        effect.getSkillDamagePercent(),
-                        effect.getHitCount(),
-                        weaponMultiplier,
-                        mainStatMultiplier,
-                        additiveMultiplier,
-                        vulnerableMultiplier,
-                        itemMultiplicativeMultiplier,
-                        1.0d
-                );
-                totalRawCrit += exactRawDamage(
-                        snapshot.getAverageWeaponDamage(),
-                        effect.getSkillDamagePercent(),
-                        effect.getHitCount(),
-                        weaponMultiplier,
-                        mainStatMultiplier,
-                        additiveMultiplier,
-                        vulnerableMultiplier,
-                        itemMultiplicativeMultiplier,
-                        critMultiplier
-                );
-            }
+            specs.add(new DirectDamageComponentSpec(effect.getComponentName(), "modyfikator",
+                    BigDecimal.valueOf(effect.getSkillDamagePercent()), effect.getHitCount(), conditionLabel,
+                    active, includedInSingleTarget, exclusionReason));
         }
-
-        long rawDamage = Math.round(totalRawNormal);
-        long finalDamage = Math.round(totalRawNormal * (1.0d - levelDamageReduction));
-        CriticalDamageResult criticalDamageResult = resolveCriticalDamage(skillDef, state, rawDamage, totalRawCrit, critMultiplier, levelDamageReduction);
+        DirectDamageResult directDamage = DIRECT_DAMAGE_CALCULATOR.calculate(context, specs);
+        List<DamageComponentBreakdown> components = directDamage.components().stream()
+                .map(DamageEngine::toLegacyComponent).toList();
 
         return new DamageBreakdown(
-                baseDamage,
-                rawDamage,
-                finalDamage,
-                criticalDamageResult.rawCriticalDamage(),
-                criticalDamageResult.criticalDamage(),
+                directDamage.components().getFirst().baseDamage(),
+                directDamage.rawDamage(),
+                directDamage.finalDamage(),
+                directDamage.rawCriticalDamage(),
+                directDamage.criticalDamage(),
                 weaponMultiplier,
                 mainStat,
                 mainStatMultiplier,
@@ -275,55 +201,20 @@ public final class DamageEngine {
         double levelDamageReduction = resolveLevelDamageReduction(hero.getLevel());
         double itemMultiplicativeMultiplier = 1.0d;
 
-        long baseDamage = Math.round(snapshot.getAverageWeaponDamage() * (skillDamagePercent / 100.0d));
-        DamageComponentBreakdown component = createComponent(
-                componentName,
-                source,
-                skillDamagePercent,
-                1,
-                null,
-                true,
-                true,
-                null,
-                snapshot.getAverageWeaponDamage(),
-                weaponMultiplier,
-                mainStatMultiplier,
-                additiveMultiplier,
-                vulnerableMultiplier,
-                itemMultiplicativeMultiplier,
-                critMultiplier,
-                levelDamageReduction
-        );
-
-        double rawNormalExact = exactRawDamage(
-                snapshot.getAverageWeaponDamage(),
-                skillDamagePercent,
-                1,
-                weaponMultiplier,
-                mainStatMultiplier,
-                additiveMultiplier,
-                vulnerableMultiplier,
-                itemMultiplicativeMultiplier,
-                1.0d
-        );
-        double rawCritExact = exactRawDamage(
-                snapshot.getAverageWeaponDamage(),
-                skillDamagePercent,
-                1,
-                weaponMultiplier,
-                mainStatMultiplier,
-                additiveMultiplier,
-                vulnerableMultiplier,
-                itemMultiplicativeMultiplier,
-                critMultiplier
-        );
+        DirectDamageContext context = new DirectDamageContext(snapshot.getAverageWeaponDamage(),
+                weaponMultiplier, mainStatMultiplier, additiveMultiplier, vulnerableMultiplier,
+                itemMultiplicativeMultiplier, critMultiplier, 1.0d - levelDamageReduction);
+        DirectDamageComponentSpec spec = new DirectDamageComponentSpec(componentName, source,
+                BigDecimal.valueOf(skillDamagePercent), 1, null, true, true, null);
+        DirectDamageResult directDamage = DIRECT_DAMAGE_CALCULATOR.calculate(context, List.of(spec));
+        DamageComponentBreakdown component = toLegacyComponent(directDamage.components().getFirst());
 
         return new DamageBreakdown(
-                baseDamage,
-                Math.round(rawNormalExact),
-                Math.round(rawNormalExact * (1.0d - levelDamageReduction)),
-                Math.round(rawCritExact),
-                Math.round(rawCritExact * (1.0d - levelDamageReduction)),
+                directDamage.components().getFirst().baseDamage(),
+                directDamage.rawDamage(),
+                directDamage.finalDamage(),
+                directDamage.rawCriticalDamage(),
+                directDamage.criticalDamage(),
                 weaponMultiplier,
                 mainStat,
                 mainStatMultiplier,
@@ -344,29 +235,6 @@ public final class DamageEngine {
         );
     }
 
-    /**
-     * README w sekcjach o single hit i golden values wymaga, aby dla Brandish rank 5
-     * z prawym modyfikatorem raw crit hit był liczony od już zaokrąglonego raw hit.
-     * To nie jest przypadkowy wyjątek w pipeline, tylko jawna polityka kontraktowa foundation.
-     */
-    private static CriticalDamageResult resolveCriticalDamage(SkillDef skillDef,
-                                                             SkillState state,
-                                                             long rawDamage,
-                                                             double totalRawCritExact,
-                                                             double critMultiplier,
-                                                             double levelDamageReduction) {
-        CriticalRoundingPolicy roundingPolicy = skillDef.getCriticalRoundingPolicy(state.getChoiceUpgrade());
-        if (roundingPolicy == CriticalRoundingPolicy.ROUNDED_RAW_HIT) {
-            long rawCriticalDamage = Math.round(rawDamage * critMultiplier);
-            long criticalDamage = Math.round(rawCriticalDamage * (1.0d - levelDamageReduction));
-            return new CriticalDamageResult(rawCriticalDamage, criticalDamage);
-        }
-
-        long rawCriticalDamage = Math.round(totalRawCritExact);
-        long criticalDamage = Math.round(totalRawCritExact * (1.0d - levelDamageReduction));
-        return new CriticalDamageResult(rawCriticalDamage, criticalDamage);
-    }
-
     private static long resolveBaseSkillDamagePercent(SkillDef skillDef, SkillState state, EnumSet<StatusId> targetStatuses) {
         long basePercent = skillDef.getBaseSkillDamagePercent(state.getRank());
         for (SkillRuntimeEffect effect : skillDef.getChoiceEffects(state.getChoiceUpgrade())) {
@@ -381,62 +249,11 @@ public final class DamageEngine {
         return effect.getConditionStatus() == StatusId.NONE || targetStatuses.contains(effect.getConditionStatus());
     }
 
-    private static DamageComponentBreakdown createComponent(String name,
-                                                            String source,
-                                                            long skillDamagePercent,
-                                                            int hitCount,
-                                                            String conditionLabel,
-                                                            boolean active,
-                                                            boolean includedInSingleTarget,
-                                                            String exclusionReason,
-                                                            long weaponDamage,
-                                                            double weaponMultiplier,
-                                                            double mainStatMultiplier,
-                                                            double additiveMultiplier,
-                                                            double vulnerableMultiplier,
-                                                            double itemMultiplicativeMultiplier,
-                                                            double critMultiplier,
-                                                            double levelDamageReduction) {
-        double rawNormalExact = active
-                ? exactRawDamage(weaponDamage, skillDamagePercent, hitCount, weaponMultiplier, mainStatMultiplier, additiveMultiplier, vulnerableMultiplier, itemMultiplicativeMultiplier, 1.0d)
-                : 0.0d;
-        double rawCritExact = active
-                ? exactRawDamage(weaponDamage, skillDamagePercent, hitCount, weaponMultiplier, mainStatMultiplier, additiveMultiplier, vulnerableMultiplier, itemMultiplicativeMultiplier, critMultiplier)
-                : 0.0d;
-        return new DamageComponentBreakdown(
-                name,
-                source,
-                skillDamagePercent,
-                hitCount,
-                conditionLabel,
-                active,
-                includedInSingleTarget,
-                exclusionReason,
-                Math.round(rawNormalExact),
-                Math.round(rawNormalExact * (1.0d - levelDamageReduction)),
-                Math.round(rawCritExact),
-                Math.round(rawCritExact * (1.0d - levelDamageReduction))
-        );
-    }
-
-    private static double exactRawDamage(long weaponDamage,
-                                         long skillDamagePercent,
-                                         int hitCount,
-                                         double weaponMultiplier,
-                                         double mainStatMultiplier,
-                                         double additiveMultiplier,
-                                         double vulnerableMultiplier,
-                                         double itemMultiplicativeMultiplier,
-                                         double critMultiplier) {
-        return weaponDamage
-                * (skillDamagePercent / 100.0d)
-                * weaponMultiplier
-                * mainStatMultiplier
-                * additiveMultiplier
-                * vulnerableMultiplier
-                * itemMultiplicativeMultiplier
-                * critMultiplier
-                * Math.max(1, hitCount);
+    private static DamageComponentBreakdown toLegacyComponent(DirectDamageComponentResult result) {
+        DirectDamageComponentSpec spec = result.spec();
+        return new DamageComponentBreakdown(spec.name(), spec.source(), spec.damagePercent().longValueExact(),
+                spec.hitCount(), spec.conditionLabel(), spec.active(), spec.includedInSingleTarget(), spec.exclusionReason(),
+                result.rawDamage(), result.finalDamage(), result.rawCriticalDamage(), result.criticalDamage());
     }
 
     private static double resolveLevelDamageReduction(int heroLevel) {
@@ -454,15 +271,8 @@ public final class DamageEngine {
     }
 
     private static boolean isBasicSkill(SkillId skillId) {
-        String treeSkillId = switch (skillId) {
-            case BRANDISH -> "wymach";
-            case HOLY_BOLT -> "swiety_pocisk";
-            case CLASH -> "starcie";
-            case ADVANCE -> "natarcie";
-        };
-        return PaladinSkillTreeRegistry.requireSkill(treeSkillId).hasSkillCategory(SkillCategory.PODSTAWOWE);
+        var key = LegacyPaladinRuntimeSkillKeyAdapter.toRuntimeKey(skillId);
+        return PaladinSkillTreeRegistry.requireSkill(key.skillId()).hasSkillCategory(SkillCategory.PODSTAWOWE);
     }
 
-    private record CriticalDamageResult(long rawCriticalDamage, long criticalDamage) {
-    }
 }

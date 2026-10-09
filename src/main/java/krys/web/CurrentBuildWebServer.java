@@ -85,7 +85,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
                 itemLibraryService,
                 heroService
         );
-        SkillTreeRegistryProvider skillTreeRegistryProvider = SkillTreeRegistryProvider.paladinOnly();
+        SkillTreeRegistryProvider skillTreeRegistryProvider = SkillTreeRegistryProvider.production();
         DamageRankingController damageRankingController = new DamageRankingController(
                 new DamageRankingService(new DamageEngine(), skillTreeRegistryProvider),
                 new DamageRankingPageRenderer(),

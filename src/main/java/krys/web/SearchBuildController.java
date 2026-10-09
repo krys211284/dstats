@@ -48,6 +48,10 @@ public final class SearchBuildController implements HttpHandler {
             String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
             if ("GET".equals(method)) {
                 HeroProfile activeHero = heroService.getActiveHero().orElse(null);
+                if (activeHero != null && !CurrentBuildRuntimeSupport.isSupported(activeHero.getHeroClass())) {
+                    renderPage(exchange, buildUnsupportedPageModel(activeHero));
+                    return;
+                }
                 SearchBuildFormData defaults = activeHero == null ? SearchBuildFormData.defaultValues() : SearchBuildFormData.fromHeroProfile(activeHero);
                 renderPage(exchange, buildPageModel(
                         defaults,
@@ -72,6 +76,9 @@ public final class SearchBuildController implements HttpHandler {
         HeroProfile activeHero = heroService.getActiveHero().orElse(null);
         if (activeHero == null) {
             return buildPageModel(SearchBuildFormData.defaultValues(), List.of("Brak aktywnego bohatera. Utwórz albo wybierz bohatera przed uruchomieniem searcha."), null, null);
+        }
+        if (!CurrentBuildRuntimeSupport.isSupported(activeHero.getHeroClass())) {
+            return buildUnsupportedPageModel(activeHero);
         }
         SearchBuildFormData formData = SearchBuildFormData.fromFormFields(
                 UrlEncodedFormSupport.parseBody(exchange),
@@ -110,6 +117,10 @@ public final class SearchBuildController implements HttpHandler {
                 activeHero,
                 "GUI M12 jest cienką warstwą SSR nad backendowym search foundation. Opcjonalny tryb biblioteki itemów nadal składa efektywny aktualny build przez ten sam pipeline CurrentBuildRequest -> CurrentBuildSnapshotFactory -> runtime i tylko podmienia źródło kandydatów itemowych."
         );
+    }
+
+    private SearchBuildPageModel buildUnsupportedPageModel(HeroProfile hero) {
+        return buildPageModel(null, List.of(), null, hero);
     }
 
     private void renderPage(HttpExchange exchange, SearchBuildPageModel pageModel) throws IOException {

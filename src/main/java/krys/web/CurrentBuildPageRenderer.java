@@ -2,7 +2,6 @@ package krys.web;
 
 import krys.app.CurrentBuildCalculation;
 import krys.hero.HeroArmorBreakdown;
-import krys.hero.HeroClassDefs;
 import krys.hero.HeroCriticalChanceBreakdown;
 import krys.hero.HeroClassStatBaseline;
 import krys.item.HeroEquipmentSlot;
@@ -73,7 +72,9 @@ public final class CurrentBuildPageRenderer {
                 .replace("{{FORM_MESSAGES}}", renderMessages(model.getMessages()))
                 .replace("{{ENTRY_SECTION}}", renderEntrySection(model))
                 .replace("{{FORM_ERRORS}}", renderErrors(model.getValidationErrors()))
-                .replace("{{RESULT_SECTION}}", renderResultSection(model));
+                .replace("{{RESULT_SECTION}}", model.getRuntimeMode() == CurrentBuildRuntimeMode.NECROMANCER_DIRECT_HIT
+                        ? NecromancerCurrentBuildPageRenderer.renderResult(model)
+                        : model.isCurrentBuildRuntimeSupported() ? renderResultSection(model) : "");
     }
 
     private static String renderHeroContext(CurrentBuildPageModel model) {
@@ -90,22 +91,26 @@ public final class CurrentBuildPageRenderer {
         }
 
         HeroProfile activeHero = model.getActiveHero();
+        String contextHelp = model.isCurrentBuildRuntimeSupported()
+                ? "Pracujesz bezpośrednio na stanie bohatera: jego ekwipunku, przypisanych umiejętnościach, pasku akcji i ręcznych nadpisaniach statów."
+                : "Obliczasz pojedyncze trafienie Krwotoku R1 z aktywnej broni i jawnej Intelligence. Nazwę i poziom edytujesz w module Bohaterowie.";
         return new StringBuilder("""
                 <details class="current-build-details hero-context-details">
                     <summary>Aktywny bohater</summary>
                     <section class="hero-context-panel hero-context-panel-compact">
                         <div class="hero-context-head">
                         <div>
-                            <p class="helper">Pracujesz bezpośrednio na stanie bohatera: jego ekwipunku, przypisanych umiejętnościach, pasku akcji i ręcznych nadpisaniach statów.</p>
+                            <p class="helper">{{HERO_CONTEXT_HELP}}</p>
                         </div>
                         <a class="nav-link secondary-link" href="
-                """)
+                """.replace("{{HERO_CONTEXT_HELP}}", escapeHtml(contextHelp)))
                 .append(escapeHtml(model.getHeroesUrl()))
                 .append("\">Zarządzaj bohaterami</a></div><div class=\"hero-context-grid\">")
                 .append(renderSummaryCard("Nazwa bohatera", activeHero.getName()))
-                .append(renderSummaryCard("Klasa postaci", HeroClassDefs.get(activeHero.getHeroClass()).getDisplayName()))
-                .append(renderSummaryCard("Poziom bohatera", model.getFormData().getLevel()))
-                .append(renderSummaryCard("Przypisane umiejętności", Integer.toString(model.getAssignedSkillIds().size())))
+                .append(renderSummaryCard("Klasa postaci", activeHero.getHeroClass().getDisplayName()))
+                .append(renderSummaryCard("Poziom bohatera", model.getHeroLevel()))
+                .append(model.isCurrentBuildRuntimeSupported()
+                        ? renderSummaryCard("Przypisane umiejętności", Integer.toString(model.getAssignedSkillIds().size())) : "")
                 .append("""
                     </div>
                     <div class="hero-context-inline-actions hero-context-inline-actions-single">
@@ -138,7 +143,7 @@ public final class CurrentBuildPageRenderer {
                     .append(">")
                     .append(escapeHtml(hero.getName()))
                     .append(" (")
-                    .append(escapeHtml(HeroClassDefs.get(hero.getHeroClass()).getDisplayName()))
+                    .append(escapeHtml(hero.getHeroClass().getDisplayName()))
                     .append(")")
                     .append("</option>");
         }
@@ -188,6 +193,12 @@ public final class CurrentBuildPageRenderer {
         if (!model.hasActiveHero()) {
             return "";
         }
+        if (model.getRuntimeMode() == CurrentBuildRuntimeMode.NECROMANCER_DIRECT_HIT) {
+            return NecromancerCurrentBuildPageRenderer.renderEntry(model, renderEquipmentSection(model));
+        }
+        if (!model.isCurrentBuildRuntimeSupported()) {
+            return UnsupportedHeroRuntimePageRenderer.renderWarning(CurrentBuildRuntimeSupport.NECROMANCER_MESSAGE);
+        }
         return """
                 <section class="panel panel-build-workspace">
                     <form method="post" action="/policz-aktualny-build">
@@ -226,7 +237,7 @@ public final class CurrentBuildPageRenderer {
     }
 
     private static String renderEquipmentSection(CurrentBuildPageModel model) {
-        String currentBuildQuery = CurrentBuildFormQuerySupport.toQuery(model.getFormData());
+        String currentBuildQuery = model.getItemImportQuery();
         StringBuilder html = new StringBuilder("""
                 <details class="current-build-details equipment-details">
                     <summary>Ekwipunek aktualnego buildu</summary>
@@ -273,7 +284,7 @@ public final class CurrentBuildPageRenderer {
                 .filter(item -> slot.supports(item.getSlot()))
                 .sorted(Comparator.comparingLong(SavedImportedItem::getItemId))
                 .toList();
-        String currentBuildQuery = CurrentBuildFormQuerySupport.toQuery(model.getFormData());
+        String currentBuildQuery = model.getItemImportQuery();
 
         StringBuilder html = new StringBuilder("<article class=\"equipment-slot equipment-slot-")
                 .append(slot.name().toLowerCase(Locale.ROOT))
@@ -949,7 +960,11 @@ public final class CurrentBuildPageRenderer {
     private static List<String> buildSlotStatChips(SavedImportedItem item) {
         List<String> chips = new ArrayList<>();
         if (item.getItemArmor() != null) {
-            chips.add("Pancerz: " + MasterworkingSectionRenderer.formatArmorReadonlyValue(item.getMasterworking(), item.getItemArmor()));
+            chips.add("Pancerz: " + MasterworkingSectionRenderer.formatArmorReadonlyValue(
+                    item.getMasterworking(),
+                    item.getItemArmor(),
+                    item.getDetails().isMythicUnique()
+            ));
         }
         if (item.getWeaponDamage() > 0L && !hasAffix(item, ImportedItemAffixType.WEAPON_DAMAGE_FLAT)) {
             chips.add("+" + item.getWeaponDamage() + " obrażeń broni");

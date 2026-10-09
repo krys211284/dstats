@@ -21,10 +21,14 @@ public final class ItemImportPageRenderer {
                         .panel-error { border-color: rgba(141, 27, 27, 0.28); background: var(--error-bg); }
                         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; align-items: end; }
                         label { display: grid; gap: 8px; font-weight: 600; }
-                        input[type="file"] { width: 100%%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--text); font: inherit; }
+                        input[type="file"], input[type="number"], input[type="text"], select, textarea { width: 100%%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--text); font: inherit; }
+                        textarea { resize: vertical; }
+                        [hidden] { display: none !important; }
                         button { display: inline-block; border: none; border-radius: 999px; padding: 12px 18px; background: linear-gradient(135deg, #1a4b5a 0%%, #2d7288 100%%); color: #f5fbfd; font: inherit; font-weight: 700; cursor: pointer; }
+                        .secondary-button, .secondary-link { background: #fff; color: var(--accent); border: 1px solid rgba(30, 85, 102, 0.22); text-decoration: none; }
+                        .checkbox-label { display: inline-flex; gap: 8px; align-items: center; font-weight: 600; }
                         .helper { margin-top: 10px; color: var(--muted); font-size: 0.95rem; line-height: 1.55; }
-                        .submit-row { margin-top: 16px; }
+                        .submit-row, .form-actions { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
                         .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
                         .summary-card { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
                         .summary-label { color: var(--muted); font-size: 0.88rem; margin-bottom: 6px; }
@@ -50,8 +54,43 @@ public final class ItemImportPageRenderer {
                         th, td { padding: 10px 8px; border-bottom: 1px solid rgba(109, 102, 92, 0.18); text-align: left; vertical-align: top; }
                         thead th { color: var(--muted); font-weight: 700; }
                         .error-list { margin: 0; padding-left: 20px; color: var(--error); }
+                        .manual-confirm-grid { display: grid; grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 14px; align-items: end; }
+                        .inline-fieldset { display: grid; gap: 10px; grid-column: 1 / -1; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,0.72); }
+                        .inline-fieldset legend { padding: 0 6px; color: var(--muted); font-weight: 700; }
+                        .aspect-effect-fieldset { grid-template-columns: minmax(240px, 0.75fr) minmax(320px, 1.25fr); align-items: start; }
+                        .affix-table-wrap { width: 100%%; overflow-x: auto; padding-bottom: 4px; }
+                        .data-table { width: 100%%; border-collapse: collapse; font-size: 0.94rem; }
+                        .affix-table { min-width: 820px; table-layout: fixed; }
+                        .affix-type-col { width: 36%%; }
+                        .affix-value-col { width: 16%%; }
+                        .affix-range-col { width: 17%%; }
+                        .affix-greater-col { width: 16%%; }
+                        .affix-action-col { width: 15%%; }
+                        .affix-value-cell input[type="number"] { max-width: 120px; }
+                        .affix-range-cell { white-space: nowrap; }
+                        .affix-action-cell { text-align: right; white-space: nowrap; }
+                        .add-affix-row, .tempering-add-card { margin-top: 14px; padding: 12px; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 10px; background: rgba(255,255,255,0.72); }
+                        .item-affix-add-grid, .tempering-add-grid, .masterworking-grid, .socketing-row, .socketing-detected-row { display: grid; gap: 12px; align-items: end; }
+                        .item-affix-add-grid { grid-template-columns: minmax(280px, 1.4fr) minmax(120px, 0.55fr) minmax(150px, 0.45fr) auto; }
+                        .tempering-add-grid { grid-template-columns: minmax(140px, 0.55fr) minmax(360px, 1.8fr) minmax(150px, 0.5fr) minmax(220px, 0.75fr) auto; align-items: start; }
+                        .masterworking-grid { grid-template-columns: minmax(160px, 0.55fr) minmax(220px, 1fr); }
+                        .transfiguration-grid { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 12px; align-items: end; }
+                        .transfiguration-dynamic-grid { margin-top: 12px; grid-template-columns: repeat(3, minmax(180px, 1fr)); }
+                        .socketing-fieldset, .socketing-rows { display: grid; gap: 12px; }
+                        .socketing-grid { display: grid; grid-template-columns: minmax(180px, 0.4fr); gap: 12px; align-items: end; max-width: 420px; }
+                        .socketing-row { grid-template-columns: minmax(180px, 0.35fr) minmax(260px, 0.65fr) minmax(260px, 1fr); align-items: start; }
+                        .socketing-detected-row { grid-template-columns: minmax(180px, 0.4fr) minmax(300px, 1fr); align-items: start; }
+                        .socketing-detected-card { min-width: 0; padding: 10px 12px; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 10px; background: #fff; }
+                        .tempering-greater-badge, .tempering-runtime-status, .masterworking-runtime-status { display: inline-flex; width: fit-content; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 999px; border: 1px solid rgba(30, 85, 102, 0.18); background: #f8fbfc; color: var(--accent); font-size: 0.84rem; font-weight: 700; }
+                        .item-import-review-notes { margin: 0 0 16px; padding-left: 20px; color: var(--error); }
+                        .item-import-review-warning { margin: 0 0 16px; padding: 10px 12px; border: 1px solid rgba(146, 98, 28, 0.28); border-radius: 10px; background: rgba(255, 247, 230, 0.92); color: #684512; font-weight: 700; }
                         @media (max-width: 900px) {
-                            .opencv-preview-layout, .opencv-divider-layout { grid-template-columns: 1fr; }
+                            .opencv-preview-layout, .opencv-divider-layout, .manual-confirm-grid, .aspect-effect-fieldset, .item-affix-add-grid, .tempering-add-grid, .masterworking-grid, .transfiguration-grid, .transfiguration-dynamic-grid, .socketing-row, .socketing-detected-row { grid-template-columns: 1fr; }
+                            .data-table, .data-table thead, .data-table tbody, .data-table tr, .data-table th, .data-table td { display: block; }
+                            .data-table thead { display: none; }
+                            .affix-table { min-width: 0; }
+                            .data-table tr { margin-bottom: 12px; padding: 10px; border: 1px solid rgba(109, 102, 92, 0.18); border-radius: 12px; background: #fff; }
+                            .data-table td { border: none; padding: 6px 0; }
                         }
                     </style>
                 </head>
@@ -60,9 +99,10 @@ public final class ItemImportPageRenderer {
                     %s
                     <header class="hero">
                         <div class="eyebrow">Import itemu / obraz</div>
-                        <h1>Importuj pojedynczy item ze screena</h1>
-                        <p class="helper">Aktualny pipeline diagnostyczny składa screenshoty, wykrywa separatory i normalizuje surowe części do stabilnych slotów strukturalnych. PART_1 ma dodatkowy surowy POC OCR per ROI; wynik nie jest jeszcze mapowany do domeny itemu.</p>
+                        <h1>Importuj item ze screena</h1>
+                        <p class="helper">Dodaj screenshot itemu, sprawdź odczytane pola i zapisz item dopiero po weryfikacji.</p>
                     </header>
+                    %s
                     %s
                     %s
                     %s
@@ -83,6 +123,7 @@ public final class ItemImportPageRenderer {
                     refreshMultiScreenshotInfo();
                 })();
                 </script>
+                %s
                 </body>
                 </html>
                 """.formatted(
@@ -91,7 +132,9 @@ public final class ItemImportPageRenderer {
                 renderHeroContext(model),
                 renderUploadPanel(model),
                 renderErrors(model.getValidationErrors()),
-                renderOpenCvPreviewSection(model)
+                model.isImageImportDiagnostics() ? renderOpenCvPreviewSection(model) : renderNormalImportStatus(model),
+                renderVerificationSection(model),
+                model.hasVerificationForm() ? ItemEditPageRenderer.renderFormScript() : ""
         );
     }
 
@@ -107,7 +150,7 @@ public final class ItemImportPageRenderer {
         return """
                 <section class="panel">
                     <h2>Aktywny bohater importu</h2>
-                    <p class="helper">Importujesz teraz diagnostykę obrazu dla bohatera %s.</p>
+                    <p class="helper">Importujesz teraz item dla bohatera %s.</p>
                 </section>
                 """.formatted(escapeHtml(model.getActiveHero().getName()));
     }
@@ -115,23 +158,23 @@ public final class ItemImportPageRenderer {
     private static String renderUploadPanel(ItemImportPageModel model) {
         return """
                 <section class="panel">
-                    <h2>Wgraj screenshot itemu</h2>
+                    <h2>Importuj item ze screena</h2>
                     <form method="post" action="%s" enctype="multipart/form-data">
                         <div class="form-grid">
                             <label>
-                                Obraz pojedynczego itemu
+                                Screenshoty itemu
                                 <input type="file" name="itemImage" accept="image/png,image/jpeg,image/webp" multiple data-item-screenshot-input>
                             </label>
                         </div>
                         <p class="helper">%s</p>
                         <p class="helper" data-multi-screenshot-info hidden>Import wieloscreenowy: <span data-multi-screenshot-count>0</span> obrazów zostanie scalonych jako jeden item.</p>
                         <div class="submit-row">
-                            <button type="submit">Wczytaj diagnostykę obrazu</button>
+                            <button type="submit">Odczytaj item</button>
                         </div>
                     </form>
                 </section>
                 """.formatted(
-                escapeHtml(buildUploadAction(model.getCurrentBuildQuery())),
+                escapeHtml(buildUploadAction(model.getCurrentBuildQuery(), model.isImageImportDiagnostics())),
                 escapeHtml(model.getHelpText())
         );
     }
@@ -154,6 +197,33 @@ public final class ItemImportPageRenderer {
                 </section>
                 """);
         return html.toString();
+    }
+
+    private static String renderVerificationSection(ItemImportPageModel model) {
+        if (!model.hasVerificationForm()) {
+            return "";
+        }
+        return ItemEditPageRenderer.renderImportVerificationForm(
+                model.getVerificationForm(),
+                model.getVerificationReviewNotes(),
+                model.getCurrentBuildQuery(),
+                model.isImageImportDiagnostics()
+        );
+    }
+
+    private static String renderNormalImportStatus(ItemImportPageModel model) {
+        if (model.hasVerificationForm()) {
+            return "";
+        }
+        if (model.hasOpenCvPreviewError()) {
+            return """
+                    <section class="panel panel-error">
+                        <h2>Nie udało się odczytać itemu</h2>
+                        <p class="helper">Spróbuj ponownie z wyraźniejszym screenshotem albo włącz tryb diagnostyczny, jeśli chcesz zobaczyć szczegóły techniczne.</p>
+                    </section>
+                    """;
+        }
+        return "";
     }
 
     private static String renderOpenCvPreviewSection(ItemImportPageModel model) {
@@ -575,6 +645,7 @@ public final class ItemImportPageRenderer {
                     semantic.isNumericValueCertain()
             ));
         }
+        html.append(renderPropertyBlockValueReadResult(block));
         if (result.hasNumericEvidence()) {
             html.append("<div class=\"property-block-numeric-evidence\" data-property-block-numeric-evidence-list>");
             for (ItemImportPageModel.PropertyBlockNumericEvidenceView evidence : result.getNumericEvidence()) {
@@ -613,6 +684,64 @@ public final class ItemImportPageRenderer {
         html.append("""
                 </section>
                 """);
+        return html.toString();
+    }
+
+    private static String renderPropertyBlockValueReadResult(ItemImportPageModel.PropertyBlockView block) {
+        if (!block.hasValueReadResult()) {
+            return "";
+        }
+        ItemImportPageModel.PropertyBlockValueReadResultView value = block.getValueReadResult();
+        StringBuilder html = new StringBuilder("""
+                    <div class="property-block-value-read-result" data-property-block-value-read-result data-value-role="%s" data-value-certain="%s" data-value-ambiguous="%s">
+                        <p class="helper">valueRole=<span data-value-role-label>%s</span>, certain=<span data-value-certain-label>%s</span>, ambiguous=<span data-value-ambiguous-label>%s</span></p>
+                    """.formatted(
+                escapeHtml(value.getValueRole()),
+                value.isCertain(),
+                value.isAmbiguous(),
+                escapeHtml(value.getValueRole()),
+                value.isCertain(),
+                value.isAmbiguous()
+        ));
+        html.append("""
+                        <p class="helper">value=<span data-value-current>%s</span>%s, rollRange=<span data-value-roll-range>%s</span>, referenceValue=<span data-value-reference>%s</span></p>
+                        <p class="helper">itemArmor=<span data-value-item-armor>%s</span>, weaponDps=<span data-value-weapon-dps>%s</span>, weaponDamage=<span data-value-weapon-damage>%s</span>, attacksPerSecond=<span data-value-attacks-per-second>%s</span></p>
+                    """.formatted(
+                escapeHtml(value.getValue()),
+                value.getUnit().isBlank() ? "" : escapeHtml(value.getUnit()),
+                escapeHtml(value.getRollRange()),
+                escapeHtml(value.getReferenceValue()),
+                escapeHtml(value.getItemArmor()),
+                escapeHtml(value.getWeaponDps()),
+                escapeHtml(value.getWeaponDamage()),
+                escapeHtml(value.getAttacksPerSecond())
+        ));
+        if (value.hasParameters()) {
+            html.append("<div class=\"property-block-value-parameters\" data-property-block-value-parameters>");
+            for (ItemImportPageModel.PropertyBlockValueParameterView parameter : value.getParameters()) {
+                html.append("""
+                        <p class="helper" data-property-block-value-parameter data-value-parameter-order="%d" data-value-parameter-role="%s" data-value-parameter-ambiguous="%s">#%d %s: token=<span data-value-parameter-token>%s</span>, value=<span data-value-parameter-value>%s</span>%s, range=<span data-value-parameter-range>%s</span>, alternatives=<span data-value-parameter-alternatives>%s</span></p>
+                        """.formatted(
+                        parameter.getOrder(),
+                        escapeHtml(parameter.getRole()),
+                        parameter.isAmbiguous(),
+                        parameter.getOrder(),
+                        escapeHtml(parameter.getRole()),
+                        escapeHtml(parameter.getRawToken()),
+                        escapeHtml(parameter.getValue()),
+                        parameter.getUnit().isBlank() ? "" : escapeHtml(parameter.getUnit()),
+                        escapeHtml(parameter.getRange()),
+                        escapeHtml(parameter.getAlternativeValues().toString())
+                ));
+            }
+            html.append("</div>");
+        }
+        if (value.hasDiagnostics()) {
+            html.append("<p class=\"helper\" data-property-block-value-diagnostics>")
+                    .append(escapeHtml(value.getDiagnostics().toString()))
+                    .append("</p>");
+        }
+        html.append("</div>");
         return html.toString();
     }
 
@@ -798,11 +927,15 @@ public final class ItemImportPageRenderer {
                 + "</p>";
     }
 
-    private static String buildUploadAction(String currentBuildQuery) {
-        if (currentBuildQuery == null || currentBuildQuery.isBlank()) {
-            return "/importuj-item-ze-screena";
+    private static String buildUploadAction(String currentBuildQuery, boolean diagnosticsEnabled) {
+        StringBuilder url = new StringBuilder("/importuj-item-ze-screena");
+        if (currentBuildQuery != null && !currentBuildQuery.isBlank()) {
+            url.append("?").append(currentBuildQuery);
         }
-        return "/importuj-item-ze-screena?" + currentBuildQuery;
+        if (diagnosticsEnabled) {
+            url.append(url.indexOf("?") >= 0 ? "&" : "?").append("diagnostics=true");
+        }
+        return url.toString();
     }
 
     private static String renderSummaryCard(String label, String value) {

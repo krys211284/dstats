@@ -20,7 +20,7 @@ final class CurrentBuildRuntimeInputResolver {
         CurrentHeroActiveItemStats activeItemStats = libraryResolution.getActiveHeroItemStats();
         Optional<HeroClassStatBaseline> baseline = HeroClassStatBaselines.find(activeHero.getHeroClass(), parseLevel(formData));
 
-        long weaponDamage = resolveWeaponDamage(activeItemStats, libraryResolution.getActiveItemsContribution());
+        long weaponDamage = CurrentBuildWeaponDamageResolver.resolve(activeItemStats, libraryResolution.getActiveItemsContribution());
         double strength = baseline.map(HeroClassStatBaseline::getStrength).orElse(0) + libraryResolution.getActiveItemsContribution().getStrength();
         double intelligence = baseline.map(HeroClassStatBaseline::getIntelligence).orElse(0) + libraryResolution.getActiveItemsContribution().getIntelligence();
         double thorns = baseline.map(HeroClassStatBaseline::getThorns).orElse(0) + libraryResolution.getActiveItemsContribution().getThorns();
@@ -55,18 +55,6 @@ final class CurrentBuildRuntimeInputResolver {
             return baseMaxAnimus;
         }
         return baseMaxAnimus + libraryResolution.getActiveHeroItemStats().getMaxAnimusFromTempering();
-    }
-
-    private static long resolveWeaponDamage(CurrentHeroActiveItemStats activeItemStats,
-                                            CurrentBuildImportableStats activeItemsContribution) {
-        Long averageWeaponDamage = activeItemStats.getAverageWeaponDamage();
-        if (averageWeaponDamage != null && averageWeaponDamage > 0L) {
-            return averageWeaponDamage;
-        }
-        if (activeItemsContribution.getWeaponDamage() > 0L) {
-            return activeItemsContribution.getWeaponDamage();
-        }
-        return 0L;
     }
 
     private static int parseLevel(CurrentBuildFormData formData) {

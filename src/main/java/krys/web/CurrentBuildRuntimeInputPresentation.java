@@ -1,6 +1,5 @@
 package krys.web;
 
-import krys.hero.HeroClassDefs;
 import krys.hero.HeroClassStatBaseline;
 import krys.hero.HeroClassStatBaselines;
 import krys.item.HeroEquipmentSlot;
@@ -109,7 +108,7 @@ final class CurrentBuildRuntimeInputPresentation {
                                      Optional<HeroClassStatBaseline> baseline,
                                      double activeItemContribution) {
         if (baseline.isPresent()) {
-            String baselineLabel = "Baseline " + HeroClassDefs.get(model.getActiveHero().getHeroClass()).getDisplayName()
+            String baselineLabel = "Baseline " + model.getActiveHero().getHeroClass().getDisplayName()
                     + " poziom " + baseline.get().getLevel();
             if (activeItemContribution > 0.0d) {
                 return baselineLabel + " + aktywne itemy";

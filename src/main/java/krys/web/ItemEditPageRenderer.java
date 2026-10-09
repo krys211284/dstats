@@ -13,13 +13,16 @@ import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ItemImportEditableForm;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
+import krys.masterworking.MasterworkingResolvedItemValueResolver;
 
+import java.util.List;
 import java.util.Locale;
 
 /** Renderuje SSR edycji zapisanego itemu. */
 final class ItemEditPageRenderer {
     private static final AspectRegistry ASPECT_REGISTRY = ApplicationAspectRegistry.get();
     private static final AffixRegistry AFFIX_REGISTRY = ApplicationAffixRegistry.get();
+    private static final MasterworkingResolvedItemValueResolver MASTERWORKING_VALUE_RESOLVER = new MasterworkingResolvedItemValueResolver();
 
     String render(ItemEditPageModel model) {
         return """
@@ -224,6 +227,107 @@ final class ItemEditPageRenderer {
         );
     }
 
+    static String renderImportVerificationForm(ItemImportEditableForm form,
+                                               List<String> reviewNotes,
+                                               String currentBuildQuery) {
+        return renderImportVerificationForm(form, reviewNotes, currentBuildQuery, true);
+    }
+
+    static String renderImportVerificationForm(ItemImportEditableForm form,
+                                               List<String> reviewNotes,
+                                               String currentBuildQuery,
+                                               boolean diagnosticsEnabled) {
+        return """
+                <section class="panel" data-image-import-verification>
+                    <h2>Weryfikacja itemu przed zapisem</h2>
+                    %s
+                    <form method="post" action="/biblioteka-itemow">
+                        <input type="hidden" name="action" value="saveImportedItem">
+                        <input type="hidden" name="itemImportValueMode" value="%s">
+                        <input type="hidden" name="currentBuildQuery" value="%s">
+                        <input type="hidden" name="sourceImageName" value="%s">
+                        <input type="hidden" name="fullItemRead" value="%s">
+                        <input type="hidden" name="weaponDamage" value="%s">
+                        <input type="hidden" name="strength" value="%s">
+                        <input type="hidden" name="intelligence" value="%s">
+                        <input type="hidden" name="thorns" value="%s">
+                        <input type="hidden" name="blockChance" value="%s">
+                        <input type="hidden" name="retributionChance" value="%s">
+                        <div class="manual-confirm-grid">
+                            %s
+                            %s
+                            %s
+                            %s
+                            %s
+                            %s
+                            %s
+                        </div>
+                        %s
+                        %s
+                        %s
+                        %s
+                        %s
+                        %s
+                        <div class="form-actions item-edit-actions">
+                            <button type="submit" class="item-edit-save-button">Zapisz item</button>
+                        </div>
+                    </form>
+                </section>
+                """.formatted(
+                renderReviewNotes(reviewNotes, diagnosticsEnabled),
+                escapeHtml(form.getValueMode().name()),
+                escapeHtml(currentBuildQuery),
+                escapeHtml(form.getSourceImageName()),
+                escapeHtml(FullItemReadFormCodec.encode(form.getFullItemRead())),
+                escapeHtml(emptyNumberLabel(form.getWeaponDamage())),
+                escapeHtml(emptyNumberLabel(form.getStrength())),
+                escapeHtml(emptyNumberLabel(form.getIntelligence())),
+                escapeHtml(emptyNumberLabel(form.getThorns())),
+                escapeHtml(emptyNumberLabel(form.getBlockChance())),
+                escapeHtml(emptyNumberLabel(form.getRetributionChance())),
+                renderItemIdentityFields(form, null),
+                renderSlotSelect(form.getSlot()),
+                renderRaritySelect(form.getItemRarity()),
+                renderAncientCheckbox(form.isAncient()),
+                renderMythicUniqueCheckbox(form.isMythicUnique()),
+                renderNumberField("itemPower", "Moc przedmiotu", form.getItemPower(), "1"),
+                renderItemTypeFieldSet(form),
+                renderAspectSelect(form),
+                renderAffixEditor(form),
+                TemperingSectionRenderer.renderEditor(form),
+                MasterworkingSectionRenderer.renderEditor(form),
+                TransfigurationSectionRenderer.renderEditor(form),
+                SocketingSectionRenderer.renderEditor(form)
+        );
+    }
+
+    static String renderFormScript() {
+        return renderScript();
+    }
+
+    private static String renderReviewNotes(List<String> reviewNotes, boolean diagnosticsEnabled) {
+        if (reviewNotes == null || reviewNotes.isEmpty()) {
+            return "";
+        }
+        if (!diagnosticsEnabled) {
+            return """
+                    <p class="helper item-import-review-warning" data-image-import-review-warning>
+                        Niektóre wartości mogły zostać odczytane niedokładnie. Sprawdź oznaczone pola przed zapisem.
+                    </p>
+                    """;
+        }
+        StringBuilder html = new StringBuilder("""
+                <ul class="item-import-review-notes" data-image-import-review-notes>
+                """);
+        for (String note : reviewNotes) {
+            html.append("<li>Wymaga sprawdzenia: ")
+                    .append(escapeHtml(note.replaceFirst("^Wymaga sprawdzenia:\\s*", "")))
+                    .append("</li>");
+        }
+        html.append("</ul>");
+        return html.toString();
+    }
+
     private static String renderItemIdentityFields(ItemImportEditableForm form, krys.itemlibrary.SavedImportedItem item) {
         return """
                 <label>
@@ -300,16 +404,21 @@ final class ItemEditPageRenderer {
     }
 
     private static String renderItemTypeFieldSet(ItemImportEditableForm form) {
-        if (isShield(form)) {
+        if (isShield(form) || shouldRenderImportedArmorField(form)) {
+            String armorInputValue = armorInputValue(form);
+            String armorHint = form.usesGameDisplayedValues() || form.isMythicUnique()
+                    ? ""
+                    : MasterworkingSectionRenderer.renderArmorEditorHint(form.getMasterworking(), form.getItemArmor());
             return """
                     <fieldset class="inline-fieldset">
-                        <legend>Dane tarczy</legend>
+                        <legend>%s</legend>
                         %s
                         %s
                     </fieldset>
                     """.formatted(
-                    renderNumberField("itemArmor", "Pancerz", form.getItemArmor(), "1"),
-                    MasterworkingSectionRenderer.renderArmorEditorHint(form.getMasterworking(), form.getItemArmor())
+                    isShield(form) ? "Dane tarczy" : "Dane pancerza",
+                    renderNumberField("itemArmor", "Pancerz", armorInputValue, "1"),
+                    armorHint
             );
         }
         if (!isWeapon(form)) {
@@ -357,6 +466,13 @@ final class ItemEditPageRenderer {
                 .replaceAll("\\p{M}", "")
                 .toUpperCase(Locale.ROOT);
         return slot == EquipmentSlot.OFF_HAND && (normalizedType.contains("TARCZA") || !form.getItemArmor().isBlank());
+    }
+
+    private static boolean shouldRenderImportedArmorField(ItemImportEditableForm form) {
+        return form != null
+                && form.usesGameDisplayedValues()
+                && !form.getItemArmor().isBlank()
+                && !isWeapon(form);
     }
 
     private static boolean isWeapon(ItemImportEditableForm form) {
@@ -444,6 +560,15 @@ final class ItemEditPageRenderer {
                 """.formatted(renderAmbiguousGaNotice(form), form.getAffixes().size()));
         for (int index = 0; index < form.getAffixes().size(); index++) {
             ImportedItemAffix affix = form.getAffixes().get(index);
+            String affixInputValue = affixInputValue(form, affix);
+            String affixOriginalValue = form.usesGameDisplayedValues() ? affixInputValue : formatDecimal(affix.getValue());
+            String affixDisplayValue = form.usesGameDisplayedValues()
+                    ? displayValueForInput(affix, affixInputValue)
+                    : affix.getDisplayValue();
+            String affixHint = form.usesGameDisplayedValues()
+                    ? ""
+                    : MasterworkingSectionRenderer.renderAffixEditorHint(form.getMasterworking(), affix, form.isMythicUnique());
+            String editableLabel = form.usesGameDisplayedValues() ? "Wartość z gry" : "Wartość edytowalna";
             html.append("""
                     <tr>
                         <td class="affix-type-cell">
@@ -458,7 +583,7 @@ final class ItemEditPageRenderer {
                             <input type="hidden" name="affixReferenceValue_%s" value="%s">
                             <input type="hidden" name="affixDisplayValue_%s" value="%s">
                         </td>
-                        <td class="affix-value-cell">%s%s<label class="masterworking-source-value-field">Wartość edytowalna %s</label></td>
+                        <td class="affix-value-cell">%s%s<label class="masterworking-source-value-field">%s %s</label></td>
                         <td class="affix-range-cell">%s%s</td>
                         <td class="affix-greater-cell"><label class="checkbox-label"><input type="checkbox" name="affixGreater_%s" value="true"%s> Gwiazdka</label>%s</td>
                         <td class="affix-action-cell"><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
@@ -473,7 +598,7 @@ final class ItemEditPageRenderer {
                     index,
                     escapeHtml(affix.getType().name()),
                     index,
-                    formatDecimal(affix.getValue()),
+                    escapeHtml(affixOriginalValue),
                     index,
                     escapeHtml(affix.getAffixDefinitionId()),
                     index,
@@ -483,10 +608,11 @@ final class ItemEditPageRenderer {
                     index,
                     affix.getReferenceValue() == null ? "" : formatDecimal(affix.getReferenceValue()),
                     index,
-                    escapeHtml(affix.getDisplayValue()),
+                    escapeHtml(affixDisplayValue),
                     renderAffixDisplayValue(affix),
-                    MasterworkingSectionRenderer.renderAffixEditorHint(form.getMasterworking(), affix, form.isMythicUnique()),
-                    renderAffixValueControl(index, affix),
+                    affixHint,
+                    escapeHtml(editableLabel),
+                    renderAffixValueControl(index, affix, affixInputValue),
                     escapeHtml(rollRangeLabel(affix)),
                     referenceValueLabel(affix),
                     index,
@@ -499,50 +625,54 @@ final class ItemEditPageRenderer {
                     </table>
                     </div>
                     """);
-        if (form.getAffixes().size() >= 4) {
-            html.append("""
-                    <div class="add-affix-row">
-                        <p class="helper">Limit affixów dla tego przedmiotu został wykorzystany.</p>
-                    </div>
-                    """);
-        } else {
-            html.append("""
-                    <div class="add-affix-row">
-                        <h4>Dodaj affix</h4>
-                        <div class="item-affix-add-grid">
-                            <label>
-                                Typ affixu
-                                <select name="newAffixType">
-                                    <option value="">Nie dodawaj</option>
-                                    %s
-                                </select>
-                            </label>
-                            <label>
-                                Wartość
-                                <input type="number" min="0" step="0.01" name="newAffixValue" value="">
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="newAffixGreater" name="newAffixGreater" value="true"> Greater Affix
-                            </label>
-                            <div class="item-affix-add-actions">
-                                <button type="button" id="addAffixButton">Dodaj affix</button>
-                                <noscript>
-                                    <button type="submit" name="formAction" value="addAffix">Dodaj affix</button>
-                                </noscript>
-                            </div>
+        boolean limitUsed = form.getAffixes().size() >= 4;
+        html.append("""
+                <div class="add-affix-row">
+                    <p class="helper" id="affixLimitMessage"%s>Limit affixów dla tego przedmiotu został wykorzystany.</p>
+                    <div class="item-affix-add-grid" id="affixAddControls"%s>
+                        <label>
+                            Typ affixu
+                            <select name="newAffixType"%s>
+                                <option value="">Nie dodawaj</option>
+                                %s
+                            </select>
+                        </label>
+                        <label>
+                            %s
+                            <input type="number" min="0" step="0.01" name="newAffixValue" value=""%s>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="newAffixGreater" name="newAffixGreater" value="true"%s> Greater Affix
+                        </label>
+                        <div class="item-affix-add-actions">
+                            <button type="button" id="addAffixButton"%s>Dodaj affix</button>
+                            <noscript>
+                                <button type="submit" name="formAction" value="addAffix">Dodaj affix</button>
+                            </noscript>
                         </div>
                     </div>
-                    <template id="affixRowTemplate">
-                        <tr>
-                            <td class="affix-type-cell"><select name="affixType___INDEX__">%s</select><input type="hidden" name="affixSourceText___INDEX__" value=""><input type="hidden" name="affixSource___INDEX__" value="MANUAL"><input type="hidden" name="affixOriginalType___INDEX__" value=""><input type="hidden" name="affixOriginalValue___INDEX__" value=""><input type="hidden" name="affixDefinitionId___INDEX__" value=""><input type="hidden" name="affixRangeMin___INDEX__" value=""><input type="hidden" name="affixRangeMax___INDEX__" value=""><input type="hidden" name="affixReferenceValue___INDEX__" value=""><input type="hidden" name="affixDisplayValue___INDEX__" value=""></td>
-                            <td class="affix-value-cell"><input type="number" min="0" step="0.01" name="affixValue___INDEX__" value="__VALUE__"></td>
-                            <td class="affix-range-cell"><span class="helper">Brak zakresu</span></td>
-                            <td class="affix-greater-cell"><label class="checkbox-label"><input type="checkbox" name="affixGreater___INDEX__" value="true"> Gwiazdka</label></td>
-                            <td class="affix-action-cell"><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
-                        </tr>
-                    </template>
-                    """.formatted(renderAffixTypeOptions(null), renderAffixTypeOptions(null)));
-        }
+                </div>
+                <template id="affixRowTemplate">
+                    <tr>
+                        <td class="affix-type-cell"><select name="affixType___INDEX__">%s</select><input type="hidden" name="affixSourceText___INDEX__" value=""><input type="hidden" name="affixSource___INDEX__" value="MANUAL"><input type="hidden" name="affixOriginalType___INDEX__" value=""><input type="hidden" name="affixOriginalValue___INDEX__" value=""><input type="hidden" name="affixDefinitionId___INDEX__" value=""><input type="hidden" name="affixRangeMin___INDEX__" value=""><input type="hidden" name="affixRangeMax___INDEX__" value=""><input type="hidden" name="affixReferenceValue___INDEX__" value=""><input type="hidden" name="affixDisplayValue___INDEX__" value=""></td>
+                        <td class="affix-value-cell"><label class="masterworking-source-value-field">%s <input type="number" min="0" step="0.01" name="affixValue___INDEX__" value="__VALUE__"></label></td>
+                        <td class="affix-range-cell"><span class="helper">Brak zakresu</span></td>
+                        <td class="affix-greater-cell"><label class="checkbox-label"><input type="checkbox" name="affixGreater___INDEX__" value="true"> Gwiazdka</label></td>
+                        <td class="affix-action-cell"><button type="button" class="secondary-button remove-affix-button">Usuń</button></td>
+                    </tr>
+                </template>
+                """.formatted(
+                limitUsed ? "" : " hidden",
+                limitUsed ? " hidden" : "",
+                limitUsed ? " disabled" : "",
+                renderAffixTypeOptions(null),
+                form.usesGameDisplayedValues() ? "Wartość z gry" : "Wartość edytowalna",
+                limitUsed ? " disabled" : "",
+                limitUsed ? " disabled" : "",
+                limitUsed ? " disabled" : "",
+                renderAffixTypeOptions(null),
+                form.usesGameDisplayedValues() ? "Wartość z gry" : "Wartość edytowalna"
+        ));
         html.append("""
                 </section>
                 """);
@@ -560,7 +690,24 @@ final class ItemEditPageRenderer {
                     const newType = document.querySelector('[name="newAffixType"]');
                     const newValue = document.querySelector('[name="newAffixValue"]');
                     const newGreater = document.getElementById('newAffixGreater');
+                    const addControls = document.getElementById('affixAddControls');
+                    const limitMessage = document.getElementById('affixLimitMessage');
+                    const limit = 4;
                     if (!rows || !count) return;
+                    const updateLimitState = () => {
+                        const used = rows.querySelectorAll('tr').length >= limit;
+                        if (addControls) addControls.hidden = used;
+                        if (limitMessage) limitMessage.hidden = !used;
+                        if (addButton) addButton.disabled = used;
+                        [newType, newValue, newGreater].forEach(control => {
+                            if (control) control.disabled = used;
+                        });
+                        return used;
+                    };
+                    const clearPerfectedSelection = value => {
+                        const select = document.querySelector('[name="masterworkingPerfectedAffix"]');
+                        if (select && value && select.value === value) select.value = '';
+                    };
                     const renumberRows = () => {
                         Array.from(rows.querySelectorAll('tr')).forEach((row, index) => {
                             row.querySelectorAll('select[name^="affixType_"], input[name^="affixValue_"], input[name^="affixGreater_"], input[name^="affixSourceText_"], input[name^="affixSource_"], input[name^="affixOriginalType_"], input[name^="affixOriginalValue_"], input[name^="affixDefinitionId_"], input[name^="affixRangeMin_"], input[name^="affixRangeMax_"], input[name^="affixReferenceValue_"], input[name^="affixDisplayValue_"]').forEach(control => {
@@ -575,12 +722,16 @@ final class ItemEditPageRenderer {
                         if (!button) return;
                         const row = button.closest('tr');
                         if (row) {
+                            const type = row.querySelector('select[name^="affixType_"]')?.value || '';
+                            clearPerfectedSelection(type ? `ORDINARY_AFFIX:${type}` : '');
                             row.remove();
                             renumberRows();
+                            updateLimitState();
                         }
                     });
                     if (template && addButton && newType && newValue) {
                         addButton.addEventListener('click', () => {
+                            if (updateLimitState() || !newType.value || !newValue.value) return;
                             const index = rows.querySelectorAll('tr').length;
                             const wrapper = document.createElement('tbody');
                             wrapper.innerHTML = template.innerHTML.replaceAll('__INDEX__', index).replaceAll('__VALUE__', newValue.value);
@@ -595,10 +746,12 @@ final class ItemEditPageRenderer {
                             newValue.value = '';
                             if (newGreater) newGreater.checked = false;
                             renumberRows();
+                            updateLimitState();
                         });
                     }
                     const form = rows.closest('form');
                     if (form) form.addEventListener('submit', renumberRows);
+                    updateLimitState();
                 })();
                 %s
                 (() => {
@@ -686,11 +839,49 @@ final class ItemEditPageRenderer {
     }
 
     private static String renderAffixValueControl(int index, ImportedItemAffix affix) {
+        return renderAffixValueControl(index, affix, formatDecimal(affix == null ? 0.0d : affix.getValue()));
+    }
+
+    private static String renderAffixValueControl(int index, ImportedItemAffix affix, String value) {
         return "<input type=\"number\" min=\"0\" step=\"0.01\" name=\"affixValue_"
                 + index
                 + "\" value=\""
-                + escapeHtml(formatDecimal(affix == null ? 0.0d : affix.getValue()))
+                + escapeHtml(value)
                 + "\">";
+    }
+
+    private static String armorInputValue(ItemImportEditableForm form) {
+        if (form == null || !form.usesGameDisplayedValues()) {
+            return form == null ? "" : form.getItemArmor();
+        }
+        Long sourceArmor = parseLong(form.getItemArmor());
+        if (sourceArmor == null || sourceArmor <= 0L) {
+            return form.getItemArmor();
+        }
+        if (form.isMythicUnique()) {
+            return Long.toString(sourceArmor);
+        }
+        return Long.toString(MASTERWORKING_VALUE_RESOLVER.resolveArmor(sourceArmor, form.getMasterworking()));
+    }
+
+    private static String affixInputValue(ItemImportEditableForm form, ImportedItemAffix affix) {
+        if (affix == null) {
+            return "0";
+        }
+        if (form == null || !form.usesGameDisplayedValues()) {
+            return formatDecimal(affix.getValue());
+        }
+        double displayed = MASTERWORKING_VALUE_RESOLVER.resolveAffixValue(
+                affix,
+                form.getMasterworking(),
+                form.isMythicUnique()
+        );
+        return formatInputValue(displayed, affix.getType());
+    }
+
+    private static String displayValueForInput(ImportedItemAffix affix, String inputValue) {
+        String unit = affix == null ? "" : affix.getUnit();
+        return inputValue.replace('.', ',') + unit;
     }
 
     private static String renderAffixDisplayValue(ImportedItemAffix affix) {
@@ -729,6 +920,17 @@ final class ItemEditPageRenderer {
         }
     }
 
+    private static Long parseLong(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(rawValue.replace(" ", ""));
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
     private static String simplifyItemType(String itemTypeLine) {
         String normalized = java.text.Normalizer.normalize(itemTypeLine == null ? "" : itemTypeLine, java.text.Normalizer.Form.NFD)
                 .replace('Ł', 'L')
@@ -752,6 +954,19 @@ final class ItemEditPageRenderer {
             return String.format(Locale.US, "%.0f", value);
         }
         return String.format(Locale.US, "%.2f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
+    }
+
+    private static String formatInputValue(double value, ImportedItemAffixType type) {
+        boolean percent = switch (type) {
+            case BLOCK_CHANCE, RETRIBUTION_CHANCE, CRITICAL_STRIKE_CHANCE, LUCKY_HIT_CHANCE, COOLDOWN_REDUCTION,
+                 MOVEMENT_SPEED, DODGE_CHANCE, DAMAGE_REDUCTION, ALL_DAMAGE_MULTIPLIER, DAMAGE_OVER_TIME_MULTIPLIER -> true;
+            case STRENGTH, INTELLIGENCE, THORNS, ALL_RESISTANCE, FIRE_RESISTANCE, WEAPON_DAMAGE_FLAT, MAXIMUM_LIFE,
+                 LIFE_ON_HIT, LIFE_ON_KILL, LUCKY_HIT_PRIMARY_RESOURCE, CORE_SKILL_RANKS -> false;
+        };
+        if (percent) {
+            return String.format(Locale.US, "%.1f", value);
+        }
+        return formatDecimal(value);
     }
 
     private static String rollRangeLabel(ImportedItemAffix affix) {

@@ -1,12 +1,11 @@
 package krys.web;
 
-import krys.paladin.PaladinSkillTreeType;
-import krys.paladin.SkillCategory;
-import krys.paladin.SkillTag;
 import krys.ranking.CharacterSkillTreeRegistry;
-import krys.ranking.PaladinDamageRankingMetric;
-import krys.ranking.PaladinSkillDamageVerificationStatus;
+import krys.ranking.DamageRankingMetric;
 import krys.ranking.PlayableClass;
+import krys.ranking.SkillDamageVerificationStatus;
+import krys.skilltree.SkillTreeType;
+import krys.skilltree.SourceSkillCategory;
 
 import java.util.List;
 
@@ -18,11 +17,11 @@ public final class DamageRankingPageModel {
     private final List<DamageRankingRow> rows;
     private final int totalSkillCount;
     private final List<String> skillGroups;
-    private final List<PaladinSkillDamageVerificationStatus> verificationStatuses;
-    private final List<PaladinSkillTreeType> types;
-    private final List<SkillCategory> sourceCategories;
-    private final List<SkillTag> tags;
-    private final List<PaladinDamageRankingMetric> metrics;
+    private final List<SkillDamageVerificationStatus> verificationStatuses;
+    private final List<SkillTreeType> types;
+    private final List<SourceSkillCategory> sourceCategories;
+    private final List<String> tags;
+    private final List<DamageRankingMetric> metrics;
 
     public DamageRankingPageModel(DamageRankingFilter filter,
                                   CharacterSkillTreeRegistry registry,
@@ -30,11 +29,11 @@ public final class DamageRankingPageModel {
                                   List<DamageRankingRow> rows,
                                   int totalSkillCount,
                                   List<String> skillGroups,
-                                  List<PaladinSkillDamageVerificationStatus> verificationStatuses,
-                                  List<PaladinSkillTreeType> types,
-                                  List<SkillCategory> sourceCategories,
-                                  List<SkillTag> tags,
-                                  List<PaladinDamageRankingMetric> metrics) {
+                                  List<SkillDamageVerificationStatus> verificationStatuses,
+                                  List<SkillTreeType> types,
+                                  List<SourceSkillCategory> sourceCategories,
+                                  List<String> tags,
+                                  List<DamageRankingMetric> metrics) {
         this.filter = filter;
         this.registry = registry;
         this.supportedClasses = List.copyOf(supportedClasses);
@@ -72,23 +71,23 @@ public final class DamageRankingPageModel {
         return skillGroups;
     }
 
-    public List<PaladinSkillDamageVerificationStatus> getVerificationStatuses() {
+    public List<SkillDamageVerificationStatus> getVerificationStatuses() {
         return verificationStatuses;
     }
 
-    public List<PaladinSkillTreeType> getTypes() {
+    public List<SkillTreeType> getTypes() {
         return types;
     }
 
-    public List<SkillTag> getTags() {
+    public List<String> getTags() {
         return tags;
     }
 
-    public List<SkillCategory> getSourceCategories() {
+    public List<SourceSkillCategory> getSourceCategories() {
         return sourceCategories;
     }
 
-    public List<PaladinDamageRankingMetric> getMetrics() {
+    public List<DamageRankingMetric> getMetrics() {
         return metrics;
     }
 

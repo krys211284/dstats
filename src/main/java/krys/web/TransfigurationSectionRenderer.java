@@ -2,6 +2,7 @@ package krys.web;
 
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ItemImportEditableForm;
+import krys.masterworking.MasterworkingResolvedItemValueResolver;
 import krys.transfiguration.HoradricTransfigurationOutcome;
 import krys.transfiguration.ItemTransfiguration;
 import krys.transfiguration.TransfigurationAffixCatalog;
@@ -14,6 +15,8 @@ import java.util.List;
 
 /** Renderer sekcji Przeistoczenia z Kostki Horadrimów. */
 final class TransfigurationSectionRenderer {
+    private static final MasterworkingResolvedItemValueResolver MASTERWORKING_VALUE_RESOLVER = new MasterworkingResolvedItemValueResolver();
+
     private TransfigurationSectionRenderer() {
     }
 
@@ -48,7 +51,7 @@ final class TransfigurationSectionRenderer {
                 active ? " hidden" : "",
                 active ? "" : " hidden",
                 outcomeOptions(transfiguration),
-                renderOutcomeFields(transfiguration, form.getAffixes()),
+                renderOutcomeFields(form),
                 active ? "" : " hidden"
         );
     }
@@ -88,13 +91,14 @@ final class TransfigurationSectionRenderer {
         return html.toString();
     }
 
-    private static String renderOutcomeFields(ItemTransfiguration transfiguration, List<ImportedItemAffix> affixes) {
+    private static String renderOutcomeFields(ItemImportEditableForm form) {
+        ItemTransfiguration transfiguration = form.getTransfiguration();
         boolean active = transfiguration.isTransfigured();
         HoradricTransfigurationOutcome selected = transfiguration.getOutcome();
         StringBuilder html = new StringBuilder();
         html.append(outcomeGroup(
                 HoradricTransfigurationOutcome.UPGRADE_TO_GREATER_AFFIX,
-                upgradedAffixField(transfiguration, affixes),
+                upgradedAffixField(form),
                 active && selected == HoradricTransfigurationOutcome.UPGRADE_TO_GREATER_AFFIX));
         html.append(outcomeGroup(
                 HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX,
@@ -104,7 +108,7 @@ final class TransfigurationSectionRenderer {
                 active && selected == HoradricTransfigurationOutcome.BONUS_TRANSFIGURATION_AFFIX));
         html.append(outcomeGroup(
                 HoradricTransfigurationOutcome.REPLACE_EXISTING_AFFIX_WITH_TRANSFIGURATION_AFFIX,
-                replacedAffixFields(transfiguration, affixes),
+                replacedAffixFields(form),
                 active && selected == HoradricTransfigurationOutcome.REPLACE_EXISTING_AFFIX_WITH_TRANSFIGURATION_AFFIX));
         html.append(outcomeGroup(
                 HoradricTransfigurationOutcome.BONUS_ITEM_QUALITY,
@@ -121,16 +125,17 @@ final class TransfigurationSectionRenderer {
                 """.formatted(outcome.name(), visible ? "" : " hidden", content);
     }
 
-    private static String upgradedAffixField(ItemTransfiguration transfiguration, List<ImportedItemAffix> affixes) {
+    private static String upgradedAffixField(ItemImportEditableForm form) {
         return """
                 <label>
                     Affix ulepszony do Greater Affix
                     <select name="transfigurationUpgradedAffixRef">%s</select>
                 </label>
-                """.formatted(affixRefOptions(affixes, transfiguration.getUpgradedAffixRef()));
+                """.formatted(affixRefOptions(form, form.getTransfiguration().getUpgradedAffixRef()));
     }
 
-    private static String replacedAffixFields(ItemTransfiguration transfiguration, List<ImportedItemAffix> affixes) {
+    private static String replacedAffixFields(ItemImportEditableForm form) {
+        ItemTransfiguration transfiguration = form.getTransfiguration();
         return """
                 <label>
                     Affix do zastąpienia
@@ -138,21 +143,33 @@ final class TransfigurationSectionRenderer {
                 </label>
                 %s
                 """.formatted(
-                affixRefOptions(affixes, transfiguration.getReplacedAffixRef()),
+                affixRefOptions(form, transfiguration.getReplacedAffixRef()),
                 addedAffixFields("transfigurationReplacement", "Affix zastępujący", transfiguration.getReplacementTransfigurationAffix())
         );
     }
 
-    private static String affixRefOptions(List<ImportedItemAffix> affixes, String selectedRef) {
+    private static String affixRefOptions(ItemImportEditableForm form, String selectedRef) {
         StringBuilder html = new StringBuilder(option("", "Brak", selectedRef == null || selectedRef.isBlank()));
-        for (ImportedItemAffix affix : affixes == null ? List.<ImportedItemAffix>of() : affixes) {
+        for (ImportedItemAffix affix : form.getAffixes() == null ? List.<ImportedItemAffix>of() : form.getAffixes()) {
             if (affix.isGreaterAffix()) {
                 continue;
             }
-            String label = affix.getType().getDisplayName() + " " + krys.itemlibrary.ItemLibraryPresentationSupport.formatDecimal(affix.getValue());
+            double value = affixRefDisplayValue(form, affix);
+            String label = affix.getType().getDisplayName() + " " + krys.itemlibrary.ItemLibraryPresentationSupport.formatDecimal(value);
             html.append(option(affix.getType().name(), label, affix.getType().name().equals(selectedRef)));
         }
         return html.toString();
+    }
+
+    private static double affixRefDisplayValue(ItemImportEditableForm form, ImportedItemAffix affix) {
+        if (form == null || affix == null || !form.usesGameDisplayedValues()) {
+            return affix == null ? 0.0d : affix.getValue();
+        }
+        return MASTERWORKING_VALUE_RESOLVER.resolveAffixValue(
+                affix,
+                form.getMasterworking(),
+                form.isMythicUnique()
+        );
     }
 
     private static String addedAffixFields(String prefix, String label, TransfigurationAffixRoll roll) {

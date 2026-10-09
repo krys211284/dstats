@@ -1,5 +1,7 @@
 package krys.web;
 
+import krys.itemimport.ItemImportEditableForm;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -12,6 +14,9 @@ public final class ItemImportPageModel {
     private final HeroProfile activeHero;
     private final String helpText;
     private final String currentBuildQuery;
+    private final ItemImportEditableForm verificationForm;
+    private final List<String> verificationReviewNotes;
+    private final boolean imageImportDiagnostics;
 
     public ItemImportPageModel(List<String> validationErrors,
                                OpenCvImagePreview openCvImagePreview,
@@ -19,12 +24,40 @@ public final class ItemImportPageModel {
                                HeroProfile activeHero,
                                String helpText,
                                String currentBuildQuery) {
+        this(validationErrors, openCvImagePreview, openCvPreviewError, activeHero, helpText, currentBuildQuery,
+                null, List.of(), false);
+    }
+
+    public ItemImportPageModel(List<String> validationErrors,
+                               OpenCvImagePreview openCvImagePreview,
+                               String openCvPreviewError,
+                               HeroProfile activeHero,
+                               String helpText,
+                               String currentBuildQuery,
+                               ItemImportEditableForm verificationForm,
+                               List<String> verificationReviewNotes) {
+        this(validationErrors, openCvImagePreview, openCvPreviewError, activeHero, helpText, currentBuildQuery,
+                verificationForm, verificationReviewNotes, false);
+    }
+
+    public ItemImportPageModel(List<String> validationErrors,
+                               OpenCvImagePreview openCvImagePreview,
+                               String openCvPreviewError,
+                               HeroProfile activeHero,
+                               String helpText,
+                               String currentBuildQuery,
+                               ItemImportEditableForm verificationForm,
+                               List<String> verificationReviewNotes,
+                               boolean imageImportDiagnostics) {
         this.validationErrors = Collections.unmodifiableList(new ArrayList<>(validationErrors == null ? List.of() : validationErrors));
         this.openCvImagePreview = openCvImagePreview;
         this.openCvPreviewError = openCvPreviewError == null ? "" : openCvPreviewError;
         this.activeHero = activeHero;
         this.helpText = helpText == null ? "" : helpText;
         this.currentBuildQuery = currentBuildQuery == null ? "" : currentBuildQuery;
+        this.verificationForm = verificationForm;
+        this.verificationReviewNotes = List.copyOf(verificationReviewNotes == null ? List.of() : verificationReviewNotes);
+        this.imageImportDiagnostics = imageImportDiagnostics;
     }
 
     public List<String> getValidationErrors() {
@@ -49,6 +82,22 @@ public final class ItemImportPageModel {
 
     public String getCurrentBuildQuery() {
         return currentBuildQuery;
+    }
+
+    public ItemImportEditableForm getVerificationForm() {
+        return verificationForm;
+    }
+
+    public boolean hasVerificationForm() {
+        return verificationForm != null;
+    }
+
+    public List<String> getVerificationReviewNotes() {
+        return verificationReviewNotes;
+    }
+
+    public boolean isImageImportDiagnostics() {
+        return imageImportDiagnostics;
     }
 
     public boolean hasOpenCvImagePreview() {
@@ -488,6 +537,7 @@ public final class ItemImportPageModel {
         private final String anchorBounds;
         private final PropertyBlockReadResultView readResult;
         private final PropertyBlockSemanticResultView semanticResult;
+        private final PropertyBlockValueReadResultView valueReadResult;
 
         public PropertyBlockView(int order,
                                  String anchorType,
@@ -498,7 +548,7 @@ public final class ItemImportPageModel {
                                  String dataUri,
                                  String diagnostics,
                                  String anchorBounds) {
-            this(order, anchorType, x, y, width, height, dataUri, diagnostics, anchorBounds, null, null);
+            this(order, anchorType, x, y, width, height, dataUri, diagnostics, anchorBounds, null, null, null);
         }
 
         public PropertyBlockView(int order,
@@ -511,7 +561,7 @@ public final class ItemImportPageModel {
                                  String diagnostics,
                                  String anchorBounds,
                                  PropertyBlockReadResultView readResult) {
-            this(order, anchorType, x, y, width, height, dataUri, diagnostics, anchorBounds, readResult, null);
+            this(order, anchorType, x, y, width, height, dataUri, diagnostics, anchorBounds, readResult, null, null);
         }
 
         public PropertyBlockView(int order,
@@ -525,6 +575,22 @@ public final class ItemImportPageModel {
                                  String anchorBounds,
                                  PropertyBlockReadResultView readResult,
                                  PropertyBlockSemanticResultView semanticResult) {
+            this(order, anchorType, x, y, width, height, dataUri, diagnostics, anchorBounds, readResult,
+                    semanticResult, null);
+        }
+
+        public PropertyBlockView(int order,
+                                 String anchorType,
+                                 int x,
+                                 int y,
+                                 int width,
+                                 int height,
+                                 String dataUri,
+                                 String diagnostics,
+                                 String anchorBounds,
+                                 PropertyBlockReadResultView readResult,
+                                 PropertyBlockSemanticResultView semanticResult,
+                                 PropertyBlockValueReadResultView valueReadResult) {
             this.order = Math.max(1, order);
             this.anchorType = anchorType == null || anchorType.isBlank() ? "NONE" : anchorType;
             this.x = x;
@@ -536,6 +602,7 @@ public final class ItemImportPageModel {
             this.anchorBounds = anchorBounds == null ? "" : anchorBounds;
             this.readResult = readResult;
             this.semanticResult = semanticResult;
+            this.valueReadResult = valueReadResult;
         }
 
         public int getOrder() {
@@ -593,6 +660,14 @@ public final class ItemImportPageModel {
         public boolean hasSemanticResult() {
             return semanticResult != null;
         }
+
+        public PropertyBlockValueReadResultView getValueReadResult() {
+            return valueReadResult;
+        }
+
+        public boolean hasValueReadResult() {
+            return valueReadResult != null;
+        }
     }
 
     /** Neutralny wynik semantyczny PropertyBlock pokazywany wyłącznie diagnostycznie. */
@@ -634,6 +709,173 @@ public final class ItemImportPageModel {
 
         public boolean isNumericValueCertain() {
             return numericValueCertain;
+        }
+    }
+
+    /** Neutralny odczyt wartosci PropertyBlock pokazywany wyłącznie diagnostycznie. */
+    public static final class PropertyBlockValueReadResultView {
+        private final String valueRole;
+        private final String value;
+        private final String unit;
+        private final String rollRange;
+        private final String referenceValue;
+        private final String itemArmor;
+        private final String weaponDps;
+        private final String weaponDamage;
+        private final String attacksPerSecond;
+        private final boolean certain;
+        private final boolean ambiguous;
+        private final List<PropertyBlockValueParameterView> parameters;
+        private final List<String> diagnostics;
+
+        public PropertyBlockValueReadResultView(String valueRole,
+                                                String value,
+                                                String unit,
+                                                String rollRange,
+                                                String referenceValue,
+                                                String itemArmor,
+                                                String weaponDps,
+                                                String weaponDamage,
+                                                String attacksPerSecond,
+                                                boolean certain,
+                                                boolean ambiguous,
+                                                List<PropertyBlockValueParameterView> parameters,
+                                                List<String> diagnostics) {
+            this.valueRole = valueRole == null ? "" : valueRole;
+            this.value = value == null ? "" : value;
+            this.unit = unit == null ? "" : unit;
+            this.rollRange = rollRange == null ? "" : rollRange;
+            this.referenceValue = referenceValue == null ? "" : referenceValue;
+            this.itemArmor = itemArmor == null ? "" : itemArmor;
+            this.weaponDps = weaponDps == null ? "" : weaponDps;
+            this.weaponDamage = weaponDamage == null ? "" : weaponDamage;
+            this.attacksPerSecond = attacksPerSecond == null ? "" : attacksPerSecond;
+            this.certain = certain;
+            this.ambiguous = ambiguous;
+            this.parameters = List.copyOf(parameters == null ? List.of() : parameters);
+            this.diagnostics = List.copyOf(diagnostics == null ? List.of() : diagnostics);
+        }
+
+        public String getValueRole() {
+            return valueRole;
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        public String getUnit() {
+            return unit;
+        }
+
+        public String getRollRange() {
+            return rollRange;
+        }
+
+        public String getReferenceValue() {
+            return referenceValue;
+        }
+
+        public String getItemArmor() {
+            return itemArmor;
+        }
+
+        public String getWeaponDps() {
+            return weaponDps;
+        }
+
+        public String getWeaponDamage() {
+            return weaponDamage;
+        }
+
+        public String getAttacksPerSecond() {
+            return attacksPerSecond;
+        }
+
+        public boolean isCertain() {
+            return certain;
+        }
+
+        public boolean isAmbiguous() {
+            return ambiguous;
+        }
+
+        public List<PropertyBlockValueParameterView> getParameters() {
+            return parameters;
+        }
+
+        public boolean hasParameters() {
+            return !parameters.isEmpty();
+        }
+
+        public List<String> getDiagnostics() {
+            return diagnostics;
+        }
+
+        public boolean hasDiagnostics() {
+            return !diagnostics.isEmpty();
+        }
+    }
+
+    /** Pojedynczy parametr liczbowy neutralnego odczytu wartosci. */
+    public static final class PropertyBlockValueParameterView {
+        private final int order;
+        private final String role;
+        private final String rawToken;
+        private final String value;
+        private final String range;
+        private final String unit;
+        private final boolean ambiguous;
+        private final List<String> alternativeValues;
+
+        public PropertyBlockValueParameterView(int order,
+                                               String role,
+                                               String rawToken,
+                                               String value,
+                                               String range,
+                                               String unit,
+                                               boolean ambiguous,
+                                               List<String> alternativeValues) {
+            this.order = Math.max(1, order);
+            this.role = role == null ? "" : role;
+            this.rawToken = rawToken == null ? "" : rawToken;
+            this.value = value == null ? "" : value;
+            this.range = range == null ? "" : range;
+            this.unit = unit == null ? "" : unit;
+            this.ambiguous = ambiguous;
+            this.alternativeValues = List.copyOf(alternativeValues == null ? List.of() : alternativeValues);
+        }
+
+        public int getOrder() {
+            return order;
+        }
+
+        public String getRole() {
+            return role;
+        }
+
+        public String getRawToken() {
+            return rawToken;
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        public String getRange() {
+            return range;
+        }
+
+        public String getUnit() {
+            return unit;
+        }
+
+        public boolean isAmbiguous() {
+            return ambiguous;
+        }
+
+        public List<String> getAlternativeValues() {
+            return alternativeValues;
         }
     }
 

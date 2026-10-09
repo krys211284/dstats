@@ -2,8 +2,9 @@ package krys.paladin;
 
 import krys.combat.DamageEngine;
 import krys.ranking.DamageRankingService;
-import krys.ranking.PaladinSkillDamageRankingEntry;
 import krys.ranking.PlayableClass;
+import krys.ranking.SkillDamageRankingEntry;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -164,7 +165,7 @@ class PaladinDamagePresenceAuditTest {
     @Test
     void runtime_dps_powinien_pozostac_zablokowany_po_audycie_obecnosci_obrazen() {
         DamageRankingService service = new DamageRankingService(new DamageEngine());
-        List<PaladinSkillDamageRankingEntry> entries = service.describeTreeSkills(PlayableClass.PALADIN);
+        List<SkillDamageRankingEntry> entries = service.describeTreeSkills(PlayableClass.PALADIN);
 
         assertEquals(24, entries.size());
         assertTrue(entries.stream().allMatch(entry -> entry.getDamagePerUse() == null));

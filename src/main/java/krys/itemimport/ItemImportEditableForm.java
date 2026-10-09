@@ -25,6 +25,7 @@ public final class ItemImportEditableForm {
     private final ItemMasterworking masterworking;
     private final ItemTransfiguration transfiguration;
     private final ItemSocketing socketing;
+    private final ItemImportValueMode valueMode;
 
     public ItemImportEditableForm(String sourceImageName,
                                   String slot,
@@ -171,6 +172,28 @@ public final class ItemImportEditableForm {
                                   ItemMasterworking masterworking,
                                   ItemTransfiguration transfiguration,
                                   ItemSocketing socketing) {
+        this(sourceImageName, slot, weaponDamage, strength, intelligence, thorns, blockChance,
+                retributionChance, fullItemRead, affixes, selectedAspectId, details, temperingAffixes,
+                masterworking, transfiguration, socketing, ItemImportValueMode.SOURCE_VALUE);
+    }
+
+    public ItemImportEditableForm(String sourceImageName,
+                                  String slot,
+                                  String weaponDamage,
+                                  String strength,
+                                  String intelligence,
+                                  String thorns,
+                                  String blockChance,
+                                  String retributionChance,
+                                  FullItemRead fullItemRead,
+                                  List<ImportedItemAffix> affixes,
+                                  String selectedAspectId,
+                                  ItemImportDetails details,
+                                  List<ItemTemperingAffix> temperingAffixes,
+                                  ItemMasterworking masterworking,
+                                  ItemTransfiguration transfiguration,
+                                  ItemSocketing socketing,
+                                  ItemImportValueMode valueMode) {
         this.sourceImageName = sourceImageName;
         this.slot = slot;
         this.weaponDamage = weaponDamage;
@@ -187,6 +210,7 @@ public final class ItemImportEditableForm {
         this.masterworking = masterworking == null ? ItemMasterworking.defaultState() : masterworking;
         this.transfiguration = transfiguration == null ? ItemTransfiguration.none() : transfiguration;
         this.socketing = socketing == null ? ItemSocketing.empty() : socketing;
+        this.valueMode = valueMode == null ? ItemImportValueMode.SOURCE_VALUE : valueMode;
     }
 
     public String getSourceImageName() {
@@ -251,6 +275,14 @@ public final class ItemImportEditableForm {
 
     public ItemSocketing getSocketing() {
         return socketing;
+    }
+
+    public ItemImportValueMode getValueMode() {
+        return valueMode;
+    }
+
+    public boolean usesGameDisplayedValues() {
+        return valueMode == ItemImportValueMode.GAME_DISPLAYED_VALUE;
     }
 
     public String getItemName() {

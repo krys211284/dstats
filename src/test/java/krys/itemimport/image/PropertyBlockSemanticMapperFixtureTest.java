@@ -40,8 +40,8 @@ class PropertyBlockSemanticMapperFixtureTest {
                 "defense_max_animus",
                 "naznaczenie_aspect",
                 "EMPTY_SOCKET");
-        assertFalse(part3.get(1).isNumericValueCertain());
-        assertFalse(part3.get(2).isNumericValueCertain());
+        assertFalse(part3.get(1).isNumericValueCertain(), describeEvidence(part3.get(1)));
+        assertFalse(part3.get(2).isNumericValueCertain(), describeEvidence(part3.get(2)));
         assertTrue(part3.get(3).isGreaterAffix());
         assertTrue(part3.get(5).isGreaterAffix());
     }
@@ -106,6 +106,16 @@ class PropertyBlockSemanticMapperFixtureTest {
 
     private static void assertDefinitions(List<PropertyBlockSemanticResult> results, String... expected) {
         assertEquals(List.of(expected), results.stream().map(PropertyBlockSemanticResult::getDefinitionId).toList());
+    }
+
+    private static String describeEvidence(PropertyBlockSemanticResult result) {
+        return result.getNumericEvidence().stream()
+                .map(evidence -> evidence.getTokenOrder() + "=" + evidence.getSelectedValue()
+                        + " support=" + evidence.getSupportCount()
+                        + " alternatives=" + evidence.getAlternativeValues()
+                        + " ambiguous=" + evidence.isAmbiguous())
+                .toList()
+                .toString();
     }
 
     private static ItemImageImportRequest request(String filename) {

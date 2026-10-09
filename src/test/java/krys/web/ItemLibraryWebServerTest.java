@@ -320,6 +320,41 @@ class ItemLibraryWebServerTest {
     }
 
     @Test
+    void shouldSaveImageImportVerificationDisplayedValuesAsSourceValues() throws Exception {
+        createHero("Importer", "13");
+        Map<String, String> fields = displayedShieldImportFields();
+        fields.put("affixOriginalValue_0", "216");
+
+        HttpResponse<String> saveResponse = sendUrlEncodedPost("/biblioteka-itemow", fields);
+
+        assertEquals(200, saveResponse.statusCode());
+        assertTrue(saveResponse.body().contains("Zapisano item w bibliotece"));
+        assertTrue(saveResponse.body().contains("1502"));
+        assertTrue(saveResponse.body().contains("217"));
+        assertTrue(saveResponse.body().contains("11,0%"));
+        assertTrue(saveResponse.body().contains("17,6%"));
+        assertTrue(saveResponse.body().contains("12,3%"));
+        assertTrue(saveResponse.body().contains("+12"));
+        assertTrue(saveResponse.body().contains("Animuszu"));
+        assertFalse(saveResponse.body().contains("1877"));
+        assertFalse(saveResponse.body().contains("271"));
+        assertFalse(saveResponse.body().contains("13,8%"));
+        assertFalse(saveResponse.body().contains("22,0%"));
+        assertFalse(saveResponse.body().contains("14,8%"));
+
+        HttpResponse<String> editForm = sendGet("/biblioteka-itemow/edytuj?itemId=1");
+
+        assertEquals(200, editForm.statusCode());
+        assertTrue(editForm.body().contains("name=\"itemArmor\" value=\"1202\""));
+        assertTrue(editForm.body().contains("name=\"affixValue_0\" value=\"173.6\""));
+        assertTrue(editForm.body().contains("name=\"affixValue_1\" value=\"8.8\""));
+        assertTrue(editForm.body().contains("name=\"affixValue_2\" value=\"14.08\""));
+        assertTrue(editForm.body().contains("name=\"affixValue_3\" value=\"10.25\""));
+        assertTrue(editForm.body().contains("name=\"temperingValue_0\" value=\"5\""));
+        assertTrue(editForm.body().contains("value=\"TEMPERING_AFFIX:defense_max_animus\" selected"));
+    }
+
+    @Test
     void shouldValidateTemperingCategoryAndRollRange() throws Exception {
         createHero("Hartownik", "13");
         Map<String, String> swordFields = verathielImportFields();
@@ -480,11 +515,11 @@ class ItemLibraryWebServerTest {
 
         HttpResponse<String> editWithLimit = sendGet("/biblioteka-itemow/edytuj?itemId=1");
         assertTrue(editWithLimit.body().contains("Limit hartowania dla tego przedmiotu został wykorzystany."));
-        assertFalse(editWithLimit.body().contains("id=\"temperingAddControls\""));
-        assertFalse(editWithLimit.body().contains("<select name=\"newTemperingCategory\""));
-        assertFalse(editWithLimit.body().contains("<select name=\"newTemperingDefinitionId\""));
-        assertFalse(editWithLimit.body().contains("<input type=\"number\" min=\"0\" step=\"0.01\" name=\"newTemperingValue\""));
-        assertFalse(editWithLimit.body().contains("id=\"addTemperingButton\""));
+        assertTrue(editWithLimit.body().contains("id=\"temperingAddControls\" hidden"));
+        assertTrue(editWithLimit.body().contains("<select name=\"newTemperingCategory\" disabled"));
+        assertTrue(editWithLimit.body().contains("<select name=\"newTemperingDefinitionId\" data-tempering-affix-select disabled"));
+        assertTrue(editWithLimit.body().contains("<input type=\"number\" min=\"0\" step=\"0.01\" name=\"newTemperingValue\" value=\"\" disabled"));
+        assertTrue(editWithLimit.body().contains("id=\"addTemperingButton\" disabled"));
 
         Map<String, String> removeTempering = shieldUpdateFields("1", "tarcza-limit.png", "Tarcza Limit", "114", false, "");
         removeTempering.put("itemPower", "900");
@@ -494,6 +529,8 @@ class ItemLibraryWebServerTest {
 
         HttpResponse<String> editAfterRemove = sendGet("/biblioteka-itemow/edytuj?itemId=1");
         assertTrue(editAfterRemove.body().contains("id=\"temperingAddControls\""));
+        assertFalse(editAfterRemove.body().contains("id=\"temperingAddControls\" hidden"));
+        assertTrue(editAfterRemove.body().contains("name=\"newTemperingGreaterAffix\" value=\"true\" disabled"));
 
         Map<String, String> addAgain = shieldUpdateFields("1", "tarcza-limit.png", "Tarcza Limit", "114", false, "");
         addAgain.put("itemPower", "900");
@@ -785,6 +822,67 @@ class ItemLibraryWebServerTest {
         if (greaterAffix) {
             fields.put("affixGreater_0", "true");
         }
+        return fields;
+    }
+
+    private static Map<String, String> displayedShieldImportFields() {
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("action", "saveImportedItem");
+        fields.put("itemImportValueMode", "GAME_DISPLAYED_VALUE");
+        fields.put("sourceImageName", "tarcza.png");
+        fields.put("slot", "OFF_HAND");
+        fields.put("weaponDamage", "0");
+        fields.put("strength", "0");
+        fields.put("intelligence", "0");
+        fields.put("thorns", "0");
+        fields.put("blockChance", "20");
+        fields.put("retributionChance", "0");
+        fields.put("itemName", "TARCZA BURZY KSIĘŻYCOWEGO SZAŁU");
+        fields.put("itemType", "Tarcza");
+        fields.put("itemRarity", "LEGENDARY");
+        fields.put("isAncientSubmitted", "true");
+        fields.put("isAncient", "true");
+        fields.put("itemPower", "900");
+        fields.put("itemArmor", "1502");
+        fields.put("uniqueEffectText", "Zadajesz obrażenia zwiększone o 40,0%[x].");
+        fields.put("selectedAspectId", "");
+        fields.put("masterworkingQualityCurrent", "25");
+        fields.put("masterworkingQualityMax", "25");
+        fields.put("masterworkingPerfectedAffix", "");
+        fields.put("fullItemRead", FullItemReadFormCodec.encode(new FullItemRead(
+                "TARCZA BURZY KSIĘŻYCOWEGO SZAŁU",
+                "Tarcza",
+                "LEGENDARY",
+                "Moc przedmiotu: 900",
+                "1502 pancerza",
+                List.of(
+                        new FullItemReadLine(FullItemReadLineType.ITEM_NAME, "TARCZA BURZY KSIĘŻYCOWEGO SZAŁU"),
+                        new FullItemReadLine(FullItemReadLineType.TYPE_OR_SLOT, "Starożytna legendarna tarcza"),
+                        new FullItemReadLine(FullItemReadLineType.BASE_STAT, "1502 pancerza"),
+                        new FullItemReadLine(FullItemReadLineType.IMPLICIT, "20,0% szansy na blok [20,0]%"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+217 siły [150 - 180]"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "+11,0% szansy na trafienie krytyczne"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "17,6% redukcji obrażeń"),
+                        new FullItemReadLine(FullItemReadLineType.AFFIX, "12,3% redukcji czasu odnowienia [10 - 12]%"),
+                        new FullItemReadLine(FullItemReadLineType.TEMPERING, "+12 do maksymalnej liczby kumulacji Animuszu")
+                )
+        )));
+        fields.put("currentBuildQuery", "");
+        fields.put("formAction", "confirmItem");
+        fields.put("affixCount", "4");
+        putAffix(fields, 0, "STRENGTH", "217", "+217 siły [150 - 180]", "strength", "150", "180", "217");
+        putAffix(fields, 1, "CRITICAL_STRIKE_CHANCE", "11.0", "+11,0% szansy na trafienie krytyczne",
+                "critical_strike_chance", "", "", "11,0%");
+        putAffix(fields, 2, "DAMAGE_REDUCTION", "17.6", "17,6% redukcji obrażeń",
+                "damage_reduction", "", "", "17,6%");
+        putAffix(fields, 3, "COOLDOWN_REDUCTION", "12.3", "12,3% redukcji czasu odnowienia [10 - 12]%",
+                "cooldown_reduction", "10", "12", "12,3%");
+        fields.put("affixGreater_3", "true");
+        fields.put("temperingCount", "1");
+        fields.put("temperingCategory_0", "DEFENSE");
+        fields.put("temperingDefinitionId_0", "defense_max_animus");
+        fields.put("temperingValue_0", "12");
+        fields.put("temperingGreaterAffix_0", "true");
         return fields;
     }
 

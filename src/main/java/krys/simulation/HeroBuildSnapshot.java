@@ -4,15 +4,17 @@ import krys.hero.Hero;
 import krys.hero.HeroClassStatBaselines;
 import krys.item.EquipmentSlot;
 import krys.item.Item;
+import krys.runtime.RuntimeSkillLoadout;
+import krys.runtime.legacy.LegacyPaladinRuntimeSkillLoadoutAdapter;
 import krys.skill.SkillId;
 import krys.skill.SkillState;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.EnumMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Wspólne wejście runtime dla manual simulation i build search.
@@ -34,8 +36,7 @@ public final class HeroBuildSnapshot {
     private final List<Item> equippedItems;
     private final boolean hasActiveWeapon;
     private final boolean hasActiveShield;
-    private final Map<SkillId, SkillState> learnedSkills;
-    private final List<SkillId> selectedSkillBar;
+    private final RuntimeSkillLoadout runtimeSkillLoadout;
     private final double initialPrimaryResource;
     private final double maxPrimaryResource;
     private final double primaryResourceRegenPerSecond;
@@ -151,6 +152,30 @@ public final class HeroBuildSnapshot {
                              List<String> activeAspectIds,
                              double criticalChancePercent,
                              long simulationSeed) {
+        this(hero, bonusSkillPoints, averageWeaponDamage, totalPercentDamageBonus, equippedItems,
+                hasActiveWeapon, hasActiveShield, legacyRuntimeSkillLoadout(learnedSkills, selectedSkillBar, criticalChancePercent),
+                initialPrimaryResource, maxPrimaryResource, primaryResourceRegenPerSecond,
+                selectedPaladinOathId, initialAnimus, maxAnimus, activeAspectIds, criticalChancePercent, simulationSeed);
+    }
+
+    /** Kanoniczny transport skilli; pozostałe pola zachowują dotychczasową semantykę snapshotu. */
+    public HeroBuildSnapshot(Hero hero,
+                             int bonusSkillPoints,
+                             long averageWeaponDamage,
+                             double totalPercentDamageBonus,
+                             List<Item> equippedItems,
+                             boolean hasActiveWeapon,
+                             boolean hasActiveShield,
+                             RuntimeSkillLoadout runtimeSkillLoadout,
+                             double initialPrimaryResource,
+                             double maxPrimaryResource,
+                             double primaryResourceRegenPerSecond,
+                             String selectedPaladinOathId,
+                             double initialAnimus,
+                             double maxAnimus,
+                             List<String> activeAspectIds,
+                             double criticalChancePercent,
+                             long simulationSeed) {
         if (criticalChancePercent < 0.0d || criticalChancePercent > 100.0d) {
             throw new IllegalArgumentException("Szansa kryta musi być w zakresie 0-100%.");
         }
@@ -162,14 +187,7 @@ public final class HeroBuildSnapshot {
         this.hasActiveWeapon = hasActiveWeapon;
         this.hasActiveShield = hasActiveShield;
 
-        EnumMap<SkillId, SkillState> learnedSkillsCopy = new EnumMap<>(SkillId.class);
-        if (learnedSkills != null && !learnedSkills.isEmpty()) {
-            learnedSkillsCopy.putAll(learnedSkills);
-        }
-        this.learnedSkills = Collections.unmodifiableMap(learnedSkillsCopy);
-
-        List<SkillId> selectedBar = selectedSkillBar == null ? List.of() : selectedSkillBar;
-        this.selectedSkillBar = Collections.unmodifiableList(new ArrayList<>(new LinkedHashSet<>(selectedBar)));
+        this.runtimeSkillLoadout = Objects.requireNonNull(runtimeSkillLoadout, "runtimeSkillLoadout");
         this.initialPrimaryResource = initialPrimaryResource;
         this.maxPrimaryResource = maxPrimaryResource;
         this.primaryResourceRegenPerSecond = primaryResourceRegenPerSecond;
@@ -212,15 +230,34 @@ public final class HeroBuildSnapshot {
     }
 
     public Map<SkillId, SkillState> getLearnedSkills() {
-        return learnedSkills;
+        return legacySkillView().learnedSkills();
     }
 
     public List<SkillId> getSelectedSkillBar() {
-        return selectedSkillBar;
+        return legacySkillView().actionBar();
     }
 
     public SkillState getSkillState(SkillId skillId) {
-        return learnedSkills.get(skillId);
+        return getLearnedSkills().get(skillId);
+    }
+
+    public RuntimeSkillLoadout getRuntimeSkillLoadout() {
+        return runtimeSkillLoadout;
+    }
+
+    private LegacyPaladinRuntimeSkillLoadoutAdapter.LegacyView legacySkillView() {
+        return LegacyPaladinRuntimeSkillLoadoutAdapter.toLegacyView(runtimeSkillLoadout)
+                .orElseThrow(() -> new UnsupportedOperationException("Widok SkillId jest dostępny tylko dla legacy Paladyna"));
+    }
+
+    private static RuntimeSkillLoadout legacyRuntimeSkillLoadout(Map<SkillId, SkillState> learnedSkills,
+                                                                List<SkillId> selectedSkillBar,
+                                                                double criticalChancePercent) {
+        // Zachowuje pierwszeństwo dotychczasowej walidacji kryta w konstruktorach legacy.
+        if (criticalChancePercent < 0.0d || criticalChancePercent > 100.0d) {
+            throw new IllegalArgumentException("Szansa kryta musi być w zakresie 0-100%.");
+        }
+        return LegacyPaladinRuntimeSkillLoadoutAdapter.toRuntimeLoadout(learnedSkills, selectedSkillBar);
     }
 
     public List<String> getActiveAspectIds() {

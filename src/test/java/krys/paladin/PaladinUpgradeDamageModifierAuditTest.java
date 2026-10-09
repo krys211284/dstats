@@ -2,8 +2,10 @@ package krys.paladin;
 
 import krys.combat.DamageEngine;
 import krys.ranking.DamageRankingService;
-import krys.ranking.PaladinSkillDamageRankingEntry;
 import krys.ranking.PlayableClass;
+import krys.ranking.SkillDamageRankingEntry;
+import krys.skilltree.UpgradeDamageSafety;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -98,7 +100,7 @@ class PaladinUpgradeDamageModifierAuditTest {
                 .allMatch(modifier -> modifier.getSafeForRuntimeDps() != UpgradeDamageSafety.YES));
 
         DamageRankingService service = new DamageRankingService(new DamageEngine());
-        List<PaladinSkillDamageRankingEntry> entries = service.describeTreeSkills(PlayableClass.PALADIN);
+        List<SkillDamageRankingEntry> entries = service.describeTreeSkills(PlayableClass.PALADIN);
 
         assertEquals(24, entries.size());
         assertTrue(entries.stream().allMatch(entry -> entry.getDamagePerUse() == null));

@@ -60,6 +60,11 @@ public final class SearchBuildDetailsController implements HttpHandler {
     }
 
     private SearchBuildDetailsPageModel handlePost(HttpExchange exchange) throws IOException {
+        HeroProfile activeHero = heroService.getActiveHero().orElse(null);
+        if (activeHero != null && !CurrentBuildRuntimeSupport.isSupported(activeHero.getHeroClass())) {
+            return new SearchBuildDetailsPageModel(0, List.of(), null, null, activeHero,
+                    CurrentBuildRuntimeSupport.NECROMANCER_SEARCH_MESSAGE);
+        }
         Map<String, String> fields = UrlEncodedFormSupport.parseBody(exchange);
         int selectedRank = parseSelectedRank(fields);
         CurrentBuildFormData formData = CurrentBuildFormData.fromFormFields(fields);

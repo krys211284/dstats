@@ -14,6 +14,7 @@ import krys.itemimport.FullItemReadFormCodec;
 import krys.itemimport.ItemImportEditableForm;
 import krys.itemimport.ItemImportDetails;
 import krys.itemimport.ItemImportFormMapper;
+import krys.itemimport.ItemImportValueMode;
 import krys.itemimport.ImportedItemAffix;
 import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
@@ -38,6 +39,7 @@ public final class ItemLibraryController implements HttpHandler {
     private final ItemImportFormMapper itemImportFormMapper;
     private final HeroService heroService;
     private final ItemKnowledgeService itemKnowledgeService;
+    private final ItemImportDisplayedValueFormNormalizer displayedValueFormNormalizer = new ItemImportDisplayedValueFormNormalizer();
 
     public ItemLibraryController(ItemLibraryService itemLibraryService,
                                  ItemLibraryPageRenderer renderer,
@@ -99,7 +101,8 @@ public final class ItemLibraryController implements HttpHandler {
 
     private ItemLibraryPageModel handleSaveImportedItem(Map<String, String> fields, String currentBuildQuery) {
         FullItemRead decodedFullItemRead = FullItemReadFormCodec.decode(fields.getOrDefault("fullItemRead", ""));
-        AffixParseResult affixParseResult = parseSubmittedAffixes(fields);
+        ItemImportValueMode valueMode = ItemImportValueMode.fromFormValue(fields.get("itemImportValueMode"));
+        AffixParseResult affixParseResult = parseSubmittedAffixes(fields, valueMode);
         TemperingFormSupport.ParseResult temperingParseResult = TemperingFormSupport.parse(fields);
         ItemImportEditableForm form = new ItemImportEditableForm(
                 fields.getOrDefault("sourceImageName", ""),
@@ -117,11 +120,14 @@ public final class ItemLibraryController implements HttpHandler {
                 temperingParseResult.affixes(),
                 parseMasterworking(fields),
                 TransfigurationFormSupport.parse(fields),
-                SocketingFormSupport.parse(fields)
+                SocketingFormSupport.parse(fields),
+                valueMode
         );
-        ItemImportFormMapper.MappingResult mappingResult = itemImportFormMapper.map(form);
         List<String> errors = new ArrayList<>(affixParseResult.errors());
         errors.addAll(temperingParseResult.errors());
+        ItemImportDisplayedValueFormNormalizer.NormalizedForm normalizedForm = displayedValueFormNormalizer.normalize(form);
+        errors.addAll(normalizedForm.errors());
+        ItemImportFormMapper.MappingResult mappingResult = itemImportFormMapper.map(normalizedForm.form());
         errors.addAll(mappingResult.getErrors());
         if (!errors.isEmpty() || mappingResult.getItem() == null) {
             return buildPageModel(errors, List.of(), currentBuildQuery, null);
@@ -282,7 +288,7 @@ public final class ItemLibraryController implements HttpHandler {
         );
     }
 
-    private static AffixParseResult parseSubmittedAffixes(Map<String, String> fields) {
+    private static AffixParseResult parseSubmittedAffixes(Map<String, String> fields, ItemImportValueMode valueMode) {
         int affixCount = parseAffixCount(fields.get("affixCount"));
         if (affixCount == 0) {
             return new AffixParseResult(scalarStatAffixes(fields), List.of());
@@ -290,12 +296,15 @@ public final class ItemLibraryController implements HttpHandler {
         List<ImportedItemAffix> affixes = new ArrayList<>();
         List<String> errors = new ArrayList<>();
         for (int index = 0; index < affixCount; index++) {
-            parseAffixRow(fields, index, errors).ifPresent(affixes::add);
+            parseAffixRow(fields, index, valueMode, errors).ifPresent(affixes::add);
         }
         return new AffixParseResult(affixes, errors);
     }
 
-    private static java.util.Optional<ImportedItemAffix> parseAffixRow(Map<String, String> fields, int index, List<String> errors) {
+    private static java.util.Optional<ImportedItemAffix> parseAffixRow(Map<String, String> fields,
+                                                                       int index,
+                                                                       ItemImportValueMode valueMode,
+                                                                       List<String> errors) {
         String rawType = fields.getOrDefault("affixType_" + index, "");
         String rawValue = fields.getOrDefault("affixValue_" + index, "");
         boolean missingType = rawType.isBlank();
@@ -327,7 +336,13 @@ public final class ItemLibraryController implements HttpHandler {
             Double rollRangeMax = parseDoubleOrNull(fields.get("affixRangeMax_" + index));
             Double referenceValue = parseDoubleOrNull(fields.get("affixReferenceValue_" + index));
             String displayValue = fields.getOrDefault("affixDisplayValue_" + index, "");
-            if (!rawType.equals(originalType) || !normalizeNumber(rawValue).equals(normalizeNumber(originalValue))) {
+            boolean typeChanged = !rawType.equals(originalType);
+            boolean valueChanged = !normalizeNumber(rawValue).equals(normalizeNumber(originalValue));
+            if (valueMode == ItemImportValueMode.GAME_DISPLAYED_VALUE && valueChanged) {
+                displayValue = formatSubmittedDisplayValue(value, defaultUnit(type));
+                source = ImportedItemAffixSource.CORRECTED;
+            }
+            if (typeChanged || (valueMode != ItemImportValueMode.GAME_DISPLAYED_VALUE && valueChanged)) {
                 sourceText = "";
                 definitionId = "";
                 rollRangeMin = null;
@@ -343,6 +358,11 @@ public final class ItemLibraryController implements HttpHandler {
             errors.add("Affix #" + (index + 1) + ": affix ma niepoprawny typ albo wartość.");
             return java.util.Optional.empty();
         }
+    }
+
+    private static String formatSubmittedDisplayValue(double value, String unit) {
+        java.math.BigDecimal decimal = java.math.BigDecimal.valueOf(value).stripTrailingZeros();
+        return decimal.toPlainString().replace('.', ',') + (unit == null ? "" : unit);
     }
 
     private static List<ImportedItemAffix> scalarStatAffixes(Map<String, String> fields) {

@@ -1,19 +1,19 @@
 package krys.web;
 
-import krys.paladin.DamagePercentComponent;
-import krys.paladin.DamagePercentComponentRankTable;
-import krys.paladin.PaladinSkillTreeType;
-import krys.paladin.SkillCategory;
-import krys.paladin.UpgradeDamageModifier;
-import krys.paladin.UpgradeDamageModifierType;
-import krys.paladin.UpgradeDamageSafety;
-import krys.ranking.PaladinDamageRankingMetric;
-import krys.ranking.PaladinSkillDamageRankingEntry;
-import krys.ranking.PaladinSkillDamageVerificationStatus;
+import krys.ranking.DamageRankingMetric;
 import krys.ranking.PlayableClass;
+import krys.ranking.SkillDamageRankingEntry;
+import krys.ranking.SkillDamageVerificationStatus;
+import krys.skilltree.DamagePercentComponent;
+import krys.skilltree.DamagePercentComponentRankTable;
+import krys.skilltree.SkillTreeType;
+import krys.skilltree.SourceSkillCategory;
+import krys.skilltree.UpgradeDamageModifier;
+import krys.skilltree.UpgradeDamageModifierType;
+import krys.skilltree.UpgradeDamageSafety;
 
-import java.io.IOException;
 import java.io.InputStream;
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -39,9 +39,9 @@ public final class DamageRankingPageRenderer {
     }
 
     private static String renderSummary(DamageRankingPageModel model) {
-        long needsVerification = countStatus(model, PaladinSkillDamageVerificationStatus.NEEDS_VERIFICATION);
-        long unsupported = countStatus(model, PaladinSkillDamageVerificationStatus.UNSUPPORTED);
-        long nonDamage = countStatus(model, PaladinSkillDamageVerificationStatus.NON_DAMAGE);
+        long needsVerification = countStatus(model, SkillDamageVerificationStatus.NEEDS_VERIFICATION);
+        long unsupported = countStatus(model, SkillDamageVerificationStatus.UNSUPPORTED);
+        long nonDamage = countStatus(model, SkillDamageVerificationStatus.NON_DAMAGE);
         return new StringBuilder("<div class=\"summary-grid\">")
                 .append(renderSummaryCard("Postać", model.getFilter().getCharacter().getDisplayName()))
                 .append(renderSummaryCard("Wpisy w rejestrze", Integer.toString(model.getTotalSkillCount())))
@@ -55,7 +55,7 @@ public final class DamageRankingPageRenderer {
     }
 
     private static long countStatus(DamageRankingPageModel model,
-                                    PaladinSkillDamageVerificationStatus status) {
+                                    SkillDamageVerificationStatus status) {
         return model.getRows().stream()
                 .filter(row -> row.getEntry().getVerificationStatus() == status)
                 .count();
@@ -78,12 +78,13 @@ public final class DamageRankingPageRenderer {
         StringBuilder html = new StringBuilder("""
                 <form class="ranking-filters" method="get" action="/ranking-obrazen">
                     <label class="filter-field filter-field-search">Szukaj
-                        <input class="filter-control filter-input" id="ranking-search-query" type="search" name="q" value="%s" placeholder="Starcie, Adept, Odsłonięcie" aria-describedby="ranking-search-help">
+                        <input class="filter-control filter-input" id="ranking-search-query" type="search" name="q" value="%s" placeholder="%s" aria-describedby="ranking-search-help">
                         <span id="ranking-search-help" class="visually-hidden">Filtruje po nazwie, id, kategoriach i widocznych cechach.</span>
                     </label>
                     <label class="filter-field">Postać
                         <select class="filter-control filter-select" name="character">
-                """.formatted(escapeHtml(filter.getQ() == null ? "" : filter.getQ())));
+                """.formatted(escapeHtml(filter.getQ() == null ? "" : filter.getQ()),
+                escapeHtml(model.getRegistry().getSearchPlaceholder())));
         for (PlayableClass playableClass : model.getSupportedClasses()) {
             html.append(renderOption(
                     playableClass.getQueryValue(),
@@ -99,7 +100,7 @@ public final class DamageRankingPageRenderer {
                 """);
         html.append(renderOption("ALL", "Wszystkie grupy drzewa", !filter.hasSkillGroup()));
         for (String skillGroup : model.getSkillGroups()) {
-            html.append(renderOption(skillGroup, treeGroupDisplayName(skillGroup), skillGroup.equals(filter.getSkillGroup())));
+            html.append(renderOption(skillGroup, model.getRegistry().treeGroupDisplayName(skillGroup), skillGroup.equals(filter.getSkillGroup())));
         }
         html.append("""
                         </select>
@@ -108,7 +109,7 @@ public final class DamageRankingPageRenderer {
                         <select class="filter-control filter-select" name="verificationStatus">
                 """);
         html.append(renderOption("ALL", "Wszystkie statusy", !filter.hasVerificationStatus()));
-        for (PaladinSkillDamageVerificationStatus status : model.getVerificationStatuses()) {
+        for (SkillDamageVerificationStatus status : model.getVerificationStatuses()) {
             html.append(renderOption(status.name(), status.name(), status == filter.getVerificationStatus()));
         }
         html.append("""
@@ -119,8 +120,8 @@ public final class DamageRankingPageRenderer {
         html.append(renderFacetFilter("hasDirectUpgradeDamage", "Damage modifier", filter.getHasDirectUpgradeDamage()));
         html.append(renderFacetFilter("hasNewDamageComponent", "Extra component", filter.getHasNewDamageComponent()));
         html.append(renderFacetFilter("hasStatusDamageEnabler", "Status / debuff", filter.getHasStatusDamageEnabler()));
-        html.append(renderFacetFilter("hasFaithCost", "Koszt Wiary", filter.getHasFaithCost()));
-        html.append(renderFacetFilter("hasResourceGeneration", "Generowanie Wiary", filter.getHasResourceGeneration()));
+        html.append(renderFacetFilter("hasFaithCost", model.getRegistry().getResourceType().costLabel(), filter.getHasResourceCost()));
+        html.append(renderFacetFilter("hasResourceGeneration", model.getRegistry().getResourceType().generationLabel(), filter.getHasResourceGeneration()));
         html.append(renderFacetFilter("hasDefenseOrUtility", "Defense / utility", filter.getHasDefenseOrUtility()));
         html.append(renderFacetFilter("hasManualReviewUpgrade", "Manual review", filter.getHasManualReviewUpgrade()));
         html.append("""
@@ -141,8 +142,8 @@ public final class DamageRankingPageRenderer {
                         <select class="filter-control filter-select" name="sourceCategory">
                 """);
         html.append(renderOption("ALL", "Wszystkie kategorie", !model.getFilter().hasSourceCategory()));
-        for (SkillCategory category : model.getSourceCategories()) {
-            html.append(renderOption(category.name(), category.getDisplayName(), category == model.getFilter().getSourceCategory()));
+        for (SourceSkillCategory category : model.getSourceCategories()) {
+            html.append(renderOption(category.getId(), category.getDisplayName(), category.getId().equalsIgnoreCase(model.getFilter().getSourceCategory())));
         }
         html.append("""
                         </select>
@@ -174,7 +175,7 @@ public final class DamageRankingPageRenderer {
 
     private static String renderSortableHeader(DamageRankingPageModel model, String sortKey, String label) {
         DamageRankingFilter filter = model.getFilter();
-        boolean active = filter.getSort().equals(sortKey);
+        boolean active = filter.matchesSort(sortKey);
         DamageRankingFilter.SortDirection nextDirection = active && filter.getDirection() == DamageRankingFilter.SortDirection.ASC
                 ? DamageRankingFilter.SortDirection.DESC
                 : DamageRankingFilter.SortDirection.ASC;
@@ -193,15 +194,15 @@ public final class DamageRankingPageRenderer {
                 + "</span></a></th>";
     }
 
-    private static String renderFaithGenerationHeader(DamageRankingPageModel model) {
+    private static String renderResourceGenerationHeader(DamageRankingPageModel model) {
         DamageRankingFilter filter = model.getFilter();
-        boolean active = filter.getSort().equals("faithGeneratedBase")
-                || filter.getSort().equals("faithGeneratedMaxKnown");
-        DamageRankingFilter.SortDirection nextMaxDirection = filter.getSort().equals("faithGeneratedMaxKnown")
+        boolean active = filter.matchesSort("faithGeneratedBase")
+                || filter.matchesSort("faithGeneratedMaxKnown");
+        DamageRankingFilter.SortDirection nextMaxDirection = filter.matchesSort("faithGeneratedMaxKnown")
                 && filter.getDirection() == DamageRankingFilter.SortDirection.ASC
                 ? DamageRankingFilter.SortDirection.DESC
                 : DamageRankingFilter.SortDirection.ASC;
-        DamageRankingFilter.SortDirection nextBaseDirection = filter.getSort().equals("faithGeneratedBase")
+        DamageRankingFilter.SortDirection nextBaseDirection = filter.matchesSort("faithGeneratedBase")
                 && filter.getDirection() == DamageRankingFilter.SortDirection.ASC
                 ? DamageRankingFilter.SortDirection.DESC
                 : DamageRankingFilter.SortDirection.ASC;
@@ -213,7 +214,7 @@ public final class DamageRankingPageRenderer {
                 : "";
         return "<th" + ariaSort + "><a class=\"sort-link\" href=\""
                 + escapeHtml(sortUrl(filter, "faithGeneratedMaxKnown", nextMaxDirection))
-                + "\">Generowanie Wiary<span class=\"sort-indicator\">"
+                + "\">" + escapeHtml(model.getRegistry().getResourceType().generationLabel()) + "<span class=\"sort-indicator\">"
                 + escapeHtml(indicator)
                 + "</span></a><a class=\"sort-link secondary-sort-link\" href=\""
                 + escapeHtml(sortUrl(filter, "faithGeneratedBase", nextBaseDirection))
@@ -230,13 +231,13 @@ public final class DamageRankingPageRenderer {
             appendQuery(query, "verificationStatus", filter.getVerificationStatus().name());
         }
         if (filter.getSourceCategory() != null) {
-            appendQuery(query, "sourceCategory", filter.getSourceCategory().name());
+            appendQuery(query, "sourceCategory", filter.getSourceCategory());
         }
         appendQuery(query, "q", filter.getQ());
         appendFacetQuery(query, "hasDirectUpgradeDamage", filter.getHasDirectUpgradeDamage());
         appendFacetQuery(query, "hasNewDamageComponent", filter.getHasNewDamageComponent());
         appendFacetQuery(query, "hasStatusDamageEnabler", filter.getHasStatusDamageEnabler());
-        appendFacetQuery(query, "hasFaithCost", filter.getHasFaithCost());
+        appendFacetQuery(query, "hasFaithCost", filter.getHasResourceCost());
         appendFacetQuery(query, "hasResourceGeneration", filter.getHasResourceGeneration());
         appendFacetQuery(query, "hasDefenseOrUtility", filter.getHasDefenseOrUtility());
         appendFacetQuery(query, "hasManualReviewUpgrade", filter.getHasManualReviewUpgrade());
@@ -306,6 +307,8 @@ public final class DamageRankingPageRenderer {
                             <col class="col-facet">
                             <col class="col-facet">
                             <col class="col-facet">
+                            <col class="col-faith">
+                            <col class="col-facet wide-facet">
                         </colgroup>
                         <thead>
                             <tr>
@@ -323,6 +326,8 @@ public final class DamageRankingPageRenderer {
                                 %s
                                 %s
                                 %s
+                                <th>Odnowienie</th>
+                                <th>Wymaganie użycia</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -331,8 +336,8 @@ public final class DamageRankingPageRenderer {
                 renderSortableHeader(model, "sourceCategories", "Kategorie z gry"),
                 renderSortableHeader(model, "baseDamageRank1", "Obrażenia % R1"),
                 renderSortableHeader(model, "baseDamageTreeMax", "Obrażenia % max drzewo"),
-                renderSortableHeader(model, "faithCost", "Koszt Wiary"),
-                renderFaithGenerationHeader(model),
+                renderSortableHeader(model, "faithCost", model.getRegistry().getResourceType().costLabel()),
+                renderResourceGenerationHeader(model),
                 "<th>Lucky Hit</th>",
                 renderSortableHeader(model, "maxDamageMultiplierPercent", "Dmg multiplier"),
                 renderSortableHeader(model, "maxDamageBonusPercent", "Dmg bonus"),
@@ -355,8 +360,8 @@ public final class DamageRankingPageRenderer {
     }
 
     private static String renderRow(DamageRankingRow row) {
-        PaladinSkillDamageRankingEntry entry = row.getEntry();
-        PaladinSkillDamageVerificationStatus status = entry.getVerificationStatus();
+        SkillDamageRankingEntry entry = row.getEntry();
+        SkillDamageVerificationStatus status = entry.getVerificationStatus();
         return new StringBuilder("<tr class=\"damage-ranking-row verification-row ")
                 .append(verificationRowCssClass(status))
                 .append("\" data-skill-row=\"true\" data-skill-id=\"")
@@ -375,18 +380,20 @@ public final class DamageRankingPageRenderer {
                 .append(escapeHtml(entry.getSkillName()))
                 .append(", status weryfikacji: ")
                 .append(escapeHtml(status.name()))
-                .append("\"><td>")
+                .append("\"><td><span class=\"ranking-tooltip\" title=\"")
+                .append(escapeHtml(entry.getNotes()))
+                .append("\">")
                 .append(escapeHtml(entry.getSkillName()))
-                .append("</td><td>")
+                .append("</span></td><td>")
                 .append(escapeHtml(row.getSourceCategoriesDisplay()))
                 .append("</td><td>")
                 .append(renderDamagePercentCell(row, 1))
                 .append("</td><td>")
                 .append(renderDamagePercentCell(row, 15))
                 .append("</td><td>")
-                .append(escapeHtml(row.getFaithCostSummary()))
+                .append(escapeHtml(row.getResourceCostSummary()))
                 .append("</td><td>")
-                .append(renderFaithGenerationCell(row))
+                .append(renderResourceGenerationCell(row))
                 .append("</td><td>")
                 .append(renderLuckyHitCell(row))
                 .append("</td><td>")
@@ -403,22 +410,26 @@ public final class DamageRankingPageRenderer {
                 .append(renderModifierSummary(row, row.defenseOrUtilityModifiers()))
                 .append("</td><td>")
                 .append(renderModifierSummary(row, row.manualReviewModifiers()))
+                .append("</td><td>")
+                .append(renderCooldownCell(row))
+                .append("</td><td>")
+                .append(escapeHtml(row.getActivationRequirementsSummary()))
                 .append("</td></tr>")
                 .toString();
     }
 
-    private static String renderFaithGenerationCell(DamageRankingRow row) {
-        if (row.getFaithGenerationBonusKnown() == null) {
-            return escapeHtml(row.getFaithGenerationSummary());
+    private static String renderResourceGenerationCell(DamageRankingRow row) {
+        if (row.getResourceGenerationBonusKnown() == null) {
+            return escapeHtml(row.getResourceGenerationSummary());
         }
-        String summary = row.getFaithGenerationBaseSortValue() + "; Generowanie Wiary";
+        String summary = row.getResourceGenerationBaseSummary() + "; " + row.getResourceType().generationLabel();
         String tooltip = row.resourceModifiers().stream()
-                .filter(modifier -> modifier.getUpgradeName().equals("Generowanie Wiary"))
+                .filter(modifier -> modifier.getUpgradeName().equals(row.getResourceType().generationLabel()))
                 .findFirst()
                 .map(DamageRankingPageRenderer::modifierTooltip)
-                .orElse("Modyfikator: Generowanie Wiary — dodatkowe "
-                        + row.getFaithGenerationBonusKnown()
-                        + " pkt. wiary.");
+                .orElse("Modyfikator: " + row.getResourceType().generationLabel() + " — dodatkowe "
+                        + row.getResourceGenerationBonusKnown()
+                        + " " + row.getResourceType().unitLabel() + ".");
         return "<span class=\"ranking-tooltip\" title=\"" + escapeHtml(tooltip) + "\" aria-label=\"" + escapeHtml(tooltip) + "\">"
                 + escapeHtml(summary)
                 + "</span>";
@@ -436,6 +447,18 @@ public final class DamageRankingPageRenderer {
         return "<span class=\"ranking-tooltip\" title=\"" + escapeHtml(tooltip) + "\" aria-label=\"" + escapeHtml(tooltip) + "\">"
                 + escapeHtml(row.getLuckyHitSummary())
                 + "</span>";
+    }
+
+    private static String renderCooldownCell(DamageRankingRow row) {
+        if (row.getChargeData() == null) return escapeHtml(row.getCooldownSummary());
+        String variants = row.cooldownOrCastSpeedModifiers().stream()
+                .map(modifier -> modifier.getUpgradeGroup() + " / " + modifier.getUpgradeName() + ": "
+                        + modifier.getValue() + ". " + modifier.getRankingTooltipDescription())
+                .collect(java.util.stream.Collectors.joining(" "));
+        String tooltip = "Bazowe ładunki: " + row.getCooldownSummary()
+                + ". Alternatywne ulepszenia zmieniają wyłącznie wybrany wariant. " + variants;
+        return "<span class=\"ranking-tooltip\" title=\"" + escapeHtml(tooltip) + "\" aria-label=\""
+                + escapeHtml(tooltip) + "\">" + escapeHtml(row.getCooldownSummary()) + "</span>";
     }
 
     private static String renderDamagePercentCell(DamageRankingRow row, int rank) {
@@ -456,7 +479,13 @@ public final class DamageRankingPageRenderer {
                             .append(escapeHtml(component.name()))
                             .append("</code>: ")
                             .append(componentValue)
-                            .append("%</li>");
+                            .append("%");
+                    Integer durationSeconds = componentTable.durationSecondsFor(component);
+                    if (durationSeconds != null) {
+                        html.append(" w ciągu ").append(durationSeconds).append(" s");
+                    }
+                    html.append(componentTiming(componentTable, component));
+                    html.append("</li>");
                 }
             }
             html.append("</ul>");
@@ -470,10 +499,10 @@ public final class DamageRankingPageRenderer {
     }
 
     private static boolean isNonDamageDisplay(DamageRankingRow row) {
-        if (row.getEntry().getVerificationStatus() == PaladinSkillDamageVerificationStatus.NON_DAMAGE) {
+        if (row.getEntry().getVerificationStatus() == SkillDamageVerificationStatus.NON_DAMAGE) {
             return true;
         }
-        return row.getType() != PaladinSkillTreeType.DAMAGE && row.getType() != PaladinSkillTreeType.SPECIAL;
+        return row.getType() != SkillTreeType.DAMAGE && row.getType() != SkillTreeType.SPECIAL;
     }
 
     private static String renderUpgradeGroup(DamageRankingRow row, String groupId) {
@@ -566,28 +595,37 @@ public final class DamageRankingPageRenderer {
                 + ": "
                 + modifier.getUpgradeName()
                 + " — "
-                + modifier.getRankingTooltipDescription();
+                + modifier.getRankingTooltipDescription()
+                + variantTableTooltip(modifier.getComponentDamagePercentRanks());
     }
 
-    private static String treeGroupDisplayName(String skillGroup) {
-        return switch (skillGroup) {
-            case "basic" -> "Podstawowe / Basic";
-            case "core" -> "Główne / Core";
-            case "aura" -> "Aura";
-            case "odwaga" -> "Odwaga";
-            case "sprawiedliwosc" -> "Sprawiedliwość";
-            case "moce_specjalne" -> "Moce Specjalne";
-            default -> skillGroup;
-        };
+    private static String variantTableTooltip(DamagePercentComponentRankTable tables) {
+        if (tables.isEmpty()) return "";
+        StringBuilder text = new StringBuilder(" Tabela wariantu: ");
+        for (DamagePercentComponent component : DamagePercentComponent.values()) {
+            if (!tables.hasComponent(component)) continue;
+            Integer duration = tables.durationSecondsFor(component);
+            String durationText = (duration == null ? "" : " w ciągu " + duration + " s") + componentTiming(tables, component);
+            text.append(component.name()).append("; R1 ").append(tables.damagePercentAt(component, 1)).append("%")
+                    .append(durationText).append("; max-view ").append(tables.damagePercentAt(component, 15)).append("%")
+                    .append(durationText).append(". ");
+        }
+        return text.toString().stripTrailing();
     }
 
-    private static String renderStatus(PaladinSkillDamageVerificationStatus status) {
+    private static String componentTiming(DamagePercentComponentRankTable tables, DamagePercentComponent component) {
+        Integer interval = tables.intervalSecondsFor(component);
+        String text = interval == null ? "" : " co " + interval + " s";
+        return text + (component == DamagePercentComponent.EVENT_TRIGGERED_DAMAGE ? " na zdarzenie" : "");
+    }
+
+    private static String renderStatus(SkillDamageVerificationStatus status) {
         return "<span class=\"status-badge " + statusCssClass(status) + "\">"
                 + escapeHtml(status.name())
                 + "</span>";
     }
 
-    private static String statusCssClass(PaladinSkillDamageVerificationStatus status) {
+    private static String statusCssClass(SkillDamageVerificationStatus status) {
         return switch (status) {
             case SUPPORTED, PARTIAL -> "status-active";
             case NEEDS_VERIFICATION -> "status-warning";
@@ -596,7 +634,7 @@ public final class DamageRankingPageRenderer {
         };
     }
 
-    private static String verificationRowCssClass(PaladinSkillDamageVerificationStatus status) {
+    private static String verificationRowCssClass(SkillDamageVerificationStatus status) {
         return switch (status) {
             case SUPPORTED -> "verification-supported";
             case PARTIAL -> "verification-partial";

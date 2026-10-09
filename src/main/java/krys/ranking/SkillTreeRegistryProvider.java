@@ -1,6 +1,7 @@
 package krys.ranking;
 
 import krys.paladin.PaladinSkillTreeRegistry;
+import krys.necromancer.NecromancerSkillTreeRegistry;
 
 import java.util.EnumMap;
 import java.util.List;
@@ -19,11 +20,12 @@ public final class SkillTreeRegistryProvider {
     }
 
     public static SkillTreeRegistryProvider paladinOnly() {
-        return new SkillTreeRegistryProvider(List.of(new CharacterSkillTreeRegistry(
-                PlayableClass.PALADIN,
-                "PaladinSkillTreeRegistry",
-                PaladinSkillTreeRegistry.allSkills()
-        )));
+        return new SkillTreeRegistryProvider(List.of(PaladinSkillTreeRegistry.asCharacterRegistry()));
+    }
+
+    public static SkillTreeRegistryProvider production() {
+        return new SkillTreeRegistryProvider(List.of(PaladinSkillTreeRegistry.asCharacterRegistry(),
+                NecromancerSkillTreeRegistry.asCharacterRegistry()));
     }
 
     public CharacterSkillTreeRegistry registryFor(PlayableClass playableClass) {

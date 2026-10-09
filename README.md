@@ -25,10 +25,10 @@ Ten README opisuje wyłącznie aktualny stan projektu. Jest kontraktem wykonawcz
 ## 1. Cel projektu
 Projekt `Diablo 4 DPS Engine / Build WebApp` nie jest definiowany produktowo jako narzędzie dla jednej klasy postaci. Docelowo architektura aplikacji ma wspierać wiele klas, ale aktualny zaimplementowany foundation domenowy i referencyjny runtime koncentrują się na obecnym zakresie klasowym repo.
 
-Na dziś ten zaimplementowany zakres klasowy jest paladinocentryczny: to na nim opierają się bieżące skille, search foundation, przykłady referencyjne i golden values. Ten stan opisuje aktualny zakres implementacji, a nie definicję całego produktu.
+Pełna tickowa symulacja i search pozostają foundation Paladyna. Nekromanta ma pełny profil aplikacji oraz pierwszy end-to-end Current Build: bazowy direct hit Krwotoku R1, normalny i krytyczny, przed redukcją celu. To aktualny zakres wykonania, opisany w sekcji 5.11.
 
 Docelowo system ma wspierać dwa tryby pracy:
-- `Policz aktualny build` - manual simulation dla aktualnej konfiguracji bohatera.
+- `Policz aktualny build` - manual simulation Paladyna albo pojedynczy direct hit Krwotoku R1 Nekromanty.
 - `Znajdź najlepszy build` - build search oceniający legalne buildy i legalne konfiguracje paska skilli.
 
 Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR oraz realny foundation importu pojedynczego itemu ze screena:
@@ -47,7 +47,8 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - ranking kandydatów po `total damage` i `DPS` liczonych przez ten sam runtime,
 - warstwę prezentacyjną normalizującą wyniki searcha po zakończonej ocenie kandydatów,
 - nowy pierwszorzędny byt produktu `bohater` z własnym kontekstem buildu, aktywnymi slotami, przypisanymi umiejętnościami i paskiem akcji,
-- moduł `Bohaterowie` z listą wielu bohaterów, tworzeniem, wyborem aktywnego bohatera i usuwaniem,
+- moduł `Bohaterowie` z profilami Paladyna i Nekromanty, tworzeniem, edycją nazwy/poziomu, wyborem aktywnego bohatera, usuwaniem i odczytem po restarcie; search wykonuje wyłącznie Paladyna,
+- N11 — pierwszy grywalny Current Build Nekromanty: Krwotok R1 bez upgrade'ów, aktywna broń, efektywna Intelligence z itemów i jawna non-item Intelligence, opcjonalny Vulnerable, zapis i odtworzenie po restarcie,
 - minimalne webowe GUI SSR dla trybu `Policz aktualny build`,
 - hero-centryczny ekran `Policz aktualny build`, który pracuje jawnie w kontekście aktywnego bohatera,
 - inline zmianę aktywnego bohatera bez opuszczania ekranu `Policz aktualny build`,
@@ -63,12 +64,12 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - wspólny renderer app shell oraz wspólny zestaw tokenów wizualnych dla głównych ekranów SSR, z czytelnym wyróżnianiem aktywnego modułu, akcji i statusów,
 - centralny rejestr modułów aplikacji z opisem, grupą, statusem i URL,
 - placeholder pages dla przyszłych sekcji dodatku i sezonu bez implementacji ich mechaniki,
-- SSR flow `Importuj item ze screena` dla diagnostycznego importu obrazu po `StructuredItemParts`, z POC odczytu PART_1 oraz neutralnym OCR pojedynczych `PropertyBlock` z PART_2/PART_3,
+- SSR flow `Importuj item ze screena` dla importu obrazu po `StructuredItemParts`, z neutralnym odczytem PART_1 oraz OCR pojedynczych `PropertyBlock` z PART_2/PART_3,
 - Etap 1 importu obrazu: `1..N` screenshotów jednego itemu składane przez `OpenCvItemImageAssembler` do `AssembledItemImage`,
 - Etap 2A importu obrazu: strukturalna detekcja separatorów przez `HorizontalDividerDetector` i podział na surowe `ItemImagePart[]`,
 - Etap 3A importu obrazu: deterministyczna normalizacja surowych części do `StructuredItemParts` przez `ItemPartStructureNormalizer`,
-- diagnostyczne UI dla Etapów 1/2A/3A, PART_1 z raw OCR per ROI, obrazowym liczeniem gwiazdek i neutralnym `Part1ReadResult` oraz PART_2/PART_3 z raw OCR per `PropertyBlock`, bez automatycznego zapisu itemu z obrazu,
-- usunięty legacy Windows OCR z runtime importu obrazu; aktywny OCR diagnostyczny używa Tess4J i nie mapuje wyniku do domeny itemu,
+- produkcyjne UI importu pokazujące domyślnie czysty upload i edytowalny draft `ItemImportEditableForm` pod nagłówkiem `Weryfikacja itemu przed zapisem`, z pełną diagnostyką Etapów 1/2A/3A, PART_1, `PropertyBlockSemanticResult` i `PropertyBlockValueReadResult` dostępną po ręcznym `?diagnostics=true`,
+- usunięty legacy Windows OCR z runtime importu obrazu; aktywny OCR diagnostyczny używa Tess4J, a mapowanie do draftu nie zapisuje itemu automatycznie i kończy się dopiero na istniejącym formularzu weryfikacji,
 - walidowany formularz zapisanych/ręcznie edytowanych itemów z edytowalną listą affixów oraz osobnym mapowaniem do aktualnego modelu buildu,
 - minimalną trwałą bibliotekę zapisanych itemów z wieloma itemami tego samego slotu, zapisywaną lokalnie w stabilnym katalogu użytkownika,
 - osobną bazę wiedzy itemów uczącą się wyłącznie z ręcznie zatwierdzonych itemów, z aktywną epoką wiedzy, obserwowanymi typami affixów, obserwowanymi aspektami i resetem sezonowym,
@@ -130,6 +131,8 @@ Kontrakt app shell:
 ### 3.2. Wspólne wejście runtime
 Produktowy model wejścia użytkownika dla manual simulation ma postać `CurrentBuildRequest`.
 
+Od N9C jego kanoniczny payload skilli to immutable `RuntimeSkillLoadout`, przenoszony bezpośrednio przez `CurrentBuildSnapshotFactory` do tego samego pola `HeroBuildSnapshot`. Publiczne konstruktory requestu nadal przyjmują SkillId/SkillState, a istniejące gettery requestu i snapshotu udostępniają widok legacy przez adapter. ManualSimulationService, CLI, search, web i persistence zachowują dotychczasowe API. Neutralny jest tylko transport skilli; pozostałe pola requestu/snapshotu nadal opisują Paladyna. Szczegóły: sekcja 5.9.
+
 Kontrakt aktualnej warstwy aplikacyjnej:
 - GUI mapuje formularz do `CurrentBuildRequest` przez `CurrentBuildFormMapper`,
 - CLI mapuje argumenty do `CurrentBuildRequest` przez `CurrentBuildCliRequestParser`,
@@ -139,7 +142,7 @@ Kontrakt aktualnej warstwy aplikacyjnej:
 - `OpenCvItemImageAssembler` składa jeden lub wiele screenshotów jednego tooltipa do `AssembledItemImage`,
 - `HorizontalDividerDetector` analizuje finalny obraz i zwraca strukturalne separatory oraz surowe `ItemImagePart[]`,
 - `ItemPartStructureNormalizer` normalizuje uporządkowane raw parts do `StructuredItemParts`,
-- aktywny pipeline importu obrazu po `StructuredItemParts` uruchamia diagnostyczny POC PART_1: ROI, raw Tess4J OCR per ROI, obrazowy detektor gwiazdek i neutralny `Part1ReadResult`, a dla zamkniętej segmentacji PART_2/PART_3 uruchamia raw Tess4J OCR per `PropertyBlock` do neutralnego `PropertyBlockReadResult`; nie uruchamia domenowego parsera itemu, ręcznego formularza potwierdzenia ani zapisu do biblioteki,
+- aktywny pipeline importu obrazu po `StructuredItemParts` uruchamia odczyt PART_1: ROI, raw Tess4J OCR per ROI, obrazowy detektor gwiazdek i neutralny `Part1ReadResult`, a dla zamkniętej segmentacji PART_2/PART_3 uruchamia raw Tess4J OCR per `PropertyBlock` do neutralnego `PropertyBlockReadResult`, zamkniętą klasyfikację semantyczną do `PropertyBlockSemanticResult` oraz neutralny odczyt wartości do `PropertyBlockValueReadResult`; ten sam pojedynczy przebieg read resultów może zbudować draft `ItemImportEditableForm`, ale nie zapisuje itemu do biblioteki,
 - legacy Windows OCR, preprocessing OCR, merger OCR, parser OCR i debug trace starego importu obrazu zostały usunięte; obecne OCR PART_1 i PropertyBlock są nowymi etapami diagnostycznymi opartymi o Tess4J,
 - `AspectRegistry` jest katalogiem znanych aspektów dostępnych w imporcie i waliduje zgodność wybranego aspektu ze slotem itemu,
 - `AffixRegistry` / `ApplicationAffixRegistry` jest osobnym katalogiem affixów, analogicznym koncepcyjnie do katalogu aspektów, ale niezależnym od niego; służy do ręcznej korekty, pracy na zapisanych odczytach itemów i przyszłego tworzenia idealnych itemów na bazie katalogu,
@@ -153,8 +156,8 @@ Kontrakt aktualnej warstwy aplikacyjnej:
 - `ItemLibraryRepository` trwale zapisuje minimalną wspólną bibliotekę zatwierdzonych itemów bez duplikowania jej per bohater,
 - `ItemLibraryService` zapisuje zatwierdzony item do biblioteki, udostępnia listę zapisanych itemów, waliduje zgodność itemu z hero slotem i składa aktywne itemy wybranego bohatera do effective current build,
 - SSR current build pokazuje selekcję aktywnych slotów aktywnego bohatera jako `Ekwipunek aktualnego buildu` i zmienia aktywny item per slot bez budowania bocznego modelu equipment runtime,
-- SSR current build pozwala zmienić aktywnego bohatera bez opuszczania ekranu buildu, a poziom bohatera edytuje tylko w sekcji `Punkty umiejętności`,
-- bohater ma własny trwały `HeroSkillLoadout`, a current build renderuje i zapisuje wyłącznie umiejętności przypisane aktywnemu bohaterowi,
+- SSR current build pozwala zmienić aktywnego bohatera bez opuszczania ekranu buildu; poziom Paladyna można edytować w sekcji `Punkty umiejętności`, a nazwę/poziom obu klas w `/bohaterowie`,
+- bohater ma własny trwały canonical `RuntimeSkillLoadout`; `HeroSkillLoadout` jest odtwarzanym legacy widokiem Paladyna. Current Build renderuje i zapisuje jego przypisane umiejętności; dla Nekromanty używa osobnego formularza i usługi direct hit N11, bez obliczeń Paladyna,
 - przypisywanie umiejętności bohatera odbywa się bezpośrednio na ekranie `Policz aktualny build` przez sekcję `Umiejętności bohatera` i operacje `Dodaj umiejętność` oraz `Usuń umiejętność`,
 - `/bohaterowie` pozostaje modułem zarządzania profilami, a `/policz-aktualny-build` jest istniejącym miejscem edycji przypisanych umiejętności aktywnego bohatera,
 - karty przypisanych umiejętności mogą pokazywać opisowy blok aktualnej konfiguracji z tego samego `PaladinSkillTreeRegistry`, którego używa `/ranking-obrazen`; pierwszy most prezentacyjny mapuje legacy `SkillId.CLASH` na wpis registry `starcie`, bez zmiany enumu runtime,
@@ -354,29 +357,196 @@ Stary `PaladinSkillDefs` z `Brandish`, `Holy Bolt`, `Clash` i `Advance` został 
 
 Warstwa `krys.verification` dodaje `Verification Matrix` dla mechanik z pełnego drzewa Paladyna, które wymagają osobnej weryfikacji przed użyciem w kalkulacjach. Wpisy `requiresVerification` są metadanymi procesu i nie mogą wpływać na DPS; próba ich użycia ma zostać pominięta albo zablokowana zgodnie z `default engine behavior`.
 
-Warstwa `krys.ranking` dodaje aplikacyjny ranking obrażeń nad rejestrem drzewa wybranej klasy. `PlayableClass`, `CharacterSkillTreeRegistry` i `SkillTreeRegistryProvider` są cienką warstwą wyboru klasy; obecnie jedyną obsługiwaną klasą jest `paladin`, a jej provider używa `PaladinSkillTreeRegistry`. Nowe klasy mają być dodawane przez kolejny provider / rejestr klasy, nie przez nowe endpointy ani osobne zakładki per klasa.
+Warstwa `krys.ranking` dodaje aplikacyjny ranking obrażeń nad rejestrem drzewa wybranej klasy. `PlayableClass`, `CharacterSkillTreeRegistry` i `SkillTreeRegistryProvider` są warstwą wyboru katalogu. Produkcyjny provider udostępnia `paladin` z dotychczasowymi 24 umiejętnościami oraz `necromancer` z 23 umiejętnościami: 4 `Podstawowe / Basic`, 6 `Główne / Core`, 3 `Zwłoki / Corpse`, 4 `Makabra / Macabre`, 2 `Klątwy / Curse` i 4 `Moce Specjalne / Ultimate`. Obie klasy używają tego samego serwisu, kontrolera i renderera. `PlayableClass` nie jest runtime `HeroClass`.
+
+Wspólny kontrakt drzewa i rankingu jest neutralny klasowo:
+- pakiet `krys.skilltree` zawiera niemutowalny `CharacterTreeSkill`, `SkillTreeType`, `SkillTreeStatus`, `SkillUpgrade` i `SkillUpgradeGroup` oraz współdzielone tabele rang/komponentów i opisowe modele wpływu oraz modyfikatorów obrażeń,
+- `CharacterTreeSkill` przyjmuje jawne kategorie, tagi, zasób, Lucky Hit oraz interpretację modyfikatorów z rejestru klasy; wspólny model nie rozpoznaje nazw skilli ani ulepszeń Paladyna. Neutralne pole `sourceReference` i getter `getSourceReference()` wskazują źródło WWW albo lokalny dokument; używają ich również `SkillDamageRankingEntry` i `DamageRankingService`. Legacy `PaladinTreeSkill.getSourcePdf()` pozostaje źródłem mapowanym przez adapter, a `VerificationMatrix` zachowuje własny kontrakt PDF,
+- `SourceSkillCategory` jest wartością `id + displayName + displayOrder`, a mechaniczne tagi są identyfikatorami tekstowymi; własna kategoria albo tag kolejnej klasy nie wymaga rozszerzania enumu Paladyna,
+- `SkillResourceData` ma pola `BigDecimal cost`, `generationMin`, `generationMax`, `generationBonusKnown` oraz `SkillResourceGenerationFrequency generationFrequency` (`PER_USE`, `PER_SECOND` albo `PER_EVENT`). Równe granice reprezentują wartość dokładną, obie puste brak danych; niepełny, odwrócony albo ujemny zakres jest odrzucany. Konstruktor trzech `Integer` zachowuje dotychczasowe dokładne wartości Paladyna i ustawia `PER_USE`. `SkillResourceType` dostarcza etykiety zasobu. Rejestr dostarcza też nazwy grup, słowniki filtrów i przykład wyszukiwania. Dla Paladyna prezentacja Wiary pozostaje taka sama,
+- `CharacterSkillTreeRegistry` przechowuje wyłącznie `CharacterTreeSkill`; `SkillTreeRegistryProvider.production()` zestawia oba istniejące rejestry. `paladinOnly()` pozostaje dostępną konfiguracją izolowaną; jawne żądanie niezarejestrowanej klasy zgłasza błąd i nie przechodzi na Paladyna,
+- `DamageRankingService` zwraca `SkillDamageRankingEntry` z neutralnymi `SkillDamageModelType`, `SkillDamageVerificationStatus`, `DamageRankingMetric` i `DamageTargetMode`; kontroler, wiersz, model strony, renderer, filtry i wyszukiwanie korzystają wyłącznie ze wspólnych modeli,
+- `PaladinSkillTreeRegistry.asCharacterRegistry()` przez `PaladinSkillTreeAdapter` udostępnia te same 24 wpisy, kolejność, tabele, grupy ulepszeń, statusy, tagi, Lucky Hit i dane Wiary. `PaladinUpgradeDamageModifiers` oraz `PaladinUpgradeDamageImpacts` zachowują interpretację lokalnych opisów Paladyna; współdzielone modele metadanych nie zawierają tych reguł,
+- `PaladinTreeSkill`, `PaladinSkillTreeType`, `PaladinSkillTreeStatus`, `PaladinSkillUpgrade`, `PaladinSkillUpgradeGroup`, `SkillCategory` i `SkillTag` w `krys.paladin` pozostają kompatybilnym modelem Paladyna dla legacy runtime i current build. Wspólny ranking nie wymaga tych typów. Przysięgi i ich modele pozostają paladynowe,
+- `LegacyFoundationDamageRankingService` izoluje dotychczasowe pomocnicze obliczenia rankingu legacy; nie zmienia wywołań ani formuł `DamageEngine`. `SkillId`, `PaladinSkillDefs`, `HeroSkillLoadout`, wejście current build, `ManualSimulationService` i runtime DPS zachowują dotychczasowy kontrakt.
+
+Parametry URL `hasFaithCost`, `faithCost`, `faithGeneratedBase` i `faithGeneratedMaxKnown` pozostają kompatybilne. Backend przyjmuje również neutralne aliasy `hasResourceCost`, `resourceCost`, `resourceGeneratedBase` i `resourceGeneratedMaxKnown`; oba zestawy używają tych samych danych zasobu i reguł sortowania. Kategorie i tagi są walidowane względem słownika wybranego rejestru, z zachowaniem ignorowania nieznanych filtrów. `/ranking-obrazen?character=paladin` i alias `/ranking-obrazen-paladyna` korzystają z tego samego kontrolera oraz renderera.
+
+Regresje `CharacterSkillTreeRegistryTest` i `NeutralDamageRankingWebServerTest` budują sztuczny rejestr z neutralnych modeli, własną kategorią, tagiem, grupą i nazwą zasobu, przeprowadzają go przez provider, ranking oraz istniejący SSR i sprawdzają filtrowanie, sortowanie i blokadę DPS. Fixture nadal używa testowego klucza `PlayableClass.PALADIN`, a liczby pochodzą z audytowanych danych istniejącego rejestru. Test architektoniczny sprawdza brak zależności wspólnych klas od domeny Paladyna. `PaladinSkillTreeAdapterTest` chroni odwzorowanie wszystkich 24 wpisów, a dotychczasowe audyty i regresje runtime pozostają wymagane.
+
+Etap N1 dodaje `krys.necromancer.NecromancerSkillTreeRegistry` wyłącznie jako źródłowy katalog czterech umiejętności Basic: Kościane Odłamki, Żniwa, Rozkład i Krwotok. Każda ma siedem ulepszeń w grupach `2 + 2 + 3`, typ `DAMAGE` i status `NEEDS_VERIFICATION`. Źródła, golden values, wszystkie 28 ulepszeń oraz rozbieżności są opisane w [danych Basic Nekromanty](docs/necromancer/basic-source-data.md). Baseline to Sezon 15 / patch 3.2.1; oficjalny patch 3.2.2 z 30.09.2026 nie wymienia zmian Nekromanty. Bazowe tabele zawierają tylko rangi 1 i 15. Wartości zapisane pod 15 pochodzą z bieżącego widoku max D4Builds, który nie podaje jawnej etykiety Rank 15; to oznaczenie projektu wymagające weryfikacji, bez interpolacji rang 2..14.
+
+Rozkład strukturalnie przechowuje zakres `12–16` Esencji z częstotliwością `PER_SECOND`, a SSR pokazuje `12–16 / sek.`. Facet `hasResourceGeneration` rozpoznaje zakres. Sortowanie `resourceGeneratedBase` porównuje dolną granicę; `resourceGeneratedMaxKnown` górną granicę z uwzględnieniem znanego możliwego dodatku z wybranego ulepszenia. Porównywane są wartości źródłowe bez przeliczania pomiędzy `PER_USE`, `PER_SECOND` i `PER_EVENT`; częstotliwość pozostaje widoczna. Kościane Odłamki mają znany opcjonalny dodatek +5 po wyborze ulepszenia, natomiast +2 za wroga i 7.5 z drugiego zamachu Żniw pozostają warunkowymi modyfikatorami, bez stałego dodatku do bazowego generowania. N2 koryguje opis `generationMaxKnown()`, bez zmiany obliczenia ani modelu zasobu.
+
+Parser procentów modyfikatorów obsługuje kropkę i przecinek dziesiętny, a metryki maksimum i porównanie sortowania używają `BigDecimal`. Z kilku procentów w polu `value` wybiera największy; nie parsuje wartości max-view z `notes`. `7.5%` pozostaje 7.5, a `62.5%` pozostaje 62.5. Bazowe `DamagePercentRankTable` nadal używają `Integer`. Rozkład / Szansa na Szczęśliwy Traf zachowuje +30% i ma `safeForRankingDisplay = NEEDS_MANUAL_REVIEW` z opisem konfliktu PL/EN, widocznym w tooltipie `Manual review`. Wszystkie modyfikatory Nekromanty mają `safeForRuntimeDps = NO`.
+
+Regresje N1 to `NecromancerSkillTreeRegistryTest`, `SkillResourceDataTest`, `DamageRankingRowDecimalTest` i `NecromancerDamageRankingWebServerTest`: sprawdzają źródłowe liczby, brak rang pośrednich, strukturę ulepszeń, konflikty, rozdzielenie klas, rzeczywisty HTTP, wszystkie polskie nazwy ulepszeń w searchu, zakres/częstotliwość oraz sortowanie dziesiętne. Testy czterech Basic pozostają osobnym zakresem po rozszerzeniu katalogu. Ranking wszystkich 23 umiejętności Nekromanty przechodzi też z pustą referencją engine, więc nie wywołuje `DamageEngine`. `HeroClass` od N10 obejmuje Paladyna i Nekromantę; N1/N2/N2.1/N3/N4/N5/N6 nie zmieniały `DamageEngine`, `ManualSimulationService`, `SkillId`, `PaladinSkillDefs` ani funkcji current build. Katalog aktywnych skilli Nekromanty jest kompletny: Basic, Core, Corpse, Macabre, Curse i Ultimate. N8B dostarcza standalone bazowego Krwotoku R1 opisany w sekcji 5.6, N9C/N10 kanoniczny loadout i profil, a N11 Current Build direct hit opisany w sekcji 5.11; pełna symulacja i zasoby Nekromanty pozostają niewdrożone.
+
+Etap N2 rozszerza ten sam `NecromancerSkillTreeRegistry` o sześć Core, kategorię `CORE / Główne` z `displayOrder=1` oraz grupę `core / Główne / Core`, po grupie Basic. Każdy Core ma typ `DAMAGE`, status `NEEDS_VERIFICATION` i siedem ulepszeń `2 + 2 + 3`. Zakres Basic + Core zachowuje 70 ulepszeń: 28 Basic i 42 Core; N3 dodaje osobno 21 Corpse, a N4 28 Macabre. Źródła, wszystkie nazwy i warunki są opisane w [danych Core](docs/necromancer/core-source-data.md), a zakres zmian i walidacja w [raporcie N2](docs/necromancer/n2-implementation-report.md).
+
+Korekta N2.1 naprawia członkostwo 42 istniejących ulepszeń Core w grupach, bez zmiany ich wartości, polskich nazw, opisów i źródeł. Pierwotne N2 błędnie wywnioskowało grupy z kolejności wpisów D4Guides; układ liczbowy `2 + 2 + 3` nie wykrywał tego błędu. Rozstrzygającym źródłem struktury jest [Icy Veins — Necromancer Skills](https://www.icy-veins.com/d4/guides/necromancer-skills/): jawne `Group 1`, `Group 2` i `T`. Grupy 1 i 2 to po dwie alternatywne Enhancements, grupa 3 to trzy alternatywne Transformation variants. Semantyka katalogu oznacza dokładnie jeden wybór z każdej grupy; nie dodaje UI wyboru builda ani runtime. Każdy node ma spójne członkostwo w `SkillUpgradeGroup`, we wszystkich swoich `UpgradeDamageModifier.upgradeGroup` oraz w `UpgradeDamageImpact.groupId`. Bazowy efekt nowy Napływu Krwi pozostaje poza wyborami jako `efekt_bazowy`.
+
+`NecromancerUpgradeGroupMembershipTest` zawiera niezależne golden zbiory członków każdej grupy dla wszystkich 23 skilli: czterech Basic, sześciu Core, trzech Corpse, czterech Macabre, dwóch Curse i czterech Ultimate, sprawdza wszystkie modyfikatory i impact każdego node'a oraz rozłączność alternatyw i wszystkie kombinacje wyborów `1 + 1 + 1` w całym katalogu. Dotychczasowe regresje liczb, konfliktów, komponentów, HTTP i Paladyna pozostają wymagane. Dokładne mapowanie znajduje się w [danych Core](docs/necromancer/core-source-data.md), a przyczyna błędu i walidacja w [raporcie N2.1](docs/necromancer/n2.1-implementation-report.md). [Raport N2](docs/necromancer/n2-implementation-report.md) pozostaje historycznym zapisem pierwotnego wdrożenia.
+
+| Core | Bazowe R1 / max-view zapisany pod 15 | Koszt Esencji | Lucky Hit |
+|---|---|---:|---:|
+| Włócznia z Kości | 160% / 408% | 25 | 50% |
+| Mór | `PRIMARY_DAMAGE` 40% / 102%; `DAMAGE_OVER_DURATION` 210% / 536% łącznie w ciągu 6 s | 20 | 40% |
+| Rozdarcie | `FIRST_STRIKE_DAMAGE` 60% / 153%; `SECOND_STRIKE_DAMAGE` 100% / 255% | 20 | 40% |
+| Napływ Krwi | `PRIMARY_DAMAGE` 20% / 51%; `BURST_DAMAGE` 125% / 319% | 30 | 12% |
+| Krwawa Lanca | 160% / 408% | 15 | 50% |
+| Szkieletowy Mag | 80% / 204% za atak jednego maga | 30 | 20% |
+
+Mór, Rozdarcie i Napływ Krwi używają `DamagePercentComponentRankTable`; ich prosta tabela jest pusta, a oba główne procenty pozostają `null`. Neutralny komponent `DAMAGE_OVER_DURATION` przechowuje łączny procent za okres wraz z dodatnim `durationSecondsFor(component)`. Dla Moru czas to 6 s, jawny również w notes. SSR wyświetla `210% w ciągu 6 s` i `536% w ciągu 6 s`; search zachowuje tę jednostkę. Brak czasu dla tego komponentu albo czas przypisany do nieobecnego komponentu jest błędem danych. `DAMAGE_PER_SECOND` nadal oznacza procent na sekundę; dotychczasowe tabele i prezentacja Paladyna pozostają bez zmian. Nie wyliczamy DPS ani sum komponentów, dodatkowych odłamków czy ataków magów. Wszystkie tabele Core mają wyłącznie punkty 1 i 15, na zasadach max-view z N1.
+
+Mór / Szansa na Szczęśliwy Traf zachowuje node +20%: PL D4Guides i bieżący D4Builds pokazują tę premię, a changelog EN D4Guides 3.2.1 pokazuje jej usunięcie. Modyfikator i bezpieczeństwo wyświetlania to `NEEDS_MANUAL_REVIEW`, impact to `NEEDS_VERIFICATION`; tooltip ujawnia konflikt, analogicznie do Rozkładu. Szkieletowy Mag ma wyłącznie tagi `CORE`, `SUMMON`, `MINION`; notes zachowują konflikt Physical z D4Guides i Shadow z D4Builds oraz zależność od Book of the Dead. Procent za pojedynczy atak pozostaje dostępny.
+
+Modyfikatory Core opisują warunki liczby wrogów, sług i kumulacji statusów bez ich automatycznego stosowania. Bazowa premia nowy Napływu Krwi `5%[x]` za wroga, do `50%[x]`, jest osobnym opisem `efekt_bazowy`, bez dodatkowego node. Dodatkowe lance `50%`, `100%` i `125% normalnych obrażeń` są względnymi opisami `ADDITIONAL_HIT_OR_STRIKE / TEXT_ONLY`, bez absolutnej tabeli procentów broni. Ropiejąca Rana zachowuje R1 100% / max 255% na sekundę oraz limit pięciu kumulacji w notes. Dar Śmierci ma warunkowy modyfikator regeneracji 50%[x] / max 128%[x], bez `generationMin`; Osobliwość opisuje zużycie całej pozostałej Esencji. Redukcje kosztu i warianty nie zastępują bazowych kosztów z tabeli. Każdy modyfikator Core ma `safeForRuntimeDps=NO`.
+
+Regresje N2 w `NecromancerCoreSkillTreeRegistryTest`, `NecromancerCoreDamageRankingWebServerTest` i testach komponentów chronią niezmienione 10 = 4 + 6 skilli i 70 ulepszeń Basic/Core oraz aktualną liczebność całego katalogu, golden values, jednostkę czasu, konflikty oraz HTTP/search. Filtry `skillGroup=core` i `sourceCategory=CORE` zwracają dokładnie sześć Core przez wspólny pipeline.
+
+Etap N3 rozszerza istniejący katalog o trzy Corpse: Wybuch Zwłok, Trupie Macki i Szkieletowego Wojownika. Po N3 katalog obejmował 13 skilli (4 Basic + 6 Core + 3 Corpse) i 91 ulepszeń (28 + 42 + 21). Corpse ma kategorię `CORPSE / Zwłoki / displayOrder=2`, grupę `corpse / Zwłoki / Corpse`, typ `DAMAGE` i status `NEEDS_VERIFICATION`. Nazwy, liczby i membership 10 wcześniejszych skilli pozostają bez zmian. Dane i rozstrzygnięcia są w [danych Corpse](docs/necromancer/corpse-source-data.md), a lista plików i walidacja w [raporcie N3](docs/necromancer/n3-implementation-report.md).
+
+`CharacterTreeSkill.cooldownSeconds` to opcjonalne źródłowe zwykłe odnowienie: `null` oznacza brak zapisanej wartości, liczby dodatnie są dozwolone, zero i liczby ujemne są błędem. Dotychczasowe konstruktory zachowują `null`; adapter Paladyna nie odczytuje odnowień z notes ani legacy ulepszeń. `DamageRankingService` przekazuje to pole do `SkillDamageRankingEntry.cooldownSeconds`, pozostawiając `damagePerUse`, `effectiveCycleSeconds` i `theoreticalDps` puste. SSR pokazuje `Odnowienie` jako `11 s`, `10 s` albo `-`; N4 w tej samej kolumnie dodaje odrębny profil ładunków. Search uwzględnia znaną wartość.
+
+`SkillActivationRequirement(id, displayName, amount, consumptionMode)` jest neutralnym, niemutowalnym wymaganiem aktywacji, oddzielnym od `SkillResourceData`. Id i nazwa są niepuste, ilość dodatnia, tryb wymagany (`CONSUMED_ON_USE` albo `REQUIRED_NOT_CONSUMED`). Lista w `CharacterTreeSkill` jest kopiowana i domyślnie pusta. Wybuch Zwłok i Trupie Macki bazowo mają `corpse / Zwłoki / 1 / CONSUMED_ON_USE`, prezentowane jako `1 × Zwłoki (zużywane)` w kolumnie `Wymaganie użycia`. Aktywny rozkaz Wojownika ma pustą listę; pasywne wskrzeszanie z pobliskich Zwłok co 2 s, limit 4 i procent za atak jednego wojownika pozostają w notes. +15/+35 Esencji z ulepszeń pozostają modyfikatorami, bez bazowego generowania. Gorzkie Żniwa jawnie opisują wymagane, niezużywane Zwłoki; Chodź Tu! usuwa wymaganie tylko w wariancie. Te opisy nie wykonują override runtime i nie zmieniają bazowej listy.
+
+| Corpse | Bazowe R1 / max-view | Lucky Hit | Odnowienie | Wymaganie aktywne |
+|---|---:|---:|---|---|
+| Wybuch Zwłok | 180% / 459% | 25% | brak wartości | 1 Zwłoki, zużywane |
+| Trupie Macki | 20% / 98% | 30% | 11 s | 1 Zwłoki, zużywane |
+| Szkieletowy Wojownik | 65% / 166% za atak jednego wojownika | 20% | 10 s | brak |
+
+N3 dodaje opcjonalną `UpgradeDamageModifier.componentDamagePercentRanks`, domyślnie pustą, z istniejącego modelu tabel komponentów. Miazmaty mają `DAMAGE_OVER_DURATION` 350% / 893% łącznie przez 6 s, Szrapnel `PRIMARY_DAMAGE` 180% / 459% na każdy z 8 odłamków, Szczęki Śmierci `PRIMARY_DAMAGE` 100% / 255%. To warianty zastępujące bazowe trafienie, opisane warunkiem i notes. Służba i Ofiara mają odrębny nowy `BURST_DAMAGE` 150% / 383% na śmierć jednego wojownika; utrata 25% zdrowia na sekundę i wskrzeszanie co 0.5 s są metadanymi. Wszystkie tabele zawierają tylko rangi 1 i 15; tooltipy pokazują źródłowe punkty i czas bez obliczeń. Litania Śmierci zachowuje R1 +15%[+] i max-view +21%[+] szansy krytycznej w notes modyfikatora statusu, bez tabeli obrażeń.
+
+Krwawa Miazga ma +75%[x] obrażeń i +50% rozmiaru: oficjalny patch 3.1 rozstrzyga nieaktualne 50%[x] D4Guides, a Icy Veins i D4Builds potwierdzają 75%. Nie wymaga manual review. Trupie Macki / Szansa na Szczęśliwy Traf zachowują +40%, `NEEDS_MANUAL_REVIEW` w typie i bezpieczeństwie modyfikatora oraz `NEEDS_VERIFICATION` w impact z opisem konfliktu PL/Icy Veins/D4Builds kontra changelog EN 3.2.1. Bazowy Lucky Hit pozostaje 30%. Wojownik ma tylko tagi `CORPSE`, `MINION`, `SUMMON`; notes zachowują konflikt Physical/Shadow i warianty Book of the Dead. Każdy nowy modyfikator ma `safeForRuntimeDps=NO`. Nie sumujemy obrażeń bazowych i wariantów, minionów, odłamków ani dodatkowych detonacji, nie interpolujemy rang, nie wyliczamy cyklu ani DPS i nie dodajemy runtime/current build Nekromanty.
+
+Regresje N3: `SkillActivationRequirementTest`, `CharacterTreeSkillMetadataTest`, `NecromancerCorpseSkillTreeRegistryTest` i `NecromancerCorpseDamageRankingWebServerTest`. Istniejący `NecromancerUpgradeGroupMembershipTest` obejmuje wszystkie 23 skille, dokładne zbiory członków każdej grupy, wszystkie modyfikatory i impact oraz 12 kombinacji wyboru po jednej alternatywie z każdej grupy. HTTP chroni aktualne 23/161, filtry Corpse, odnowienie i wymagania, wszystkie polskie nazwy w searchu i 24 niezmienione skille Paladyna.
+
+Etap N4 dodaje cztery Macabre do tego samego rejestru: Krwawą Mgłę, Więzienie z Kości, Kościane Widmo i Golema. Po N4 katalog Nekromanty obejmował **17 aktywnych skilli i 119 ulepszeń**: Basic 4/28, Core 6/42, Corpse 3/21, Macabre 4/28. Kategoria `MACABRE / Makabra / displayOrder=3` i grupa `macabre / Makabra / Macabre` następują po Corpse. Wszystkie cztery mają status `NEEDS_VERIFICATION`; Więzienie ma typ `DEFENSIVE`, pozostałe `DAMAGE`. Baseline to Sezon 15 / patch 3.2.1. Dane 13 wcześniejszych skilli i 24 skilli Paladyna są zachowane. Pełne źródła, nazwy i warianty są w [danych Macabre](docs/necromancer/macabre-source-data.md), a pliki i walidacja w [raporcie N4](docs/necromancer/n4-implementation-report.md).
+
+`SkillChargeData(int baseCharges, int chargeCooldownSeconds)` jest neutralnym niemutowalnym recordem; obie wartości muszą być dodatnie. `CharacterTreeSkill.chargeData` jest opcjonalne, starsze konstruktory ustawiają `null`. Zwykłe `cooldownSeconds` i `chargeData` nie mogą być jednocześnie obecne. Kościane Widmo ma wyłącznie 2 ładunki / 12 s, zwykłe odnowienie jest `null`. `DamageRankingRow` przenosi metadane ze skilla; istniejąca kolumna Odnowienie pokazuje `2 ładunki; 12 s / ładunek`, a tooltip opisuje alternatywne ulepszenia Ładunki (3 / 10 s) i Umiejętność Główna (bez odnowienia w wariancie). Search indeksuje ładunki, ich liczbę i czas odzyskania. Te dane nie trafiają do obliczeń engine ani metryk cyklu/DPS.
+
+| Macabre | Bazowe R1 / max-view zapisany pod 15 | Lucky Hit | Zwykłe odnowienie / ładunki | Bazowe wymagania |
+|---|---|---|---|---|
+| Krwawa Mgła | `DAMAGE_OVER_DURATION` 420% / 1071% łącznie w ciągu 3 s; prosta tabela pusta | 9% | 24 s / brak ładunków | brak |
+| Więzienie z Kości | brak współczynnika i obu tabel bazowych | brak | 15 s / brak ładunków | brak |
+| Kościane Widmo | 150% / 383% za eksplozję ducha | 33% | brak zwykłego odnowienia / 2 ładunki, 12 s za ładunek | brak |
+| Golem | 125% / 319% za atak jednego Golema | 20% | 16 s aktywnego rozkazu / brak ładunków | brak |
+
+Każdy Macabre ma dokładne grupy `2 + 2 + 3` z Icy Veins i polskie nazwy D4Guides. Mgła: G1 Szybkość Ruchu / Trafienie Krytyczne, G2 Przytłoczenie / Odsłonięcie i Spowolnienie, G3 Transfuzja Krwi / Przypływ Krwi / Pochłaniająca Mgła. Więzienie: G1 Generowanie Esencji / Redukcja Czasu Odnowienia, G2 Animusz / Odsłonięcie, G3 Cierń / Bezdenna Ciemność / Uwięzienie Życia. Widmo: G1 Ładunki / Umiejętność Główna, G2 Maksymalna Esencja / Premia do Obrażeń, G3 Poltergeisty / Niedokończone Porachunki / Projekcja Astralna. Golem: G1 Nieustępliwość / Premia do Obrażeń, G2 Osłabienie / Animusz, Przytłoczenie lub Zajadłość, G3 Grobowy Kwiat / Plugawa Żarłoczność / Gigantyczność. Umiejętność Główna Widma należy do grupy 1. Golden membership chroni wszystkie trzy reprezentacje node'a, rozłączność i dokładnie 12 kombinacji na każdy z 19 skilli.
+
+Krwawa Mgła nie ma pojedynczego hitu 420%: tabela komponentu zachowuje łączne obrażenia za 3 s; leczenie R1 6.0% / max-view 15.3% maksymalnego zdrowia jest w notes. Przypływ Krwi ma `RESOURCE_OR_COST` „Zużywa 1 pobliskie Zwłoki” i `CAST_SPEED_OR_COOLDOWN` „Odnowienie wariantu: 8 s”; Mobility, teleportacja i Unstoppable R1 3 s / max-view 4.2 s dotyczą tylko wariantu. Bazowe odnowienie 24 s i puste wymagania nie zmieniają się. Przytłoczenie po teleportacji wymaga tego wariantu. Pochłaniająca Mgła ma odrębne `DAMAGE_OVER_DURATION` 600/1530 przez 3 s, zastępujące 420/1071.
+
+Bazowe Więzienie jest nieobrażeniowe, SSR pokazuje „nie dotyczy” i brak Lucky Hit. Czas więzienia R1 6 s / max-view 8.4 s jest w notes, bez sztucznej tabeli Life. +50 Esencji / dodatkowe +25 za Bossa to ulepszenie. Redukcja 0.5 s za wroga do 5 s dotyczy aktywnych cooldownów gracza. Cierń to `THORNS_DAMAGE_MODIFIER`, 100% własnych Cierni i X zależne od poziomu, bez współczynnika broni; bieżąca prezentacja Cierni wymaga ręcznej weryfikacji. Bezdenna Ciemność ma nowy komponent Zbezczeszczonej Ziemi 450/1148, zgodny z [oficjalnym Blizzard 3.2.1, 300 -> 450](https://news.blizzard.com/en-us/article/24295394/celebrate-30-years-of-diablo-in-season-of-hell-s-legacy). Używa `DAMAGE_OVER_TIME` i neutralnego `PRIMARY_DAMAGE` w tabeli wariantu, bez potwierdzonego duration. Uwięzienie Życia zachowuje generowanie i Cast Speed R1 +20% / max-view +51% oraz stratę zdrowia 5%/sek., bez bazowej generacji zasobu.
+
+Umiejętność Główna Widma opisuje oddzielnie koszt wariantu 30 Esencji, zużycie całej pozostałej Esencji, usunięcie cooldownu/ładunków w wariancie i warunkowe +3%[x] za zużyty punkt. Nie mutuje bazowych 2/12, kategorii MACABRE ani zasobu. Premia do Obrażeń +10%[x] co sekundę do +30%[x] pozostaje warunkowa. Poltergeisty przechowują `ADDITIONAL_STRIKE_DAMAGE` 30/77 za małego ducha i osobno liczbę 3. Niedokończone Porachunki pozostawiają bazowe uderzenie i dodają `PRIMARY_DAMAGE` 250/638 Zbezczeszczonej Ziemi, bez potwierdzonego duration. Projekcja Astralna ma `PRIMARY_DAMAGE` 100/255 zastępujące 150/383. Nie sumujemy wariantów ani wielu duchów.
+
+Golem przechowuje pasywny atak jednego sługi i aktywny rozkaz osobno w notes; respawn 10 s nie jest odnowieniem rozkazu 16 s. Tagi to wyłącznie MACABRE/MINION/SUMMON; Physical lub Shadow oraz Bone/Blood/Darkness zależą od Book of the Dead i wariantu. Grobowy Kwiat ma osobno liczbę 3, `TEXT_ONLY` „60% normalnych obrażeń” i Attack Speed +30%[+], bez tabeli 60% Weapon Damage. Plugawa Żarłoczność dodaje `BURST_DAMAGE` 300/765 erupcji; pasywne zużywanie Zwłok i redukcja 2 s za zużyte Zwłoki są modyfikatorami wariantu, bez bazowego wymagania ani wyliczonego efektywnego cooldownu. Gigantyczność zachowuje aurę innych sług R1 +20%[x] / max-view +51%[x], bez zmiany 125/319.
+
+Wszystkie nowe tabele są sparse: tylko rangi 1 i 15, bez interpolacji 2..14. Pierwszeństwo źródeł: oficjalny Blizzard, jawny aktualny tekst D4Guides/Icy Veins, główna domena D4Builds dla max-view, nierozstrzygnięty konflikt opisany i oznaczony do ręcznej weryfikacji. Wszystkie nowe modyfikatory mają `safeForRuntimeDps=NO`. Aktualne HTTP daje 23 wiersze i po 4 dla obu filtrów Macabre; search znajduje wszystkie 161 nazw ulepszeń. Regresje N4 to `SkillChargeDataTest`, `NecromancerMacabreSkillTreeRegistryTest`, `NecromancerMacabreDamageRankingWebServerTest` oraz rozszerzony golden membership i dotychczasowe testy. Runtime/current build pozostaje paladynowy; N4 nie tworzy ZIP-a.
+
+Etap N5 dodaje grupę `curse / Klątwy / Curse` oraz kategorię `CURSE / Klątwy / displayOrder=4`. Katalog po zamkniętym N5 obejmował **19 aktywnych skilli i 133 ulepszenia**: Basic 4/28, Core 6/42, Corpse 3/21, Macabre 4/28, Curse 2/14. Filtry grup i kategorii zachowują źródłową kolejność Basic → Core → Corpse → Macabre → Curse przez neutralne `displayOrder`, wspólne dla klas. Dane wcześniejszych 17 skilli, ich 119 ulepszeń i 24 skilli Paladyna pozostają bez zmian. Baseline: Sezon 15 / patch 3.2.1; źródła i interpretacje są w [danych Curse](docs/necromancer/curse-source-data.md), a zakres i walidacja w [raporcie N5](docs/necromancer/n5-implementation-report.md).
+
+| Curse | Typ / tagi bazowe | Bazowe obrażenia R1 / max-view zapisany pod 15 | Esencja | Lucky Hit |
+| --- | --- | --- | --- | --- |
+| Żelazna Dziewica | `DAMAGE`; CURSE, PROFANE, PHYSICAL | `PERIODIC_DAMAGE` 30/77% co 2 s; `EVENT_TRIGGERED_DAMAGE` 30/77% na zdarzenie | koszt 10; brak generowania | 5% |
+| Zniedołężnienie | `SUPPORT`; CURSE, PROFANE | brak, SSR „nie dotyczy”; Weaken i Slow 40% / 56% są utility | koszt 10; brak generowania | brak źródłowej wartości |
+
+Oba skille mają status `NEEDS_VERIFICATION`, puste proste tabele bazowe, oba główne procenty `null`, zwykły cooldown `null`, charge data `null` i puste wymagania aktywacji. Obie klątwy trwają źródłowo 30 s, zapisane w notes. Żelazna Dziewica ma dokładnie dwa komponenty, każdy z tabelą `{1:30, 15:77}`. `PERIODIC_DAMAGE` oznacza pojedynczy dyskretny impuls, `EVENT_TRIGGERED_DAMAGE` pojedyncze zdarzenie: przeklęty wróg zadaje bezpośrednie obrażenia. Nie sumujemy komponentów, impulsów przez czas klątwy ani zdarzeń.
+
+Neutralny `DamagePercentComponentRankTable.of(tables, durations, intervals)` kopiuje opcjonalną mapę dodatnich interwałów. `intervalSecondsFor(component)` zwraca odstęp między impulsami albo `null`; interwał może dotyczyć tylko obecnego komponentu. Jest niezależny od `durationSecondsFor`, nie zastępuje wymaganego duration dla `DAMAGE_OVER_DURATION` i nie uruchamia DPS. Brak interwału jest poprawny również dla nowych komponentów. W Żelaznej Dziewicy interwał 2 s dotyczy wyłącznie periodic; event nie ma zadanej częstotliwości. Oba komponenty mają duration `null`: 30 s to czas klątwy, a 30% wartość pojedynczego impulsu/zdarzenia. SSR bazowych i wariantowych tabel oraz wspólny search zachowują „co 2 s” i „na zdarzenie”, bez „/ sek.”. Search indeksuje również notes każdego skilla, w tym źródłowe 30 s, bez wyjątku dla Curse.
+
+Dokładne grupy `2 + 2 + 3` z Icy Veins:
+
+| Skill | Grupa 1: Enhancements | Grupa 2: Enhancements | Grupa 3: Transformation |
+| --- | --- | --- | --- |
+| Żelazna Dziewica | Generowanie Esencji; Egzekucja i Umocnienie | Zajadłość i Przytłoczenie; Odsłonięcie | Złośliwa Radość; Mistrz Małodobry; Krwawa Pannica |
+| Zniedołężnienie | Szansa na Trafienie Krytyczne; Redukcja Czasu Odnowienia | Szybkość Ruchu; Animusz | Oszałamiająca Klątwa; Upuszczanie Zdrowia; Świętokradczy Amok |
+
+Generowanie Esencji Żelaznej Dziewicy ma dwa `RESOURCE_OR_COST`: koszt wariantu 0 i +5 Esencji za nowo przeklętego wroga, który nie był już objęty klątwą. Bazowy koszt 10 i brak bazowego generowania pozostają. Egzekucja nie otrzymuje wymyślonego progu; śmierć przeklętego wroga daje Umocnienie 5% maksymalnego zdrowia. Lucky Hit ulepszenia do 15% na losowo 1 Ferocity albo Overpower nie zmienia bazowego Lucky Hit 5%.
+
+Złośliwa Radość zachowuje dynamiczne X Cierni i zwiększenie obrażeń o 100% własnych Cierni jako `THORNS_DAMAGE_MODIFIER / TEXT_ONLY`, z `safeForRankingDisplay=NEEDS_MANUAL_REVIEW` i impact bez procentu broni. Mistrz Małodobry dodaje Darkness/Shadow wyłącznie wariantowi, zachowuje oba współczynniki 30/77 i dodaje 30% szansy na Stun 2 s. Oficjalna poprawka 3.2.1 dotycząca Aspect of Crippling Darkness potwierdza brak tej konwersji w bazowych tagach. Krwawa Pannica dodaje Blood i 5% szansy na Krwawą Kulę; jej osobna tabela `BURST_DAMAGE {1:150, 15:383}` nie trafia do bazowych obrażeń. Zebranie 4 Blood Orbs jest oddzielną metadaną utility, bez mnożenia burstu przez 4 i założenia dostępności kul.
+
+Zniedołężnienie zachowuje Slow 40/56 w notes, +5%[+] crit przeciw przeklętym, warunkową do 15% redukcję losowego aktywnego cooldownu o 1 s, +2%[x] ruchu za wroga bez założenia ich liczby i do 25% szansy Lucky Hit na 1 Resolve. Oszałamiająca Klątwa ma Daze R1 3.0 s / max-view 4.2 s przy pierwszym objęciu klątwą. Upuszczanie Zdrowia dodaje Blood tylko wariantowi i leczy R1 10% / max-view 25.5% maksymalnego zdrowia, maksymalnie raz na sekundę; śmierć daje 20% szansy na Blood Orb. Świętokradczy Amok **zastępuje cel i efekt**: zamiast klątwy wrogów buff własnych Minions, Cast Speed i Movement Speed R1 +20%[x] / max-view +51%[x]; bazowe Weaken i Slow nie są przenoszone na wrogów. Utility nie używa tabel obrażeń ani interpolacji 2..14.
+
+W momencie zamknięcia N5 regresje obejmowały neutralne testy komponentów/interwałów, `NecromancerCurseSkillTreeRegistryTest`, `NecromancerCurseDamageRankingWebServerTest` oraz fikcyjny rejestr w `NeutralDamageRankingWebServerTest`. Golden membership obejmuje wszystkie 19 skilli, spójność trzech reprezentacji i 12 rozłącznych kombinacji per skill. HTTP zwraca 200, 19 wierszy i po 2 dla filtrów grupy/kategorii/tagu Curse; współdzielony search znajduje wszystkie 133 nazwy ulepszeń, nazwy skilli/transformacji, 2 s i 30 s. Ranking działa z pustą referencją engine, pozostawiając damage per use/cycle/DPS puste. Wszystkie nowe modyfikatory mają `safeForRuntimeDps=NO`; `SkillChargeData`, `SkillActivationRequirement`, cooldown model i runtime/current build pozostają bez zmian. N5 nie tworzy ZIP-a.
+
+Etap N6 kończy aktywny katalog Nekromanty: **23 skille i 161 ulepszeń**, podział Basic 4/28, Core 6/42, Corpse 3/21, Macabre 4/28, Curse 2/14, Ultimate 4/28. Kategoria `ULTIMATE / Moce Specjalne / displayOrder=5` i grupa `ultimate / Moce Specjalne / Ultimate` używają nazwy z gry; label D4Guides „Specjalne” służy jedynie jako źródło. Kolejność filtrów to Basic → Core → Corpse → Macabre → Curse → Ultimate. Dane wcześniejszych 19 skilli / 133 ulepszeń, ich dokładne grupy i dane 24 skilli Paladyna pozostają bez zmian. Baseline: Sezon 15 / patch 3.2.1, bez zmian tych danych w 3.2.2. Źródła oraz pełne metadane: [dane Ultimate](docs/necromancer/ultimate-source-data.md), [raport N6](docs/necromancer/n6-implementation-report.md).
+
+| Ultimate | Tagi bazowe | Obrażenia R1 / max-view | Cooldown | Lucky Hit | Generowanie |
+| --- | --- | --- | --- | --- | --- |
+| Armia Umarłych | ULTIMATE, SUMMON, PHYSICAL | 120/306% na pojedynczą eksplozję Volatile Skeleton | 60 s | 64% | brak |
+| Fala Krwi | ULTIMATE, BLOOD, PHYSICAL | 500/1275% | 50 s | 50% | brak |
+| Nawałnica Kości | ULTIMATE, BONE, PHYSICAL | `DAMAGE_OVER_DURATION` 400/1020% w ciągu 10 s | 60 s | 40% | brak |
+| Spętanie Dusz | ULTIMATE, DARKNESS, SHADOW | `DAMAGE_OVER_DURATION` 350/893% w ciągu 8 s | 40 s | 20% | 2 Esencji / zdarzenie |
+
+Wszystkie cztery mają `DAMAGE / NEEDS_VERIFICATION`, brak kosztu, ładunków i bazowych wymagań aktywacji. Armia i Fala mają proste sparse tabele `{1:R1, 15:max-view}`; Nawałnica i Spętanie mają wyłącznie komponentowe tabele z duration i oba proste procenty `null`. Rangi 2..14 pozostają nieznane.
+
+| Skill | Grupa 1: Enhancements | Grupa 2: Enhancements | Grupa 3: Transformation |
+| --- | --- | --- | --- |
+| Armia Umarłych | Redukcja Czasu Odnowienia; Premia do Obrażeń | Pasywna Premia; Generowanie Zwłok | Niezłomne Dowództwo; Piętrzenie Ciał; Martwe Zimno |
+| Fala Krwi | Premia do Obrażeń; Redukcja Obrażeń | Przytłoczenie; Krwawa Kula | Krwawy Przypływ; Ścieżka Ciemności; Hematolagnia |
+| Nawałnica Kości | Bariera; Odsłonięcie | Redukcja Obrażeń; Wydłużenie Czasu Działania | Rzucone Kości; Cień i Kość; Wygłodniały Cyklon |
+| Spętanie Dusz | Szybkość Ruchu; Bariera | Zajadłość; Odsłonięcie i Ograniczanie Kontroli | Destylacja Duszy; Wir Dusz; Zamarznięte Pustkowia |
+
+Neutralny `PER_EVENT` oznacza ilość zasobu na jedno zdarzenie opisane w notes. Spętanie Dusz ma `generationMin=2`, `generationMax=2`, bonus `null`, `frequency=PER_EVENT`; zdarzeniem jest pochłonięcie jednej duszy przeciwnika. Źródłowe sprawdzanie / absorpcja co `0.25 s`, dusze 3 przeciwników i 3 dusze jednocześnie z Bossów pozostają metadanymi. SSR pokazuje `2 / zdarzenie`, bez resource rate, agregacji przez 8 s ani stałej liczby przeciwników. Facet rozpoznaje generowanie; zachowuje też dotychczasową regułę obejmującą `RESOURCE_OR_COST` ulepszeń. Oba sortowania porównują źródłową wartość 2, bez przeliczania częstotliwości; braki liczb pozostają na końcu.
+
+Armia zachowuje „per explosion; liczba eksplozji nie jest stała”, pojawianie się szkieletów przez 7 s i Stun 2 s. Patch 3.2.1 dopuszcza ponowne użycie podczas działania i do 5 stosów; nie sumujemy eksplozji ani nie zakładamy 5 stosów. Pasywna Premia (1 szkielet co 4 s) jest utility bez `PERIODIC_DAMAGE` i DPS. Premia +2%[x] za posiadanego Miniona i Piętrzenie Ciał +10%[x] za eksplozję, do 300%, pozostają warunkowe. Martwe Zimno zastępuje coefficient tabelą 150/383%, Cold i Freeze zamiast Stun. Niezłomne Dowództwo ma R1 +30%[x] sług, `scalesWithSkillRank=true`, osobno 90% Damage Reduction i `safeForRankingDisplay=NEEDS_MANUAL_REVIEW`: Blizzard/Icy Veins potwierdzają scaling, główny D4Builds nadal pokazuje 30%, brak potwierdzonego R15. Nie interpolujemy ani nie wpisujemy 30 pod 15.
+
+Krwawy Przypływ ma oddzielne `ADDITIONAL_STRIKE_DAMAGE` 500/1275 i liczbę +1 fali. Ścieżka Ciemności ma oddzielny wariant Corrupting 800/2040, `DAMAGE_OVER_TIME` z tabelą `PRIMARY_DAMAGE` bez nieznanego duration. Hematolagnia zastępuje falę tabelą 300/765, staje się Core, usuwa cooldown i Knock Back oraz kosztuje 70 Esencji; bazowe 50 s i brak kosztu pozostają. Przytłoczenie zachowuje 1 Overpower i Maximum Overpower +2 według aktualnego opisu Icy Veins / rozstrzygnięcia Blizzard 3.2.1 (oficjalna zmiana dotyczy Hematolagnii).
+
+Wydłużenie Czasu Działania Nawałnicy to `RESOURCE_OR_COST` do 4 Zwłok oraz duration +2 s za faktycznie zużyte Zwłoki; bez bazowego wymagania, automatycznych 18 s i dodatkowych ticków. Cień i Kość dodaje osobne `DAMAGE_OVER_DURATION` 40/102% w ciągu 2 s, poza bazowym 400/1020 przez 10 s. Rzucone Kości zachowuje Crit Chance i Cast Speed 15/38%, a Wygłodniały Cyklon redukcję cooldownu 20/28 s jako source scaling utility, bez tabel obrażeń i interpolacji; bazowy cooldown 60 s pozostaje.
+
+Destylacja Duszy zachowuje globalny warunkowy multiplier Darkness R1 +30%[x] / max-view +77%[x], scaling z rangą, bez component table Soulrift. Wir Dusz ma `EVENT_TRIGGERED_DAMAGE` 25/64% za jedną pochłoniętą duszę, bez interwału lub duration i mnożenia przez 3/cykle; cooldown modifier -15 s poza bazowymi 40 s. Zamarznięte Pustkowia ma warunkowy `BURST_DAMAGE` 75/191% tylko za pochłonięcie duszy Frozen enemy. Frostbite i Chill 30% co sekundę są metadanymi statusu, bez wymyślonego damage coefficient lub częstotliwości eksplozji.
+
+Wspólny renderer pokazuje notes źródłowe w tooltipie nazwy skilla każdej klasy; Armia wyjaśnia w nim jednostkę per explosion, a Spętanie zdarzenie i absorpcję. Wspólny search indeksuje te notes i neutralne jednostki, bez wyjątków Ultimate w serwisie/searchu. HTTP 200: 23 wiersze; `skillGroup=ultimate`, `sourceCategory=ULTIMATE` i `tag=ULTIMATE` po cztery. Search znajduje wszystkie 161 nazw upgrade'ów, Moce Specjalne, nazwy skilli/transformacji, `0.25 s` i `zdarzenie`. Regresje N6 obejmują `SkillResourceDataTest`, niezależny fixture w `NeutralDamageRankingWebServerTest`, `NecromancerUltimateSkillTreeRegistryTest`, `NecromancerUltimateDamageRankingWebServerTest` i golden membership 23/23 (trzy reprezentacje, rozłączność i 12 kombinacji per skill). Wszystkie nowe modifier mają `safeForRuntimeDps=NO`. Modele charge/activation/cooldown i periodic/event damage pozostają bez zmian. Runtime/current build nie obsługuje Nekromanty; N6 nie tworzy ZIP-a.
+
+### N7 — Księga Umarłych / Book of the Dead
+
+Pakiet `krys.necromancer.bookofthedead` zawiera osobny, kompletny katalog mechaniki klasowej Nekromanty dla Season 15 / patch 3.2.1: **3 rodziny, 9 specjalizacji, 27 choice definitions**. Każda specjalizacja ma pasyw / zdolność bazową oraz dokładnie `UPGRADE_1`, `UPGRADE_2`, `SACRIFICE`, polską i angielską nazwę, poziom odblokowania, theme, źródło i `NOT_RUNTIME_ENABLED`. Rodziny mają kolejność Warriors → Mages → Golems, a specjalizacje wewnątrz rodziny kolejność poziomu odblokowania / źródła. `NecromancerBookOfDeadRegistry.sourceCatalog()` udostępnia niezmienne `all()`, `byId()`, `byFamily(...)`, `find(...)` i `findByRawId(...)`; konstruktor odrzuca duplikaty i niekompletną paczkę. Własne modele Book nie używają modeli skill-tree ani wspólnego `ClassMechanicRegistry`. `PaladinOathRegistry` pozostaje osobną domeną.
+
+| Rodzina | Specjalizacja / id | Unlock | Theme |
+| --- | --- | --- | --- |
+| Szkieletowi Wojownicy | Harcownicy / `skirmisher` | 5 | BONE |
+| Szkieletowi Wojownicy | Obrońcy / `defender` | 8 | BLOOD |
+| Szkieletowi Wojownicy | Żniwiarze / `reaper` | 12 | DARKNESS |
+| Szkieletowi Magowie | Magowie Cienia / `shadow_mage` | 5 | DARKNESS |
+| Szkieletowi Magowie | Magowie Zimna / `cold_mage` | 18 | DARKNESS |
+| Szkieletowi Magowie | Magowie Kości / `bone_mage` | 22 | BONE |
+| Golemy | Golem Kościany / `bone_golem` | 8 | BONE |
+| Golemy | Golem Krwawy / `blood_golem` | 28 + Call of the Underworld | BLOOD |
+| Golemy | Golem Żelazny / `iron_golem` | 32 + Call of the Underworld | DARKNESS |
+
+Sacrifice po Lord of Hatred ma oddzielne `playerBonuses` i `summonPenalty`: Warriors / Mages zmniejszają możliwą liczbę przywołań o 50%, Golem zadaje o 50%[x] mniej obrażeń. Sługi nadal można przywoływać, jeśli odpowiedni skill jest wykupiony i znajduje się na pasku. Model nie zawiera flagi wyłączającej miniony. Jest to opis źródłowy, bez wykonywania bonusu, kary, liczenia summonów lub zapisu wyboru Book na bohaterze.
+
+`BookOfDeadSourceFact` przechowuje jawne jednostki faktów: Bone Mage ma `75 / PERCENT_OF_NORMAL_DAMAGE` dla każdego z dwóch dodatkowych pocisków; Defender ma `SOURCE_DEPENDENT_AMOUNT` i brak liczby Cierni, a odłamki `50 / PERCENT_OF_THORNS`. Corrupting 100% / 6 s, Blizzard 200% / 6 s, Bone Spikes 250% oraz Shockwave 125%[x] pozostają coefficient mechaniki Book poza tabelami obrażeń skilli. Blizzard nie ma określonej częstotliwości; fork nie zakłada trzech trafień single target. Blood Golem zachowuje premie per faktycznie wyssany Minion, limity 50/50 i Fortify per enemy, bez założonej liczby minionów lub wrogów. Sacrifice Bone Golema ma Attack Speed +10%[+].
+
+Bone Mage Upgrade #2 ma katalogowe Fortify **0.1% Maximum Life**. Metadane `SourceConflict` zachowują Icy Veins 3%, oficjalny Blizzard patch 2.5: 0.1%, oba źródła oraz `OFFICIAL_SOURCE_RESOLVED`; to rozstrzygnięty konflikt danych. `NecromancerMinionRules` opisuje bazowe Lucky Hit 20%, dziedziczenie 100% użytecznych statystyk / buffów oraz warunek summon po Sacrifice, bez engine dziedziczenia.
+
+Golden testy sprawdzają wszystkie dziewięć specjalizacji i liczby z kontraktu N7, typy jednostek, warunki efektów, oddzielne części Sacrifice, konflikt Fortify, brak absolutnych Cierni, immutability / kopie wejść, walidację duplikatów / kompletności oraz granicę zależności pakietu Book. Regresja zachowuje **23 skille / 161 upgrade'ów Nekromanty, 24 skille Paladyna i cztery legacy SkillId**. HeroClass obejmuje obecnie PALADIN i NECROMANCER zgodnie z N10; Book nadal nie rozszerza wykonania runtime. N7 nie zmienił current build, formatów HeroProfile ani danych, notes i damage types skilli; nie utworzył ZIP-a. Pełne dane i wyniki walidacji: [book-of-the-dead-source-data.md](docs/necromancer/book-of-the-dead-source-data.md), [n7-implementation-report.md](docs/necromancer/n7-implementation-report.md).
 
 Ranking domyślnie działa w trybie `SINGLE_TARGET`, zwraca metadane źródłowe oraz status weryfikacji danych. Ranking może też pokazywać bazowe procenty obrażeń z opisu, Markdown, JSON albo PDF, ale te wartości są wyłącznie źródłowym opisem siły umiejętności i nie są runtime DPS.
 
 Pola bazowych procentów obrażeń:
-- `baseDamagePercentAtRank1` - procent obrażeń jawnie podany w opisie, Markdown, JSON albo PDF dla rangi 1; R1 oznacza minimalny wyklikany poziom / rangę umiejętności w drzewie,
-- `baseDamagePercentAtTreeMaxRank` - procent obrażeń jawnie podany w opisie, Markdown, JSON albo PDF dla maksymalnej rangi możliwej do wyklikania w drzewie bez bonusów z przedmiotów.
+- `baseDamagePercentAtRank1` - źródłowy procent obrażeń dla rangi 1 z opisu, WWW, Markdown, JSON albo PDF; R1 oznacza minimalny wyklikany poziom / rangę umiejętności w drzewie,
+- `baseDamagePercentAtTreeMaxRank` - źródłowy procent obrażeń dla maksymalnej rangi drzewa bez bonusów z przedmiotów; w N1–N6 Nekromanty jest to bieżący max-view D4Builds z opisanym zastrzeżeniem interpretacji rangi 15.
 
 `treeMaxRank` obecnie oznacza `15`, czyli maksymalną rangę możliwą do wyklikania w drzewie bez bonusów z itemów. Nie jest to absolutne maksimum umiejętności w całym buildzie. Bonusy z itemów, affixów, aspektów albo innych mechanik mogą w przyszłości zwiększać rzeczywistą rangę używaną przez build ponad `treeMaxRank`. Pojęcie `effectiveRank` po itemach jest zostawione na przyszłość i nie jest teraz implementowane.
 
-Wartości `baseDamagePercentAtRank1` i `baseDamagePercentAtTreeMaxRank` są wartościami pochodnymi z `DamagePercentRankTable`, jeśli dany skill ma tabelę rang. Jeżeli tabela nie istnieje, gettery zachowują kompatybilny fallback do ręcznie wpisanych wartości źródłowych. Te wartości nie są normalizowane względem najlepszej umiejętności, nie są DPS, nie odblokowują runtime i nie mogą być zgadywane. Jeżeli źródło nie podaje jawnie wartości dla R1 albo maksymalnej rangi drzewa, odpowiednie pole pozostaje `null`, a SSR renderuje `brak danych`. Poziomy pośrednie nie są wyliczane przez interpolację; albo istnieją jawnie w tabeli, albo pozostają brakiem danych.
+Wartości `baseDamagePercentAtRank1` i `baseDamagePercentAtTreeMaxRank` są wartościami pochodnymi z `DamagePercentRankTable`, jeśli dany skill ma tabelę rang. Jeżeli tabela nie istnieje, gettery zachowują kompatybilny fallback do ręcznie wpisanych wartości źródłowych. Te wartości nie są normalizowane względem najlepszej umiejętności, nie są DPS, nie odblokowują runtime i nie mogą być zgadywane. Brak wartości źródłowej oznacza `null`; SSR renderuje wtedy `nie dotyczy` albo `wymaga weryfikacji`. W N1–N6 wartość max Nekromanty jest zachowanym widokiem max źródła, którego przypisanie do rangi 15 pozostaje opisanym założeniem wymagającym weryfikacji. Poziomy pośrednie nie są wyliczane przez interpolację; albo istnieją jawnie w tabeli, albo pozostają brakiem danych.
 
-Aktualnie rejestr uzupełnia proste tabele rang tylko dla wartości jednoznacznie przeniesionych z lokalnego JSON-a dla skilli `SIMPLE_SINGLE_COMPONENT`. `Błogosławiony Młot` ma `baseDamagePercentAtRank1 = 115` i `baseDamagePercentAtTreeMaxRank = 293`, bo są to wartości pochodne z tabeli rang `1..15`. Skille `MULTI_COMPONENT` mogą mieć komponentowe tabele źródłowe, ale ich główne `baseDamagePercentAtRank1` i `baseDamagePercentAtTreeMaxRank` pozostają `null`, żeby nie spłaszczać ani nie sumować komponentów. Wartości wielohitowe, tickowe i warunkowe nie są sumowane ani przepisywane jako bazowa siła umiejętności bez osobnej weryfikacji interpretacji.
+Rejestr Paladyna uzupełnia proste tabele rang dla wartości jednoznacznie przeniesionych z lokalnego JSON-a dla skilli `SIMPLE_SINGLE_COMPONENT`. `Błogosławiony Młot` ma `baseDamagePercentAtRank1 = 115` i `baseDamagePercentAtTreeMaxRank = 293`, bo są to wartości pochodne z tabeli rang `1..15`. Skille `MULTI_COMPONENT` mogą mieć komponentowe tabele źródłowe, ale ich główne `baseDamagePercentAtRank1` i `baseDamagePercentAtTreeMaxRank` pozostają `null`, żeby nie spłaszczać ani nie sumować komponentów. N1 Nekromanty dodaje częściowe tabele z dwoma punktami źródłowymi; Kościane Odłamki zachowują procent na pojedynczy odłamek, a Rozkład procent na sekundę. Wartości wielohitowe, tickowe i warunkowe nie są sumowane ani zamieniane na całkowite obrażenia użycia bez osobnej weryfikacji interpretacji.
 
 Lokalny JSON jest pomocniczym źródłem tabel rang, ale implementacja realnego runtime wymaga osobnych testów mechaniki single target. Prosta ani komponentowa tabela rang nie zmienia statusu `NEEDS_VERIFICATION`, nie wypełnia `damagePerUse`, `theoreticalDps` ani `singleTargetDps` i nie odblokowuje runtime DPS hurtowo. Jedyny obecnie jawny most runtime z tabeli drzewa do legacy engine to bazowe direct damage `Starcie`/`CLASH` dla rang `1..5`.
 
 Pola `damagePerUse`, `effectiveCycleSeconds` i `theoreticalDps` pozostają puste dla skilli `NEEDS_VERIFICATION` albo `UNSUPPORTED`. Runtime metryki `DAMAGE_PER_USE`, `THEORETICAL_DPS` i `SINGLE_TARGET_DPS` pozostają w domenie na potrzeby przyszłego debug/runtime widoku, ale nie są pokazywane w głównej tabeli `/ranking-obrazen` i nie są dostępne jako filtr użytkownika.
 
-Ekran SSR `/ranking-obrazen` jest na obecnym etapie widocznym dla użytkownika porównaniem bazowej siły umiejętności i opisowego wpływu ulepszeń, a nie ekranem realnego DPS. Parametr `character=paladin` wybiera rejestr Paladyna; gdy parametr `character` nie jest podany, a Paladyn jest jedyną obsługiwaną klasą, ekran domyślnie wybiera `paladin`. Dla `character=paladin` ekran pokazuje wszystkie 24 wpisy z `PaladinSkillTreeRegistry`, a nie tylko wpisy policzalne.
+Ekran SSR `/ranking-obrazen` jest na obecnym etapie widocznym dla użytkownika porównaniem bazowej siły umiejętności i opisowego wpływu ulepszeń, a nie ekranem realnego DPS. `character=paladin` wybiera wszystkie 24 wpisy Paladyna, a `character=necromancer` 23 wpisy Nekromanty (4 Basic, 6 Core, 3 Corpse, 4 Macabre, 2 Curse i 4 Ultimate) z etykietami Esencji. Bez parametru `character` ekran nadal domyślnie wybiera Paladyna.
 
-Główna tabela używa szerokiego wariantu layoutu i zawiera tylko kolumny decyzyjne: `skillName`, `Kategorie z gry`, `Obrażenia % R1`, `Obrażenia % max drzewo`, `Koszt Wiary`, `Generowanie Wiary`, `Lucky Hit`, `Dmg multiplier`, `Dmg bonus`, `Extra hit / component`, `Damage over time`, `Status / debuff`, `Defense / utility` i `Manual review`. Kolumny `Grupa drzewa`, `tags`, `type` oraz `Speed / cooldown` nie są już renderowane w głównej tabeli.
+Główna tabela używa szerokiego wariantu layoutu i zawiera tylko kolumny decyzyjne: `skillName`, `Kategorie z gry`, `Obrażenia % R1`, `Obrażenia % max drzewo`, koszt i generowanie zasobu, `Lucky Hit`, `Dmg multiplier`, `Dmg bonus`, `Extra hit / component`, `Damage over time`, `Status / debuff`, `Defense / utility`, `Manual review`, `Odnowienie` i `Wymaganie użycia`. Etykiety zasobu pochodzą z rejestru: Paladyn zachowuje `Koszt Wiary` i `Generowanie Wiary`, a Nekromanta pokazuje `Koszt Esencji` i `Generowanie Esencji`. Kolumny `Grupa drzewa`, `tags`, `type` oraz `Speed / cooldown` nie są już renderowane w głównej tabeli.
 
-Ranking rozdziela trzy pojęcia. `Grupa drzewa` / `skillGroup` oznacza techniczne miejsce skilla w drzewie, np. `basic`, `core`, `aura`, `odwaga`, `moce_specjalne`; pozostaje filtrem i atrybutem `data-skill-group`, ale nie jest osobną kolumną głównej tabeli. `Kategorie z gry` / `sourceCategories` / `skillCategories` są wyłącznie źródłowymi kategoriami z gry, PDF albo lokalnego Markdowna; dla `Wymach` lokalny Markdown `paladin_basic_skill_registry_final.md` potwierdza `Podstawowe, Adept`. Mechaniczne `tags` z enumu `SkillTag` są wewnętrznymi facetami porównywarki, np. `DAMAGE`, `HOLY_DAMAGE`, `FAITH_GENERATION`, `CAST_SPEED`, `EXPOSED`, `VULNERABLE` albo `MULTI_HIT`; mogą pozostać w modelu i atrybucie `data-mechanic-tags`, ale nie są renderowane jako kolumna `tags` ani jako „tagi z gry”.
+Ranking rozdziela trzy pojęcia. `Grupa drzewa` / `skillGroup` oznacza techniczne miejsce skilla w drzewie, np. `basic`, `core`, `aura`, `odwaga`, `moce_specjalne`; pozostaje filtrem i atrybutem `data-skill-group`, ale nie jest osobną kolumną głównej tabeli. `Kategorie z gry` / `sourceCategories` / `skillCategories` są kategoriami potwierdzonymi przez źródła WWW, PDF albo lokalny Markdown; dla `Wymach` lokalny Markdown `paladin_basic_skill_registry_final.md` potwierdza `Podstawowe, Adept`, a Nekromanta ma `BASIC / Podstawowe`, `CORE / Główne`, `CORPSE / Zwłoki`, `MACABRE / Makabra`, `CURSE / Klątwy` oraz `ULTIMATE / Moce Specjalne`. Neutralne `tags` są identyfikatorami tekstowymi. Adapter Paladyna zachowuje wartości jego enumu `SkillTag`, np. `HOLY_DAMAGE` i `FAITH_GENERATION`, a rejestr Nekromanty dostarcza m.in. `BONE`, `DARKNESS`, `BLOOD` i `CHANNELED`. Tagi pozostają w modelu i atrybucie `data-mechanic-tags`, bez osobnej kolumny głównej tabeli.
 
 Skill może mieć więcej niż jedną kategorię źródłową. Potwierdzone przykłady z lokalnej paczki Basic: `Wymach` ma `Podstawowe, Adept`, `Święty Pocisk` ma `Podstawowe, Sędzia`, `Starcie` ma `Podstawowe, Moloch`, a `Natarcie` ma `Podstawowe, Mobilność, Zeloty`. Kategorie nadawane dopiero przez ulepszenia, np. wariant „staje się umiejętnością Adepta”, nie są bazowymi kategoriami skilla i pozostają informacją ulepszenia. W lokalnej dokumentacji Paladyna obowiązuje korekta terminologiczna `Fanatyk/Fanatyka` na `Zeloty`; dotyczy to opisów kategorii i modyfikatorów z drzewa Paladyna, bez zmiany PDF-ów ani JSON-a rang.
 
@@ -394,7 +564,7 @@ Wartości liczbowe w komórkach modyfikatorów nie są głównym tekstem list. P
 
 Starcie ma w rankingu opisowo pokazane potwierdzone dane z lokalnego Markdown Basic: `Generowanie Wiary` pokazuje `20; Generowanie Wiary`; `Defense / utility` pokazuje nazwy `Marsz Krzyżowca`, `Animusz` i `Skuteczność Marszu Krzyżowca`; `Dmg multiplier` pokazuje nazwy `Zwiększenie Obrażeń` i `Brać Ich`; `Extra hit / component` pokazuje `Potyczka`; `Manual review` pokazuje `Kara`. Bazowe direct damage Starcia jest podłączone do legacy runtime tylko dla `CLASH` rang `1..5` i tylko po spełnieniu wymagania aktywnej broni oraz aktywnej tarczy; wartości i warunki wpisów opisowych, w tym `+10`, `15%[X]`, `2 kumulacje`, `25%[X]`, `20%[X]`, `8%[X]`, `155%`, informacja o przejściu Potyczki w umiejętność `Zeloty`, Odwet i ciernie, pozostają w tooltipach oraz `data-search-text`. Te wpisy nie zmieniają `baseDamagePercentAtRank1 = 115`, `baseDamagePercentAtTreeMaxRank = 293` i nie są sumowane ze sobą ani z bazą; wyjątkiem runtime jest wybór `choiceGroup1_CLASH=animusz`, który generuje ładunki Animuszu po trafieniu, ale nie jest mnożnikiem damage. Stary parametr `choiceModifier_CLASH=ANIMUS` pozostaje kompatybilny i jest mapowany do `choiceGroup1_CLASH=animusz`.
 
-Techniczny `skillId` nie jest osobną kolumną domyślnej tabeli, ale pozostaje w danych i w atrybucie `data-skill-id` wiersza. `verificationStatus` również nie jest osobną kolumną głównej tabeli; status pozostaje w modelach, filtrze `Status weryfikacji`, atrybucie `data-verification-status`, `title`/`aria-label` oraz klasach wiersza typu `verification-needs-verification`, `verification-non-damage`, `verification-unsupported` i `verification-supported`. Kolor nie jest jedynym nośnikiem informacji o statusie, bo status jest dostępny tekstowo w atrybutach HTML i krótkiej legendzie nad tabelą. Kolumny runtime `damagePerUse`, `theoreticalDps` i `singleTargetDps` nie są renderowane w domyślnej tabeli, dopóki runtime DPS nowych umiejętności pozostaje zablokowany. Pola diagnostyczne `reason / notes` i `sourcePdf` również pozostają poza domyślną tabelą.
+Techniczny `skillId` nie jest osobną kolumną domyślnej tabeli, ale pozostaje w danych i w atrybucie `data-skill-id` wiersza. `verificationStatus` również nie jest osobną kolumną głównej tabeli; status pozostaje w modelach, filtrze `Status weryfikacji`, atrybucie `data-verification-status`, `title`/`aria-label` oraz klasach wiersza typu `verification-needs-verification`, `verification-non-damage`, `verification-unsupported` i `verification-supported`. Kolor nie jest jedynym nośnikiem informacji o statusie, bo status jest dostępny tekstowo w atrybutach HTML i krótkiej legendzie nad tabelą. Kolumny runtime `damagePerUse`, `theoreticalDps` i `singleTargetDps` nie są renderowane w domyślnej tabeli, dopóki runtime DPS nowych umiejętności pozostaje zablokowany. Pola diagnostyczne `reason / notes` i `sourceReference` również pozostają poza domyślną tabelą.
 
 Dane runtime, diagnostyczne i komponenty obrażeń pozostają w modelach oraz testach jako materiał pomocniczy dla przyszłego widoku szczegółowego skilla, panelu debug albo rozwijanego wiersza. Opisowy wpływ ulepszeń jest klasyfikowany bez liczenia DPS i bez wpisywania wartości liczbowych, jeśli lokalne źródła nie podają ich jednoznacznie. Wpływ ulepszeń nie jest sumowany z bazowym procentem skilla, nie zmienia `baseDamagePercentAtRank1`, nie zmienia `baseDamagePercentAtTreeMaxRank`, nie wpływa na sortowanie po bazowych procentach i nie odblokowuje `DamageEngine`.
 
@@ -439,32 +609,37 @@ Efekt może:
 Pozostałe typy efektów opisane w szerszej dokumentacji projektu nie są jeszcze częścią aktualnego foundation kodowego.
 
 ### 4.5. Model importu itemu ze screena
-Aktualny foundation importu obrazu jest diagnostyczny i obejmuje warstwę obrazu zamkniętą po Etapie 3A oraz neutralne odczyty po `StructuredItemParts`. Kontroler przyjmuje `1..N` screenshotów tego samego tooltipa, uruchamia `OpenCvItemImageAssembler`, `HorizontalDividerDetector`, `ItemPartStructureNormalizer`, diagnostykę PART_1 oraz OCR pojedynczych `PropertyBlock` z PART_2/PART_3, ale nadal nie zapisuje itemu.
+Aktualny foundation importu obrazu obejmuje warstwę obrazu zamkniętą po Etapie 3A oraz neutralne odczyty po `StructuredItemParts`. Kontroler przyjmuje `1..N` screenshotów tego samego tooltipa, uruchamia `OpenCvItemImageAssembler`, `HorizontalDividerDetector`, `ItemPartStructureNormalizer`, odczyt PART_1 oraz OCR pojedynczych `PropertyBlock` z PART_2/PART_3, ale nadal nie zapisuje itemu.
 
 Kontrakt aktywnego pipeline'u obrazu:
 - wejściem jest `ItemImageImportRequest` z jednym albo wieloma screenshotami w kolejności od góry tooltipa do dołu,
 - Etap 1 składa screenshoty przez `OpenCvItemImageAssembler` do `AssembledItemImage`, zachowując diagnostykę panelu, contentu, overlapu, confidence i ewentualnego obrazu debug,
 - Etap 2A dzieli złożony obraz przez `HorizontalDividerDetector` na surowe `ItemImagePart[]`, zachowując diagnostykę dividerów, overlayu oraz wycinków części,
 - Etap 3A normalizuje wyłącznie kolejność i liczbę surowych części przez `ItemPartStructureNormalizer` do `StructuredItemParts`,
-- bieżący pipeline po `StructuredItemParts` ma diagnostyczny odczyt PART_1: raw Tess4J OCR per ROI, obrazowy detektor gwiazdek i neutralny `Part1ReadResult`; po zamkniętej segmentacji PART_2/PART_3 wykonuje też raw Tess4J OCR per `PropertyBlock` do neutralnego `PropertyBlockReadResult`; po tym punkcie nie ma domenowego parsera itemu, formularza potwierdzenia itemu, projekcji runtime ani automatycznego zapisu do biblioteki,
-- GUI importu pokazuje diagnostykę Etapów 1/2A/3A, błędy walidacji uploadu, błędy etapów obrazu, raw OCR PART_1, neutralny wynik odczytu PART_1 oraz raw OCR obok każdego `PropertyBlock`, ale nie pokazuje pól starego importu ani formularza zatwierdzenia,
+- bieżący pipeline po `StructuredItemParts` ma diagnostyczny odczyt PART_1: raw Tess4J OCR per ROI, obrazowy detektor gwiazdek i neutralny `Part1ReadResult`; po zamkniętej segmentacji PART_2/PART_3 wykonuje też raw Tess4J OCR per `PropertyBlock` do neutralnego `PropertyBlockReadResult`, klasyfikację do `PropertyBlockSemanticResult` oraz neutralny odczyt wartości do `PropertyBlockValueReadResult`; po tym punkcie `ImageItemImportDraftMapper` może zbudować edytowalny draft `ItemImportEditableForm`, ale nie tworzy `ValidatedImportedItem` ani nie zapisuje itemu,
+- GUI importu działa domyślnie w trybie produkcyjnym: przed uploadem pokazuje czysty formularz `Importuj item ze screena`, a po udanym odczycie przede wszystkim formularz `Weryfikacja itemu przed zapisem`; formularz używa istniejących kontrolek edycji itemu i wysyła `action=saveImportedItem` do `/biblioteka-itemow` dopiero po kliknięciu `Zapisz item`,
+- formularz `Weryfikacja itemu przed zapisem` dla uploadu obrazu działa w trybie `GAME_DISPLAYED_VALUE`: użytkownik edytuje wartości widoczne w grze na tooltipie, a backend przy submit przelicza je przez `DisplayedItemValueSourceNormalizer` do source values wymaganych przez zapis biblioteki i runtime Doskonalenia; dropdowny Przeistoczenia wskazujące istniejące ordinary affixy zachowują stabilny `affixRef`, ale etykiety w tym trybie pokazują te same displayed values co główny edytor affixów; zwykły edytor zapisanych itemów pozostaje w trybie `SOURCE_VALUE`,
+- przy submit w trybie `GAME_DISPLAYED_VALUE` jawnie przesłany przez użytkownika `perfectedAffix` ma pierwszeństwo przed auto-detekcją, o ile forward resolver odtwarza wartości widoczne w grze; dla `mythicUnique=true` ten forward-check ordinary affixów używa kontraktu `displayedValueAlreadyCurrent=true`, a auto-detekcja służy tylko do uzupełnienia braku wyboru,
+- niejednoznaczny `NUMERIC_OCR_AMBIGUOUS` w semantycznie rozpoznanym bloku nie usuwa danych z verification: jeśli jedna z alternatyw liczbowych literalnie występuje w raw OCR, importer zachowuje ją jako displayed candidate, dodaje review warning i pozwala użytkownikowi poprawić wartość przed zapisem; dotyczy to zwykłych affixów i affixów Przeistoczenia, np. mityczny `CRITICAL_STRIKE_CHANCE` bez pewnego `referenceValue` oraz `ALL_STATS`,
+- pełna diagnostyka Etapów 1/2A/3A, błędów etapów obrazu, raw OCR PART_1, neutralnego wyniku odczytu PART_1, raw OCR obok każdego `PropertyBlock`, klasyfikacji semantycznej, neutralnego odczytu wartości, technicznych warningów i obrazów debug jest renderowana tylko po ręcznym `?diagnostics=true`; ta flaga jest zachowywana w `action` formularza uploadu, żeby po POST nadal widzieć diagnostykę,
 - failure isolation pozostaje jawne: błąd Etapu 2A albo 3A nie usuwa diagnostyki wcześniejszego Etapu 1, a błąd Etapu 3A nie usuwa diagnostyki Etapu 2A.
 
 Usunięty kontrakt legacy:
 - stary runtime Windows OCR nie jest częścią aktywnego importu obrazu,
 - repo nie ma aktywnego `Windows.Media.Ocr`, mergera wariantów OCR, parsera tekstu starego importu, kandydatów OCR ani debug trace starego importu,
-- `ItemImportPageModel` nie przechowuje martwych pól starego OCR, statusów OCR ani formularza potwierdzenia importu; przechowuje tylko aktualną diagnostykę PART_1 oraz neutralną diagnostykę OCR `PropertyBlock`,
+- `ItemImportPageModel` nie przechowuje martwych pól starego OCR ani statusów OCR; przechowuje aktualną diagnostykę PART_1, neutralną diagnostykę `PropertyBlockReadResult` / `PropertyBlockSemanticResult` / `PropertyBlockValueReadResult` oraz opcjonalny draft formularza weryfikacji z listą pól wymagających sprawdzenia,
 - dalszy OCR może rozwijać tylko nową ścieżkę po `StructuredItemParts`; nie może reaktywować usuniętej ścieżki Windows OCR.
 
 Modele zapisanych itemów pozostają osobnym, ręcznym i kompatybilnym obszarem aplikacji:
-- `FullItemRead` jest utrwalanym opisem linii itemu używanym przez bibliotekę, edycję i starsze zapisane dane; aktywny upload obrazu nie tworzy dziś nowego `FullItemRead`,
+- `FullItemRead` jest utrwalanym opisem linii itemu używanym przez bibliotekę, edycję i starsze zapisane dane; aktywny upload obrazu buduje jego draft z odczytów neutralnych, zachowując raw linie `BASE_STAT`, `IMPLICIT`, `AFFIX`, `TEMPERING`, `ASPECT`, `SOCKET` oraz `OTHER` dla `TRANSFIGURATION` / `UNKNOWN` / `AMBIGUOUS`,
 - `ItemImportDetails` reprezentuje strukturalne dane itemu używane przez bibliotekę i edycję: `itemName`, `itemType`, `itemRarity`, `isAncient`, `equipmentSlot`, `itemPower`, pola broni, pancerz tarczy oraz opisowy `uniqueEffectText`,
 - `ImportedItemAffix` reprezentuje edytowalny affix zapisanego itemu jako strukturę: typ z katalogu, nazwa / etykieta, wartość, jednostka, `greaterAffix`, kolejność prezentacji, zachowaną linię źródłową, źródło `OCR`, `MANUAL` albo `CORRECTED`, kotwicę wizualną oraz stan wymagania potwierdzenia GA,
 - `ImportedItemAffixSource.OCR` pozostaje wartością pochodzenia danych dla starych zapisów i testów modelu; nie oznacza aktywnego runtime OCR w imporcie obrazu,
 - `AspectDefinition` i `AspectRegistry` reprezentują znane aspekty przez stabilne `id`, nazwę prezentacyjną, typ aspektu, status runtime, opis efektu, dozwolone sloty, opcjonalne klasy i tagi,
 - `ApplicationAspectRegistry` jest wspólnym punktem dostępu do katalogu aspektów dla ręcznej edycji, biblioteki i prezentacji zapisanych itemów,
 - finalnym źródłem prawdy aspektu zapisanego itemu jest `selectedAspectId`; zachowany tekst efektu pozostaje opisowy i nie aktywuje mnożnika DPS bez osobnego kontraktu runtime,
-- dane socketingu, hartowania, doskonalenia i przeistoczenia są przechowywane strukturalnie przy zapisanym itemie i pozostają runtime inactive, o ile README nie wskazuje osobnego aktywnego mostu runtime.
+- dane socketingu, hartowania, doskonalenia i przeistoczenia są przechowywane strukturalnie przy zapisanym itemie i pozostają runtime inactive, o ile README nie wskazuje osobnego aktywnego mostu runtime,
+- `mythicUnique=true` oznacza, że ordinary affixy i armor zapisane z tooltipa są traktowane jako wartości już aktualne niezależnie od tego, czy OCR dostarczył `referenceValue`; dla zwykłych legendary/non-mythic armor i ordinary affixy nadal są source values i przechodzą przez `MasterworkingResolvedItemValueResolver`.
 
 Minimalny zakres pól foundation mapowanych do runtime z zapisanych i zatwierdzonych itemów:
 - `slot / typ itemu`,
@@ -475,11 +650,11 @@ Minimalny zakres pól foundation mapowanych do runtime z zapisanych i zatwierdzo
 - `block chance`,
 - `retribution chance`.
 
-`weapon damage` w tej sekcji jest polem legacy / foundation i nie oznacza DPS broni. Dane broni zapisane w `ItemImportDetails` mogą być używane przez istniejące przepływy biblioteki/current build zgodnie z ich testami, ale aktywny import obrazu po Etapie 3A nie tworzy dziś nowego zatwierdzonego itemu.
+`weapon damage` w tej sekcji jest polem legacy / foundation i nie oznacza DPS broni. Draft importu obrazu dla `MAIN_HAND` ustawia legacy `weaponDamage` jako średnią z `weaponDamageMin/Max`, a nie jako `weaponDps`; dla innych slotów legacy `weaponDamage` pozostaje `0`. Dane broni zapisane w `ItemImportDetails` mogą być używane przez istniejące przepływy biblioteki/current build zgodnie z ich testami, ale aktywny upload obrazu sam nie tworzy zatwierdzonego itemu.
 
 Jawne ograniczenia aktualnego foundation importu obrazu:
 - flow nie obiecuje pełnej bezbłędności vision,
-- flow nie rozpoznaje tekstu itemu i nie mapuje nowych danych do `ItemImportDetails`, `FullItemRead`, affixów ani aspektów,
+- flow mapuje neutralne wyniki tylko do edytowalnego draftu `ItemImportEditableForm`; właściwy zapis nadal wymaga ręcznego potwierdzenia i przechodzi przez istniejącą ścieżkę `ItemImportEditableForm -> ItemImportFormMapper -> ValidatedImportedItem -> ItemLibraryService.saveImportedItem(...)`,
 - flow nie importuje całego ekwipunku ani całej postaci,
 - flow nie buduje pełnego wielo-itemowego workflow ani sesji inventory,
 - flow nie omija obecnego modelu current build i nie buduje bocznego modelu runtime.
@@ -512,7 +687,7 @@ Zapisany item może przechowywać potwierdzone hartowane affixy z katalogu harto
 
 Dane regresyjne zahartowanej tarczy zachowują nazwę `Miażdżąca Tarcza Kościanych Łusek`, hartowanie w dedykowanej sekcji, limit `1/1` oraz oczyszczony zakres aspektu. Ten kontrakt dotyczy zapisanych struktur i nie oznacza aktywnego parsera OCR w imporcie obrazu.
 
-Wieloscreenowy upload w aktywnym imporcie obrazu służy obecnie diagnostyce obrazu przewijanego tooltipa oraz neutralnym odczytom po `StructuredItemParts`. Formularz pozwala wybrać `1..N` screenshotów tego samego itemu w kolejności od góry do dołu, a bieżący kontroler składa obraz, wykrywa poziome dzielniki, normalizuje strukturę części, czyta PART_1 oraz wykonuje raw OCR na gotowych `PropertyBlock` z PART_2/PART_3. Usuwanie overlapu, linie UI-only, deduplikacja tekstu, rozpoznawanie aspektów, socketów, hartowania i zwykłych affixów nie są już wykonywane przez aktywny runtime importu obrazu; mogą wrócić tylko jako nowy etap po neutralnych read resultach.
+Wieloscreenowy upload w aktywnym imporcie obrazu służy obecnie diagnostyce obrazu przewijanego tooltipa oraz neutralnym odczytom po `StructuredItemParts`. Formularz pozwala wybrać `1..N` screenshotów tego samego itemu w kolejności od góry do dołu, a bieżący kontroler składa obraz, wykrywa poziome dzielniki, normalizuje strukturę części, czyta PART_1, wykonuje raw OCR na gotowych `PropertyBlock` z PART_2/PART_3, klasyfikuje je semantycznie oraz odczytuje neutralne wartości. Usuwanie overlapu, linie UI-only, deduplikacja tekstu i domenowy import itemu nie są wykonywane przez aktywny runtime importu obrazu; mogą wrócić tylko jako osobne etapy po neutralnych read resultach.
 
 Regresyjny przykład zapisanych danych wieloscreenowych to przeistoczona `Miażdżąca Tarcza Kościanych Łusek` z jakością `25/25`. Dla takiego itemu wartości zwykłych affixów i hartowania widoczne w tooltipie są wartościami finalnymi po Doskonaleniu, więc warstwa zapisu przechowuje source values: np. `+270 siły` trafia jako source `225` GA, odporności `+588/+945` jako `490/787` GA, `14,3% redukcji obrażeń` jako source `11,4`, a `+12 do maksymalnej liczby kumulacji Animuszu` jako source hartowania `defense_max_animus=5` GA z `perfectedAffix=TEMPERING_AFFIX:defense_max_animus`. Ten znany przypadek ma dokładnie 4 zwykłe affixy; warianty tekstowe typu `+388`, `+943`, `1181,3` albo `+1001 siły` są traktowane jako duplikaty/noise w regresjach danych, a nie dodatkowe affixy. Bonus `+96 do wszystkich współczynników` jest affixem Przeistoczenia `ALL_STATS` z `displayedValue=96` i `valueProvenance=GAME_DISPLAYED_VALUE`, nie zwykłym affixem itemu; wartość `96` jest brana lokalnie z frazy `+... do wszystkich współczynników`, więc wcześniejsze `14,3% redukcji obrażeń` ze sklejonej linii nie może nadpisać wartości Przeistoczenia. Przeistoczenie pozostaje runtime nieaktywne.
 
@@ -634,6 +809,8 @@ Etap `Doskonalenie 2B` dodaje wyłącznie prezentacyjne przeliczanie wartości i
 Etap `Doskonalenie 2C` podłącza finalne wartości po Doskonaleniu do current build / effective stats / runtime dla potwierdzonych wartości. Wspólna logika liczenia jest w `MasterworkingResolvedItemValueResolver`; `MasterworkingPresentationValueResolver` używa tej samej matematyki do UI, a agregacja aktywnych itemów używa jej do runtime. Zakres 2C obejmuje pancerz, `Siła`, `Odporność na Ogień`, `Odporność na wszystkie żywioły`, `Redukcja obrażeń` oraz hartowanie `defense_max_animus`. Nieznane affixy nie są zgadywane i pozostają przy wartości bazowej.
 
 W formularzu importu i edycji pole techniczne nadal przechowuje wartość źródłową itemu, np. `Siła = 225` albo hartowanie `defense_max_animus = +5`. Główna wartość widoczna przy affixie jest jednak finalną wartością po Doskonaleniu, np. `Siła 360`. Wartości źródłowe nie są pokazywane jako główne wartości w normalnym UI i nie nadpisują zapisu biblioteki. W bibliotece, current build, technical runtime input i kalkulacji główną wartością dla potwierdzonych statystyk jest aktualna wartość po Doskonaleniu. Normalny UI nie pokazuje też stale widocznego technicznego komunikatu `Runtime nadal używa zapisanej wartości +5` pod hartowaniem.
+
+Formularz `Weryfikacja itemu przed zapisem` działa w trybie `GAME_DISPLAYED_VALUE`: użytkownik edytuje wartości widoczne w grze, a backend normalizuje je do source values dopiero przy submit. Dotyczy to również dodawanego ponownie hartowania, np. `defense_max_animus` przy `25/25` i perfected affixie użytkownik wpisuje jako `+12`, nie jako source `+5`. Gdy zwykłe affixy albo hartowanie osiągną limit, kontrolki dodawania i szablony wierszy pozostają w DOM jako ukryte/wyłączone; po usunięciu wpisu UI odblokowuje dodanie poprawki przed pierwszym zapisem itemu. Odblokowanie limitu nie znosi reguł semantycznych pól: checkbox `Greater Affix` dla dodawanego hartowania pozostaje wyłączony, dopóki item nie ma mocy `900` i użytkownik nie wybierze konkretnej definicji hartowania.
 
 Szczegóły itemu, modal biblioteki, kompaktowa karta current build oraz summary wiersza biblioteki używają tych samych finalnych user-facing values. Normalny UI nie miesza chipów source contribution typu `+225 siły` albo `+5 max Animusz` z wartościami po Doskonaleniu. Source values mogą występować wyłącznie jako techniczne dane zapisu/edycji albo diagnostyka, a `Techniczne wejście runtime` pokazuje już resolved/effective values używane do obliczeń.
 
@@ -825,16 +1002,16 @@ Aktualny model bazowy:
 baseDamage = weaponDamage * skillDamagePercent / 100
 ```
 
-Aktualny model main stat dla obecnie zaimplementowanego zakresu paladinocentrycznego:
+Model main stat adaptera legacy Paladyna (bez zmiany reguł statystyk w N8A):
 
 ```text
 baseMainStat = 10 + (level - 1)
 itemMainStat = suma affixów STRENGTH
 totalMainStat = baseMainStat + itemMainStat
-mainStatMultiplier = 1 + (totalMainStat / 1000)
+mainStatMultiplier = 1 + (totalMainStat / 800)
 ```
 
-Aktualny model Intelligence używanej przez crit:
+Model Intelligence używanej przez crit w adapterze legacy Paladyna; neutralny kernel otrzymuje wyłącznie gotowy criticalMultiplier:
 
 ```text
 baseIntelligence = 7 + (level - 1)
@@ -849,12 +1026,14 @@ critDamageBonusTotal = 0.50 + critFromItems + critFromIntelligence
 critMultiplier = 1 + critDamageBonusTotal
 ```
 
-Aktualny model redukcji poziomu:
+Model redukcji poziomu w adapterze legacy Paladyna:
 
 ```text
 levelDamageReductionPercent = min(85, level + 25)
 levelDamageReduction = levelDamageReductionPercent / 100
 ```
+
+Istniejący wyjątek poziomu `70` pozostaje `levelDamageReduction=0.80`; pozostałe poziomy korzystają z powyższej reguły. Neutralny kernel nie otrzymuje poziomu, tylko rozwiązany `postMitigationMultiplier=1-levelDamageReduction`. N8A nie wdraża aktualizacji formuł klasowych Season 15.
 
 Aktualny model reactive foundation:
 
@@ -922,6 +1101,268 @@ Kolejność liczenia pojedynczego komponentu:
 - `DamageEngine` nadal liczy oba warianty hitu: zwykły `finalDamage` i krytyczny `criticalDamage`. Manual simulation nie zmienia tych wzorów; dla konkretnego aktywnego uderzenia wykonuje deterministyczny roll kryta z seedem symulacji i zapisuje w `SimulationStepTrace`: zwykłe obrażenia, krytyczne obrażenia, szansę kryta, roll, flagę `Kryt?` oraz `Zastosowane`.
 - W śladzie symulacji `Krok = Zastosowane + Opóźnione + Reaktywne`. `Łączne obrażenia` i symulowany `DPS` aktualnego buildu bazują na rzeczywiście zastosowanych bezpośrednich hitach po rollu kryta, a nie zawsze na zwykłym wariancie. Kroki bez aktywnego uderzenia zachowują dotychczasową semantykę opóźnionych i reaktywnych obrażeń.
 - Seed symulacji jest częścią `CurrentBuildRequest` / `HeroBuildSnapshot`; domyślnie wynosi `1`. Ten sam build, te same inputy i ten sam seed muszą dać identyczną sekwencję krytów i identyczny `stepTrace`. Testy mogą podać własną szansę kryta i seed bez używania `Math.random()`.
+
+### 5.5. N8A — neutralny direct-damage kernel
+
+`DirectDamageCalculator` oraz immutable `DirectDamageContext`, `DirectDamageComponentSpec`, `DirectDamageComponentResult` i `DirectDamageResult` w `krys.combat` wydzielają czystą matematykę direct hit. Dotychczasowe `DamageEngine.calculate(...)` i `calculateStandaloneHit(...)` zachowują publiczne API i wyniki. Current build, manual simulation i build search nadal korzystają z tego samego DamageEngine, który działa jako adapter legacy Paladyna:
+
+```mermaid
+flowchart TD
+    A[Legacy Paladin resolution] --> B[Rozwiązane mnożniki i komponenty]
+    B --> C[Neutralny DirectDamageCalculator]
+    C --> D[DirectDamageResult]
+    D --> E[Adapter do legacy DamageBreakdown]
+```
+
+Kontekst zawiera `averageWeaponDamage`, `weaponMultiplier`, `mainStatMultiplier`, `additiveMultiplier`, `vulnerableMultiplier`, `multiplicativeMultiplier`, `criticalMultiplier`, `postMitigationMultiplier` oraz matematyczną `criticalTotalRoundingPolicy`. Kernel nie zna klasy, statystyk po nazwie, HeroBuildSnapshot, SkillId, itemów, przysiąg, zasobów ani ticków. Dzielnik 800, Intelligence → crit damage, redukcja poziomu, Verathiel, Moloch, Wiara i Animusz pozostają regułami resolverów / symulacji legacy. Reactive damage zachowuje wcześniejszą implementację.
+
+Współczynnik komponentu ma typ `BigDecimal damagePercent`, z zachowaniem wartości 62.5% i 7.5%; legacy SkillDef i DamageComponentBreakdown nadal używają long. Sam pipeline liczy w dotychczasowej arytmetyce double i kolejności operacji; `*Exact` oznacza wartość **przed Math.round**, a nie obliczenia arbitralnej precyzji. Dla zgodności kolejność mnożeń zachowuje hitCount po criticalMultiplier. Total sumuje niezaokrąglone, aktywne komponenty single target, a potem zaokrągla sumę / sumę po mitigation. Debug komponentów nie jest sumowany jako wynik. Nieaktywny komponent ma zerowy damage; aktywny wykluczony z single target zachowuje swój damage w debugu.
+
+Domyślna polityka `EXACT_COMPONENT_SUM` zaokrągla dokładny total krytyczny. `ROUNDED_RAW_TOTAL` liczy kryt od zaokrąglonego raw totalu, a mitigation od zaokrąglonego raw kryta. Wybór polityki Brandish pozostaje w adapterze Paladyna. Kernel waliduje skończone, nieujemne wejścia i wyniki, `hitCount>0`, coefficient≥0 oraz postMitigation w [0,1]; broń o wartości 0 jest legalna. Wyniki i kolekcje są immutable.
+
+Nowe goldeny N8A obejmują 100%, decimal 62.5% →63 i 7.5% →8, hit count, wszystkie mnożniki, wykluczenia, nieaktywne komponenty, round po sumie, osobną politykę kryta, zerową broń oraz walidację / niezmienność. Test architektury kontroluje tylko pięć nowych klas kernelu; istniejące goldeny Paladyna i symulacji pozostają bez zmian. Katalogi nadal: Nekromanta 23/161, Book 3/9/27, Paladyn 24; HeroClass od N10 obejmuje PALADIN i NECROMANCER, SkillId nadal BRANDISH / HOLY_BOLT / CLASH / ADVANCE. Sam N8A pozostawił Nekromantę katalog-only; N8B dodaje standalone opisany poniżej, N10 profil/UI/persistence, a N11 Current Build direct hit. ZIP nie jest tworzony. Szczegóły historycznego N8A: [n8a-implementation-report.md](docs/necromancer/n8a-implementation-report.md).
+
+N9A dostarcza neutralną tożsamość runtime opisaną w sekcji 5.7; N9B dodaje konfigurację pojedynczego skilla opisaną w sekcji 5.8; N9C dodaje loadout/snapshot bridge opisany w sekcji 5.9. N10 dostarcza HeroClass.NECROMANCER oraz profil/UI/persistence opisane w sekcji 5.10. N11 — pierwszy end-to-end Current Build Nekromanty — opisuje sekcja 5.11. N8A dostarcza neutralną matematykę i zgodny adapter legacy; N8B korzysta z tego samego kernelu przez oddzielny resolver.
+
+### 5.6. N8B — standalone Krwotok R1, Season 15 / live 3.2.2
+
+`krys.necromancer.combat.NecromancerSeason15DirectDamageResolver.calculate(RuntimeSkillConfiguration configuration, profile)` wykonuje **wyłącznie `necromancer:krwotok`, rank 1, puste selections, bazowe trafienie single target** i zwraca neutralny `DirectDamageResult`. N9A zastąpiło String skillId kluczem; N9B zastępuje key+rank neutralną konfiguracją. Resolver sprawdza classId, skillId, rank i pustą mapę wyborów, więc odrzuca zarówno `paladin:krwotok`, jak i poprawne katalogowo upgrade'y Krwotoku. Każdy inny konstruowalny input kończy się `UnsupportedOperationException`, null configuration jawnym wyjątkiem; ujemna ranga jest odrzucana już przez neutralny model. Nie ma interpolacji 2..14 ani wykonania max-view rangi 15. Po sprawdzeniu konfiguracji współczynnik pochodzi z `NecromancerSkillTreeRegistry` → `CharacterTreeSkill.getBaseDamagePercentRanks().damagePercentAtRank(1)` → `BigDecimal` w `DirectDamageComponentSpec`. Resolver nie duplikuje stałej 80 ani nie zawęża BigDecimal do long. Komponent `Krwotok — bazowe trafienie` zachowuje źródło katalogu, hitCount=1, active=true i includedInSingleTarget=true, bez warunku i wykluczenia.
+
+```mermaid
+flowchart TD
+    P[LEGACY PALADIN RESOLVER — legacy formulas] --> K[DirectDamageCalculator]
+    N[NECROMANCER SEASON 15 STANDALONE RESOLVER — Season 15 direct-hit formulas] --> K
+    K --> R[DirectDamageResult]
+    R --> L[Legacy adapter Paladyna do DamageBreakdown]
+    R --> S[Standalone wynik N8B]
+```
+
+Wspólny kernel **nie oznacza wspólnego simulation runtime obu klas**. N8B nie przechodzi przez `DamageEngine` lub legacy `DamageBreakdown` / `DamageComponentBreakdown`. Pięć klas neutralnego kernelu pozostaje bez zmian względem N8A. N8B zachowało również cały `DamageEngine.java`; N9A centralizuje wyłącznie jego lookup tożsamości katalogowej przez legacy adapter. Paladyn zachowuje legacy divisor 800, Intelligence → crit, Verathiel, Moloch i wybór polityki zaokrąglania.
+
+Immutable `NecromancerSeason15DirectDamageProfile` zawiera dziewięć skończonych, nieujemnych wartości liczbowych oraz flagę celu:
+
+| Pole | Znaczenie |
+|---|---|
+| `averageWeaponDamage`, `intelligence` | Średnie obrażenia broni i INT |
+| `additiveDamagePercent` | Zsumowane aktywne zwykłe bonusy `[+]` |
+| `damageBucketPercent` | Suma właściwych All Damage / damage type / weapon gem multipliers |
+| `resolvedSeparateMultiplicativeMultiplier` | Gotowy iloczyn pozostałych aktywnych `[x]`, poza crit i Vulnerable |
+| `criticalStrikeDamageAdditivePercent` | `[+]` wyłącznie dla kryta |
+| `criticalStrikeDamageMultiplierPercent` | Osobny współczesny CSD `[x]` |
+| `vulnerableDamageAdditivePercent` | `[+]` wyłącznie przeciw Vulnerable |
+| `vulnerableDamageMultiplierPercent` | Osobny współczesny Vulnerable `[x]` |
+| `targetVulnerable` | Czy cel już ma Vulnerable |
+
+Procenty są punktami procentowymi, np. 300 oznacza +300%; separate multiplier jest iloczynem, np. 1.30. Profil otrzymuje już rozwiązane wartości, bez odczytu itemów, aspectów, gemów lub paragonów. Zerowa broń i zerowy separate multiplier są legalne.
+
+Reguły resolvera:
+
+```text
+mainStatMultiplier = 1 + intelligence * 0.001625
+A = 1 + additiveDamagePercent / 100
+    + (targetVulnerable ? vulnerableDamageAdditivePercent / 100 : 0)
+damageBucketMultiplier = 1 + damageBucketPercent / 100
+multiplicativeMultiplier = damageBucketMultiplier * resolvedSeparateMultiplicativeMultiplier
+vulnerableMultiplier = targetVulnerable ? 1.2 * (1 + vulnerableDamageMultiplierPercent / 100) : 1
+criticalAdditiveMultiplier = A + criticalStrikeDamageAdditivePercent / 100
+criticalMultiplier = (criticalAdditiveMultiplier / A) * 1.5 * (1 + criticalStrikeDamageMultiplierPercent / 100)
+```
+
+INT 0 / 100 / 1000 daje odpowiednio ×1 / ×1.1625 / ×2.625 i nie zwiększa crit damage. `A>=1`; krytyczne `[+]` nie zmienia zwykłego hitu, a oba bonusy Vulnerable są ignorowane przeciw zwykłemu celowi. Context otrzymuje weaponMultiplier=1, additiveMultiplier=A, postMitigationMultiplier=1 oraz `EXACT_COMPONENT_SUM`. Niezaokrąglone wartości nadal oznaczają wynik double przed `Math.round`.
+
+**Granica N8B: `PRE_TARGET_MITIGATION`.** Normal i crit są deterministycznymi wariantami obrażeń przed armor / enemy reduction. Ponieważ postMitigationMultiplier=1, rawDamage=finalDamage oraz rawCriticalDamage=criticalDamage. Nazwy neutralnego wyniku nie oznaczają wdrożenia redukcji celu. Nie liczymy szansy kryta, expected damage ani DPS. Nie wykonujemy Esencji, Lucky Hit, Blood Orb, Weaken, Overpower, upgrade'ów ani Book of the Dead. Status katalogu pozostaje `NEEDS_VERIFICATION`, a safety upgrade'ów pozostaje `NO`; wsparcie jednego hitu określa wyłącznie resolver N8B.
+
+Źródła zweryfikowano 08.10.2026 i rozdzielono według roli:
+
+- **OFFICIAL:** [Blizzard 3.2.1 — Season of Hell's Legacy](https://news.blizzard.com/en-us/article/24295394/celebrate-30-years-of-diablo-in-season-of-hell-s-legacy): scalar Nekromanty 1.25 → 1.625, czyli +1.625% damage / 10 INT. [Oficjalne 3.2.2](https://news.blizzard.com/en-us/article/24295395/diablo-iv-patch-notes) z 30.09.2026 nie wymienia zmian Nekromanty.
+- **COMMUNITY CURRENT MECHANICS REFERENCE:** [D4Guides — damage calculation, Season 15 / 3.2.2](https://d4guides.gg/en/guides/mechanics/damage-calculation-in-diablo-4-how-your-damage-works), aktualizacja 05.10.2026: buckets, base crit ×1.5, base Vulnerable ×1.2 i conditional `[+]`. To referencja społeczności, nie oficjalna dokumentacja Blizzarda.
+- **CATALOG:** [D4Guides — Hemorrhage](https://d4guides.gg/en/database/skills/hemorrhage): R1 80% Physical, profil 3.2.1 zachowany na live 3.2.2. N8B pobiera tę wartość z istniejącego registry, bez zmiany danych źródłowych.
+
+Goldeny z wejściem weapon=1000 / INT=1000: minimalny hit **2100 / 3150**, Vulnerable bez affixów **2520 / 3780**, pełne buckets (+300 additive, +40 damage bucket, separate ×1.30, +100 crit `[+]`, +60 CSD `[x]`, +25 Vulnerable `[x]`) **22932 / 68796**. Testy obejmują conditional buckets, trzy wartości INT, decimal 62.5% / 7.5% na poziomie helpera bez drugiego skilla runtime, odrzucanie innych skilli/rang i błędnych wejść oraz architekturę bez legacy/web/persistence. Wszystkie dotychczasowe goldeny i katalogi pozostają wymaganymi regresjami. Zakres i wyniki walidacji: [n8b-implementation-report.md](docs/necromancer/n8b-implementation-report.md).
+
+### 5.7. N9A — neutralna tożsamość runtime skilla
+
+Immutable record `krys.runtime.RuntimeSkillKey(String classId, String skillId)` opisuje wyłącznie tożsamość, z dwiema częściami typu String. Namespace klasy i id skilla muszą pasować do `[a-z0-9][a-z0-9_-]*`. Null powoduje `NullPointerException`, blank / uppercase / spacje / nielegalne znaki — `IllegalArgumentException`. Nie ma cichego trimowania, lower-case ani lookupu do katalogu. Syntaktycznie poprawny nieznany namespace/id jest legalną tożsamością; wsparcie wykonania określa konkretny resolver.
+
+`asExternalId()` zwraca stabilne `classId:skillId`, np. `paladin:wymach` i `necromancer:krwotok`. `parse(String)` wymaga dokładnie jednego separatora `:` oraz dwóch poprawnych, niepustych segmentów; zachodzi `key.equals(RuntimeSkillKey.parse(key.asExternalId()))`. Format jest kontraktem przyszłego użycia, bez zapisu do obecnego persistence. Record equality/hashCode uwzględniają obie części, więc `paladin:krwotok` i `necromancer:krwotok` są różnymi kluczami.
+
+`krys.runtime.legacy.LegacyPaladinRuntimeSkillKeyAdapter` ma jeden jawny switch oraz odwrotne wyszukiwanie oparte na tym samym mapowaniu:
+
+| Legacy SkillId | RuntimeSkillKey | Nazwa katalogowa |
+|---|---|---|
+| `BRANDISH` | `paladin:wymach` | Wymach |
+| `HOLY_BOLT` | `paladin:swiety_pocisk` | Święty Pocisk |
+| `CLASH` | `paladin:starcie` | Starcie |
+| `ADVANCE` | `paladin:natarcie` | Natarcie |
+
+`toRuntimeKey(SkillId)` i `toLegacySkillId(RuntimeSkillKey)` są bijekcją dla tych czterech wartości. Odwrotne API zwraca `Optional.empty()` dla innych kluczy, także złego namespace; null w obu kierunkach powoduje jawny wyjątek. Neutralny klucz zna tylko JDK; legacy adapter zna tylko JDK, klucz i SkillId. Nie używają HeroClass, PlayableClass, katalogu, rankingu, web ani persistence.
+
+```mermaid
+flowchart TD
+    L[LEGACY CURRENT BUILD — SkillId] -->|LegacyPaladinRuntimeSkillKeyAdapter przy odczycie katalogu| K[RuntimeSkillKey]
+    N[NECROMANCER N8B — necromancer:krwotok] --> K
+```
+
+N9A przełączyło N8B na typowany klucz, bez String overloadu; N9B następnie zastępuje key+rank konfiguracją z sekcji 5.8. Brak produkcyjnych callerów obu poprzednich API potwierdzono przeszukaniem repo. Lookup id po walidacji namespace nadal trafia do tego samego rejestru Nekromanty. Profil, matematyka, coefficient 80, goldeny 2100/3150, 2520/3780 i 22932/68796, decimal 62.5/7.5 oraz PRE_TARGET_MITIGATION pozostają bez zmian.
+
+Publiczne API `HeroSkillCatalogAdapter` pozostaje SkillId-based. Jego prywatny `findTreeSkill` korzysta z centralnego adaptera, następnie `PaladinSkillTreeRegistry.findSkill(key.skillId())`. Audyt znalazł takie samo mapowanie w helperach `DamageEngine.isBasicSkill` i `ManualSimulationService.findTreeSkill`; również delegują do tego samego adaptera, bez zmiany wzorów, kategorii ani przebiegu symulacji. Jedynym produkcyjnym właścicielem mapowania SkillId → techniczne id katalogowe jest legacy adapter. Nazwy, tree skill, wartości R1, wybory Starcia, efekty bazowe i HTML zachowują dotychczasowe działanie.
+
+**RuntimeSkillKey jest neutralną identity; SkillState nadal jest legacy Paladin state.** Sam N9A nie migrował assigned skills, loadoutu, formularzy, requestów, snapshotów, trace, search ani persistence. Aktualnie N9C dostarcza canonical loadout request/snapshot, a N10 canonical profil i neutralny format plikowy; SkillId pozostaje readerem kompatybilności starych profili Paladyna. HeroClass obejmuje PALADIN i NECROMANCER, SkillId nadal cztery legacy wartości. N9A nie podłączył Nekromanty do current build ani nie rozszerzył wykonania poza Krwotok R1. Katalogi pozostają 23/161, Book 3/9/27 i Paladyn 24. Nie wykonujemy upgrade'ów/Book; ZIP nie jest tworzony.
+
+Testy obejmują strict validation / parse / round-trip / equality, cztery exact mappings i bijekcję, zgodność z katalogiem, izolację architektury, jeden właściciel mapowania, brak String overloadu, rejection złego namespace/skilla/rangi, wszystkie dotychczasowe goldeny N8B i Paladyna oraz niezmienioną prezentację czterech legacy skilli. Goldeny prezentacji pochodzą z sondy starego adaptera na tym samym katalogu. Szczegóły zakresu i walidacji: [n9a-implementation-report.md](docs/necromancer/n9a-implementation-report.md). Raport N8B pozostaje historycznym zapisem poprzedniego etapu.
+
+### 5.8. N9B — neutralna konfiguracja pojedynczego skilla
+
+`RuntimeSkillKey` oznacza identity. Immutable record `RuntimeSkillConfiguration(RuntimeSkillKey skillKey, int rank, Map<String,String> selections)` oznacza neutralny stan pojedynczego skilla. `SkillState` nadal jest legacy Paladin runtime state, a `HeroSkillLoadout` nadal legacy loadout. N9B dodaje bridge do SkillState, bez migracji loadoutu, snapshotu, formularzy, UI, search ani persistence.
+
+Invarianty konfiguracji: key/map non-null, rank>=0 bez neutralnego górnego limitu, brak null key/value w mapie, slot i option zgodne z `[a-z0-9][a-z0-9_-]*`, bez normalizacji. `Map.copyOf` zapewnia defensive immutable copy; record equality/hashCode obejmują key, rank i całą mapę. Rank 0 wymaga pustej mapy. `isLearned()` oznacza rank>0; `selectedOption(slot)` zwraca Optional. Brak wyboru oznacza brak wpisu, bez neutralnego sentinel NONE. Model nie interpretuje slotów/option i nie ma parse, external id ani codec konfiguracji.
+
+```mermaid
+flowchart TD
+    L[LEGACY PALADIN — SkillState] <-->|LegacyPaladinRuntimeSkillConfigurationAdapter| C[RuntimeSkillConfiguration]
+    C --> K[RuntimeSkillKey]
+    N[NECROMANCER — catalog tree selections] --> C
+    C --> V[Necromancer catalog configuration validator]
+    C -->|tylko necromancer:krwotok, rank 1, selections empty| D[N8B base Krwotok R1]
+```
+
+`krys.necromancer.runtime.NecromancerRuntimeSkillConfigurationValidator.validate(configuration)` wymaga namespace necromancer, istniejącego id z NecromancerSkillTreeRegistry oraz rank 0..DamagePercentRankTable.MAX_RANK (obecnie 15). Każdy slot musi odpowiadać SkillUpgradeGroup.getId(), a option musi wystąpić w tej dokładnej grupie. Cross-group wybory są odrzucane. Mapa zapewnia najwyżej jeden wybór na slot; zero, częściowe i wszystkie grupy są legalne, bez wymogu poprzednich grup / wydawania skill points. Validator nie wymaga znanego damage coefficient dla danej rangi i nie zmienia statusów danych.
+
+**Catalog-valid configuration != runtime-supported configuration.** Wszystkie 23 skille są strukturalnie reprezentowalne na rank 1 bez wyborów i z pierwszym upgradem każdej grupy. Konfiguracja Kościanych Odłamków lub Krwotoku z legalnymi wyborami przechodzi validator, ale N8B ją odrzuca. N8B sprawdza pustą mapę, zamiast ignorować wybory i zwracać wynik bazowy jako wynik skonfigurowanego skilla. Nie wykonuje upgrade'ów, zasobów ani Book.
+
+`LegacyPaladinRuntimeSkillConfigurationAdapter` zachowuje niezależnie wszystkie osiem pól SkillState. Prywatne sloty adaptera:
+
+| Pole legacy | Slot / wartość konfiguracji |
+|---|---|
+| skillId | skillKey z LegacyPaladinRuntimeSkillKeyAdapter |
+| rank | rank bez zmiany |
+| baseUpgrade=true | `legacy_base_upgrade=enabled` |
+| choiceUpgrade != NONE | `legacy_choice_upgrade=left/middle/right` — enum name lowercase ROOT |
+| runtimeModifierChoice != NONE | `legacy_runtime_modifier=animus` — enum name lowercase ROOT |
+| choiceGroup1/2/3 != NO_TREE_CHOICE | `grupa_1/2/3=<dokładna wartość pola>` |
+
+Brak flagi / NONE nie tworzy wpisu. Reverse dla nieznanej legacy identity zwraca Optional.empty(); dla czterech znanych kluczy odrzuca nieznane sloty, niepoprawne reserved values i explicit `none` zamiast braku wyboru. Brak slotów odtwarza false / NONE / NO_TREE_CHOICE. Konstruowany jest istniejący SkillState, który rozstrzyga legalność legacy kombinacji, w tym rank 0..5. Adapter nie zna katalogów ani znaczenia grup i nie usuwa współistniejących informacji Starcia.
+
+Round-trip legacy → config → legacy porównuje wszystkie osiem pól, w tym CLASH z runtime ANIMUS + grupa_1=generowanie_wiary oraz choice LEFT + grupa_3=potyczka. Oba niezależne fakty pozostają zachowane. Syntaktycznie poprawne niestandardowe id grupowe są zachowywane bez lookupu; niepoprawna składnia w polu starego SkillState powoduje jawny wyjątek neutralnego modelu, bez cichego trim/lowercase ani utraty danych.
+
+Architektura: konfiguracja zna tylko RuntimeSkillKey/JDK; legacy bridge tylko modele runtime/SkillState/enums/JDK; validator tylko konfigurację, istniejący registry Nekromanty, potrzebne neutralne skilltree types i JDK. Nie przenosimy CharacterSkillTreeRegistry z rankingu ani nie tworzymy registry runtime. Na etapie N9B DamageEngine, pięć plików kernelu, SkillState, HeroAssignedSkill/Loadout, current build, snapshot, simulation, search i persistence pozostały bez zmian względem N9A; N9C zmienia transport skilli opisany poniżej, a N10 profil/web/persistence. Katalogi: Necro 23/161, Book 3/9/27, Paladyn 24; Krwotok nadal 80/204, Lucky Hit 50, Esencja 13, siedem upgrade'ów 2+2+3. HeroClass od N10 obejmuje PALADIN i NECROMANCER, SkillId nadal cztery legacy wartości. ZIP nie jest tworzony.
+
+N9A identity, N9B single-skill configuration i N9C loadout/snapshot bridge są CLOSED. N10 HeroClass.NECROMANCER + profil/UI/persistence opisuje sekcja 5.10; N11 pierwszy end-to-end Current Build Nekromanty opisuje sekcja 5.11. Szczegóły i wyniki walidacji N9B: [n9b-implementation-report.md](docs/necromancer/n9b-implementation-report.md). Opisy i raporty wcześniejszych etapów dokumentują ich ówczesny zakres; aktualne wykonanie określa N11.
+
+### 5.9. N9C — neutralny loadout w transporcie request/snapshot
+
+Immutable record `RuntimeSkillLoadout(String classId, Map<RuntimeSkillKey,RuntimeSkillConfiguration> configurations, List<RuntimeSkillKey> actionBar)` jest payloadem skilli runtime/snapshotu. Osobny classId pozwala reprezentować pusty Paladin, pusty Necromancer i dowolny inny syntaktycznie poprawny namespace. Webowy `HeroSkillLoadout` nadal jest oddzielnym, legacy modelem edytora profilu.
+
+Invarianty: classId non-null i `[a-z0-9][a-z0-9_-]*` bez trim/lowercase; map/list non-null, defensive immutable copy, brak null keys/configurations/bar entries. Klucz mapy musi być równy configuration.skillKey(), a wszystkie klucze muszą należeć do classId loadoutu. Configuration rank 0 pozostaje legalna w mapie, ale nie na pasku. Pasek zachowuje kolejność, odrzuca duplikaty oraz wymaga dla każdego klucza istniejącej konfiguracji z isLearned()==true. Nie ma neutralnego limitu 6; test dopuszcza siedem nauczonych technicznych keys. Nie ma deduplikacji, usuwania błędnych wpisów, parsera ani formatu persistence w neutralnym modelu. Lookup: configuration(key), contains(key), isOnActionBar(key); equality/hashCode obejmują classId, mapę i uporządkowaną listę.
+
+`LegacyPaladinRuntimeSkillLoadoutAdapter.toRuntimeLoadout(Map<SkillId,SkillState>, List<SkillId>)` tworzy classId=paladin. Klucz mapy musi odpowiadać SkillState.skillId, bez naprawiania mismatchu. Konfiguracje delegują do bridge'a N9B, klucze paska do adaptera N9A. Na tej granicy zachowano historyczne null map/list → empty oraz deduplikację przez LinkedHashSet z kolejnością pierwszego wystąpienia. Null wpisy, brak skilla paska i rank 0 na pasku są odrzucane. Przeszukanie builderów i testów nie wykazało legalnego mismatchu map key/state id.
+
+`toLegacyView(loadout)` zwraca Optional.empty dla innej klasy; dla paladin odtwarza immutable LegacyView(Map<SkillId,SkillState> learnedSkills, List<SkillId> actionBar). Każda konfiguracja i klucz paska muszą mieć legacy odpowiednik, inaczej jawny IllegalArgumentException; nie ma pomijania wpisów. Mapa widoku zachowuje dotychczasowy porządek EnumMap. Round-trip czterech skilli porównuje wszystkie osiem pól SkillState, w tym współistniejące ANIMUS + grupa_1=generowanie_wiary oraz LEFT + grupa_3=potyczka; nic nie jest upraszczane.
+
+`CurrentBuildRequest` i `HeroBuildSnapshot` mają po jednym final RuntimeSkillLoadout jako źródło prawdy, bez drugiej przechowywanej mapy/listy legacy. Oba udostępniają getRuntimeSkillLoadout(). Wszystkie siedem publicznych konstruktorów requestu i sześć starych konstruktorów snapshotu zachowano. Request nadal waliduje staty, zasoby, kryt i nauczone skille przed adaptacją; defaulty, null collections i deduplikacja pozostają. GetLearnedSkills/getActionBar requestu oraz getLearnedSkills/getSelectedSkillBar/getSkillState(SkillId) snapshotu korzystają z adaptera. Widoki są immutable; SkillState jest odtwarzany z konfiguracji, więc zgodność dotyczy ośmiu pól, nie tożsamości obiektu starego stanu.
+
+withActiveAspectIds i withCriticalChancePercent używają prywatnej kopii requestu i zachowują dokładnie ten sam obiekt loadoutu, bez round-tripu przez SkillId. Test sprawdza assertSame oraz wszystkie pozostałe niezmieniane pola. Nie dodano publicznego request constructor z RuntimeSkillLoadout. Snapshot ma jeden nowy publiczny constructor z loadoutem i wszystkimi pozostałymi polami; zachowuje ich semantykę, wymaga non-null loadoutu i nie konwertuje go do legacy podczas konstrukcji. Dla payloadu spoza paladin legacy gettery snapshotu rzucają jawny UnsupportedOperationException, zamiast zwracać pusty widok. To granica zgodności, nie wsparcie nowej klasy w simulation.
+
+```mermaid
+flowchart TD
+    W[LEGACY WEB / FORM — SkillId + SkillState] -->|legacy loadout adapter| R[CurrentBuildRequest — RuntimeSkillLoadout]
+    R --> F[CurrentBuildSnapshotFactory]
+    F --> S[HeroBuildSnapshot — ten sam RuntimeSkillLoadout]
+    S -->|compatibility legacy view| M[ManualSimulationService — SkillId + SkillState]
+    N[N10 — PROFIL NECROMANCER] --> L[RuntimeSkillLoadout necromancer]
+    L -.-> C[Przyszły class-aware Current Build]
+```
+
+Factory przenosi request.getRuntimeSkillLoadout() bez odczytu getLearnedSkills/getActionBar i bez powrotu do SkillId; test sprawdza źródło factory oraz assertSame request/snapshot. Neutralny jest **tylko skill payload**. Hero, baseline kryta, Przysięga i Animusz pozostają elementami obecnego Paladyna; snapshot nie jest jeszcze w pełni class-neutral.
+
+W samym N9C ManualSimulationService, DamageEngine, kernel, N8B resolver/profile, web HeroAssignedSkill/Loadout/Profile/Service, formularze, renderery, CLI, search i persistence pozostały bez zmian względem N9B. N10 zmienia profil/web/persistence zgodnie z sekcją 5.10. N8B nadal przyjmuje pojedynczą RuntimeSkillConfiguration, wykonuje wyłącznie bazowy Krwotok R1 bez selections i zachowuje 2100/3150, 2520/3780, 22932/68796 oraz decimal 62.5/7.5. Katalogi nadal 23/161, Book 3/9/27 i Paladyn 24; w N9C HeroClass miał tylko PALADIN, od N10 obejmuje też NECROMANCER. SkillId nadal BRANDISH/HOLY_BOLT/CLASH/ADVANCE. Nie wykonujemy upgrade'ów Necro, Book ani Esencji; ZIP nie jest tworzony.
+
+Architektura nowych typów: loadout zna tylko RuntimeSkillKey/RuntimeSkillConfiguration/JDK, adapter tylko runtime models, legacy state/adapters i JDK. Testy kontrolują te zależności, jedno kanoniczne pole, neutralny transport factory i brak nowego publicznego request API. N9C wdraża loadout/snapshot bridge; N10 profil/UI opisuje następna sekcja, a N11 end-to-end Current Build Nekromanty sekcja 5.11. Szczegóły i wyniki: [n9c-implementation-report.md](docs/necromancer/n9c-implementation-report.md).
+
+Historyczny fixture regresji WAIT zawierał HOLY_BOLT na pasku bez SkillState w mapie. Zastąpiono go legalnym learned HOLY_BOLT R1 na tym samym pasku; aktywny istniejący Verathiel, Wiara 0 i regeneracja 0 blokują rzut przez wszystkie trzy ticki. Regresja nadal sprawdza WAIT, damage 0 i brak hitów; trace pokazuje nauczony skill bez wymaganego zasobu. Osobne testy na granicach loadout/legacy adapter/snapshot odrzucają HOLY_BOLT bez konfiguracji oraz rank 0 na pasku. Nie ma silent repair, automatycznego SkillState ani podnoszenia rangi; ManualSimulationService pozostaje bez zmian.
+
+### 5.10. N10 — profil Nekromanty, UI i neutralny zapis
+
+`HeroClass` zawiera `PALADIN("paladin", "Paladyn")` i `NECROMANCER("necromancer", "Nekromanta")`. Generic UI korzysta z `getDisplayName()`, a namespace profilu z `getTechnicalId()`. Neutralne modele runtime nie zależą od tego enumu. `HeroClassDefs` pozostaje wyłącznie rejestrem legacy runtime Paladyna: brak definicji Nekromanty jest celowy, a `HeroClassStatBaselines.find(NECROMANCER, 70)` zwraca empty. Nie dodajemy fikcyjnego mainStatDivisor ani niezweryfikowanych bazowych statów. N11 podłącza Season 15 osobną ścieżką.
+
+`HeroProfile` przechowuje heroId, name, HeroClass, currentBuildQuery, HeroItemSelection oraz dokładnie jeden canonical `RuntimeSkillLoadout`. Konstruktor wymaga `runtimeSkillLoadout.classId() == heroClass.getTechnicalId()`; mismatch jest jawnie odrzucany. Stare konstruktory z `HeroSkillLoadout` działają wyłącznie dla Paladyna przez `LegacyPaladinHeroSkillLoadoutAdapter`. Compatibility getter `getSkillLoadout()` odtwarza widok Paladyna; dla Nekromanty rzuca `UnsupportedOperationException`. Nie istnieje druga przechowywana mapa/lista legacy.
+
+Adapter webowy konwertuje osiem pól `HeroAssignedSkill` do istniejącego `SkillState`, następnie deleguje do mostu N9C/N9B/N9A. Powrót odtwarza wszystkie osiem pól i kolejność paska. Zachowane są niezależne fakty CLASH: ANIMUS + grupa_1=generowanie_wiary oraz LEFT + grupa_3=potyczka. Rank 0 jest zachowany jako konfiguracja poza paskiem. `HeroAssignedSkill` i wnętrze `HeroSkillLoadout` pozostają legacy; nie dodano SkillId ani HeroAssignedSkill Nekromanty.
+
+Nowy Paladyn otrzymuje dokładnie stan `HeroSkillLoadout.fromCurrentBuildFormData(default form)`. Obecny default formularza zawiera ADVANCE R5, base upgrade i RIGHT na pasku; legalne przypisane ADVANCE R0 poza paskiem również pozostaje bez zmian. Nowy Nekromanta otrzymuje `RuntimeSkillLoadout("necromancer", Map.of(), List.of())`, pusty wybór itemów i poziom 1..70. Pierwszy profil zostaje aktywny. `/bohaterowie` generuje klasy z enumu, obsługuje tworzenie, aktywację, usuwanie i edycję nazwy/poziomu. Klasa jest immutable i nie jest polem formularza edycji; przesłana ręcznie klasa jest ignorowana. `updateHeroDetails` i `updateActiveHeroLevel` zmieniają level w query, zachowując pozostałe pola, neutralny loadout i item selection. Legacy metody edycji skilli/buildu w HeroService odrzucają Nekromantę czytelnym wyjątkiem.
+
+`currentBuildQuery` zachowuje poziom i wcześniejsze pola profilu. Dla Paladyna `getCurrentBuildFormData()` nadal aplikuje legacy widok skilli na bazowy formularz. Dla Nekromanty getter kompatybilności tylko odczytuje bazowy query; techniczne pola Paladyna pozostają nieaktywne. N11 korzysta z osobnego `NecromancerCurrentBuildFormData` i odczytu poziomu z query, bez mappera Paladyna.
+
+`RuntimeSkillLoadoutCodec` w warstwie web/persistence zapisuje siódme pole rekordu HERO jako Base64 URL bez paddingu. Po dekodowaniu format ma postać `runtime-v1~classId~configurations~actionBar`. Konfiguracja to `classId:skillId@rank@slot=option,slot=option`, wpisy rozdziela `;`, a pasek zawiera external ids rozdzielone `,`. Konfiguracje są sortowane po external id, selections po slot id; pasek zachowuje kolejność. Przykład pustego profilu: `runtime-v1~necromancer~~`. Nie ma Map.toString/record.toString ani serializacji w neutralnych modelach. Każdy nowy zapis obu klas używa tego formatu.
+
+Reader nadal obsługuje historyczne rekordy Paladyna: sześć pól odtwarza loadout z query, siedem pól czyta legacy wpisy 4/5/8-polowe i deleguje do adapterów. Ponowny zapis migruje do runtime-v1. Historyczne formaty nie są interpretowane jako Nekromanta. Nowy reader zachowuje dowolną neutralną konfigurację, również techniczny Krwotok R1 z paskiem lub selections z katalogu, ale persistence nie włącza runtime. Uszkodzone wpisy, powtórzone konfiguracje/sloty, nieznane wersje, mismatch klasy oraz brak konfiguracji/rank 0 na pasku są jawnie odrzucane. Brak silent repair.
+
+`CurrentBuildRuntimeSupport.isSupported` pozostaje Paladin-only guardem legacy UI i Search. Current Build rozdziela `LEGACY_PALADIN` i `NECROMANCER_DIRECT_HIT` przez `CurrentBuildRuntimeMode`. GET/POST Nekromanty zwracają HTTP 200 i dedykowane UI N11 opisane niżej; model nie odtwarza legacy loadoutu, zwraca puste assigned/eligible IDs i null budget. Zmiana aktywnego bohatera działa w obu kierunkach. `/znajdz-najlepszy-build` oraz POST szczegółów nadal zwracają komunikat braku obsługi dla Nekromanty bez mappera i usług search/calculation. Paladyn zachowuje istniejący HTML i przebieg obliczeń.
+
+```mermaid
+flowchart TD
+    H[HeroClass — PALADIN / NECROMANCER] --> P[HeroProfile — RuntimeSkillLoadout]
+    P --> A[Paladin legacy web adapter]
+    P --> N[Necromancer — pusty lub techniczny stan profilu]
+    A --> C[PALADIN — istniejący Current Build i search]
+    N --> U[Profil / UI / persistence gotowe]
+    U --> F[N11 — end-to-end Current Build Krwotoku R1]
+    U --> G[Search Nekromanty — brak obsługi runtime]
+```
+
+DamageEngine, ManualSimulationService, pięć plików kernelu, N8B resolver/profile, invarianty RuntimeSkillLoadout i transport request/snapshot N9C pozostają bez zmian. Dane katalogów nadal 23/161, Book 3/9/27, Paladyn 24; SkillId zawiera tylko cztery wartości legacy. Nie dodano Book selection, Esencji, Lucky Hit, Blood Orb ani wykonania upgrade'ów Nekromanty. N10 nie podłącza standalone N8B do UI i nie tworzy ZIP-a. Testy pokrywają metadata, bridge, profil, serwis, codec, legacy migrację, SSR/create/edit/restart i obie granice obliczeń. Wyniki walidacji i lista plików: [n10-implementation-report.md](docs/necromancer/n10-implementation-report.md).
+
+### 5.11. N11 — pierwszy grywalny Current Build Nekromanty
+
+**FIRST PLAYABLE NECROMANCER CURRENT BUILD.** Pełna obsługa profilu: tak. Pierwszy direct-hit Current Build: tak. Pełny runtime Nekromanty: nie. Baseline Season 15 / live 3.2.2 i matematykę określa niezmieniony resolver N8B; N11 dodaje wyłącznie integrację nad nim.
+
+```mermaid
+flowchart TD
+    H[HeroProfile NECROMANCER] --> L[RuntimeSkillLoadout]
+    L --> S[necromancer:krwotok R1]
+    H --> I[HeroItemSelection]
+    I --> W[Average weapon damage]
+    I --> A[Intelligence contribution po mapperze i Masterworkingu]
+    H --> N[Non-item Intelligence z query]
+    S --> C[NecromancerCurrentBuildCalculationService]
+    W --> C
+    A --> C
+    N --> C
+    C --> R[NecromancerSeason15DirectDamageResolver]
+    R --> K[DirectDamageCalculator]
+    K --> D[Normal / critical PRE_TARGET_MITIGATION]
+```
+
+`NecromancerCurrentBuildCalculationService.calculate(loadout, profile)` pobiera `necromancer:krwotok` z `configurations`, wymaga namespace `necromancer`, obecności konfiguracji i obecności na pasku. N8B odrzuca rank inny niż 1 i niepuste selections. Nie wykonujemy innych konfiguracji, ale zachowujemy je i kolejność ich paska. `NecromancerCurrentBuildCalculation` przechowuje konfigurację, profil i `DirectDamageResult`; nie powstaje request, snapshot ani wynik symulacji Paladyna. Warstwa aplikacyjna zna tylko neutralne modele runtime, typy N8B, neutralny wynik oraz JDK.
+
+Osobny formularz ma `selectedSkillId` pusty/NONE lub `krwotok`, `nonItemIntelligence` (blank → 0, skończona liczba ≥0) i boolean `targetVulnerable`. Rank jest stały: 1; edycja rang, selections, surowe SkillId i pola legacy są odrzucane. Wybranie Krwotoku w pustym loadoucie tworzy R1 bez wyborów i dodaje go na pasek. Usunięcie usuwa tylko Krwotok. Istniejąca konfiguracja nie jest resetowana: upgrade'y, rank 0/2 i brak na pasku nie są cicho naprawiane. UI ostrzega o zapisanych upgrade'ach, a calculate zwraca czytelny błąd.
+
+`NecromancerCurrentBuildFormQuerySupport` nadpisuje tylko `necromancerNonItemIntelligence` i `necromancerTargetVulnerable`, zachowując wszystkie pozostałe pola query. Wyboru skilla nie zapisuje w query: GET odtwarza go wyłącznie z kanonicznego loadoutu. Parametry GET nie zmieniają stanu Nekromanty. Neutralne `HeroProfile.withRuntimeSkillLoadout`, `withCurrentBuildRuntimeState` i `HeroService.saveActiveHeroRuntimeState` wymagają zgodnej klasy, bez interpretacji SkillId. Zapis obu klas nadal używa niezmienionego `runtime-v1`; historyczne formaty Paladyna pozostają czytelne.
+
+Wkład itemów pochodzi z `ItemLibraryService.resolveEffectiveCurrentBuild` z zerową ręczną bazą i aktywnym `HeroItemSelection`, poprzez istniejące mapowanie affixów i Masterworking. Wspólny `CurrentBuildWeaponDamageResolver` wybiera dodatnie `CurrentHeroActiveItemStats.averageWeaponDamage`, następnie dodatnie `activeItemsContribution.weaponDamage`, w przeciwnym razie 0. Paladyn zachowuje tę samą regułę. N11 odrzuca brak dodatniej broni komunikatem „Wybierz aktywną broń z poprawnymi średnimi obrażeniami.”; nie podstawia 1, DPS, min/max ani foundation weapon damage.
+
+```text
+itemIntelligence = resolution.activeItemsContribution.intelligence
+effectiveIntelligence = nonItemIntelligence + itemIntelligence
+profile = NecromancerSeason15DirectDamageProfile(
+    resolvedAverageWeaponDamage, effectiveIntelligence,
+    0, 0, 1, 0, 0, 0, 0, targetVulnerable)
+```
+
+Non-item Intelligence obejmuje wszystkie źródła spoza aktywnych itemów biblioteki, np. stan postaci i Paragon; nie jest zgadywaną bazową statystyką klasy. Legacy `CurrentBuildFormData.intelligence` nie jest dodawana. Wszystkie niewspierane procentowe buckets wynoszą 0, separate multiplier 1. Vulnerable ma ×1 lub bazowe ×1.2 N8B. Inne affixy pozostają danymi itemów i nie wchodzą do wyniku N11, włącznie z Critical Strike Chance.
+
+GET pokazuje kontekst bohatera, Krwotok R1, oba wejścia i ten sam paper-doll ekwipunku co Paladyn, bez obliczenia i bez `CurrentHeroStatsPresentation.from`. POST calculate używa danych transient i aktywnych itemów, bez zapisu query/loadoutu/wyborów globalnych. Istniejący slotAction natychmiast ustawia/czyści item i zachowuje transient formularz bez zapisu jego kontekstu. POST save waliduje cały formularz, loadout i zgodność wszystkich wybranych itemów przed jednym zapisem profilu; można zapisać stan bez skilla lub broni. Wyświetla „Zapisano konfigurację Nekromanty.”, bez wymagania obliczenia. Błędny zapis nie zmienia żadnego slotu. GET po restarcie odzyskuje skill, INT, Vulnerable i itemy. Inline przełączenie bohatera korzysta z istniejącej akcji dla obu klas.
+
+SSR ma nagłówek **„N11 — bazowy direct hit Krwotoku R1”** i jawny zakres **PRE_TARGET_MITIGATION**. Wynik pokazuje skill/rank, coefficient z komponentu katalogowego, średnie obrażenia broni, non-item/item/effective INT, mnożniki main stat i Vulnerable z context oraz `finalDamage` i `criticalDamage`. Help wskazuje niewykonywane upgrade'y, Blood Orb, Essence, Lucky Hit, Overpower, Book of the Dead, enemy mitigation, Critical Strike Chance / expected damage, pozostałe affixy damage i DPS/symulację. Nie wdrażamy pozostałych 22 skilli, interpolacji rang 2..14 ani max-view R15.
+
+| Golden HTTP Current Build | Wejście | Normal / critical |
+|---|---|---|
+| A | Broń 1000, non-item INT 1000, item INT 0 | 2100 / 3150 |
+| B | Jak A, cel Vulnerable | 2520 / 3780 |
+| C | Broń 1000, non-item INT 900, efektywna item INT 100 z mappera | 2100 / 3150 |
+| Masterworking | Efektywny wkład odczytany z rzeczywistego mappera; non-item dopełnia INT do goldena 1000 | 2100 / 3150 |
+
+Regresje HTTP potwierdzają brak wyniku dla braku broni/skilla i persisted upgrade'ów, brak naprawiania ranków/paska, brak mutacji calculate/błędnego save, zachowanie innych konfiguracji, pełny save/restart i granicę legacy z null mapperem/usługą Paladyna. Dotychczasowe oczekiwane obrażenia Paladyna i N8B pozostają bez zmian; Search Nekromanty nadal unsupported. DamageEngine, ManualSimulationService, pięć plików kernelu, resolver/profile N8B, modele runtime, codec i katalogi nie zmieniają się w N11. Nekromanta 23/161, Book 3/9/27, Paladyn 24, cztery legacy SkillId. Brak fake HeroClassDef/baseline i ZIP-a. Lista plików, pełna walidacja i raport: [n11-implementation-report.md](docs/necromancer/n11-implementation-report.md).
 
 ## 6. Statusy i zasady targetowania
 ### 6.1. Single target
@@ -1209,7 +1650,7 @@ Repo implementuje działające webowe GUI SSR i CLI dla flow `Policz aktualny bu
 - główną ścieżkę użytkownika opartą o `CurrentBuildRequest`, a nie o testowy snapshot,
 - wspólną usługę aplikacyjną `CurrentBuildCalculationService` dla GUI i CLI,
 - wspólną fabrykę runtime `CurrentBuildSnapshotFactory` budującą `HeroBuildSnapshot`,
-- osobny diagnostyczny input flow obrazu `ItemImageImportRequest -> OpenCvItemImageAssembler -> AssembledItemImage -> HorizontalDividerDetector -> ItemImagePart[] -> ItemPartStructureNormalizer -> StructuredItemParts -> PART_1 ROI -> Part1ReadResult oraz PART_2/PART_3 PropertyBlock -> PropertyBlockReadResult`,
+- osobny diagnostyczny input flow obrazu `ItemImageImportRequest -> OpenCvItemImageAssembler -> AssembledItemImage -> HorizontalDividerDetector -> ItemImagePart[] -> ItemPartStructureNormalizer -> StructuredItemParts -> PART_1 ROI -> Part1ReadResult oraz PART_2/PART_3 PropertyBlock -> PropertyBlockReadResult -> PropertyBlockSemanticResult -> PropertyBlockValueReadResult`,
 - brak domenowego parsera itemu, ręcznego potwierdzenia itemu i automatycznego zapisu po uploadzie obrazu,
 - trwałą bibliotekę itemów opartą o prosty lokalny zapis plikowy bez bazy danych,
 - osobną bazę wiedzy itemów opartą o prosty lokalny zapis plikowy, z aktywną epoką i resetem obserwacji,
@@ -1622,6 +2063,9 @@ Smoke test GUI rankingu obrażeń:
 
 ```text
 http://127.0.0.1:8080/ranking-obrazen?character=paladin
+http://127.0.0.1:8080/ranking-obrazen?character=necromancer
+http://127.0.0.1:8080/ranking-obrazen?character=necromancer&skillGroup=core
+http://127.0.0.1:8080/ranking-obrazen?character=necromancer&sourceCategory=CORE
 ```
 
 Kontrakt prezentacji dla smoke testu rankingu Paladyna:
@@ -1633,9 +2077,11 @@ Kontrakt prezentacji dla smoke testu rankingu Paladyna:
 - ekran pokazuje `NEEDS_VERIFICATION`, `UNSUPPORTED` i `NON_DAMAGE` bez wartości DPS, jeżeli wpis nie jest zweryfikowany albo nie jest skillem obrażeniowym,
 - ekran ma filtry `character`, `skillGroup`, `sourceCategory`, `verificationStatus` oraz filtry faceted dla wpływu ulepszeń; UI nie renderuje filtrów `type`, `tag` ani `hasCooldownOrCastSpeed`,
 - ekran nie renderuje filtra `Metryka rankingu`; porządek tabeli zmienia się przez sortowalne nagłówki z parametrami `sort` i `direction`,
-- ekran renderuje kolumny `Kategorie z gry`, `Koszt Wiary`, `Generowanie Wiary`, `Dmg multiplier`, `Dmg bonus`, `Extra hit / component`, `Damage over time`, `Status / debuff`, `Defense / utility` i `Manual review` zamiast technicznych kolumn `Grupa drzewa`, `tags`, `type`, `Speed / cooldown` oraz szerokich kolumn `grupa_1`, `grupa_2`, `grupa_3`,
+- ekran renderuje kolumny `Kategorie z gry`, `Koszt Wiary`, `Generowanie Wiary`, `Dmg multiplier`, `Dmg bonus`, `Extra hit / component`, `Damage over time`, `Status / debuff`, `Defense / utility`, `Manual review`, `Odnowienie` i `Wymaganie użycia` zamiast technicznych kolumn `Grupa drzewa`, `tags`, `type`, `Speed / cooldown` oraz szerokich kolumn `grupa_1`, `grupa_2`, `grupa_3`,
 - ekran pokazuje w kolumnie `Kategorie z gry` wyłącznie kategorie źródłowe z gry/PDF/Markdown, a mechaniczne tagi porównywarki pozostawia poza kolumną `tags`,
 - ekran nie implementuje nowego runtime DPS i nie odblokowuje żadnej mechaniki bez weryfikacji single target.
+
+Smoke test Nekromanty zwraca HTTP 200, aktywną klasę `Nekromanta`, dokładnie 23 wiersze (4 Basic, 6 Core, 3 Corpse, 4 Macabre, 2 Curse i 4 Ultimate) bez skilli Paladyna. Oba filtry Core zwracają sześć wierszy, filtr Basic cztery, a `skillGroup=corpse` i `sourceCategory=CORPSE` po trzy; oba filtry Macabre po cztery, a filtry grupy/kategorii Curse po dwa. Filtry grupy/kategorii/tagu Ultimate zwracają po cztery. Mór pokazuje oddzielne komponenty i `210% w ciągu 6 s`, Rozdarcie oba trafienia, Napływ Krwi drenaż i novę. Pozostają zakres `12–16 / sek.` Rozkładu, wartości dziesiętne oraz jawne konflikty Lucky Hit Rozkładu, Moru i Trupich Macek w tooltipach. Search znajduje wszystkie 161 nazw ulepszeń. Odnowienie wynosi 11 s dla Trupich Macek i 10 s dla aktywnego rozkazu Wojownika; oba bazowe wymagania zużywające Zwłoki są widoczne, a rozkaz Wojownika ma `-`. Obie klasy przechodzą przez ten sam endpoint i neutralny pipeline. Krwawa Mgła pokazuje 420/1071% w ciągu 3 s i 24 s, Więzienie nie dotyczy / brak Lucky Hit i 15 s, Kościane Widmo 150/383 oraz 2 ładunki; 12 s / ładunek, Golem 125/319 i 16 s. Warianty zachowują własne tooltipy, koszt Zwłok i zmiany odnowienia poza bazowymi metadanymi. Żelazna Dziewica ma oddzielne PERIODIC_DAMAGE 30/77% co 2 s i EVENT_TRIGGERED_DAMAGE 30/77% na zdarzenie, koszt 10 i Lucky Hit 5%. Zniedołężnienie pokazuje nie dotyczy / koszt 10 / brak źródłowego Lucky Hit. Obie klątwy zachowują brak cooldownu i wymagań. Wspólny search uwzględnia interwał 2 s i źródłowe notes z czasem klątwy 30 s. Ultimate pokazują Armia 120/306 per explosion, Fala 500/1275, Nawałnica 400/1020 w ciągu 10 s i Spętanie 350/893 w ciągu 8 s oraz 2 / zdarzenie. Źródłowe notes są dostępne w tooltipach nazw skilli; search znajduje 0.25 s i zdarzenie.
 
 Smoke test CLI searcha:
 
@@ -1732,12 +2178,19 @@ PART_2/PART_3 po Etapie 3A:
 - po segmentacji aplikacja uruchamia `TesseractPropertyBlockOcrReader` osobno dla każdego `PropertyBlock` i buduje neutralny `PropertyBlockReadResult`,
 - `PropertyBlockReadResult` zawiera co najmniej `sourcePart`, `blockOrder`, `anchorType`, surowy tekst OCR, użyty profil preprocessingu/czas oraz listę diagnostyk failure dla OCR/parsing; nie zawiera `AffixDefinition`, `ImportedItemAffix`, typu domenowego affixu ani zapisu itemu,
 - OCR PropertyBlock używa Tess4J `5.20.0`, bundlowanego `src/main/resources/tessdata/pol.traineddata`, języka `pol` oraz generycznych profili binary/inverted dla bloku tekstu; nie wymaga systemowego Windows OCR ani `tesseract.exe` w `PATH`,
+- neutralne `NumericEvidence` dla `PropertyBlock` agreguje tokeny liczbowe po alignmentcie sekwencji profili OCR odpornym na insertion/deletion noise; ten sam indeks tokenu w różnych profilach nie jest traktowany jako dowód tej samej wartości, a brak wymaganej przewagi po alignmentcie daje `NUMERIC_OCR_AMBIGUOUS` zamiast pewnego wyboru,
+- `PropertyBlockSemanticResult` klasyfikuje blok jako `BASE_STAT`, `IMPLICIT`, `AFFIX`, `TEMPERING`, `TRANSFIGURATION`, `ASPECT`, `SOCKET`, `UNKNOWN` albo `AMBIGUOUS`, zachowując `definitionId`, kandydatów, znacznik Greater Affix, pewność wartości liczbowej, raw text i raw `NumericEvidence`,
+- `PropertyBlockValueReader` buduje minimalny `PropertyBlockValueReadResult` wyłącznie z `PropertyBlockReadResult`, `PropertyBlockSemanticResult` i `PropertyBlockNumericEvidence`; wynik może zawierać pojedynczą wartość, zakres rolla, `referenceValue`, kandydatów base statów zgodnych z nazwami `ItemImportDetails` (`itemArmor`, `weaponDps`, `weaponDamageMin/Max`, `attacksPerSecond`), uporządkowane parametry aspektu/socketu, `certainty`, `ambiguity`, diagnostykę oraz surowe evidence,
+- `PropertyBlockValueReader` nie zgaduje wartości z `AffixDefinition`, `AspectRollDefinition`, `TemperingAffixDefinition` ani `TransfigurationAffixDefinition`; używa ich wyłącznie jako istniejących pojęć domenowych dla identyfikatorów/jednostek, a `NUMERIC_OCR_AMBIGUOUS` propaguje do wyniku jako niepewność,
+- `BASE_STAT` rozpoznaje kandydat `itemArmor` oraz statystyki broni `weaponDps`, `weaponDamageMin/Max` i `attacksPerSecond`; `AFFIX` i `IMPLICIT` zachowują current value, opcjonalny roll range albo opcjonalny `referenceValue`; `TEMPERING` i `TRANSFIGURATION` zachowują wartości tylko przy jednoznacznym OCR; `ASPECT` zachowuje wszystkie numeric parameters w kolejności bez przypisywania ich do konkretnych `AspectRollDefinition`; `SOCKET` zachowuje parametr dla `FILLED_SOCKET`, a `EMPTY_SOCKET` nie tworzy wartości,
+- `PropertyBlockValueReadResult` sam nie tworzy `ImportedItemAffix`, `ItemImportDetails`, `FullItemRead`, zapisu itemu ani projekcji do `DamageEngine`; dopiero osobny `ImageItemImportDraftMapper` używa neutralnych wyników do zbudowania edytowalnego draftu formularza,
+- `PropertyBlockValueReadResult` przechowuje wartości DISPLAYED/CURRENT z tooltipa; przed zapisaniem ich w `ItemImportEditableForm` jako source values `ImageItemImportDraftMapper` uruchamia generyczny reverse `DisplayedItemValueSourceNormalizer`, który sprawdza kandydat source przez `MasterworkingResolvedItemValueResolver` i nie zgaduje, gdy odwrócenie albo wybór doskonalonego affixu nie jest jednoznaczny,
 - obecne typy anchorów diagnostycznych to `NONE`, `DIAMOND`, `GREATER_STAR`, `TRANSFIGURATION_MARK`, `LEGENDARY_POWER_STAR`, `UNIQUE_POWER_STAR`, `EMPTY_SOCKET`, `FILLED_SOCKET`, `UNKNOWN_ICON`,
 - wpis bez anchora jest poprawnym blokiem z `anchorType=NONE`; brak opcjonalnego `PART_2` nie blokuje segmentacji `PART_3`,
 - geometrycznie poprawny kandydat na anchor nie jest odrzucany tylko dlatego, że klasyfikacja obrazu zwróciła `UNKNOWN_ICON`; taki anchor może normalnie rozpocząć `PropertyBlock`,
 - segmentacja kończy ostatni blok na podstawie geometrii linii, odstępów i wcięć, a nie reguły `ostatni anchor -> koniec PART_3`; nie waliduje treści stopki tekstowo,
-- UI pokazuje dla `PART_2` i `PART_3` liczbę bloków, kolejność, `anchorType`, bounds, obraz ROI każdego bloku oraz raw OCR/read result przez hooki `data-property-block-*`,
-- `PART_2/PART_3` nie wykonują jeszcze affix matching, klasyfikacji domenowej, rozpoznawania aspektu, socketów, hartowania ani zapisu itemu; obecny wynik kończy się na neutralnym `PropertyBlockReadResult`.
+- UI pokazuje dla `PART_2` i `PART_3` liczbę bloków, kolejność, `anchorType`, bounds, obraz ROI każdego bloku, raw OCR/read result, klasyfikację semantyczną i neutralny odczyt wartości przez hooki `data-property-block-*`,
+- `PART_2/PART_3` nie wykonują zapisu itemu i nie uruchamiają domenowego parsera tekstu; ich neutralne wyniki mogą zostać użyte tylko przez draft mapper do formularza weryfikacji.
 
 PART_4 po Etapie 3A:
 - `PART_4` jest obowiązkowym slotem strukturalnym, ale jego zawartość nie jest potrzebna modelowi itemu, konfiguracji buildu ani DPS,
@@ -1745,28 +2198,27 @@ PART_4 po Etapie 3A:
 - po poprawnej normalizacji struktury obecny `PART_4` jest oznaczany wyłącznie statusem diagnostycznym `SKIPPED_NOT_REQUIRED — pominięty zgodnie z projektem`,
 - ten status ufa Etapom 1/2A/3A i nie waliduje treści `PART_4` na podstawie fixture'a ani konkretnego tekstu.
 
-Aktywny pipeline importu obrazu kończy się obecnie dokładnie tutaj:
+Aktywny pipeline importu obrazu po odczytach neutralnych buduje obecnie opcjonalny draft weryfikacji:
 
 ```text
-1..N screenshots -> OpenCvItemImageAssembler -> AssembledItemImage -> HorizontalDividerDetector -> raw ItemImagePart[] -> ItemPartStructureNormalizer -> StructuredItemParts -> PART_1 ROI segmentation -> raw Tesseract OCR per ROI + star detector -> Part1ReadParser -> Part1ReadResult diagnostics; PART_2/PART_3 -> VisualPropertyBlockSegmenter -> PropertyBlock diagnostics -> raw Tesseract OCR per PropertyBlock -> PropertyBlockReadResult diagnostics; PART_4 -> SKIPPED_NOT_REQUIRED diagnostics
+1..N screenshots -> OpenCvItemImageAssembler -> AssembledItemImage -> HorizontalDividerDetector -> raw ItemImagePart[] -> ItemPartStructureNormalizer -> StructuredItemParts -> PART_1 ROI segmentation -> raw Tesseract OCR per ROI + star detector -> Part1ReadParser -> Part1ReadResult diagnostics; PART_2/PART_3 -> VisualPropertyBlockSegmenter -> PropertyBlock diagnostics -> raw Tesseract OCR per PropertyBlock -> PropertyBlockReadResult diagnostics -> PropertyBlockSemanticResult -> PropertyBlockValueReadResult diagnostics; PART_4 -> SKIPPED_NOT_REQUIRED diagnostics -> ImageItemImportDraftMapper -> ItemImportEditableForm draft -> user click "Zapisz item" -> ItemImportFormMapper -> ItemLibraryService.saveImportedItem(...)
 ```
 
-Po `StructuredItemParts` istnieje surowy OCR dla ROI PART_1, neutralny parser `Part1ReadResult`, zamknięta obrazowa segmentacja `PART_2/PART_3` na `PropertyBlock` oraz neutralny OCR `PropertyBlockReadResult`. Nie ma mapowania do domeny itemu, formularza potwierdzenia importu ani automatycznego zapisu itemu. Przyszły właściwy importer domenowy musi zostać zaprojektowany jako osobny etap po tym kontrakcie i nie może reaktywować usuniętego legacy Windows OCR.
+Po `StructuredItemParts` istnieje surowy OCR dla ROI PART_1, neutralny parser `Part1ReadResult`, zamknięta obrazowa segmentacja `PART_2/PART_3` na `PropertyBlock`, neutralny OCR `PropertyBlockReadResult`, klasyfikacja `PropertyBlockSemanticResult` oraz neutralny odczyt wartości `PropertyBlockValueReadResult`. `ImageItemImportDraftMapper` nie odpala OCR ponownie i nie zapisuje itemu: buduje tylko draft `ItemImportEditableForm` z diagnostyką `Wymaga sprawdzenia` dla bloków `UNKNOWN`, `AMBIGUOUS`, niepewnych liczb i brakujących bieżących wartości. Draft z obrazu ma tryb `GAME_DISPLAYED_VALUE`: inputy weryfikacji pokazują wartości z tooltipa, a submit po stronie backendu przelicza je do source values przez forward-check na `MasterworkingResolvedItemValueResolver`, zachowując raw OCR, `displayValue`, roll range, `definitionId` i GA. Zapis biblioteki następuje wyłącznie po ręcznym kliknięciu `Zapisz item` i idzie przez istniejącą ścieżkę formularza. Przyszły właściwy importer domenowy nie może reaktywować usuniętego legacy Windows OCR.
 
 Kontrakt prezentacji dla smoke testu importu itemu:
 - GUI importu jest po polsku i jasno komunikuje, że obecnie jest diagnostyką obrazu pojedynczego itemu, a nie automatycznym importem itemu do biblioteki,
 - GUI importu pokazuje globalną nawigację SSR wspólną z ekranem głównym i pozostałymi głównymi modułami,
 - GUI importu wymaga aktywnego bohatera i w empty state kieruje użytkownika do modułu `Bohaterowie`,
 - GUI przyjmuje przez `multipart/form-data` od 1 do 5 screenshotów tego samego przewijanego tooltipa w polu `itemImage`,
-- controller buduje `List<ItemImageImportRequest>` w kolejności uploadu i uruchamia Etap 1, Etap 2A, Etap 3A oraz neutralną diagnostykę PART_1/PART_2/PART_3/PART_4,
-- po uploadzie GUI pokazuje diagnostyczny `Podgląd obrazu przygotowanego przez OpenCV` z metadanymi `sourceImageCount`, `width`, `height`, `format`, `assemblyStatus`, `compositionPolicy` oraz diagnostyką stitching,
-- po udanym Etapie 1 GUI pokazuje diagnostykę Etapu 2A: liczbę separatorów poziomych, liczbę powstałych części, overlay i preview raw `PART_N`,
-- po udanym Etapie 2A GUI pokazuje diagnostykę Etapu 3A: status `StructuredItemParts`, liczbę raw parts oraz mapowanie `structural PART_N -> raw part #N` albo `absent`,
-- awaria Etapu 1 kończy pipeline i pokazuje błąd preview OpenCV,
-- awaria Etapu 2A zostawia widoczny wynik Etapu 1 i pokazuje błąd detekcji separatorów,
-- awaria Etapu 3A zostawia widoczny wynik Etapu 1/2A i pokazuje błąd normalizacji struktury,
-- GUI importu renderuje surowy OCR per ROI PART_1, neutralny `Part1ReadResult`, neutralne bloki `PropertyBlock` dla PART_2/PART_3, surowy OCR per `PropertyBlock`, neutralny `PropertyBlockReadResult` oraz status pominięcia PART_4; nie renderuje domenowego formularza potwierdzenia importu, sekcji projekcji do runtime ani statusów starego Windows OCR,
-- upload obrazu nie zapisuje itemu do biblioteki i nie aktualizuje bazy wiedzy itemów,
+- controller buduje `List<ItemImageImportRequest>` w kolejności uploadu i uruchamia Etap 1, Etap 2A, Etap 3A oraz neutralny odczyt PART_1/PART_2/PART_3/PART_4,
+- domyślny ekran użytkownika nie renderuje obrazów base64 ani technicznych bloków diagnostycznych; przed importem pokazuje wybór screenshotów, krótką instrukcję kolejności uploadu i przycisk `Odczytaj item`, a po odczycie pokazuje edytowalny formularz `Weryfikacja itemu przed zapisem`,
+- przy niepewnym draftcie normalny ekran pokazuje spokojny komunikat, że część wartości mogła zostać odczytana niedokładnie; techniczne przyczyny, profile OCR, support count, wartości alternatywne i `NUMERIC_OCR_AMBIGUOUS` pozostają ukryte,
+- tryb diagnostyczny włącza się przez `?diagnostics=true`; po uploadzie nadal pokazuje `Podgląd obrazu przygotowanego przez OpenCV`, metadane `sourceImageCount`, `width`, `height`, `format`, `assemblyStatus`, `compositionPolicy`, stitching, overlay separatorów, raw `PART_N`, `StructuredItemParts`, PART_1 ROI, raw OCR, `PropertyBlockReadResult`, `PropertyBlockSemanticResult`, `PropertyBlockValueReadResult`, `NumericEvidence`, status pominięcia PART_4 oraz wszystkie istniejące `data-*`,
+- awaria Etapu 1 kończy pipeline i w trybie diagnostycznym pokazuje błąd preview OpenCV,
+- awaria Etapu 2A zostawia w trybie diagnostycznym widoczny wynik Etapu 1 i pokazuje błąd detekcji separatorów,
+- awaria Etapu 3A zostawia w trybie diagnostycznym widoczny wynik Etapu 1/2A i pokazuje błąd normalizacji struktury,
+- sam upload obrazu nie zapisuje itemu do biblioteki i nie aktualizuje bazy wiedzy itemów; zapis i nauka wiedzy następują dopiero po wysłaniu formularza `saveImportedItem`,
 - legacy Windows OCR i jego debug trace zostały usunięte z aktywnego runtime; przyszłe parsery domenowe muszą być osobnymi etapami po neutralnych read resultach i nie mogą reaktywować Windows OCR.
 
 Smoke test GUI biblioteki itemów:
@@ -1854,9 +2306,12 @@ Deterministyczny kontrakt obrazu jest testowany etapami:
 - `TesseractPart1RoiOcrReaderTest` pokrywa techniczny smoke OCR pojedynczego ROI przez Tess4J i bundlowany polski model, wewnętrzny odczyt nazwy z `NAME_TEXT` bez traktowania gwiazdek jako tekstu, regresję, że cleanup dekoracji nie usuwa pierwszego `T` w realnym `tarcza1.png`, oraz obrazowe zliczanie `greaterAffixCount` dla realnych fixture'ów PART_1,
 - `Part1ReadParserTest` i `Part1ReadParserPipelineTest` pokrywają neutralne parsowanie `Part1ReadResult`, składanie wieloliniowej nazwy/klasyfikacji, typ itemu, rarity, `ancient`, `mythicUnique`, slot, moc itemu, opcjonalną jakość, brak zgadywania przy nieparsowalnych wymaganych polach oraz realne fixture'y PART_1,
 - `PropertyBlockSegmenterPipelineTest` pokrywa neutralną segmentację `PART_2/PART_3` na `PropertyBlock`, wspólny mechanizm dla obu części, opcjonalny brak `PART_2`, leading block bez anchora, wieloliniowy blok, końcowy anchored block bez połykania stopki oraz brak zależności od filename,
+- `PropertyBlockNumericEvidenceAggregatorTest` i `PropertyBlockNumericEvidenceAuditTest` pokrywają neutralny konsensus liczbowy wielu profili OCR, w tym alignment sekwencji z insertion/deletion noise, regresję `2004/20604`, Dziedzica FULL #2/#3/#6, Tarczę i Verathiela bez wiedzy o affixach,
 - `TesseractPropertyBlockOcrReaderTest` pokrywa neutralny OCR pojedynczego `PropertyBlock`, zachowanie `sourcePart`, `blockOrder`, `anchorType`, raw OCR text, diagnostyk failure oraz realne fixture'y Tarcza, Dziedzic i Verathiel bez affix matching,
+- `PropertyBlockValueReaderTest` pokrywa neutralny odczyt wartości z `PropertyBlockReadResult`, `PropertyBlockSemanticResult` i `PropertyBlockNumericEvidence`: Tarcza `armor=1502`, `block chance=20,0` z `referenceValue=20,0`, `strength=217` z roll range `150-180`, `cooldown=12,3`; Dziedzic `armor=2004`, zachowanie literalnej wartości candidate `ALL_STATS=115` przy ambiguous evidence, propagację review ambiguity i socket parameters `+150/+120`; Verathiel `DPS=1874`, damage `1390-2018`, `attacksPerSecond=1,10`, `strength=172` z roll range `150-180` oraz zachowanie kolejności parametrów aspektu,
+- `ImageItemImportDraftMapperTest` pokrywa mapowanie neutralnych read resultów do edytowalnego `ItemImportEditableForm` i dalej przez istniejący `ItemImportFormMapper`: Tarcza rozdziela DISPLAYED values z OCR od SOURCE values w draft/domain, oznacza draft jako `GAME_DISPLAYED_VALUE`, wykrywa `perfectedAffix=TEMPERING_AFFIX:defense_max_animus` i sprawdza forward resolved values przez `MasterworkingResolvedItemValueResolver`; Dziedzic zachowuje niepewność numeric evidence, transfigurację `ALL_STATS`, armor `2004` jako wartość już aktualną dla mythic unique i socket detected stats poza ordinary affixami; Verathiel zachowuje DPS, damage min/max, średni legacy `weaponDamage`, attacks/s oraz aspect text z kolejnością parametrów,
 - `Part1OcrWindowsExclusionTest` pilnuje, że produkcyjny kod/pom nie wraca do Windows OCR,
-- `ItemImportPageRendererTest` i `ItemImportWebServerTest` pilnują, że UI/HTTP pokazuje diagnostykę Etapów 1/2A/3A, raw OCR PART_1 per ROI, raw OCR per `PropertyBlock` oraz status `PART_4` jako `SKIPPED_NOT_REQUIRED`, bez legacy sekcji OCR i bez próby OCR dla `PART_4`.
+- `ItemImportPageRendererTest`, `ItemImportWebServerTest`, `DziedzicImageImportPipelineRegressionTest` i `ItemLibraryWebServerTest` pilnują, że UI/HTTP pokazuje diagnostykę Etapów 1/2A/3A, raw OCR PART_1 per ROI, raw OCR per `PropertyBlock`, neutralny odczyt wartości, status `PART_4` jako `SKIPPED_NOT_REQUIRED` oraz formularz `Weryfikacja itemu przed zapisem`, bez legacy sekcji OCR, bez próby OCR dla `PART_4` i bez automatycznego zapisu po uploadzie; formularz weryfikacji obrazu pokazuje edytowalne DISPLAYED values także w dropdownach Przeistoczenia i dla wykrytego armor non-weapon, a POST zapisuje source/current values zgodnie z kontraktem i finalnie resolve'uje te same wartości, które widzi użytkownik; regresje backendowe pilnują zachowania jawnie wybranego ordinary `perfectedAffix` oraz pełnego realnego fixture Dziedzica `dziedzic-zatracenia-helm-full.png`.
 
 ### 11.3. Obowiązkowe obszary pokrycia
 Minimalny zakres testów obejmuje:
@@ -1893,6 +2348,9 @@ Minimalny zakres testów obejmuje:
 - render modułu `Bohaterowie`,
 - utworzenie pierwszego bohatera,
 - listę wielu bohaterów,
+- metadata obu klas profilu, tworzenie/edycję/aktywację/usuwanie Nekromanty i odczyt aktywnego profilu po restarcie,
+- canonical RuntimeSkillLoadout profilu, osiem pól mostu Paladyna, deterministyczny codec i migrację historycznych rekordów HERO 6/7-polowych,
+- HTTP 200 dla Current Build/search Nekromanty bez formularza Paladyna, mapperów, obliczeń ani mutacji skill state,
 - ustawienie aktywnego bohatera,
 - usunięcie bohatera,
 - render empty state przy braku bohatera,
@@ -1917,8 +2375,8 @@ Minimalny zakres testów obejmuje:
 - wykrywanie poziomych separatorów przez `HorizontalDividerDetector` na złożonym obrazie oraz zwrot surowych `ItemImagePart[]`,
 - diagnostykę Etapu 2A: lista dividerów, overlay, raw części oraz izolację błędów detektora,
 - deterministyczną normalizację `ItemImagePart[] -> StructuredItemParts` przez `ItemPartStructureNormalizer`, w tym statusy `COMPLETE`, `MISSING_TOP`, `MISSING_BOTTOM`, `INCOMPLETE` i `OVERSEGMENTED`,
-- diagnostykę Etapu 3A w GUI bez domenowego parsera, formularza potwierdzenia i automatycznego zapisu itemu,
-- endpoint importu obrazu, który przyjmuje multipart screenshots, uruchamia Etap 1/2A/3A oraz neutralne odczyty PART_1/PropertyBlock i kończy na `Part1ReadResult` / `PropertyBlockReadResult`,
+- diagnostykę Etapu 3A w GUI bez legacy domenowego parsera i bez automatycznego zapisu itemu,
+- endpoint importu obrazu, który przyjmuje multipart screenshots, uruchamia Etap 1/2A/3A oraz neutralne odczyty PART_1/PropertyBlock, buduje draft `ItemImportEditableForm` i nie zapisuje itemu do kliknięcia `Zapisz item`,
 - brak legacy fallbacku OCR przy błędach składania, detekcji dividerów albo normalizacji struktury,
 - zachowanie realnych fixture'ów obrazów itemów jako testów warstwy OpenCV/vision, bez wymagania środowiskowego Windows OCR,
 - bibliotekę i edycję zapisanych itemów na danych strukturalnych, bez ponownego uruchamiania OCR,
@@ -1983,8 +2441,9 @@ Minimalny zakres testów obejmuje:
 - GET diagnostycznego formularza GUI importu obrazu itemu,
 - empty state importu obrazu bez aktywnego bohatera,
 - upload obrazu itemu i render diagnostyki Etapów 1/2A/3A,
-- diagnostyczny odczyt PART_1 oraz neutralny OCR pojedynczych `PropertyBlock` bez domenowego parsera itemu, formularza potwierdzenia i zapisu itemu po uploadzie obrazu,
+- diagnostyczny odczyt PART_1 oraz neutralny OCR pojedynczych `PropertyBlock` z formularzem weryfikacyjnym, ale bez zapisu itemu po samym uploadzie obrazu,
 - zapis strukturalnego formularza itemu przez bibliotekę z akcją `saveImportedItem`,
+- zapis formularza weryfikacji importu obrazu w trybie `GAME_DISPLAYED_VALUE`, z backendowym przeliczeniem DISPLAYED -> SOURCE dla armor, ordinary affixów i hartowania oraz bez podwójnego Doskonalenia,
 - walidację, edycję, dodanie, usunięcie oraz zmianę typu i wartości affixu w flow zapisanych itemów,
 - render pełnego zapisu itemu w rozwijanych szczegółach GUI biblioteki,
 - GET strony bazy wiedzy itemów,

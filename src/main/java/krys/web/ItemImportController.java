@@ -10,6 +10,7 @@ import krys.itemimport.image.DeterministicPart1RoiSegmenter;
 import krys.itemimport.image.HorizontalDivider;
 import krys.itemimport.image.HorizontalDividerDetectionResult;
 import krys.itemimport.image.HorizontalDividerDetector;
+import krys.itemimport.image.ImageItemImportDraftMapper;
 import krys.itemimport.image.ItemImageAssembler;
 import krys.itemimport.image.ItemImagePart;
 import krys.itemimport.image.ItemPartStructureNormalizer;
@@ -29,6 +30,8 @@ import krys.itemimport.image.PropertyBlockSemanticMapper;
 import krys.itemimport.image.PropertyBlockSemanticResult;
 import krys.itemimport.image.PropertyBlockSegmentationResult;
 import krys.itemimport.image.PropertyBlockSegmenter;
+import krys.itemimport.image.PropertyBlockValueReadResult;
+import krys.itemimport.image.PropertyBlockValueReader;
 import krys.itemimport.image.StructuralItemPart;
 import krys.itemimport.image.StructuralItemPartSlot;
 import krys.itemimport.image.StructuredItemParts;
@@ -60,6 +63,8 @@ public final class ItemImportController implements HttpHandler {
     private final PropertyBlockOcrReader propertyBlockOcrReader;
     private final Part1ReadParser part1ReadParser = new Part1ReadParser();
     private final PropertyBlockSemanticMapper propertyBlockSemanticMapper = new PropertyBlockSemanticMapper();
+    private final PropertyBlockValueReader propertyBlockValueReader = new PropertyBlockValueReader();
+    private final ImageItemImportDraftMapper imageItemImportDraftMapper = new ImageItemImportDraftMapper();
 
     public ItemImportController(ItemImportPageRenderer renderer,
                                 HeroService heroService,
@@ -151,7 +156,7 @@ public final class ItemImportController implements HttpHandler {
             if ("GET".equals(method)) {
                 HeroProfile activeHero = heroService.getActiveHero().orElse(null);
                 String currentBuildQuery = activeHero == null ? "" : activeHero.getCurrentBuildQuery();
-                renderPage(exchange, emptyPageModel(currentBuildQuery, activeHero));
+                renderPage(exchange, emptyPageModel(currentBuildQuery, activeHero, isDiagnosticsEnabled(exchange)));
                 return;
             }
             if ("POST".equals(method)) {
@@ -167,14 +172,15 @@ public final class ItemImportController implements HttpHandler {
 
     private ItemImportPageModel handleImageUpload(HttpExchange exchange) throws IOException {
         HeroProfile activeHero = heroService.getActiveHero().orElse(null);
+        boolean diagnosticsEnabled = isDiagnosticsEnabled(exchange);
         if (activeHero == null) {
             return buildPageModel(List.of("Brak aktywnego bohatera. Utwórz albo wybierz bohatera przed importem itemu."),
-                    null, "", "", null);
+                    null, "", "", null, null, diagnosticsEnabled);
         }
         String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
         if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("multipart/form-data")) {
             return buildPageModel(List.of("Nieobsługiwany typ danych formularza dla importu itemu."),
-                    null, "", activeHero.getCurrentBuildQuery(), activeHero);
+                    null, "", activeHero.getCurrentBuildQuery(), activeHero, null, diagnosticsEnabled);
         }
 
         try {
@@ -193,7 +199,9 @@ public final class ItemImportController implements HttpHandler {
                     previewResult.preview(),
                     previewResult.error(),
                     activeHero.getCurrentBuildQuery(),
-                    activeHero
+                    activeHero,
+                    previewResult.draftResult(),
+                    diagnosticsEnabled
             );
         } catch (IllegalArgumentException exception) {
             return buildPageModel(
@@ -201,13 +209,17 @@ public final class ItemImportController implements HttpHandler {
                     null,
                     "",
                     activeHero.getCurrentBuildQuery(),
-                    activeHero
+                    activeHero,
+                    null,
+                    diagnosticsEnabled
             );
         }
     }
 
-    private ItemImportPageModel emptyPageModel(String currentBuildQuery, HeroProfile activeHero) {
-        return buildPageModel(List.of(), null, "", currentBuildQuery, activeHero);
+    private ItemImportPageModel emptyPageModel(String currentBuildQuery,
+                                               HeroProfile activeHero,
+                                               boolean diagnosticsEnabled) {
+        return buildPageModel(List.of(), null, "", currentBuildQuery, activeHero, null, diagnosticsEnabled);
     }
 
     private ItemImportPageModel buildPageModel(List<String> errors,
@@ -215,18 +227,46 @@ public final class ItemImportController implements HttpHandler {
                                                String openCvPreviewError,
                                                String currentBuildQuery,
                                                HeroProfile activeHero) {
+        return buildPageModel(errors, openCvImagePreview, openCvPreviewError, currentBuildQuery, activeHero, null, false);
+    }
+
+    private ItemImportPageModel buildPageModel(List<String> errors,
+                                               ItemImportPageModel.OpenCvImagePreview openCvImagePreview,
+                                               String openCvPreviewError,
+                                               String currentBuildQuery,
+                                               HeroProfile activeHero,
+                                               ImageItemImportDraftMapper.DraftResult draftResult) {
+        return buildPageModel(errors, openCvImagePreview, openCvPreviewError, currentBuildQuery, activeHero, draftResult, false);
+    }
+
+    private ItemImportPageModel buildPageModel(List<String> errors,
+                                               ItemImportPageModel.OpenCvImagePreview openCvImagePreview,
+                                               String openCvPreviewError,
+                                               String currentBuildQuery,
+                                               HeroProfile activeHero,
+                                               ImageItemImportDraftMapper.DraftResult draftResult,
+                                               boolean diagnosticsEnabled) {
         return new ItemImportPageModel(
                 errors,
                 openCvImagePreview,
                 openCvPreviewError,
                 activeHero,
                 buildHelpText(),
-                currentBuildQuery
+                currentBuildQuery,
+                draftResult == null ? null : draftResult.form(),
+                draftResult == null ? List.of() : draftResult.reviewNotes(),
+                diagnosticsEnabled
         );
     }
 
     private static String buildHelpText() {
-        return "Możesz dodać jeden lub kilka screenów tego samego itemu. Jeśli tooltip jest przewijany, dodaj screeny w kolejności od góry do dołu. Limit: 1..5 screenów jednego itemu. Aktualny pipeline pokazuje diagnostykę struktury oraz surowy POC OCR tylko dla ROI PART_1.";
+        return "Dodaj od 1 do 5 screenshotów tego samego itemu. Jeśli tooltip jest przewijany, dodaj screeny w kolejności od góry do dołu.";
+    }
+
+    private static boolean isDiagnosticsEnabled(HttpExchange exchange) {
+        return "true".equalsIgnoreCase(UrlEncodedFormSupport
+                .parseQuery(exchange.getRequestURI().getRawQuery())
+                .getOrDefault("diagnostics", ""));
     }
 
     private void renderPage(HttpExchange exchange, ItemImportPageModel pageModel) throws IOException {
@@ -239,6 +279,9 @@ public final class ItemImportController implements HttpHandler {
     private OpenCvPreviewResult buildOpenCvPreview(List<ItemImageImportRequest> importRequests) {
         try {
             AssembledItemImage assembledImage = itemImageAssembler.assemble(importRequests);
+            String sourceImageName = importRequests.stream()
+                    .map(ItemImageImportRequest::getOriginalFilename)
+                    .reduce("", (left, right) -> left.isBlank() ? right : left + ", " + right);
             String debugWarning = writeOpenCvDebugArtifact(assembledImage);
             String mimeType = "image/" + assembledImage.getFormat().toLowerCase(Locale.ROOT);
             String dataUri = "data:" + mimeType + ";base64,"
@@ -255,7 +298,8 @@ public final class ItemImportController implements HttpHandler {
                             diagnostic.getStatus()
                     ))
                     .toList();
-            HorizontalDividerPreviewResult horizontalDividerPreviewResult = buildHorizontalDividerPreview(assembledImage);
+            HorizontalDividerPreviewResult horizontalDividerPreviewResult =
+                    buildHorizontalDividerPreview(assembledImage, sourceImageName);
             return new OpenCvPreviewResult(
                     new ItemImportPageModel.OpenCvImagePreview(
                             dataUri,
@@ -270,14 +314,16 @@ public final class ItemImportController implements HttpHandler {
                             horizontalDividerPreviewResult.error(),
                             debugWarning
                     ),
+                    horizontalDividerPreviewResult.draftResult(),
                     ""
             );
         } catch (RuntimeException exception) {
-            return new OpenCvPreviewResult(null, "Błąd podglądu OpenCV: " + safeMessage(exception));
+            return new OpenCvPreviewResult(null, null, "Błąd podglądu OpenCV: " + safeMessage(exception));
         }
     }
 
-    private HorizontalDividerPreviewResult buildHorizontalDividerPreview(AssembledItemImage assembledImage) {
+    private HorizontalDividerPreviewResult buildHorizontalDividerPreview(AssembledItemImage assembledImage,
+                                                                        String sourceImageName) {
         try {
             HorizontalDividerDetectionResult result = horizontalDividerDetector.detect(assembledImage);
             String overlayMimeType = "image/" + result.getOverlayFormat().toLowerCase(Locale.ROOT);
@@ -310,7 +356,7 @@ public final class ItemImportController implements HttpHandler {
                 ));
             }
             StructureNormalizationPreviewResult structureNormalizationPreviewResult =
-                    buildStructureNormalizationPreview(result.getParts());
+                    buildStructureNormalizationPreview(result.getParts(), sourceImageName);
             return new HorizontalDividerPreviewResult(
                     new ItemImportPageModel.HorizontalDividerDetectionView(
                             result.getDividers().size(),
@@ -321,14 +367,16 @@ public final class ItemImportController implements HttpHandler {
                             structureNormalizationPreviewResult.preview(),
                             structureNormalizationPreviewResult.error()
                     ),
+                    structureNormalizationPreviewResult.draftResult(),
                     ""
             );
         } catch (RuntimeException exception) {
-            return new HorizontalDividerPreviewResult(null, "Błąd detekcji separatorów: " + safeMessage(exception));
+            return new HorizontalDividerPreviewResult(null, null, "Błąd detekcji separatorów: " + safeMessage(exception));
         }
     }
 
-    private StructureNormalizationPreviewResult buildStructureNormalizationPreview(List<ItemImagePart> rawParts) {
+    private StructureNormalizationPreviewResult buildStructureNormalizationPreview(List<ItemImagePart> rawParts,
+                                                                                  String sourceImageName) {
         try {
             StructuredItemParts structuredItemParts = itemPartStructureNormalizer.normalize(rawParts);
             List<ItemImportPageModel.StructuralItemPartMappingView> mappings = new java.util.ArrayList<>();
@@ -356,6 +404,13 @@ public final class ItemImportController implements HttpHandler {
                     buildPart1SegmentationPreview(structuredItemParts);
             PropertyBlockSegmentationPreviewResult propertyBlockSegmentationPreviewResult =
                     buildPropertyBlockSegmentationPreview(structuredItemParts);
+            ImageItemImportDraftMapper.DraftResult draftResult = part1SegmentationPreviewResult.readResult()
+                    .map(readResult -> imageItemImportDraftMapper.map(
+                            readResult,
+                            propertyBlockSegmentationPreviewResult.blockReads(),
+                            sourceImageName
+                    ))
+                    .orElse(null);
             return new StructureNormalizationPreviewResult(
                     new ItemImportPageModel.ItemPartStructureNormalizationView(
                             structuredItemParts.getStatus().name(),
@@ -367,36 +422,47 @@ public final class ItemImportController implements HttpHandler {
                             propertyBlockSegmentationPreviewResult.previews(),
                             propertyBlockSegmentationPreviewResult.error()
                     ),
+                    draftResult,
                     ""
             );
         } catch (RuntimeException exception) {
-            return new StructureNormalizationPreviewResult(null, "Błąd normalizacji struktury: " + safeMessage(exception));
+            return new StructureNormalizationPreviewResult(null, null, "Błąd normalizacji struktury: " + safeMessage(exception));
         }
     }
 
     private PropertyBlockSegmentationPreviewResult buildPropertyBlockSegmentationPreview(StructuredItemParts structuredItemParts) {
         List<ItemImportPageModel.PropertyBlockSegmentationView> previews = new java.util.ArrayList<>();
+        List<ImageItemImportDraftMapper.BlockRead> blockReads = new java.util.ArrayList<>();
         try {
             for (StructuralItemPartSlot slot : List.of(StructuralItemPartSlot.PART_2, StructuralItemPartSlot.PART_3)) {
                 Optional<StructuralItemPart> part = structuredItemParts.find(slot);
                 if (part.isPresent()) {
-                    previews.add(toPropertyBlockSegmentationView(propertyBlockSegmenter.segment(part.get())));
+                    PropertyBlockSegmentationPreview segmentationPreview =
+                            toPropertyBlockSegmentationView(propertyBlockSegmenter.segment(part.get()));
+                    previews.add(segmentationPreview.view());
+                    blockReads.addAll(segmentationPreview.blockReads());
                 }
             }
-            return new PropertyBlockSegmentationPreviewResult(previews, "");
+            return new PropertyBlockSegmentationPreviewResult(previews, blockReads, "");
         } catch (RuntimeException exception) {
-            return new PropertyBlockSegmentationPreviewResult(previews,
+            return new PropertyBlockSegmentationPreviewResult(previews, blockReads,
                     "Błąd segmentacji bloków właściwości PART_2/PART_3: " + safeMessage(exception));
         }
     }
 
-    private ItemImportPageModel.PropertyBlockSegmentationView toPropertyBlockSegmentationView(
+    private PropertyBlockSegmentationPreview toPropertyBlockSegmentationView(
             PropertyBlockSegmentationResult result) {
         ItemImagePart sourcePart = result.getSourcePart().getSourcePart();
-        List<ItemImportPageModel.PropertyBlockView> blockViews = result.getBlocks().stream()
+        List<PropertyBlockPreviewResult> blockPreviewResults = result.getBlocks().stream()
                 .map(this::toPropertyBlockView)
                 .toList();
-        return new ItemImportPageModel.PropertyBlockSegmentationView(
+        List<ItemImportPageModel.PropertyBlockView> blockViews = blockPreviewResults.stream()
+                .map(PropertyBlockPreviewResult::view)
+                .toList();
+        List<ImageItemImportDraftMapper.BlockRead> blockReads = blockPreviewResults.stream()
+                .map(PropertyBlockPreviewResult::blockRead)
+                .toList();
+        return new PropertyBlockSegmentationPreview(new ItemImportPageModel.PropertyBlockSegmentationView(
                 result.getSourcePart().getSlot().name(),
                 sourcePart.getIndex(),
                 sourcePart.getName(),
@@ -404,13 +470,14 @@ public final class ItemImportController implements HttpHandler {
                 sourcePart.getHeight(),
                 result.getDiagnostics(),
                 blockViews
-        );
+        ), blockReads);
     }
 
-    private ItemImportPageModel.PropertyBlockView toPropertyBlockView(PropertyBlock block) {
+    private PropertyBlockPreviewResult toPropertyBlockView(PropertyBlock block) {
         PropertyBlockReadResult readResult = propertyBlockOcrReader.read(block);
         PropertyBlockSemanticResult semanticResult = propertyBlockSemanticMapper.map(block, readResult);
-        return new ItemImportPageModel.PropertyBlockView(
+        PropertyBlockValueReadResult valueReadResult = propertyBlockValueReader.read(readResult, semanticResult);
+        return new PropertyBlockPreviewResult(new ItemImportPageModel.PropertyBlockView(
                 block.getOrder(),
                 block.getAnchorType().name(),
                 block.getX(),
@@ -427,7 +494,38 @@ public final class ItemImportController implements HttpHandler {
                                 + ", confidence=" + String.format(Locale.US, "%.3f", anchor.getConfidence()))
                         .orElse(""),
                 toPropertyBlockReadResultView(readResult),
-                toPropertyBlockSemanticResultView(semanticResult)
+                toPropertyBlockSemanticResultView(semanticResult),
+                toPropertyBlockValueReadResultView(valueReadResult)
+        ), new ImageItemImportDraftMapper.BlockRead(readResult, semanticResult, valueReadResult));
+    }
+
+    private static ItemImportPageModel.PropertyBlockValueReadResultView toPropertyBlockValueReadResultView(
+            PropertyBlockValueReadResult result) {
+        return new ItemImportPageModel.PropertyBlockValueReadResultView(
+                result.getValueRole(),
+                formatDouble(result.getValue()),
+                result.getUnit(),
+                formatRange(result.getRollRangeMin(), result.getRollRangeMax()),
+                formatDouble(result.getReferenceValue()),
+                result.getItemArmor() == null ? "" : Long.toString(result.getItemArmor()),
+                result.getWeaponDps() == null ? "" : Long.toString(result.getWeaponDps()),
+                formatLongRange(result.getWeaponDamageMin(), result.getWeaponDamageMax()),
+                formatDouble(result.getAttacksPerSecond()),
+                result.isCertain(),
+                result.isAmbiguous(),
+                result.getParameters().stream()
+                        .map(parameter -> new ItemImportPageModel.PropertyBlockValueParameterView(
+                                parameter.getOrder(),
+                                parameter.getRole(),
+                                parameter.getRawToken(),
+                                formatDouble(parameter.getValue()),
+                                formatRange(parameter.getRangeMin(), parameter.getRangeMax()),
+                                parameter.getUnit(),
+                                parameter.isAmbiguous(),
+                                parameter.getAlternativeValues()
+                        ))
+                        .toList(),
+                result.getDiagnostics()
         );
     }
 
@@ -465,10 +563,34 @@ public final class ItemImportController implements HttpHandler {
         );
     }
 
+    private static String formatDouble(Double value) {
+        if (value == null) {
+            return "";
+        }
+        if (Math.rint(value) == value) {
+            return String.format(Locale.US, "%.0f", value);
+        }
+        return String.format(Locale.US, "%.2f", value).replace('.', ',');
+    }
+
+    private static String formatRange(Double min, Double max) {
+        if (min == null || max == null) {
+            return "";
+        }
+        return formatDouble(min) + " - " + formatDouble(max);
+    }
+
+    private static String formatLongRange(Long min, Long max) {
+        if (min == null || max == null) {
+            return "";
+        }
+        return min + " - " + max;
+    }
+
     private Part1SegmentationPreviewResult buildPart1SegmentationPreview(StructuredItemParts structuredItemParts) {
         Optional<StructuralItemPart> part1 = structuredItemParts.find(StructuralItemPartSlot.PART_1);
         if (part1.isEmpty()) {
-            return new Part1SegmentationPreviewResult(null, "");
+            return new Part1SegmentationPreviewResult(null, Optional.empty(), "");
         }
         try {
             Part1SegmentationResult result = part1RoiSegmenter.segment(part1.get());
@@ -482,11 +604,12 @@ public final class ItemImportController implements HttpHandler {
             List<ItemImportPageModel.Part1RoiView> roiViews = roiPreviewResults.stream()
                     .map(Part1RoiPreviewResult::view)
                     .toList();
-            ItemImportPageModel.Part1ReadResultView readResultView = toPart1ReadResultView(part1ReadParser.parse(
+            Part1ReadResult readResult = part1ReadParser.parse(
                     roiPreviewResults.stream()
                             .flatMap(preview -> preview.ocrResult().stream())
                             .toList()
-            ));
+            );
+            ItemImportPageModel.Part1ReadResultView readResultView = toPart1ReadResultView(readResult);
             return new Part1SegmentationPreviewResult(
                     new ItemImportPageModel.Part1SegmentationView(
                             sourceDataUri,
@@ -497,10 +620,11 @@ public final class ItemImportController implements HttpHandler {
                             roiViews,
                             readResultView
                     ),
+                    Optional.of(readResult),
                     ""
             );
         } catch (RuntimeException exception) {
-            return new Part1SegmentationPreviewResult(null, "Błąd segmentacji PART_1: " + safeMessage(exception));
+            return new Part1SegmentationPreviewResult(null, Optional.empty(), "Błąd segmentacji PART_1: " + safeMessage(exception));
         }
     }
 
@@ -618,23 +742,38 @@ public final class ItemImportController implements HttpHandler {
                 : message;
     }
 
-    private record OpenCvPreviewResult(ItemImportPageModel.OpenCvImagePreview preview, String error) {
+    private record OpenCvPreviewResult(ItemImportPageModel.OpenCvImagePreview preview,
+                                       ImageItemImportDraftMapper.DraftResult draftResult,
+                                       String error) {
     }
 
     private record HorizontalDividerPreviewResult(ItemImportPageModel.HorizontalDividerDetectionView preview,
+                                                  ImageItemImportDraftMapper.DraftResult draftResult,
                                                   String error) {
     }
 
     private record StructureNormalizationPreviewResult(ItemImportPageModel.ItemPartStructureNormalizationView preview,
+                                                       ImageItemImportDraftMapper.DraftResult draftResult,
                                                        String error) {
     }
 
-    private record Part1SegmentationPreviewResult(ItemImportPageModel.Part1SegmentationView preview, String error) {
+    private record Part1SegmentationPreviewResult(ItemImportPageModel.Part1SegmentationView preview,
+                                                  Optional<Part1ReadResult> readResult,
+                                                  String error) {
     }
 
     private record PropertyBlockSegmentationPreviewResult(
             List<ItemImportPageModel.PropertyBlockSegmentationView> previews,
+            List<ImageItemImportDraftMapper.BlockRead> blockReads,
             String error) {
+    }
+
+    private record PropertyBlockSegmentationPreview(ItemImportPageModel.PropertyBlockSegmentationView view,
+                                                    List<ImageItemImportDraftMapper.BlockRead> blockReads) {
+    }
+
+    private record PropertyBlockPreviewResult(ItemImportPageModel.PropertyBlockView view,
+                                              ImageItemImportDraftMapper.BlockRead blockRead) {
     }
 
     private record Part1RoiPreviewResult(ItemImportPageModel.Part1RoiView view,

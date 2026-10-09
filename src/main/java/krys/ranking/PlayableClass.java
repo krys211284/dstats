@@ -6,7 +6,8 @@ import java.util.Optional;
 
 /** Obsługiwane klasy postaci dla ogólnego rankingu obrażeń. */
 public enum PlayableClass {
-    PALADIN("paladin", "Paladyn");
+    PALADIN("paladin", "Paladyn"),
+    NECROMANCER("necromancer", "Nekromanta");
 
     private final String queryValue;
     private final String displayName;

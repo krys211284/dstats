@@ -52,6 +52,7 @@ class FileHeroProfileRepositoryTest {
         HeroProfile restoredHero = repository.findById(hero.getHeroId()).orElseThrow();
 
         assertEquals(hero.getHeroId(), restoredHero.getHeroId());
+        assertEquals(hero.getRuntimeSkillLoadout(), restoredHero.getRuntimeSkillLoadout());
         assertEquals("Alaric", restoredHero.getName());
         assertEquals(HeroClass.PALADIN, restoredHero.getHeroClass());
         assertEquals("70", restoredHero.getCurrentBuildFormData().getLevel());

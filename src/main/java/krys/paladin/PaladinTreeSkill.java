@@ -1,5 +1,10 @@
 package krys.paladin;
 
+import krys.skilltree.DamagePercentComponentRankTable;
+import krys.skilltree.DamagePercentRankTable;
+import krys.skilltree.UpgradeDamageImpact;
+import krys.skilltree.UpgradeDamageModifier;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -237,7 +242,7 @@ public final class PaladinTreeSkill {
     public List<UpgradeDamageImpact> getUpgradeDamageImpacts() {
         return upgradeGroups.stream()
                 .flatMap(group -> group.getUpgrades().stream()
-                        .map(upgrade -> UpgradeDamageImpact.fromUpgrade(group.getId(), upgrade)))
+                        .map(upgrade -> PaladinUpgradeDamageImpacts.fromUpgrade(group.getId(), upgrade)))
                 .toList();
     }
 
@@ -245,7 +250,7 @@ public final class PaladinTreeSkill {
         List<UpgradeDamageModifier> modifiers = new ArrayList<>(baseDescriptionModifiers);
         modifiers.addAll(upgradeGroups.stream()
                 .flatMap(group -> group.getUpgrades().stream()
-                        .map(upgrade -> UpgradeDamageModifier.fromUpgrade(skillId, group.getId(), upgrade)))
+                        .map(upgrade -> PaladinUpgradeDamageModifiers.fromUpgrade(skillId, group.getId(), upgrade)))
                 .toList());
         return List.copyOf(modifiers);
     }

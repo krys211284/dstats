@@ -104,15 +104,16 @@ class ItemImportWebServerTest {
         HttpResponse<String> response = sendGet("/importuj-item-ze-screena");
 
         assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("Importuj pojedynczy item ze screena"));
+        assertTrue(response.body().contains("Importuj item ze screena"));
         assertTrue(response.body().contains("Brak aktywnego bohatera"));
+        assertTrue(response.body().contains("Odczytaj item"));
         assertFalse(response.body().contains("Wstępnie rozpoznane pola"));
         assertFalse(response.body().contains("Surowy tekst OCR"));
         assertFalse(response.body().contains("Zatwierdź import itemu"));
     }
 
     @Test
-    void shouldAcceptScreenshotsAndStopAtStructuredItemParts() throws Exception {
+    void shouldRenderCleanDefaultImportAndVerificationFormWithoutDiagnostics() throws Exception {
         createActiveHero();
         dividerDetector.rawPartCount = 3;
 
@@ -120,6 +121,44 @@ class ItemImportWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertEquals(2, assembler.lastRequestCount);
+        assertTrue(response.body().contains("Importuj item ze screena"));
+        assertTrue(response.body().contains("Odczytaj item"));
+        assertTrue(response.body().contains("data-image-import-verification"));
+        assertTrue(response.body().contains("Weryfikacja itemu przed zapisem"));
+        assertTrue(response.body().contains("Zapisz item"));
+        assertTrue(response.body().contains("Niektóre wartości mogły zostać odczytane niedokładnie."));
+        assertFalse(response.body().contains("Podgląd obrazu przygotowanego przez OpenCV"));
+        assertFalse(response.body().contains("data-opencv-assembled-preview"));
+        assertFalse(response.body().contains("data-opencv-divider-diagnostics"));
+        assertFalse(response.body().contains("data-opencv-part-preview"));
+        assertFalse(response.body().contains("data-item-structure-normalization"));
+        assertFalse(response.body().contains("data-part1-segmentation"));
+        assertFalse(response.body().contains("data-part1-roi"));
+        assertFalse(response.body().contains("data-property-block-segmentation"));
+        assertFalse(response.body().contains("data-property-block-read-result"));
+        assertFalse(response.body().contains("data-property-block-numeric-evidence"));
+        assertFalse(response.body().contains("data-property-block-semantic-result"));
+        assertFalse(response.body().contains("data-property-block-value-read-result"));
+        assertFalse(response.body().contains("supportCount"));
+        assertFalse(response.body().contains("supportingProfiles"));
+        assertFalse(response.body().contains("alternativeValues"));
+        assertFalse(response.body().contains("NUMERIC_OCR_AMBIGUOUS"));
+        assertFalse(response.body().contains("pipeline diagnostyczny"));
+        assertFalse(response.body().contains("POC OCR"));
+        assertEquals(List.of("PART_3#1", "PART_3#2"), propertyBlockOcrReader.readBlocks);
+    }
+
+    @Test
+    void shouldAcceptScreenshotsAndRenderDiagnosticsWhenEnabled() throws Exception {
+        createActiveHero();
+        dividerDetector.rawPartCount = 3;
+
+        HttpResponse<String> response = sendMultipartUpload("/importuj-item-ze-screena?diagnostics=true",
+                pngBytes(Color.ORANGE), pngBytes(Color.CYAN));
+
+        assertEquals(200, response.statusCode());
+        assertEquals(2, assembler.lastRequestCount);
+        assertTrue(response.body().contains("diagnostics=true"));
         assertTrue(response.body().contains("data-opencv-assembled-preview"));
         assertTrue(response.body().contains("data-opencv-divider-diagnostics"));
         assertTrue(response.body().contains("data-opencv-part-preview"));
@@ -153,6 +192,9 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("candidateDefinitionIds=<span data-candidate-definition-ids>[cooldown_reduction]</span>"));
         assertTrue(response.body().contains("greaterAffix=<span data-greater-affix>false</span>"));
         assertTrue(response.body().contains("numericValueCertain=<span data-numeric-value-certain>false</span>"));
+        assertTrue(response.body().contains("data-property-block-value-read-result"));
+        assertTrue(response.body().contains("data-value-role=\"itemArmor\""));
+        assertTrue(response.body().contains("data-property-block-value-parameters"));
         assertEquals(List.of(StructuralItemPartSlot.PART_3), propertyBlockSegmenter.segmentedSlots);
         assertEquals(List.of("PART_3#1", "PART_3#2"), propertyBlockOcrReader.readBlocks);
         assertTrue(response.body().contains("data-part1-segmentation"));
@@ -193,6 +235,16 @@ class ItemImportWebServerTest {
         assertTrue(response.body().contains("OFF_HAND"));
         assertTrue(response.body().contains("Jakość wyświetlana"));
         assertTrue(response.body().contains("Masterworking quality"));
+        assertTrue(response.body().contains("data-image-import-verification"));
+        assertTrue(response.body().contains("Weryfikacja itemu przed zapisem"));
+        assertTrue(response.body().contains("action=\"/biblioteka-itemow\""));
+        assertTrue(response.body().contains("name=\"action\" value=\"saveImportedItem\""));
+        assertTrue(response.body().contains("name=\"sourceImageName\" value=\"item-0.png, item-1.png\""));
+        assertTrue(response.body().contains("name=\"slot\" id=\"itemSlotSelect\""));
+        assertTrue(response.body().contains("name=\"itemArmor\""));
+        assertTrue(response.body().contains("Wymaga sprawdzenia"));
+        assertTrue(response.body().contains("NUMERIC_OCR_AMBIGUOUS"));
+        assertTrue(response.body().contains("Zapisz item"));
         assertEquals(List.of(
                 Part1RoiType.NAME_AND_STARS,
                 Part1RoiType.CLASSIFICATION,
@@ -210,7 +262,7 @@ class ItemImportWebServerTest {
         dividerDetector.rawPartCount = 3;
         part1RoiSegmenter.includeOptionalInfo = false;
 
-        HttpResponse<String> response = sendMultipartUpload(pngBytes(Color.ORANGE));
+        HttpResponse<String> response = sendMultipartUpload("/importuj-item-ze-screena?diagnostics=true", pngBytes(Color.ORANGE));
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("data-part1-roi-type=\"NAME_AND_STARS\""));
@@ -232,7 +284,7 @@ class ItemImportWebServerTest {
         createActiveHero();
         dividerDetector.rawPartCount = 4;
 
-        HttpResponse<String> response = sendMultipartUpload(pngBytes(Color.ORANGE));
+        HttpResponse<String> response = sendMultipartUpload("/importuj-item-ze-screena?diagnostics=true", pngBytes(Color.ORANGE));
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("data-item-structure-status=\"STRUCTURALLY_NORMALIZED\""));
@@ -260,7 +312,7 @@ class ItemImportWebServerTest {
         createActiveHero();
         dividerDetector.rawPartCount = 2;
 
-        HttpResponse<String> response = sendMultipartUpload(pngBytes(Color.ORANGE));
+        HttpResponse<String> response = sendMultipartUpload("/importuj-item-ze-screena?diagnostics=true", pngBytes(Color.ORANGE));
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("data-item-structure-status=\"INCOMPLETE\""));
@@ -278,7 +330,7 @@ class ItemImportWebServerTest {
         dividerDetector.rawPartCount = 3;
         structureNormalizer.failure = new RuntimeException("structure-stop");
 
-        HttpResponse<String> response = sendMultipartUpload(pngBytes(Color.ORANGE));
+        HttpResponse<String> response = sendMultipartUpload("/importuj-item-ze-screena?diagnostics=true", pngBytes(Color.ORANGE));
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("data-opencv-assembled-preview"));
@@ -295,7 +347,7 @@ class ItemImportWebServerTest {
         createActiveHero();
         assembler.failure = new IllegalArgumentException("assembler-stop");
 
-        HttpResponse<String> response = sendMultipartUpload(pngBytes(Color.BLACK));
+        HttpResponse<String> response = sendMultipartUpload("/importuj-item-ze-screena?diagnostics=true", pngBytes(Color.BLACK));
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("Błąd podglądu OpenCV: assembler-stop"));
@@ -308,7 +360,7 @@ class ItemImportWebServerTest {
         createActiveHero();
         dividerDetector.failure = new IllegalStateException("divider-stop");
 
-        HttpResponse<String> response = sendMultipartUpload(pngBytes(Color.GREEN));
+        HttpResponse<String> response = sendMultipartUpload("/importuj-item-ze-screena?diagnostics=true", pngBytes(Color.GREEN));
 
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("data-opencv-assembled-preview"));
@@ -329,6 +381,10 @@ class ItemImportWebServerTest {
     }
 
     private HttpResponse<String> sendMultipartUpload(byte[]... images) throws Exception {
+        return sendMultipartUpload("/importuj-item-ze-screena", images);
+    }
+
+    private HttpResponse<String> sendMultipartUpload(String path, byte[]... images) throws Exception {
         String boundary = "----dstats-test-boundary";
         ByteArrayOutputStream body = new ByteArrayOutputStream();
         for (int index = 0; index < images.length; index++) {
@@ -340,7 +396,7 @@ class ItemImportWebServerTest {
         }
         body.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
         return httpClient.send(
-                HttpRequest.newBuilder(URI.create(baseUrl + "/importuj-item-ze-screena"))
+                HttpRequest.newBuilder(URI.create(baseUrl + path))
                         .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                         .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray()))
                         .build(),

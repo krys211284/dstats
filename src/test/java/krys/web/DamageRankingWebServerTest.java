@@ -70,6 +70,28 @@ class DamageRankingWebServerTest {
     }
 
     @Test
+    void shouldPreserveUnknownAndUnusedLegacyCategoryAndTagFilters() throws Exception {
+        String allRows = sendGet("/ranking-obrazen?sourceCategory=UNKNOWN_CATEGORY&tag=UNKNOWN_TAG").body();
+        assertEquals(24, countSkillRows(allRows));
+        String unusedCategory = sendGet("/ranking-obrazen?sourceCategory=CORE").body();
+        assertEquals(0, countSkillRows(unusedCategory));
+        String lowercaseCategory = sendGet("/ranking-obrazen?sourceCategory=adept").body();
+        assertEquals(1, countSkillRows(lowercaseCategory));
+        assertTrue(lowercaseCategory.contains("data-skill-id=\"wymach\""));
+    }
+
+    @Test
+    void neutralResourceAliasesShouldPreserveLegacyPaladinFilteringAndSorting() throws Exception {
+        String legacy = sendGet("/ranking-obrazen?hasFaithCost=YES&sort=faithCost&direction=asc").body();
+        String neutral = sendGet("/ranking-obrazen?hasResourceCost=YES&sort=resourceCost&direction=asc").body();
+        assertEquals(legacy, neutral.replace("name=\"sort\" value=\"resourceCost\"", "name=\"sort\" value=\"faithCost\""));
+        String legacyGeneration = sendGet("/ranking-obrazen?sort=faithGeneratedMaxKnown&direction=desc").body();
+        String neutralGeneration = sendGet("/ranking-obrazen?sort=resourceGeneratedMaxKnown&direction=desc").body();
+        assertEquals(legacyGeneration, neutralGeneration.replace("name=\"sort\" value=\"resourceGeneratedMaxKnown\"",
+                "name=\"sort\" value=\"faithGeneratedMaxKnown\""));
+    }
+
+    @Test
     void shouldRenderAllTwentyFourPaladinTreeSkillsByDefault() throws Exception {
         HttpResponse<String> response = sendGet("/ranking-obrazen");
 
@@ -239,7 +261,7 @@ class DamageRankingWebServerTest {
         assertTrue(brandishRow.contains("120%"));
         assertTrue(brandishRow.contains(">Podstawowe, Adept</td>"));
         List<String> cells = tableCells(brandishRow);
-        assertEquals(14, cells.size());
+        assertEquals(16, cells.size());
         assertEquals("-", cells.get(4));
         assertTrue(cells.get(5).contains("14; Generowanie Wiary"));
         assertFalse(stripTooltipAttributes(cells.get(5)).contains("+5"));
@@ -300,8 +322,8 @@ class DamageRankingWebServerTest {
 
         assertEquals(200, response.statusCode());
         assertEquals(1, countSkillRows(response.body()));
-        assertEquals(14, cells.size());
-        assertEquals("Starcie", cells.get(0));
+        assertEquals(16, cells.size());
+        assertEquals("Starcie", cells.get(0).replaceAll("<[^>]+>", ""));
         assertEquals("Podstawowe, Moloch", cells.get(1));
         assertEquals("115%", cells.get(2));
         assertEquals("293%", cells.get(3));
@@ -739,7 +761,7 @@ class DamageRankingWebServerTest {
             found++;
             String skillId = matcher.group(1);
             List<String> cells = tableCells(matcher.group(2));
-            if (cells.size() != 14) {
+            if (cells.size() != 16) {
                 throw new AssertionError("Niepoprawna liczba komórek dla " + skillId + ": " + cells.size());
             }
             String rankOneCell = cells.get(2);
@@ -782,7 +804,7 @@ class DamageRankingWebServerTest {
     }
 
     private static void assertRowDoesNotContain(String html, String skillId, String fragment) {
-        assertFalse(rowHtml(html, skillId).contains(fragment), skillId + " nie powinien zawierać: " + fragment);
+        assertFalse(stripTitleAttributes(rowHtml(html, skillId)).contains(fragment), skillId + " nie powinien zawierać: " + fragment);
     }
 
     private static void assertBasicCategoryAndFaith(String html,

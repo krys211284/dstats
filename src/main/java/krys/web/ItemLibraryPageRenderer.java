@@ -392,7 +392,11 @@ public final class ItemLibraryPageRenderer {
 
     private static String formatArmorDetailsValue(SavedImportedItem item) {
         if (item.getMasterworking() != null && item.getMasterworking().hasVisibleProgress()) {
-            return MasterworkingSectionRenderer.formatArmorReadonlyValue(item.getMasterworking(), item.getItemArmor());
+            return MasterworkingSectionRenderer.formatArmorReadonlyValue(
+                    item.getMasterworking(),
+                    item.getItemArmor(),
+                    item.getDetails().isMythicUnique()
+            );
         }
         return nullableLongLabel(item.getItemArmor());
     }

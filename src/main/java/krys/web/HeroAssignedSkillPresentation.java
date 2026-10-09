@@ -1,7 +1,7 @@
 package krys.web;
 
 import krys.paladin.PaladinTreeSkill;
-import krys.paladin.UpgradeDamageModifier;
+import krys.skilltree.UpgradeDamageModifier;
 import krys.skill.SkillId;
 
 import java.util.List;
@@ -84,7 +84,7 @@ public final class HeroAssignedSkillPresentation {
                     + modifier.getUpgradeName()
                     + " — "
                     + modifier.getRankingTooltipDescription();
-            this.runtimeSafe = modifier.getSafeForRuntimeDps() == krys.paladin.UpgradeDamageSafety.YES;
+            this.runtimeSafe = modifier.getSafeForRuntimeDps() == krys.skilltree.UpgradeDamageSafety.YES;
         }
 
         public String getName() {

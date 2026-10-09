@@ -18,9 +18,18 @@ class ManualSimulationTickRuntimeTest {
 
     @Test
     void powinien_wykonac_wait_gdy_brak_legalnego_skilla_do_rzutu() {
-        HeroBuildSnapshot snapshot = SampleBuildFactory.createReferenceCurrentBuild(
-                List.of(),
+        SkillState holyBolt = new SkillState(SkillId.HOLY_BOLT, 1, false, SkillUpgradeChoice.NONE);
+        HeroBuildSnapshot reference = SampleBuildFactory.createReferenceCurrentBuild(
+                List.of(holyBolt),
                 List.of(SkillId.HOLY_BOLT)
+        );
+        // Nauczony skill pozostaje na pasku, ale istniejący koszt Verathiela i brak Wiary blokują rzut.
+        HeroBuildSnapshot snapshot = new HeroBuildSnapshot(
+                reference.getHero(), reference.getBonusSkillPoints(), reference.getAverageWeaponDamage(),
+                reference.getTotalPercentDamageBonus(), reference.getEquippedItems(),
+                reference.hasActiveWeapon(), reference.hasActiveShield(),
+                reference.getLearnedSkills(), reference.getSelectedSkillBar(),
+                0.0d, reference.getMaxPrimaryResource(), 0.0d, List.of("verathiel_shard")
         );
 
         SimulationResult result = simulationService.calculateCurrentBuild(snapshot, 3);
@@ -32,8 +41,16 @@ class ManualSimulationTickRuntimeTest {
         assertEquals("WAIT", result.getStepTrace().get(0).getActionName());
         assertTrue(result.getStepTrace().get(0).getSelectionReason().contains("WAIT"));
         assertEquals(1, result.getStepTrace().get(0).getSkillBarStates().size());
-        assertEquals(0, result.getStepTrace().get(0).getSkillBarStates().get(0).getRank());
-        assertFalse(result.getStepTrace().get(0).getSkillBarStates().get(0).isLegalActive());
+        assertEquals(holyBolt.getRank(), result.getStepTrace().get(0).getSkillBarStates().get(0).getRank());
+        for (SimulationStepTrace step : result.getStepTrace()) {
+            assertEquals(SimulationActionType.WAIT, step.getActionType());
+            assertTrue(step.getSelectionReason().contains("brak zasobu"));
+            assertEquals(SkillId.HOLY_BOLT, step.getSkillBarStates().get(0).getSkillId());
+            assertTrue(step.getSkillBarStates().get(0).isLegalActive());
+            assertFalse(step.getSkillBarStates().get(0).hasRequiredResource());
+            assertFalse(step.getSkillBarStates().get(0).isLegalCandidate());
+            assertFalse(step.getSkillBarStates().get(0).isSelected());
+        }
     }
 
     @Test

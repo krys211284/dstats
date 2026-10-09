@@ -1,5 +1,7 @@
 package krys.simulation;
 
+import krys.runtime.legacy.LegacyPaladinRuntimeSkillKeyAdapter;
+
 import krys.combat.DamageBreakdown;
 import krys.combat.DamageEngine;
 import krys.combat.DelayedHitBreakdown;
@@ -496,12 +498,8 @@ public final class ManualSimulationService {
     }
 
     private static Optional<PaladinTreeSkill> findTreeSkill(SkillId skillId) {
-        return switch (skillId) {
-            case BRANDISH -> PaladinSkillTreeRegistry.findSkill("wymach");
-            case HOLY_BOLT -> PaladinSkillTreeRegistry.findSkill("swiety_pocisk");
-            case CLASH -> PaladinSkillTreeRegistry.findSkill("starcie");
-            case ADVANCE -> PaladinSkillTreeRegistry.findSkill("natarcie");
-        };
+        var key = LegacyPaladinRuntimeSkillKeyAdapter.toRuntimeKey(skillId);
+        return PaladinSkillTreeRegistry.findSkill(key.skillId());
     }
 
     private static double clampResource(double value, double maxPrimaryResource) {

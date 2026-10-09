@@ -1,40 +1,51 @@
 package krys.web;
 
-import krys.paladin.DamagePercentComponentRankTable;
-import krys.paladin.PaladinSkillTreeType;
-import krys.paladin.PaladinTreeSkill;
-import krys.paladin.SkillCategory;
-import krys.paladin.SkillTag;
-import krys.paladin.UpgradeDamageImpact;
-import krys.paladin.UpgradeDamageModifier;
-import krys.paladin.UpgradeDamageModifierType;
-import krys.paladin.UpgradeDamageSafety;
-import krys.ranking.PaladinSkillDamageRankingEntry;
+import krys.ranking.SkillDamageRankingEntry;
+import krys.skilltree.CharacterTreeSkill;
+import krys.skilltree.SkillChargeData;
+import krys.skilltree.SkillActivationRequirement;
+import krys.skilltree.SkillActivationConsumptionMode;
+import krys.skilltree.DamagePercentComponentRankTable;
+import krys.skilltree.SkillResourceType;
+import krys.skilltree.SkillResourceData;
+import krys.skilltree.SkillResourceGenerationFrequency;
+import krys.skilltree.SkillTreeType;
+import krys.skilltree.SourceSkillCategory;
+import krys.skilltree.UpgradeDamageImpact;
+import krys.skilltree.UpgradeDamageModifier;
+import krys.skilltree.UpgradeDamageModifierType;
+import krys.skilltree.UpgradeDamageSafety;
 
 import java.util.List;
-import java.util.Set;
+import java.math.BigDecimal;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.Set;
 
 /** Wiersz widoku rankingu łączący opis rankingu z typem umiejętności z rejestru drzewa. */
 public final class DamageRankingRow {
-    private static final Pattern PERCENT_VALUE_PATTERN = Pattern.compile("(\\d+)%");
+    private static final Pattern PERCENT_VALUE_PATTERN = Pattern.compile("(?<![\\d.,])(\\d+(?:[.,]\\d+)?)\\s*%");
 
-    private final PaladinSkillDamageRankingEntry entry;
-    private final PaladinSkillTreeType type;
-    private final Set<SkillCategory> skillCategories;
+    private final SkillDamageRankingEntry entry;
+    private final SkillTreeType type;
+    private final Set<SourceSkillCategory> skillCategories;
     private final String damageComponentsDescription;
     private final DamagePercentComponentRankTable componentDamagePercentRanks;
     private final List<UpgradeDamageImpact> upgradeDamageImpacts;
     private final List<UpgradeDamageModifier> upgradeDamageModifiers;
-    private final Set<SkillTag> tags;
-    private final Integer faithCost;
-    private final Integer faithGenerationBase;
-    private final Integer faithGenerationBonusKnown;
+    private final Set<String> tags;
+    private final SkillResourceData resourceData;
     private final Integer luckyHitPercent;
+    private final SkillResourceType resourceType;
+    private final String treeGroupDisplayName;
+    private final List<SkillActivationRequirement> activationRequirements;
+    private final SkillChargeData chargeData;
 
-    public DamageRankingRow(PaladinSkillDamageRankingEntry entry, PaladinTreeSkill treeSkill) {
+    public DamageRankingRow(SkillDamageRankingEntry entry, CharacterTreeSkill treeSkill,
+                            SkillResourceType resourceType, String treeGroupDisplayName) {
         this.entry = entry;
+        this.activationRequirements = treeSkill.getActivationRequirements();
+        this.chargeData = treeSkill.getChargeData();
         this.type = treeSkill.getType();
         this.skillCategories = treeSkill.getSkillCategories();
         this.damageComponentsDescription = describeDamageComponents(treeSkill);
@@ -42,28 +53,28 @@ public final class DamageRankingRow {
         this.upgradeDamageImpacts = List.copyOf(treeSkill.getUpgradeDamageImpacts());
         this.upgradeDamageModifiers = List.copyOf(treeSkill.getUpgradeDamageModifiers());
         this.tags = treeSkill.getTags();
-        this.faithCost = treeSkill.getFaithCost();
-        this.faithGenerationBase = treeSkill.getFaithGenerationBase();
-        this.faithGenerationBonusKnown = treeSkill.getFaithGenerationBonusKnown();
+        this.resourceData = treeSkill.getResourceData();
         this.luckyHitPercent = treeSkill.getLuckyHitPercent();
+        this.resourceType = resourceType;
+        this.treeGroupDisplayName = treeGroupDisplayName;
     }
 
-    public PaladinSkillDamageRankingEntry getEntry() {
+    public SkillDamageRankingEntry getEntry() {
         return entry;
     }
 
-    public PaladinSkillTreeType getType() {
+    public SkillTreeType getType() {
         return type;
     }
 
-    public Set<SkillCategory> getSkillCategories() {
+    public Set<SourceSkillCategory> getSkillCategories() {
         return skillCategories;
     }
 
     public String getSkillCategoriesDisplay() {
         return skillCategories.stream()
-                .sorted(java.util.Comparator.comparingInt(SkillCategory::getDisplayOrder))
-                .map(SkillCategory::getDisplayName)
+                .sorted(java.util.Comparator.comparingInt(SourceSkillCategory::getDisplayOrder))
+                .map(SourceSkillCategory::getDisplayName)
                 .collect(java.util.stream.Collectors.joining(", "));
     }
 
@@ -71,20 +82,16 @@ public final class DamageRankingRow {
         return getSkillCategoriesDisplay();
     }
 
-    public boolean hasSkillCategory(SkillCategory category) {
-        return skillCategories.contains(category);
+    public boolean hasSkillCategory(String category) {
+        return skillCategories.stream().anyMatch(value -> value.getId().equalsIgnoreCase(category));
     }
 
     public String getTreeGroupDisplayName() {
-        return switch (entry.getSkillGroup()) {
-            case "basic" -> "Podstawowe / Basic";
-            case "core" -> "Główne / Core";
-            case "aura" -> "Aura";
-            case "odwaga" -> "Odwaga";
-            case "sprawiedliwosc" -> "Sprawiedliwość";
-            case "moce_specjalne" -> "Moce Specjalne";
-            default -> entry.getSkillGroup();
-        };
+        return treeGroupDisplayName;
+    }
+
+    public SkillResourceType getResourceType() {
+        return resourceType;
     }
 
     public String getDamageComponentsDescription() {
@@ -107,19 +114,18 @@ public final class DamageRankingRow {
                 .toList();
     }
 
-    public Set<SkillTag> getTags() {
+    public Set<String> getTags() {
         return tags;
     }
 
     public String getMechanicTagsDisplay() {
         return tags.stream()
-                .map(Enum::name)
                 .sorted()
                 .collect(java.util.stream.Collectors.joining(","));
     }
 
-    public boolean hasTag(SkillTag tag) {
-        return tags.contains(tag);
+    public boolean hasTag(String tag) {
+        return tags.stream().anyMatch(value -> value.equalsIgnoreCase(tag));
     }
 
     public Integer getBaseDamagePercentAtRank1() {
@@ -176,13 +182,13 @@ public final class DamageRankingRow {
     }
 
     public boolean hasResourceGeneration() {
-        return faithGenerationBase != null
+        return resourceData.hasGeneration()
                 || upgradeDamageModifiers.stream()
                 .anyMatch(modifier -> modifier.getType() == UpgradeDamageModifierType.RESOURCE_OR_COST);
     }
 
-    public boolean hasFaithCost() {
-        return faithCost != null;
+    public boolean hasResourceCost() {
+        return resourceData.cost() != null;
     }
 
     public boolean hasCooldownOrCastSpeed() {
@@ -210,7 +216,7 @@ public final class DamageRankingRow {
                 .toList();
     }
 
-    public Integer maxDamageMultiplierPercent() {
+    public BigDecimal maxDamageMultiplierPercent() {
         return maxPercentValue(damageMultiplierModifiers());
     }
 
@@ -221,7 +227,7 @@ public final class DamageRankingRow {
                 .toList();
     }
 
-    public Integer maxDamageBonusPercent() {
+    public BigDecimal maxDamageBonusPercent() {
         return maxPercentValue(damageBonusModifiers());
     }
 
@@ -234,7 +240,7 @@ public final class DamageRankingRow {
                 .toList();
     }
 
-    public Integer maxExtraHitOrComponentPercent() {
+    public BigDecimal maxExtraHitOrComponentPercent() {
         return maxPercentValue(extraHitOrComponentModifiers());
     }
 
@@ -245,7 +251,7 @@ public final class DamageRankingRow {
                 .toList();
     }
 
-    public Integer maxDamageOverTimePercent() {
+    public BigDecimal maxDamageOverTimePercent() {
         return maxPercentValue(damageOverTimeModifiers());
     }
 
@@ -282,26 +288,37 @@ public final class DamageRankingRow {
                 .toList();
     }
 
-    public String getFaithCostSummary() {
-        return faithCost == null ? "-" : faithCost.toString();
+    public String getResourceCostSummary() {
+        return decimalText(resourceData.cost());
     }
 
-    public Integer getFaithCostSortValue() {
-        return faithCost;
+    public BigDecimal getResourceCostSortValue() {
+        return resourceData.cost();
     }
 
-    public String getFaithGenerationSummary() {
-        if (faithGenerationBase == null) {
+    public String getResourceGenerationBaseSummary() {
+        if (!resourceData.hasGeneration()) {
             return "-";
         }
-        if (faithGenerationBonusKnown == null) {
-            return faithGenerationBase.toString();
+        String summary = decimalText(resourceData.generationMin());
+        if (resourceData.generationMin().compareTo(resourceData.generationMax()) != 0) {
+            summary += "–" + decimalText(resourceData.generationMax());
         }
-        return faithGenerationBase + "; +" + faithGenerationBonusKnown + " — Generowanie Wiary";
+        return summary + switch (resourceData.generationFrequency()) {
+            case PER_USE -> "";
+            case PER_SECOND -> " / sek.";
+            case PER_EVENT -> " / zdarzenie";
+        };
     }
 
-    public Integer getFaithGenerationBonusKnown() {
-        return faithGenerationBonusKnown;
+    public String getResourceGenerationSummary() {
+        String base = getResourceGenerationBaseSummary();
+        return !resourceData.hasGeneration() || resourceData.generationBonusKnown() == null ? base
+                : base + "; +" + decimalText(resourceData.generationBonusKnown()) + " — " + resourceType.generationLabel();
+    }
+
+    public BigDecimal getResourceGenerationBonusKnown() {
+        return resourceData.generationBonusKnown();
     }
 
     public Integer getLuckyHitPercent() {
@@ -312,22 +329,46 @@ public final class DamageRankingRow {
         return luckyHitPercent == null ? "-" : luckyHitPercent + "%";
     }
 
-    public Integer getFaithGenerationBaseSortValue() {
-        return faithGenerationBase;
+    public String getCooldownSummary() {
+        if (chargeData != null) {
+            return chargeData.baseCharges() + " ładunki; " + chargeData.chargeCooldownSeconds() + " s / ładunek";
+        }
+        return entry.getCooldownSeconds() == null ? "-" : entry.getCooldownSeconds() + " s";
     }
 
-    public Integer getFaithGenerationMaxKnownSortValue() {
-        if (faithGenerationBase == null) {
-            return null;
-        }
-        if (faithGenerationBonusKnown == null) {
-            return faithGenerationBase;
-        }
-        return faithGenerationBase + faithGenerationBonusKnown;
+    public SkillChargeData getChargeData() {
+        return chargeData;
     }
 
-    private static String describeDamageComponents(PaladinTreeSkill treeSkill) {
+    public List<SkillActivationRequirement> getActivationRequirements() {
+        return activationRequirements;
+    }
+
+    public String getActivationRequirementsSummary() {
+        return activationRequirements.isEmpty() ? "-" : activationRequirements.stream()
+                .map(requirement -> requirement.amount() + " × " + requirement.displayName() + " ("
+                        + (requirement.consumptionMode() == SkillActivationConsumptionMode.CONSUMED_ON_USE
+                        ? "zużywane" : "wymagane, niezużywane") + ")")
+                .collect(java.util.stream.Collectors.joining("; "));
+    }
+
+    /** Sortowanie bazowe porównuje dolne granice źródłowych zakresów, bez zmiany częstotliwości. */
+    public BigDecimal getResourceGenerationBaseSortValue() {
+        return resourceData.generationMin();
+    }
+
+    /** Sortowanie maxKnown porównuje górne granice wraz z potwierdzonymi dodatkami. */
+    public BigDecimal getResourceGenerationMaxKnownSortValue() {
+        return resourceData.generationMaxKnown();
+    }
+
+    private static String describeDamageComponents(CharacterTreeSkill treeSkill) {
         if (!treeSkill.getBaseDamagePercentRanks().isEmpty()) {
+            if (treeSkill.getBaseDamagePercentRanks().asMap().size() < 15) {
+                return "częściowa tabela bazowych procentów obrażeń; dostępne punkty: "
+                        + treeSkill.getBaseDamagePercentRanks().asMap().keySet().stream().sorted()
+                        .map(Object::toString).collect(java.util.stream.Collectors.joining(", "));
+            }
             return "prosta tabela bazowych procentów obrażeń 1..15";
         }
         return switch (treeSkill.getType()) {
@@ -336,24 +377,28 @@ public final class DamageRankingRow {
         };
     }
 
-    private static Integer maxPercentValue(List<UpgradeDamageModifier> modifiers) {
+    private static BigDecimal maxPercentValue(List<UpgradeDamageModifier> modifiers) {
         return modifiers.stream()
-                .map(DamageRankingRow::firstPercentValue)
+                .map(DamageRankingRow::maxPercentInModifier)
                 .filter(value -> value != null)
-                .max(Integer::compareTo)
+                .max(BigDecimal::compareTo)
                 .orElse(null);
     }
 
-    private static Integer firstPercentValue(UpgradeDamageModifier modifier) {
+    private static BigDecimal maxPercentInModifier(UpgradeDamageModifier modifier) {
         Matcher matcher = PERCENT_VALUE_PATTERN.matcher(modifier.getValue());
-        Integer max = null;
+        BigDecimal max = null;
         while (matcher.find()) {
-            int value = Integer.parseInt(matcher.group(1));
-            if (max == null || value > max) {
+            BigDecimal value = new BigDecimal(matcher.group(1).replace(',', '.'));
+            if (max == null || value.compareTo(max) > 0) {
                 max = value;
             }
         }
         return max;
+    }
+
+    private static String decimalText(BigDecimal value) {
+        return value == null ? "-" : value.stripTrailingZeros().toPlainString();
     }
 
 }

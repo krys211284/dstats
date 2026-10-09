@@ -9,6 +9,8 @@ import krys.itemimport.CurrentBuildImportableStats;
 import krys.itemlibrary.EffectiveCurrentBuildResolution;
 import krys.itemlibrary.ItemLibraryService;
 import krys.itemlibrary.ItemLibraryPresentationSupport;
+import krys.necromancer.app.NecromancerCurrentBuildCalculation;
+import krys.necromancer.app.NecromancerCurrentBuildCalculationService;
 import krys.skill.SkillId;
 
 import java.io.IOException;
@@ -28,6 +30,8 @@ public final class CurrentBuildController implements HttpHandler {
     private final CurrentBuildRuntimeInputResolver runtimeInputResolver;
     private final ItemLibraryService itemLibraryService;
     private final HeroService heroService;
+    private final NecromancerCurrentBuildCalculationService necromancerService = new NecromancerCurrentBuildCalculationService();
+    private final NecromancerCurrentBuildInputResolver necromancerInputResolver = new NecromancerCurrentBuildInputResolver();
 
     public CurrentBuildController(CurrentBuildCalculationService calculationService,
                                   CurrentBuildPageRenderer renderer,
@@ -57,6 +61,10 @@ public final class CurrentBuildController implements HttpHandler {
                 HeroProfile activeHero = heroService.getActiveHero().orElse(null);
                 if (activeHero == null) {
                     renderPage(exchange, buildEmptyPageModel());
+                    return;
+                }
+                if (CurrentBuildRuntimeMode.forHero(activeHero) == CurrentBuildRuntimeMode.NECROMANCER_DIRECT_HIT) {
+                    renderPage(exchange, buildNecromancerPageModel(activeHero, savedNecromancerForm(activeHero), List.of(), List.of(), null));
                     return;
                 }
                 Map<String, String> queryFields = UrlEncodedFormSupport.parseQuery(exchange.getRequestURI().getRawQuery());
@@ -94,10 +102,18 @@ public final class CurrentBuildController implements HttpHandler {
         List<String> messages = new ArrayList<>();
         CurrentBuildFormAction formAction = CurrentBuildFormAction.from(fields.get("formAction"));
 
+        if (CurrentBuildRuntimeMode.forHero(activeHero) == CurrentBuildRuntimeMode.NECROMANCER_DIRECT_HIT
+                && !"setActiveHeroInline".equals(fields.get("heroAction"))) {
+            return handleNecromancerPost(activeHero, fields, messages, errors);
+        }
+
         if (handleHeroAction(fields, messages, errors)) {
             HeroProfile refreshedHero = heroService.getActiveHero().orElse(null);
             if (refreshedHero == null) {
                 return buildEmptyPageModel();
+            }
+            if (CurrentBuildRuntimeMode.forHero(refreshedHero) == CurrentBuildRuntimeMode.NECROMANCER_DIRECT_HIT) {
+                return buildNecromancerPageModel(refreshedHero, savedNecromancerForm(refreshedHero), messages, errors, null);
             }
             CurrentBuildFormData refreshedFormData = refreshedHero.getCurrentBuildFormData();
             return buildPageModel(
@@ -233,6 +249,83 @@ public final class CurrentBuildController implements HttpHandler {
                 "/bohaterowie",
                 buildChoiceHelpText()
         );
+    }
+
+    private static NecromancerCurrentBuildFormData savedNecromancerForm(HeroProfile hero) {
+        return NecromancerCurrentBuildFormQuerySupport.fromSerializedQuery(hero.getCurrentBuildQuery(), hero.getRuntimeSkillLoadout());
+    }
+
+    private CurrentBuildPageModel buildNecromancerPageModel(HeroProfile hero, NecromancerCurrentBuildFormData form,
+                                                           List<String> messages, List<String> errors,
+                                                           NecromancerCurrentBuildCalculation calculation) {
+        return CurrentBuildPageModel.forNecromancer(form, messages, errors, calculation,
+                itemLibraryService.resolveEffectiveCurrentBuild(zeroStats(), hero.getItemSelection()),
+                hero, heroService.getHeroes(), itemLibraryService.getSavedItems());
+    }
+
+    private CurrentBuildPageModel handleNecromancerPost(HeroProfile hero, Map<String, String> fields,
+                                                       List<String> messages, List<String> errors) {
+        if (!fields.getOrDefault("heroAction", "").isBlank()) {
+            errors.add("Edycja legacy umiejętności Paladyna nie jest dostępna dla Nekromanty.");
+            return buildNecromancerPageModel(hero, savedNecromancerForm(hero), messages, errors, null);
+        }
+        var form = NecromancerCurrentBuildFormData.fromFormFields(fields, savedNecromancerForm(hero));
+        errors.addAll(form.validationErrors());
+        errors.addAll(NecromancerCurrentBuildFormData.postValidationErrors(fields));
+        NecromancerCurrentBuildCalculation calculation = null;
+        if (errors.isEmpty()) {
+            try {
+                var loadout = NecromancerCurrentBuildLoadoutEditor.apply(hero.getRuntimeSkillLoadout(), form);
+                if (!fields.getOrDefault("slotAction", "").isBlank()) {
+                    handlePageAction(fields, errors, messages);
+                    hero = heroService.requireActiveHero();
+                } else if (CurrentBuildFormAction.from(fields.get("formAction")) == CurrentBuildFormAction.SAVE) {
+                    if (!form.selectedSkillId().isEmpty()) {
+                        var configuration = necromancerService.requireKrwotokOnActionBar(loadout);
+                        if (configuration.rank() != 1 || !configuration.selections().isEmpty()) {
+                            throw new UnsupportedOperationException(unsupportedNecromancerConfiguration(configuration.rank(), !configuration.selections().isEmpty()));
+                        }
+                    }
+                    HeroItemSelection selection = validatedNecromancerItemSelection(hero.getItemSelection(), fields);
+                    heroService.saveActiveHeroRuntimeState(
+                            NecromancerCurrentBuildFormQuerySupport.withFormData(hero.getCurrentBuildQuery(), form), loadout, selection);
+                    hero = heroService.requireActiveHero();
+                    messages.add("Zapisano konfigurację Nekromanty.");
+                } else {
+                    var resolution = itemLibraryService.resolveEffectiveCurrentBuild(zeroStats(), hero.getItemSelection());
+                    // Sprawdzamy obecność skilla przed wejściem liczbowym, bez naprawiania loadoutu.
+                    var configuration = necromancerService.requireKrwotokOnActionBar(loadout);
+                    try {
+                        calculation = necromancerService.calculate(loadout, necromancerInputResolver.resolve(form, resolution));
+                    } catch (UnsupportedOperationException exception) {
+                        throw new UnsupportedOperationException(unsupportedNecromancerConfiguration(configuration.rank(), !configuration.selections().isEmpty()), exception);
+                    }
+                    messages.add("Obliczono bazowy direct hit Krwotoku R1.");
+                }
+            } catch (IllegalArgumentException | UnsupportedOperationException exception) {
+                errors.add(exception.getMessage());
+            }
+        }
+        return buildNecromancerPageModel(hero, form, messages, errors, calculation);
+    }
+
+    private static String unsupportedNecromancerConfiguration(int rank, boolean hasSelections) {
+        return hasSelections ? "Upgrade'y Krwotoku nie są jeszcze wykonywane w N11. Zachowano zapisaną konfigurację."
+                : "N11 obsługuje wyłącznie Krwotok R1; obecna konfiguracja ma rangę " + rank + ".";
+    }
+
+    private HeroItemSelection validatedNecromancerItemSelection(HeroItemSelection saved, Map<String, String> fields) {
+        HeroItemSelection selection = saved;
+        for (HeroEquipmentSlot slot : HeroEquipmentSlot.values()) {
+            String rawId = fields.get("selectedItemId_" + slot.name());
+            if (rawId == null || rawId.isBlank()) { continue; }
+            long itemId;
+            try { itemId = Long.parseLong(rawId); }
+            catch (NumberFormatException exception) { throw new IllegalArgumentException("Wybierz poprawny item biblioteki dla slotu " + ItemLibraryPresentationSupport.heroSlotDisplayName(slot) + "."); }
+            itemLibraryService.requireCompatibleItem(slot, itemId);
+            selection = selection.withSelectedItem(slot, itemId);
+        }
+        return selection;
     }
 
     private EffectiveCurrentBuildResolution buildEffectiveResolution(CurrentBuildFormData formData,

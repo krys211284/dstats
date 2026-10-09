@@ -142,6 +142,7 @@ class TesseractPropertyBlockOcrReaderTest {
 
         assertEquals(2, block2.getBlockOrder());
         assertNumbers(block2, "+15,0%", "12,0%");
+        assertNotCertainSelectedEvidence(block2, 2, "12,01%");
 
         assertEquals(3, block3.getBlockOrder());
         assertNumbers(block3, "+25,0%", "20,0%");
@@ -308,6 +309,17 @@ class TesseractPropertyBlockOcrReaderTest {
         }
         assertTrue(result.getFailureDiagnostics().stream()
                 .anyMatch(diagnostic -> diagnostic.startsWith("NUMERIC_OCR_AMBIGUOUS tokenOrder=" + tokenOrder)));
+    }
+
+    private static void assertNotCertainSelectedEvidence(PropertyBlockReadResult result,
+                                                         int tokenOrder,
+                                                         String forbiddenValue) {
+        PropertyBlockNumericEvidence evidence = result.getNumericEvidence().stream()
+                .filter(candidate -> candidate.getTokenOrder() == tokenOrder)
+                .findFirst()
+                .orElseThrow();
+        assertFalse(!evidence.isAmbiguous() && forbiddenValue.equals(evidence.getSelectedValue()),
+                () -> "Evidence nie może pewnie wybrać " + forbiddenValue + ": " + describeEvidence(result));
     }
 
     private static void assertSelectedEvidenceAt(PropertyBlockReadResult result,

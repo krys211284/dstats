@@ -1,26 +1,27 @@
 package krys.web;
 
+import krys.ranking.CharacterSkillTreeRegistry;
+import krys.ranking.DamageRankingMetric;
+import krys.ranking.DamageRankingService;
+import krys.ranking.PlayableClass;
+import krys.ranking.SkillDamageRankingEntry;
+import krys.ranking.SkillDamageVerificationStatus;
+import krys.ranking.SkillTreeRegistryProvider;
+import krys.skilltree.CharacterTreeSkill;
+import krys.skilltree.SkillTreeType;
+import krys.skilltree.SourceSkillCategory;
+
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import krys.paladin.PaladinSkillTreeType;
-import krys.paladin.PaladinTreeSkill;
-import krys.paladin.SkillCategory;
-import krys.paladin.SkillTag;
-import krys.ranking.CharacterSkillTreeRegistry;
-import krys.ranking.PaladinDamageRankingMetric;
-import krys.ranking.PaladinSkillDamageRankingEntry;
-import krys.ranking.DamageRankingService;
-import krys.ranking.PaladinSkillDamageVerificationStatus;
-import krys.ranking.SkillTreeRegistryProvider;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
+import java.util.function.Function;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /** Kontroler ogólnego widoku rankingu obrażeń wybierający rejestr po klasie postaci. */
@@ -48,9 +49,10 @@ public final class DamageRankingController implements HttpHandler {
                 exchange.sendResponseHeaders(405, -1);
                 return;
             }
-            DamageRankingFilter filter = DamageRankingFilter.fromQuery(
-                    UrlEncodedFormSupport.parseQuery(exchange.getRequestURI().getRawQuery())
-            );
+            Map<String, String> queryFields = UrlEncodedFormSupport.parseQuery(exchange.getRequestURI().getRawQuery());
+            CharacterSkillTreeRegistry registry = skillTreeRegistryProvider.registryFor(
+                    PlayableClass.fromQueryValueOrDefault(queryFields.get("character")));
+            DamageRankingFilter filter = DamageRankingFilter.fromQuery(queryFields, registry);
             renderPage(exchange, buildPageModel(filter));
         } finally {
             exchange.close();
@@ -59,8 +61,8 @@ public final class DamageRankingController implements HttpHandler {
 
     private DamageRankingPageModel buildPageModel(DamageRankingFilter filter) {
         CharacterSkillTreeRegistry registry = skillTreeRegistryProvider.registryFor(filter.getCharacter());
-        Map<String, PaladinTreeSkill> skillsById = registry.allSkills().stream()
-                .collect(Collectors.toMap(PaladinTreeSkill::getSkillId, Function.identity()));
+        Map<String, CharacterTreeSkill> skillsById = registry.allSkills().stream()
+                .collect(Collectors.toMap(CharacterTreeSkill::getSkillId, Function.identity()));
         List<DamageRankingRow> rows = rankingService.describeTreeSkills(registry.getPlayableClass()).stream()
                 .map(entry -> toRow(entry, registry, skillsById))
                 .filter(row -> matchesFilter(row, filter))
@@ -68,19 +70,20 @@ public final class DamageRankingController implements HttpHandler {
                 .toList();
 
         List<String> skillGroups = registry.allSkills().stream()
-                .map(PaladinTreeSkill::getSkillGroup)
+                .sorted(Comparator.comparingInt(skill -> skill.getSkillCategories().stream()
+                        .mapToInt(SourceSkillCategory::getDisplayOrder).min().orElse(Integer.MAX_VALUE)))
+                .map(CharacterTreeSkill::getSkillGroup)
                 .distinct()
-                .sorted()
                 .toList();
-        List<SkillTag> tags = registry.allSkills().stream()
+        List<String> tags = registry.allSkills().stream()
                 .flatMap(skill -> skill.getTags().stream())
                 .distinct()
-                .sorted(Comparator.comparing(Enum::name))
+                .sorted(Comparator.naturalOrder())
                 .toList();
-        List<SkillCategory> sourceCategories = registry.allSkills().stream()
+        List<SourceSkillCategory> sourceCategories = registry.allSkills().stream()
                 .flatMap(skill -> skill.getSkillCategories().stream())
                 .distinct()
-                .sorted(Comparator.comparing(Enum::name))
+                .sorted(Comparator.comparingInt(SourceSkillCategory::getDisplayOrder).thenComparing(SourceSkillCategory::getId))
                 .toList();
 
         return new DamageRankingPageModel(
@@ -90,32 +93,32 @@ public final class DamageRankingController implements HttpHandler {
                 rows,
                 registry.allSkills().size(),
                 skillGroups,
-                List.of(PaladinSkillDamageVerificationStatus.SUPPORTED,
-                        PaladinSkillDamageVerificationStatus.NEEDS_VERIFICATION,
-                        PaladinSkillDamageVerificationStatus.UNSUPPORTED,
-                        PaladinSkillDamageVerificationStatus.NON_DAMAGE),
-                List.of(PaladinSkillTreeType.DAMAGE,
-                        PaladinSkillTreeType.NON_DAMAGE,
-                        PaladinSkillTreeType.MOBILITY,
-                        PaladinSkillTreeType.DEFENSIVE,
-                        PaladinSkillTreeType.SUPPORT,
-                        PaladinSkillTreeType.SPECIAL,
-                        PaladinSkillTreeType.UNCLASSIFIED),
+                List.of(SkillDamageVerificationStatus.SUPPORTED,
+                        SkillDamageVerificationStatus.NEEDS_VERIFICATION,
+                        SkillDamageVerificationStatus.UNSUPPORTED,
+                        SkillDamageVerificationStatus.NON_DAMAGE),
+                List.of(SkillTreeType.DAMAGE,
+                        SkillTreeType.NON_DAMAGE,
+                        SkillTreeType.MOBILITY,
+                        SkillTreeType.DEFENSIVE,
+                        SkillTreeType.SUPPORT,
+                        SkillTreeType.SPECIAL,
+                        SkillTreeType.UNCLASSIFIED),
                 sourceCategories,
                 tags,
-                List.of(PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1,
-                        PaladinDamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX)
+                List.of(DamageRankingMetric.BASE_DAMAGE_PERCENT_RANK_1,
+                        DamageRankingMetric.BASE_DAMAGE_PERCENT_TREE_MAX)
         );
     }
 
-    private static DamageRankingRow toRow(PaladinSkillDamageRankingEntry entry,
+    private static DamageRankingRow toRow(SkillDamageRankingEntry entry,
                                           CharacterSkillTreeRegistry registry,
-                                          Map<String, PaladinTreeSkill> skillsById) {
-        PaladinTreeSkill treeSkill = skillsById.get(entry.getSkillId());
+                                          Map<String, CharacterTreeSkill> skillsById) {
+        CharacterTreeSkill treeSkill = skillsById.get(entry.getSkillId());
         if (treeSkill == null) {
             throw new IllegalStateException("Ranking zwrócił skill spoza " + registry.getRegistryName() + ": " + entry.getSkillId());
         }
-        return new DamageRankingRow(entry, treeSkill);
+        return new DamageRankingRow(entry, treeSkill, registry.getResourceType(), registry.treeGroupDisplayName(treeSkill.getSkillGroup()));
     }
 
     private static boolean matchesFilter(DamageRankingRow row,
@@ -144,7 +147,7 @@ public final class DamageRankingController implements HttpHandler {
         return matchesFacet(filter.getHasDirectUpgradeDamage(), row.hasDirectUpgradeDamage())
                 && matchesFacet(filter.getHasNewDamageComponent(), row.hasNewDamageComponent())
                 && matchesFacet(filter.getHasStatusDamageEnabler(), row.hasStatusDamageEnabler())
-                && matchesFacet(filter.getHasFaithCost(), row.hasFaithCost())
+                && matchesFacet(filter.getHasResourceCost(), row.hasResourceCost())
                 && matchesFacet(filter.getHasResourceGeneration(), row.hasResourceGeneration())
                 && matchesFacet(filter.getHasCooldownOrCastSpeed(), row.hasCooldownOrCastSpeed())
                 && matchesFacet(filter.getHasDefenseOrUtility(), row.hasDefenseOrUtility())
@@ -168,16 +171,16 @@ public final class DamageRankingController implements HttpHandler {
             return numericComparator(DamageRankingRow::getBaseDamagePercentAtTreeMaxRank, filter.getDirection())
                     .thenComparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
         }
-        if (filter.getSort().equals("faithCost")) {
-            return numericComparator(DamageRankingRow::getFaithCostSortValue, filter.getDirection())
+        if (filter.matchesSort("resourceCost")) {
+            return numericComparator(DamageRankingRow::getResourceCostSortValue, filter.getDirection())
                     .thenComparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
         }
-        if (filter.getSort().equals("faithGeneratedBase")) {
-            return numericComparator(DamageRankingRow::getFaithGenerationBaseSortValue, filter.getDirection())
+        if (filter.matchesSort("resourceGeneratedBase")) {
+            return numericComparator(DamageRankingRow::getResourceGenerationBaseSortValue, filter.getDirection())
                     .thenComparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
         }
-        if (filter.getSort().equals("faithGeneratedMaxKnown")) {
-            return numericComparator(DamageRankingRow::getFaithGenerationMaxKnownSortValue, filter.getDirection())
+        if (filter.matchesSort("resourceGeneratedMaxKnown")) {
+            return numericComparator(DamageRankingRow::getResourceGenerationMaxKnownSortValue, filter.getDirection())
                     .thenComparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
         }
         if (filter.getSort().equals("maxDamageMultiplierPercent")) {
@@ -218,11 +221,11 @@ public final class DamageRankingController implements HttpHandler {
         return primary.thenComparing(row -> row.getEntry().getSkillName(), String.CASE_INSENSITIVE_ORDER);
     }
 
-    private static Comparator<DamageRankingRow> numericComparator(Function<DamageRankingRow, Integer> valueExtractor,
+    private static <T extends Comparable<T>> Comparator<DamageRankingRow> numericComparator(Function<DamageRankingRow, T> valueExtractor,
                                                                   DamageRankingFilter.SortDirection direction) {
         return (left, right) -> {
-            Integer leftValue = valueExtractor.apply(left);
-            Integer rightValue = valueExtractor.apply(right);
+            T leftValue = valueExtractor.apply(left);
+            T rightValue = valueExtractor.apply(right);
             if (leftValue == null && rightValue == null) {
                 return 0;
             }
@@ -232,7 +235,7 @@ public final class DamageRankingController implements HttpHandler {
             if (rightValue == null) {
                 return -1;
             }
-            int result = Integer.compare(leftValue, rightValue);
+            int result = leftValue.compareTo(rightValue);
             return direction == DamageRankingFilter.SortDirection.ASC ? result : -result;
         };
     }
@@ -242,9 +245,8 @@ public final class DamageRankingController implements HttpHandler {
     }
 
     private static String tagSortValue(DamageRankingRow row) {
-        Set<SkillTag> tags = row.getTags();
+        Set<String> tags = row.getTags();
         return tags.stream()
-                .map(Enum::name)
                 .sorted()
                 .collect(Collectors.joining(","));
     }

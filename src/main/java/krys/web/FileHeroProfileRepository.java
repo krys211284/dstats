@@ -1,6 +1,9 @@
 package krys.web;
 
 import krys.hero.HeroClass;
+import krys.runtime.RuntimeSkillLoadout;
+import krys.runtime.legacy.LegacyPaladinRuntimeSkillLoadoutAdapter;
+import krys.skill.SkillState;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -114,18 +117,27 @@ public final class FileHeroProfileRepository implements HeroProfileRepository {
         if ((tokens.length != 6 && tokens.length != 7) || !HERO_PREFIX.equals(tokens[0])) {
             throw new IllegalStateException("Plik bohaterów ma niepoprawny format.");
         }
-        String encodedSkillLoadout = tokens.length == 7 ? tokens[6] : "";
-        HeroSkillLoadout skillLoadout = encodedSkillLoadout.isBlank()
-                ? HeroSkillLoadout.fromCurrentBuildFormData(CurrentBuildFormQuerySupport.fromSerializedQuery(decode(tokens[4])))
-                : decodeSkillLoadout(encodedSkillLoadout);
-        return new HeroProfile(
-                Long.parseLong(tokens[1]),
-                decode(tokens[2]),
-                HeroClass.valueOf(tokens[3]),
-                decode(tokens[4]),
-                decodeSelection(tokens[5]),
-                skillLoadout
-        );
+        try {
+            HeroClass heroClass = HeroClass.valueOf(tokens[3]);
+            String query = decode(tokens[4]);
+            String payload = tokens.length == 7 ? decode(tokens[6]) : "";
+            RuntimeSkillLoadout skillLoadout;
+            if (payload.startsWith("runtime-")) {
+                skillLoadout = RuntimeSkillLoadoutCodec.decode(payload);
+            } else {
+                if (heroClass != HeroClass.PALADIN) {
+                    throw new IllegalArgumentException("Historyczny format bohatera obsługuje wyłącznie Paladyna.");
+                }
+                skillLoadout = payload.isEmpty()
+                        ? LegacyPaladinHeroSkillLoadoutAdapter.toRuntimeLoadout(HeroSkillLoadout.fromCurrentBuildFormData(
+                                CurrentBuildFormQuerySupport.fromSerializedQuery(query)))
+                        : decodeLegacySkillLoadout(payload);
+            }
+            return new HeroProfile(Long.parseLong(tokens[1]), decode(tokens[2]), heroClass, query,
+                    decodeSelection(tokens[5]), skillLoadout);
+        } catch (IllegalArgumentException | UnsupportedOperationException exception) {
+            throw new IllegalStateException("Niepoprawne dane bohatera: " + exception.getMessage(), exception);
+        }
     }
 
     private void writeHeroes(List<HeroProfile> heroes) {
@@ -139,7 +151,7 @@ public final class FileHeroProfileRepository implements HeroProfileRepository {
                     hero.getHeroClass().name(),
                     encode(hero.getCurrentBuildQuery()),
                     encodeSelection(hero.getItemSelection()),
-                    encodeSkillLoadout(hero.getSkillLoadout())
+                    encode(RuntimeSkillLoadoutCodec.encode(hero.getRuntimeSkillLoadout()))
             ));
         }
         try {
@@ -172,59 +184,36 @@ public final class FileHeroProfileRepository implements HeroProfileRepository {
 
     private static HeroItemSelection decodeSelection(String serializedSelection) {
         String decoded = decode(serializedSelection);
-        if (decoded.isBlank()) {
+        if (decoded.isEmpty()) {
             return HeroItemSelection.empty();
         }
         java.util.EnumMap<krys.item.HeroEquipmentSlot, Long> selection = new java.util.EnumMap<>(krys.item.HeroEquipmentSlot.class);
-        for (String token : decoded.split(",")) {
-            if (token.isBlank()) {
-                continue;
-            }
+        for (String token : decoded.split(",", -1)) {
             String[] parts = token.split(":", -1);
             if (parts.length != 2) {
-                continue;
+                throw new IllegalArgumentException("Niepoprawny wpis selekcji itemów bohatera.");
             }
-            selection.put(krys.item.HeroEquipmentSlot.valueOf(parts[0]), Long.parseLong(parts[1]));
+            if (selection.putIfAbsent(krys.item.HeroEquipmentSlot.valueOf(parts[0]), Long.parseLong(parts[1])) != null) {
+                throw new IllegalArgumentException("Powtórzony slot itemów bohatera.");
+            }
         }
         return new HeroItemSelection(selection);
     }
 
-    private static String encodeSkillLoadout(HeroSkillLoadout skillLoadout) {
-        List<String> skillEntries = new ArrayList<>();
-        for (HeroAssignedSkill assignedSkill : skillLoadout.getAssignedSkills().values()) {
-            skillEntries.add(String.join(":",
-                    assignedSkill.getSkillId().name(),
-                    Integer.toString(assignedSkill.getRank()),
-                    Boolean.toString(assignedSkill.isBaseUpgrade()),
-                    assignedSkill.getChoiceUpgrade().name(),
-                    assignedSkill.getRuntimeModifierChoice().name(),
-                    assignedSkill.getChoiceGroup1(),
-                    assignedSkill.getChoiceGroup2(),
-                    assignedSkill.getChoiceGroup3()
-            ));
-        }
-        String actionBar = skillLoadout.getActionBarSkills().stream()
-                .map(Enum::name)
-                .reduce((left, right) -> left + "," + right)
-                .orElse("");
-        return encode(String.join("~", String.join(";", skillEntries), actionBar));
-    }
-
-    private static HeroSkillLoadout decodeSkillLoadout(String serializedSkillLoadout) {
-        String decoded = decode(serializedSkillLoadout);
-        if (decoded.isBlank()) {
-            return HeroSkillLoadout.foundationDefault();
-        }
+    private static RuntimeSkillLoadout decodeLegacySkillLoadout(String decoded) {
         String[] parts = decoded.split("~", -1);
-        EnumMap<krys.skill.SkillId, HeroAssignedSkill> assignedSkills = new EnumMap<>(krys.skill.SkillId.class);
-        if (parts.length >= 1 && !parts[0].isBlank()) {
-            for (String token : parts[0].split(";")) {
-                if (token.isBlank()) {
-                    continue;
-                }
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("Niepoprawny historyczny skill payload.");
+        }
+        EnumMap<krys.skill.SkillId, SkillState> assignedSkills = new EnumMap<>(krys.skill.SkillId.class);
+        if (!parts[0].isEmpty()) {
+            for (String token : parts[0].split(";", -1)) {
                 String[] skillParts = token.split(":", -1);
                 if (skillParts.length != 4 && skillParts.length != 5 && skillParts.length != 8) {
-                    continue;
+                    throw new IllegalArgumentException("Niepoprawny wpis historycznej konfiguracji skilla.");
+                }
+                if (!"true".equals(skillParts[2]) && !"false".equals(skillParts[2])) {
+                    throw new IllegalArgumentException("Niepoprawna wartość baseUpgrade w historycznej konfiguracji.");
                 }
                 krys.skill.SkillId skillId = krys.skill.SkillId.valueOf(skillParts[0]);
                 krys.skill.SkillRuntimeModifierChoice runtimeModifierChoice = skillParts.length == 5
@@ -246,7 +235,7 @@ public final class FileHeroProfileRepository implements HeroProfileRepository {
                         choiceGroup3 = krys.skill.SkillState.CLASH_PUNISHMENT_CHOICE;
                     }
                 }
-                assignedSkills.put(skillId, new HeroAssignedSkill(
+                if (assignedSkills.putIfAbsent(skillId, new SkillState(
                         skillId,
                         Integer.parseInt(skillParts[1]),
                         Boolean.parseBoolean(skillParts[2]),
@@ -255,19 +244,18 @@ public final class FileHeroProfileRepository implements HeroProfileRepository {
                         choiceGroup1,
                         choiceGroup2,
                         choiceGroup3
-                ));
+                )) != null) {
+                    throw new IllegalArgumentException("Powtórzony skill w historycznej konfiguracji.");
+                }
             }
         }
         List<krys.skill.SkillId> actionBarSkills = new ArrayList<>();
-        if (parts.length >= 2 && !parts[1].isBlank()) {
-            for (String rawSkillId : parts[1].split(",")) {
-                if (rawSkillId.isBlank()) {
-                    continue;
-                }
+        if (!parts[1].isEmpty()) {
+            for (String rawSkillId : parts[1].split(",", -1)) {
                 actionBarSkills.add(krys.skill.SkillId.valueOf(rawSkillId));
             }
         }
-        return new HeroSkillLoadout(assignedSkills, actionBarSkills);
+        return LegacyPaladinRuntimeSkillLoadoutAdapter.toRuntimeLoadout(assignedSkills, actionBarSkills);
     }
 
     private static String encode(String value) {

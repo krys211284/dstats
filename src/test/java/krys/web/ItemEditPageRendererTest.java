@@ -311,6 +311,37 @@ class ItemEditPageRendererTest {
         assertFalse(html.contains("18.8"));
     }
 
+    @Test
+    void shouldKeepNewTemperingGreaterAffixDisabledWhenItemPowerIsBelowNineHundred() {
+        String html = renderEditPage(shieldItem(899L), shieldForm(899L));
+        String greaterInput = inputByName(html, "newTemperingGreaterAffix");
+
+        assertTrue(html.contains("data-greater-available=\"false\""));
+        assertTrue(greaterInput.contains("disabled"));
+    }
+
+    @Test
+    void shouldKeepNewTemperingGreaterAffixDisabledUntilDefinitionIsSelected() {
+        String html = renderEditPage(shieldItem(900L), shieldForm(900L));
+        String greaterInput = inputByName(html, "newTemperingGreaterAffix");
+
+        assertTrue(html.contains("data-greater-available=\"true\""));
+        assertTrue(greaterInput.contains("disabled"));
+    }
+
+    @Test
+    void shouldLetTemperingGreaterStateFollowDefinitionAndPowerRulesWhenLimitIsReleased() {
+        String script = ItemEditPageRenderer.renderFormScript();
+
+        assertTrue(script.contains("checkbox.disabled = !greaterAvailable || !option;"));
+        assertTrue(script.contains("[addButton, newCategory, newDefinition, newValue, newGreater].forEach"));
+        assertTrue(script.contains("if (newCategory) newCategory.disabled = false;"));
+        assertTrue(script.contains("if (newValue) newValue.disabled = false;"));
+        assertFalse(script.contains("[addButton, newCategory, newValue, newGreater].forEach"));
+        assertFalse(script.contains("newGreater.disabled = false"));
+        assertFalse(script.contains("newDefinition.disabled = false"));
+    }
+
     private static SavedImportedItem mythicHelmetItem() {
         return new SavedImportedItem(
                 1L,
@@ -343,6 +374,41 @@ class ItemEditPageRendererTest {
                         900L, null, null, null, null, null, 2004L, "Opisowy efekt 80%[x].", true),
                 List.of(),
                 ItemMasterworking.quality(25)
+        );
+    }
+
+    private static SavedImportedItem shieldItem(Long itemPower) {
+        return new SavedImportedItem(
+                1L,
+                "Tarcza testowa",
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND,
+                0L,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d,
+                0.0d
+        );
+    }
+
+    private static ItemImportEditableForm shieldForm(Long itemPower) {
+        return new ItemImportEditableForm(
+                "tarcza.png",
+                EquipmentSlot.OFF_HAND.name(),
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                FullItemRead.empty(),
+                List.of(),
+                "",
+                new ItemImportDetails("Tarcza testowa", "Tarcza", "LEGENDARY", true, EquipmentSlot.OFF_HAND,
+                        itemPower, null, null, null, null, null, 1202L, ""),
+                List.of(),
+                ItemMasterworking.defaultState()
         );
     }
 
@@ -457,6 +523,20 @@ class ItemEditPageRendererTest {
         int end = html.indexOf(">", start);
         if (start < 0 || end < 0) {
             throw new AssertionError("Nie udało się wyciąć tagu dla: " + text);
+        }
+        return html.substring(start, end + 1);
+    }
+
+    private static String inputByName(String html, String name) {
+        String marker = "name=\"" + name + "\"";
+        int markerIndex = html.indexOf(marker);
+        if (markerIndex < 0) {
+            throw new AssertionError("Brak inputa: " + name);
+        }
+        int start = html.lastIndexOf("<input", markerIndex);
+        int end = html.indexOf(">", markerIndex);
+        if (start < 0 || end < 0) {
+            throw new AssertionError("Nie udało się wyciąć inputa: " + name);
         }
         return html.substring(start, end + 1);
     }

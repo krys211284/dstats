@@ -2,8 +2,9 @@ package krys.web;
 
 import krys.paladin.PaladinSkillTreeRegistry;
 import krys.paladin.PaladinTreeSkill;
-import krys.paladin.UpgradeDamageModifier;
-import krys.paladin.UpgradeDamageModifierType;
+import krys.runtime.legacy.LegacyPaladinRuntimeSkillKeyAdapter;
+import krys.skilltree.UpgradeDamageModifier;
+import krys.skilltree.UpgradeDamageModifierType;
 import krys.skill.PaladinSkillDefs;
 import krys.skill.SkillId;
 import krys.skill.SkillRuntimeModifierChoice;
@@ -92,13 +93,8 @@ public final class HeroSkillCatalogAdapter {
     }
 
     private static Optional<PaladinTreeSkill> findTreeSkill(SkillId skillId) {
-        return switch (skillId) {
-            case BRANDISH -> PaladinSkillTreeRegistry.findSkill("wymach");
-            case HOLY_BOLT -> PaladinSkillTreeRegistry.findSkill("swiety_pocisk");
-            case CLASH -> PaladinSkillTreeRegistry.findSkill("starcie");
-            case ADVANCE -> PaladinSkillTreeRegistry.findSkill("natarcie");
-            default -> Optional.empty();
-        };
+        var key = LegacyPaladinRuntimeSkillKeyAdapter.toRuntimeKey(skillId);
+        return PaladinSkillTreeRegistry.findSkill(key.skillId());
     }
 
     private static Optional<SkillId> findRuntimeSkillId(String runtimeSkillName) {

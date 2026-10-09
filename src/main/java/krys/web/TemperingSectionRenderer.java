@@ -2,6 +2,7 @@ package krys.web;
 
 import krys.item.EquipmentSlot;
 import krys.itemimport.ItemImportEditableForm;
+import krys.masterworking.MasterworkingResolvedItemValueResolver;
 import krys.tempering.ApplicationTemperingAffixRegistry;
 import krys.tempering.ItemTemperingAffix;
 import krys.tempering.TemperingAffixDefinition;
@@ -15,6 +16,7 @@ import java.util.List;
 /** Wspólny renderer sekcji hartowania dla importu i edycji itemu. */
 final class TemperingSectionRenderer {
     private static final TemperingAffixRegistry REGISTRY = ApplicationTemperingAffixRegistry.get();
+    private static final MasterworkingResolvedItemValueResolver MASTERWORKING_VALUE_RESOLVER = new MasterworkingResolvedItemValueResolver();
     private static final int TEMPERING_LIMIT = 1;
 
     private TemperingSectionRenderer() {
@@ -40,14 +42,14 @@ final class TemperingSectionRenderer {
 
         html.append("<div id=\"temperingRows\" class=\"tempering-readonly-list\">");
         for (int index = 0; index < form.getTemperingAffixes().size(); index++) {
-            html.append(renderExistingRow(form.getTemperingAffixes().get(index), index, form.getMasterworking()));
+            html.append(renderExistingRow(form, form.getTemperingAffixes().get(index), index));
         }
         html.append("</div>");
         if (!categories.isEmpty()) {
-            html.append(renderAddRow(categories, greaterAffixAvailable, limitUsed));
+            html.append(renderAddRow(categories, greaterAffixAvailable, limitUsed, form.usesGameDisplayedValues()));
         }
         html.append(renderCategoryCatalogNotes(categories))
-                .append(renderAffixCatalogData(categories, greaterAffixAvailable))
+                .append(renderAffixCatalogData(categories, greaterAffixAvailable, form.usesGameDisplayedValues()))
                 .append(renderTemplate(categories, greaterAffixAvailable))
                 .append("</section>");
         return html.toString();
@@ -72,6 +74,7 @@ final class TemperingSectionRenderer {
                     if (!rows || !count) return;
                     const canAdd = !!(template && addButton && newCategory && newDefinition && newValue && catalogNode);
                     const greaterAvailable = catalogNode ? catalogNode.dataset.greaterAvailable === 'true' : false;
+                    const gameDisplayedValueMode = catalogNode ? catalogNode.dataset.valueMode === 'GAME_DISPLAYED_VALUE' : false;
                     const limit = Number.parseInt(catalogNode ? catalogNode.dataset.limit || '1' : '1', 10);
                     let catalog = {};
                     if (catalogNode) {
@@ -139,18 +142,24 @@ final class TemperingSectionRenderer {
                         }
                         if (labelNode && option) {
                             const greaterLabel = option.dataset.greaterLabel || 'brak danych';
-                            labelNode.textContent = `Wartość GA: ${greaterLabel}`;
+                            labelNode.textContent = gameDisplayedValueMode
+                                ? 'Wartość Greater Affix zostanie zweryfikowana po zapisie.'
+                                : `Wartość GA: ${greaterLabel}`;
                             labelNode.hidden = false;
                         } else if (labelNode) {
                             labelNode.textContent = '';
                             labelNode.hidden = true;
                         }
                         if (valueInput) {
-                            valueInput.readOnly = checkbox.checked && !!option;
-                            if (checkbox.checked && option) {
+                            valueInput.readOnly = !gameDisplayedValueMode && checkbox.checked && !!option;
+                            if (!gameDisplayedValueMode && checkbox.checked && option) {
                                 valueInput.value = option.dataset.greaterValue || '';
                             }
-                            if (option && !checkbox.checked) {
+                            if (gameDisplayedValueMode) {
+                                valueInput.min = '0';
+                                valueInput.removeAttribute('max');
+                                valueInput.step = option?.dataset.step || '0.01';
+                            } else if (option && !checkbox.checked) {
                                 valueInput.min = option.dataset.rangeMin || '';
                                 valueInput.max = option.dataset.rangeMax || '';
                                 valueInput.step = option.dataset.step || '0.01';
@@ -158,7 +167,9 @@ final class TemperingSectionRenderer {
                         }
                         if (rangeNode && option) {
                             const rangeLabel = option.dataset.rangeLabel || 'brak danych';
-                            rangeNode.textContent = `Zakres: ${rangeLabel}`;
+                            rangeNode.textContent = gameDisplayedValueMode
+                                ? 'Wpisz wartość widoczną w grze.'
+                                : `Zakres: ${rangeLabel}`;
                             rangeNode.hidden = false;
                         } else if (rangeNode) {
                             rangeNode.textContent = '';
@@ -170,6 +181,9 @@ final class TemperingSectionRenderer {
                         if (!option || !newValue.value) return false;
                         const value = Number.parseFloat(newValue.value.replace(',', '.'));
                         if (!Number.isFinite(value)) return false;
+                        if (gameDisplayedValueMode) {
+                            return value >= 0;
+                        }
                         if (newGreater && newGreater.checked) {
                             return Math.abs(value - Number.parseFloat(option.dataset.greaterValue)) < 0.0000001;
                         }
@@ -190,7 +204,19 @@ final class TemperingSectionRenderer {
                         const used = rows.querySelectorAll('[data-tempering-row]').length >= limit;
                         if (addControls) addControls.hidden = used;
                         if (limitMessage) limitMessage.hidden = !used;
+                        if (used) {
+                            [addButton, newCategory, newDefinition, newValue, newGreater].forEach(control => {
+                                if (control) control.disabled = true;
+                            });
+                        } else {
+                            if (newCategory) newCategory.disabled = false;
+                            if (newValue) newValue.disabled = false;
+                        }
                         return used;
+                    };
+                    const clearPerfectedSelection = value => {
+                        const select = document.querySelector('[name="masterworkingPerfectedAffix"]');
+                        if (select && value && select.value === value) select.value = '';
                     };
                     const updateAddState = () => {
                         const hasCatalog = buildOptions(newDefinition, newCategory.value, newDefinition.value);
@@ -203,7 +229,9 @@ final class TemperingSectionRenderer {
                             valueMessage.hidden = valid || !newDefinition.value || !newValue.value;
                             const rangeLabel = selectedDefinition(newDefinition)?.dataset.rangeLabel || 'brak danych';
                             const greaterLabel = selectedDefinition(newDefinition)?.dataset.greaterLabel || 'brak danych';
-                            valueMessage.textContent = newGreater && newGreater.checked
+                            valueMessage.textContent = gameDisplayedValueMode
+                                ? 'Wartość z gry musi być liczbą nieujemną.'
+                                : newGreater && newGreater.checked
                                 ? `Greater Affix dla tego affixu wymaga wartości ${greaterLabel}.`
                                 : `Wartość rolla musi mieścić się w zakresie ${rangeLabel}.`;
                         }
@@ -223,6 +251,8 @@ final class TemperingSectionRenderer {
                         if (!button) return;
                         const row = button.closest('[data-tempering-row]');
                         if (row) {
+                            const definition = row.querySelector('[name^="temperingDefinitionId_"]')?.value || '';
+                            clearPerfectedSelection(definition ? `TEMPERING_AFFIX:${definition}` : '');
                             row.remove();
                             renumberRows();
                             if (canAdd) {
@@ -277,7 +307,8 @@ final class TemperingSectionRenderer {
                 """;
     }
 
-    private static String renderExistingRow(ItemTemperingAffix affix, int index, krys.masterworking.ItemMasterworking masterworking) {
+    private static String renderExistingRow(ItemImportEditableForm form, ItemTemperingAffix affix, int index) {
+        krys.masterworking.ItemMasterworking masterworking = form.getMasterworking();
         TemperingAffixDefinition definition = REGISTRY.findById(affix.getDefinitionId()).orElse(null);
         String status = definition == null
                 ? TemperingPresentationSupport.compactRuntimeStatus(affix.getRuntimeStatus())
@@ -289,6 +320,9 @@ final class TemperingSectionRenderer {
         String greaterBadge = affix.isGreaterAffix()
                 ? "<span class=\"tempering-greater-badge\">★ Greater Affix</span>"
                 : "";
+        String valueControl = form.usesGameDisplayedValues()
+                ? renderEditableDisplayedValue(affix, index, masterworking, definition)
+                : "<input type=\"hidden\" name=\"temperingValue_" + index + "\" value=\"" + escapeHtml(inputValue(affix, definition)) + "\">";
         return """
                 <article class="tempering-existing-card" data-tempering-row>
                     <div class="tempering-existing-header">
@@ -296,7 +330,7 @@ final class TemperingSectionRenderer {
                         %s
                         <input type="hidden" name="temperingCategory_%s" value="%s">
                         <input type="hidden" name="temperingDefinitionId_%s" value="%s">
-                        <input type="hidden" name="temperingValue_%s" value="%s">
+                        %s
                         %s
                     </div>
                     <strong class="tempering-existing-affix">%s</strong>
@@ -313,8 +347,7 @@ final class TemperingSectionRenderer {
                 affix.getCategory().name(),
                 index,
                 escapeHtml(affix.getDefinitionId()),
-                index,
-                escapeHtml(inputValue(affix, definition)),
+                valueControl,
                 affix.isGreaterAffix() ? "<input type=\"hidden\" name=\"temperingGreaterAffix_" + index + "\" value=\"true\">" : "",
                 MasterworkingSectionRenderer.renderTemperingEditorCurrentLine(masterworking, affix, affixLabel),
                 MasterworkingSectionRenderer.renderTemperingEditorHint(masterworking, affix),
@@ -322,14 +355,30 @@ final class TemperingSectionRenderer {
         );
     }
 
-    private static String renderAddRow(List<TemperingCategory> categories, boolean greaterAffixAvailable, boolean limitUsed) {
-        if (limitUsed) {
-            return """
-                    <div class="tempering-add-card tempering-limit-card">
-                        <p class="helper" id="temperingLimitMessage">Limit hartowania dla tego przedmiotu został wykorzystany.</p>
-                    </div>
-                    """;
-        }
+    private static String renderEditableDisplayedValue(ItemTemperingAffix affix,
+                                                       int index,
+                                                       krys.masterworking.ItemMasterworking masterworking,
+                                                       TemperingAffixDefinition definition) {
+        double displayedValue = MASTERWORKING_VALUE_RESOLVER.supportsTempering(affix)
+                ? MASTERWORKING_VALUE_RESOLVER.resolveTemperingValue(affix, masterworking)
+                : affix.getValue();
+        String step = definition != null && definition.getUnit() == krys.tempering.TemperingValueUnit.PERCENT ? "0.01" : "1";
+        return """
+                <label class="tempering-existing-value-field">
+                    Wartość z gry
+                    <input type="number" min="0" step="%s" name="temperingValue_%s" value="%s">
+                </label>
+                """.formatted(
+                escapeHtml(step),
+                index,
+                escapeHtml(rawValue(displayedValue))
+        );
+    }
+
+    private static String renderAddRow(List<TemperingCategory> categories,
+                                       boolean greaterAffixAvailable,
+                                       boolean limitUsed,
+                                       boolean gameDisplayedValueMode) {
         return """
                 <div class="tempering-add-card">
                     <h4>Dodaj hartowanie</h4>
@@ -337,21 +386,21 @@ final class TemperingSectionRenderer {
                     <div class="tempering-add-grid" id="temperingAddControls"%s>
                         <label class="tempering-add-field-category">
                             Kategoria
-                            <select name="newTemperingCategory">%s</select>
+                            <select name="newTemperingCategory"%s>%s</select>
                         </label>
                         <label class="tempering-add-field-affix">
                             Affix
-                            <select name="newTemperingDefinitionId" data-tempering-affix-select%s>%s</select>
+                            <select name="newTemperingDefinitionId" data-tempering-affix-select%s%s>%s</select>
                             <span class="helper tempering-catalog-message" id="newTemperingCatalogMessage"%s>%s</span>
                         </label>
                         <label class="tempering-add-field-value">
-                            Wartość rolla
-                            <input type="number" min="0" step="0.01" name="newTemperingValue" value="">
+                            %s
+                            <input type="number" min="0" step="0.01" name="newTemperingValue" value=""%s>
                             <span class="helper" id="newTemperingRangeMessage" hidden></span>
                         </label>
                         <label class="tempering-add-field-greater">
                             Greater Affix / Gwiazdka
-                            <input type="checkbox" name="newTemperingGreaterAffix" value="true"%s>
+                            <input type="checkbox" name="newTemperingGreaterAffix" value="true"%s%s>
                             <span class="helper" id="newTemperingGreaterValue" hidden></span>
                             %s
                         </label>
@@ -364,16 +413,21 @@ final class TemperingSectionRenderer {
                     </div>
                 </div>
                 """.formatted(
-                " hidden",
-                "",
+                limitUsed ? "" : " hidden",
+                limitUsed ? " hidden" : "",
+                limitUsed ? " disabled" : "",
                 renderCategoryOptions(categories, categories.getFirst()),
                 renderDisabledAttribute(categories.getFirst()),
+                limitUsed ? " disabled" : "",
                 renderDefinitionOptions(categories.getFirst(), ""),
                 renderMessageHiddenAttribute(categories.getFirst()),
                 renderCatalogMessage(categories.getFirst()),
-                greaterAffixAvailable ? "" : " disabled",
+                gameDisplayedValueMode ? "Wartość z gry" : "Wartość rolla",
+                limitUsed ? " disabled" : "",
+                "",
+                " disabled",
                 greaterAffixAvailable ? "" : "<span class=\"helper\">Greater Affix przy hartowaniu jest dostępny tylko dla przedmiotów o mocy 900.</span>",
-                REGISTRY.byCategory(categories.getFirst()).isEmpty() ? " disabled" : ""
+                REGISTRY.byCategory(categories.getFirst()).isEmpty() || limitUsed ? " disabled" : ""
         );
     }
 
@@ -425,7 +479,9 @@ final class TemperingSectionRenderer {
         return html.toString();
     }
 
-    private static String renderAffixCatalogData(List<TemperingCategory> categories, boolean greaterAffixAvailable) {
+    private static String renderAffixCatalogData(List<TemperingCategory> categories,
+                                                 boolean greaterAffixAvailable,
+                                                 boolean gameDisplayedValueMode) {
         if (categories.isEmpty()) {
             return "";
         }
@@ -433,6 +489,8 @@ final class TemperingSectionRenderer {
                 .append(TEMPERING_LIMIT)
                 .append("\" data-greater-available=\"")
                 .append(greaterAffixAvailable)
+                .append("\" data-value-mode=\"")
+                .append(gameDisplayedValueMode ? "GAME_DISPLAYED_VALUE" : "SOURCE_VALUE")
                 .append("\">{");
         for (int index = 0; index < categories.size(); index++) {
             TemperingCategory category = categories.get(index);
