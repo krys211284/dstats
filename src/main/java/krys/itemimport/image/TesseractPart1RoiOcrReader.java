@@ -13,10 +13,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -35,7 +32,6 @@ public final class TesseractPart1RoiOcrReader implements Part1RoiOcrReader {
     private static final int NAME_SCALE = 4;
     private static final int BORDER = 18;
     private static final String OUTPUT_FORMAT = "PNG";
-    private static final String POL_TRAINEDDATA_RESOURCE = "/tessdata/pol.traineddata";
     private static final String LETTER_WHITELIST =
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
                     + "ĄĆĘŁŃÓŚŹŻąćęłńóśźż -'";
@@ -45,7 +41,7 @@ public final class TesseractPart1RoiOcrReader implements Part1RoiOcrReader {
     private final Path tessdataDirectory;
 
     public TesseractPart1RoiOcrReader() {
-        this(resolveBundledTessdataDirectory());
+        this(BundledTessdataProvider.directory());
     }
 
     TesseractPart1RoiOcrReader(Path tessdataDirectory) {
@@ -203,27 +199,14 @@ public final class TesseractPart1RoiOcrReader implements Part1RoiOcrReader {
             if (!profile.whitelist().isBlank()) {
                 tesseract.setVariable("tessedit_char_whitelist", profile.whitelist());
             }
+            // Jawny pomiar wywołań rozpoznawania; domyślnie bez dodatkowego outputu.
+            if (Boolean.getBoolean("dstats.measureOcr")) {
+                System.out.println("OCR_RECOGNITION PART_1");
+            }
             String rawText = tesseract.doOCR(prepared);
             return new OcrAttempt(profile, rawText, nameTextScore(rawText), prepared);
         } catch (TesseractException exception) {
             return new OcrAttempt(profile, "", -1_000_000.0d, null);
-        }
-    }
-
-    private static Path resolveBundledTessdataDirectory() {
-        Path directory = Path.of(System.getProperty("java.io.tmpdir"), "dstats-tessdata", "part1-poc");
-        Path polishData = directory.resolve("pol.traineddata");
-        try {
-            Files.createDirectories(directory);
-            try (InputStream inputStream = TesseractPart1RoiOcrReader.class.getResourceAsStream(POL_TRAINEDDATA_RESOURCE)) {
-                if (inputStream == null) {
-                    throw new IllegalStateException("Brak zasobu " + POL_TRAINEDDATA_RESOURCE + " dla Tesseract OCR.");
-                }
-                Files.copy(inputStream, polishData, StandardCopyOption.REPLACE_EXISTING);
-            }
-            return directory;
-        } catch (IOException exception) {
-            throw new IllegalStateException("Nie udalo sie przygotowac lokalnego katalogu tessdata dla PART_1 OCR.", exception);
         }
     }
 

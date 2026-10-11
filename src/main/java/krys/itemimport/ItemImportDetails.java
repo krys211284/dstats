@@ -1,6 +1,8 @@
 package krys.itemimport;
 
 import krys.item.EquipmentSlot;
+import krys.item.ItemType;
+import krys.item.ItemTypeRegistry;
 
 import java.util.Locale;
 import java.util.Optional;
@@ -9,6 +11,7 @@ import java.util.Optional;
 public final class ItemImportDetails {
     private final String itemName;
     private final String itemType;
+    private final ItemType resolvedItemType;
     private final String itemRarity;
     private final boolean ancient;
     private final EquipmentSlot equipmentSlot;
@@ -70,7 +73,8 @@ public final class ItemImportDetails {
                              String uniqueEffectText,
                              boolean mythicUnique) {
         this.itemName = normalize(itemName);
-        this.itemType = normalize(itemType);
+        this.resolvedItemType = ItemTypeRegistry.resolve(itemType);
+        this.itemType = resolvedItemType == ItemType.UNKNOWN ? normalize(itemType) : resolvedItemType.getDisplayName();
         this.itemRarity = normalize(itemRarity);
         this.ancient = ancient;
         this.equipmentSlot = equipmentSlot;
@@ -119,6 +123,8 @@ public final class ItemImportDetails {
     public String getItemType() {
         return itemType;
     }
+
+    public ItemType getResolvedItemType() { return resolvedItemType; }
 
     public String getItemRarity() {
         return itemRarity;

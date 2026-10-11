@@ -2,6 +2,8 @@ package krys.itemlibrary;
 
 import krys.item.EquipmentSlot;
 import krys.item.HeroEquipmentSlot;
+import krys.item.ItemHandedness;
+import krys.item.ItemType;
 import krys.itemimport.CurrentBuildImportableStats;
 import krys.itemimport.FullItemRead;
 import krys.itemimport.ImportedItemAffix;
@@ -54,6 +56,7 @@ public final class ItemLibraryService {
     }
 
     public SavedImportedItem saveImportedItem(ValidatedImportedItem importedItem, FullItemRead fullItemRead) {
+        validateTypeSlot(importedItem.getSlot(), importedItem.getDetails());
         SavedImportedItem itemToSave = new SavedImportedItem(
                 0L,
                 buildDisplayName(importedItem),
@@ -78,6 +81,7 @@ public final class ItemLibraryService {
     }
 
     public SavedImportedItem updateImportedItem(long itemId, ValidatedImportedItem importedItem, FullItemRead fullItemRead) {
+        validateTypeSlot(importedItem.getSlot(), importedItem.getDetails());
         SavedImportedItem existingItem = repository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Nie znaleziono itemu o podanym id w bibliotece."));
         SavedImportedItem itemToSave = new SavedImportedItem(
@@ -125,7 +129,24 @@ public final class ItemLibraryService {
         if (!heroSlot.supports(item.getSlot())) {
             throw new IllegalArgumentException("Nie można ustawić jako aktywnego itemu z niepasującego typu slotu.");
         }
+        validateTypeSlot(item.getSlot(), item.getDetails());
         return item;
+    }
+
+    /** Sprawdza komplet aktywnych slotów przed mutacją profilu i przed agregacją wkładu. */
+    public void validateEquipmentSelection(HeroItemSelection selection) { resolveAssignments(selection); }
+
+    private static void validateTypeSlot(EquipmentSlot slot, ItemImportDetails details) {
+        ItemType type = details.getResolvedItemType();
+        if (type != ItemType.UNKNOWN && type.getEquipmentSlot() != slot) {
+            throw new IllegalArgumentException("Typ itemu " + type.getDisplayName() + " wymaga slotu " + type.getEquipmentSlot() + ".");
+        }
+    }
+
+    private static boolean hasTwoHandedAndOffHand(List<HeroSlotItemAssignment> assignments) {
+        boolean twoHanded = assignments.stream().anyMatch(assignment -> assignment.getHeroSlot() == HeroEquipmentSlot.MAIN_HAND
+                && assignment.getItem().getDetails().getResolvedItemType().getHandedness() == ItemHandedness.TWO_HANDED);
+        return twoHanded && assignments.stream().anyMatch(assignment -> assignment.getHeroSlot() == HeroEquipmentSlot.OFF_HAND);
     }
 
     public List<SavedImportedItem> getCompatibleItems(HeroEquipmentSlot heroSlot) {
@@ -197,7 +218,9 @@ public final class ItemLibraryService {
                 continue;
             }
             currentSelection.add(new HeroSlotItemAssignment(slot, item));
-            generateSearchCombinationsRecursive(orderedSlots, itemsBySlot, index + 1, currentSelection, usedItemIds, combinations);
+            if (!hasTwoHandedAndOffHand(currentSelection)) {
+                generateSearchCombinationsRecursive(orderedSlots, itemsBySlot, index + 1, currentSelection, usedItemIds, combinations);
+            }
             currentSelection.removeLast();
             usedItemIds.remove(item.getItemId());
         }
@@ -443,11 +466,15 @@ public final class ItemLibraryService {
             if (item == null || !entry.getKey().supports(item.getSlot())) {
                 continue;
             }
+            validateTypeSlot(item.getSlot(), item.getDetails());
             assignments.add(new HeroSlotItemAssignment(entry.getKey(), item));
         }
         assignments.sort(Comparator
                 .comparing((HeroSlotItemAssignment assignment) -> assignment.getHeroSlot().name())
                 .thenComparing(assignment -> assignment.getItem().getItemId()));
+        if (hasTwoHandedAndOffHand(assignments)) {
+            throw new IllegalArgumentException("Broń dwuręczna blokuje OFF_HAND. Wyczyść slot Tarcza lub zmień broń przed założeniem itemu.");
+        }
         return assignments;
     }
 

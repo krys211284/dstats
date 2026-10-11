@@ -20,6 +20,17 @@ Ten plik jest stałym kontraktem pracy dla kolejnych zadań wykonywanych w tym r
 - Nie wolno oddawać paczki z failing testami.
 - Jeżeli logika się zmienia, a testy albo README nie zostały zaktualizowane, zadanie nie jest ukończone.
 
+## Walidacja i budowanie
+- Podczas implementacji najpierw uruchamiamy celowane suites: `mvn '-Dmaven.repo.local=.m2' '-Dtest=ChangedArea*Test' test`.
+- Po implementacji uruchamiamy `mvn '-Dmaven.repo.local=.m2' -Pfast test`: wszystkie testy poza jawnym tagiem JUnit `ocr-integration`.
+- Zmiana OCR, preprocessingu, segmentacji lub importera obrazu wymaga dodatkowo `mvn '-Dmaven.repo.local=.m2' -Pocr test`.
+- Bez profilu `mvn test` nadal oznacza FULL, łącznie z prawdziwym OCR. Pełny przebieg uruchamiamy przy zamknięciu większego milestone'u, zmianie szerokiej infrastruktury lub jawnym żądaniu użytkownika.
+- Nie używamy `clean` w każdej iteracji. `clean test` jest mocnym checkpointem końcowym.
+- Po zakończonych testach budujemy aplikację przez `mvn '-Dmaven.repo.local=.m2' -DskipTests package`, bez powtarzania Surefire. Dystrybucja musi zawierać `target/app/dstats.jar` i `target/app/lib/*`.
+- Zwykłe `package` tworzy także archiwum źródeł/projektu `target/dstats-YYYY-MM-DD-HH-mm.zip`, bez dodatkowego profilu. `mvn clean package` wykonuje domyślne FULL; `mvn clean package -DskipTests` pomija wykonanie testów Surefire i również tworzy ZIP. Codex uruchamia budowanie ZIP-a na jawne zlecenie użytkownika.
+- `ocr-integration` oznacza prawdziwe rozpoznawanie Tess4J/Tesseract, a nie cały package `image`. Testy parserów, mapperów i audytów evidence używają typowanych golden OCR fixtures.
+- Nie usuwamy przypadków testowych ani assertions, nie zmieniamy golden values i nie wyłączamy OCR w domyślnym FULL.
+
 ## Język i dokumentacja
 - Dokumentacja projektowa ma być prowadzona po polsku.
 - Komentarze w kodzie mają być prowadzone po polsku.

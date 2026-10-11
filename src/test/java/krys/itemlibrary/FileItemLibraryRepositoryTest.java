@@ -561,7 +561,9 @@ class FileItemLibraryRepositoryTest {
                         new FullItemReadLine(FullItemReadLineType.AFFIX, "+12,5% szybkości ruchu"),
                         new FullItemReadLine(FullItemReadLineType.AFFIX, "+7,0% uniku"),
                         new FullItemReadLine(FullItemReadLineType.SOCKET, "2 gniazda")
-                )
+                ),
+                new ItemImportDetails("Marsz Pokutnika", "Buty", "RARE", false, EquipmentSlot.BOOTS,
+                        null, null, null, null, null, null, "")
         );
         ItemImportEditableForm form = new ItemImportEditableForm(
                 "buty.png",

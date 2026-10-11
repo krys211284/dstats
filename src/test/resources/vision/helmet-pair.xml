@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+<comment>Golden assembly przed zmianą reprezentacji RGB</comment>
+<entry key="stitches.size">1</entry>
+<entry key="image.sourceImageCount">2</entry>
+<entry key="image.format">PNG</entry>
+<entry key="image.assemblyStatus">STITCHED</entry>
+<entry key="stitch.0.secondSourceIndex">2</entry>
+<entry key="image.sha256">9acafc3f964f3df99ca7a2b9a91d93495950be1b4d01fd337872cb23c078eda4</entry>
+<entry key="stitch.0.status">OK</entry>
+<entry key="stitch.0.overlapHeight">389</entry>
+<entry key="stitch.0.seamY">128</entry>
+<entry key="stitch.0.confidence">0.9676173626546375</entry>
+<entry key="image.compositionPolicy">OVERLAP_AWARE_PANEL_STITCH_NO_SCALE</entry>
+<entry key="stitch.0.offsetY">297</entry>
+<entry key="image.height">988</entry>
+<entry key="stitch.0.offsetX">-5</entry>
+<entry key="stitch.0.firstSourceIndex">1</entry>
+<entry key="image.width">332</entry>
+</properties>

@@ -44,7 +44,7 @@ class ItemImportFormMapperTest {
                 "0"
         );
 
-        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(confirmedFixture(form));
 
         assertTrue(result.getErrors().isEmpty());
         assertEquals(0, result.getItem().getSocketing().getSocketCount());
@@ -58,7 +58,7 @@ class ItemImportFormMapperTest {
                 List.of(ItemSocket.gem(0, "diamond_grand"))
         ));
 
-        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(confirmedFixture(form));
 
         assertTrue(result.getErrors().isEmpty());
         assertEquals(1, result.getItem().getSocketing().getSocketCount());
@@ -73,7 +73,7 @@ class ItemImportFormMapperTest {
                 List.of(ItemSocket.detectedStat(0, SocketGemRuneStat.fromDetectedLine("+120 inteligencji")))
         ));
 
-        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(confirmedFixture(form));
 
         assertTrue(result.getErrors().isEmpty());
         assertEquals(1, result.getItem().getSocketing().getSocketCount());
@@ -91,7 +91,7 @@ class ItemImportFormMapperTest {
                 List.of(ItemSocket.gem(0, "diamond_fake"))
         ));
 
-        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(confirmedFixture(form));
 
         assertNull(result.getItem());
         assertTrue(result.getErrors().contains("Nieznany gem: diamond_fake"));
@@ -101,7 +101,7 @@ class ItemImportFormMapperTest {
     void shouldRejectSocketCountOutsideSupportedRange() {
         ItemImportEditableForm form = socketedForm(ItemSocketing.emptySockets(3));
 
-        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(confirmedFixture(form));
 
         assertNull(result.getItem());
         assertTrue(result.getErrors().contains("Gniazda: liczba gniazd musi być od 0 do 2."));
@@ -114,7 +114,7 @@ class ItemImportFormMapperTest {
                 List.of(ItemSocket.empty(0), ItemSocket.gem(1, "ruby_grand"))
         ));
 
-        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(confirmedFixture(form));
 
         assertNull(result.getItem());
         assertTrue(result.getErrors().contains("Gniazda: liczba przesłanych gniazd nie może przekraczać wybranej liczby gniazd."));
@@ -135,7 +135,7 @@ class ItemImportFormMapperTest {
                 List.of(new ImportedItemAffix(ImportedItemAffixType.STRENGTH, 70.0d, "+70 siły"))
         );
 
-        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(confirmedFixture(form));
 
         assertTrue(result.getErrors().isEmpty());
         assertEquals(EquipmentSlot.MAIN_HAND, result.getItem().getSlot());
@@ -177,7 +177,7 @@ class ItemImportFormMapperTest {
                 "25"
         );
 
-        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(confirmedFixture(form));
 
         assertNull(result.getItem());
         assertEquals(1, result.getErrors().size());
@@ -211,7 +211,7 @@ class ItemImportFormMapperTest {
                 )
         );
 
-        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(confirmedFixture(form));
 
         assertTrue(result.getErrors().isEmpty());
         assertEquals(EquipmentSlot.OFF_HAND, result.getItem().getSlot());
@@ -237,7 +237,7 @@ class ItemImportFormMapperTest {
                 "inner-calm"
         );
 
-        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(confirmedFixture(form));
 
         assertTrue(result.getErrors().isEmpty(), () -> String.join(", ", result.getErrors()));
         assertEquals("inner-calm", result.getItem().getSelectedAspectId());
@@ -259,7 +259,7 @@ class ItemImportFormMapperTest {
                 "inner-calm"
         );
 
-        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(confirmedFixture(form));
 
         assertNull(result.getItem());
         assertTrue(result.getErrors().contains("Wybrany aspekt nie pasuje do slotu itemu."));
@@ -281,7 +281,7 @@ class ItemImportFormMapperTest {
                 "inner-calm"
         );
 
-        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(form);
+        ItemImportFormMapper.MappingResult result = new ItemImportFormMapper().map(confirmedFixture(form));
 
         assertNull(result.getItem());
         assertTrue(result.getErrors().contains("Wybrany aspekt nie pasuje do slotu itemu."));
@@ -694,7 +694,7 @@ class ItemImportFormMapperTest {
                 details
         );
 
-        ItemImportFormMapper.MappingResult mappingResult = new ItemImportFormMapper().map(form);
+        ItemImportFormMapper.MappingResult mappingResult = new ItemImportFormMapper().map(confirmedFixture(form));
         assertTrue(mappingResult.getErrors().isEmpty(), () -> String.join(", ", mappingResult.getErrors()));
 
         ItemLibraryService service = new ItemLibraryService(new FileItemLibraryRepository(Files.createTempDirectory("verathiel-flow")));
@@ -733,5 +733,20 @@ class ItemImportFormMapperTest {
         assertEquals(3.0d, luckyHitAffix.getRollRangeMin());
         assertEquals(4.0d, luckyHitAffix.getRollRangeMax());
         assertTrue(reloaded.getUniqueEffectText().contains("100%[x]"));
+    }
+
+    /** Jawny typ legalnego fixture; walidację UNKNOWN zabezpiecza osobna regresja importu typowanego. */
+    private static ItemImportEditableForm confirmedFixture(ItemImportEditableForm form) {
+        if (form.getDetails().getResolvedItemType() != krys.item.ItemType.UNKNOWN) { return form; }
+        String type = "MAIN_HAND".equals(form.getSlot()) ? "SWORD" : "SHIELD";
+        ItemImportDetails details = new ItemImportDetails(form.getItemName(), type, form.getItemRarity(), form.isAncient(),
+                "MAIN_HAND".equals(form.getSlot()) ? EquipmentSlot.MAIN_HAND : EquipmentSlot.OFF_HAND,
+                form.getDetails().getItemPower(), form.getDetails().getWeaponDps(), form.getDetails().getWeaponDamageMin(),
+                form.getDetails().getWeaponDamageMax(), form.getDetails().getAverageWeaponDamage(),
+                form.getDetails().getAttacksPerSecond(), form.getDetails().getItemArmor(), form.getUniqueEffectText(), form.isMythicUnique());
+        return new ItemImportEditableForm(form.getSourceImageName(), form.getSlot(), form.getWeaponDamage(),
+                form.getStrength(), form.getIntelligence(), form.getThorns(), form.getBlockChance(), form.getRetributionChance(),
+                form.getFullItemRead(), form.getAffixes(), form.getSelectedAspectId(), details, form.getTemperingAffixes(),
+                form.getMasterworking(), form.getTransfiguration(), form.getSocketing(), form.getValueMode());
     }
 }

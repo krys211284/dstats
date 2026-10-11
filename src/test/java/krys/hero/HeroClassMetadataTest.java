@@ -15,10 +15,11 @@ class HeroClassMetadataTest {
     }
 
     @Test
-    void necromancerProfileShouldNotIntroduceAnUnverifiedRuntimeDefinitionOrBaseline() {
+    void necromancerShouldHaveAVerifiedLevel70BaselineWithoutLegacyRuntimeDefinition() {
         assertEquals(ItemStatType.STRENGTH, HeroClassDefs.get(HeroClass.PALADIN).getMainStatType());
         assertThrows(IllegalArgumentException.class, () -> HeroClassDefs.get(HeroClass.NECROMANCER));
-        assertTrue(HeroClassStatBaselines.find(HeroClass.NECROMANCER, 70).isEmpty());
+        assertTrue(HeroClassStatBaselines.find(HeroClass.NECROMANCER, 70).isPresent());
+        assertTrue(HeroClassStatBaselines.find(HeroClass.NECROMANCER, 69).isEmpty());
         assertTrue(HeroClassStatBaselines.find(HeroClass.PALADIN, 70).isPresent());
     }
 }

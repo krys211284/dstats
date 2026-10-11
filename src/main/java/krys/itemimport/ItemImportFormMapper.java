@@ -1,6 +1,7 @@
 package krys.itemimport;
 
 import krys.item.EquipmentSlot;
+import krys.item.ItemType;
 import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkedAffixSelection;
 import krys.masterworking.MasterworkedAffixSource;
@@ -48,6 +49,12 @@ public final class ItemImportFormMapper {
     public MappingResult map(ItemImportEditableForm form) {
         List<String> errors = new ArrayList<>();
         EquipmentSlot slot = parseSlot(form.getSlot(), errors);
+        ItemType type = form.getDetails().getResolvedItemType();
+        if (!type.isSelectable()) {
+            errors.add("Wybierz rozpoznany typ itemu z katalogu.");
+        } else if (slot != null && type.getEquipmentSlot() != slot) {
+            errors.add("Typ itemu " + type.getDisplayName() + " wymaga slotu " + type.getEquipmentSlot() + ".");
+        }
         Long weaponDamage = parseLong(resolveVisibleWeaponDamage(form), "Weapon damage", errors);
         RuntimeProjection projection = projectAffixes(form.getAffixes());
         Double strength = projection.strength();
@@ -67,7 +74,7 @@ public final class ItemImportFormMapper {
         }
         String selectedAspectId = validateAspect(form.getSelectedAspectId(), slot, errors);
         ItemImportDetails details = buildDetails(form, slot, errors);
-        List<ItemTemperingAffix> temperingAffixes = validateTempering(form.getTemperingAffixes(), slot, details.getItemType(), details.getItemPower(), errors);
+        List<ItemTemperingAffix> temperingAffixes = validateTempering(form.getTemperingAffixes(), slot, details.getResolvedItemType(), details.getItemPower(), errors);
         ItemMasterworking masterworking = validateMasterworking(form.getMasterworking(), form.getAffixes(), temperingAffixes, errors);
         ItemTransfiguration transfiguration = validateTransfiguration(form.getTransfiguration(), form.getAffixes(), masterworking, errors);
         ItemSocketing socketing = validateSocketing(form.getSocketing(), errors);
@@ -410,7 +417,7 @@ public final class ItemImportFormMapper {
 
     private List<ItemTemperingAffix> validateTempering(List<ItemTemperingAffix> affixes,
                                                        EquipmentSlot slot,
-                                                       String itemType,
+                                                       ItemType itemType,
                                                        Long itemPower,
                                                        List<String> errors) {
         List<ItemTemperingAffix> validated = new ArrayList<>();

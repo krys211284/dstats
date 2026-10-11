@@ -336,12 +336,30 @@ final class ItemEditPageRenderer {
                 </label>
                 <label>
                     Typ itemu
-                    <input type="text" name="itemType" value="%s">
+                    <select name="itemType" id="itemTypeSelect">%s</select>
                 </label>
+                %s
                 """.formatted(
                 escapeHtml(firstNonBlank(form.getItemName(), ItemLibraryPresentationSupport.canonicalItemName(item))),
-                escapeHtml(firstNonBlank(form.getItemType(), simplifyItemType(form.getFullItemRead().getItemTypeLine())))
+                renderItemTypeOptions(form.getItemType()),
+                !form.getDetails().getResolvedItemType().isSelectable() && !form.getItemType().isBlank()
+                        ? "<p class=\"helper\">Nierozpoznany historyczny typ: " + escapeHtml(form.getItemType()) + ". Wybierz typ z katalogu przed zapisem.</p>" : ""
         );
+    }
+
+    private static String renderItemTypeOptions(String rawType) {
+        var selected = krys.item.ItemTypeRegistry.resolve(rawType);
+        StringBuilder html = new StringBuilder("<option value=\"\"")
+                .append(selected.isSelectable() ? "" : " selected")
+                .append(">UNKNOWN / wybierz typ itemu</option>");
+        for (var type : krys.item.ItemTypeRegistry.selectableTypes()) {
+            html.append("<option value=\"").append(type.getTechnicalId())
+                    .append("\" data-equipment-slot=\"").append(type.getEquipmentSlot())
+                    .append("\" data-handedness=\"").append(type.getHandedness()).append("\"")
+                    .append(selected == type ? " selected" : "").append(">")
+                    .append(escapeHtml(type.getDisplayName())).append("</option>");
+        }
+        return html.toString();
     }
 
     private static String renderSlotSelect(String selectedSlot) {
@@ -350,6 +368,8 @@ final class ItemEditPageRenderer {
                     Slot ekwipunku
                     <select name="slot" id="itemSlotSelect">
                 """);
+        boolean recognized = java.util.Arrays.stream(EquipmentSlot.values()).anyMatch(slot -> slot.name().equals(selectedSlot));
+        html.append("<option value=\"\"").append(recognized ? "" : " selected").append(">UNKNOWN / wybierz slot</option>");
         for (EquipmentSlot slot : EquipmentSlot.values()) {
             html.append("<option value=\"")
                     .append(slot.name())
@@ -460,12 +480,7 @@ final class ItemEditPageRenderer {
 
     private static boolean isShield(ItemImportEditableForm form) {
         EquipmentSlot slot = parseSlot(form.getSlot());
-        String normalizedType = java.text.Normalizer.normalize(form.getItemType() == null ? "" : form.getItemType(), java.text.Normalizer.Form.NFD)
-                .replace('Ł', 'L')
-                .replace('ł', 'l')
-                .replaceAll("\\p{M}", "")
-                .toUpperCase(Locale.ROOT);
-        return slot == EquipmentSlot.OFF_HAND && (normalizedType.contains("TARCZA") || !form.getItemArmor().isBlank());
+        return slot == EquipmentSlot.OFF_HAND && (form.getDetails().getResolvedItemType() == krys.item.ItemType.SHIELD || !form.getItemArmor().isBlank());
     }
 
     private static boolean shouldRenderImportedArmorField(ItemImportEditableForm form) {
@@ -477,14 +492,8 @@ final class ItemEditPageRenderer {
 
     private static boolean isWeapon(ItemImportEditableForm form) {
         EquipmentSlot slot = parseSlot(form.getSlot());
-        String normalizedType = java.text.Normalizer.normalize(form.getItemType() == null ? "" : form.getItemType(), java.text.Normalizer.Form.NFD)
-                .replace('Ł', 'L')
-                .replace('ł', 'l')
-                .replaceAll("\\p{M}", "")
-                .toUpperCase(Locale.ROOT);
         return slot == EquipmentSlot.MAIN_HAND
-                || normalizedType.contains("MIECZ")
-                || normalizedType.contains("SWORD")
+                || form.getDetails().getResolvedItemType().isWeapon()
                 || !form.getWeaponDps().isBlank()
                 || !form.getWeaponDamageMin().isBlank()
                 || !form.getWeaponDamageMax().isBlank()
@@ -756,6 +765,13 @@ final class ItemEditPageRenderer {
                 %s
                 (() => {
                     const slotSelect = document.getElementById('itemSlotSelect');
+                    const typeSelect = document.getElementById('itemTypeSelect');
+                    if (slotSelect && typeSelect) {
+                        typeSelect.addEventListener('change', () => {
+                            slotSelect.value = typeSelect.selectedOptions[0]?.dataset.equipmentSlot || '';
+                            slotSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                        });
+                    }
                     const aspectSelect = document.getElementById('aspectSelect');
                     if (!slotSelect || !aspectSelect) return;
                     const refreshAspectOptions = () => {
@@ -932,21 +948,7 @@ final class ItemEditPageRenderer {
     }
 
     private static String simplifyItemType(String itemTypeLine) {
-        String normalized = java.text.Normalizer.normalize(itemTypeLine == null ? "" : itemTypeLine, java.text.Normalizer.Form.NFD)
-                .replace('Ł', 'L')
-                .replace('ł', 'l')
-                .replaceAll("\\p{M}", "")
-                .toUpperCase(Locale.ROOT);
-        if (normalized.contains("MIECZ") || normalized.contains("SWORD")) {
-            return "Miecz";
-        }
-        if (normalized.contains("TARCZA")) {
-            return "Tarcza";
-        }
-        if (normalized.contains("BUTY")) {
-            return "Buty";
-        }
-        return itemTypeLine == null ? "" : itemTypeLine;
+        return krys.item.ItemTypeRegistry.displayOrLegacy(itemTypeLine);
     }
 
     private static String formatDecimal(double value) {

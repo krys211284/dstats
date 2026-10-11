@@ -18,6 +18,7 @@ import krys.itemimport.image.PropertyBlockSemanticMapper;
 import krys.itemimport.image.PropertyBlockSegmenter;
 import krys.itemimport.image.PropertyBlockValueReader;
 import krys.itemimport.image.StructuralItemPartSlot;
+import krys.itemimport.image.OcrIntegrationTest;
 import krys.itemimport.image.TesseractPart1RoiOcrReader;
 import krys.itemimport.image.TesseractPropertyBlockOcrReader;
 import krys.itemimport.image.VisualPropertyBlockSegmenter;
@@ -46,6 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Regresja realnego importu Dziedzica Zatracenia od PNG do verification i zapisu. */
+@OcrIntegrationTest
 class DziedzicImageImportPipelineRegressionTest {
     private final MasterworkingResolvedItemValueResolver valueResolver = new MasterworkingResolvedItemValueResolver();
 

@@ -149,6 +149,7 @@ public final class ItemLibraryController implements HttpHandler {
         long itemId = parseItemId(fields.getOrDefault("itemId", ""));
         HeroEquipmentSlot heroSlot = HeroEquipmentSlot.valueOf(fields.getOrDefault("heroSlot", ""));
         SavedImportedItem item = itemLibraryService.requireCompatibleItem(heroSlot, itemId);
+        itemLibraryService.validateEquipmentSelection(activeHero.getItemSelection().withSelectedItem(heroSlot, itemId));
         Long previousItemId = activeHero.getItemSelection().getSelectedItemId(heroSlot);
         heroService.setActiveHeroItem(heroSlot, itemId);
         String slotName = ItemLibraryPresentationSupport.heroSlotDisplayName(heroSlot);

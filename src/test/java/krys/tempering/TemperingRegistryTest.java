@@ -10,6 +10,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TemperingRegistryTest {
+    @Test
+    void typedEligibilityShouldPreserveLegacyCategoriesAndNotEnableScytheTempering() {
+        for (String name : List.of("Miecz", "Sword", "Broń główna", "Main hand")) {
+            assertEquals(List.of(TemperingCategory.WEAPON, TemperingCategory.OFFENSE),
+                    TemperingEligibilityRegistry.availableCategories(EquipmentSlot.MAIN_HAND, name));
+        }
+        assertEquals(List.of(TemperingCategory.DEFENSE), TemperingEligibilityRegistry.availableCategories(EquipmentSlot.HELMET, krys.item.ItemType.HELMET));
+        assertEquals(List.of(), TemperingEligibilityRegistry.availableCategories(EquipmentSlot.BOOTS, krys.item.ItemType.BOOTS));
+        assertEquals(List.of(), TemperingEligibilityRegistry.availableCategories(EquipmentSlot.MAIN_HAND, krys.item.ItemType.SCYTHE_TWO_HANDED));
+    }
     private final TemperingAffixRegistry registry = ApplicationTemperingAffixRegistry.get();
 
     @Test

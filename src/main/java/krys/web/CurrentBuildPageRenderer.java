@@ -194,7 +194,7 @@ public final class CurrentBuildPageRenderer {
             return "";
         }
         if (model.getRuntimeMode() == CurrentBuildRuntimeMode.NECROMANCER_DIRECT_HIT) {
-            return NecromancerCurrentBuildPageRenderer.renderEntry(model, renderEquipmentSection(model));
+            return NecromancerCurrentBuildPageRenderer.renderEntry(model, renderEquipmentSection(model), renderBasicHeroStatsSection(model));
         }
         if (!model.isCurrentBuildRuntimeSupported()) {
             return UnsupportedHeroRuntimePageRenderer.renderWarning(CurrentBuildRuntimeSupport.NECROMANCER_MESSAGE);
@@ -279,6 +279,9 @@ public final class CurrentBuildPageRenderer {
     }
 
     private static String renderEquipmentSlot(CurrentBuildPageModel model, HeroEquipmentSlot slot) {
+        HeroSlotItemAssignment mainHand = findActiveItem(model, HeroEquipmentSlot.MAIN_HAND);
+        boolean blocked = slot == HeroEquipmentSlot.OFF_HAND && mainHand != null
+                && mainHand.getItem().getDetails().getResolvedItemType().getHandedness() == krys.item.ItemHandedness.TWO_HANDED;
         HeroSlotItemAssignment activeItem = findActiveItem(model, slot);
         List<SavedImportedItem> slotItems = model.getSavedLibraryItems().stream()
                 .filter(item -> slot.supports(item.getSlot()))
@@ -293,6 +296,12 @@ public final class CurrentBuildPageRenderer {
                 .append("</h4></div>")
                 .append(renderSlotStatusBadge(activeItem))
                 .append("</div>");
+
+        if (blocked) {
+            html.append("<p class=\"slot-helper\" data-off-hand-blocked>Slot zablokowany przez aktywną broń dwuręczną. Zmień broń, aby założyć item w OFF_HAND.</p>");
+            if (activeItem != null) { html.append("<button type=\"submit\" name=\"slotAction\" value=\"clearActiveSlotItem:OFF_HAND\">Wyczyść slot</button>"); }
+            return html.append("</article>").toString();
+        }
 
         if (activeItem == null) {
             html.append("<p class=\"slot-item-name slot-item-empty\">Slot jest pusty</p>")
@@ -714,21 +723,23 @@ public final class CurrentBuildPageRenderer {
         return html.toString();
     }
 
-    private static String renderBasicHeroStatsSection(CurrentBuildPageModel model) {
+    static String renderBasicHeroStatsSection(CurrentBuildPageModel model) {
         CurrentHeroStatsPresentation stats = CurrentHeroStatsPresentation.from(model);
         HeroClassStatBaseline baseline = stats.getVerifiedBaseline().orElse(null);
         StringBuilder html = new StringBuilder("""
                 <details class="current-build-details hero-stats-details">
                     <summary>Statystyki bohatera</summary>
                     <section class="subpanel hero-stats-panel">
-                """)
+                """.replace("<details class=", model.getRuntimeMode() == CurrentBuildRuntimeMode.NECROMANCER_DIRECT_HIT
+                        ? "<details open class=" : "<details class="))
                 .append(renderHeroStatGroup("Główne",
                         renderSummaryCard("Klasa", stats.getHeroClassName())
                                 + renderSummaryCard("Poziom", Integer.toString(stats.getLevel()))
                                 + renderSummaryCard("Siła", stats.getStrengthDisplay())
                                 + renderSummaryCard("Inteligencja", stats.getIntelligenceDisplay())
-                                + (baseline == null ? "" : renderSummaryCard("Siła woli", Integer.toString(baseline.getWillpower()))
-                                + renderSummaryCard("Zręczność", Integer.toString(baseline.getDexterity())))));
+                                + (baseline == null && model.getRuntimeMode() != CurrentBuildRuntimeMode.NECROMANCER_DIRECT_HIT ? ""
+                                : renderSummaryCard("Siła woli", stats.getWillpowerDisplay())
+                                + renderSummaryCard("Zręczność", stats.getDexterityDisplay()))));
         if (baseline != null) {
             HeroArmorBreakdown armor = baseline.getArmorBreakdown();
             HeroCriticalChanceBreakdown criticalChance = baseline.getCriticalChanceBreakdown();
@@ -771,6 +782,12 @@ public final class CurrentBuildPageRenderer {
             html.append(renderActiveWeaponGroup(stats.getActiveHeroItemStats()))
                     .append(renderActiveItemAffixesGroup(stats.getActiveHeroItemStats()));
         }
+        if (model.getRuntimeMode() == CurrentBuildRuntimeMode.NECROMANCER_DIRECT_HIT && baseline != null) {
+            html.append(NecromancerCurrentBuildPageRenderer.renderCoreStatFacts(stats));
+            if (model.hasActiveLibraryItems()) {
+                html.append("<p class=\"helper\">Wytrzymałość pozostaje zweryfikowaną wartością nagiej postaci poziomu 70; nie jest przeliczana po założeniu itemów.</p>");
+            }
+        }
         html.append("""
                     </section>
                 </details>
@@ -804,16 +821,16 @@ public final class CurrentBuildPageRenderer {
     }
 
     private static String buildArmorBreakdownLabel(HeroArmorBreakdown armor, CurrentHeroStatsPresentation stats) {
-        return armor.getArmorFromStrength() + " z siły, "
+        return stats.getArmorFromStrength() + " z siły, "
                 + (armor.getArmorFromItems() + stats.getActiveHeroItemStats().getItemArmor()) + " z itemów/głównego wyposażenia, "
                 + armor.getArmorFromOtherSources() + " z innych źródeł, razem "
-                + (armor.getTotalArmor() + stats.getActiveHeroItemStats().getItemArmor()) + ".";
+                + stats.getTotalArmor(stats.getVerifiedBaseline().orElseThrow()) + ".";
     }
 
     private static String buildCriticalChanceBreakdownLabel(HeroCriticalChanceBreakdown criticalChance,
                                                             BigDecimal activeItemCriticalChance) {
         return "bazowo " + formatPercentComma(criticalChance.getBaseCriticalChancePercent(), 1)
-                + ", +" + formatPercentComma(criticalChance.getCriticalChanceFromIntelligencePercent(), 1) + " z Inteligencji"
+                + ", +" + formatPercentComma(criticalChance.getCriticalChanceFromCoreStatPercent(), 1) + " z " + criticalChance.getCoreStatSourceLabel()
                 + ", +" + formatPercentComma(criticalChance.getCriticalChanceFromItemsPercent().add(activeItemCriticalChance), 1) + " z itemów"
                 + ", +" + formatPercentComma(criticalChance.getCriticalChanceFromOtherSourcesPercent(), 1) + " z innych źródeł"
                 + ", razem " + formatPercentComma(criticalChance.getTotalCriticalChancePercent().add(activeItemCriticalChance), 1) + ".";
@@ -1530,6 +1547,12 @@ public final class CurrentBuildPageRenderer {
         for (HeroSlotItemAssignment item : model.getActiveLibraryItems()) {
             if (item.getHeroSlot() == slot) {
                 return item;
+            }
+        }
+        if (model.getActiveHero() != null) {
+            Long selected = model.getActiveHero().getItemSelection().getSelectedItemId(slot);
+            for (SavedImportedItem item : model.getSavedLibraryItems()) {
+                if (java.util.Objects.equals(selected, item.getItemId())) { return new HeroSlotItemAssignment(slot, item); }
             }
         }
         return null;

@@ -342,6 +342,7 @@ class OpenCvItemImageAssemblerTest {
         assertTrue(image.getStitchDiagnostics().getFirst().getConfidence() >= 0.82d);
         assertTrue(image.getHeight() > 0);
         assertTrue(image.getWidth() > 0);
+        ImageAssemblyGoldenFixtures.assertGolden("helmet-pair", image);
     }
 
     @Test
@@ -367,6 +368,7 @@ class OpenCvItemImageAssemblerTest {
         assertTrue(image.getHeight() > 0);
         assertTrue(image.getHeight() < verticalConcatHeight);
         assertTrue(verticalConcatHeight - image.getHeight() >= Math.max(1, diagnostic.getOverlapHeight() / 2));
+        ImageAssemblyGoldenFixtures.assertGolden("split-shield", image);
     }
 
     private static ItemImageImportRequest request(String name, byte[] bytes) {

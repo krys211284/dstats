@@ -1,6 +1,8 @@
 package krys.tempering;
 
 import krys.item.EquipmentSlot;
+import krys.item.ItemType;
+import krys.item.ItemTypeRegistry;
 
 import java.util.List;
 
@@ -10,7 +12,11 @@ public final class TemperingEligibilityRegistry {
     }
 
     public static List<TemperingCategory> availableCategories(EquipmentSlot slot, String itemType) {
-        if (isShield(slot, itemType)) {
+        return availableCategories(slot, ItemTypeRegistry.resolve(itemType));
+    }
+
+    public static List<TemperingCategory> availableCategories(EquipmentSlot slot, ItemType itemType) {
+        if (slot == EquipmentSlot.OFF_HAND && itemType == ItemType.SHIELD) {
             return List.of(
                     TemperingCategory.WEAPON,
                     TemperingCategory.OFFENSE,
@@ -18,13 +24,13 @@ public final class TemperingEligibilityRegistry {
                     TemperingCategory.UTILITY
             );
         }
-        if (isOneHandWeapon(slot, itemType)) {
+        if (slot == EquipmentSlot.MAIN_HAND && (itemType == ItemType.SWORD || itemType == ItemType.LEGACY_MAIN_HAND)) {
             return List.of(
                     TemperingCategory.WEAPON,
                     TemperingCategory.OFFENSE
             );
         }
-        if (isHelmet(slot, itemType)) {
+        if (slot == EquipmentSlot.HELMET || itemType == ItemType.HELMET) {
             return List.of(TemperingCategory.DEFENSE);
         }
         return List.of();
@@ -34,31 +40,8 @@ public final class TemperingEligibilityRegistry {
         return availableCategories(slot, itemType).contains(category);
     }
 
-    private static boolean isShield(EquipmentSlot slot, String itemType) {
-        return slot == EquipmentSlot.OFF_HAND && normalize(itemType).contains("TARCZA");
+    public static boolean isCategoryAvailable(EquipmentSlot slot, ItemType itemType, TemperingCategory category) {
+        return availableCategories(slot, itemType).contains(category);
     }
 
-    private static boolean isOneHandWeapon(EquipmentSlot slot, String itemType) {
-        String normalizedType = normalize(itemType);
-        return slot == EquipmentSlot.MAIN_HAND
-                && (normalizedType.contains("MIECZ")
-                || normalizedType.contains("SWORD")
-                || normalizedType.contains("BRON GLOWNA")
-                || normalizedType.contains("MAIN HAND"));
-    }
-
-    private static boolean isHelmet(EquipmentSlot slot, String itemType) {
-        String normalizedType = normalize(itemType);
-        return slot == EquipmentSlot.HELMET
-                || normalizedType.contains("HELM")
-                || normalizedType.contains("HELMET");
-    }
-
-    private static String normalize(String value) {
-        return java.text.Normalizer.normalize(value == null ? "" : value, java.text.Normalizer.Form.NFD)
-                .replace('Ł', 'L')
-                .replace('ł', 'l')
-                .replaceAll("\\p{M}", "")
-                .toUpperCase(java.util.Locale.ROOT);
-    }
 }

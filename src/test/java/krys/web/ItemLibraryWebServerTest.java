@@ -1113,6 +1113,11 @@ class ItemLibraryWebServerTest {
     }
 
     private HttpResponse<String> sendUrlEncodedPost(String path, Map<String, String> fields) throws Exception {
+        // Legalne wejście fixture: dawne importy tych tarcz/mieczy nie miały jeszcze pola typu.
+        if ("saveImportedItem".equals(fields.get("action")) && !fields.containsKey("itemType")) {
+            fields = new java.util.HashMap<>(fields);
+            fields.put("itemType", "OFF_HAND".equals(fields.get("slot")) ? "SHIELD" : "SWORD");
+        }
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + path))
                 .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")

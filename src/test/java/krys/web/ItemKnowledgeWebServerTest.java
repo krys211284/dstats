@@ -101,6 +101,7 @@ class ItemKnowledgeWebServerTest {
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("action", "saveImportedItem");
         fields.put("sourceImageName", "tarcza.png");
+        fields.put("itemType", "SHIELD");
         fields.put("slot", "OFF_HAND");
         fields.put("weaponDamage", "0");
         fields.put("strength", "0");

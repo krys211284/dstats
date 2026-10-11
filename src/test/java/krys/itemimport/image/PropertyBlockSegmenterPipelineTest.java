@@ -2,7 +2,6 @@ package krys.itemimport.image;
 
 import krys.itemimport.ItemImageImportRequest;
 import krys.itemimport.image.opencv.OpenCvHorizontalDividerDetector;
-import krys.itemimport.image.opencv.OpenCvItemImageAssembler;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
@@ -24,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Regresje neutralnej segmentacji PART_2/PART_3 na obrazowe bloki właściwości. */
 class PropertyBlockSegmenterPipelineTest {
-    private final OpenCvItemImageAssembler assembler = new OpenCvItemImageAssembler();
+    private final ItemImageAssembler assembler = ImageAssemblyFixtures::assemble;
     private final OpenCvHorizontalDividerDetector dividerDetector = new OpenCvHorizontalDividerDetector();
     private final ItemPartStructureNormalizer normalizer = new DeterministicItemPartStructureNormalizer();
     private final PropertyBlockSegmenter segmenter = new VisualPropertyBlockSegmenter();

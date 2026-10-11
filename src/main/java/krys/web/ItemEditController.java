@@ -36,9 +36,15 @@ final class ItemEditController implements HttpHandler {
     private final ItemEditPageRenderer renderer;
     private final ItemImportFormMapper formMapper;
     private final FullItemReadAffixUpdater fullItemReadAffixUpdater;
+    private HeroService heroService;
 
     ItemEditController(ItemLibraryService itemLibraryService) {
         this(itemLibraryService, new ItemEditPageRenderer(), new ItemImportFormMapper(), new FullItemReadAffixUpdater());
+    }
+
+    ItemEditController(ItemLibraryService itemLibraryService, HeroService heroService) {
+        this(itemLibraryService);
+        this.heroService = heroService;
     }
 
     ItemEditController(ItemLibraryService itemLibraryService,
@@ -100,6 +106,15 @@ final class ItemEditController implements HttpHandler {
         ArrayList<String> errors = new ArrayList<>(affixParseResult.errors());
         errors.addAll(temperingParseResult.errors());
         errors.addAll(mappingResult.getErrors());
+        if (mappingResult.getItem() != null && heroService != null
+                && mappingResult.getItem().getDetails().getResolvedItemType().getHandedness() == krys.item.ItemHandedness.TWO_HANDED) {
+            for (HeroProfile hero : heroService.getHeroes()) {
+                if (java.util.Objects.equals(hero.getItemSelection().getSelectedItemId(krys.item.HeroEquipmentSlot.MAIN_HAND), itemId)
+                        && hero.getItemSelection().getSelectedItemId(krys.item.HeroEquipmentSlot.OFF_HAND) != null) {
+                    errors.add("Broń dwuręczna blokuje OFF_HAND. Wyczyść slot Tarcza bohatera " + hero.getName() + " przed zmianą typu itemu.");
+                }
+            }
+        }
         if (!errors.isEmpty() || mappingResult.getItem() == null) {
             return new ItemEditPageModel(existingItem, form, errors, List.of(), filter);
         }
@@ -235,7 +250,7 @@ final class ItemEditController implements HttpHandler {
                 fallback.getEquipmentSlot() == null ? existingItem.getSlot().name() : fallback.getEquipmentSlot().name()));
         return new ItemImportDetails(
                 valueOrFallback(fields, "itemName", firstNonBlank(fallback.getItemName(), existingItem.getDisplayName())),
-                valueOrFallback(fields, "itemType", fallback.getItemType()),
+                fields.getOrDefault("itemType", fallback.getItemType()),
                 valueOrFallback(fields, "itemRarity", fallback.getItemRarity()),
                 fields.containsKey("isAncientSubmitted") ? "true".equals(fields.get("isAncient")) : fallback.isAncient(),
                 equipmentSlot,

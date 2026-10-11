@@ -1,0 +1,7 @@
+﻿"Suite","Tests","Seconds","Part1Calls","PropertyBlockCalls","Calls"
+"krys.itemimport.image.Part1ReadParserPipelineTest","1","87.515","39","0","39"
+"krys.itemimport.image.PropertyBlockNumericEvidenceAuditTest","1","87.635","0","349","349"
+"krys.itemimport.image.PropertyBlockSemanticMapperFixtureTest","3","97.43","0","349","349"
+"krys.itemimport.image.TesseractPart1RoiOcrReaderTest","5","90.919","31","0","31"
+"krys.itemimport.image.TesseractPropertyBlockOcrReaderTest","6","163.543","0","586","586"
+"krys.web.DziedzicImageImportPipelineRegressionTest","1","9.489","6","132","138"

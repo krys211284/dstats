@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Testuje obrazowa detekcje strukturalnych separatorow poziomych Etapu 2A. */
 class OpenCvHorizontalDividerDetectorTest {
     private final OpenCvHorizontalDividerDetector detector = new OpenCvHorizontalDividerDetector();
-    private final OpenCvItemImageAssembler assembler = new OpenCvItemImageAssembler();
+    private final ItemImageAssembler assembler = ImageAssemblyFixtures::assemble;
 
     @Test
     void shouldReturnSinglePartWhenImageHasNoStructuralDivider() throws Exception {

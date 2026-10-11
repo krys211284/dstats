@@ -1,6 +1,8 @@
 package krys.itemimport.image;
 
 import krys.item.EquipmentSlot;
+import krys.item.ItemType;
+import krys.item.ItemTypeRegistry;
 
 import java.util.EnumMap;
 import java.util.List;
@@ -72,6 +74,8 @@ public final class Part1ReadResult {
     public String getItemType() {
         return itemType;
     }
+
+    public ItemType getResolvedItemType() { return ItemTypeRegistry.resolve(itemType); }
 
     public String getItemRarity() {
         return itemRarity;

@@ -108,7 +108,7 @@ public final class CurrentBuildWebServer implements AutoCloseable {
                 heroService,
                 itemKnowledgeService
         );
-        ItemEditController itemEditController = new ItemEditController(itemLibraryService);
+        ItemEditController itemEditController = new ItemEditController(itemLibraryService, heroService);
         PlaceholderPageRenderer placeholderPageRenderer = new PlaceholderPageRenderer();
 
         server.createContext("/bohaterowie", heroesController);

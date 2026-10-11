@@ -488,21 +488,26 @@ public final class OpenCvItemImageAssembler implements ItemImageAssembler {
         int possibleSamples = 0;
         int firstTop = first.height() - overlapHeight;
         for (int y = 0; y < overlapHeight; y += SAMPLE_STEP) {
+            int firstRow = (firstTop + y) * first.width();
+            int secondRow = y * second.width();
             for (int x = 0; x < compareWidth; x += SAMPLE_STEP) {
                 possibleSamples++;
-                if (!first.hasSignal(firstX + x, firstTop + y) || !second.hasSignal(secondX + x, y)) {
+                int firstIndex = firstRow + firstX + x;
+                int secondIndex = secondRow + secondX + x;
+                if (!first.signal()[firstIndex] || !second.signal()[secondIndex]) {
                     continue;
                 }
-                diffSum += first.colorDiff(firstX + x, firstTop + y, second, secondX + x, y);
+                int firstRgb = first.rgb()[firstIndex];
+                diffSum += FeatureImage.colorDiff(firstRgb, second.rgb()[secondIndex]);
                 samples++;
                 if (x + SAMPLE_STEP < compareWidth
-                        && first.hasSignal(firstX + x + SAMPLE_STEP, firstTop + y)) {
-                    textureSum += first.colorDiff(firstX + x, firstTop + y, first, firstX + x + SAMPLE_STEP, firstTop + y);
+                        && first.signal()[firstIndex + SAMPLE_STEP]) {
+                    textureSum += first.horizontalTexture()[firstIndex];
                     textureSamples++;
                 }
                 if (y + SAMPLE_STEP < overlapHeight
-                        && first.hasSignal(firstX + x, firstTop + y + SAMPLE_STEP)) {
-                    textureSum += first.colorDiff(firstX + x, firstTop + y, first, firstX + x, firstTop + y + SAMPLE_STEP);
+                        && first.signal()[firstIndex + SAMPLE_STEP * first.width()]) {
+                    textureSum += first.verticalTexture()[firstIndex];
                     textureSamples++;
                 }
             }
@@ -724,13 +729,14 @@ public final class OpenCvItemImageAssembler implements ItemImageAssembler {
         }
     }
 
-    private record FeatureImage(int width, int height, byte[] red, byte[] green, byte[] blue, boolean[] signal) {
+    // Różnice sąsiednich pikseli nie zależą od kandydata overlapu, więc liczymy je tylko raz.
+    // Kolejność próbek, warunki zliczania tekstury i arytmetyka confidence pozostają identyczne.
+    private record FeatureImage(int width, int height, int[] rgb, boolean[] signal,
+                                int[] horizontalTexture, int[] verticalTexture) {
         private static FeatureImage from(Mat image) {
             int width = image.cols();
             int height = image.rows();
-            byte[] red = new byte[width * height];
-            byte[] green = new byte[width * height];
-            byte[] blue = new byte[width * height];
+            int[] rgb = new int[width * height];
             boolean[] signal = new boolean[width * height];
             BytePointer data = image.data();
             long step = image.step();
@@ -739,13 +745,24 @@ public final class OpenCvItemImageAssembler implements ItemImageAssembler {
                 for (int x = 0; x < width; x++) {
                     Pixel pixel = pixelAt(data, step, channels, x, y);
                     int index = y * width + x;
-                    red[index] = (byte) pixel.red();
-                    green[index] = (byte) pixel.green();
-                    blue[index] = (byte) pixel.blue();
+                    rgb[index] = pixel.red() << 16 | pixel.green() << 8 | pixel.blue();
                     signal[index] = isPanelSignal(pixel);
                 }
             }
-            return new FeatureImage(width, height, red, green, blue, signal);
+            int[] horizontalTexture = new int[width * height];
+            int[] verticalTexture = new int[width * height];
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int index = y * width + x;
+                    if (x + SAMPLE_STEP < width) {
+                        horizontalTexture[index] = colorDiff(rgb[index], rgb[index + SAMPLE_STEP]);
+                    }
+                    if (y + SAMPLE_STEP < height) {
+                        verticalTexture[index] = colorDiff(rgb[index], rgb[index + SAMPLE_STEP * width]);
+                    }
+                }
+            }
+            return new FeatureImage(width, height, rgb, signal, horizontalTexture, verticalTexture);
         }
 
         private boolean hasSignal(int x, int y) {
@@ -755,9 +772,13 @@ public final class OpenCvItemImageAssembler implements ItemImageAssembler {
         private int colorDiff(int x, int y, FeatureImage other, int otherX, int otherY) {
             int index = y * width + x;
             int otherIndex = otherY * other.width + otherX;
-            return Math.abs((red[index] & 0xff) - (other.red[otherIndex] & 0xff))
-                    + Math.abs((green[index] & 0xff) - (other.green[otherIndex] & 0xff))
-                    + Math.abs((blue[index] & 0xff) - (other.blue[otherIndex] & 0xff));
+            return colorDiff(rgb[index], other.rgb[otherIndex]);
+        }
+
+        private static int colorDiff(int first, int second) {
+            return Math.abs((first >>> 16 & 0xff) - (second >>> 16 & 0xff))
+                    + Math.abs((first >>> 8 & 0xff) - (second >>> 8 & 0xff))
+                    + Math.abs((first & 0xff) - (second & 0xff));
         }
     }
 

@@ -82,7 +82,8 @@ class NecromancerCurrentBuildWebFlowTest {
         assertEquals(100, activeItemIntelligence());
         var response = postBuild(form("calculate", "900", false, "krwotok"));
         assertHits(response, 2100, 3150);
-        assertCard(response, "Inteligencja poza aktywnymi itemami", "900");
+        assertCard(response, "Inteligencja baseline klasy/poziomu", "79");
+        assertCard(response, "Dodatkowa Inteligencja poza baseline'em i aktywnymi itemami", "821");
         assertCard(response, "Inteligencja z aktywnych itemów", "100");
         assertCard(response, "Efektywna inteligencja", "1000");
         assertCard(response, "Mnożnik main stat", "2.625");
@@ -129,7 +130,7 @@ class NecromancerCurrentBuildWebFlowTest {
         assertEquals(before.getRuntimeSkillLoadout(), after.getRuntimeSkillLoadout());
         assertEquals(before.getItemSelection().getSelectedItemIdsBySlot(), after.getItemSelection().getSelectedItemIdsBySlot());
         var fields = UrlEncodedFormSupport.parseQuery(after.getCurrentBuildQuery());
-        assertEquals("900", fields.get(NecromancerCurrentBuildFormQuerySupport.INTELLIGENCE));
+        assertEquals("821", fields.get(NecromancerCurrentBuildFormQuerySupport.INTELLIGENCE));
         assertEquals("true", fields.get(NecromancerCurrentBuildFormQuerySupport.VULNERABLE));
         assertEquals("20", fields.get("level"));
         assertTrue(get("/policz-aktualny-build").body().contains("Morta"));
@@ -182,13 +183,13 @@ class NecromancerCurrentBuildWebFlowTest {
         assertEquals(List.of(key), hero.getRuntimeSkillLoadout().actionBar());
         assertEquals(weapon.getItemId(), hero.getItemSelection().getSelectedItemId(HeroEquipmentSlot.MAIN_HAND));
         var query = UrlEncodedFormSupport.parseQuery(hero.getCurrentBuildQuery());
-        assertEquals("900", query.get(NecromancerCurrentBuildFormQuerySupport.INTELLIGENCE));
+        assertEquals("821", query.get(NecromancerCurrentBuildFormQuerySupport.INTELLIGENCE));
         assertEquals("true", query.get(NecromancerCurrentBuildFormQuerySupport.VULNERABLE));
         assertFalse(query.containsKey("selectedSkillId"));
         var response = get("/policz-aktualny-build");
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("value=\"krwotok\" selected"));
-        assertTrue(response.body().contains("name=\"nonItemIntelligence\" value=\"900\""));
+        assertTrue(response.body().contains("name=\"additionalNonItemIntelligence\" value=\"821\""));
         assertTrue(response.body().contains("name=\"targetVulnerable\" value=\"true\" checked"));
         assertTrue(response.body().contains("N11 — bazowy direct hit Krwotoku R1"));
         assertTrue(response.body().contains("N11 fixture weapon"));
@@ -206,7 +207,7 @@ class NecromancerCurrentBuildWebFlowTest {
         assertStateEquals(before, heroes().requireActiveHero());
         var page = get("/policz-aktualny-build");
         assertTrue(page.body().contains("value=\"\" selected>Brak umiejętności"));
-        assertTrue(page.body().contains("name=\"nonItemIntelligence\" value=\"0\""));
+        assertTrue(page.body().contains("name=\"additionalNonItemIntelligence\" value=\"0\""));
     }
 
     @Test
@@ -268,7 +269,7 @@ class NecromancerCurrentBuildWebFlowTest {
         var before = heroes().requireActiveHero();
         var response = get("/policz-aktualny-build?rank_HOLY_BOLT=5&necromancerNonItemIntelligence=1000&selectedSkillId=krwotok");
         assertEquals(200, response.statusCode());
-        assertTrue(response.body().contains("name=\"nonItemIntelligence\" value=\"0\""));
+        assertTrue(response.body().contains("name=\"additionalNonItemIntelligence\" value=\"0\""));
         assertTrue(response.body().contains("PRE_TARGET_MITIGATION"));
         assertTrue(response.body().contains("80% z katalogu"));
         for (String field : List.of("selectedPaladinOathId", "initialAnimus", "skillIdToAdd", "rank_HOLY_BOLT", "simulationStepCount")) {

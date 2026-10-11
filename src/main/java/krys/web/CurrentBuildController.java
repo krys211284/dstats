@@ -78,7 +78,9 @@ public final class CurrentBuildController implements HttpHandler {
                     activeHero = heroService.requireActiveHero();
                     formData = activeHero.getCurrentBuildFormData();
                 }
-                renderPage(exchange, buildPageModel(formData, List.of(), List.of(), null, buildEffectiveResolution(formData, new ArrayList<>())));
+                List<String> errors = new ArrayList<>();
+                EffectiveCurrentBuildResolution resolution = buildEffectiveResolution(formData, errors);
+                renderPage(exchange, buildPageModel(formData, List.of(), errors, null, resolution));
                 return;
             }
             if ("POST".equals(method)) {
@@ -121,7 +123,7 @@ public final class CurrentBuildController implements HttpHandler {
                     messages,
                     errors,
                     null,
-                    buildEffectiveResolution(refreshedFormData, new ArrayList<>(errors))
+                    buildEffectiveResolution(refreshedFormData, errors)
             );
         }
 
@@ -258,9 +260,19 @@ public final class CurrentBuildController implements HttpHandler {
     private CurrentBuildPageModel buildNecromancerPageModel(HeroProfile hero, NecromancerCurrentBuildFormData form,
                                                            List<String> messages, List<String> errors,
                                                            NecromancerCurrentBuildCalculation calculation) {
+        errors = new ArrayList<>(errors);
         return CurrentBuildPageModel.forNecromancer(form, messages, errors, calculation,
-                itemLibraryService.resolveEffectiveCurrentBuild(zeroStats(), hero.getItemSelection()),
+                resolveEquipmentForPage(zeroStats(), hero, errors),
                 hero, heroService.getHeroes(), itemLibraryService.getSavedItems());
+    }
+
+    private EffectiveCurrentBuildResolution resolveEquipmentForPage(CurrentBuildImportableStats base, HeroProfile hero, List<String> errors) {
+        try { return itemLibraryService.resolveEffectiveCurrentBuild(base, hero.getItemSelection()); }
+        catch (IllegalArgumentException exception) {
+            if (!errors.contains(exception.getMessage())) { errors.add(exception.getMessage()); }
+            // Niespójny zapis pozostaje widoczny do korekty; jego wkład i kalkulacja są odrzucone.
+            return new EffectiveCurrentBuildResolution(base, List.of(), zeroStats(), krys.itemlibrary.CurrentHeroActiveItemStats.empty(), null);
+        }
     }
 
     private CurrentBuildPageModel handleNecromancerPost(HeroProfile hero, Map<String, String> fields,
@@ -269,7 +281,8 @@ public final class CurrentBuildController implements HttpHandler {
             errors.add("Edycja legacy umiejętności Paladyna nie jest dostępna dla Nekromanty.");
             return buildNecromancerPageModel(hero, savedNecromancerForm(hero), messages, errors, null);
         }
-        var form = NecromancerCurrentBuildFormData.fromFormFields(fields, savedNecromancerForm(hero));
+        var form = NecromancerCurrentBuildFormData.fromFormFields(fields, savedNecromancerForm(hero),
+                NecromancerCurrentBuildFormQuerySupport.baselineIntelligence(hero.getCurrentBuildQuery()));
         errors.addAll(form.validationErrors());
         errors.addAll(NecromancerCurrentBuildFormData.postValidationErrors(fields));
         NecromancerCurrentBuildCalculation calculation = null;
@@ -296,7 +309,7 @@ public final class CurrentBuildController implements HttpHandler {
                     // Sprawdzamy obecność skilla przed wejściem liczbowym, bez naprawiania loadoutu.
                     var configuration = necromancerService.requireKrwotokOnActionBar(loadout);
                     try {
-                        calculation = necromancerService.calculate(loadout, necromancerInputResolver.resolve(form, resolution));
+                        calculation = necromancerService.calculate(loadout, necromancerInputResolver.resolve(hero, form, resolution));
                     } catch (UnsupportedOperationException exception) {
                         throw new UnsupportedOperationException(unsupportedNecromancerConfiguration(configuration.rank(), !configuration.selections().isEmpty()), exception);
                     }
@@ -325,6 +338,7 @@ public final class CurrentBuildController implements HttpHandler {
             itemLibraryService.requireCompatibleItem(slot, itemId);
             selection = selection.withSelectedItem(slot, itemId);
         }
+        itemLibraryService.validateEquipmentSelection(selection);
         return selection;
     }
 
@@ -333,10 +347,7 @@ public final class CurrentBuildController implements HttpHandler {
         ManualBaseStatsParseResult manualBaseParseResult = parseManualBaseStats(formData);
         errors.addAll(manualBaseParseResult.getErrors());
         if (!manualBaseParseResult.isValid()) {
-            EffectiveCurrentBuildResolution zeroBaseResolution = itemLibraryService.resolveEffectiveCurrentBuild(
-                    zeroStats(),
-                    heroService.requireActiveHero().getItemSelection()
-            );
+            EffectiveCurrentBuildResolution zeroBaseResolution = resolveEquipmentForPage(zeroStats(), heroService.requireActiveHero(), errors);
             return new EffectiveCurrentBuildResolution(
                     zeroStats(),
                     zeroBaseResolution.getActiveItems(),
@@ -346,10 +357,8 @@ public final class CurrentBuildController implements HttpHandler {
             );
         }
         HeroProfile activeHero = heroService.requireActiveHero();
-        EffectiveCurrentBuildResolution libraryResolution = itemLibraryService.resolveEffectiveCurrentBuild(
-                manualBaseParseResult.getStats(),
-                activeHero.getItemSelection()
-        );
+        EffectiveCurrentBuildResolution libraryResolution = resolveEquipmentForPage(manualBaseParseResult.getStats(), activeHero, errors);
+        if (libraryResolution.getEffectiveStats() == null) { return libraryResolution; }
         CurrentBuildImportableStats runtimeInputStats = runtimeInputResolver.resolve(activeHero, formData, libraryResolution);
         return new EffectiveCurrentBuildResolution(
                 libraryResolution.getManualBaseStats(),
@@ -550,6 +559,8 @@ public final class CurrentBuildController implements HttpHandler {
     }
 
     private void applySlotSelectionsFromGlobalSave(Map<String, String> fields, List<String> errors, List<String> messages) {
+        HeroItemSelection selection = heroService.requireActiveHero().getItemSelection();
+        List<String> changes = new ArrayList<>();
         for (HeroEquipmentSlot slot : HeroEquipmentSlot.values()) {
             String fieldName = "selectedItemId_" + slot.name();
             if (!fields.containsKey(fieldName)) {
@@ -578,11 +589,17 @@ public final class CurrentBuildController implements HttpHandler {
             }
             try {
                 itemLibraryService.requireCompatibleItem(slot, itemId);
-                heroService.setActiveHeroItem(slot, itemId);
-                messages.add("Zmieniono aktywny item dla slotu " + ItemLibraryPresentationSupport.heroSlotDisplayName(slot) + ".");
+                selection = selection.withSelectedItem(slot, itemId);
+                changes.add("Zmieniono aktywny item dla slotu " + ItemLibraryPresentationSupport.heroSlotDisplayName(slot) + ".");
             } catch (IllegalArgumentException exception) {
                 errors.add(exception.getMessage());
             }
+        }
+        if (errors.isEmpty()) {
+            try {
+                itemLibraryService.validateEquipmentSelection(selection);
+                if (!changes.isEmpty()) { heroService.replaceActiveHeroItemSelection(selection); messages.addAll(changes); }
+            } catch (IllegalArgumentException exception) { errors.add(exception.getMessage()); }
         }
     }
 
@@ -602,6 +619,7 @@ public final class CurrentBuildController implements HttpHandler {
                 return;
             }
             itemLibraryService.requireCompatibleItem(slot, itemId);
+            itemLibraryService.validateEquipmentSelection(heroService.requireActiveHero().getItemSelection().withSelectedItem(slot, itemId));
             heroService.setActiveHeroItem(slot, itemId);
             messages.add("Zmieniono aktywny item dla slotu " + ItemLibraryPresentationSupport.heroSlotDisplayName(slot) + ".");
         } catch (NumberFormatException exception) {

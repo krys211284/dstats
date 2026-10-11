@@ -2673,6 +2673,11 @@ class CurrentBuildWebServerTest {
     }
 
     private HttpResponse<String> sendPost(String path, Map<String, String> formFields) throws Exception {
+        // Historyczne fixture importu podawały tylko slot; jawnie potwierdzamy typ tych mieczy i tarcz.
+        if ("saveImportedItem".equals(formFields.get("action")) && !formFields.containsKey("itemType")) {
+            formFields = new HashMap<>(formFields);
+            formFields.put("itemType", "OFF_HAND".equals(formFields.get("slot")) ? "SHIELD" : "SWORD");
+        }
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + path))
                 .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")

@@ -48,7 +48,8 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - warstwę prezentacyjną normalizującą wyniki searcha po zakończonej ocenie kandydatów,
 - nowy pierwszorzędny byt produktu `bohater` z własnym kontekstem buildu, aktywnymi slotami, przypisanymi umiejętnościami i paskiem akcji,
 - moduł `Bohaterowie` z profilami Paladyna i Nekromanty, tworzeniem, edycją nazwy/poziomu, wyborem aktywnego bohatera, usuwaniem i odczytem po restarcie; search wykonuje wyłącznie Paladyna,
-- N11 — pierwszy grywalny Current Build Nekromanty: Krwotok R1 bez upgrade'ów, aktywna broń, efektywna Intelligence z itemów i jawna non-item Intelligence, opcjonalny Vulnerable, zapis i odtworzenie po restarcie,
+- N11 — pierwszy grywalny Current Build Nekromanty: Krwotok R1 bez upgrade'ów, aktywna broń, efektywna Intelligence z baseline'u klasy/poziomu, dodatkowej non-item Intelligence i itemów, opcjonalny Vulnerable, zapis i odtworzenie po restarcie,
+- zweryfikowany pełny snapshot nagiego Nekromanty poziomu 70, neutralną progresję czterech core stats obu klas i wspólną prezentację `Statystyki bohatera`,
 - minimalne webowe GUI SSR dla trybu `Policz aktualny build`,
 - hero-centryczny ekran `Policz aktualny build`, który pracuje jawnie w kontekście aktywnego bohatera,
 - inline zmianę aktywnego bohatera bez opuszczania ekranu `Policz aktualny build`,
@@ -71,6 +72,7 @@ Aktualny stan repo obejmuje foundation backendowego searcha, minimalne GUI SSR o
 - produkcyjne UI importu pokazujące domyślnie czysty upload i edytowalny draft `ItemImportEditableForm` pod nagłówkiem `Weryfikacja itemu przed zapisem`, z pełną diagnostyką Etapów 1/2A/3A, PART_1, `PropertyBlockSemanticResult` i `PropertyBlockValueReadResult` dostępną po ręcznym `?diagnostics=true`,
 - usunięty legacy Windows OCR z runtime importu obrazu; aktywny OCR diagnostyczny używa Tess4J, a mapowanie do draftu nie zapisuje itemu automatycznie i kończy się dopiero na istniejącym formularzu weryfikacji,
 - walidowany formularz zapisanych/ręcznie edytowanych itemów z edytowalną listą affixów oraz osobnym mapowaniem do aktualnego modelu buildu,
+- centralny typowany katalog itemów, rozpoznanie `Kosa dwuręczna`, walidację typu względem slotu oraz blokadę jednoczesnego użycia broni dwuręcznej i `OFF_HAND`,
 - minimalną trwałą bibliotekę zapisanych itemów z wieloma itemami tego samego slotu, zapisywaną lokalnie w stabilnym katalogu użytkownika,
 - osobną bazę wiedzy itemów uczącą się wyłącznie z ręcznie zatwierdzonych itemów, z aktywną epoką wiedzy, obserwowanymi typami affixów, obserwowanymi aspektami i resetem sezonowym,
 - wspólną bibliotekę zapisanych itemów oraz niezależny wybór aktywnego itemu per slot dla każdego bohatera,
@@ -632,7 +634,7 @@ Usunięty kontrakt legacy:
 
 Modele zapisanych itemów pozostają osobnym, ręcznym i kompatybilnym obszarem aplikacji:
 - `FullItemRead` jest utrwalanym opisem linii itemu używanym przez bibliotekę, edycję i starsze zapisane dane; aktywny upload obrazu buduje jego draft z odczytów neutralnych, zachowując raw linie `BASE_STAT`, `IMPLICIT`, `AFFIX`, `TEMPERING`, `ASPECT`, `SOCKET` oraz `OTHER` dla `TRANSFIGURATION` / `UNKNOWN` / `AMBIGUOUS`,
-- `ItemImportDetails` reprezentuje strukturalne dane itemu używane przez bibliotekę i edycję: `itemName`, `itemType`, `itemRarity`, `isAncient`, `equipmentSlot`, `itemPower`, pola broni, pancerz tarczy oraz opisowy `uniqueEffectText`,
+- `ItemImportDetails` reprezentuje strukturalne dane itemu używane przez bibliotekę i edycję: `itemName`, kompatybilny tekst `itemType`, kanoniczny `resolvedItemType`, `itemRarity`, `isAncient`, `equipmentSlot`, `itemPower`, pola broni, pancerz tarczy oraz opisowy `uniqueEffectText`,
 - `ImportedItemAffix` reprezentuje edytowalny affix zapisanego itemu jako strukturę: typ z katalogu, nazwa / etykieta, wartość, jednostka, `greaterAffix`, kolejność prezentacji, zachowaną linię źródłową, źródło `OCR`, `MANUAL` albo `CORRECTED`, kotwicę wizualną oraz stan wymagania potwierdzenia GA,
 - `ImportedItemAffixSource.OCR` pozostaje wartością pochodzenia danych dla starych zapisów i testów modelu; nie oznacza aktywnego runtime OCR w imporcie obrazu,
 - `AspectDefinition` i `AspectRegistry` reprezentują znane aspekty przez stabilne `id`, nazwę prezentacyjną, typ aspektu, status runtime, opis efektu, dozwolone sloty, opcjonalne klasy i tagi,
@@ -658,6 +660,30 @@ Jawne ograniczenia aktualnego foundation importu obrazu:
 - flow nie importuje całego ekwipunku ani całej postaci,
 - flow nie buduje pełnego wielo-itemowego workflow ani sesji inventory,
 - flow nie omija obecnego modelu current build i nie buduje bocznego modelu runtime.
+Typ itemu i slot wyposażenia:
+
+`ItemType` jest neutralnym enumem ze stabilnym technical id, polską nazwą, dozwolonym `EquipmentSlot`, flagą broni i `ItemHandedness`. `ItemTypeRegistry` jest wspólnym katalogiem dla PART_1, formularzy, migracji zapisów, biblioteki i dostępności hartowania. Aktualna lista typów wybieranych w formularzu obejmuje wyłącznie:
+
+| Technical id | Nazwa PL | Slot | Broń | Handedness |
+|---|---|---|---|---|
+| `SHIELD` | Tarcza | `OFF_HAND` | nie | `NONE` |
+| `HELMET` | Hełm | `HELMET` | nie | `NONE` |
+| `BOOTS` | Buty | `BOOTS` | nie | `NONE` |
+| `SWORD` | Miecz | `MAIN_HAND` | tak | `ONE_HANDED` |
+| `SCYTHE_TWO_HANDED` | Kosa dwuręczna | `MAIN_HAND` | tak | `TWO_HANDED` |
+
+`SWORD` zachowuje dotychczasową semantykę jednoręcznego miecza foundation. Nie ma dodanych typów różdżki, fokusu ani kosy jednoręcznej. `UNKNOWN` oznacza nierozpoznany typ bez przypisanego slotu. Osobny `LEGACY_MAIN_HAND` zachowuje stare ogólne wartości `Broń główna` / `Main hand`, z handedness `UNKNOWN`; jest wyłącznie migracyjny i nie jest opcją nowego importu.
+
+PART_1 pyta registry o typ znaleziony w klasyfikacji, zamiast utrzymywać własne `TYPE_MAPPINGS`. Regresja `OLŚNIENIE`, `Starożytna unikatowa kosa dwuręczna`, item power `900` daje `SCYTHE_TWO_HANDED`, `MAIN_HAND`, `TWO_HANDED`, rarity `UNIQUE` i `isAncient=true`. Ta regresja potwierdza tożsamość itemu; nie dostarcza nowych wartości obrażeń ani kontraktu efektu unikatowego.
+
+Import i edycja używają selecta `Typ itemu` z opcjami z registry oraz pustą pierwszą opcją `UNKNOWN / wybierz typ itemu`. Select slotu ma pustą pierwszą opcję `UNKNOWN / wybierz slot`. Nieznany typ/slot nie wybiera automatycznie `HELMET`. Zmiana typu przez użytkownika ustawia slot z definicji; slot pozostaje edytowalny, więc backend odrzuca niezgodności i zapis bez potwierdzonego typu lub slotu. Nie poprawia błędnego wejścia przez zmianę slotu.
+
+Persistence zachowuje tekstowe `ITEM_TYPE` i dodaje `ITEM_TYPE_ID` w istniejącym payloadzie details. Odczyt starych rekordów rozpoznaje dokładne znane nazwy/aliasy, a nie fragmenty dowolnego tekstu. Nieznany tekst pozostaje zachowany do ręcznej korekty. Odczyt nie przepisuje pliku biblioteki. Znany technical id jest źródłem rozpoznania nowych rekordów. Filtr i prezentacja biblioteki używają nazw registry dla znanych typów oraz zachowują nieznane wartości historyczne.
+
+Broń `TWO_HANDED` nadal zajmuje `MAIN_HAND`; nie ma nowego `EquipmentSlot.TWO_HAND`. Walidacja całej selekcji odrzuca aktywne `MAIN_HAND` dwuręczne razem z `OFF_HAND`, niezależnie od kolejności zakładania i źródła akcji. Globalny zapis current build waliduje cały kandydat przed utrwaleniem. Edycja założonej broni również nie może utworzyć tego konfliktu. Search po bibliotece pomija niedozwolone kombinacje. Itemy pozostają w bibliotece. Wczytany historyczny konflikt daje jawny błąd w current build i możliwość jawnego wyczyszczenia slotu, bez automatycznej zmiany wyboru bohatera ani obliczenia nielegalnego buildu.
+
+Raport modelu, migracji i regresji: [typy itemów i wyposażenie](docs/items/item-types-and-equipment-report.md).
+
 ### 4.5.1. Hartowanie itemów
 Hartowanie itemów jest modelem danych, walidacją formularza i prezentacją UI, z pierwszym jawnie podłączonym mostem runtime dla `Defensywa / do maksymalnej liczby kumulacji Animuszu`. Hartowane affixy są zapisywane przy itemie osobno od affixów zwykłych, Greater Affix, linii bazowych, aspektu i efektu unikatowego. Pozostałe hartowane affixy nadal nie wpływają na runtime DPS, effective stats, kolejność ticków ani `DamageEngine`; podłączenie kolejnych affixów będzie osobnym etapem.
 
@@ -669,9 +695,12 @@ Globalny katalog kategorii hartowania zawiera dokładnie:
 - `Mobilność`,
 - `Zasoby`.
 
-Dostępność kategorii zależy od typu / slotu itemu. Repo ma wpisaną tylko potwierdzoną macierz:
+Dostępność kategorii zależy od typowanego `ItemType` / slotu itemu. `TemperingEligibilityRegistry` korzysta z registry także dla kompatybilnych wejść tekstowych, zamiast testów `contains` na polskich nazwach. Repo zachowuje dotychczasową macierz:
 - miecz / broń jednoręczna / main hand weapon: `Broń`, `Ofensywa`,
-- tarcza / offhand shield: `Broń`, `Ofensywa`, `Defensywa`, `Funkcjonalność`.
+- tarcza / offhand shield: `Broń`, `Ofensywa`, `Defensywa`, `Funkcjonalność`,
+- hełm: `Defensywa`.
+
+Migracyjne `Broń główna` / `Main hand` zachowują `Broń`, `Ofensywa`. `Kosa dwuręczna` nie otrzymuje nowych kategorii hartowania w tym etapie.
 
 Dla innych slotów i typów itemów UI pokazuje brak danych dostępności hartowania zamiast zgadywać wszystkie kategorie. Kategorie bez katalogu affixów pokazują komunikat `Katalog affixów tej kategorii nie został jeszcze uzupełniony.`.
 
@@ -937,10 +966,11 @@ Kontrakt biblioteki itemów:
 - filtr `q` przeszukuje strukturalne dane itemu: nazwę itemu, plik źródłowy, displayName wybranego aspektu i nazwy / linie zatwierdzonych affixów,
 - filtry domenowe działają na strukturze `SavedImportedItem`: `slot`, `selectedAspectId`, lista `affixes`, `greaterAffix`, kanoniczne `ItemImportDetails` / `displayName` oraz dopiero awaryjnie `FullItemRead`, a nie na przypadkowym płaskim dumpie tekstu,
 - filtr aspektu obsługuje wszystkie aspekty z `ApplicationAspectRegistry` oraz wartość `brak aspektu`; filtr statusu rozróżnia itemy założone i nieużywane względem aktywnego bohatera,
+- filtr typu używa polskich nazw centralnego registry dla rozpoznanych typów i zachowuje nieznane historyczne wartości tekstowe,
 - UI filtrów pokazuje liczbę wyników, zachowuje wybrane wartości po filtrowaniu oraz ma akcję `Wyczyść filtry`,
 - `HeroItemSelection` przechowuje najwyżej jeden aktywny `savedItemId` per `HeroEquipmentSlot` dla konkretnego bohatera,
 - biblioteka jest wspólna dla wszystkich bohaterów, ale aktywna selekcja slotów jest niezależna per bohater,
-- założenie itemu z biblioteki jest walidowane względem hero slotu; nie można przypisać itemu z niepasującego typu slotu,
+- założenie itemu z biblioteki jest walidowane względem hero slotu i znanego typu itemu; nie można przypisać itemu z niepasującego typu slotu ani aktywować `OFF_HAND` obok broni dwuręcznej,
 - akcja `Załóż bohaterowi` jest ikoną primary dla zgodnego pustego slotu aktywnego bohatera, a `Zmień w slocie` ikoną primary dla zgodnego slotu, który ma już inny item,
 - item używany przez aktywnego bohatera jest oznaczony przy nazwie badge'em `Założony`; item nieużywany nie dostaje osobnej kolumny ani ciężkiego statusu w głównej tabeli,
 - usunięcie itemu czyści aktywny wybór tego itemu u wszystkich bohaterów, jeśli był aktywny,
@@ -954,6 +984,7 @@ Kontrakt integracji biblioteki z current build:
 - użytkownik nie powinien ręcznie wpisywać tych samych statów, które pochodzą już z aktywnych itemów,
 - ekran `Policz aktualny build` pokazuje pełny layout slotów bohatera jako sekcję `Ekwipunek aktualnego buildu`, ale jest to wyłącznie warstwa prezentacji i sterowania aktywną selekcją slotów bohatera,
 - zmiana itemu per slot z poziomu current build nie buduje osobnego equipment runtime i nie omija `ItemLibraryService`,
+- zapis wyboru wyposażenia najpierw waliduje całą proponowaną selekcję; błąd `TWO_HANDED + OFF_HAND` zachowuje poprzednią selekcję i nie usuwa itemów z biblioteki,
 - current build nie renderuje już osobnej sekcji `Użyte itemy`; aktywne itemy pozostają widoczne w slotach ekwipunku, a ich wkład nadal zasila effective stats,
 - effective current build nadal kończy się zwykłym `CurrentBuildRequest`,
 - walidacja requestu dotyczy dopiero finalnych effective stats po zsumowaniu ręcznej bazy i aktywnych itemów,
@@ -964,6 +995,7 @@ Kontrakt integracji biblioteki z current build:
 Kontrakt integracji biblioteki z backendowym searchem:
 - tryb biblioteki itemów jest opcjonalnym rozszerzeniem istniejącego `BuildSearchRequest`, a nie osobnym trybem runtime,
 - search generuje kombinacje co najwyżej jednego zapisanego itemu per slot wyłącznie z aktualnej biblioteki użytkownika,
+- search pomija kombinacje zawierające broń dwuręczną w `MAIN_HAND` razem z itemem `OFF_HAND`,
 - search nie buduje pełnego equipment managera ani osobnego modelu całego ekwipunku,
 - dla każdej kombinacji biblioteki search liczy łączny wkład itemów i składa go do ręcznej bazy searcha przed zbudowaniem `CurrentBuildRequest`,
 - kandydat searcha, wynik listy top oraz drill-down przenoszą tę samą kombinację biblioteki itemów bez ponownego mapowania do alternatywnego pipeline'u,
@@ -1283,7 +1315,7 @@ Historyczny fixture regresji WAIT zawierał HOLY_BOLT na pasku bez SkillState w 
 
 ### 5.10. N10 — profil Nekromanty, UI i neutralny zapis
 
-`HeroClass` zawiera `PALADIN("paladin", "Paladyn")` i `NECROMANCER("necromancer", "Nekromanta")`. Generic UI korzysta z `getDisplayName()`, a namespace profilu z `getTechnicalId()`. Neutralne modele runtime nie zależą od tego enumu. `HeroClassDefs` pozostaje wyłącznie rejestrem legacy runtime Paladyna: brak definicji Nekromanty jest celowy, a `HeroClassStatBaselines.find(NECROMANCER, 70)` zwraca empty. Nie dodajemy fikcyjnego mainStatDivisor ani niezweryfikowanych bazowych statów. N11 podłącza Season 15 osobną ścieżką.
+`HeroClass` zawiera `PALADIN("paladin", "Paladyn")` i `NECROMANCER("necromancer", "Nekromanta")`. Generic UI korzysta z `getDisplayName()`, a namespace profilu z `getTechnicalId()`. Neutralne modele runtime nie zależą od tego enumu. `HeroClassDefs` pozostaje wyłącznie rejestrem legacy runtime Paladyna: brak definicji Nekromanty jest celowy. `HeroClassStatBaselines.find(NECROMANCER, 70)` zawiera obecnie zweryfikowany snapshot z gry opisany w sekcji 5.12; dla innych poziomów zwraca empty. Nie dodajemy fikcyjnego mainStatDivisor ani niezweryfikowanych bazowych statów. N11 podłącza Season 15 osobną ścieżką.
 
 `HeroProfile` przechowuje heroId, name, HeroClass, currentBuildQuery, HeroItemSelection oraz dokładnie jeden canonical `RuntimeSkillLoadout`. Konstruktor wymaga `runtimeSkillLoadout.classId() == heroClass.getTechnicalId()`; mismatch jest jawnie odrzucany. Stare konstruktory z `HeroSkillLoadout` działają wyłącznie dla Paladyna przez `LegacyPaladinHeroSkillLoadoutAdapter`. Compatibility getter `getSkillLoadout()` odtwarza widok Paladyna; dla Nekromanty rzuca `UnsupportedOperationException`. Nie istnieje druga przechowywana mapa/lista legacy.
 
@@ -1323,10 +1355,12 @@ flowchart TD
     H --> I[HeroItemSelection]
     I --> W[Average weapon damage]
     I --> A[Intelligence contribution po mapperze i Masterworkingu]
-    H --> N[Non-item Intelligence z query]
+    H --> B[Baseline INT z neutralnej progresji klasy i poziomu]
+    H --> N[Dodatkowa non-item Intelligence z query]
     S --> C[NecromancerCurrentBuildCalculationService]
     W --> C
     A --> C
+    B --> C
     N --> C
     C --> R[NecromancerSeason15DirectDamageResolver]
     R --> K[DirectDamageCalculator]
@@ -1335,34 +1369,79 @@ flowchart TD
 
 `NecromancerCurrentBuildCalculationService.calculate(loadout, profile)` pobiera `necromancer:krwotok` z `configurations`, wymaga namespace `necromancer`, obecności konfiguracji i obecności na pasku. N8B odrzuca rank inny niż 1 i niepuste selections. Nie wykonujemy innych konfiguracji, ale zachowujemy je i kolejność ich paska. `NecromancerCurrentBuildCalculation` przechowuje konfigurację, profil i `DirectDamageResult`; nie powstaje request, snapshot ani wynik symulacji Paladyna. Warstwa aplikacyjna zna tylko neutralne modele runtime, typy N8B, neutralny wynik oraz JDK.
 
-Osobny formularz ma `selectedSkillId` pusty/NONE lub `krwotok`, `nonItemIntelligence` (blank → 0, skończona liczba ≥0) i boolean `targetVulnerable`. Rank jest stały: 1; edycja rang, selections, surowe SkillId i pola legacy są odrzucane. Wybranie Krwotoku w pustym loadoucie tworzy R1 bez wyborów i dodaje go na pasek. Usunięcie usuwa tylko Krwotok. Istniejąca konfiguracja nie jest resetowana: upgrade'y, rank 0/2 i brak na pasku nie są cicho naprawiane. UI ostrzega o zapisanych upgrade'ach, a calculate zwraca czytelny błąd.
+Osobny formularz ma `selectedSkillId` pusty/NONE lub `krwotok`, `additionalNonItemIntelligence` (blank → 0, skończona liczba ≥0) i boolean `targetVulnerable`. Dodatkowa INT nie obejmuje baseline'u klasy/poziomu ani aktywnych itemów. Historyczny POST `nonItemIntelligence` jest nadal odczytywany z dawną semantyką i przeliczany na dodatek; jednoczesne przesłanie obu pól jest odrzucane. Rank jest stały: 1; edycja rang, selections, surowe SkillId i pola konfiguracji Paladyna są odrzucane. Wybranie Krwotoku w pustym loadoucie tworzy R1 bez wyborów i dodaje go na pasek. Usunięcie usuwa tylko Krwotok. Istniejąca konfiguracja nie jest resetowana: upgrade'y, rank 0/2 i brak na pasku nie są cicho naprawiane. UI ostrzega o zapisanych upgrade'ach, a calculate zwraca czytelny błąd.
 
-`NecromancerCurrentBuildFormQuerySupport` nadpisuje tylko `necromancerNonItemIntelligence` i `necromancerTargetVulnerable`, zachowując wszystkie pozostałe pola query. Wyboru skilla nie zapisuje w query: GET odtwarza go wyłącznie z kanonicznego loadoutu. Parametry GET nie zmieniają stanu Nekromanty. Neutralne `HeroProfile.withRuntimeSkillLoadout`, `withCurrentBuildRuntimeState` i `HeroService.saveActiveHeroRuntimeState` wymagają zgodnej klasy, bez interpretacji SkillId. Zapis obu klas nadal używa niezmienionego `runtime-v1`; historyczne formaty Paladyna pozostają czytelne.
+`NecromancerCurrentBuildFormQuerySupport` zapisuje `necromancerAdditionalNonItemIntelligence` i `necromancerTargetVulnerable`, usuwa historyczne `necromancerNonItemIntelligence` i zachowuje pozostałe pola query. Odczyt starego klucza odejmuje aktualny baseline klasy/poziomu, aby nie policzyć go dwukrotnie; zasady migracji opisuje sekcja 5.12. Wyboru skilla nie zapisuje w query: GET odtwarza go wyłącznie z kanonicznego loadoutu. Parametry GET nie zmieniają stanu Nekromanty. Neutralne `HeroProfile.withRuntimeSkillLoadout`, `withCurrentBuildRuntimeState` i `HeroService.saveActiveHeroRuntimeState` wymagają zgodnej klasy, bez interpretacji SkillId. Zapis obu klas nadal używa niezmienionego `runtime-v1`; historyczne formaty Paladyna pozostają czytelne.
 
 Wkład itemów pochodzi z `ItemLibraryService.resolveEffectiveCurrentBuild` z zerową ręczną bazą i aktywnym `HeroItemSelection`, poprzez istniejące mapowanie affixów i Masterworking. Wspólny `CurrentBuildWeaponDamageResolver` wybiera dodatnie `CurrentHeroActiveItemStats.averageWeaponDamage`, następnie dodatnie `activeItemsContribution.weaponDamage`, w przeciwnym razie 0. Paladyn zachowuje tę samą regułę. N11 odrzuca brak dodatniej broni komunikatem „Wybierz aktywną broń z poprawnymi średnimi obrażeniami.”; nie podstawia 1, DPS, min/max ani foundation weapon damage.
 
 ```text
 itemIntelligence = resolution.activeItemsContribution.intelligence
-effectiveIntelligence = nonItemIntelligence + itemIntelligence
+classLevelBaselineIntelligence = HeroClassCoreStatProgressions.get(NECROMANCER).atLevel(level).intelligence
+effectiveIntelligence = classLevelBaselineIntelligence + additionalNonItemIntelligence + itemIntelligence
 profile = NecromancerSeason15DirectDamageProfile(
     resolvedAverageWeaponDamage, effectiveIntelligence,
     0, 0, 1, 0, 0, 0, 0, targetVulnerable)
 ```
 
-Non-item Intelligence obejmuje wszystkie źródła spoza aktywnych itemów biblioteki, np. stan postaci i Paragon; nie jest zgadywaną bazową statystyką klasy. Legacy `CurrentBuildFormData.intelligence` nie jest dodawana. Wszystkie niewspierane procentowe buckets wynoszą 0, separate multiplier 1. Vulnerable ma ×1 lub bazowe ×1.2 N8B. Inne affixy pozostają danymi itemów i nie wchodzą do wyniku N11, włącznie z Critical Strike Chance.
+Dodatkowa non-item Intelligence jest jawnym dodatkiem użytkownika poza znanym baseline'em i aktywnymi itemami; nie implementuje Paragonu, Altars ani Renown. Nagiego Nekromantę poziomu 70 opisuje INT `79 + 0 + 0 = 79`, bez ręcznego wpisu 79. Legacy `CurrentBuildFormData.intelligence` nie jest dodawana. Wszystkie niewspierane procentowe buckets wynoszą 0, separate multiplier 1. Vulnerable ma ×1 lub bazowe ×1.2 N8B. Inne affixy pozostają danymi itemów i nie wchodzą do wyniku N11, włącznie z Critical Strike Chance.
 
-GET pokazuje kontekst bohatera, Krwotok R1, oba wejścia i ten sam paper-doll ekwipunku co Paladyn, bez obliczenia i bez `CurrentHeroStatsPresentation.from`. POST calculate używa danych transient i aktywnych itemów, bez zapisu query/loadoutu/wyborów globalnych. Istniejący slotAction natychmiast ustawia/czyści item i zachowuje transient formularz bez zapisu jego kontekstu. POST save waliduje cały formularz, loadout i zgodność wszystkich wybranych itemów przed jednym zapisem profilu; można zapisać stan bez skilla lub broni. Wyświetla „Zapisano konfigurację Nekromanty.”, bez wymagania obliczenia. Błędny zapis nie zmienia żadnego slotu. GET po restarcie odzyskuje skill, INT, Vulnerable i itemy. Inline przełączenie bohatera korzysta z istniejącej akcji dla obu klas.
+GET pokazuje kontekst bohatera, Krwotok R1, oba wejścia, wspólną sekcję `Statystyki bohatera` z `CurrentHeroStatsPresentation.from` i ten sam paper-doll ekwipunku co Paladyn, bez obliczenia. Statystyki Nekromanty są domyślnie rozwinięte. POST calculate używa danych transient i aktywnych itemów, bez zapisu query/loadoutu/wyborów globalnych. Istniejący slotAction natychmiast ustawia/czyści item i zachowuje transient formularz bez zapisu jego kontekstu. POST save waliduje cały formularz, loadout i zgodność wszystkich wybranych itemów przed jednym zapisem profilu; można zapisać stan bez skilla lub broni. Wyświetla „Zapisano konfigurację Nekromanty.”, bez wymagania obliczenia. Błędny zapis nie zmienia żadnego slotu. GET po restarcie odzyskuje skill, dodatkową INT, Vulnerable i itemy. Inline przełączenie bohatera korzysta z istniejącej akcji dla obu klas.
 
-SSR ma nagłówek **„N11 — bazowy direct hit Krwotoku R1”** i jawny zakres **PRE_TARGET_MITIGATION**. Wynik pokazuje skill/rank, coefficient z komponentu katalogowego, średnie obrażenia broni, non-item/item/effective INT, mnożniki main stat i Vulnerable z context oraz `finalDamage` i `criticalDamage`. Help wskazuje niewykonywane upgrade'y, Blood Orb, Essence, Lucky Hit, Overpower, Book of the Dead, enemy mitigation, Critical Strike Chance / expected damage, pozostałe affixy damage i DPS/symulację. Nie wdrażamy pozostałych 22 skilli, interpolacji rang 2..14 ani max-view R15.
+SSR ma nagłówek **„N11 — bazowy direct hit Krwotoku R1”** i jawny zakres **PRE_TARGET_MITIGATION**. Wynik pokazuje skill/rank, coefficient z komponentu katalogowego, średnie obrażenia broni, baseline/dodatkową/item/effective INT, mnożniki main stat i Vulnerable z context oraz `finalDamage` i `criticalDamage`. Help wskazuje niewykonywane upgrade'y, Blood Orb, Essence, Lucky Hit, Overpower, Book of the Dead, enemy mitigation, Critical Strike Chance / expected damage, pozostałe affixy damage i DPS/symulację. Nie wdrażamy pozostałych 22 skilli, interpolacji rang 2..14 ani max-view R15.
 
 | Golden HTTP Current Build | Wejście | Normal / critical |
 |---|---|---|
-| A | Broń 1000, non-item INT 1000, item INT 0 | 2100 / 3150 |
+| A | Broń 1000, baseline INT 79, dodatkowa INT 921, item INT 0 | 2100 / 3150 |
 | B | Jak A, cel Vulnerable | 2520 / 3780 |
-| C | Broń 1000, non-item INT 900, efektywna item INT 100 z mappera | 2100 / 3150 |
-| Masterworking | Efektywny wkład odczytany z rzeczywistego mappera; non-item dopełnia INT do goldena 1000 | 2100 / 3150 |
+| C | Broń 1000, baseline INT 79, dodatkowa INT 821, efektywna item INT 100 z mappera | 2100 / 3150 |
+| Masterworking | Efektywny wkład odczytany z rzeczywistego mappera; baseline i dodatkowa INT dopełniają INT do goldena 1000 | 2100 / 3150 |
 
 Regresje HTTP potwierdzają brak wyniku dla braku broni/skilla i persisted upgrade'ów, brak naprawiania ranków/paska, brak mutacji calculate/błędnego save, zachowanie innych konfiguracji, pełny save/restart i granicę legacy z null mapperem/usługą Paladyna. Dotychczasowe oczekiwane obrażenia Paladyna i N8B pozostają bez zmian; Search Nekromanty nadal unsupported. DamageEngine, ManualSimulationService, pięć plików kernelu, resolver/profile N8B, modele runtime, codec i katalogi nie zmieniają się w N11. Nekromanta 23/161, Book 3/9/27, Paladyn 24, cztery legacy SkillId. Brak fake HeroClassDef/baseline i ZIP-a. Lista plików, pełna walidacja i raport: [n11-implementation-report.md](docs/necromancer/n11-implementation-report.md).
+
+### 5.12. Zweryfikowany baseline nagiego Nekromanty poziomu 70
+
+Punktem odniesienia jest dostarczony przez użytkownika snapshot z gry po zdjęciu wszystkich itemów i umiejętności. `HeroClassStatBaselines` zawiera pełny zweryfikowany baseline Nekromanty **wyłącznie dla poziomu 70**. Nie ma wzoru ani interpolacji Wytrzymałości i Maksimum zdrowia dla innych poziomów.
+
+| Statystyka nagiego Nekromanty | Wartość |
+|---|---|
+| Klasa / poziom | Nekromanta / 70 |
+| Siła / Inteligencja / Siła woli / Zręczność | 76 / 79 / 77 / 76 |
+| Wytrzymałość / Pancerz / Maksimum zdrowia | 1611 / 152 / 1526 |
+| Odporność fizyczna / ogień / błyskawice / zimno / trucizna / cień | 32 / 32 / 32 / 32 / 32 / 32 |
+| Podstawowe obrażenia broni / Szybkość broni | 0 / 1,00 |
+| Szansa na trafienie krytyczne / Obrażenia krytyczne | 5,2% / 50,0% |
+| Obrażenia odsłoniętym celom / Ciernie | 20,0% / 0 |
+| Pancerz z Siły / z itemów / z innych źródeł | 152 / 0 / 0 |
+
+Neutralne `HeroCoreStats`, `HeroClassCoreStatProgression` i `HeroClassCoreStatProgressions` opisują wszystkie cztery statystyki. Każdy kolejny poziom dodaje 1 do każdej statystyki; `atLevel` wymaga dodatniego poziomu i odrzuca przepełnienie. Modele nie zależą od `DamageEngine`, `HeroClassDef`, `SkillId` ani `mainStatDivisor`.
+
+| Klasa | Poziom 1: STR / INT / WILL / DEX | Poziom 2 | Poziom 70 |
+|---|---|---|---|
+| Nekromanta | 7 / 10 / 8 / 7 | 8 / 11 / 9 / 8 | 76 / 79 / 77 / 76 |
+| Paladyn | 10 / 7 / 7 / 8 | 11 / 8 / 8 / 9 | 79 / 76 / 76 / 77 |
+
+`HeroCoreStatDerivedFacts` zachowuje dokładne wartości tooltipów jako `BigDecimal`. Prezentacja przekazuje jawny scalar obrażeń skilli `0.1625` punktu procentowego na INT dla Nekromanty; nie wywołuje resolvera obrażeń. UI zaokrągla procenty do jednego miejsca i odporność do liczby całkowitej przez `HALF_UP`.
+
+| Core stat poziomu 70 | Wpływ | Dokładnie | UI |
+|---|---|---|---|
+| STR 76 | Pancerz (`STR × 2`) | 152 | 152 |
+| INT 79 | Obrażenia umiejętności (`INT × 0.1625%`) | 12.8375% | 12,8% |
+| INT 79 | Wszystkie odporności (`INT × 0.4`) | 31.6 | 32 |
+| WILL 77 | Generowanie zasobu (`WILL × 0.005%`) | 0.385% | 0,4% |
+| WILL 77 | Otrzymywane leczenie (`WILL × 0.035%`) | 2.695% | 2,7% |
+| DEX 76 | Wkład do szansy krytycznej (`DEX × 0.0025%`) | 0.19% | 0,2% |
+| DEX 76 | Szansa uniku (`DEX × 0.006%`) | 0.456% | 0,5% |
+
+`HeroCriticalChanceBreakdown` używa neutralnego `criticalChanceFromCoreStatPercent` i etykiety źródła. Nekromanta pokazuje `5,0% + 0,2% ze Zręczności = 5,2%` oraz zerowy wkład itemów/innych źródeł. Istniejący zweryfikowany total i dotychczasowa etykieta tooltipu Paladyna pozostają zachowane; nie powstaje nowa formuła jego legacy runtime.
+
+`CurrentHeroStatsPresentation.from` korzysta z metadata klasy, neutralnej progresji, zweryfikowanego baseline'u i aktywnych wkładów itemów. Wspólny renderer statystyk obsługuje obie klasy. Dla Nekromanty pokazuje także osobne fakty wpływu **bazowych** core stats. Na poziomach bez pełnego baseline'u nadal zna core stats, ale nie prezentuje wyliczonej Wytrzymałości ani bazowego Maksimum zdrowia. Po założeniu itemu Wytrzymałość pozostaje oznaczona jako snapshot nagiej postaci poziomu 70; nie zgadujemy jej zależności od wyposażenia.
+
+Pole N11 to teraz `additionalNonItemIntelligence`; `effectiveIntelligence = baseline klasy/poziomu + additional + aktywne itemy`. Nowy query używa `necromancerAdditionalNonItemIntelligence`. Odczyt starego `necromancerNonItemIntelligence` daje `max(0, stara wartość − baseline INT)`: przy poziomie 70 wartości 1000 i 900 stają się dodatkami 921 i 821, zachowując goldeny N11. Stare 79 odpowiada dodatkowi 0. Stare wartości poniżej 79 dają dodatkową INT 0 z widocznym wyjaśnieniem migracji. GET pozostawia zapis bez zmian; dopiero `Zapisz zmiany` utrwala nowe pole i usuwa stare. Gdy oba klucze istnieją w zapisanym query, pierwszeństwo ma nowy. Niepoprawne liczby nadal podlegają walidacji formularza.
+
+Regresja HTTP tworzy rzeczywisty profil Nekromanty poziomu 70 z pustym wyborem itemów i pustym loadoutem. GET `/policz-aktualny-build` zwraca 200 i cały snapshot powyżej, z domyślną dodatkową INT 0, bez ręcznego wpisywania 79 i bez wyniku damage. Osobne testy zabezpieczają poziom 2 bez pełnego baseline'u, dokładne fakty i rounding, migrację starego query, nowy save/restart oraz niezmienione goldeny Krwotoku i Paladyna.
+
+`HeroClassDefs` nadal nie zawiera Nekromanty. DamageEngine, ManualSimulationService, DirectDamageCalculator, resolver/profile N8B, modele runtime, codec i katalogi pozostają bez zmian względem zamkniętego N11. Katalog Nekromanty nadal 23/161, Book 3/9/27. Nie dodajemy skilli, upgrade'ów, Paragonu, Altars, Renown ani ZIP-a. Wyniki walidacji i lista plików: [verified-level70-baseline-report.md](docs/necromancer/verified-level70-baseline-report.md).
 
 ## 6. Statusy i zasady targetowania
 ### 6.1. Single target
@@ -1856,7 +1935,9 @@ Budowanie i uruchomienie gotowej aplikacji w Windows PowerShell:
 
 ```powershell
 chcp 65001
-& 'C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.3\plugins\maven\lib\maven3\bin\mvn.cmd' '-Dmaven.repo.local=.m2' package
+& 'C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.3\plugins\maven\lib\maven3\bin\mvn.cmd' '-Dmaven.repo.local=.m2' -Pfast test
+# Po zakończonej wymaganej walidacji budujemy aplikację bez powtarzania testów.
+& 'C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.3\plugins\maven\lib\maven3\bin\mvn.cmd' '-Dmaven.repo.local=.m2' -DskipTests package
 java "-Dfile.encoding=UTF-8" -jar target/app/dstats.jar --port 8080
 ```
 
@@ -1886,6 +1967,8 @@ target/app/lib/*.jar
 ```
 
 `dstats.jar` ma manifest z `Main-Class: krys.web.CurrentBuildWebServer` oraz `Class-Path: lib/...`, więc użytkownik nie konstruuje ręcznie `-cp` i nie kopiuje ręcznie zależności ani bibliotek natywnych JavaCPP/OpenCV.
+
+Zwykłe `package` tworzy również archiwum źródeł/projektu `target/dstats-YYYY-MM-DD-HH-mm.zip` przez `maven-assembly-plugin`, bez dodatkowego profilu. `mvn clean package` buduje aplikację, wykonuje domyślne pełne testy i tworzy ZIP; `mvn clean package -DskipTests` buduje aplikację i ten sam ZIP bez wykonywania testów Surefire. Po zakończonych testach używamy `-DskipTests package`, aby nie powtarzać ich wykonania. ZIP zachowuje katalog bazowy, pliki projektu oraz `.gitignore`; wyklucza `.m2`, `logs`, `target`, `.git`, `.idea` i pliki `*.iml`, zgodnie z dotychczasowym deskryptorem assembly.
 
 Developerskie uruchomienie klas z IDE albo z `target/classes` jest dopuszczalne tylko wtedy, gdy środowisko dostarcza pełny runtime classpath Mavena. Samo `-cp target/classes` nie jest kontraktem uruchamiania gotowej aplikacji, bo nie zawiera zależności runtime, w tym JavaCPP/OpenCV.
 
@@ -1984,9 +2067,9 @@ Kontrakt prezentacji dla tego smoke testu:
 - `Aktywne affixy itemów` są prezentowane jako listy user-facing: `Wartości itemów` oraz `Efekty opisowe`. Kompaktowe karty slotów current build używają nagłówka `Wartości itemu` dla finalnych wartości po Doskonaleniu, żeby nie sugerować surowych source contribution chips. To nadal warstwa UI/current build; Lucky Hit Verathiela i efekt tarczy `Umocnienie` pozostają nieaktywne w runtime.
 - Current build ma jawne ustawienie `Liczba kroków symulacji` w panelu akcji obok `Oblicz aktualny build`. Domyślna wartość to `10`, a backend przyjmuje tylko liczby całkowite `1..200`; błąd walidacji brzmi `Liczba kroków symulacji musi być liczbą całkowitą od 1 do 200.`. Parametr jest zapisywany i odczytywany razem z konfiguracją current build jako `simulationStepCount`; starszy alias `horizonSeconds` jest nadal odczytywany kompatybilnie, a stare zapisy bez nowego pola dostają default `10`. Ustawienie steruje liczbą ticków/kroków w manualnej symulacji i długością `Śladu kroków symulacji`, więc może zmienić total damage, DPS, końcową Wiarę, końcowy Animusz, aktywacje Molocha oraz liczbę buffowanych hitów. Default `10` zachowuje dotychczasowe golden values.
 - Pancerz w `Statystyki bohatera` jest modelem prezentacyjnym z rozbiciem na `z siły`, `z itemów/głównego wyposażenia`, `z innych źródeł` i `łącznie`. Dla zweryfikowanego Paladyna poziom `70` bez itemów tooltip gry potwierdza `79 * 2 = 158` pancerza z siły, `0` z itemów/głównego wyposażenia, `0` z innych źródeł i `158` łącznie. Obecny model aktywnego itemu nie ma jawnego pola `ARMOR`, więc wkład pancerza z itemów pozostaje `0` i nie jest zgadywany.
-- Szansa na trafienie krytyczne w `Statystyki bohatera` ma rozbicie baseline: bazowo `5,0%`, `+0,2%` z Inteligencji dla zweryfikowanego baseline'u `76` Inteligencji, `+0,0%` z itemów, `+0,0%` z innych źródeł i `5,2%` łącznie bez aktywnych itemów. Ten zweryfikowany total jest domyślną bazą `criticalChancePercent` dla runtime current build Paladyna poziom `70`; poziomy bez baseline'u nie są interpolowane i dostają `0%`, dopóki request/test nie poda jawnej wartości. `CRITICAL_STRIKE_CHANCE` z potwierdzonego itemu jest bezpośrednią addytywną projekcją itemową do runtime `criticalChancePercent`; nie wprowadza to nowej formuły kryta z Inteligencji. Pełny wzór kryta z Inteligencji nadal nie jest potwierdzony i nie jest implementowany poza zweryfikowanym baseline'em. `CRIT_DAMAGE` nie jest `CRIT_CHANCE` i pozostaje osobną statystyką obrażeń krytycznych.
+- Szansa na trafienie krytyczne Paladyna w `Statystyki bohatera` zachowuje dotychczasowe rozbicie baseline: bazowo `5,0%`, `+0,2%` z Inteligencji dla zweryfikowanego baseline'u `76` Inteligencji, `+0,0%` z itemów, `+0,0%` z innych źródeł i `5,2%` łącznie bez aktywnych itemów. Ten zweryfikowany total jest domyślną bazą `criticalChancePercent` dla runtime current build Paladyna poziom `70`; poziomy bez baseline'u nie są interpolowane i dostają `0%`, dopóki request/test nie poda jawnej wartości. `CRITICAL_STRIKE_CHANCE` z potwierdzonego itemu jest bezpośrednią addytywną projekcją itemową do runtime `criticalChancePercent`; nie wprowadza to nowej formuły kryta z Inteligencji. Pełny wzór kryta z Inteligencji nadal nie jest potwierdzony i nie jest implementowany poza zweryfikowanym baseline'em. Neutralne pole rozbicia pozwala Nekromancie poprawnie wskazać Zręczność jako źródło dodatkowych `0,2%` (sekcja 5.12). `CRIT_DAMAGE` nie jest `CRIT_CHANCE` i pozostaje osobną statystyką obrażeń krytycznych.
 - Rozbicie pancerza, maksimum zdrowia i szansy krytycznej jest dostępne w `title`/`aria-label` kafelków, bez długiego technicznego akapitu w głównym widoku. Ta zmiana nie zmienia `DamageEngine` i nie implementuje `effectiveRank`; itemowa szansa kryta jest jedynie bezpośrednim, testowanym wkładem affixu `CRITICAL_STRIKE_CHANCE` do istniejącego pola runtime.
-- Odporności w sekcji `Statystyki bohatera` są rozdzielone na typy, bez zbiorczego kafelka: fizyczne, ogień, błyskawice, zimno, trucizna i cień. Dla baseline'u Paladyna poziom `70` bez itemów każda z tych odporności wynosi `30`.
+- Odporności w sekcji `Statystyki bohatera` są rozdzielone na typy, bez zbiorczego kafelka: fizyczne, ogień, błyskawice, zimno, trucizna i cień. Dla baseline'u Paladyna poziom `70` bez itemów każda z tych odporności wynosi `30`, a dla zweryfikowanego Nekromanty poziomu `70` wynosi `32`.
 - Brakujące statystyki dla poziomów bez jawnego baseline'u nie są interpolowane z poziomu `70`; UI pokazuje tylko statystyki z jawną formułą albo z aktywnych itemów i komunikuje brak baseline'u.
 - GUI pokazuje pełny stały layout slotów bohatera: `Hełm`, `Zbroja`, `Rękawice`, `Spodnie`, `Buty`, `Broń`, `Amulet`, `Pierścień 1`, `Pierścień 2`, `Tarcza`.
 - GUI pokazuje wspierane sloty ekwipunku, aktywny item albo pusty slot, skrót wkładu itemu, status aktywności oraz akcje `Wybierz z biblioteki`, `Importuj nowy item`, `Zmień item` i `Wyczyść slot` dla aktywnych slotów tego bohatera.
@@ -2295,6 +2378,28 @@ Kontrakt prezentacji dla smoke testu biblioteki itemów:
 - Każdy termin użyty w testach musi być spójny z terminologią README.
 - Pęknięcie golden values oznacza zmianę zachowania engine, a nie kosmetyczną różnicę.
 
+### 11.1.1. Poziomy walidacji i pętla developerska
+
+| Poziom | Polecenie | Zakres |
+| --- | --- | --- |
+| FAST | `mvn '-Dmaven.repo.local=.m2' -Pfast test` | Wszystkie testy poza tagiem `ocr-integration`; obejmuje również OpenCV, parsery, semantic mapper i numeric evidence. |
+| OCR | `mvn '-Dmaven.repo.local=.m2' -Pocr test` | Wyłącznie tag `ocr-integration`: rzeczywiste Tess4J/Tesseract oraz reprezentatywny pełny E2E importu Dziedzica. |
+| FULL | `mvn '-Dmaven.repo.local=.m2' test` | Wszystkie testy, łącznie z OCR. Domyślny build nie ma filtra tagów. |
+
+Podczas implementacji najpierw uruchamiamy suites dotkniętej warstwy, np. `mvn '-Dmaven.repo.local=.m2' '-Dtest=ChangedArea*Test' test`. Po implementacji wykonujemy FAST, a dla zmian OCR/preprocessingu/segmentacji/importera obrazu także OCR. Profile `fast` i `ocr` wybieramy osobno. Pełny `test` lub `clean test` służy zamknięciu większego milestone'u, zmianom szerokiej infrastruktury albo jawnemu żądaniu użytkownika. `clean` nie jest elementem każdej iteracji.
+
+Po poprawnym zakończeniu wymaganych testów wykonujemy `mvn '-Dmaven.repo.local=.m2' -DskipTests package`. Surefire ma zgłosić `Tests are skipped`, aplikacja ma zawierać JAR i runtime dependencies, a assembly ma utworzyć ZIP projektu. Wyniki pomiarów i pełna tabela baseline'u: [build-test-performance-report.md](docs/performance/build-test-performance-report.md).
+
+Adnotacja testowa `@OcrIntegrationTest` jest oparta na `@Tag("ocr-integration")` i oznacza prawdziwe rozpoznawanie obrazu. Samo użycie OpenCV lub klas z package `image` nie kwalifikuje testu do OCR. Testy dalszych warstw czytają pełne typowane wyniki z `src/test/resources/ocr`: `PropertyBlock` z anchor metadata, `PropertyBlockReadResult` z każdym profilem i pełnym `NumericEvidence` oraz `Part1RoiOcrResult` z diagnostycznymi sub-ROI. Fixtures pochodzą z rzeczywistego outputu obecnego buildu; dedicated real OCR porównuje wszystkie stabilne pola, pomijając wyłącznie czas wykonania. Macierz audytu nadal zawiera 27 bloków, 21 bez ambiguity i 6 ambiguous.
+
+Testy dalszych etapów OpenCV współdzielą w pamięci JVM wynik składania dokładnie tego samego uporządkowanego wejścia. Klucz obejmuje filename, MIME i SHA-256 bajtów, więc zmiana obrazu lub wariantu daje nowy rzeczywisty przebieg. Testy samego assemblera i E2E wykonują produkcyjny assembler bez cache. `BundledTessdataProvider` przygotowuje wspólny katalog `pol.traineddata` leniwie, bez ponownego kopiowania dla kolejnego readera; sprawdza istniejący model, publikuje kompletny plik i synchronizuje przygotowanie per katalog. Język `pol`, model, profile, preprocessing, scoring i reguły ambiguity pozostają takie same.
+
+Assembler przechowuje RGB w jednej tablicy, wylicza indeks początku wiersza raz na wiersz i zachowuje dokładne różnice sąsiednich pikseli tekstury, niezależne od kandydata overlapu. Ogranicza to ponowne obliczenia w zmierzonym hot loop kosztem dodatkowych tablic w pamięci tylko podczas składania. Kolejność i liczba próbek, warunki zliczania tekstury, sumowanie różnic kanałów, scoring, confidence, progi i wybór szwu pozostają identyczne. Golden guards w `src/test/resources/vision` sprawdzają SHA-256 całego PNG i pełną diagnostykę stitching, w tym dokładne confidence, wobec outputu sprzed tej optymalizacji.
+
+Opcjonalne `-Ddstats.measureOcr=true` zapisuje znacznik przed każdym wywołaniem Tess4J `doOCR`/`getWords`, również w odczycie pojedynczych linii; normalne polecenia nie dodają tych znaczników. Fixtures nie są regenerowane przez zwykłe testy. Jawne `-Ddstats.captureOcrFixtures=true` przy dedicated OCR służy zapisaniu pełnego nowego outputu do przeglądu; wymaga następnie oceny diffu i zwykłej regresji OCR, nie jest sposobem naprawiania rozbieżności przez zmianę expected.
+
+Workspace VS Code ma wyłączony automatyczny Java autobuild oraz automatyczne przeładowanie konfiguracji POM, aby kompilator IDE nie nadpisywał ani nie czyścił klas Mavena w `target/classes` podczas testów. Kompilację i walidację prowadzi opisany wyżej workflow Maven; aktualizację konfiguracji Java w IDE można wykonać ręcznie między przebiegami.
+
 ### 11.2. Testy warstwy obrazu w imporcie itemów
 Aktywny import obrazu nie ma już testów realnego Windows OCR, mergera OCR ani starego domenowego parsera tekstu. Standardowy przebieg testów nie uruchamia `Windows.Media.Ocr`, a POC PART_1 oraz OCR `PropertyBlock` używają Tess4J i bundlowanego `pol.traineddata` zamiast środowiskowego Windows OCR.
 
@@ -2395,7 +2500,8 @@ Minimalny zakres testów obejmuje:
 - walidację błędnych wierszy affixów: typ bez wartości, wartość bez typu, wartość nieparsowalna i wartość ujemna nie mogą być cicho pomijane,
 - zachowanie `greaterAffix=true` przez formularz, zapis biblioteki i ponowny odczyt, bez zgadywania gwiazdki wyłącznie na podstawie brakującego bracketowego zakresu rolla,
 - brak renderowania sekcji `Projekcja do aktualnego runtime` na ekranie importu,
-- rozdzielenie `Typ itemu` i `Slot ekwipunku` w ręcznym potwierdzeniu oraz pokazanie aspektu w tej samej sekcji formularza,
+- rozdzielenie `Typ itemu` i `Slot ekwipunku` w ręcznym potwierdzeniu, select typu z centralnego registry, puste opcje `UNKNOWN`, ustawienie slotu po zmianie typu oraz backendową walidację zgodności type-slot,
+- rozpoznanie starożytnej unikatowej kosy dwuręcznej oraz odrzucenie niezgodnych par type-slot i konfiguracji `TWO_HANDED + OFF_HAND`, bez automatycznej naprawy wejścia,
 - brak widocznych technicznych pól starego OCR aspektu (`Sugestia OCR`, `Pewność OCR sugestii`, `Odczyt OCR efektu`) dla dopasowanego katalogowego aspektu Odłamka Verathiela,
 - brak widocznej kolumny `Odczyt OCR / źródło` i tekstu `Źródło: OCR` w głównej tabeli ręcznej weryfikacji affixów; źródło `OCR` może pozostać wyłącznie jako wartość pochodzenia w modelu i persistencji,
 - brak renderowania pełnego odczytu itemu jako normalnego podglądu aktywnego importu obrazu; zapisane dane itemu są prezentowane przez sekcje biblioteki i edycji,

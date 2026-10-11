@@ -1,13 +1,8 @@
 package krys.itemimport.image;
 
 import krys.item.EquipmentSlot;
-import krys.itemimport.ItemImageImportRequest;
-import krys.itemimport.image.opencv.OpenCvHorizontalDividerDetector;
-import krys.itemimport.image.opencv.OpenCvItemImageAssembler;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.OptionalInt;
 
@@ -16,11 +11,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Regresje neutralnego odczytu PART_1 na realnych fixture'ach. */
 class Part1ReadParserPipelineTest {
-    private final OpenCvItemImageAssembler assembler = new OpenCvItemImageAssembler();
-    private final OpenCvHorizontalDividerDetector dividerDetector = new OpenCvHorizontalDividerDetector();
-    private final ItemPartStructureNormalizer normalizer = new DeterministicItemPartStructureNormalizer();
-    private final Part1RoiSegmenter segmenter = new DeterministicPart1RoiSegmenter();
-    private final Part1RoiOcrReader reader = new TesseractPart1RoiOcrReader();
     private final Part1ReadParser parser = new Part1ReadParser();
 
     @Test
@@ -69,8 +59,8 @@ class Part1ReadParserPipelineTest {
         );
     }
 
-    private void assertRead(Expected expected, AssembledItemImage image) {
-        Part1ReadResult result = read(image);
+    private void assertRead(Expected expected, List<Part1RoiOcrResult> ocrResults) {
+        Part1ReadResult result = parser.parse(ocrResults);
 
         assertEquals(expected.itemName(), result.getItemName(), expected.label() + " itemName");
         assertEquals(expected.greaterAffixCount(), result.getGreaterAffixCount(), expected.label() + " greaterAffixCount");
@@ -91,26 +81,12 @@ class Part1ReadParserPipelineTest {
         assertTrue(result.findRawOcr(Part1RoiType.ITEM_POWER).isPresent(), expected.label() + " raw ITEM_POWER");
     }
 
-    private Part1ReadResult read(AssembledItemImage image) {
-        StructuralItemPart part1 = normalizer.normalize(dividerDetector.detect(image).getParts())
-                .find(StructuralItemPartSlot.PART_1)
-                .orElseThrow();
-        List<Part1RoiOcrResult> ocrResults = segmenter.segment(part1).getRois().stream()
-                .map(reader::read)
-                .toList();
-        return parser.parse(ocrResults);
+    private List<Part1RoiOcrResult> single(String filename) {
+        return OcrGoldenFixtures.part1(filename);
     }
 
-    private AssembledItemImage single(String filename) throws Exception {
-        return assembler.assemble(List.of(request(filename)));
-    }
-
-    private AssembledItemImage pair(String first, String second) throws Exception {
-        return assembler.assemble(List.of(request(first), request(second)));
-    }
-
-    private static ItemImageImportRequest request(String filename) throws Exception {
-        return new ItemImageImportRequest(filename, "image/png", Files.readAllBytes(Path.of("src/test/resources/items", filename)));
+    private List<Part1RoiOcrResult> pair(String first, String second) {
+        return OcrGoldenFixtures.part1(first, second);
     }
 
     private static Expected expected(String label,

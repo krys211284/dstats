@@ -2,7 +2,6 @@ package krys.itemimport.image;
 
 import krys.itemimport.ItemImageImportRequest;
 import krys.itemimport.image.opencv.OpenCvHorizontalDividerDetector;
-import krys.itemimport.image.opencv.OpenCvItemImageAssembler;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
@@ -17,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,7 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Techniczny smoke test Tess4J dla surowego OCR pojedynczego ROI PART_1. */
+@OcrIntegrationTest
 class TesseractPart1RoiOcrReaderTest {
+    private static final Map<List<String>, List<Part1RoiOcrResult>> REAL_READS = new ConcurrentHashMap<>();
     @Test
     void shouldReadRawTextFromSinglePart1RoiUsingBundledPolishTessdata() throws Exception {
         TesseractPart1RoiOcrReader reader = new TesseractPart1RoiOcrReader();
@@ -72,10 +74,7 @@ class TesseractPart1RoiOcrReaderTest {
 
     @Test
     void shouldExposeCleanedNameTextDiagnosticsAndKeepFirstShieldLetter() throws Exception {
-        TesseractPart1RoiOcrReader reader = new TesseractPart1RoiOcrReader();
-        Part1Roi roi = realNameRoi("tarcza1.png");
-
-        Part1RoiOcrResult result = reader.read(roi);
+        Part1RoiOcrResult result = realNameRead("tarcza1.png");
 
         Map<String, Part1RoiOcrSubRegion> subRegions = result.getSubRegions().stream()
                 .collect(Collectors.toMap(Part1RoiOcrSubRegion::getType, subRegion -> subRegion));
@@ -98,10 +97,7 @@ class TesseractPart1RoiOcrReaderTest {
 
     @Test
     void shouldNotRegressAlreadyReadableHelmetPairName() throws Exception {
-        TesseractPart1RoiOcrReader reader = new TesseractPart1RoiOcrReader();
-        Part1Roi roi = realNameRoi("dziedzic-zatracenia-helm-1.png", "dziedzic-zatracenia-helm-2.png");
-
-        Part1RoiOcrResult result = reader.read(roi);
+        Part1RoiOcrResult result = realNameRead("dziedzic-zatracenia-helm-1.png", "dziedzic-zatracenia-helm-2.png");
 
         assertTrue(result.getRawText().contains("DZIEDZIC"), result.getRawText());
         assertTrue(result.getRawText().contains("ZATRACENIA"), result.getRawText());
@@ -134,24 +130,35 @@ class TesseractPart1RoiOcrReaderTest {
         return outputStream.toByteArray();
     }
 
-    private static Part1Roi realNameRoi(String... filenames) throws Exception {
-        OpenCvItemImageAssembler assembler = new OpenCvItemImageAssembler();
+    private static Part1RoiOcrResult realNameRead(String... filenames) {
+        return realReads(filenames).stream()
+                .filter(read -> read.getType() == Part1RoiType.NAME_AND_STARS).findFirst().orElseThrow();
+    }
+
+    private static List<Part1RoiOcrResult> realReads(String... filenames) {
+        return REAL_READS.computeIfAbsent(List.of(filenames), TesseractPart1RoiOcrReaderTest::readFixture);
+    }
+
+    private static List<Part1RoiOcrResult> readFixture(List<String> filenames) {
         OpenCvHorizontalDividerDetector dividerDetector = new OpenCvHorizontalDividerDetector();
         ItemPartStructureNormalizer normalizer = new DeterministicItemPartStructureNormalizer();
         Part1RoiSegmenter segmenter = new DeterministicPart1RoiSegmenter();
-        List<ItemImageImportRequest> requests = List.of(filenames).stream()
+        List<ItemImageImportRequest> requests = filenames.stream()
                 .map(TesseractPart1RoiOcrReaderTest::request)
                 .toList();
-        AssembledItemImage image = assembler.assemble(requests);
+        AssembledItemImage image = ImageAssemblyFixtures.assemble(requests);
         StructuralItemPart part1 = normalizer.normalize(dividerDetector.detect(image).getParts())
                 .find(StructuralItemPartSlot.PART_1)
                 .orElseThrow();
-        return segmenter.segment(part1).find(Part1RoiType.NAME_AND_STARS).orElseThrow();
+        var reader = new TesseractPart1RoiOcrReader();
+        return segmenter.segment(part1).getRois().stream().map(reader::read).toList();
     }
 
     private static void assertGreaterAffixCount(int expected, String... filenames) throws Exception {
-        TesseractPart1RoiOcrReader reader = new TesseractPart1RoiOcrReader();
-        Part1RoiOcrResult result = reader.read(realNameRoi(filenames));
+        List<Part1RoiOcrResult> reads = realReads(filenames);
+        OcrGoldenFixtures.capturePart1(List.of(filenames), reads);
+        OcrGoldenFixtures.assertSameRead(OcrGoldenFixtures.part1(filenames), reads);
+        Part1RoiOcrResult result = realNameRead(filenames);
 
         assertEquals(expected, result.getGreaterAffixCount(), String.join(" + ", filenames));
         long candidateSubRegions = result.getSubRegions().stream()

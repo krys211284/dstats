@@ -222,8 +222,7 @@ public final class ItemLibraryPageRenderer {
     }
 
     private static String renderSlotTypeCell(SavedImportedItem item) {
-        String rawType = item.getItemType().isBlank() ? item.getFullItemRead().getItemTypeLine() : item.getItemType();
-        String itemType = simplifyItemType(rawType);
+        String itemType = ItemLibraryFilter.resolvedItemType(item);
         return """
                 <div class="slot-type-cell">
                     <strong>%s</strong>
@@ -495,16 +494,13 @@ public final class ItemLibraryPageRenderer {
     }
 
     private static boolean isShield(SavedImportedItem item) {
-        String normalizedType = normalizeForDisplayRules(item.getItemType());
         return item.getSlot() == krys.item.EquipmentSlot.OFF_HAND
-                && (normalizedType.contains("TARCZA") || item.getItemArmor() != null);
+                && (item.getDetails().getResolvedItemType() == krys.item.ItemType.SHIELD || item.getItemArmor() != null);
     }
 
     private static boolean isWeapon(SavedImportedItem item) {
-        String normalizedType = normalizeForDisplayRules(item.getItemType());
         return item.getSlot() == krys.item.EquipmentSlot.MAIN_HAND
-                || normalizedType.contains("MIECZ")
-                || normalizedType.contains("SWORD")
+                || item.getDetails().getResolvedItemType().isWeapon()
                 || item.getWeaponDps() != null
                 || item.getWeaponDamageMin() != null
                 || item.getWeaponDamageMax() != null
@@ -904,23 +900,7 @@ public final class ItemLibraryPageRenderer {
     }
 
     private static String simplifyItemType(String itemTypeLine) {
-        String normalized = normalizeForDisplayRules(itemTypeLine);
-        if (normalized.contains("MIECZ") || normalized.contains("SWORD")) {
-            return "Miecz";
-        }
-        if (normalized.contains("TARCZA") || normalized.contains("SHIELD")) {
-            return "Tarcza";
-        }
-        if (normalized.contains("BUTY") || normalized.contains("BOOTS")) {
-            return "Buty";
-        }
-        if (normalized.contains("BRON GLOWNA") || normalized.contains("MAIN HAND")) {
-            return "Broń główna";
-        }
-        if (normalized.contains("REKA DODATKOWA") || normalized.contains("OFF HAND")) {
-            return "Ręka dodatkowa";
-        }
-        return emptyLabel(itemTypeLine);
+        return emptyLabel(krys.item.ItemTypeRegistry.displayOrLegacy(itemTypeLine));
     }
 
     private static String simplifyRarity(String rarity) {

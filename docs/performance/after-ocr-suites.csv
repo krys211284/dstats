@@ -1,0 +1,4 @@
+﻿"Suite","Tests","Failures","Errors","Skipped","Seconds","RecognitionCalls"
+"krys.itemimport.image.TesseractPart1RoiOcrReaderTest","5","0","0","0","62,305","43"
+"krys.itemimport.image.TesseractPropertyBlockOcrReaderTest","6","0","0","0","45,314","655"
+"krys.web.DziedzicImageImportPipelineRegressionTest","1","0","0","0","9,004","138"

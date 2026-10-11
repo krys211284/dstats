@@ -1,6 +1,8 @@
 package krys.itemimport.image;
 
 import krys.item.EquipmentSlot;
+import krys.item.ItemType;
+import krys.item.ItemTypeRegistry;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -18,12 +20,6 @@ public final class Part1ReadParser {
             Pattern.compile("(?iu)\\bmoc\\b\\D{0,40}(\\d{2,4})");
     private static final Pattern QUALITY_PATTERN =
             Pattern.compile("(?iu)^\\D*(\\d{1,3})\\s*\\([^+)]*\\+\\s*(\\d{1,3})\\s*\\)\\s*jako");
-    private static final List<TypeMapping> TYPE_MAPPINGS = List.of(
-            new TypeMapping("tarcza", "Tarcza", EquipmentSlot.OFF_HAND),
-            new TypeMapping("hełm", "Hełm", EquipmentSlot.HELMET),
-            new TypeMapping("buty", "Buty", EquipmentSlot.BOOTS),
-            new TypeMapping("miecz", "Miecz", EquipmentSlot.MAIN_HAND)
-    );
 
     public Part1ReadResult parse(List<Part1RoiOcrResult> ocrResults) {
         Objects.requireNonNull(ocrResults, "ocrResults");
@@ -118,14 +114,12 @@ public final class Part1ReadParser {
             failures.add("Nie udało się sparsować rzadkości z CLASSIFICATION: " + classificationRaw);
         }
 
-        List<TypeMapping> matchedTypes = TYPE_MAPPINGS.stream()
-                .filter(mapping -> containsToken(normalized, mapping.normalizedToken()))
-                .toList();
+        List<ItemType> matchedTypes = ItemTypeRegistry.matchingTypes(classificationRaw);
         String itemType = "";
         Optional<EquipmentSlot> equipmentSlot = Optional.empty();
         if (matchedTypes.size() == 1) {
-            itemType = matchedTypes.getFirst().itemType();
-            equipmentSlot = Optional.of(matchedTypes.getFirst().equipmentSlot());
+            itemType = matchedTypes.getFirst().getDisplayName();
+            equipmentSlot = Optional.of(matchedTypes.getFirst().getEquipmentSlot());
         } else if (matchedTypes.isEmpty()) {
             failures.add("Nie udało się sparsować typu itemu z CLASSIFICATION: " + classificationRaw);
         } else {
@@ -175,11 +169,6 @@ public final class Part1ReadParser {
                 || (normalized.contains("+") && normalized.matches(".*\\d.*"));
     }
 
-    private static boolean containsToken(String normalizedText, String normalizedToken) {
-        return Pattern.compile("(^|\\s)" + Pattern.quote(normalizedToken) + "($|\\s)")
-                .matcher(normalizedText)
-                .find();
-    }
 
     private static String normalizeForMatching(String text) {
         return normalizeText(text)
@@ -220,9 +209,4 @@ public final class Part1ReadParser {
         }
     }
 
-    private record TypeMapping(String token, String itemType, EquipmentSlot equipmentSlot) {
-        private String normalizedToken() {
-            return normalizeForMatching(token);
-        }
-    }
 }

@@ -11,10 +11,7 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -29,7 +26,6 @@ public final class TesseractPropertyBlockOcrReader implements PropertyBlockOcrRe
             "property-block Tess4J profiles: anchor-mask, edge-trim, luma/grayscale x3-x5";
 
     private static final String OUTPUT_FORMAT = "PNG";
-    private static final String POL_TRAINEDDATA_RESOURCE = "/tessdata/pol.traineddata";
     private static final int BORDER = 24;
     private static final int TOP_EDGE_TRIM = 3;
     private static final int RIGHT_EDGE_TRIM = 3;
@@ -42,7 +38,7 @@ public final class TesseractPropertyBlockOcrReader implements PropertyBlockOcrRe
     private final Path tessdataDirectory;
 
     public TesseractPropertyBlockOcrReader() {
-        this(resolveBundledTessdataDirectory());
+        this(BundledTessdataProvider.directory());
     }
 
     TesseractPropertyBlockOcrReader(Path tessdataDirectory) {
@@ -218,6 +214,10 @@ public final class TesseractPropertyBlockOcrReader implements PropertyBlockOcrRe
         tesseract.setVariable("tessedit_char_whitelist", PROPERTY_BLOCK_WHITELIST);
         tesseract.setVariable("user_defined_dpi", "300");
         tesseract.setVariable("preserve_interword_spaces", "1");
+        // Liczymy każdy faktyczny odczyt, również warianty osobnych linii wewnątrz profilu.
+        if (Boolean.getBoolean("dstats.measureOcr")) {
+            System.out.println("OCR_RECOGNITION PROPERTY_BLOCK");
+        }
         List<Word> lines = tesseract.getWords(prepared, ITessAPI.TessPageIteratorLevel.RIL_TEXTLINE);
         String rawText = lines.stream()
                 .sorted(Comparator.comparingInt((Word word) -> word.getBoundingBox().y)
@@ -286,23 +286,6 @@ public final class TesseractPropertyBlockOcrReader implements PropertyBlockOcrRe
         graphics.drawImage(source, 0, 0, width, height, x, y, x + width, y + height, null);
         graphics.dispose();
         return cropped;
-    }
-
-    private static Path resolveBundledTessdataDirectory() {
-        Path directory = Path.of(System.getProperty("java.io.tmpdir"), "dstats-tessdata", "property-block-poc");
-        Path polishData = directory.resolve("pol.traineddata");
-        try {
-            Files.createDirectories(directory);
-            try (InputStream inputStream = TesseractPropertyBlockOcrReader.class.getResourceAsStream(POL_TRAINEDDATA_RESOURCE)) {
-                if (inputStream == null) {
-                    throw new IllegalStateException("Brak zasobu " + POL_TRAINEDDATA_RESOURCE + " dla Tesseract OCR.");
-                }
-                Files.copy(inputStream, polishData, StandardCopyOption.REPLACE_EXISTING);
-            }
-            return directory;
-        } catch (IOException exception) {
-            throw new IllegalStateException("Nie udalo sie przygotowac lokalnego katalogu tessdata dla PropertyBlock OCR.", exception);
-        }
     }
 
     private static BufferedImage decode(PropertyBlock block) throws IOException {

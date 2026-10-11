@@ -2,7 +2,6 @@ package krys.itemimport.image;
 
 import krys.itemimport.ItemImageImportRequest;
 import krys.itemimport.image.opencv.OpenCvHorizontalDividerDetector;
-import krys.itemimport.image.opencv.OpenCvItemImageAssembler;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
@@ -29,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PropertyBlockPipelineDiagnosticsTest {
     private static final Path OUTPUT = Path.of("target", "test-debug", "property-blocks");
 
-    private final OpenCvItemImageAssembler assembler = new OpenCvItemImageAssembler();
+    private final ItemImageAssembler assembler = ImageAssemblyFixtures::assemble;
     private final OpenCvHorizontalDividerDetector dividerDetector = new OpenCvHorizontalDividerDetector();
     private final ItemPartStructureNormalizer normalizer = new DeterministicItemPartStructureNormalizer();
     private final VisualPropertyBlockAnchorDetector detector = new VisualPropertyBlockAnchorDetector();

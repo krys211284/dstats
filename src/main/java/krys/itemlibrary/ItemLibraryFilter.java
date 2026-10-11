@@ -147,20 +147,9 @@ public final class ItemLibraryFilter {
     }
 
     public static String resolvedItemType(SavedImportedItem item) {
+        if (!item.getItemType().isBlank()) { return item.getItemType(); }
         String typeLine = item.getFullItemRead().getItemTypeLine();
-        String normalized = normalize(typeLine);
-        if (normalized.contains("TARCZA")) {
-            return "Tarcza";
-        }
-        if (normalized.contains("BUTY")) {
-            return "Buty";
-        }
-        if (normalized.contains("BRON GLOWNA") || item.getSlot() == EquipmentSlot.MAIN_HAND) {
-            return "Broń główna";
-        }
-        if (typeLine != null && !typeLine.isBlank()) {
-            return typeLine;
-        }
+        if (typeLine != null && !typeLine.isBlank()) { return krys.item.ItemTypeRegistry.displayOrLegacy(typeLine); }
         return ItemLibraryPresentationSupport.slotDisplayName(item.getSlot());
     }
 

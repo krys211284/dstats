@@ -18,8 +18,8 @@ class NecromancerCurrentBuildFormTest {
 
     @Test
     void shouldAcceptBlankZeroAndFiniteIntelligenceAndRejectInvalidValues() {
-        assertEquals(0, new NecromancerCurrentBuildFormData("", false, "NONE").parsedNonItemIntelligence());
-        assertEquals(900, new NecromancerCurrentBuildFormData("900", false, "krwotok").parsedNonItemIntelligence());
+        assertEquals(0, new NecromancerCurrentBuildFormData("", false, "NONE").parsedAdditionalNonItemIntelligence());
+        assertEquals(900, new NecromancerCurrentBuildFormData("900", false, "krwotok").parsedAdditionalNonItemIntelligence());
         for (String value : List.of("NaN", "Infinity", "-Infinity", "-1", "abc", "1e309")) {
             assertFalse(new NecromancerCurrentBuildFormData(value, false, "krwotok").validationErrors().isEmpty(), value);
         }
@@ -48,7 +48,7 @@ class NecromancerCurrentBuildFormTest {
         assertEquals("70", fields.get("level"));
         var read = NecromancerCurrentBuildFormQuerySupport.fromSerializedQuery(merged, empty);
         assertEquals("", read.selectedSkillId());
-        assertEquals("900", read.nonItemIntelligence());
+        assertEquals("900", read.additionalNonItemIntelligence());
         assertTrue(read.targetVulnerable());
         var newQuery = UrlEncodedFormSupport.parseQuery(NecromancerCurrentBuildFormQuerySupport.withFormData("level=70", form));
         assertFalse(newQuery.containsKey("selectedSkillId"));

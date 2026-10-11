@@ -24,7 +24,7 @@ final class TemperingSectionRenderer {
 
     static String renderEditor(ItemImportEditableForm form) {
         EquipmentSlot slot = parseSlot(form.getSlot());
-        List<TemperingCategory> categories = TemperingEligibilityRegistry.availableCategories(slot, form.getItemType());
+        List<TemperingCategory> categories = TemperingEligibilityRegistry.availableCategories(slot, form.getDetails().getResolvedItemType());
         boolean greaterAffixAvailable = "900".equals(form.getItemPower());
         boolean limitUsed = form.getTemperingAffixes().size() >= TEMPERING_LIMIT;
         StringBuilder html = new StringBuilder("""

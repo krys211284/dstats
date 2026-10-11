@@ -1,12 +1,7 @@
 package krys.itemimport.image;
 
-import krys.itemimport.ItemImageImportRequest;
-import krys.itemimport.image.opencv.OpenCvHorizontalDividerDetector;
-import krys.itemimport.image.opencv.OpenCvItemImageAssembler;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -15,11 +10,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Macierz semantyczna realnych PropertyBlock po zamkniętej segmentacji i OCR. */
 class PropertyBlockSemanticMapperFixtureTest {
-    private final OpenCvItemImageAssembler assembler = new OpenCvItemImageAssembler();
-    private final OpenCvHorizontalDividerDetector dividerDetector = new OpenCvHorizontalDividerDetector();
-    private final ItemPartStructureNormalizer normalizer = new DeterministicItemPartStructureNormalizer();
-    private final PropertyBlockSegmenter segmenter = new VisualPropertyBlockSegmenter();
-    private final PropertyBlockOcrReader ocrReader = new TesseractPropertyBlockOcrReader();
     private final PropertyBlockSemanticMapper semanticMapper = new PropertyBlockSemanticMapper();
 
     @Test
@@ -92,10 +82,8 @@ class PropertyBlockSemanticMapperFixtureTest {
 
     private List<PropertyBlockSemanticResult> map(List<String> filenames,
                                                   StructuralItemPartSlot slot) throws Exception {
-        AssembledItemImage image = assembler.assemble(filenames.stream().map(PropertyBlockSemanticMapperFixtureTest::request).toList());
-        StructuralItemPart part = normalizer.normalize(dividerDetector.detect(image).getParts()).find(slot).orElseThrow();
-        return segmenter.segment(part).getBlocks().stream()
-                .map(block -> semanticMapper.map(block, ocrReader.read(block)))
+        return OcrGoldenFixtures.blocks(filenames, slot).stream()
+                .map(fixture -> semanticMapper.map(fixture.block(), fixture.read()))
                 .toList();
     }
 
@@ -116,15 +104,6 @@ class PropertyBlockSemanticMapperFixtureTest {
                         + " ambiguous=" + evidence.isAmbiguous())
                 .toList()
                 .toString();
-    }
-
-    private static ItemImageImportRequest request(String filename) {
-        try {
-            return new ItemImageImportRequest(filename, "image/png",
-                    Files.readAllBytes(Path.of("src/test/resources/items", filename)));
-        } catch (Exception exception) {
-            throw new IllegalStateException("Nie udało się wczytać fixture " + filename + ".", exception);
-        }
     }
 
     private static final PropertyBlockSemanticKind BASE_STAT = PropertyBlockSemanticKind.BASE_STAT;

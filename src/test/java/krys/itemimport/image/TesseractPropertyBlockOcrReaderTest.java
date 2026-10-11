@@ -2,7 +2,6 @@ package krys.itemimport.image;
 
 import krys.itemimport.ItemImageImportRequest;
 import krys.itemimport.image.opencv.OpenCvHorizontalDividerDetector;
-import krys.itemimport.image.opencv.OpenCvItemImageAssembler;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
@@ -23,8 +22,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Regresje Tess4J dla neutralnego OCR pojedynczych PropertyBlock. */
+@OcrIntegrationTest
 class TesseractPropertyBlockOcrReaderTest {
-    private final OpenCvItemImageAssembler assembler = new OpenCvItemImageAssembler();
+    private final ItemImageAssembler assembler = ImageAssemblyFixtures::assemble;
     private final OpenCvHorizontalDividerDetector dividerDetector = new OpenCvHorizontalDividerDetector();
     private final ItemPartStructureNormalizer normalizer = new DeterministicItemPartStructureNormalizer();
     private final PropertyBlockSegmenter segmenter = new VisualPropertyBlockSegmenter();
@@ -124,15 +124,14 @@ class TesseractPropertyBlockOcrReaderTest {
 
     @Test
     void shouldReadCriticalNumbersFromDziedzicFullFixture() throws Exception {
-        List<PropertyBlock> blocks = propertyBlocks(
+        List<PropertyBlockReadResult> reads = readBlocks(
                 List.of("dziedzic-zatracenia-helm-full.png"), StructuralItemPartSlot.PART_3);
-        TesseractPropertyBlockOcrReader reader = new TesseractPropertyBlockOcrReader();
 
-        PropertyBlockReadResult block1 = reader.read(blocks.get(0));
-        PropertyBlockReadResult block2 = reader.read(blocks.get(1));
-        PropertyBlockReadResult block3 = reader.read(blocks.get(2));
-        PropertyBlockReadResult block6 = reader.read(blocks.get(5));
-        PropertyBlockReadResult block9 = reader.read(blocks.get(8));
+        PropertyBlockReadResult block1 = reads.get(0);
+        PropertyBlockReadResult block2 = reads.get(1);
+        PropertyBlockReadResult block3 = reads.get(2);
+        PropertyBlockReadResult block6 = reads.get(5);
+        PropertyBlockReadResult block9 = reads.get(8);
 
         assertEquals(1, block1.getBlockOrder());
         assertIntegerIgnoringGrouping(block1, "2004");
@@ -216,9 +215,18 @@ class TesseractPropertyBlockOcrReaderTest {
     private List<PropertyBlockReadResult> readBlocks(List<String> filenames,
                                                      StructuralItemPartSlot slot) throws Exception {
         TesseractPropertyBlockOcrReader reader = new TesseractPropertyBlockOcrReader();
-        return propertyBlocks(filenames, slot).stream()
-                .map(reader::read)
-                .toList();
+        List<PropertyBlock> blocks = propertyBlocks(filenames, slot);
+        List<PropertyBlockReadResult> reads = blocks.stream().map(reader::read).toList();
+        // Wariant pary Dziedzica ma osobne dotychczasowe expected; pozostałe wejścia są źródłem downstream fixtures.
+        if (!filenames.contains("dziedzic-zatracenia-helm-1.png")) {
+            for (int i = 0; i < blocks.size(); i++) {
+                OcrGoldenFixtures.captureBlock(filenames, blocks.get(i), reads.get(i));
+            }
+            List<OcrGoldenFixtures.BlockRead> golden = OcrGoldenFixtures.blocks(filenames, slot);
+            OcrGoldenFixtures.assertSameRead(golden.stream().map(OcrGoldenFixtures.BlockRead::block).toList(), blocks);
+            OcrGoldenFixtures.assertSameRead(golden.stream().map(OcrGoldenFixtures.BlockRead::read).toList(), reads);
+        }
+        return reads;
     }
 
     private List<PropertyBlock> propertyBlocks(List<String> filenames,

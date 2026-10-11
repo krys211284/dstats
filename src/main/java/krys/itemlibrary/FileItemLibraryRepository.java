@@ -400,6 +400,7 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
         List<String> payloadLines = new ArrayList<>();
         payloadLines.add("ITEM_NAME|" + encode(safeDetails.getItemName()));
         payloadLines.add("ITEM_TYPE|" + encode(safeDetails.getItemType()));
+        payloadLines.add("ITEM_TYPE_ID|" + encode(safeDetails.getResolvedItemType().getTechnicalId()));
         payloadLines.add("ITEM_RARITY|" + encode(safeDetails.getItemRarity()));
         payloadLines.add("ANCIENT|" + safeDetails.isAncient());
         payloadLines.add("EQUIPMENT_SLOT|" + encode(safeDetails.getEquipmentSlot() == null ? "" : safeDetails.getEquipmentSlot().name()));
@@ -419,6 +420,7 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
         String payload = decode(encodedPayload);
         String itemName = "";
         String itemType = "";
+        String itemTypeId = "";
         String itemRarity = "";
         boolean ancient = false;
         EquipmentSlot equipmentSlot = null;
@@ -439,6 +441,7 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
             switch (tokens[0]) {
                 case "ITEM_NAME" -> itemName = decode(tokens[1]);
                 case "ITEM_TYPE" -> itemType = decode(tokens[1]);
+                case "ITEM_TYPE_ID" -> itemTypeId = decode(tokens[1]);
                 case "ITEM_RARITY" -> itemRarity = decode(tokens[1]);
                 case "ANCIENT" -> ancient = Boolean.parseBoolean(tokens[1]);
                 case "EQUIPMENT_SLOT" -> {
@@ -460,7 +463,9 @@ public final class FileItemLibraryRepository implements ItemLibraryRepository {
                 }
             }
         }
-        return new ItemImportDetails(itemName, itemType, itemRarity, ancient, equipmentSlot, itemPower,
+        String canonicalType = krys.item.ItemTypeRegistry.fromTechnicalId(itemTypeId) == krys.item.ItemType.UNKNOWN
+                ? itemType : itemTypeId;
+        return new ItemImportDetails(itemName, canonicalType, itemRarity, ancient, equipmentSlot, itemPower,
                 weaponDps, weaponDamageMin, weaponDamageMax, averageWeaponDamage, attacksPerSecond, itemArmor,
                 uniqueEffectText, mythicUnique);
     }

@@ -45,17 +45,18 @@ class CurrentBuildWebServerStorageIntegrationTest {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + "/biblioteka-itemow"))
                 .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-                .POST(HttpRequest.BodyPublishers.ofString(toFormBody(Map.of(
-                        "action", "saveImportedItem",
-                        "sourceImageName", "override-storage.png",
-                        "slot", "OFF_HAND",
-                        "weaponDamage", "0",
-                        "strength", "114",
-                        "intelligence", "0",
-                        "thorns", "494",
-                        "blockChance", "20",
-                        "retributionChance", "0",
-                        "currentBuildQuery", buildCurrentBuildQuery()
+                .POST(HttpRequest.BodyPublishers.ofString(toFormBody(Map.ofEntries(
+                        Map.entry("action", "saveImportedItem"),
+                        Map.entry("sourceImageName", "override-storage.png"),
+                        Map.entry("itemType", "SHIELD"),
+                        Map.entry("slot", "OFF_HAND"),
+                        Map.entry("weaponDamage", "0"),
+                        Map.entry("strength", "114"),
+                        Map.entry("intelligence", "0"),
+                        Map.entry("thorns", "494"),
+                        Map.entry("blockChance", "20"),
+                        Map.entry("retributionChance", "0"),
+                        Map.entry("currentBuildQuery", buildCurrentBuildQuery())
                 )), StandardCharsets.UTF_8))
                 .build();
 

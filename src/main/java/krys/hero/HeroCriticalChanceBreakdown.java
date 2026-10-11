@@ -2,19 +2,28 @@ package krys.hero;
 
 import java.math.BigDecimal;
 
-/** Rozbicie szansy trafienia krytycznego w UI; nie zawiera niezweryfikowanego wzoru z Inteligencji. */
+/** Rozbicie szansy krytycznej w UI z jawną etykietą statystyki źródłowej. */
 public final class HeroCriticalChanceBreakdown {
     private final BigDecimal baseCriticalChancePercent;
-    private final BigDecimal criticalChanceFromIntelligencePercent;
+    private final BigDecimal criticalChanceFromCoreStatPercent;
+    private final String coreStatSourceLabel;
     private final BigDecimal criticalChanceFromItemsPercent;
     private final BigDecimal criticalChanceFromOtherSourcesPercent;
 
     public HeroCriticalChanceBreakdown(BigDecimal baseCriticalChancePercent,
-                                       BigDecimal criticalChanceFromIntelligencePercent,
+                                       BigDecimal criticalChanceFromCoreStatPercent,
                                        BigDecimal criticalChanceFromItemsPercent,
                                        BigDecimal criticalChanceFromOtherSourcesPercent) {
+        this(baseCriticalChancePercent, criticalChanceFromCoreStatPercent, criticalChanceFromItemsPercent,
+                criticalChanceFromOtherSourcesPercent, "statystyki bazowej");
+    }
+
+    public HeroCriticalChanceBreakdown(BigDecimal baseCriticalChancePercent, BigDecimal criticalChanceFromCoreStatPercent,
+                                       BigDecimal criticalChanceFromItemsPercent, BigDecimal criticalChanceFromOtherSourcesPercent,
+                                       String coreStatSourceLabel) {
         this.baseCriticalChancePercent = baseCriticalChancePercent;
-        this.criticalChanceFromIntelligencePercent = criticalChanceFromIntelligencePercent;
+        this.criticalChanceFromCoreStatPercent = criticalChanceFromCoreStatPercent;
+        this.coreStatSourceLabel = coreStatSourceLabel;
         this.criticalChanceFromItemsPercent = criticalChanceFromItemsPercent;
         this.criticalChanceFromOtherSourcesPercent = criticalChanceFromOtherSourcesPercent;
     }
@@ -23,9 +32,11 @@ public final class HeroCriticalChanceBreakdown {
         return baseCriticalChancePercent;
     }
 
-    public BigDecimal getCriticalChanceFromIntelligencePercent() {
-        return criticalChanceFromIntelligencePercent;
+    public BigDecimal getCriticalChanceFromCoreStatPercent() {
+        return criticalChanceFromCoreStatPercent;
     }
+
+    public String getCoreStatSourceLabel() { return coreStatSourceLabel; }
 
     public BigDecimal getCriticalChanceFromItemsPercent() {
         return criticalChanceFromItemsPercent;
@@ -37,7 +48,7 @@ public final class HeroCriticalChanceBreakdown {
 
     public BigDecimal getTotalCriticalChancePercent() {
         return baseCriticalChancePercent
-                .add(criticalChanceFromIntelligencePercent)
+                .add(criticalChanceFromCoreStatPercent)
                 .add(criticalChanceFromItemsPercent)
                 .add(criticalChanceFromOtherSourcesPercent);
     }
