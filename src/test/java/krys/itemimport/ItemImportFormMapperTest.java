@@ -32,6 +32,54 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Testy walidacji ręcznie poprawionego itemu przed zatwierdzeniem do modelu aplikacji. */
 class ItemImportFormMapperTest {
     @Test
+    void shouldCanonicalizeConflictingManualWeaponStatsAndPreserveRawReadAfterSave() throws Exception {
+        ItemImportDetails details = new ItemImportDetails("Broń testowa", "SWORD", "UNIQUE", false,
+                EquipmentSlot.MAIN_HAND, 900L, 533L, 4269L, 5805L, 503L, 0.90d, "");
+        String rawDps = "533 pkt. obrażeń na sek.";
+        FullItemRead rawRead = new FullItemRead("Broń testowa", "Miecz", "UNIQUE", "900", rawDps,
+                List.of(new FullItemReadLine(FullItemReadLineType.BASE_STAT, rawDps)), details);
+        ItemImportEditableForm form = new ItemImportEditableForm("", "MAIN_HAND", "0",
+                "0", "0", "0", "0", "0", rawRead, List.of(), "", details);
+
+        assertEquals("5037", form.getAverageWeaponDamage());
+        assertEquals("4533", form.getWeaponDps());
+        assertEquals(533L, details.getWeaponBaseStatConsistency().observedDps());
+        var mapping = new ItemImportFormMapper().map(form);
+        assertTrue(mapping.getErrors().isEmpty(), () -> mapping.getErrors().toString());
+        ItemLibraryService service = new ItemLibraryService(new FileItemLibraryRepository(Files.createTempDirectory("weapon-consistency")));
+        var saved = service.saveImportedItem(mapping.getItem(), rawRead);
+        var reloaded = service.requireItem(saved.getItemId());
+        assertEquals(5037L, reloaded.getAverageWeaponDamage());
+        assertEquals(4533L, reloaded.getWeaponDps());
+        assertEquals(rawDps, reloaded.getFullItemRead().getBaseItemValue());
+        assertEquals(rawDps, reloaded.getFullItemRead().getLines().getFirst().getText());
+    }
+
+    @Test
+    void shouldKeepManualAverageAndDpsWhenRangeIsIncomplete() {
+        ItemImportDetails details = new ItemImportDetails("Broń testowa", "SWORD", "UNIQUE", false,
+                EquipmentSlot.MAIN_HAND, null, 4533L, 4269L, null, 5037L, 0.90d, "");
+        var form = new ItemImportEditableForm("", "MAIN_HAND", "0", "0", "0", "0", "0", "0",
+                FullItemRead.empty(), List.of(), "", details);
+        var mapping = new ItemImportFormMapper().map(form);
+        assertTrue(mapping.getErrors().isEmpty(), () -> mapping.getErrors().toString());
+        assertEquals(5037L, mapping.getItem().getAverageWeaponDamage());
+        assertEquals(4533L, mapping.getItem().getWeaponDps());
+        assertNull(mapping.getItem().getWeaponDamageMax());
+    }
+
+    @Test
+    void shouldRejectInvalidManualWeaponRange() {
+        var details = new ItemImportDetails("Broń testowa", "SWORD", "UNIQUE", false,
+                EquipmentSlot.MAIN_HAND, null, 533L, 5805L, 4269L, null, 0.90d, "");
+        var form = new ItemImportEditableForm("", "MAIN_HAND", "0", "0", "0", "0", "0", "0",
+                FullItemRead.empty(), List.of(), "", details);
+        var mapping = new ItemImportFormMapper().map(form);
+        assertFalse(mapping.getErrors().isEmpty());
+        assertTrue(mapping.getErrors().stream().anyMatch(error -> error.contains("WEAPON_BASE_STATS_INVALID")));
+    }
+
+    @Test
     void shouldDefaultImportedItemToNoSockets() {
         ItemImportEditableForm form = new ItemImportEditableForm(
                 "tarcza.png",

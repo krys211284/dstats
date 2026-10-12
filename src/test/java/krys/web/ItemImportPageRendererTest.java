@@ -19,9 +19,12 @@ import krys.transfiguration.HoradricTransfigurationOutcome;
 import krys.transfiguration.HoradricTuningPrism;
 import krys.transfiguration.ItemTransfiguration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -50,6 +53,7 @@ class ItemImportPageRendererTest {
         assertFalse(html.contains("Wstępnie rozpoznane pola"));
         assertFalse(html.contains("Surowy tekst OCR"));
         assertFalse(html.contains("Zatwierdź import itemu"));
+        assertFalse(html.contains("data-image-import-status"));
     }
 
     @Test
@@ -209,6 +213,34 @@ class ItemImportPageRendererTest {
         assertFalse(html.contains("data-item-structure-row"));
         assertFalse(html.contains("data-item-structure-slot=\"PART_1\""));
         assertFalse(html.contains("data-item-structure-slot=\"PART_2\""));
+        assertTrue(html.contains("Nie udało się zbudować kompletnej struktury itemu."));
+        assertFalse(html.contains("data-image-import-verification"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"INCOMPLETE,0,false", "INCOMPLETE,1,false", "INCOMPLETE,2,false", "INVALID_STRUCTURE,5,false",
+            "INCOMPLETE,2,true", "INVALID_STRUCTURE,5,true"})
+    void shouldShowStructureFeedbackIndependentlyOfDiagnostics(String status, int partCount, boolean diagnostics) {
+        var detection = new ItemImportPageModel.HorizontalDividerDetectionView(
+                Math.max(0, partCount - 1), partCount, "data:image/png;base64,BBB=", List.of(), List.of(),
+                new ItemImportPageModel.ItemPartStructureNormalizationView(status, partCount, List.of(), "technical-reason"), "");
+        var preview = new ItemImportPageModel.OpenCvImagePreview("data:image/png;base64,AAA=", 1, 320, 420,
+                "PNG", "single-image", "SINGLE_IMAGE", List.of(), detection, "", "");
+
+        String html = renderer.render(new ItemImportPageModel(List.of(), preview, "", activeHero(),
+                "Pomoc importu.", "", null, List.of(), diagnostics));
+
+        assertTrue(html.contains("data-image-import-status"));
+        assertTrue(html.contains("INCOMPLETE".equals(status)
+                ? "Nie udało się zbudować kompletnej struktury itemu."
+                : "Nie udało się rozpoznać poprawnej struktury itemu."));
+        assertTrue(html.contains("Wykryto części tooltipa: " + partCount));
+        assertTrue(html.contains("Poprawny item wymaga 3 lub 4 części."));
+        assertTrue(html.contains("dodaj pozostałe screenshoty tego samego itemu w kolejności od góry do dołu"));
+        assertFalse(html.contains("Błąd podglądu OpenCV"));
+        assertFalse(html.contains("data-image-import-verification"));
+        assertEquals(diagnostics, html.contains("data-opencv-assembled-preview"));
+        assertEquals(diagnostics, html.contains("technical-reason"));
     }
 
     @Test

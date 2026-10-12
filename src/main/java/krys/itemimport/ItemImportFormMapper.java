@@ -487,15 +487,8 @@ public final class ItemImportFormMapper {
         Double attacksPerSecond = parseOptionalDouble(form.getAttacksPerSecond(), "Ataki na sekundę", errors);
         Long itemArmor = parseOptionalLong(form.getItemArmor(), "Pancerz", errors);
 
-        if (weaponDamageMin != null && weaponDamageMax != null) {
-            long calculatedAverage = Math.round((weaponDamageMin + weaponDamageMax) / 2.0d);
-            if (averageWeaponDamage == null || averageWeaponDamage == 0L) {
-                averageWeaponDamage = calculatedAverage;
-            }
-        }
-
         EquipmentSlot detailSlot = slot == null ? form.getDetails().getEquipmentSlot() : slot;
-        return new ItemImportDetails(
+        ItemImportDetails details = new ItemImportDetails(
                 form.getItemName(),
                 form.getItemType(),
                 form.getItemRarity(),
@@ -511,6 +504,12 @@ public final class ItemImportFormMapper {
                 form.getUniqueEffectText(),
                 form.getDetails().isMythicUnique()
         );
+        if (details.getWeaponBaseStatConsistency().consistency()
+                == WeaponBaseStatConsistencyResolver.DpsConsistency.INVALID_SOURCE) {
+            errors.add("Niepoprawne bazowe statystyki broni: "
+                    + String.join(", ", details.getWeaponBaseStatConsistency().diagnostics()));
+        }
+        return details;
     }
 
     private String validateAspect(String rawAspectId, EquipmentSlot slot, List<String> errors) {

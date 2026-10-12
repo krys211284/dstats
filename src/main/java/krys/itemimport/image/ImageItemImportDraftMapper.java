@@ -15,6 +15,7 @@ import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ItemImportDetails;
 import krys.itemimport.ItemImportEditableForm;
 import krys.itemimport.ItemImportValueMode;
+import krys.itemimport.WeaponBaseStatConsistencyResolver;
 import krys.masterworking.ItemMasterworking;
 import krys.masterworking.MasterworkedAffixSelection;
 import krys.socketing.ItemSocket;
@@ -74,6 +75,10 @@ public final class ImageItemImportDraftMapper {
         Long weaponDamageMin = null;
         Long weaponDamageMax = null;
         Double attacksPerSecond = null;
+        boolean damageMinCertain = false;
+        boolean damageMaxCertain = false;
+        boolean attacksPerSecondCertain = false;
+        boolean weaponDpsCertain = false;
         String baseItemValue = "";
         List<FullItemReadLine> fullReadLines = new ArrayList<>();
         List<ImportedItemAffix> affixes = new ArrayList<>();
@@ -104,16 +109,20 @@ public final class ImageItemImportDraftMapper {
                 }
                 if (value.getWeaponDps() != null && weaponDps == null) {
                     weaponDps = value.getWeaponDps();
+                    weaponDpsCertain = weaponComponentCertain(blockRead, "weaponDps");
                     baseItemValue = baseItemValue.isBlank() ? rawText : baseItemValue;
                 }
                 if (value.getWeaponDamageMin() != null && weaponDamageMin == null) {
                     weaponDamageMin = value.getWeaponDamageMin();
+                    damageMinCertain = weaponComponentCertain(blockRead, "weaponDamageRange");
                 }
                 if (value.getWeaponDamageMax() != null && weaponDamageMax == null) {
                     weaponDamageMax = value.getWeaponDamageMax();
+                    damageMaxCertain = weaponComponentCertain(blockRead, "weaponDamageRange");
                 }
                 if (value.getAttacksPerSecond() != null && attacksPerSecond == null) {
                     attacksPerSecond = value.getAttacksPerSecond();
+                    attacksPerSecondCertain = weaponComponentCertain(blockRead, "attacksPerSecond");
                 }
                 continue;
             }
@@ -167,16 +176,12 @@ public final class ImageItemImportDraftMapper {
         }
 
         EquipmentSlot slot = part1ReadResult.getEquipmentSlot().orElse(null);
-        Long averageWeaponDamage = average(weaponDamageMin, weaponDamageMax);
         ItemMasterworking masterworking = detectMasterworking(
                 baseMasterworking,
                 displayedAffixes,
                 displayedTemperingAffixes,
                 needsReview
         );
-        String legacyWeaponDamage = slot == EquipmentSlot.MAIN_HAND && averageWeaponDamage != null
-                ? Long.toString(averageWeaponDamage)
-                : "0";
         ItemImportDetails details = new ItemImportDetails(
                 part1ReadResult.getItemName(),
                 part1ReadResult.getItemType(),
@@ -187,12 +192,18 @@ public final class ImageItemImportDraftMapper {
                 weaponDps,
                 weaponDamageMin,
                 weaponDamageMax,
-                averageWeaponDamage,
+                null,
                 attacksPerSecond,
                 itemArmor,
                 uniqueEffectText,
-                part1ReadResult.getMythicUnique().orElse(false)
+                part1ReadResult.getMythicUnique().orElse(false),
+                new WeaponBaseStatConsistencyResolver.Certainty(
+                        damageMinCertain, damageMaxCertain, attacksPerSecondCertain, weaponDpsCertain)
         );
+        needsReview.addAll(details.getWeaponBaseStatConsistency().diagnostics());
+        Long averageWeaponDamage = details.getAverageWeaponDamage();
+        String legacyWeaponDamage = slot == EquipmentSlot.MAIN_HAND && averageWeaponDamage != null
+                ? Long.toString(averageWeaponDamage) : "0";
         FullItemRead fullItemRead = new FullItemRead(
                 part1ReadResult.getItemName(),
                 part1ReadResult.getItemType(),
@@ -500,11 +511,35 @@ public final class ImageItemImportDraftMapper {
         return value == null || value.isEmpty() ? null : (long) value.getAsInt();
     }
 
-    private static Long average(Long min, Long max) {
-        if (min == null || max == null) {
-            return null;
+    private static boolean weaponComponentCertain(BlockRead block, String role) {
+        PropertyBlockValueReadResult value = block.valueReadResult();
+        List<PropertyBlockValueReadResult.NumericParameter> parameters = value.getParameters().stream()
+                .filter(parameter -> role.equals(parameter.getRole())).toList();
+        if (parameters.isEmpty()) {
+            return block.semanticResult().isNumericValueCertain() && value.isCertain() && !value.isAmbiguous()
+                    && value.getRawNumericEvidence().stream().noneMatch(PropertyBlockNumericEvidence::isAmbiguous)
+                    && block.readResult().getFailureDiagnostics().stream()
+                    .noneMatch(diagnostic -> diagnostic.contains("NUMERIC_OCR_AMBIGUOUS"));
         }
-        return Math.round((min + max) / 2.0d);
+        if (parameters.size() != 1 || parameters.getFirst().isAmbiguous()
+                || value.getRawNumericEvidence().stream().anyMatch(evidence ->
+                evidence.getTokenOrder() == parameters.getFirst().getOrder() && evidence.isAmbiguous())) {
+            return false;
+        }
+        var parameter = parameters.getFirst();
+        boolean matches = switch (role) {
+            case "weaponDamageRange" -> parameter.hasRange()
+                    && Objects.equals(value.getWeaponDamageMin(), Math.round(parameter.getRangeMin()))
+                    && Objects.equals(value.getWeaponDamageMax(), Math.round(parameter.getRangeMax()));
+            case "attacksPerSecond" -> Objects.equals(value.getAttacksPerSecond(), parameter.getValue());
+            case "weaponDps" -> parameter.getValue() != null
+                    && Objects.equals(value.getWeaponDps(), Math.round(parameter.getValue()));
+            default -> false;
+        };
+        // Blok może być niepewny tylko z powodu innego tokenu, np. DPS; nie przenosimy tego na pewny zakres.
+        boolean hasTokenAmbiguity = value.getRawNumericEvidence().stream().anyMatch(PropertyBlockNumericEvidence::isAmbiguous);
+        return matches && (hasTokenAmbiguity || (block.semanticResult().isNumericValueCertain()
+                && value.isCertain() && !value.isAmbiguous()));
     }
 
     private static String defaultUnit(AffixValueUnit unit) {

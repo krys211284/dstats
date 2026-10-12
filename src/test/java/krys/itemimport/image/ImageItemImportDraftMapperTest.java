@@ -7,6 +7,7 @@ import krys.itemimport.ItemImportEditableForm;
 import krys.itemimport.ItemImportFormMapper;
 import krys.itemimport.ItemImportValueMode;
 import krys.itemimport.ValidatedImportedItem;
+import krys.itemimport.WeaponBaseStatConsistencyResolver;
 import krys.masterworking.MasterworkedAffixSource;
 import krys.masterworking.MasterworkingResolvedItemValueResolver;
 import krys.socketing.SocketContentType;
@@ -29,6 +30,116 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ImageItemImportDraftMapperTest {
     private final ImageItemImportDraftMapper mapper = new ImageItemImportDraftMapper();
     private final MasterworkingResolvedItemValueResolver masterworkingResolver = new MasterworkingResolvedItemValueResolver();
+
+    @Test
+    void shouldCorrectWeaponDpsFromCertainRangeAndApsWithoutChangingRawEvidence() {
+        var dps = weaponBase(1, "533 pkt. obrażeń na sek.", 533);
+        var draft = mapper.map(part1("Broń testowa", "Miecz", "UNIQUE", EquipmentSlot.MAIN_HAND, true, false, 900, 25),
+                List.of(dps, weaponDamage(2, "4269 - 5805 obrażeń za trafienie", 4269, 5805),
+                        attacksPerSecond(3, "0,90 ataku na sekundę", 0.90d)), "");
+        assertEquals("4533", draft.form().getWeaponDps());
+        assertEquals("5037", draft.form().getAverageWeaponDamage());
+        assertEquals("5037", draft.form().getWeaponDamage());
+        assertEquals(533L, draft.form().getDetails().getWeaponBaseStatConsistency().observedDps());
+        assertTrue(draft.reviewNotes().contains("WEAPON_DPS_OCR_INCONSISTENT ocr=533 derived=4533"));
+        assertEquals("533 pkt. obrażeń na sek.", draft.form().getFullItemRead().getBaseItemValue());
+        assertEquals(dps.readResult().getRawText(), draft.form().getFullItemRead().getLines().getFirst().getText());
+        assertEquals(533L, dps.valueReadResult().getWeaponDps());
+    }
+
+    @Test
+    void shouldDeriveCanonicalValuesAndKeepAmbiguousWeaponRangeForReview() {
+        var ambiguousRange = block(2, PropertyBlockSemanticKind.BASE_STAT, "", false, false,
+                "4269 - 5805 obrażeń za trafienie", null, "", null, null, null, null, null,
+                4269L, 5805L, null, List.of(), true, HoradricTransfigurationOutcome.NONE);
+        var draft = mapper.map(part1("Broń testowa", "Miecz", "UNIQUE", EquipmentSlot.MAIN_HAND, true, false, 900, 0),
+                List.of(weaponBase(1, "533 pkt. obrażeń na sek.", 533), ambiguousRange,
+                        attacksPerSecond(3, "0,90 ataku na sekundę", 0.90d)), "");
+        assertEquals("5037", draft.form().getAverageWeaponDamage());
+        assertEquals("5037", draft.form().getWeaponDamage());
+        assertEquals("4533", draft.form().getWeaponDps());
+        assertEquals("4269", draft.form().getWeaponDamageMin());
+        assertEquals("5805", draft.form().getWeaponDamageMax());
+        assertEquals("0.90", draft.form().getAttacksPerSecond());
+        assertEquals(533L, draft.form().getDetails().getWeaponBaseStatConsistency().observedDps());
+        assertFalse(draft.form().getDetails().getWeaponBaseStatConsistency().averageCertain());
+        assertFalse(draft.form().getDetails().getWeaponBaseStatConsistency().dpsCertain());
+        assertTrue(draft.reviewNotes().stream().anyMatch(note -> note.contains("NUMERIC_OCR_AMBIGUOUS")));
+        assertTrue(draft.reviewNotes().stream().anyMatch(note -> note.contains("WEAPON_BASE_STATS_UNCERTAIN")));
+        assertTrue(draft.reviewNotes().contains("WEAPON_DPS_OCR_INCONSISTENT ocr=533 derived=4533"));
+    }
+
+    @Test
+    void shouldUseExistingVerathielGoldenReadWithoutUpdatingOcr() {
+        var semanticMapper = new PropertyBlockSemanticMapper();
+        var valueReader = new PropertyBlockValueReader();
+        var reads = OcrGoldenFixtures.blocks(List.of("verathiel-miecz-v2.png"), StructuralItemPartSlot.PART_3).stream()
+                .map(golden -> {
+                    var semantic = semanticMapper.map(golden.block(), golden.read());
+                    return new ImageItemImportDraftMapper.BlockRead(golden.read(), semantic, valueReader.read(golden.read(), semantic));
+                }).toList();
+        var draft = mapper.map(part1("ODŁAMEK VERATHIELA", "Miecz", "UNIQUE", EquipmentSlot.MAIN_HAND, true, false, 900, 0), reads, "verathiel-miecz-v2.png");
+        assertEquals("1874", draft.form().getWeaponDps());
+        assertEquals("1390", draft.form().getWeaponDamageMin());
+        assertEquals("2018", draft.form().getWeaponDamageMax());
+        assertEquals("1704", draft.form().getAverageWeaponDamage());
+        assertEquals("1.10", draft.form().getAttacksPerSecond());
+        assertEquals(WeaponBaseStatConsistencyResolver.DpsConsistency.CONSISTENT,
+                draft.form().getDetails().getWeaponBaseStatConsistency().consistency());
+    }
+
+    @Test
+    void shouldDeriveFromCertainSourceTokensWhenOnlyDpsTokenIsAmbiguous() {
+        var block = weaponEvidenceBlock(true, false, false);
+        var evidenceBefore = block.readResult().getNumericEvidence();
+        var draft = mapper.map(part1("Broń testowa", "Miecz", "UNIQUE", EquipmentSlot.MAIN_HAND, true, false, 900, 0),
+                List.of(block), "");
+        assertEquals("4533", draft.form().getWeaponDps());
+        assertEquals("5037", draft.form().getAverageWeaponDamage());
+        assertEquals(533L, draft.form().getDetails().getWeaponBaseStatConsistency().observedDps());
+        assertEquals(evidenceBefore, block.readResult().getNumericEvidence());
+        assertTrue(draft.reviewNotes().stream().anyMatch(note -> note.contains("NUMERIC_OCR_AMBIGUOUS")));
+        assertTrue(draft.reviewNotes().stream().anyMatch(note -> note.contains("WEAPON_DPS_OCR_INCONSISTENT")));
+    }
+
+    @Test
+    void shouldNotHideAmbiguousRangeOrApsTokensInCombinedWeaponBlock() {
+        for (var block : List.of(weaponEvidenceBlock(false, true, false), weaponEvidenceBlock(false, false, true))) {
+            var evidenceBefore = block.readResult().getNumericEvidence();
+            var draft = mapper.map(part1("Broń testowa", "Miecz", "UNIQUE", EquipmentSlot.MAIN_HAND, true, false, 900, 0),
+                    List.of(block), "");
+            assertEquals("4533", draft.form().getWeaponDps());
+            assertEquals("4269", draft.form().getWeaponDamageMin());
+            assertEquals("5805", draft.form().getWeaponDamageMax());
+            assertEquals("5037", draft.form().getAverageWeaponDamage());
+            assertEquals("0.90", draft.form().getAttacksPerSecond());
+            assertEquals(533L, draft.form().getDetails().getWeaponBaseStatConsistency().observedDps());
+            assertEquals(4533L, draft.form().getDetails().getWeaponBaseStatConsistency().canonicalDps());
+            assertFalse(draft.form().getDetails().getWeaponBaseStatConsistency().dpsCertain());
+            assertEquals(evidenceBefore, block.readResult().getNumericEvidence());
+            assertEquals(block.readResult().getRawText(), draft.form().getFullItemRead().getLines().getFirst().getText());
+            assertTrue(draft.reviewNotes().stream().anyMatch(note -> note.contains("NUMERIC_OCR_AMBIGUOUS")));
+            assertTrue(draft.reviewNotes().stream().anyMatch(note -> note.contains("WEAPON_BASE_STATS_UNCERTAIN")));
+            assertTrue(draft.reviewNotes().contains("WEAPON_DPS_OCR_INCONSISTENT ocr=533 derived=4533"));
+        }
+    }
+
+    private static ImageItemImportDraftMapper.BlockRead weaponEvidenceBlock(boolean dpsAmbiguous,
+                                                                            boolean rangeAmbiguous,
+                                                                            boolean apsAmbiguous) {
+        var evidence = List.of(
+                new PropertyBlockNumericEvidence(1, dpsAmbiguous ? "" : "533", List.of("test"), List.of("533", "4533"), 1, dpsAmbiguous),
+                new PropertyBlockNumericEvidence(2, rangeAmbiguous ? "" : "4269-5805", List.of("test"), List.of("4269-5805", "1390-2018"), 1, rangeAmbiguous),
+                new PropertyBlockNumericEvidence(3, apsAmbiguous ? "" : "0,90", List.of("test"), List.of("0,90", "1,10"), 1, apsAmbiguous));
+        boolean ambiguous = dpsAmbiguous || rangeAmbiguous || apsAmbiguous;
+        String raw = "533 pkt. obrażeń na sek.\n4269-5805 obrażeń za trafienie\n0,90 ataku na sekundę";
+        var read = new PropertyBlockReadResult(StructuralItemPartSlot.PART_2, 1, PropertyBlockAnchorType.NONE,
+                raw, 0L, "test", ambiguous ? List.of("NUMERIC_OCR_AMBIGUOUS") : List.of(), evidence, List.of());
+        var semantic = new PropertyBlockSemanticResult(StructuralItemPartSlot.PART_2, 1, PropertyBlockAnchorType.NONE,
+                PropertyBlockSemanticKind.BASE_STAT, "", List.of(), false, !ambiguous, raw, evidence,
+                HoradricTransfigurationOutcome.NONE, ambiguous ? List.of("NUMERIC_OCR_AMBIGUOUS") : List.of());
+        return new ImageItemImportDraftMapper.BlockRead(read, semantic, new PropertyBlockValueReader().read(read, semantic));
+    }
 
     @Test
     void shouldBuildEditableShieldDraftFromNeutralReads() {

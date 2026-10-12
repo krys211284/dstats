@@ -7,6 +7,7 @@ import krys.itemimport.ImportedItemAffixSource;
 import krys.itemimport.ImportedItemAffixType;
 import krys.itemimport.ItemImportDetails;
 import krys.itemimport.ItemImportEditableForm;
+import krys.itemimport.WeaponBaseStatConsistencyResolver;
 import krys.itemlibrary.ItemLibraryFilter;
 import krys.itemlibrary.SavedImportedItem;
 import krys.masterworking.ItemMasterworking;
@@ -22,6 +23,37 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Testuje formularz edycji itemu w bibliotece. */
 class ItemEditPageRendererTest {
+    @Test
+    void shouldRenderCanonicalWeaponStatsAndInconsistentDpsDiagnostic() {
+        var details = new ItemImportDetails("Broń testowa", "SWORD", "UNIQUE", false,
+                EquipmentSlot.MAIN_HAND, 900L, 533L, 4269L, 5805L, 503L, 0.90d, "");
+        var form = new ItemImportEditableForm("", "MAIN_HAND", "0", "0", "0", "0", "0", "0",
+                FullItemRead.empty(), List.of(), "", details);
+        String html = ItemEditPageRenderer.renderImportVerificationForm(form,
+                details.getWeaponBaseStatConsistency().diagnostics(), "");
+        assertTrue(inputByName(html, "averageWeaponDamage").contains("value=\"5037\""));
+        assertTrue(inputByName(html, "weaponDps").contains("value=\"4533\""));
+        assertTrue(inputByName(html, "weaponDamageMin").contains("value=\"4269\""));
+        assertTrue(inputByName(html, "weaponDamageMax").contains("value=\"5805\""));
+        assertTrue(inputByName(html, "attacksPerSecond").contains("value=\"0.90\""));
+        assertTrue(html.contains("WEAPON_DPS_OCR_INCONSISTENT ocr=533 derived=4533"));
+    }
+
+    @Test
+    void shouldRenderCanonicalValuesAndUncertaintyFromResolver() {
+        var details = new ItemImportDetails("Broń testowa", "SWORD", "UNIQUE", false,
+                EquipmentSlot.MAIN_HAND, 900L, 533L, 4269L, 5805L, null, 0.90d, null, "", false,
+                new WeaponBaseStatConsistencyResolver.Certainty(false, false, true, true));
+        var form = new ItemImportEditableForm("", "MAIN_HAND", "0", "0", "0", "0", "0", "0",
+                FullItemRead.empty(), List.of(), "", details);
+        String html = ItemEditPageRenderer.renderImportVerificationForm(form,
+                details.getWeaponBaseStatConsistency().diagnostics(), "");
+        assertTrue(inputByName(html, "averageWeaponDamage").contains("value=\"5037\""));
+        assertTrue(inputByName(html, "weaponDps").contains("value=\"4533\""));
+        assertTrue(html.contains("WEAPON_BASE_STATS_UNCERTAIN"));
+        assertTrue(html.contains("WEAPON_DPS_OCR_INCONSISTENT ocr=533 derived=4533"));
+    }
+
     @Test
     void shouldRenderNewOffensiveAspectsInEditSelect() {
         SavedImportedItem item = new SavedImportedItem(

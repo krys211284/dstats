@@ -30,6 +30,8 @@ import krys.itemimport.image.StructuredItemParts;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import javax.imageio.ImageIO;
 import java.awt.Color;
@@ -110,6 +112,72 @@ class ItemImportWebServerTest {
         assertFalse(response.body().contains("Wstępnie rozpoznane pola"));
         assertFalse(response.body().contains("Surowy tekst OCR"));
         assertFalse(response.body().contains("Zatwierdź import itemu"));
+        assertFalse(response.body().contains("data-image-import-status"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"3,false", "4,false", "3,true", "4,true"})
+    void shouldShowVerificationForCompleteSingleImage(int rawPartCount, boolean diagnostics) throws Exception {
+        createActiveHero();
+        dividerDetector.rawPartCount = rawPartCount;
+
+        HttpResponse<String> response = sendMultipartUpload("/importuj-item-ze-screena?diagnostics=" + diagnostics,
+                pngBytes(Color.ORANGE));
+
+        assertEquals(200, response.statusCode());
+        assertEquals(1, assembler.lastRequestCount);
+        assertTrue(response.body().contains("data-image-import-verification"));
+        assertFalse(response.body().contains("data-image-import-status"));
+        assertEquals(diagnostics, response.body().contains("data-opencv-assembled-preview"));
+        assertEquals(diagnostics, response.body().contains("data-item-structure-normalization"));
+        assertEquals(rawPartCount == 3 ? List.of(StructuralItemPartSlot.PART_3)
+                : List.of(StructuralItemPartSlot.PART_2, StructuralItemPartSlot.PART_3),
+                propertyBlockSegmenter.segmentedSlots);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1,false", "2,false", "1,true", "2,true", "5,false", "5,true"})
+    void shouldExplainIncompleteOrInvalidSingleImageWithoutBuildingDraft(int rawPartCount, boolean diagnostics) throws Exception {
+        createActiveHero();
+        dividerDetector.rawPartCount = rawPartCount;
+
+        HttpResponse<String> response = sendMultipartUpload("/importuj-item-ze-screena?diagnostics=" + diagnostics,
+                pngBytes(Color.ORANGE));
+
+        assertEquals(200, response.statusCode());
+        assertEquals(1, assembler.lastRequestCount);
+        assertFalse(response.body().contains("data-image-import-verification"));
+        assertTrue(response.body().contains("data-image-import-status"));
+        assertTrue(response.body().contains(rawPartCount < 3
+                ? "Nie udało się zbudować kompletnej struktury itemu."
+                : "Nie udało się rozpoznać poprawnej struktury itemu."));
+        assertTrue(response.body().contains("Wykryto części tooltipa: " + rawPartCount));
+        assertTrue(response.body().contains("Poprawny item wymaga 3 lub 4 części."));
+        assertTrue(response.body().contains("w kolejności od góry do dołu"));
+        assertFalse(response.body().contains("Błąd podglądu OpenCV"));
+        assertEquals(diagnostics, response.body().contains("data-opencv-assembled-preview"));
+        assertEquals(diagnostics, response.body().contains("data-item-structure-status=\""
+                + (rawPartCount < 3 ? "INCOMPLETE" : "INVALID_STRUCTURE") + "\""));
+        assertTrue(part1RoiSegmenter.segmentedSlots.isEmpty());
+        assertTrue(part1RoiOcrReader.readTypes.isEmpty());
+        assertTrue(propertyBlockSegmenter.segmentedSlots.isEmpty());
+        assertTrue(propertyBlockOcrReader.readBlocks.isEmpty());
+    }
+
+    @Test
+    void shouldShowUserFeedbackWhenLaterStageFailsWithoutDiagnostics() throws Exception {
+        createActiveHero();
+        structureNormalizer.failure = new RuntimeException("structure-stop");
+
+        HttpResponse<String> response = sendMultipartUpload("/importuj-item-ze-screena?diagnostics=false",
+                pngBytes(Color.ORANGE));
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().contains("data-image-import-status"));
+        assertTrue(response.body().contains("Nie udało się odczytać itemu"));
+        assertFalse(response.body().contains("data-image-import-verification"));
+        assertFalse(response.body().contains("structure-stop"));
+        assertFalse(response.body().contains("data-opencv-assembled-preview"));
     }
 
     @Test

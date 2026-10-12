@@ -132,7 +132,7 @@ public final class ItemImportPageRenderer {
                 renderHeroContext(model),
                 renderUploadPanel(model),
                 renderErrors(model.getValidationErrors()),
-                model.isImageImportDiagnostics() ? renderOpenCvPreviewSection(model) : renderNormalImportStatus(model),
+                renderNormalImportStatus(model) + (model.isImageImportDiagnostics() ? renderOpenCvPreviewSection(model) : ""),
                 renderVerificationSection(model),
                 model.hasVerificationForm() ? ItemEditPageRenderer.renderFormScript() : ""
         );
@@ -215,9 +215,26 @@ public final class ItemImportPageRenderer {
         if (model.hasVerificationForm()) {
             return "";
         }
-        if (model.hasOpenCvPreviewError()) {
+        if (model.hasOpenCvImagePreview()) {
+            var dividerDetection = model.getOpenCvImagePreview().getHorizontalDividerDetection();
+            var structure = dividerDetection == null ? null : dividerDetection.getStructureNormalization();
+            if (structure != null && ("INCOMPLETE".equals(structure.getStatus())
+                    || "INVALID_STRUCTURE".equals(structure.getStatus()))) {
+                String message = "INCOMPLETE".equals(structure.getStatus())
+                        ? "Nie udało się zbudować kompletnej struktury itemu."
+                        : "Nie udało się rozpoznać poprawnej struktury itemu.";
+                return """
+                        <section class="panel panel-error" role="alert" data-image-import-status>
+                            <h2>%s</h2>
+                            <p class="helper">Wykryto części tooltipa: %d. Poprawny item wymaga 3 lub 4 części.</p>
+                            <p class="helper">Jeśli tooltip jest przewijany, dodaj pozostałe screenshoty tego samego itemu w kolejności od góry do dołu.</p>
+                        </section>
+                        """.formatted(message, structure.getRawPartCount());
+            }
+        }
+        if (model.hasOpenCvPreviewError() || model.hasOpenCvImagePreview()) {
             return """
-                    <section class="panel panel-error">
+                    <section class="panel panel-error" role="alert" data-image-import-status>
                         <h2>Nie udało się odczytać itemu</h2>
                         <p class="helper">Spróbuj ponownie z wyraźniejszym screenshotem albo włącz tryb diagnostyczny, jeśli chcesz zobaczyć szczegóły techniczne.</p>
                     </section>

@@ -21,6 +21,7 @@ public final class ItemImportDetails {
     private final Long weaponDamageMax;
     private final Long averageWeaponDamage;
     private final Double attacksPerSecond;
+    private final WeaponBaseStatConsistencyResolver.Result weaponBaseStatConsistency;
     private final Long itemArmor;
     private final String uniqueEffectText;
     private final boolean mythicUnique;
@@ -72,6 +73,26 @@ public final class ItemImportDetails {
                              Long itemArmor,
                              String uniqueEffectText,
                              boolean mythicUnique) {
+        this(itemName, itemType, itemRarity, ancient, equipmentSlot, itemPower, weaponDps,
+                weaponDamageMin, weaponDamageMax, averageWeaponDamage, attacksPerSecond, itemArmor,
+                uniqueEffectText, mythicUnique, WeaponBaseStatConsistencyResolver.Certainty.confirmed());
+    }
+
+    public ItemImportDetails(String itemName,
+                             String itemType,
+                             String itemRarity,
+                             boolean ancient,
+                             EquipmentSlot equipmentSlot,
+                             Long itemPower,
+                             Long weaponDps,
+                             Long weaponDamageMin,
+                             Long weaponDamageMax,
+                             Long averageWeaponDamage,
+                             Double attacksPerSecond,
+                             Long itemArmor,
+                             String uniqueEffectText,
+                             boolean mythicUnique,
+                             WeaponBaseStatConsistencyResolver.Certainty weaponStatCertainty) {
         this.itemName = normalize(itemName);
         this.resolvedItemType = ItemTypeRegistry.resolve(itemType);
         this.itemType = resolvedItemType == ItemType.UNKNOWN ? normalize(itemType) : resolvedItemType.getDisplayName();
@@ -79,12 +100,16 @@ public final class ItemImportDetails {
         this.ancient = ancient;
         this.equipmentSlot = equipmentSlot;
         this.itemPower = nonNegativeOrNull("Moc przedmiotu", itemPower);
-        this.weaponDps = nonNegativeOrNull("DPS broni", weaponDps);
         this.weaponDamageMin = nonNegativeOrNull("Minimalne obrażenia broni", weaponDamageMin);
         this.weaponDamageMax = nonNegativeOrNull("Maksymalne obrażenia broni", weaponDamageMax);
-        this.averageWeaponDamage = nonNegativeOrNull("Średnie obrażenia broni",
-                averageWeaponDamage == null ? calculateAverage(weaponDamageMin, weaponDamageMax) : averageWeaponDamage);
         this.attacksPerSecond = nonNegativeOrNull("Ataki na sekundę", attacksPerSecond);
+        Long suppliedAverage = nonNegativeOrNull("Średnie obrażenia broni", averageWeaponDamage);
+        this.weaponBaseStatConsistency = WeaponBaseStatConsistencyResolver.resolve(
+                this.weaponDamageMin, this.weaponDamageMax, this.attacksPerSecond,
+                nonNegativeOrNull("DPS broni", weaponDps), weaponStatCertainty);
+        this.weaponDps = weaponBaseStatConsistency.canonicalDps();
+        this.averageWeaponDamage = weaponBaseStatConsistency.canonicalAverage() == null
+                ? suppliedAverage : weaponBaseStatConsistency.canonicalAverage();
         this.itemArmor = nonNegativeOrNull("Pancerz", itemArmor);
         this.uniqueEffectText = normalizeFortifyLegendaryEffect(uniqueEffectText)
                 .orElse(EffectTextTokenNormalizer.normalizeMultiplierTokens(normalize(uniqueEffectText)));
@@ -93,13 +118,6 @@ public final class ItemImportDetails {
 
     public static ItemImportDetails empty() {
         return new ItemImportDetails("", "", "", false, null, null, null, null, null, null, null, "");
-    }
-
-    private static Long calculateAverage(Long min, Long max) {
-        if (min == null || max == null) {
-            return null;
-        }
-        return Math.round((min + max) / 2.0d);
     }
 
     private static Long nonNegativeOrNull(String label, Long value) {
@@ -160,6 +178,10 @@ public final class ItemImportDetails {
 
     public Double getAttacksPerSecond() {
         return attacksPerSecond;
+    }
+
+    public WeaponBaseStatConsistencyResolver.Result getWeaponBaseStatConsistency() {
+        return weaponBaseStatConsistency;
     }
 
     public String getUniqueEffectText() {

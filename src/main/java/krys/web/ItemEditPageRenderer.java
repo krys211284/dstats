@@ -448,18 +448,6 @@ final class ItemEditPageRenderer {
     }
 
     private static String renderWeaponFieldSet(ItemImportEditableForm form) {
-        String averageValue = form.getAverageWeaponDamage();
-        if ((averageValue == null || averageValue.isBlank())
-                && !form.getWeaponDamageMin().isBlank()
-                && !form.getWeaponDamageMax().isBlank()) {
-            try {
-                long min = Long.parseLong(form.getWeaponDamageMin());
-                long max = Long.parseLong(form.getWeaponDamageMax());
-                averageValue = Long.toString(Math.round((min + max) / 2.0d));
-            } catch (NumberFormatException exception) {
-                averageValue = form.getAverageWeaponDamage();
-            }
-        }
         return """
                 <fieldset class="inline-fieldset">
                     <legend>Dane broni</legend>
@@ -473,7 +461,7 @@ final class ItemEditPageRenderer {
                 renderNumberField("weaponDps", "DPS broni", form.getWeaponDps(), "1"),
                 renderNumberField("weaponDamageMin", "Obrażenia za trafienie min", form.getWeaponDamageMin(), "1"),
                 renderNumberField("weaponDamageMax", "Obrażenia za trafienie max", form.getWeaponDamageMax(), "1"),
-                renderNumberField("averageWeaponDamage", "Średnie obrażenia trafienia", averageValue, "1"),
+                renderNumberField("averageWeaponDamage", "Średnie obrażenia trafienia", form.getAverageWeaponDamage(), "1"),
                 renderNumberField("attacksPerSecond", "Ataki na sekundę", form.getAttacksPerSecond(), "0.01")
         );
     }
